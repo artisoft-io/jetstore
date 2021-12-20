@@ -115,12 +115,12 @@ RUN pip3 install --no-input \
     && pip3 list
 
 
-# Install JaroWinkler package from source
-RUN wget -q "https://github.com/richmilne/JaroWinkler/archive/refs/heads/master.zip" -O  "JaroWinkler-master.zip" \
-    && unzip "JaroWinkler-master.zip"  \
-    && cd "JaroWinkler-master"  \
-    && python3 setup.py build    \
-    && python3 setup.py install
+# # Install JaroWinkler package from source
+# RUN wget -q "https://github.com/richmilne/JaroWinkler/archive/refs/heads/master.zip" -O  "JaroWinkler-master.zip" \
+#     && unzip "JaroWinkler-master.zip"  \
+#     && cd "JaroWinkler-master"  \
+#     && python3 setup.py build    \
+#     && python3 setup.py install
 
 # Copy source and define the target (APP_HOME) where we will put the compiled artifacts
 ENV JETS_SOURCE_DIR /home/michel/projects/repos/jetstore
