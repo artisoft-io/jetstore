@@ -36,3 +36,13 @@
 .idea_modules
 .vscode
 .settings
+
+.cache/
+.clwb/
+bazel-bin
+bazel-jetstore
+bazel-out
+bazel-testlogs
+external
+temp.h
+
