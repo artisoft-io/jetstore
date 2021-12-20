@@ -1,0 +1,273 @@
+#ifndef JETS_RDF_GRAPH_H
+#define JETS_RDF_GRAPH_H
+
+#include <string>
+#include <memory>
+#include <unordered_set>
+#include <unordered_map>
+
+#include <boost/variant/multivisitors.hpp>
+
+#include "absl/hash/hash.h"
+#include <glog/logging.h>
+
+#include "jets/rdf/rdf_err.h"
+#include "jets/rdf/base_graph.h"
+#include "jets/rdf/base_graph_iterator.h"
+#include "jets/rdf/r_manager.h"
+
+namespace jets::rdf {
+// ======================================================================================
+// find argument ast as variant<StarMatch, r_index>
+// -----------------------------------------------------------------------------
+struct StarMatch {};
+inline std::ostream & operator<<(std::ostream & out, StarMatch const& r)
+{
+  out <<"*";
+  return out;
+}
+
+enum star_idx_ast_which_order {
+    rdf_star_t                       = 0 ,
+    rdf_r_index_t                    = 1 
+};
+
+//* NOTE: If updated, MUST update ast_which_order and possibly ast_sort_order
+// ======================================================================================
+using AllOrRIndex = boost::variant< 
+        StarMatch,
+        r_index >;
+
+inline AllOrRIndex make_any(){return StarMatch();}
+
+// find visitor
+template<class RDFGraph>
+struct find_visitor: public boost::static_visitor<typename RDFGraph::Iterator>
+{
+  using S = StarMatch;
+  using R = r_index;
+  using I = typename RDFGraph::Iterator;
+  find_visitor(RDFGraph const*g) : g(g){}
+  I operator()(S const&s, S const&p, S const&o){return g->spo_graph_.find();}
+  I operator()(R const&s, S const&p, S const&o){return g->spo_graph_.find(s);}
+  I operator()(R const&s, R const&p, S const&o){return g->spo_graph_.find(s, p);}
+  I operator()(R const&s, R const&p, R const&o){return g->spo_graph_.find(s, p, o);}
+  I operator()(S const&s, R const&p, S const&o){return g->pos_graph_.find(p);}
+  I operator()(S const&s, R const&p, R const&o){return g->pos_graph_.find(p, o);}
+  I operator()(S const&s, S const&p, R const&o){return g->osp_graph_.find(o);}
+  I operator()(R const&s, S const&p, R const&o){return g->osp_graph_.find(o, s);}
+  RDFGraph const*g;
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// RDFGraph
+template<class BGraph, class RMgr> class RDFGraph;
+
+template<class BGraph, class RMgr>
+using RDFGraphPtr = std::shared_ptr<RDFGraph<BGraph, RMgr>>;
+
+// RDFSession -- decl
+template<class Graph> class RDFSession;
+template<class Graph>
+using RDFSessionPtr = std::shared_ptr<RDFSession<Graph>>;
+
+// RDFGraph implements a fully indexed rdf graph with type (r_index, r_index, r_index)
+template<class BGraph, class RMgr>
+class RDFGraph {
+ public:
+  using RManager = RMgr;
+  using RManagerPtr = std::shared_ptr<RMgr>;
+  using Iterator = typename BGraph::Iterator;
+
+  RDFGraph() 
+    : size_(0),
+      is_locked_(false),
+      r_mgr_p(std::make_shared<RManager>()), 
+      spo_graph_('s'), 
+      pos_graph_('p'), 
+      osp_graph_('o')
+    {}
+
+  RDFGraph(RManagerPtr meta_mgr) 
+    : size_(0),
+      is_locked_(false),
+      r_mgr_p(std::make_shared<RManager>(meta_mgr)), 
+      spo_graph_('s'), 
+      pos_graph_('p'), 
+      osp_graph_('o')
+    {}
+
+  /**
+   * @brief the number of triples in the graph
+   * 
+   * @return int the nbr of triples in the graph
+   */
+  inline int size() const{
+    return size_;
+  }
+
+  inline bool
+  is_locked() const
+  {
+    return is_locked_;
+  }
+
+  inline void set_locked()
+  {
+    this->is_locked_ = true;
+  }
+
+  /**
+   * @brief Get the `RManager` shared ptr
+   * 
+   * @return RManagerPtr 
+   */
+  inline RManagerPtr get_rmgr()const {
+    return r_mgr_p;
+  }
+
+  inline bool contains(r_index s, r_index p, r_index o) const {
+    return spo_graph_.contains(s, p, o);
+  }
+  
+  inline bool contains_sp(r_index s, r_index p) const {
+    return spo_graph_.contains(s, p);
+  }
+
+  // find methods
+  inline Iterator find() const {
+    return spo_graph_.find();
+  }
+
+  inline Iterator find(r_index s) const {
+    return spo_graph_.find(s);
+  }
+
+  inline Iterator find(r_index s, r_index p) const {
+    return spo_graph_.find(s, p);
+  }
+
+  inline Iterator find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o) {
+    // std::cout<<"FIND :: "<<s<<", "<<p<<", "<<o<<std::endl;
+    find_visitor<RDFGraph> v(this);
+    return  boost::apply_visitor(v, s, p, o);
+  }
+
+  // insert methods
+  template<typename L>
+  inline typename literal_restrictor<L, int>::result
+  insert(r_index s, r_index p, L const& v)
+  {
+    if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
+      "This is probably a meta graph and you want to mutate the asserted"
+      " of inferred graph of the redf session.");
+    auto o = r_mgr_p->create_literal(v);
+    return insert(s, p, o);
+  }
+
+  template<typename L>
+  inline typename literal_restrictor<L, int>::result
+  insert(r_index s, r_index p, L && v)
+  {
+    if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
+      "This is probably a meta graph and you want to mutate the asserted"
+      " of inferred graph of the redf session.");
+    auto o = r_mgr_p->create_literal(std::forward<L>(v));
+    return insert(s, p, o);
+  }
+
+  // insert triple (s, p, o), returns 1 if inserted zero otherwise
+  inline int
+  insert(r_index s, r_index p, r_index o, bool notify_listners=true)
+  {
+    if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
+      "This is probably a meta graph and you want to mutate the asserted"
+      " of inferred graph of the redf session.");
+    if(!s or !p or !o) {
+      LOG(ERROR) << "rdf_graph::insert: trying to insert a triple with a null index (" 
+                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
+      return 0;
+    }
+    bool inserted = spo_graph_.insert(s, p, o, notify_listners);
+    pos_graph_.insert(p, o, s, notify_listners);
+    osp_graph_.insert(o, s, p, notify_listners);
+    if(inserted) {
+      size_+= 1;
+      return 1;
+    }
+    return 0;
+  }
+
+  // erase triple (s, p, o) from graph, return 1 if erased
+  inline int
+  erase(r_index s, r_index p, r_index o, bool notify_listners=true)
+  {
+    if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
+      "This is probably a meta graph and you want to mutate the asserted"
+      " of inferred graph of the redf session.");
+    if(!s or !p or !o) {
+      LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a null index (" 
+                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
+      return 0;
+    }
+    bool erased = spo_graph_.erase(s, p, o, notify_listners);
+    pos_graph_.erase(p, o, s, notify_listners);
+    osp_graph_.erase(o, s, p, notify_listners);
+    if(erased) {
+      size_-= 1;
+      return 1;
+    }
+    return 0;
+  }
+
+  // retract triple (s, p, o) from graph, return 1 if actually erased
+  inline int
+  retract(r_index s, r_index p, r_index o, bool notify_listners=true)
+  {
+    if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
+      "This is probably a meta graph and you want to mutate the asserted"
+      " of inferred graph of the redf session.");
+    if(!s or !p or !o) {
+      LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a null index (" 
+                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
+      return 0;
+    }
+    bool erased = spo_graph_.retract(s, p, o, notify_listners);
+    pos_graph_.retract(p, o, s, notify_listners);
+    osp_graph_.retract(o, s, p, notify_listners);
+    if(erased) {
+      size_-= 1;
+      return 1;
+    }
+    return 0;
+  }
+
+ protected:
+ // set the `RManager`. This is called by `RDFSession` to ensure the asserted and inferred graph
+ // share the same `RManager`.
+inline void
+set_rmgr(RManagerPtr p)
+{
+  r_mgr_p = p;
+}
+
+ private:
+  friend class find_visitor<RDFGraph>;
+  friend class RDFSession<RDFGraph>;
+
+  int      size_;
+  bool     is_locked_;
+  RManagerPtr r_mgr_p;
+  BGraph spo_graph_;
+  BGraph pos_graph_;
+  BGraph osp_graph_;
+};
+
+template<class BGraph, class RMgr>
+RDFGraphPtr<BGraph, RMgr> create_rdf_graph()
+{
+  return std::make_shared<RDFGraph<BGraph, RMgr>>();
+}
+
+} // namespace jets::rdf
+#endif // JETS_RDF_GRAPH_H

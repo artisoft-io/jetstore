@@ -1,0 +1,17 @@
+#ifndef JETS_RETE_TYPES_H
+#define JETS_RETE_TYPES_H
+
+#include "jets/rdf/rdf_types.h"
+
+#include "jets/rete/node_vertex.h"
+#include "jets/rete/beta_row_initializer.h"
+#include "jets/rete/beta_row.h"
+#include "jets/rete/beta_row_iterator.h"
+#include "jets/rete/beta_relation.h"
+#include "jets/rete/alpha_node.h"
+#include "jets/rete/rete_session.h"
+
+namespace jets::rete {
+
+} // namespace jets::rete
+#endif // JETS_RETE_TYPES_H

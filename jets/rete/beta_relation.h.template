@@ -1,0 +1,59 @@
+#ifndef JETS_RETE_BETA_RELATION_H
+#define JETS_RETE_BETA_RELATION_H
+
+#include <string>
+#include <memory>
+#include <list>
+#include <unordered_set>
+#include <unordered_map>
+
+#include "absl/hash/hash.h"
+
+
+// Component to manage all the rdf resources and literals of a graph
+namespace jets::rete {
+// //////////////////////////////////////////////////////////////////////////////////////
+// BetaRelation class -- main class for the rete network
+// --------------------------------------------------------------------------------------
+template<class AlphaConnector> class BetaRelation;
+
+template<class AlphaConnector>
+using BetaRelationPtr = std::shared_ptr<BetaRelation<AlphaConnector>>;
+
+// BetaRelation making the rete network
+template<class AC>
+class BetaRelation {
+ public:
+  using AlphaConnector = AC;
+
+  BetaRelation() = delete;
+
+  explicit BetaRelation(int node_vertex) 
+    : node_vertex_(node_vertex),
+      alpha_conn_()
+    {}
+
+  inline int 
+  get_node_vertex()const
+  {
+    return node_vertex_;
+  }
+
+ protected:
+
+ private:
+  // friend class find_visitor<RDFGraph>;
+  // friend class RDFSession<RDFGraph>;
+
+  int             node_vertex_;
+  AlphaConnector  alpha_conn_;
+};
+
+template<class AlphaConnector>
+BetaRelationPtr<AlphaConnector> create_beta_node(int node_vertex)
+{
+  return std::make_shared<BetaRelation<AlphaConnector>>(node_vertex);
+}
+
+} // namespace jets::rete
+#endif // JETS_RETE_BETA_RELATION_H
