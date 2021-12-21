@@ -8,6 +8,7 @@
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/node_vertex.h"
 #include "jets/rete/beta_row.h"
+#include "jets/rete/beta_relation.h"
 #include "jets/rete/beta_row_iterator.h"
 
 // Component to manage all the rdf resources and literals of a graph
@@ -76,7 +77,12 @@ using RPos3 = rdf::TripleBase<PosOrRIndex>;
 //                        - w can be ?s, constant, or and expression
 // AlphaNode is a virtual base class, sub class are parametrized by functor: <Fu, Fv, Fw>
 // --------------------------------------------------------------------------------------
-// Forward definition (AlphaNode and AlphaNodePtr) in node_vertex.h
+template<class T>
+class AlphaNode;
+
+template<class T>
+using AlphaNodePtr = std::shared_ptr<AlphaNode<T>>;
+
 //
 // AlphaNode making the rete network
 template<class T>
@@ -112,9 +118,14 @@ class AlphaNode {
   virtual Iterator
   find_matching_triples(RDFSession * rdf_session, BetaRow * parent_row)const=0;
 
-  // Called to get a query spec object for `triple`
-  virtual RPos3
-  make_matching_rows_query(rdf::Triple * triple)const=0;
+  // Called to get all activated rows (pending rows from BetaRelation)
+  virtual BetaRowIteratorPtr
+  find_pending_rows(BetaRelation * beta_relation)const=0;
+
+  // Called to query rows matching `triple`, 
+  // case merging with new triples from inferred graph
+  virtual BetaRowIteratorPtr
+  find_matching_rows(BetaRelation * beta_relation,  rdf::Triple * triple)const=0;
 
   // Return consequent `triple` for BetaRow
   virtual rdf::Triple

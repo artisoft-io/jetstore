@@ -82,6 +82,7 @@ template<class T>
             return -1;
           }
           bool need_all_rows = !current_relation->is_activated();
+          
           // HERE: parent_relation->get_rows(need_all_rows) that returns the unified beta_row_iterator
           
           // compute_rows here
