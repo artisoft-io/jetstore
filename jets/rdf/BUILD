@@ -66,7 +66,6 @@ cc_test(
         "r_manager_test.cc",
         "rdf_graph_test.cc",
         "rdf_session_test.cc",
-        "rule_session_test.cc",
     ],
     deps = [
         ":jets_rdf",
@@ -79,7 +78,7 @@ cc_test(
     name = "jets_rdf_benchmark",
     size = "small",
     srcs = [
-        "rule_session_benchmark.cc", 
+        "rdf_ast_benchmark.cc", 
     ],
     deps = [
         ":jets_rdf",

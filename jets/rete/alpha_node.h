@@ -51,25 +51,6 @@ using PosOrRIndex = boost::variant<
 inline PosOrRIndex make_pos(int pos){return PosMatch(pos);}
 using RPos3 = rdf::TripleBase<PosOrRIndex>;
 
-// // find visitor
-// template<class RDFGraph>
-// struct find_visitor: public boost::static_visitor<typename RDFGraph::Iterator>
-// {
-//   using S = PosMatch;
-//   using R = r_index;
-//   using I = typename RDFGraph::Iterator;
-//   find_visitor(RDFGraph const*g) : g(g){}
-//   I operator()(S const&s, S const&p, S const&o){return g->spo_graph_.find();}
-//   I operator()(R const&s, S const&p, S const&o){return g->spo_graph_.find(s);}
-//   I operator()(R const&s, R const&p, S const&o){return g->spo_graph_.find(s, p);}
-//   I operator()(R const&s, R const&p, R const&o){return g->spo_graph_.find(s, p, o);}
-//   I operator()(S const&s, R const&p, S const&o){return g->pos_graph_.find(p);}
-//   I operator()(S const&s, R const&p, R const&o){return g->pos_graph_.find(p, o);}
-//   I operator()(S const&s, S const&p, R const&o){return g->osp_graph_.find(o);}
-//   I operator()(R const&s, S const&p, R const&o){return g->osp_graph_.find(o, s);}
-//   RDFGraph const*g;
-// };
-
 // //////////////////////////////////////////////////////////////////////////////////////
 // AlphaNode class -- is a connector to the rdf graph for a antecedent or consequent term
 //                     in the for of a triple (u, v, w) where
@@ -115,27 +96,22 @@ class AlphaNode {
   is_antecedent()const=0;
 
   // Call to get all triples from rdf session matching `parent_row`
+  // Applicable to antecedent terms only, call during initial graph visit only
   virtual Iterator
-  find_matching_triples(RDFSession * rdf_session, BetaRow * parent_row)const=0;
-
-  // Called to get all activated rows (pending rows from BetaRelation)
-  virtual BetaRowIteratorPtr
-  find_pending_rows(BetaRelation * beta_relation)const=0;
+  find_matching_triples(RDFSession * rdf_session, BetaRow const* parent_row)const=0;
 
   // Called to query rows matching `triple`, 
   // case merging with new triples from inferred graph
+  // Applicable to antecedent terms only
   virtual BetaRowIteratorPtr
   find_matching_rows(BetaRelation * beta_relation,  rdf::Triple * triple)const=0;
 
   // Return consequent `triple` for BetaRow
+  // Applicable to consequent terms only
   virtual rdf::Triple
   compute_consequent_triple(BetaRow * beta_row)const=0;
 
- protected:
-
  private:
-  // friend class find_visitor<RDFGraph>;
-  // friend class RDFSession<RDFGraph>;
   b_index         node_vertex_;
 };
 

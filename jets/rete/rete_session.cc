@@ -5,6 +5,7 @@
 #include <glog/logging.h>
 // #include <gflags/gflags.h>
 
+#include "beta_row.h"
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
 
@@ -54,6 +55,16 @@ template<class T>
     return 0;
   }
 
+/**
+ * @brief Visit the Rete Graph and apply inferrence or retactation of inferred facts
+ * 
+ * Perform DFS graph visitation starting at node `from_vertex`
+ *
+ * @tparam T ReteSession template parameter corresponding to the RDFSession type
+ * @param from_vertex Starting point of graph visitation
+ * @param is_inferring apply inferrence if true, retract inferrence if false
+ * @return int 0 if normal, -1 if error
+ */
 template<class T>
   int 
   ReteSession<T>::visit_rete_graph(int from_vertex, bool is_inferring)
@@ -78,26 +89,80 @@ template<class T>
           auto * parent_beta_relation = this->get_beta_relation(parent_vertex);
           auto * current_relation = this->get_beta_relation(current_vertex);
           if(not parent_beta_relation or not current_relation) {
-            LOG(ERROR) << "visit_rete_graph from_vertex "<<from_vertex<<": error beta_relation is null!";
+            LOG(ERROR) << "visit_rete_graph from_vertex "
+                       <<from_vertex<<": error beta_relation is null!";
             return -1;
           }
-          bool need_all_rows = !current_relation->is_activated();
-          
-          // HERE: parent_relation->get_rows(need_all_rows) that returns the unified beta_row_iterator
-          
-          // compute_rows here
 
-					// m_action(session_p, u, v);
-					// session_p->get_beta_relation(v).set_has_fired(true);
-					
-					if(keep_vertex(session_p, v) and !terminate(session_p, v)) {
-						stack.push_back(stack_elm(v, boost::adjacent_vertices(v, graph)));
-					}
+          // Clear the pending rows in current_relation, since they were for the last pass
+          current_relation->clear_pending_rows();
+
+          // Get an iterator over all applicable rows from the parent beta node
+          BetaRowIteratorPtr parent_row_itor;
+          bool need_all_rows = !current_relation->is_activated();
+          if(need_all_rows) {
+            parent_row_itor = parent_beta_relation->get_all_rows_iterator();
+          } else {
+            parent_row_itor = parent_beta_relation->get_pending_rows_iterator();
+          }
+          
+          // for each BetaRow of parent beta node, 
+          // compute the inferred/retracted BetaRow for current_relation
+          auto const* alpha_node = this->rule_ms_->get_alpha_node(current_vertex);
+          b_index cmeta_node = current_relation->get_node_vertex();
+          auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
+          while(!parent_row_itor->is_end()) {
+
+            // for each triple from the rdf graph matching the AlphaNode
+            // compute the BetaRow to infer or retract
+            auto const* parent_row = parent_row_itor->get_row();
+            auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
+            while(not t3_itor.is_end()) {
+
+              // create the beta row
+              auto beta_row = create_beta_row(cmeta_node, beta_row_initializer->get_size());
+              // initialize the beta row with parent_row and t3
+              rdf::r_index t3[3];
+              initialize_beta_row(beta_row, beta_row_initializer, 
+                                  parent_row, t3_itor.get_triple(&t3[0]));
+
+              // evaluate the current_relation filter if any
+              bool keepit = true;
+              if(cmeta_node->has_expr()) {
+                auto const* expr = this->rule_ms_->get_expr(cmeta_node->expr_vertex);
+                keepit = expr->eval_filter(this, beta_row);
+              }
+
+              // insert or remove the row from current_relation based on is_inferring
+              if(keepit) {
+                if(is_inferring) {
+                  // Add row to current beta relation (current_relation)
+                  current_relation->insert_beta_row(this, beta_row);
+                } else {
+                  // Remove row from current beta relation (current_relation)
+                  current_relation->remove_beta_row(this, beta_row);
+                }
+              }
+              t3_itor.next();
+            }
+            parent_row_itor->next();
+          }
+          if(need_all_rows) current_relation->set_activated(true);
+          stack.push_back(current_vertex);
 				}
 			}
 
     return 0;
   }
 
+template<class T>
+  int 
+  ReteSession<T>::schedule_consequent_terms(BetaRowPtr beta_row)
+  {
+    assert(beta_row);
+    XXX;
+
+    return 0;
+  }
 
 }  // namespace jets::rete

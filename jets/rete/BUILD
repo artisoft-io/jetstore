@@ -8,6 +8,8 @@ cc_library(
         "beta_row_iterator.h",
         "beta_row.h",
         "alpha_node.h",
+        "expr.h",
+        "expr_impl.h",
         "rete_session.h",
         "rete_session.cc",
         "rete_types.h",

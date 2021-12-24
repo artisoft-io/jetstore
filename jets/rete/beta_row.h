@@ -69,6 +69,18 @@ class BetaRow {
     return status_;
   }
 
+  inline bool
+  is_deleted()const
+  {
+    return status_ == kDeleted;
+  }
+
+  inline bool
+  is_inserted()const
+  {
+    return status_ == kInserted;
+  }
+
   inline b_index
   get_node_vertex()const
   {

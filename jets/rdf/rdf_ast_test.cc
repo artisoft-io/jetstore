@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "jets/rdf/rdf_types.h"
+#include "rdf_ast.h"
 
 namespace jets::rdf {
 namespace {
@@ -67,6 +68,48 @@ TEST(RdfAstTest, BaseAstComposition) {
         itor.next();
     }
     EXPECT_EQ(count, 4);
+}
+
+TEST(RdfAstTest, ToBool) {
+    
+    // some resources
+    auto null_s = mkNull();
+    auto bn1_s = mkBlankNode(1);
+    auto banane_s = mkResource("banane");
+    auto false_s  = mkLiteral("false");
+    auto f0lse_s  = mkLiteral("f0lse");
+    auto FALSE_s  = mkLiteral("FALSE");
+    auto TRUE_s  = mkLiteral("TRUE");
+    auto f_s  = mkLiteral("f");
+    auto F_s  = mkLiteral("F");
+    auto t_s  = mkLiteral("t");
+    auto T_s  = mkLiteral("T");
+    auto zero_s  = mkLiteral("0");
+    auto one_s  = mkLiteral("1");
+    auto zero_i   = mkLiteral(std::int32_t{0});
+    auto one_i   = mkLiteral(std::int32_t{1});
+    auto five_i   = mkLiteral(std::int32_t{5});
+    auto eps_d    = mkLiteral(double{0.01});
+    auto zero_d    = mkLiteral(double{0});
+
+    EXPECT_EQ(to_bool(null_s.get()), false);
+    EXPECT_EQ(to_bool(bn1_s.get()), true);
+    EXPECT_EQ(to_bool(banane_s.get()), true);
+    EXPECT_EQ(to_bool(false_s.get()), false);
+    EXPECT_EQ(to_bool(f0lse_s.get()), true);
+    EXPECT_EQ(to_bool(FALSE_s.get()), false);
+    EXPECT_EQ(to_bool(TRUE_s.get()), true);
+    EXPECT_EQ(to_bool(f_s.get()), false);
+    EXPECT_EQ(to_bool(F_s.get()), false);
+    EXPECT_EQ(to_bool(t_s.get()), true);
+    EXPECT_EQ(to_bool(T_s.get()), true);
+    EXPECT_EQ(to_bool(zero_s.get()), false);
+    EXPECT_EQ(to_bool(one_s.get()), true);
+    EXPECT_EQ(to_bool(zero_i.get()), false);
+    EXPECT_EQ(to_bool(one_i.get()), true);
+    EXPECT_EQ(to_bool(five_i.get()), true);
+    EXPECT_EQ(to_bool(eps_d.get()), true);
+    EXPECT_EQ(to_bool(zero_d.get()), false);
 }
 }   // namespace
 }   // namespace jets::rdf

@@ -226,22 +226,23 @@ using Triple = TripleBase<r_index>;
 template <typename H>
 H AbslHashValue(H h, const Rptr& rptr) 
 {
-    auto &m = *rptr;
-    switch (m.which()) {
-    case rdf_null_t             : return H::combine(std::move(h), 0);
-    case rdf_blank_node_t       : return H::combine(std::move(h), boost::get<BlankNode    >(m).key);
-    case rdf_named_resource_t   : return H::combine(std::move(h), boost::get<NamedResource>(m).name);
-    case rdf_literal_int32_t    : return H::combine(std::move(h), boost::get<LInt32       >(m).data);
-    case rdf_literal_uint32_t   : return H::combine(std::move(h), boost::get<LUInt32      >(m).data);
-    case rdf_literal_int64_t    : return H::combine(std::move(h), boost::get<LInt64       >(m).data);
-    case rdf_literal_uint64_t   : return H::combine(std::move(h), boost::get<LUInt64      >(m).data);
-    case rdf_literal_double_t   : return H::combine(std::move(h), boost::get<LDouble      >(m).data);
-    case rdf_literal_string_t   : return H::combine(std::move(h), boost::get<LString      >(m).data);
-    default: return H::combine(std::move(h), 0);
-    }
+  auto &m = *rptr;
+  switch (m.which()) {
+  case rdf_null_t             : return H::combine(std::move(h), 0);
+  case rdf_blank_node_t       : return H::combine(std::move(h), boost::get<BlankNode    >(m).key);
+  case rdf_named_resource_t   : return H::combine(std::move(h), boost::get<NamedResource>(m).name);
+  case rdf_literal_int32_t    : return H::combine(std::move(h), boost::get<LInt32       >(m).data);
+  case rdf_literal_uint32_t   : return H::combine(std::move(h), boost::get<LUInt32      >(m).data);
+  case rdf_literal_int64_t    : return H::combine(std::move(h), boost::get<LInt64       >(m).data);
+  case rdf_literal_uint64_t   : return H::combine(std::move(h), boost::get<LUInt64      >(m).data);
+  case rdf_literal_double_t   : return H::combine(std::move(h), boost::get<LDouble      >(m).data);
+  case rdf_literal_string_t   : return H::combine(std::move(h), boost::get<LString      >(m).data);
+  default: return H::combine(std::move(h), 0);
+  }
 }
 
-inline bool operator==(const Rptr& lhs, const Rptr& rhs) {
+inline bool 
+operator==(const Rptr& lhs, const Rptr& rhs) {
   return *lhs == *rhs;
 }
 
@@ -250,17 +251,18 @@ inline bool operator==(const Rptr& lhs, const Rptr& rhs) {
 // -----------------------------------------------------------------------------
 struct get_key_visitor: public boost::static_visitor<int32_t>
 {
-    int32_t operator()(RDFNull       const& )const{return 0;}
-    int32_t operator()(BlankNode     const&v)const{return v.key;}
-    int32_t operator()(NamedResource const& )const{return 0;}
-    int32_t operator()(LInt32        const& )const{return 0;}
-    int32_t operator()(LUInt32       const& )const{return 0;}
-    int32_t operator()(LInt64        const& )const{return 0;}
-    int32_t operator()(LUInt64       const& )const{return 0;}
-    int32_t operator()(LDouble       const& )const{return 0;}
-    int32_t operator()(LString       const& )const{return 0;}
+  int32_t operator()(RDFNull       const& )const{return 0;}
+  int32_t operator()(BlankNode     const&v)const{return v.key;}
+  int32_t operator()(NamedResource const& )const{return 0;}
+  int32_t operator()(LInt32        const& )const{return 0;}
+  int32_t operator()(LUInt32       const& )const{return 0;}
+  int32_t operator()(LInt64        const& )const{return 0;}
+  int32_t operator()(LUInt64       const& )const{return 0;}
+  int32_t operator()(LDouble       const& )const{return 0;}
+  int32_t operator()(LString       const& )const{return 0;}
 };
-inline int32_t get_key(r_index r)
+inline int32_t 
+get_key(r_index r)
 {
   if(not r) return 0;
   return boost::apply_visitor(get_key_visitor(), *r);
@@ -268,25 +270,66 @@ inline int32_t get_key(r_index r)
 
 struct get_name_visitor: public boost::static_visitor<std::string>
 {
-    std::string operator()(RDFNull       const& )const{return {};}
-    std::string operator()(BlankNode     const&v)const{return {"bn("+std::to_string(v.key)+")"};}
-    std::string operator()(NamedResource const&v)const{return v.name;}
-    std::string operator()(LInt32        const& )const{return {};}
-    std::string operator()(LUInt32       const& )const{return {};}
-    std::string operator()(LInt64        const& )const{return {};}
-    std::string operator()(LUInt64       const& )const{return {};}
-    std::string operator()(LDouble       const& )const{return {};}
-    std::string operator()(LString       const& )const{return {};}
+  std::string operator()(RDFNull       const& )const{return {};}
+  std::string operator()(BlankNode     const&v)const{return {"bn("+std::to_string(v.key)+")"};}
+  std::string operator()(NamedResource const&v)const{return v.name;}
+  std::string operator()(LInt32        const& )const{return {};}
+  std::string operator()(LUInt32       const& )const{return {};}
+  std::string operator()(LInt64        const& )const{return {};}
+  std::string operator()(LUInt64       const& )const{return {};}
+  std::string operator()(LDouble       const& )const{return {};}
+  std::string operator()(LString       const& )const{return {};}
 };
-inline std::string get_name(r_index r)
+inline std::string 
+get_name(r_index r)
 {
   if(not r) return {"NULL"};
   return boost::apply_visitor(get_name_visitor(), *r);
 }
 
+struct to_bool_visitor: public boost::static_visitor<bool>
+{
+  static constexpr char kFalse[] = "false";
+
+  bool operator()(RDFNull       const& )const{return false;}
+  bool operator()(BlankNode     const&v)const{return true;}
+  bool operator()(NamedResource const&v)const{return true;}
+  bool operator()(LInt32        const&v)const{return v.data;}
+  bool operator()(LUInt32       const&v)const{return v.data;}
+  bool operator()(LInt64        const&v)const{return v.data;}
+  bool operator()(LUInt64       const&v)const{return v.data;}
+  bool operator()(LDouble       const&v)const{return v.data;}
+  bool operator()(LString       const&v)const
+  {
+    if(not v.data.empty()) {
+      if(v.data.size() == 1) {
+        if(v.data[0] == '0') return false;
+        if(std::tolower(v.data[0]) == 'f') return false;
+        return true;
+      } else {
+        if(v.data.size() == sizeof(kFalse)-1) {
+          return not std::equal(
+            v.data.begin(), v.data.end(), &kFalse[0], 
+            [](char const& c1, char const& c2) {return std::tolower(c1) == std::tolower(c2); } 
+          );
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+};
+inline bool
+to_bool(r_index r)
+{
+  if(not r) return false;
+  return boost::apply_visitor(to_bool_visitor(), *r);
+}
+
 // ==================================================================================
 // Resource and Literals Factory constructors
 // ----------------------------------------------------------------------------------
+inline Rptr mkNull()                        { return std::make_shared<RdfAstType>(RDFNull()); }
 inline Rptr mkBlankNode(int key)            { return std::make_shared<RdfAstType>(BlankNode(key)); }
 
 inline Rptr mkResource(std::string n)       
@@ -372,28 +415,6 @@ template<class R> struct resource_restrictor< void*, R>       {typedef R result;
 template<class R> struct resource_restrictor< int32_t, R>     {typedef R result;};
 template<class R> struct resource_restrictor< std::string, R> {typedef R result;};
 // ----------------------------------------------------------------------------------
-
-
-
-// // =================================================================================
-// // =================================================================================
-// // Initial stub
-// struct resource {
-//   inline resource(std::string uri) : uri(uri) {}
-//   std::string uri;
-// };
-
-// using r_index2 = resource const *;
-
-// inline std::ostream & operator<<(std::ostream & out, r_index2 index)
-// {
-//   if(!index) {
-//     out << "NULL";
-//     return out;
-//   }
-//   out << index->uri;
-//   return out;
-// }
 
 } // namespace jets::rdf
 #endif // JETS_RDF_AST_H

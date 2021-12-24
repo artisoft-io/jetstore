@@ -35,11 +35,6 @@
     "file": "jets/rdf/rdf_session_test.cc"
   },
   {
-    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -isystem external/com_google_googletest/googlemock -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googlemock -isystem external/com_google_googletest/googlemock/include -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googlemock/include -isystem external/com_google_googletest/googletest -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googletest -isystem external/com_google_googletest/googletest/include -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googletest/include -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -iquote external/com_google_googletest -iquote bazel-out/k8-fastbuild/bin/external/com_google_googletest -iquote external/bazel_tools -iquote bazel-out/k8-fastbuild/bin/external/bazel_tools -x c++ -c jets/rdf/rule_session_test.cc",
-    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
-    "file": "jets/rdf/rule_session_test.cc"
-  },
-  {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rdf/rdf_err.h",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "jets/rdf/rdf_err.h"
@@ -110,9 +105,9 @@
     "file": "bazel-out/k8-fastbuild/bin/external/com_google_absl/absl/hash/libhash.so"
   },
   {
-    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -I bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark/_virtual_includes/benchmark_main -I bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark/_virtual_includes/benchmark -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -iquote external/com_github_google_benchmark -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark -iquote external/bazel_tools -iquote bazel-out/k8-fastbuild/bin/external/bazel_tools -x c++ -c jets/rdf/rule_session_benchmark.cc",
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -I bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark/_virtual_includes/benchmark_main -I bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark/_virtual_includes/benchmark -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -iquote external/com_github_google_benchmark -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark -iquote external/bazel_tools -iquote bazel-out/k8-fastbuild/bin/external/bazel_tools -x c++ -c jets/rdf/rdf_ast_benchmark.cc",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
-    "file": "jets/rdf/rule_session_benchmark.cc"
+    "file": "jets/rdf/rdf_ast_benchmark.cc"
   },
   {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -isystem external/com_google_googletest/googlemock -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googlemock -isystem external/com_google_googletest/googlemock/include -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googlemock/include -isystem external/com_google_googletest/googletest -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googletest -isystem external/com_google_googletest/googletest/include -isystem bazel-out/k8-fastbuild/bin/external/com_google_googletest/googletest/include -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -iquote external/com_google_googletest -iquote bazel-out/k8-fastbuild/bin/external/com_google_googletest -iquote external/bazel_tools -iquote bazel-out/k8-fastbuild/bin/external/bazel_tools -x c++ -c jets/rete/beta_relation_test.cc",
@@ -155,9 +150,44 @@
     "file": "jets/rete/beta_row_initializer.h"
   },
   {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/beta_row_iterator.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "jets/rete/beta_row_iterator.h"
+  },
+  {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/beta_row.h",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "jets/rete/beta_row.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/alpha_node.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "jets/rete/alpha_node.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/rete_session.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "jets/rete/rete_session.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/rete_session.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "jets/rete/rete_session.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/rete_types.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "jets/rete/rete_types.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/rete_err.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "jets/rete/rete_err.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c jets/rete/rete_meta_store.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "jets/rete/rete_meta_store.h"
   },
   {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -I bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags/_virtual_includes/gflags -I bazel-out/k8-fastbuild/bin/external/com_github_google_glog/_virtual_includes/glog -iquote . -iquote bazel-out/k8-fastbuild/bin -iquote external/com_github_gflags_gflags -iquote bazel-out/k8-fastbuild/bin/external/com_github_gflags_gflags -iquote external/com_github_google_glog -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_glog -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Iexternal/gtest/googletest-release-1.10.0/include -Iexternal/gtest/googletest-release-1.10.0 -c bazel-out/k8-fastbuild/bin/external/com_google_absl/absl/hash/libhash.a",
@@ -210,6 +240,106 @@
     "file": "external/com_google_absl/absl/types/variant.h"
   },
   {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/types/internal/span.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/types/internal/span.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/types/span.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/types/span.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/kernel_timeout.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/kernel_timeout.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/barrier.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/barrier.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/blocking_counter.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/blocking_counter.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/create_thread_identity.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/create_thread_identity.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/per_thread_sem.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/per_thread_sem.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/waiter.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/waiter.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/notification.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/notification.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/mutex.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/mutex.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/barrier.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/barrier.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/blocking_counter.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/blocking_counter.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/create_thread_identity.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/create_thread_identity.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/mutex_nonprod.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/mutex_nonprod.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/per_thread_sem.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/per_thread_sem.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/waiter.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/waiter.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/mutex.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/mutex.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/notification.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/notification.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/graphcycles.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/graphcycles.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/synchronization/internal/graphcycles.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/synchronization/internal/graphcycles.h"
+  },
+  {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/utility/utility.h",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "external/com_google_absl/absl/utility/utility.h"
@@ -223,6 +353,16 @@
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/base/internal/raw_logging.h",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "external/com_google_absl/absl/base/internal/raw_logging.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/base/internal/exponential_biased.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/base/internal/exponential_biased.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/base/internal/exponential_biased.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/base/internal/exponential_biased.h"
   },
   {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/base/internal/spinlock_akaros.inc",
@@ -395,6 +535,21 @@
     "file": "external/com_google_absl/absl/base/internal/unscaledcycleclock.h"
   },
   {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/base/internal/low_level_alloc.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/base/internal/low_level_alloc.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/base/internal/direct_mmap.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/base/internal/direct_mmap.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/base/internal/low_level_alloc.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/base/internal/low_level_alloc.h"
+  },
+  {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/base/dynamic_annotations.cc",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "external/com_google_absl/absl/base/dynamic_annotations.cc"
@@ -460,9 +615,179 @@
     "file": "external/com_google_absl/absl/algorithm/algorithm.h"
   },
   {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/algorithm/container.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/algorithm/container.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/demangle.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/demangle.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/demangle.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/demangle.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/address_is_readable.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/address_is_readable.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/elf_mem_image.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/elf_mem_image.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/vdso_support.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/vdso_support.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/address_is_readable.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/address_is_readable.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/elf_mem_image.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/elf_mem_image.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/vdso_support.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/vdso_support.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/symbolize.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/symbolize.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/symbolize_elf.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/symbolize_elf.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/symbolize_unimplemented.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/symbolize_unimplemented.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/symbolize_win32.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/symbolize_win32.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/symbolize.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/symbolize.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/symbolize.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/symbolize.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_aarch64-inl.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_aarch64-inl.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_arm-inl.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_arm-inl.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_config.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_config.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_generic-inl.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_generic-inl.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_powerpc-inl.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_powerpc-inl.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_unimplemented-inl.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_unimplemented-inl.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_win32-inl.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_win32-inl.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/internal/stacktrace_x86-inl.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/internal/stacktrace_x86-inl.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/stacktrace.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/stacktrace.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/debugging/stacktrace.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/debugging/stacktrace.h"
+  },
+  {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/memory/memory.h",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "external/com_google_absl/absl/memory/memory.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/hash_policy_traits.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/hash_policy_traits.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/layout.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/layout.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/container_memory.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/container_memory.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/flat_hash_set.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/flat_hash_set.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/hashtablez_sampler.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/hashtablez_sampler.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/hashtablez_sampler_force_weak_definition.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/hashtablez_sampler_force_weak_definition.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/hashtablez_sampler.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/hashtablez_sampler.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/hash_function_defaults.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/hash_function_defaults.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/have_sse.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/have_sse.h"
   },
   {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/compressed_tuple.h",
@@ -470,9 +795,29 @@
     "file": "external/com_google_absl/absl/container/internal/compressed_tuple.h"
   },
   {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/raw_hash_set.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/raw_hash_set.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/raw_hash_set.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/raw_hash_set.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/hashtable_debug_hooks.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/hashtable_debug_hooks.h"
+  },
+  {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/fixed_array.h",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "external/com_google_absl/absl/container/fixed_array.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/container/internal/common.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/container/internal/common.h"
   },
   {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/hash/internal/city.cc",
@@ -718,6 +1063,156 @@
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/strings/internal/utf8.h",
     "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
     "file": "external/com_google_absl/absl/strings/internal/utf8.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/civil_time.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/civil_time.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/clock.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/clock.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/duration.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/duration.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/format.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/format.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/internal/get_current_time_chrono.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/get_current_time_chrono.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/internal/get_current_time_posix.inc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/get_current_time_posix.inc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/time.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/time.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/civil_time.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/civil_time.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/clock.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/clock.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -D\"__CLANG_SUPPORT_DYN_ANNOTATION__\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -Wall -Wextra -Wcast-qual -Wconversion-null -Wmissing-declarations -Woverlength-strings -Wpointer-arith -Wunused-local-typedefs -Wunused-result -Wvarargs -Wvla -Wwrite-strings -Wno-missing-field-initializers -Wno-sign-compare -c external/com_google_absl/absl/time/time.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/time.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_fixed.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_fixed.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_fixed.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_fixed.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_format.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_format.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_if.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_if.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_if.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_if.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_impl.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_impl.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_impl.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_impl.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_info.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_info.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_info.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_info.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_libc.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_libc.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_libc.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_libc.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_lookup.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_lookup.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_posix.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_posix.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/time_zone_posix.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/time_zone_posix.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/tzfile.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/tzfile.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/zone_info_source.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/zone_info_source.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/include/cctz/time_zone.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/include/cctz/time_zone.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/include/cctz/zone_info_source.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/include/cctz/zone_info_source.h"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/src/civil_time_detail.cc",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/src/civil_time_detail.cc"
+  },
+  {
+    "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -iquote external/com_google_absl -iquote bazel-out/k8-fastbuild/bin/external/com_google_absl -x c++ -c external/com_google_absl/absl/time/internal/cctz/include/cctz/civil_time.h",
+    "directory": "/home/michel/.cache/bazel/_bazel_michel/12e186c1a5130b677efb88fda51ae386/execroot/io_artisoft_jetstore",
+    "file": "external/com_google_absl/absl/time/internal/cctz/include/cctz/civil_time.h"
   },
   {
     "command": "/usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -std=c++17 -O3 -fno-canonical-system-headers -Wno-builtin-macro-redefined -D__DATE__=\"redacted\" -D__TIMESTAMP__=\"redacted\" -D__TIME__=\"redacted\" -I bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark/_virtual_includes/benchmark_main -I bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark/_virtual_includes/benchmark -iquote external/com_github_google_benchmark -iquote bazel-out/k8-fastbuild/bin/external/com_github_google_benchmark -x c++ -c external/com_github_google_benchmark/src/benchmark_main.cc",

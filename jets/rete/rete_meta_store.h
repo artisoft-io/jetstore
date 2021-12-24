@@ -14,6 +14,7 @@
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/node_vertex.h"
 #include "jets/rete/alpha_node.h"
+#include "jets/rete/expr.h"
 
 
 // Component to manage all the rdf resources and literals of a graph
@@ -41,34 +42,50 @@ class ReteMetaStore {
   using RDFGraphPtr = std::shared_ptr<RDFGraph>;
 
   using AlphaNodeVector = std::vector<AlphaNodePtr<T>>;
-  using PairIntItor = std::pair<std::unordered_set<int>::const_iterator,std::unordered_set<int>::const_iterator>;
+  using ExprVector = std::vector<ExprBasePtr<T>>;
+  using PairIntItor = std::pair<
+                        std::unordered_set<int>::const_iterator,
+                        std::unordered_set<int>::const_iterator>;
 
   ReteMetaStore()
     : alpha_nodes_(),
       node_vertexes_(),
       node_vertex_adj_()
   {}
-  ReteMetaStore(AlphaNodeVector alpha_nodes, NodeVertexVector node_vertexes, NodeVertexAdjency node_vertex_adj)
+  ReteMetaStore(AlphaNodeVector alpha_nodes, ExprVector exprs, 
+      NodeVertexVector node_vertexes, NodeVertexAdjency node_vertex_adj)
     : alpha_nodes_(alpha_nodes), 
+      exprs_(exprs),
       node_vertexes_(node_vertexes),
       node_vertex_adj_(node_vertex_adj)
   {}
-  ReteMetaStore(AlphaNodeVector const& alpha_nodes, NodeVertexVector const& node_vertexes, NodeVertexAdjency node_vertex_adj)
+  ReteMetaStore(AlphaNodeVector const& alpha_nodes, ExprVector const& exprs, 
+      NodeVertexVector const& node_vertexes, NodeVertexAdjency node_vertex_adj)
     : alpha_nodes_(alpha_nodes), 
+      exprs_(exprs),
       node_vertexes_(node_vertexes),
       node_vertex_adj_(node_vertex_adj)
   {}
-  ReteMetaStore(AlphaNodeVector && alpha_nodes, NodeVertexVector && node_vertexes, NodeVertexAdjency && node_vertex_adj)
+  ReteMetaStore(AlphaNodeVector && alpha_nodes, ExprVector && exprs, 
+      NodeVertexVector && node_vertexes, NodeVertexAdjency && node_vertex_adj)
     : alpha_nodes_(std::forward<AlphaNodeVector>(alpha_nodes)), 
+      exprs_(std::forward<ExprVector>(exprs)), 
       node_vertexes_(std::forward<NodeVertexVector>(node_vertexes)),
       node_vertex_adj_(std::forward<NodeVertexAdjency>(node_vertex_adj)) 
   {}
 
-  inline AlphaNodePtr<T>
+  inline AlphaNode<T> const*
   get_alpha_node(int vertex)const
   {
-    if(vertex >= alpha_nodes_.size()) return {};
-    return alpha_nodes_[vertex];
+    if(vertex<0 or vertex >= alpha_nodes_.size()) return {};
+    return alpha_nodes_[vertex].get();
+  }
+
+  inline ExprBase<T> const*
+  get_expr(int vertex)const
+  {
+    if(vertex<0 or vertex >= alpha_nodes_.size()) return {};
+    return exprs_[vertex].get();
   }
 
   inline NodeVertexPtr
@@ -104,6 +121,7 @@ class ReteMetaStore {
   // friend class RDFSession<RDFGraph>;
 
   AlphaNodeVector  alpha_nodes_;
+  ExprVector       exprs_;
   NodeVertexVector node_vertexes_;
   // NodeVertexAdjency is map<parent node vertex>, <set of child node vertex>
   NodeVertexAdjency node_vertex_adj_;
@@ -116,21 +134,39 @@ inline ReteMetaStorePtr<T> create_rete_meta_store()
 }
 
 template<class T>
-inline ReteMetaStorePtr<T> create_rete_meta_store(typename ReteMetaStore<T>::AlphaNodeVector alpha_nodes, NodeVertexVector node_vertexes)
+inline ReteMetaStorePtr<T> create_rete_meta_store(
+  typename ReteMetaStore<T>::AlphaNodeVector alpha_nodes, 
+  typename ReteMetaStore<T>::ExprVector exprs, 
+  NodeVertexVector node_vertexes,
+  NodeVertexAdjency node_adjency)
 {
-  return std::make_shared<ReteMetaStore<T>>(alpha_nodes, node_vertexes);
+  return std::make_shared<ReteMetaStore<T>>(alpha_nodes, exprs, 
+    node_vertexes, node_adjency);
 }
 
 template<class T>
-inline ReteMetaStorePtr<T> create_rete_meta_store(typename ReteMetaStore<T>::AlphaNodeVector const& alpha_nodes)
+inline ReteMetaStorePtr<T> create_rete_meta_store(
+  typename ReteMetaStore<T>::AlphaNodeVector const& alpha_nodes,
+  typename ReteMetaStore<T>::ExprVector const& exprs,
+  NodeVertexVector const& node_vertexes,
+  NodeVertexAdjency const& node_adjency)
 {
-  return std::make_shared<ReteMetaStore<T>>(alpha_nodes);
+  return std::make_shared<ReteMetaStore<T>>(alpha_nodes, exprs, 
+    node_vertexes, node_adjency);
 }
 
 template<class T>
-inline ReteMetaStorePtr<T> create_rete_meta_store(typename ReteMetaStore<T>::AlphaNodeVector && alpha_nodes)
+inline ReteMetaStorePtr<T> create_rete_meta_store(
+  typename ReteMetaStore<T>::AlphaNodeVector && alpha_nodes,
+  typename ReteMetaStore<T>::ExprVector && exprs,
+  NodeVertexVector && node_vertexes,
+  NodeVertexAdjency && node_adjency)
 {
-  return std::make_shared<ReteMetaStore<T>>(std::forward<typename ReteMetaStore<T>::AlphaNodeVector>(alpha_nodes));
+  return std::make_shared<ReteMetaStore<T>>(
+    std::forward<typename ReteMetaStore<T>::AlphaNodeVector>(alpha_nodes),
+    std::forward<typename ReteMetaStore<T>::ExprVector>(alpha_nodes),
+    std::forward<NodeVertexVector>(alpha_nodes),
+    std::forward<NodeVertexAdjency>(node_adjency) );
 }
 
 } // namespace jets::rete
