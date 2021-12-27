@@ -15,9 +15,10 @@ static void BM_SimpleBetaRow(benchmark::State& state) {
   auto r2 = rmanager.create_resource(s2);
 
   int row_size = 3;
+  jets::rete::b_index_set set0;
   for (auto _ : state) {
     jets::rete::BetaRowInitializerPtr ri0 = jets::rete::create_row_initializer(row_size);
-    jets::rete::NodeVertexPtr nv0 = jets::rete::create_node_vertex(nullptr, 0, false, false, false, 10, ri0);
+    jets::rete::NodeVertexPtr nv0 = jets::rete::create_node_vertex(nullptr, set0, 0, false, false, 0, 10, ri0, {});
     jets::rete::BetaRowPtr br0    = jets::rete::create_beta_row(nv0.get(), row_size);
     ri0->put(0, 0 | jets::rete::brc_parent_node);
     ri0->put(1, 0 | jets::rete::brc_triple);

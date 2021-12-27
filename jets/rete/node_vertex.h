@@ -54,7 +54,7 @@ struct NodeVertex {
 
   NodeVertex()
     : parent_node_vertex(nullptr),
-    child_nodes(),
+      child_nodes(),
       vertex(0),
       has_consequent_terms(false),
       is_negation(false),
@@ -111,11 +111,12 @@ struct NodeVertex {
 
 inline 
 NodeVertexPtr create_node_vertex(
-  b_index parent_node_vertex, int vertex, bool has_consequent_terms, bool is_negation, int expr_vertex, int salience, 
+  b_index parent_node_vertex, b_index_set child_nodes, int vertex, bool has_consequent_terms, 
+  bool is_negation, int expr_vertex, int salience, 
   BetaRowInitializerPtr beta_row_initializer, AntecedentQuerySpecPtr antecedent_query_spec)
 {
-  return std::make_shared<NodeVertex>(parent_node_vertex, vertex, has_consequent_terms, is_negation, expr_vertex, salience, 
-                                      beta_row_initializer, antecedent_query_spec);
+  return std::make_shared<NodeVertex>(parent_node_vertex, child_nodes, vertex, has_consequent_terms, 
+    is_negation, expr_vertex, salience, beta_row_initializer, antecedent_query_spec);
 }
 
 } // namespace jets::rete

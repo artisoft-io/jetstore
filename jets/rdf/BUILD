@@ -3,6 +3,7 @@ cc_library(
     srcs = [
         "rdf_err.h",
         "base_graph.h",
+        "graph_callback_mgr.h",
         "rdf_graph.h",
         "rdf_graph.cc",
         "rdf_session.h",

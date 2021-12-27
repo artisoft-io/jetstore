@@ -10,8 +10,9 @@
 #include "jets/rete/beta_row.h"
 #include "jets/rete/beta_relation.h"
 #include "jets/rete/beta_row_iterator.h"
+#include "jets/rete/graph_callback_mgr_impl.h"
 
-// Component to manage all the rdf resources and literals of a graph
+// Component representing the Alpha Node of a Rete Network
 namespace jets::rete {
 // Give an alias name to rdf::AllOrRIndex for use by rete engine
 using rstar = rdf::AllOrRIndex;
@@ -21,6 +22,7 @@ using RStar3 = rdf::TripleBase<rstar>;
 
 // forward declaration
 class BetaRelation;
+template<class T> class ReteSession;
 
 // ======================================================================================
 // Variant to query BetaRelation  as variant<PosMatch, r_index>
@@ -58,6 +60,50 @@ using RPos3 = rdf::TripleBase<PosOrRIndex>;
 //                        - w can be ?s, constant, or and expression
 // AlphaNode is a virtual base class, sub class are parametrized by functor: <Fu, Fv, Fw>
 // --------------------------------------------------------------------------------------
+/**
+ * @brief AphaNode is a connector to the rdf graph for a antecedents and consequents term.
+ *
+ * A beta relation is associated with a rule antecedent and possibly multiple
+ * rule consequent terms.
+ * Rule antecedent and consequent terms are represented by AlphaNodes.
+ * As a result, there are more AlphaNodes than BetaRelations, however
+ * each AlphaNode point to a NodeVertex corresponding to the associated
+ * beta relation of the AlphaNode.
+ *
+ * Specialized AlphaNode classes exist to represent the various rule terms
+ * the rete network must support. 
+ * Two classes of AlphaNodes exists:
+ *  - AlphaNodes representing Antecedent Terms
+ *  - AlphaNodes representing Consequent Terms
+ * In both cases, specialized AlphaNodes are parametrized with 3 functors:
+ * AlphaNode<Fu, Fv, Fw>. The possible functor are different for 
+ * antecedent and consequent terms.
+ *
+ * Possible functor for antecedent terms:
+ *  - Fu: F_binded, F_var, F_cst
+ *  - Fv: F_binded, F_var, F_cst
+ *  - Fw: F_binded, F_var, F_cst
+ *
+ * Possible functor for consequent terms:
+ *  - Fu: F_binded, F_cst
+ *  - Fv: F_binded, F_cst
+ *  - Fw: F_binded, F_cst, F_expr
+ *
+ * Description of each functor:
+ *  - F_cst: Constant resource, such as rdf:type in: (?s rdf:type ?C)
+ *  - F_var: A variable as ?s in: (?s rdf:type ?C)
+ *  - F_binded: A binded variable to a previous term, such as ?C in: 
+ *    (?s rdf:type ?C).(?C subclassOf Thing)
+ *  - F_expr: An expression involving binded variables and constant terms.
+ *
+ * Note that consequent terms cannot have unbinded variable, so F_var
+ * is not applicable.
+ *
+ * Note: AlphaNodes contains metadata information only and are managed by the
+ *       ReteMetaStore.
+ * 
+ * @tparam T RDFSession implementation class
+ */
 template<class T>
 class AlphaNode;
 
@@ -76,11 +122,11 @@ class AlphaNode {
   using RDFGraphPtr = std::shared_ptr<RDFGraph>;
 
   AlphaNode()
-    : node_vertex_(nullptr)
+    : node_vertex_(nullptr), is_antecedent_(false)
   {}
 
-  explicit AlphaNode(b_index node_vertex) 
-    : node_vertex_(node_vertex)
+  AlphaNode(b_index node_vertex, bool is_antecedent) 
+    : node_vertex_(node_vertex), is_antecedent_(is_antecedent)
   {}
 
   virtual ~AlphaNode() 
@@ -92,27 +138,37 @@ class AlphaNode {
     return node_vertex_;
   }
 
-  virtual bool
-  is_antecedent()const=0;
+  inline bool
+  is_antecedent()const
+  {
+    return is_antecedent_;
+  }
+
+  virtual int
+  register_callback(ReteSession<T> * rete_session, ReteCallBackList<T> * callbacks)const=0;
 
   // Call to get all triples from rdf session matching `parent_row`
   // Applicable to antecedent terms only, call during initial graph visit only
+  // Will throw if called on a consequent term
   virtual Iterator
   find_matching_triples(RDFSession * rdf_session, BetaRow const* parent_row)const=0;
 
   // Called to query rows matching `triple`, 
   // case merging with new triples from inferred graph
   // Applicable to antecedent terms only
+  // Will throw if called on a consequent term
   virtual BetaRowIteratorPtr
-  find_matching_rows(BetaRelation * beta_relation,  rdf::Triple * triple)const=0;
+  find_matching_rows(BetaRelation * beta_relation,  rdf::r_index s, rdf::r_index p, rdf::r_index o)const=0;
 
   // Return consequent `triple` for BetaRow
   // Applicable to consequent terms only
+  // Will throw if called on an antecedent term
   virtual rdf::Triple
   compute_consequent_triple(BetaRow * beta_row)const=0;
 
  private:
-  b_index         node_vertex_;
+  bool       is_antecedent_;
+  b_index    node_vertex_;
 };
 
 template<class T>

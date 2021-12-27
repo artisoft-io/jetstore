@@ -28,7 +28,8 @@ class BetaRowTest : public ::testing::Test {
   BetaRowTest() : br0(), ri0(), nv0() {
       int row_size = 3;
       ri0 = create_row_initializer(row_size);
-      nv0 = create_node_vertex(nullptr, 0, false, false, false, 10, ri0);
+      b_index_set s0;
+      nv0 = create_node_vertex(nullptr, s0, 0, false, false, 0, 10, ri0, {});
       br0 = create_beta_row(nv0.get(), row_size);
   }
 

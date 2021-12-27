@@ -289,17 +289,13 @@ class BaseGraph {
    *
    * Reference count is increased by 1 if the triple already exist in graph.
    *
-   * The registered callback functions are notified of the insert if
-   * `notify_listners` is true.
-   *
    * @param u subject
    * @param v predicate
    * @param w object
-   * @param notify_listners if true, notify registered listeners if an actual instertion occurs
    * @return true if triple was actually inserted (did not already exist in
    * graph)
    */
-  inline bool insert(r_index u, r_index v, r_index w, bool notify_listners = true) {
+  inline bool insert(r_index u, r_index v, r_index w) {
     auto utor = m_umap_data.find(u);
     if (utor == m_umap_data.end()) {
       utor = m_umap_data.insert({u, {} }).first;
@@ -313,10 +309,6 @@ class BaseGraph {
 		// If not inserted, then increase the ref_count by 1
     auto pair = vtor->second.insert(typename W_SET::value_type{w});
     if (!pair.second) pair.first->add_ref_count();
-
-    //* apply the call back functors
-    // if (notify_listners and m_index_triple_cback_mgr_p and pair.second)
-    //   m_index_triple_cback_mgr_p->triple_inserted(m_session_p, u, v, w);
     return pair.second;
   }
 
@@ -336,7 +328,7 @@ class BaseGraph {
    * @param w object
    * @return 0 if was not found, 1 if removed.
    */
-  inline int erase(r_index u, r_index v, r_index w, bool notify_listners = true) {
+  inline int erase(r_index u, r_index v, r_index w) {
     auto utor = m_umap_data.find(u);
     if (utor == m_umap_data.end()) return 0;
 
@@ -350,11 +342,6 @@ class BaseGraph {
         m_umap_data.erase(u);
       }
     }
-
-    //* apply the call back functors
-    // if (m_index_triple_cback_mgr_p and count > 0)
-    //   m_index_triple_cback_mgr_p->triple_deleted(m_session_p, u, v, w);
-
     return count;
   }
 
@@ -376,7 +363,7 @@ class BaseGraph {
    * @param w object
    * @return 0 if not found or not removed, 1 if removed.
    */
-  inline int retract(r_index u, r_index v, r_index w, bool notify_listners = true) {
+  inline int retract(r_index u, r_index v, r_index w) {
     auto utor = m_umap_data.find(u);
     if (utor == m_umap_data.end()) return 0;
 
@@ -397,11 +384,6 @@ class BaseGraph {
       }
       count = 1;
     }
-
-    //* apply the call back functors
-    // if (m_index_triple_cback_mgr_p and count > 0)
-    //   m_index_triple_cback_mgr_p->triple_deleted(m_session_p, u, v, w);
-
     return count;
   }
 
@@ -411,24 +393,6 @@ class BaseGraph {
     return retract(u, v, w);
   }
 
-  /**
-   * Register callback functions associated with the graph.
-   *
-   * @param session_p associated rule session
-   * @param callback_mgr_p callback managers to be registered
-   */
-  // inline void register_call_back_manager(
-  //     rule::rule_session* session_p,
-  //     index_triple_cback_mgr const* callback_mgr_p) {
-  //   m_session_p = session_p;
-  //   m_index_triple_cback_mgr_p = callback_mgr_p;
-  // };
-
-  // inline void unregister_call_back_manager() {
-  //   m_session_p = nullptr;
-  //   m_index_triple_cback_mgr_p = nullptr;
-  // };
-
  private:
 
   char const m_spin;
@@ -437,10 +401,6 @@ class BaseGraph {
   // have empty iterators
   typename V_MAP::const_iterator m_v_end;
   typename W_SET::const_iterator m_w_end;
-
-  //* callback functors manager
-  // rule::rule_session* m_session_p;
-  // index_triple_cback_mgr const* m_index_triple_cback_mgr_p;
 };
 }  // namespace jets::rdf
 #endif  // JETS_RDF_BASE_GRAPH_H

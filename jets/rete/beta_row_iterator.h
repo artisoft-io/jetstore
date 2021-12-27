@@ -159,8 +159,8 @@ class BaseIterator: public BetaRowIterator {
 
   BetaRow const* get_row() const override
   {
-    if(is_end()) return {};
-    return *itor_;
+    if(is_end()) return nullptr;
+    return itor_->second;
   } 
 
  private:
@@ -214,7 +214,7 @@ class PtrAdaptIterator: public BetaRowIterator {
 
   BetaRow const* get_row() const override
   {
-    if(is_end()) return {};
+    if(is_end()) return nullptr;
     return (*itor_).get();    // exposing the raw ptr from the shared_ptr
   } 
 

@@ -10,6 +10,7 @@ cc_library(
         "alpha_node.h",
         "expr.h",
         "expr_impl.h",
+        "graph_callback_mgr_impl.h",
         "rete_session.h",
         "rete_session.cc",
         "rete_types.h",

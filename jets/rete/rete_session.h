@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_RETE_SESSION_H
 #define JETS_RETE_RETE_SESSION_H
 
+#include <queue>
 #include <string>
 #include <memory>
 #include <list>
@@ -34,7 +35,19 @@ using BetaRelationVector = std::vector<BetaRelationPtr>;
 template<class T>
 using AlphaNodeVector = std::vector<AlphaNodePtr<T>>;
 
-// ReteSession making the rete network
+struct BetaRowPriorityCompare {
+  inline bool
+  operator()(BetaRowPtr const& lhs, BetaRowPtr const& rhs) {
+    return lhs->get_node_vertex()->salience < rhs->get_node_vertex()->salience;
+  }
+};
+using BetaRowPriorityQueue = std::priority_queue<BetaRowPtr, std::vector<BetaRowPtr>, BetaRowPriorityCompare>;
+
+/**
+ * @brief ReteSession making the rete network
+ * 
+ * @tparam T RDFSession
+ */
 template<class T>
 class ReteSession {
  public:
@@ -47,14 +60,18 @@ class ReteSession {
   ReteSession()
     : rule_ms_(nullptr),
       rdf_session_(nullptr),
-      beta_relations_()
+      beta_relations_(),
+      pending_beta_rows_()
     {}
 
   ReteSession(ReteMetaStore<T> const* rule_ms, RDFSession * rdf_session) 
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
-      beta_relations_()
-    {}
+      beta_relations_(),
+      pending_beta_rows_()
+    {
+      this->initialize();
+    }
 
   inline RDFSession *
   rdf_session()
@@ -78,10 +95,67 @@ class ReteSession {
   int 
   execute_rules();
 
+  /**
+   * @brief Notification function called when a triple is added to the inferred graph
+   * 
+   * @param vertex key of NodeVertex that registered the call back
+   * @param s triple's subject inserted
+   * @param p triple's predicate inserted
+   * @param o triple's object inserted
+   * @return int 
+   */
+  inline int
+  triple_inserted(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o)
+  {
+    return triple_updated(vertex, s, p, o, true);
+  }
+
+  /**
+   * @brief Notification function called when a triple is deleted from the inferred graph
+   * 
+   * @param vertex key of NodeVertex that registered the call back
+   * @param s triple's subject deleted
+   * @param p triple's predicate deleted
+   * @param o triple's object deleted
+   * @return int 
+   */
+  inline int
+  triple_deleted(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o)
+  {
+    return triple_updated(vertex, s, p, o, false);
+  }
+
+ protected:
+  /**
+   * @brief Initialize ReteSession using ReteMetaStore
+   *
+   *  - Initialize BetaRelationVector beta_relations_ such that
+   *    `beta_relations_[ipos] = create_beta_node(rule_ms_->node_vertexes_[ipos]);`
+   *  - Register GraphCallbackManager using antecedent AlphaNode adaptor
+   * 
+   * @return int 
+   */
   int
   initialize();
 
- protected:
+  int
+  set_graph_callbacks();
+
+  int
+  remove_graph_callbacks();
+
+  /**
+   * @brief Notification for triple inserted/deleted
+   * 
+   * @param vertex key of NodeVertex that registered the call back
+   * @param s triple's subject 
+   * @param p triple's predicate 
+   * @param o triple's object 
+   * @param is_inserted 
+   * @return int 
+   */
+  int
+  triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted);
 
   /**
    * @brief Execute inferrence on rete graph
@@ -94,13 +168,16 @@ class ReteSession {
   int
   execute_rules(int from_vertex, bool is_inferring, bool compute_consequents);
 
-  /**
-   * @brief Visit rete graph using dfs to activate beta nodes
-   * 
-   * @param from_vertex start vertex, 0 is root (head) node
-   * @param is_inferring to forward chaining, otherwise retract inferrence
-   * @return int 0 for normal, -1 if error
-   */
+/**
+ * @brief Visit the Rete Graph and apply inferrence or retactation of inferred facts
+ * 
+ * Perform DFS graph visitation starting at node `from_vertex`
+ *
+ * @tparam T ReteSession template parameter corresponding to the RDFSession type
+ * @param from_vertex Starting point of graph visitation
+ * @param is_inferring apply inferrence if true, retract inferrence if false
+ * @return int 0 if normal, -1 if error
+ */
   int 
   visit_rete_graph(int from_vertex, bool is_inferring);
 
@@ -114,9 +191,16 @@ class ReteSession {
   schedule_consequent_terms(BetaRowPtr beta_row);
 
   /**
-   * @brief Compute consequent triples from activated rules
+   * @brief Compute consequent triples from scheduled consequent terms
    *
-   * Inferred triples are added to inferred graph of rdf session.
+   * Scheduled consequent terms are processed using a priority queue with
+   * a priority based on rule salience.
+   * Inferred triples are added to inferred graph of rdf session which
+   * trigger rule having antecedent matching the inferred triple to
+   * activate and in turn to infer or retract triples.
+   *
+   * TODO Add logging to trach which rule inferre which triple
+   * to be able to explain how a triple got inferred.
    * 
    * @return int 0 for normal, -1 if error
    */
@@ -124,12 +208,14 @@ class ReteSession {
   compute_consequent_triples();
 
  private:
-  // friend class find_visitor<RDFGraph>;
-  // friend class RDFSession<RDFGraph>;
+  int
+  process_parent_rows(BetaRelation * current_relation, AlphaNode<T> const* alpha_node,
+    BetaRowIterator * parent_row_itor, bool is_inserted);
 
   ReteMetaStore<T> const*  rule_ms_;
   RDFSession  *            rdf_session_;
-  BetaRelationVector       beta_relations_; //* TODO initialize()
+  BetaRelationVector       beta_relations_;
+  BetaRowPriorityQueue     pending_beta_rows_;
 };
 
 template<class T>

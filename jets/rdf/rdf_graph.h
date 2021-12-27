@@ -15,6 +15,7 @@
 #include "jets/rdf/base_graph.h"
 #include "jets/rdf/base_graph_iterator.h"
 #include "jets/rdf/r_manager.h"
+#include "jets/rdf/graph_callback_mgr.h"
 
 namespace jets::rdf {
 // ======================================================================================
@@ -85,7 +86,8 @@ class RDFGraph {
       r_mgr_p(std::make_shared<RManager>()), 
       spo_graph_('s'), 
       pos_graph_('p'), 
-      osp_graph_('o')
+      osp_graph_('o'),
+      graph_callback_mgr_()
     {}
 
   RDFGraph(RManagerPtr meta_mgr) 
@@ -94,7 +96,8 @@ class RDFGraph {
       r_mgr_p(std::make_shared<RManager>(meta_mgr)), 
       spo_graph_('s'), 
       pos_graph_('p'), 
-      osp_graph_('o')
+      osp_graph_('o'),
+      graph_callback_mgr_()
     {}
 
   /**
@@ -188,11 +191,12 @@ class RDFGraph {
                  << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
       return 0;
     }
-    bool inserted = spo_graph_.insert(s, p, o, notify_listners);
-    pos_graph_.insert(p, o, s, notify_listners);
-    osp_graph_.insert(o, s, p, notify_listners);
+    bool inserted = spo_graph_.insert(s, p, o);
     if(inserted) {
+      pos_graph_.insert(p, o, s);
+      osp_graph_.insert(o, s, p);
       size_+= 1;
+      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_inserted(s, p, o);
       return 1;
     }
     return 0;
@@ -210,11 +214,12 @@ class RDFGraph {
                  << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
       return 0;
     }
-    bool erased = spo_graph_.erase(s, p, o, notify_listners);
-    pos_graph_.erase(p, o, s, notify_listners);
-    osp_graph_.erase(o, s, p, notify_listners);
+    bool erased = spo_graph_.erase(s, p, o);
     if(erased) {
+      pos_graph_.erase(p, o, s);
+      osp_graph_.erase(o, s, p);
       size_-= 1;
+      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
     }
     return 0;
@@ -232,14 +237,22 @@ class RDFGraph {
                  << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
       return 0;
     }
-    bool erased = spo_graph_.retract(s, p, o, notify_listners);
-    pos_graph_.retract(p, o, s, notify_listners);
-    osp_graph_.retract(o, s, p, notify_listners);
+    bool erased = spo_graph_.retract(s, p, o);
     if(erased) {
+      pos_graph_.retract(p, o, s);
+      osp_graph_.retract(o, s, p);
       size_-= 1;
+      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
     }
     return 0;
+  }
+
+  // GraphCallbackManager functions
+  inline void
+  set_graph_callback_manager(GraphCallbackManagerPtr graph_callback_mgr) 
+  {
+    this->graph_callback_mgr_ = graph_callback_mgr;
   }
 
  protected:
@@ -261,6 +274,7 @@ set_rmgr(RManagerPtr p)
   BGraph spo_graph_;
   BGraph pos_graph_;
   BGraph osp_graph_;
+  GraphCallbackManagerPtr graph_callback_mgr_;
 };
 
 template<class BGraph, class RMgr>

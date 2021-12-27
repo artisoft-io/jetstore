@@ -29,8 +29,9 @@ class NodeVertexTest : public ::testing::Test {
   NodeVertexTest() : ri0(), ri1(), nv0(), nv1() {
       ri0 = create_row_initializer(3);
       ri1 = create_row_initializer(5);
-      nv0 = create_node_vertex(nullptr, 0, false, false, false, 10, ri0);
-      nv1 = create_node_vertex(nv0.get(), 0, true, false, false, 20, ri1);
+      b_index_set s0;
+      nv0 = create_node_vertex(nullptr, s0, 0,   false, false, 0, 10, ri0, {});
+      nv1 = create_node_vertex(nv0.get(), s0, 0, true, false, 0, 20, ri1, {});
   }
 
   BetaRowInitializerPtr ri0;
@@ -54,7 +55,7 @@ TEST_F(NodeVertexTest, FirstTest) {
     EXPECT_EQ(ri1->put(3, 23), 0);
     EXPECT_EQ(ri1->put(4, 24), 0);
 
-    EXPECT_EQ(nv1->get_parent_node_vertex(), nv0.get());
+    EXPECT_EQ(nv1->parent_node_vertex, nv0.get());
 }
 
 }   // namespace

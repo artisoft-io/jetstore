@@ -6,9 +6,9 @@
 
 #include "absl/hash/hash.h"
 
+#include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_err.h"
 #include "beta_row_initializer.h"
-#include "jets/rdf/rdf_types.h"
 #include "jets/rete/node_vertex.h"
 
 
@@ -79,6 +79,12 @@ class BetaRow {
   is_inserted()const
   {
     return status_ == kInserted;
+  }
+
+  inline bool
+  is_processed()const
+  {
+    return status_ == kProcessed;
   }
 
   inline b_index

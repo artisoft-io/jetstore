@@ -10,6 +10,7 @@
 
 #include "jets/rdf/rdf_ast.h"
 #include "jets/rdf/base_graph.h"
+#include "jets/rdf/graph_callback_mgr.h"
 #include "jets/rdf/base_graph_iterator.h"
 #include "jets/rdf/r_manager.h"
 #include "jets/rdf/rdf_graph.h"
