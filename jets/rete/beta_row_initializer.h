@@ -90,9 +90,6 @@ class BetaRowInitializer {
  protected:
 
  private:
-  // friend class find_visitor<RDFGraph>;
-  // friend class RDFSession<RDFGraph>;
-
   int *  data_;
   int    size_;
 };

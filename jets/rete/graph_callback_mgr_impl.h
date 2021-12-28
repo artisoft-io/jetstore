@@ -52,8 +52,8 @@ template<class T>
 class ReteGraphCallbackMgr: public rdf::GraphCallbackManager {
  public:
   ReteGraphCallbackMgr() = delete;
-  ReteGraphCallbackMgr(ReteCallBackList<T> callbacks) 
-    : rdf::GraphCallbackManager(), callbacks_(callbacks) {}
+  // ReteGraphCallbackMgr(ReteCallBackList<T> callbacks) 
+  //   : rdf::GraphCallbackManager(), callbacks_(callbacks) {}
   ReteGraphCallbackMgr(ReteCallBackList<T> const& callbacks) 
     : rdf::GraphCallbackManager(), callbacks_(callbacks) {}
   ReteGraphCallbackMgr(ReteCallBackList<T> && callbacks) 
@@ -81,11 +81,11 @@ class ReteGraphCallbackMgr: public rdf::GraphCallbackManager {
   ReteCallBackList<T> callbacks_;
 };
 
-template<class T>
-inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList<T> callbacks)
-{
-  return std::make_shared<ReteGraphCallbackMgr<T>>(callbacks);
-}
+// template<class T>
+// inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList<T> callbacks)
+// {
+//   return std::make_shared<ReteGraphCallbackMgr<T>>(callbacks);
+// }
 
 template<class T>
 inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList<T> const& callbacks)

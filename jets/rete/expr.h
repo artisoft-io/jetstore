@@ -64,7 +64,7 @@ class ExprConjunction: public ExprBase<T> {
  using typename ExprBase<T>::ExprDataType;
  using data_type = std::vector<ExprBasePtr<T>>;
 
-  ExprConjunction(data_type v): ExprBase<T>(), data_(std::move(v)) {}
+  // ExprConjunction(data_type v): ExprBase<T>(), data_(std::move(v)) {}
   ExprConjunction(data_type const&v): ExprBase<T>(), data_(v) {}
   ExprConjunction(data_type &&v): ExprBase<T>(), data_(std::forward<data_type>(v)) {}
   virtual ~ExprConjunction() {}

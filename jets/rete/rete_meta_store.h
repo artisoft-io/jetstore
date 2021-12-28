@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <glog/logging.h>
+
 #include "absl/hash/hash.h"
 #include "absl/container/flat_hash_set.h"
 
@@ -28,10 +30,21 @@ template<class T>
 using ReteMetaStorePtr = std::shared_ptr<ReteMetaStore<T>>;
 
 using NodeVertexVector = std::vector<NodeVertexPtr>;
-// NodeVertexAdjency represent adjency graph using map<parent vertex, set<child vertexes>>
-using NodeVertexAdjency = std::unordered_map<int, std::unordered_set<int>>;
 
-// ReteMetaStore making the rete network
+/**
+ * @brief Main metadata store regarding the rete network
+ *
+ * The ReteMetaStore correspond to a complete rule set
+ * organized as a rete network.
+ *
+ * Initialize routine perform important connection between the
+ * metadata entities, such as reverse lookup of the consequent terms
+ * and children lookup for each NodeVertex.
+ *
+ * Initialize must be call before use with ReteSession
+ * 
+ * @tparam T 
+ */
 template<class T>
 class ReteMetaStore {
  public:
@@ -43,54 +56,29 @@ class ReteMetaStore {
 
   using AlphaNodeVector = std::vector<AlphaNodePtr<T>>;
   using ExprVector = std::vector<ExprBasePtr<T>>;
-  using PairIntItor = std::pair<
-                        std::unordered_set<int>::const_iterator,
-                        std::unordered_set<int>::const_iterator>;
-  // NodeVertexConsequentTerms is the set of consequent terms associated with a NodeVertex 
-  // using map<node vertex, set<consequent terms>> these are identified as AlphaNodes that 
-  // are consequent terms associated with NodeVertex
-  using AlphaNodeSet = std::unordered_set<AlphaNode<T> const*>;
-  using NodeVertexConsequentTerms = std::unordered_map<int, AlphaNodeSet>;
 
   ReteMetaStore()
     : alpha_nodes_(),
-      node_vertexes_(),
-      node_vertex_adj_(),
-      consequent_terms_()
+      exprs_(),
+      node_vertexes_()
   {}
-  ReteMetaStore(AlphaNodeVector alpha_nodes, ExprVector exprs, 
-      NodeVertexVector node_vertexes, NodeVertexAdjency node_vertex_adj)
-    : alpha_nodes_(alpha_nodes), 
-      exprs_(exprs),
-      node_vertexes_(node_vertexes),
-      node_vertex_adj_(node_vertex_adj),
-      consequent_terms_()
-  {
-    // Set consequent_terms_ mapping, which is a reverse lookup
-    initialize();
-  }
+  // ReteMetaStore(AlphaNodeVector alpha_nodes, ExprVector exprs, NodeVertexVector node_vertexes)
+  //   : alpha_nodes_(alpha_nodes), 
+  //     exprs_(exprs),
+  //     node_vertexes_(node_vertexes)
+  // {}
   ReteMetaStore(AlphaNodeVector const& alpha_nodes, ExprVector const& exprs, 
-      NodeVertexVector const& node_vertexes, NodeVertexAdjency node_vertex_adj)
+    NodeVertexVector const& node_vertexes)
     : alpha_nodes_(alpha_nodes), 
       exprs_(exprs),
-      node_vertexes_(node_vertexes),
-      node_vertex_adj_(node_vertex_adj),
-      consequent_terms_()
-  {
-    // Set consequent_terms_ mapping, which is a reverse lookup
-    initialize();
-  }
+      node_vertexes_(node_vertexes)
+  {}
   ReteMetaStore(AlphaNodeVector && alpha_nodes, ExprVector && exprs, 
-      NodeVertexVector && node_vertexes, NodeVertexAdjency && node_vertex_adj)
+      NodeVertexVector && node_vertexes)
     : alpha_nodes_(std::forward<AlphaNodeVector>(alpha_nodes)), 
       exprs_(std::forward<ExprVector>(exprs)), 
-      node_vertexes_(std::forward<NodeVertexVector>(node_vertexes)),
-      node_vertex_adj_(std::forward<NodeVertexAdjency>(node_vertex_adj)),
-      consequent_terms_()
-  {
-    // Set consequent_terms_ mapping, which is a reverse lookup
-    initialize();
-  }
+      node_vertexes_(std::forward<NodeVertexVector>(node_vertexes))
+  {}
 
   /**
    * @brief Get the alpha node object by key
@@ -122,47 +110,42 @@ class ReteMetaStore {
     return node_vertexes_[vertex].get();
   }
 
-  inline AlphaNodeSet const*
-  get_consequent_nodes(int vertex)const
-  {
-    auto itor = consequent_terms_.find(vertex);    
-    if(itor != consequent_terms_.end()) {
-      return &(itor->second);
-    }
-    return nullptr;
-  }
-
-  inline PairIntItor
-  get_adj_node_vertexes(int vertex)const
-  {
-    auto itor = node_vertex_adj_.find(vertex);    
-    if(itor != node_vertex_adj_.end()) {
-      return {itor->second.begin(), itor->second.end()};
-    }
-    return {};
-  }
-
   inline int
   nbr_vertices()const
   {
     return static_cast<int>(node_vertexes_.size());
   }
 
- protected:
-  void
+  int
   initialize()
   {
-    for(auto const& node: this->alpha_nodes_)
-    {
-      int vertex = node->get_node_vertex()->vertex;
-      auto itor = consequent_terms_.find(vertex);
-      if(itor == consequent_terms_.end()) {
-        auto ret = consequent_terms_.insert({vertex, {}});
-        ret.first->second.insert(node.get());
-      } else {
-        itor->second.insert(node.get());
+    // Perform reverse lookup of children NodeVertex using
+    // NodeVertex parent_node property
+    for(auto const& nodeptr: this->node_vertexes_) {
+      b_index node = nodeptr.get();
+      // remember the root node does not have a parent node!!
+      if(not node->parent_node_vertex) continue;
+      auto & parent_node = this->node_vertexes_[node->parent_node_vertex->vertex];
+      parent_node->child_nodes.insert(node);
+    }
+
+    // Assign consequent terms vertex (AlphaNode) to NodeVertex
+    int sz = static_cast<int>(this->alpha_nodes_.size());
+    for(int ipos=0; ipos<sz; ++ipos) {
+      // validate that alpha node at ipos < nbr_vertices are antecedent nodes
+      auto & alpha_ptr =  this->alpha_nodes_[ipos];
+      if(ipos<this->nbr_vertices() and not alpha_ptr->is_antecedent() ) {
+        LOG(ERROR) << "ReteMetaStore::initialize: error AlphaNode "
+          "with vertex < nbr_vertices that is NOT an antecedent term!";
+        return -1;
+      }
+      if(not alpha_ptr->is_antecedent()) {
+        b_index node = alpha_ptr->get_node_vertex();
+        auto & current_node = this->node_vertexes_[node->vertex];
+        current_node->consequent_alpha_vertexes.insert(ipos);
       }
     }
+    return 0;
   }
 
  private:
@@ -170,53 +153,27 @@ class ReteMetaStore {
   AlphaNodeVector  alpha_nodes_;
   ExprVector       exprs_;
   NodeVertexVector node_vertexes_;
-  // NodeVertexAdjency is map<parent node vertex>, <set of child node vertex>
-  NodeVertexAdjency node_vertex_adj_;
-  // NodeVertexConsequentTerms is the set of consequent terms associated with a NodeVertex 
-  // using map<node vertex, set<consequent terms>> these are identified as AlphaNodes that 
-  NodeVertexConsequentTerms consequent_terms_;
 };
-
-template<class T>
-inline ReteMetaStorePtr<T> create_rete_meta_store()
-{
-  return std::make_shared<ReteMetaStore<T>>();
-}
-
-template<class T>
-inline ReteMetaStorePtr<T> create_rete_meta_store(
-  typename ReteMetaStore<T>::AlphaNodeVector alpha_nodes, 
-  typename ReteMetaStore<T>::ExprVector exprs, 
-  NodeVertexVector node_vertexes,
-  NodeVertexAdjency node_adjency)
-{
-  return std::make_shared<ReteMetaStore<T>>(alpha_nodes, exprs, 
-    node_vertexes, node_adjency);
-}
 
 template<class T>
 inline ReteMetaStorePtr<T> create_rete_meta_store(
   typename ReteMetaStore<T>::AlphaNodeVector const& alpha_nodes,
   typename ReteMetaStore<T>::ExprVector const& exprs,
-  NodeVertexVector const& node_vertexes,
-  NodeVertexAdjency const& node_adjency)
+  NodeVertexVector const& node_vertexes)
 {
-  return std::make_shared<ReteMetaStore<T>>(alpha_nodes, exprs, 
-    node_vertexes, node_adjency);
+  return std::make_shared<ReteMetaStore<T>>(alpha_nodes, exprs, node_vertexes);
 }
 
 template<class T>
 inline ReteMetaStorePtr<T> create_rete_meta_store(
   typename ReteMetaStore<T>::AlphaNodeVector && alpha_nodes,
   typename ReteMetaStore<T>::ExprVector && exprs,
-  NodeVertexVector && node_vertexes,
-  NodeVertexAdjency && node_adjency)
+  NodeVertexVector && node_vertexes)
 {
   return std::make_shared<ReteMetaStore<T>>(
     std::forward<typename ReteMetaStore<T>::AlphaNodeVector>(alpha_nodes),
     std::forward<typename ReteMetaStore<T>::ExprVector>(alpha_nodes),
-    std::forward<NodeVertexVector>(alpha_nodes),
-    std::forward<NodeVertexAdjency>(node_adjency) );
+    std::forward<NodeVertexVector>(alpha_nodes) );
 }
 
 } // namespace jets::rete

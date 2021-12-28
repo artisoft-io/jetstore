@@ -232,7 +232,7 @@ BetaRelation::insert_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row
   if(iret.second) {
     // beta_row inserted in set
     // schedule the consequent terms
-    if(beta_row->get_node_vertex()->has_consequent_terms) {
+    if(beta_row->get_node_vertex()->has_consequent_terms()) {
       // Flag row as new and pending to infer triples
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
@@ -267,7 +267,7 @@ BetaRelation::remove_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row
   }
 
   // Check for consequent terms
-  if(beta_row->get_node_vertex()->has_consequent_terms) {
+  if(beta_row->get_node_vertex()->has_consequent_terms()) {
     // Check if status kInserted
     if(beta_row->is_inserted()) {
       // Row was marked kInserted, not inferred yet

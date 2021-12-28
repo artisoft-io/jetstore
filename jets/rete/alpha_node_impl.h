@@ -25,23 +25,24 @@ class AlphaNodeImpl: public AlphaNode<T> {
   using AlphaNode<T>::RDFGraph;
   using AlphaNode<T>::RDFGraphPtr;
 
-  AlphaNodeImpl()
-    : AlphaNode<T>(),fu_(),fv_(),fw_()
-  {}
+  AlphaNodeImpl() = delete;
+  // AlphaNodeImpl()
+  //   : AlphaNode<T>(),fu_(),fv_(),fw_()
+  // {}
 
-  AlphaNodeImpl(b_index node_vertex, int query_key,
-    Fu fu, Fv fv, Fw fw) 
-    : AlphaNode<T>(node_vertex),fu_(fu),fv_(fv),fw_(fw)
-  {}
+  // AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
+  //   Fu fu, Fv fv, Fw fw) 
+  //   : AlphaNode<T>(node_vertex, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
+  // {}
 
-  AlphaNodeImpl(b_index node_vertex, int query_key,
+  AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
     Fu const&fu, Fv const&fv, Fw const&fw) 
-    : AlphaNode<T>(node_vertex),fu_(fu),fv_(fv),fw_(fw)
+    : AlphaNode<T>(node_vertex, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
   {}
 
-  AlphaNodeImpl(b_index node_vertex, int query_key,
+  AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
     Fu &&fu, Fv &&fv, Fw &&fw) 
-    : AlphaNode<T>(node_vertex),
+    : AlphaNode<T>(node_vertex, is_antecedent),
       fu_(std::forward<Fu>(fu)),fv_(std::forward<Fv>(fv)),fw_(std::forward<Fw>(fw))
   {}
 
@@ -92,7 +93,7 @@ class AlphaNodeImpl: public AlphaNode<T> {
    * @param triple 
    * @return BetaRowIteratorPtr 
    */
-  virtual BetaRowIteratorPtr
+  BetaRowIteratorPtr
   find_matching_rows(BetaRelation * beta_relation, rdf::r_index s, rdf::r_index p, rdf::r_index o)const override
   {
     b_index meta_vertex = beta_relation->get_node_vertex();
@@ -126,7 +127,7 @@ class AlphaNodeImpl: public AlphaNode<T> {
    * @param beta_row to apply index retrieval
    * @return rdf::Triple 
    */
-  virtual rdf::Triple
+  rdf::Triple
   compute_consequent_triple(BetaRow * beta_row)const override
   {
     return {fu_.eval(beta_row), fv_.eval(beta_row), fw_.eval(beta_row)};

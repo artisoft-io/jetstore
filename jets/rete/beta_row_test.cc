@@ -5,31 +5,19 @@
 
 #include <gtest/gtest.h>
 
-#include "beta_row_initializer.h"
 #include "jets/rdf/rdf_types.h"
-
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row.h"
+#include "jets/rete/rete_types.h"
 
 namespace jets::rete {
 namespace {
 // Simple test
-
-TEST(StandingBetaRowTest, SimpleTest) {
-    // auto node_vertex_p = create_node_vertex(nullptr, 0, false, false, false);
-    // b_index node_vertex = node_vertex_p.get();
-    // auto bn = create_beta_node<AlphaConnector>(node_vertex);
-    // EXPECT_EQ(bn->get_node_vertex()->vertex, 0);
-}
-
 // The suite fixture for node_vertex
 class BetaRowTest : public ::testing::Test {
  protected:
   BetaRowTest() : br0(), ri0(), nv0() {
       int row_size = 3;
       ri0 = create_row_initializer(row_size);
-      b_index_set s0;
-      nv0 = create_node_vertex(nullptr, s0, 0, false, false, 0, 10, ri0, {});
+      nv0 = create_node_vertex(nullptr, 0, false, 0, 10, ri0, {});
       br0 = create_beta_row(nv0.get(), row_size);
   }
 

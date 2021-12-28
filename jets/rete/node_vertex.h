@@ -49,14 +49,23 @@ using AntecedentQuerySpecPtr = std::shared_ptr<AntecedentQuerySpec>;
 // Reversed lookup for descendent nodes to speed up insert/delete in indexes struct
 using b_index_set = absl::flat_hash_set<b_index>;
 
-// NodeVertex holding metadata information about a BetaRelation node
+// Set<int> representing the set of consequent AlphaNode's vertex for each NodeVertex
+// This is set by the ReteMetaStore::initialize() method
+using consequent_set = absl::flat_hash_set<int>;
+
+/**
+ * @brief NodeVertex holding metadata information about a BetaRelation node
+ * 
+ * Note the child_nodes and consequent_alpha_vertexes properties are set after 
+ * construction by ReteMetaStore as part of metadata initialization routine.
+ */
 struct NodeVertex {
 
   NodeVertex()
     : parent_node_vertex(nullptr),
       child_nodes(),
+      consequent_alpha_vertexes(),
       vertex(0),
-      has_consequent_terms(false),
       is_negation(false),
       expr_vertex(-1),
       salience(0),
@@ -66,18 +75,16 @@ struct NodeVertex {
 
   NodeVertex(
     b_index parent_node_vertex, 
-    b_index_set child_nodes,
     int vertex, 
-    bool has_consequent_terms, 
     bool is_negation, 
     int expr_vertex, 
     int salience, 
     BetaRowInitializerPtr beta_row_initializer,
     AntecedentQuerySpecPtr antecedent_query_spec) 
     : parent_node_vertex(parent_node_vertex),
-      child_nodes(child_nodes),
+      child_nodes(),
+      consequent_alpha_vertexes(),
       vertex(vertex),
-      has_consequent_terms(has_consequent_terms),
       is_negation(is_negation),
       expr_vertex(expr_vertex),
       salience(salience),
@@ -98,10 +105,16 @@ struct NodeVertex {
     return beta_row_initializer.get();
   }
 
+  inline bool 
+  has_consequent_terms()const
+  {
+    return not consequent_alpha_vertexes.empty();
+  }
+
   b_index                  parent_node_vertex;
   b_index_set              child_nodes;
+  consequent_set           consequent_alpha_vertexes;
   int                      vertex;
-  bool                     has_consequent_terms;
   bool                     is_negation;
   int                      expr_vertex;
   int                      salience;
@@ -111,11 +124,10 @@ struct NodeVertex {
 
 inline 
 NodeVertexPtr create_node_vertex(
-  b_index parent_node_vertex, b_index_set child_nodes, int vertex, bool has_consequent_terms, 
-  bool is_negation, int expr_vertex, int salience, 
+  b_index parent_node_vertex, int vertex, bool is_negation, int expr_vertex, int salience,
   BetaRowInitializerPtr beta_row_initializer, AntecedentQuerySpecPtr antecedent_query_spec)
 {
-  return std::make_shared<NodeVertex>(parent_node_vertex, child_nodes, vertex, has_consequent_terms, 
+  return std::make_shared<NodeVertex>(parent_node_vertex, vertex, 
     is_negation, expr_vertex, salience, beta_row_initializer, antecedent_query_spec);
 }
 

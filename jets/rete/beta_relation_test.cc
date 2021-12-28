@@ -16,22 +16,14 @@ struct AlphaConnector {
 
 };
 
-TEST(BetaRelationTest, SimpleTest) {
-    // auto node_vertex_p = create_node_vertex(nullptr, 0, false, false, false);
-    // b_index node_vertex = node_vertex_p.get();
-    // auto bn = create_beta_node<AlphaConnector>(node_vertex);
-    // EXPECT_EQ(bn->get_node_vertex()->vertex, 0);
-}
-
 // The suite fixture for node_vertex
 class NodeVertexTest : public ::testing::Test {
  protected:
   NodeVertexTest() : ri0(), ri1(), nv0(), nv1() {
       ri0 = create_row_initializer(3);
       ri1 = create_row_initializer(5);
-      b_index_set s0;
-      nv0 = create_node_vertex(nullptr, s0, 0,   false, false, 0, 10, ri0, {});
-      nv1 = create_node_vertex(nv0.get(), s0, 0, true, false, 0, 20, ri1, {});
+      nv0 = create_node_vertex(nullptr, 0, false, 0, 10, ri0, {});
+      nv1 = create_node_vertex(nv0.get(), 0, false, 0, 20, ri1, {});
   }
 
   BetaRowInitializerPtr ri0;

@@ -100,13 +100,13 @@ template<class T>
 				int parent_vertex = stack.back();
 				stack.pop_back();
 
-        auto adj_vertices = this->rule_ms_->get_adj_node_vertexes(parent_vertex);
-				auto itor = adj_vertices.first;
-				auto end  = adj_vertices.second;
+        b_index parent_node = this->rule_ms_->get_node_vertex(parent_vertex);
+				b_index_set::const_iterator itor = parent_node->child_nodes.begin();
+				b_index_set::const_iterator end  = parent_node->child_nodes.end();
 				for(; itor!=end; ++itor) {
 
           // Compute beta relation between `parent_vertex` and `vertex`
-					int current_vertex = *itor;
+					int current_vertex = (*itor)->vertex;
           auto * parent_beta_relation = this->get_beta_relation(parent_vertex);
           auto * current_relation = this->get_beta_relation(current_vertex);
           if(not parent_beta_relation or not current_relation) {
@@ -176,10 +176,10 @@ template<class T>
       //* TODO Log infer/retract event here to trace inferrence process (aka explain why)
       //* TODO Track how many times a rule infer/retract triples here (aka rule stat collector)
 
-      auto const* consequent_nodes = this->rule_ms_->get_consequent_nodes(meta_node->vertex);
-      if(consequent_nodes) {
+      if(meta_node->has_consequent_terms()) {
         if(beta_row->is_inserted()) {
-          for(auto const* consequent_node: *consequent_nodes) {
+          for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
+            auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             this->rdf_session_->insert_inferred(consequent_node->compute_consequent_triple(beta_row));
           }
         } else {
@@ -190,7 +190,8 @@ template<class T>
             RETE_EXCEPTION("compute_consequent_triples: Invalid beta_row at vertex "
                   <<meta_node->vertex<<": error expecting status deleted, got "<<beta_row->get_status());
           }
-          for(auto const* consequent_node: *consequent_nodes) {
+          for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
+            auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             this->rdf_session_->retract(consequent_node->compute_consequent_triple(beta_row));
           }
         }
@@ -244,6 +245,7 @@ template<class T>
       }
       parent_row_itor->next();
     }
+    return 0;
   }
 
 template<class T>

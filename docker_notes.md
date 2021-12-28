@@ -18,6 +18,9 @@ ${workspaceFolder}/**
 # To build
 bazel build --sandbox_debug  //jets:jetstore
 
+# To build with large output
+bazel build //jets/rete:jets_rete_test --verbose_failures --experimental_ui_max_stdouterr_bytes=5000000
+
 # Need this
 BAZEL_CXXOPTS="-std=c++17:-O3" bazel build --verbose_failures //jets/rdf:jets_rdf_test
 BAZEL_CXXOPTS="-std=c++17:-O3" bazel build --verbose_failures //jets/rdf:jets_rdf_benchmark

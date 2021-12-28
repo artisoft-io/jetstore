@@ -265,7 +265,7 @@ set_rmgr(RManagerPtr p)
 }
 
  private:
-  friend class find_visitor<RDFGraph>;
+  friend struct find_visitor<RDFGraph>;
   friend class RDFSession<RDFGraph>;
 
   int      size_;

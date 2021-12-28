@@ -17,6 +17,13 @@
 #include "jets/rete/rete_session.h"
 
 namespace jets::rete {
+/////////////////////////////////////////////////////////////////////////////////////////
+// ReteMetaStore with  RDFSession  -- with STL containers -- suffix STL
+using ReteMetaStoreStl = ReteMetaStore<rdf::RDFSessionStlImpl>;
+using ReteMetaStoreStlPtr = ReteMetaStorePtr<rdf::RDFSessionStlImpl>;
+
+using ReteSessionStl = ReteSession<rdf::RDFSessionStlImpl>;
+using ReteSessionStlPtr = ReteSessionPtr<rdf::RDFSessionStlImpl>;
 
 } // namespace jets::rete
 #endif // JETS_RETE_TYPES_H

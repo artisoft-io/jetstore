@@ -61,6 +61,8 @@ cc_test(
     name = "jets_rete_test",
     size = "small",
     srcs = [
+        "node_vertex_test.cc", 
+        "rete_meta_store_test.cc", 
         "beta_relation_test.cc", 
         "beta_row_initializer_test.cc", 
         "beta_row_test.cc", 

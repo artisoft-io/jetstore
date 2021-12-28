@@ -121,9 +121,9 @@ class AlphaNode {
   using RDFGraph = typename T::RDFGraph;
   using RDFGraphPtr = std::shared_ptr<RDFGraph>;
 
-  AlphaNode()
-    : node_vertex_(nullptr), is_antecedent_(false)
-  {}
+  // AlphaNode()
+  //   : node_vertex_(nullptr), is_antecedent_(false)
+  // {}
 
   AlphaNode(b_index node_vertex, bool is_antecedent) 
     : node_vertex_(node_vertex), is_antecedent_(is_antecedent)
@@ -167,15 +167,15 @@ class AlphaNode {
   compute_consequent_triple(BetaRow * beta_row)const=0;
 
  private:
-  bool       is_antecedent_;
   b_index    node_vertex_;
+  bool       is_antecedent_;
 };
 
-template<class T>
-AlphaNodePtr<T> create_alpha_node(b_index node_vertex)
-{
-  return std::make_shared<AlphaNode<T>>(node_vertex);
-}
+// template<class T>
+// AlphaNodePtr<T> create_alpha_node(b_index node_vertex)
+// {
+//   return std::make_shared<AlphaNode<T>>(node_vertex);
+// }
 
 } // namespace jets::rete
 #endif // JETS_RETE_ALPHA_NODE_H
