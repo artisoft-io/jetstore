@@ -142,6 +142,25 @@ struct RDFSessionIterator {
     return t3;
   }
 
+  inline Triple as_triple() const 
+  {    
+    if(meta_itor_.is_end()) {
+      if(asserted_itor_.is_end()) {
+        return Triple(inferred_itor_.get_object(), 
+          inferred_itor_.get_predicate(), 
+          inferred_itor_.get_object());
+      } else {
+        return Triple(asserted_itor_.get_object(), 
+          asserted_itor_.get_predicate(), 
+          asserted_itor_.get_object());
+      }
+    } else {
+        return Triple(meta_itor_.get_object(), 
+          meta_itor_.get_predicate(), 
+          meta_itor_.get_object());
+    }
+  }
+
  private:
   Iterator meta_itor_;
   Iterator asserted_itor_;

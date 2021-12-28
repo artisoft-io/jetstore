@@ -232,8 +232,5 @@ inline BetaRelationPtr create_beta_node(b_index node_vertex)
   return std::make_shared<BetaRelation>(node_vertex);
 }
 
-inline int
-initialize_beta_row(BetaRow * beta_row, BetaRowInitializer const* beta_row_initializer, BetaRow const* parent_row, rdf::r_index const* triple);
-
 } // namespace jets::rete
 #endif // JETS_RETE_BETA_RELATION_H

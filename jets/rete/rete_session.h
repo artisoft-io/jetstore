@@ -208,6 +208,7 @@ class ReteSession {
   compute_consequent_triples();
 
  private:
+ friend class BetaRelation;
   int
   process_parent_rows(BetaRelation * current_relation, AlphaNode<T> const* alpha_node,
     BetaRowIterator * parent_row_itor, bool is_inserted);
@@ -219,9 +220,9 @@ class ReteSession {
 };
 
 template<class T>
-inline ReteSessionPtr<T> create_rete_session(b_index node_vertex)
+inline ReteSessionPtr<T> create_rete_session(ReteMetaStore<T> const* rule_ms, T * rdf_session)
 {
-  return std::make_shared<ReteSession<T>>(node_vertex);
+  return std::make_shared<ReteSession<T>>(rule_ms, rdf_session);
 }
 
 template<class T>

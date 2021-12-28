@@ -94,26 +94,27 @@ class BetaRow {
   }
 
   // Method to initialize the row with a BetaRowInitializer
-  void
-  initialize(BetaRowInitializerPtr initializer, BetaRowPtr parent_node, rdf::Triple const& triple)
+  int
+  initialize(BetaRowInitializer const* initializer, BetaRow const* parent_node, rdf::Triple const* triple)
   {
     int pos = 0;
     auto itor = initializer->begin();
     auto end = initializer->end();
     rdf::r_index value;
     for(; itor != end; itor++) {
-      auto index = *itor;
+      int index = *itor;
       if(index & brc_parent_node) {
         value = parent_node->get(index & brc_low_mask);
       } else {
-        value = triple.get(index & brc_low_mask);
+        value = triple->get(index & brc_low_mask);
       }
       if(not value or this->put(pos, value)<0) {
         LOG(ERROR) << "BetaRow::initialize: invalid index to lookup r_index";
-        RETE_EXCEPTION("BetaRow::initialize: invalid index to lookup r_index");
+        return -1;
       }
       pos++;
     }
+    return 0;
   }
 
   // Method to initialize data_ 

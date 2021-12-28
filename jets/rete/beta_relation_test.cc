@@ -1,53 +1,74 @@
+#include <cstddef>
 #include <iostream>
 #include <memory>
 
 #include <gtest/gtest.h>
 
 #include "jets/rdf/rdf_types.h"
-
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_relation.h"
+#include "jets/rete/rete_types.h"
 
 namespace jets::rete {
 namespace {
-// Simple test
-
-struct AlphaConnector {
-
-};
-
-// The suite fixture for node_vertex
-class NodeVertexTest : public ::testing::Test {
+// The suite fixture for beta relation
+class BetaRelationTest : public ::testing::Test {
  protected:
-  NodeVertexTest() : ri0(), ri1(), nv0(), nv1() {
-      ri0 = create_row_initializer(3);
-      ri1 = create_row_initializer(5);
-      nv0 = create_node_vertex(nullptr, 0, false, 0, 10, ri0, {});
-      nv1 = create_node_vertex(nv0.get(), 0, false, 0, 20, ri1, {});
+  BetaRelationTest() 
+    : node_vertexes(), beta_relations(), rete_session(),
+      rete_meta_store(), rdf_session() 
+  {
+    // we have 1 paths:
+    // v0->v1
+    // v0 row: [p1, p2]
+    // v1 row: [p1, p2, t2]
+    auto ri0 = create_row_initializer(2);
+    ri0->put(0, 0 | brc_triple);
+    ri0->put(1, 1 | brc_triple);
+    auto ri1 = create_row_initializer(3);
+    ri1->put(0, 0 | brc_parent_node);
+    ri1->put(1, 1 | brc_parent_node);
+    ri1->put(2, 2 | brc_triple);
+    node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 0, 10, ri0, {}));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 0, 10, ri1, {}));
+
+    // create the beta relation entities
+    for(size_t i=0; i<node_vertexes.size(); ++i) {
+        beta_relations.push_back(create_beta_node(node_vertexes[i].get()));
+    }
+    rdf_session = rdf::create_stl_rdf_session();
+    rete_meta_store = create_rete_meta_store<rdf::RDFSessionStlImpl>({}, {}, node_vertexes);
+    rete_session = create_rete_session(rete_meta_store.get(), rdf_session.get());
   }
 
-  BetaRowInitializerPtr ri0;
-  BetaRowInitializerPtr ri1;
-  NodeVertexPtr nv0;
-  NodeVertexPtr nv1;
+  BetaRowPtr 
+  create_beta_row(b_index node_vertex, BetaRowPtr parent_row, rdf::Triple triple) 
+  {
+    auto beta_row = ::jets::rete::create_beta_row(node_vertex, node_vertex->beta_row_initializer->get_size());
+    beta_row->initialize(node_vertex->beta_row_initializer.get(), parent_row.get(), &triple);
+    return beta_row;
+  }
+
+  NodeVertexVector   node_vertexes;
+  BetaRelationVector beta_relations;
+  ReteSessionStlPtr  rete_session;
+  ReteMetaStoreStlPtr rete_meta_store;
+  rdf::RDFSessionStlPtr   rdf_session;
 };
 
 // Define the tests
-TEST_F(NodeVertexTest, FirstTest) {
-    EXPECT_EQ(ri0->get_size(), 3);
-    EXPECT_EQ(ri1->get_size(), 5);
+TEST_F(BetaRelationTest, InsertBetaRow) 
+{
+  // rdf resource manager
+  rdf::RManager<rdf::LD2RIndexMap> rmanager;
+  auto p0 = rmanager.create_resource("p0");
+  auto p1 = rmanager.create_resource("p1");
+  auto p2 = rmanager.create_resource("p2");
+  auto beta_row = ::jets::rete::create_beta_row(node_vertexes[1].get(), 3);
+  beta_row->put(0, p0);
+  beta_row->put(1, p1);
+  beta_row->put(2, p2);
 
-    EXPECT_EQ(ri0->put(0, 10), 0);
-    EXPECT_EQ(ri0->put(1, 11), 0);
-    EXPECT_EQ(ri0->put(2, 13), 0);
-
-    EXPECT_EQ(ri1->put(0, 20), 0);
-    EXPECT_EQ(ri1->put(1, 21), 0);
-    EXPECT_EQ(ri1->put(2, 22), 0);
-    EXPECT_EQ(ri1->put(3, 23), 0);
-    EXPECT_EQ(ri1->put(4, 24), 0);
-
-    EXPECT_EQ(nv1->parent_node_vertex, nv0.get());
+  EXPECT_EQ(beta_relations[1]->insert_beta_row(rete_session.get(), beta_row), 0);
+  EXPECT_TRUE(beta_row->is_inserted());
 }
 
 }   // namespace

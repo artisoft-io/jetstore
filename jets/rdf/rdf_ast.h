@@ -184,7 +184,7 @@ inline std::ostream & operator<<(std::ostream & out, Rptr const& r)
 template<typename T>
 struct TripleBase {
   TripleBase() = default;
-  TripleBase(T s, T p, T o) : subject(s), predicate(p), object(o) {}
+  // TripleBase(T s, T p, T o) : subject(s), predicate(p), object(o) {}
   TripleBase(T const&s, T const&p, T const&o) : subject(s), predicate(p), object(o) {}
   TripleBase(T &&s, T &&p, T &&o) : subject(std::forward<T>(s)), predicate(std::forward<T>(p)), object(std::forward<T>(o)) {}
   TripleBase(TripleBase const&) = default;

@@ -220,9 +220,8 @@ template<class T>
         // create the beta row
         auto beta_row = create_beta_row(cmeta_node, beta_row_initializer->get_size());
         // initialize the beta row with parent_row and t3
-        rdf::r_index t3[3];
-        initialize_beta_row(beta_row, beta_row_initializer, 
-                            parent_row, t3_itor.get_triple(&t3[0]));
+        rdf::Triple triple = t3_itor->as_triple();
+        beta_row->initialize(beta_row_initializer, parent_row, &triple);
 
         // evaluate the current_relation filter if any
         bool keepit = true;
