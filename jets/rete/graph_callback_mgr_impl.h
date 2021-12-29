@@ -11,11 +11,10 @@
 // This file contains implementation classes for rdf::GraphCallbackManager
 namespace jets::rete {
 // ReteCallBack class implementating the callback for triple inserted and deleted
-template<class T>
 class ReteCallBack {
  public:
   ReteCallBack() = delete;
-  ReteCallBack(ReteSession<T> * rete_session, int vertex)
+  ReteCallBack(ReteSession * rete_session, int vertex)
     : rete_session_(rete_session), vertex_(vertex) {};
   ~ReteCallBack()=default;
 
@@ -23,41 +22,36 @@ class ReteCallBack {
   ReteCallBack(ReteCallBack && rhs) = default;
   ReteCallBack& operator=(ReteCallBack const&) = default;
 
-  inline void
-  triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
-  {
-    this->rete_session_->triple_inserted(this->vertex_, s, p, o);
-  }
+  // Implementation moved to rete_session.h
+  void
+  triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const;
 
-  inline void
-  triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
-  {
-    this->rete_session_->triple_deleted(this->vertex_, s, p, o);
-  }
+  // Implementation moved to rete_session.h
+  void
+  triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const;
 
  private:
-  ReteSession<T> * rete_session_;
-  int              vertex_;
+  ReteSession * rete_session_;
+  int           vertex_;
 };
 
 // ReteCallBackList: Container for ReteCallBack
-template<class T>
-using ReteCallBackList = std::list<ReteCallBack<T>>;
+using ReteCallBackList = std::list<ReteCallBack>;
 
 // //////////////////////////////////////////////////////////////////////////////////////
 // ReteGraphCallbackMgr class -- main class for managing callback functions on BaseGraph
 // --------------------------------------------------------------------------------------
 // Implementation class for rdf::GraphCallbackManager
-template<class T>
 class ReteGraphCallbackMgr: public rdf::GraphCallbackManager {
  public:
   ReteGraphCallbackMgr() = delete;
-  // ReteGraphCallbackMgr(ReteCallBackList<T> callbacks) 
+  // ReteGraphCallbackMgr(ReteCallBackList callbacks) 
   //   : rdf::GraphCallbackManager(), callbacks_(callbacks) {}
-  ReteGraphCallbackMgr(ReteCallBackList<T> const& callbacks) 
+  ReteGraphCallbackMgr(ReteCallBackList const& callbacks) 
     : rdf::GraphCallbackManager(), callbacks_(callbacks) {}
-  ReteGraphCallbackMgr(ReteCallBackList<T> && callbacks) 
-    : rdf::GraphCallbackManager(), callbacks_(std::forward<ReteCallBackList<T>>(callbacks)) {}
+  ReteGraphCallbackMgr(ReteCallBackList && callbacks) 
+    : rdf::GraphCallbackManager(), 
+      callbacks_(std::forward<ReteCallBackList>(callbacks)) {}
 
   virtual ~ReteGraphCallbackMgr() {}
 
@@ -78,25 +72,17 @@ class ReteGraphCallbackMgr: public rdf::GraphCallbackManager {
   }
 
  private:
-  ReteCallBackList<T> callbacks_;
+  ReteCallBackList callbacks_;
 };
 
-// template<class T>
-// inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList<T> callbacks)
-// {
-//   return std::make_shared<ReteGraphCallbackMgr<T>>(callbacks);
-// }
-
-template<class T>
-inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList<T> const& callbacks)
+inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList const& callbacks)
 {
-  return std::make_shared<ReteGraphCallbackMgr<T>>(callbacks);
+  return std::make_shared<ReteGraphCallbackMgr>(callbacks);
 }
 
-template<class T>
-inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList<T> && callbacks)
+inline rdf::GraphCallbackManagerPtr create_graph_callback(ReteCallBackList && callbacks)
 {
-  return std::make_shared<ReteGraphCallbackMgr<T>>(std::forward<ReteCallBackList<T>>(callbacks));
+  return std::make_shared<ReteGraphCallbackMgr>(std::forward<ReteCallBackList>(callbacks));
 }
 
 } // namespace jets::rete

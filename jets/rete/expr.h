@@ -22,32 +22,27 @@ namespace jets::rete {
 // //////////////////////////////////////////////////////////////////////////////////////
 // ExprBase class -- Abstract base class for an expression tree
 // --------------------------------------------------------------------------------------
-template<class T>
 class ReteSession;
 class BetaRow;
 
-template<class T>
 class ExprBase;
-template<class T>
-using ExprBasePtr = std::shared_ptr<ExprBase<T>>;
+using ExprBasePtr = std::shared_ptr<ExprBase>;
 
 // ExprBase - Abstract base class for an expression tree
 // The expression tree is performing operation on rdf::RdfAstType
 // which is the rdf variant type
-template<class T>
 class ExprBase {
  public:
-  using RDFSession = T;
   using ExprDataType = rdf::RdfAstType;
 
   ExprBase() {}
   virtual ~ExprBase() {}
 
   virtual ExprDataType
-  eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const=0;
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
   inline bool
-  eval_filter(ReteSession<T> * rete_session, BetaRow const* beta_row)const
+  eval_filter(ReteSession * rete_session, BetaRow const* beta_row)const
   {
     auto result = eval(rete_session, beta_row);
     return rdf::to_bool(&result);
@@ -58,180 +53,165 @@ class ExprBase {
 // ======================================================================================
 // ExprConjunction
 // --------------------------------------------------------------------------------------
-template<class T>
-class ExprConjunction: public ExprBase<T> {
+class ExprConjunction: public ExprBase {
  public:
- using typename ExprBase<T>::ExprDataType;
- using data_type = std::vector<ExprBasePtr<T>>;
+ using ExprBase::ExprDataType;
+ using data_type = std::vector<ExprBasePtr>;
 
-  // ExprConjunction(data_type v): ExprBase<T>(), data_(std::move(v)) {}
-  ExprConjunction(data_type const&v): ExprBase<T>(), data_(v) {}
-  ExprConjunction(data_type &&v): ExprBase<T>(), data_(std::forward<data_type>(v)) {}
+  // ExprConjunction(data_type v): ExprBase(), data_(std::move(v)) {}
+  ExprConjunction(data_type const&v): ExprBase(), data_(v) {}
+  ExprConjunction(data_type &&v): ExprBase(), data_(std::forward<data_type>(v)) {}
   virtual ~ExprConjunction() {}
 
   ExprDataType
-  eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const override;
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
  private:
   
   data_type data_;
 };
-template<class T>
-ExprBasePtr<T> create_expr_conjunction(typename ExprConjunction<T>::data_type v)
+inline ExprBasePtr 
+create_expr_conjunction(typename ExprConjunction::data_type v)
 {
-  return std::make_shared<ExprConjunction<T>>(std::move(v));
+  return std::make_shared<ExprConjunction>(std::move(v));
 }
-template<class T>
-ExprBasePtr<T> create_expr_conjunction(typename ExprConjunction<T>::data_type const&v)
+inline ExprBasePtr 
+create_expr_conjunction(typename ExprConjunction::data_type const&v)
 {
-  return std::make_shared<ExprConjunction<T>>(v);
+  return std::make_shared<ExprConjunction>(v);
 }
-template<class T>
-ExprBasePtr<T> create_expr_conjunction(typename ExprConjunction<T>::data_type &&v)
+inline ExprBasePtr 
+create_expr_conjunction(typename ExprConjunction::data_type &&v)
 {
-  return std::make_shared<ExprConjunction<T>>(std::forward<typename ExprConjunction<T>::data_type>(v));
+  return std::make_shared<ExprConjunction>(std::forward<typename ExprConjunction::data_type>(v));
 }
 
 // ExprDisjunction
 // --------------------------------------------------------------------------------------
-template<class T>
-class ExprDisjunction: public ExprBase<T> {
+class ExprDisjunction: public ExprBase {
  public:
- using typename ExprBase<T>::ExprDataType;
- using data_type = std::vector<ExprBasePtr<T>>;
+ using ExprBase::ExprDataType;
+ using data_type = std::vector<ExprBasePtr>;
 
-  ExprDisjunction(data_type v): ExprBase<T>(), data_(std::move(v)) {}
-  ExprDisjunction(data_type const&v): ExprBase<T>(), data_(v) {}
-  ExprDisjunction(data_type &&v): ExprBase<T>(), data_(std::forward<data_type>(v)) {}
+  ExprDisjunction(data_type const&v): ExprBase(), data_(v) {}
+  ExprDisjunction(data_type &&v): ExprBase(), data_(std::forward<data_type>(v)) {}
   virtual ~ExprDisjunction() {}
 
   ExprDataType
-  eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const override;
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
  private:
   data_type data_;
 };
-template<class T>
-ExprBasePtr<T> create_expr_disjunction(typename ExprDisjunction<T>::data_type v)
+inline ExprBasePtr 
+create_expr_disjunction(typename ExprDisjunction::data_type const&v)
 {
-  return std::make_shared<ExprDisjunction<T>>(std::move(v));
+  return std::make_shared<ExprDisjunction>(v);
 }
-template<class T>
-ExprBasePtr<T> create_expr_disjunction(typename ExprDisjunction<T>::data_type const&v)
+inline ExprBasePtr 
+create_expr_disjunction(typename ExprDisjunction::data_type &&v)
 {
-  return std::make_shared<ExprDisjunction<T>>(v);
-}
-template<class T>
-ExprBasePtr<T> create_expr_disjunction(typename ExprDisjunction<T>::data_type &&v)
-{
-  return std::make_shared<ExprDisjunction<T>>(std::forward<typename ExprDisjunction<T>::data_type>(v));
+  return std::make_shared<ExprDisjunction>(std::forward<typename ExprDisjunction::data_type>(v));
 }
 
 // ExprCst
 // --------------------------------------------------------------------------------------
-template<class T>
-class ExprCst: public ExprBase<T> {
+class ExprCst: public ExprBase {
  public:
- using typename ExprBase<T>::ExprDataType;
+ using ExprBase::ExprDataType;
  using data_type = ExprDataType;
 
-  ExprCst(data_type v): ExprBase<T>(), data_(std::move(v)) {}
-  ExprCst(data_type const&v): ExprBase<T>(), data_(v) {}
-  ExprCst(data_type &&v): ExprBase<T>(), data_(std::forward<data_type>(v)) {}
+  ExprCst(data_type const&v): ExprBase(), data_(v) {}
+  ExprCst(data_type &&v): ExprBase(), data_(std::forward<data_type>(v)) {}
   virtual ~ExprCst() {}
 
   ExprDataType
-  eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const override;
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
  private:
   data_type data_;
 };
-template<class T>
-ExprBasePtr<T> create_expr_cst(typename ExprCst<T>::data_type v)
+inline ExprBasePtr 
+create_expr_cst(typename ExprCst::data_type const&v)
 {
-  return std::make_shared<ExprCst<T>>(std::move(v));
+  return std::make_shared<ExprCst>(v);
 }
-template<class T>
-ExprBasePtr<T> create_expr_cst(typename ExprCst<T>::data_type const&v)
+inline ExprBasePtr 
+create_expr_cst(typename ExprCst::data_type &&v)
 {
-  return std::make_shared<ExprCst<T>>(v);
-}
-template<class T>
-ExprBasePtr<T> create_expr_cst(typename ExprCst<T>::data_type &&v)
-{
-  return std::make_shared<ExprCst<T>>(std::forward<typename ExprCst<T>::data_type>(v));
+  return std::make_shared<ExprCst>(std::forward<typename ExprCst::data_type>(v));
 }
 
 // ExprBindedVar
 // --------------------------------------------------------------------------------------
-template<class T>
-class ExprBindedVar: public ExprBase<T> {
+class ExprBindedVar: public ExprBase {
  public:
- using typename ExprBase<T>::ExprDataType;
+ using ExprBase::ExprDataType;
  using data_type = int;
 
-  ExprBindedVar(data_type v): ExprBase<T>(), data_(v) {}
+  ExprBindedVar(data_type v): ExprBase(), data_(v) {}
   virtual ~ExprBindedVar() {}
 
   ExprDataType
-  eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const override;
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
  private:
   data_type data_;
 };
-template<class T>
-ExprBasePtr<T> create_expr_binded_var(typename ExprBindedVar<T>::data_type v)
+inline ExprBasePtr 
+create_expr_binded_var(typename ExprBindedVar::data_type v)
 {
-  return std::make_shared<ExprBindedVar<T>>(v);
+  return std::make_shared<ExprBindedVar>(v);
 }
 
 // ExprBinaryOp
 // --------------------------------------------------------------------------------------
-template<class T, class Op>
-class ExprBinaryOp: public ExprBase<T> {
+template<class Op>
+class ExprBinaryOp: public ExprBase {
  public:
- using typename ExprBase<T>::ExprDataType;
+ using ExprBase::ExprDataType;
 
-  ExprBinaryOp(std::shared_ptr<Op> oper, ExprBasePtr<T> lhs, ExprBasePtr<T> rhs)
-    : ExprBase<T>(), oper_(oper), lhs_(lhs), rhs_(rhs) {}
+  ExprBinaryOp(std::shared_ptr<Op> oper, ExprBasePtr lhs, ExprBasePtr rhs)
+    : ExprBase(), oper_(oper), lhs_(lhs), rhs_(rhs) {}
   virtual ~ExprBinaryOp() {}
 
   ExprDataType
-  eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const override;
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
  private:
   std::shared_ptr<Op> oper_;
-  ExprBasePtr<T> lhs_;
-  ExprBasePtr<T> rhs_;
+  ExprBasePtr lhs_;
+  ExprBasePtr rhs_;
 };
-template<class T, class Op>
-ExprBasePtr<T> create_expr_binary_operator(std::shared_ptr<Op> oper, ExprBasePtr<T> lhs, ExprBasePtr<T> rhs)
+template<class Op>
+ExprBasePtr 
+create_expr_binary_operator(std::shared_ptr<Op> oper, ExprBasePtr lhs, ExprBasePtr rhs)
 {
-  return std::make_shared<ExprBinaryOp<T, Op>>(oper, lhs, rhs);
+  return std::make_shared<ExprBinaryOp<Op>>(oper, lhs, rhs);
 }
 
 // ExprUnaryOp
 // --------------------------------------------------------------------------------------
-template<class T, class Op>
-class ExprUnaryOp: public ExprBase<T> {
+template<class Op>
+class ExprUnaryOp: public ExprBase {
  public:
- using typename ExprBase<T>::ExprDataType;
+ using ExprBase::ExprDataType;
 
-  ExprUnaryOp(std::shared_ptr<Op> oper, ExprBasePtr<T> arg)
-    : ExprBase<T>(), oper_(oper), arg_(arg) {}
+  ExprUnaryOp(std::shared_ptr<Op> oper, ExprBasePtr arg)
+    : ExprBase(), oper_(oper), arg_(arg) {}
   virtual ~ExprUnaryOp() {}
 
   ExprDataType
-  eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const override;
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
  private:
   std::shared_ptr<Op> oper_;
-  ExprBasePtr<T> arg_;
+  ExprBasePtr arg_;
 };
-template<class T, class Op>
-ExprBasePtr<T> create_expr_unary_operator(std::shared_ptr<Op> oper, ExprBasePtr<T> arg)
+template<class Op>
+ExprBasePtr create_expr_unary_operator(std::shared_ptr<Op> oper, ExprBasePtr arg)
 {
-  return std::make_shared<ExprUnaryOp<T, Op>>(oper, arg);
+  return std::make_shared<ExprUnaryOp<Op>>(oper, arg);
 }
 
 } // namespace jets::rete

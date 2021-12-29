@@ -23,51 +23,43 @@ namespace jets::rdf {
  * The reference count is not used in the calculation of the hash of the
  * individuals of this structure.
  */
-template<typename T=r_index>
 class WNode {
  public:
 
-  WNode() : m_index(nullptr), m_ref_count(0){};
+  WNode() : index_(nullptr), ref_count_(0){};
 
-  WNode(T w_index, int count = 1)
-      : m_index(w_index), m_ref_count(count){};
+  WNode(r_index w_index, int count = 1)
+      : index_(w_index), ref_count_(count){};
 
-  WNode(WNode const &rhs)
-      : m_index(rhs.m_index), m_ref_count(rhs.m_ref_count){};
-
-  inline WNode &operator=(WNode const &rhs) {
-    m_index = rhs.m_index;
-    m_ref_count = rhs.m_ref_count;
-    return *this;
-  }
+  WNode(WNode const &rhs) = default;
+  WNode &operator=(WNode const &rhs) = default;
 
   // Compute the hash excluding the ref_count
   template <typename H>
   friend H AbslHashValue(H h, const WNode& s) {
-    return H::combine(std::move(h), s.m_index);
+    return H::combine(std::move(h), s.index_);
   }
 
-  bool operator==(WNode const &rhs) const { return m_index == rhs.m_index; }
+  bool operator==(WNode const &rhs) const { return index_ == rhs.index_; }
   bool operator!=(WNode const &rhs) const { return !operator==(rhs); }
 
-  T get_index() const { return m_index; }
+  r_index get_index() const { return index_; }
 
-  int get_ref_count() const { return m_ref_count; }
+  int get_ref_count() const { return ref_count_; }
 
   int add_ref_count(int count = 1) const {
-    m_ref_count += count;
-    return m_ref_count;
+    ref_count_ += count;
+    return ref_count_;
   }
 
   int del_ref_count(int count = 1) const {
-    m_ref_count -= count;
-    return m_ref_count;
+    ref_count_ -= count;
+    return ref_count_;
   }
 
  private:
-
-  T m_index;
-  mutable int m_ref_count;
+  r_index index_;
+  mutable int ref_count_;
 };
 
 } // namespace jets::rdf

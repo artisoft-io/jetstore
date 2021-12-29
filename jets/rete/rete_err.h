@@ -1,5 +1,5 @@
-#ifndef JETS_ERRORS_H
-#define JETS_ERRORS_H
+#ifndef JETS_RETE_ERRORS_H
+#define JETS_RETE_ERRORS_H
 
 #include <exception>
 #include <iostream>
@@ -51,4 +51,4 @@ inline std::string to_string(rete_exception const &e) {
     throw jets::rete_exception(streamOut.str());                               \
   }
 
-#endif // JETS_ERRORS_H
+#endif // JETS_RETE_ERRORS_H

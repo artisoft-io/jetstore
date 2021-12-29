@@ -26,14 +26,11 @@ namespace jets::rete {
 // //////////////////////////////////////////////////////////////////////////////////////
 // ReteSession class -- main session class for the rete network
 // --------------------------------------------------------------------------------------
-template<class T>
 class ReteSession;
-template<class T>
-using ReteSessionPtr = std::shared_ptr<ReteSession<T>>;
+using ReteSessionPtr = std::shared_ptr<ReteSession>;
 
 using BetaRelationVector = std::vector<BetaRelationPtr>;
-template<class T>
-using AlphaNodeVector = std::vector<AlphaNodePtr<T>>;
+using AlphaNodeVector = std::vector<AlphaNodePtr>;
 
 struct BetaRowPriorityCompare {
   inline bool
@@ -46,16 +43,10 @@ using BetaRowPriorityQueue = std::priority_queue<BetaRowPtr, std::vector<BetaRow
 /**
  * @brief ReteSession making the rete network
  * 
- * @tparam T RDFSession
  */
-template<class T>
 class ReteSession {
  public:
-  using RDFSession = T;
-  using RDFSessionPtr = std::shared_ptr<T>;
-  using Iterator = typename T::Iterator;
-  using RDFGraph = typename T::RDFGraph;
-  using RDFGraphPtr = std::shared_ptr<RDFGraph>;
+  using Iterator = rdf::RDFSession::Iterator;
 
   ReteSession()
     : rule_ms_(nullptr),
@@ -64,22 +55,20 @@ class ReteSession {
       pending_beta_rows_()
     {}
 
-  ReteSession(ReteMetaStore<T> const* rule_ms, RDFSession * rdf_session) 
+  ReteSession(ReteMetaStore const* rule_ms, rdf::RDFSession * rdf_session) 
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
       beta_relations_(),
       pending_beta_rows_()
-    {
-      this->initialize();
-    }
+    { }
 
-  inline RDFSession *
+  inline rdf::RDFSession *
   rdf_session()
   {
     return rdf_session_;
   }
 
-  inline ReteMetaStore<T> const*
+  inline ReteMetaStore const*
   rule_ms()const
   {
     return rule_ms_;
@@ -88,7 +77,7 @@ class ReteSession {
   inline BetaRelation *
   get_beta_relation(int vertex)
   {
-    if(vertex<0 or vertex>= beta_relations_.size()) return nullptr;
+    if(vertex<0 or vertex>= static_cast<int>(beta_relations_.size())) return nullptr;
     return beta_relations_[vertex].get();
   }
   
@@ -125,7 +114,6 @@ class ReteSession {
     return triple_updated(vertex, s, p, o, false);
   }
 
- protected:
   /**
    * @brief Initialize ReteSession using ReteMetaStore
    *
@@ -138,6 +126,7 @@ class ReteSession {
   int
   initialize();
 
+ protected:
   int
   set_graph_callbacks();
 
@@ -210,24 +199,22 @@ class ReteSession {
  private:
  friend class BetaRelation;
   int
-  process_parent_rows(BetaRelation * current_relation, AlphaNode<T> const* alpha_node,
+  process_parent_rows(BetaRelation * current_relation, AlphaNode const* alpha_node,
     BetaRowIterator * parent_row_itor, bool is_inserted);
 
-  ReteMetaStore<T> const*  rule_ms_;
-  RDFSession  *            rdf_session_;
+  ReteMetaStore const*  rule_ms_;
+  rdf::RDFSession  *       rdf_session_;
   BetaRelationVector       beta_relations_;
   BetaRowPriorityQueue     pending_beta_rows_;
 };
 
-template<class T>
-inline ReteSessionPtr<T> create_rete_session(ReteMetaStore<T> const* rule_ms, T * rdf_session)
+inline ReteSessionPtr create_rete_session(ReteMetaStore const* rule_ms, rdf::RDFSession * rdf_session)
 {
-  return std::make_shared<ReteSession<T>>(rule_ms, rdf_session);
+  return std::make_shared<ReteSession>(rule_ms, rdf_session);
 }
 
-template<class T>
-int
-BetaRelation::insert_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row)
+inline int
+BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 {
   auto iret = this->all_beta_rows_.insert(beta_row);
   if(iret.second) {
@@ -251,9 +238,8 @@ BetaRelation::insert_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row
   return 0;
 }
 
-template<class T>
-int
-BetaRelation::remove_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row)
+inline int
+BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 {
   auto itor = this->all_beta_rows_.find(beta_row);
   if(itor==this->all_beta_rows_.end()) {
@@ -296,6 +282,19 @@ BetaRelation::remove_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row
     this->all_beta_rows_.erase(beta_row);
   }
   return 0;
+}
+
+// Declaired in graph_callback_mgr_impl.h
+inline void
+ReteCallBack::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+{
+  this->rete_session_->triple_inserted(this->vertex_, s, p, o);
+}
+// Declaired in graph_callback_mgr_impl.h
+inline void
+ReteCallBack::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+{
+  this->rete_session_->triple_deleted(this->vertex_, s, p, o);
 }
 
 } // namespace jets::rete

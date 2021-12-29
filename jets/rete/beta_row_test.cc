@@ -31,14 +31,16 @@ TEST(BetaRowStatusTest, StatusTest) {
 // The suite fixture for node_vertex
 class BetaRowTest : public ::testing::Test {
  protected:
-  BetaRowTest() : br0(), ri0(), nv0() {
+  BetaRowTest() : br0(), br1(), ri0(), nv0() {
       int row_size = 3;
       ri0 = create_row_initializer(row_size);
       nv0 = create_node_vertex(nullptr, 0, false, 0, 10, ri0, {});
       br0 = create_beta_row(nv0.get(), row_size);
+      br1 = create_beta_row(nv0.get(), row_size);
   }
 
   BetaRowPtr br0;
+  BetaRowPtr br1;
   BetaRowInitializerPtr ri0;
   NodeVertexPtr nv0;
 };
@@ -54,14 +56,14 @@ TEST_F(BetaRowTest, RowInitializerTest) {
     EXPECT_EQ(ri0->get(0) & brc_low_mask, 0);
     EXPECT_EQ(ri0->get(1) & brc_low_mask, 0);
     EXPECT_EQ(ri0->get(2) & brc_low_mask, 1);
-    EXPECT_EQ(ri0->get(3) & brc_low_mask, -1);
+    EXPECT_EQ(ri0->get(3), -1);
 }
 
 TEST_F(BetaRowTest, BetaRowTest) {
     EXPECT_EQ(br0->get_size(), 3);
 
     // rdf resource manager
-    rdf::RManager<rdf::LD2RIndexMap> rmanager;
+    rdf::RManager rmanager;
 
     // subjects
     std::string s0("r0"), s1("r1"), s2("r2");
@@ -87,7 +89,7 @@ TEST_F(BetaRowTest, BetaRowInitializeTest) {
     EXPECT_EQ(ri0->put(2, 1 | brc_parent_node), 0);
 
     // rdf resource manager
-    rdf::RManager<rdf::LD2RIndexMap> rmanager;
+    rdf::RManager rmanager;
     auto r0 = rmanager.create_resource("r0");
     auto r1 = rmanager.create_resource("r1");
     auto r2 = rmanager.create_resource("r2");
@@ -96,17 +98,17 @@ TEST_F(BetaRowTest, BetaRowInitializeTest) {
 
     // setup the parent row
     EXPECT_EQ(br0->put(0, r0), 0);
-    EXPECT_EQ(br0->put(1, x1), 0);
-    EXPECT_EQ(br0->put(2, r2), 0);
+    EXPECT_EQ(br0->put(1, r2), 0);
+    EXPECT_EQ(br0->put(2, x1), 0);
 
     // setup the triple
     rdf::Triple t3(x0, x1, r1);
 
     // initialize the beta_row
-    br0->initialize(ri0.get(), br0.get(), &t3);
-    EXPECT_EQ(br0->get(0), r0);
-    EXPECT_EQ(br0->get(1), r2);
-    EXPECT_EQ(br0->get(2), r1);
+    br1->initialize(ri0.get(), br0.get(), &t3);
+    EXPECT_EQ(br1->get(0), r0);
+    EXPECT_EQ(br1->get(1), r1);
+    EXPECT_EQ(br1->get(2), r2);
     
 }
 

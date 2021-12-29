@@ -6,7 +6,7 @@
 static void BM_SimpleBetaRow(benchmark::State& state) {
 
   // rdf resource manager
-  jets::rdf::RManager<jets::rdf::LD2RIndexMap> rmanager;
+  jets::rdf::RManager rmanager;
 
   // subjects
   std::string s0("r0"), s1("r1"), s2("r2");

@@ -11,19 +11,18 @@
 namespace jets::rete {
 namespace {
 using namespace jets::rete;
-using X = rdf::RDFSessionStlImpl;
-class AlphaNodeStub: public AlphaNode<X> {
+class AlphaNodeStub: public AlphaNode {
  public:
   AlphaNodeStub(b_index node_vertex, bool is_antecedent)
-    : AlphaNode<X>(node_vertex, is_antecedent) {}
+    : AlphaNode(node_vertex, is_antecedent) {}
   // default virtual function impl -- they are not used in the tests
   int
-  register_callback(ReteSession<X> * rete_session, ReteCallBackList<X> * callbacks)const override
+  register_callback(ReteSession * rete_session, ReteCallBackList * callbacks)const override
   {
     return 0;
   }
-  typename AlphaNode<X>::Iterator
-  find_matching_triples(typename AlphaNode<X>::RDFSession * rdf_session, 
+  typename AlphaNode::Iterator
+  find_matching_triples(rdf::RDFSession * rdf_session, 
     BetaRow const* parent_row)const override
   {
     return rdf_session->find();
@@ -40,7 +39,7 @@ class AlphaNodeStub: public AlphaNode<X> {
     return {};
   }
 };
-AlphaNodePtr<X> create_alpha_node(b_index node_vertex, bool is_antecedent)
+AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent)
 {
   return std::make_shared<AlphaNodeStub>(node_vertex, is_antecedent);
 }
@@ -83,8 +82,8 @@ class ReteMetaStoreTest : public ::testing::Test {
       bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), false));
   }
 
-  ReteMetaStoreStl::AlphaNodeVector good_alpha_nodes;
-  ReteMetaStoreStl::AlphaNodeVector bad_alpha_nodes;
+  ReteMetaStore::AlphaNodeVector good_alpha_nodes;
+  ReteMetaStore::AlphaNodeVector bad_alpha_nodes;
   NodeVertexVector node_vertexes;
 };
 
@@ -94,7 +93,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest0) {
     b_index b1 = node_vertexes[1].get();
     b_index b2 = node_vertexes[2].get();
     b_index b3 = node_vertexes[3].get();
-    ReteMetaStoreStlPtr good_meta = create_rete_meta_store<X>(good_alpha_nodes, {}, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(good_alpha_nodes, {}, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b0->has_consequent_terms(), false);
     EXPECT_EQ(b0->child_nodes.size(), 2);
@@ -105,7 +104,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest0) {
 
 TEST_F(ReteMetaStoreTest, GoodMetaStoreTest1) {
     b_index b1 = node_vertexes[1].get();
-    ReteMetaStoreStlPtr good_meta = create_rete_meta_store<X>(good_alpha_nodes, {}, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(good_alpha_nodes, {}, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b1->has_consequent_terms(), true);
     EXPECT_EQ(b1->child_nodes.size(), 0);
@@ -116,7 +115,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest1) {
 TEST_F(ReteMetaStoreTest, GoodMetaStoreTest2) {
     b_index b2 = node_vertexes[2].get();
     b_index b3 = node_vertexes[3].get();
-    ReteMetaStoreStlPtr good_meta = create_rete_meta_store<X>(good_alpha_nodes, {}, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(good_alpha_nodes, {}, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b2->has_consequent_terms(), false);
     EXPECT_EQ(b2->child_nodes.size(), 1);
@@ -125,7 +124,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest2) {
 
 TEST_F(ReteMetaStoreTest, GoodMetaStoreTest3) {
     b_index b3 = node_vertexes[3].get();
-    ReteMetaStoreStlPtr good_meta = create_rete_meta_store<X>(good_alpha_nodes, {}, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(good_alpha_nodes, {}, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b3->has_consequent_terms(), true);
     EXPECT_EQ(b3->child_nodes.size(), 0);
@@ -135,7 +134,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest3) {
 }
 
 TEST_F(ReteMetaStoreTest, BadMetaStoreTest0) {
-    ReteMetaStoreStlPtr meta = create_rete_meta_store<X>(bad_alpha_nodes, {}, node_vertexes);
+    ReteMetaStorePtr meta = create_rete_meta_store(bad_alpha_nodes, {}, node_vertexes);
     EXPECT_EQ(meta->initialize(), -1);
 }
 

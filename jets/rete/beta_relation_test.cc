@@ -34,41 +34,45 @@ class BetaRelationTest : public ::testing::Test {
     for(size_t i=0; i<node_vertexes.size(); ++i) {
         beta_relations.push_back(create_beta_node(node_vertexes[i].get()));
     }
-    rdf_session = rdf::create_stl_rdf_session();
-    rete_meta_store = create_rete_meta_store<rdf::RDFSessionStlImpl>({}, {}, node_vertexes);
+    rdf_session = rdf::create_rdf_session(rdf::create_rdf_graph());
+    rete_meta_store = create_rete_meta_store({}, {}, node_vertexes);
+    rete_meta_store->initialize();
     rete_session = create_rete_session(rete_meta_store.get(), rdf_session.get());
+    rete_session->initialize();
   }
 
   BetaRowPtr 
   create_beta_row(b_index node_vertex, BetaRowPtr parent_row, rdf::Triple triple) 
   {
-    auto beta_row = ::jets::rete::create_beta_row(node_vertex, node_vertex->beta_row_initializer->get_size());
+    BetaRowPtr beta_row = ::jets::rete::create_beta_row(node_vertex, node_vertex->beta_row_initializer->get_size());
     beta_row->initialize(node_vertex->beta_row_initializer.get(), parent_row.get(), &triple);
     return beta_row;
   }
 
   NodeVertexVector   node_vertexes;
   BetaRelationVector beta_relations;
-  ReteSessionStlPtr  rete_session;
-  ReteMetaStoreStlPtr rete_meta_store;
-  rdf::RDFSessionStlPtr   rdf_session;
+  ReteSessionPtr  rete_session;
+  ReteMetaStorePtr rete_meta_store;
+  rdf::RDFSessionPtr   rdf_session;
 };
 
 // Define the tests
 TEST_F(BetaRelationTest, InsertBetaRow) 
 {
   // rdf resource manager
-  rdf::RManager<rdf::LD2RIndexMap> rmanager;
+  rdf::RManager rmanager;
   auto p0 = rmanager.create_resource("p0");
   auto p1 = rmanager.create_resource("p1");
   auto p2 = rmanager.create_resource("p2");
-  auto beta_row = ::jets::rete::create_beta_row(node_vertexes[1].get(), 3);
+  BetaRowPtr beta_row = ::jets::rete::create_beta_row(node_vertexes[1].get(), 3);
   beta_row->put(0, p0);
   beta_row->put(1, p1);
   beta_row->put(2, p2);
 
   EXPECT_EQ(beta_relations[1]->insert_beta_row(rete_session.get(), beta_row), 0);
-  EXPECT_TRUE(beta_row->is_inserted());
+  EXPECT_FALSE(beta_row->get_node_vertex()->has_consequent_terms());
+  EXPECT_FALSE(beta_row->is_inserted());
+  EXPECT_TRUE(beta_row->is_processed());
 }
 
 }   // namespace

@@ -24,10 +24,8 @@ namespace jets::rete {
 // //////////////////////////////////////////////////////////////////////////////////////
 // ReteMetaStore class -- main session class for the rete network
 // --------------------------------------------------------------------------------------
-template<class T>
 class ReteMetaStore;
-template<class T>
-using ReteMetaStorePtr = std::shared_ptr<ReteMetaStore<T>>;
+using ReteMetaStorePtr = std::shared_ptr<ReteMetaStore>;
 
 using NodeVertexVector = std::vector<NodeVertexPtr>;
 
@@ -45,17 +43,12 @@ using NodeVertexVector = std::vector<NodeVertexPtr>;
  * 
  * @tparam T 
  */
-template<class T>
 class ReteMetaStore {
  public:
-  using RDFSession = T;
-  using RDFSessionPtr = std::shared_ptr<T>;
-  using Iterator = typename T::Iterator;
-  using RDFGraph = typename T::RDFGraph;
-  using RDFGraphPtr = std::shared_ptr<RDFGraph>;
+  using Iterator = rdf::RDFSession::Iterator;
 
-  using AlphaNodeVector = std::vector<AlphaNodePtr<T>>;
-  using ExprVector = std::vector<ExprBasePtr<T>>;
+  using AlphaNodeVector = std::vector<AlphaNodePtr>;
+  using ExprVector = std::vector<ExprBasePtr>;
 
   ReteMetaStore()
     : alpha_nodes_(),
@@ -87,26 +80,26 @@ class ReteMetaStore {
    * for antecedent alpha nodes. Consequent alpha nodes have 
    * their key post anatecedent nodes
    * @param vertex 
-   * @return AlphaNode<T> const* 
+   * @return AlphaNode const* 
    */
-  inline AlphaNode<T> const*
+  inline AlphaNode const*
   get_alpha_node(int vertex)const
   {
-    if(vertex<0 or vertex >= alpha_nodes_.size()) return {};
+    if(vertex<0 or vertex >= static_cast<int>(alpha_nodes_.size())) return {};
     return alpha_nodes_[vertex].get();
   }
 
-  inline ExprBase<T> const*
+  inline ExprBase const*
   get_expr(int vertex)const
   {
-    if(vertex<0 or vertex >= exprs_.size()) return {};
+    if(vertex<0 or vertex >= static_cast<int>(exprs_.size())) return {};
     return exprs_[vertex].get();
   }
 
   inline b_index
   get_node_vertex(int vertex)const
   {
-    if(vertex<0 or vertex >= node_vertexes_.size()) return {};
+    if(vertex<0 or vertex >= static_cast<int>(node_vertexes_.size())) return {};
     return node_vertexes_[vertex].get();
   }
 
@@ -149,31 +142,29 @@ class ReteMetaStore {
   }
 
  private:
-  friend class ReteSession<T>;
+  friend class ReteSession;
   AlphaNodeVector  alpha_nodes_;
   ExprVector       exprs_;
   NodeVertexVector node_vertexes_;
 };
 
-template<class T>
-inline ReteMetaStorePtr<T> create_rete_meta_store(
-  typename ReteMetaStore<T>::AlphaNodeVector const& alpha_nodes,
-  typename ReteMetaStore<T>::ExprVector const& exprs,
-  NodeVertexVector const& node_vertexes)
+inline ReteMetaStorePtr create_rete_meta_store(
+    ReteMetaStore::AlphaNodeVector const& alpha_nodes,
+    ReteMetaStore::ExprVector const& exprs,
+    NodeVertexVector const& node_vertexes)
 {
-  return std::make_shared<ReteMetaStore<T>>(alpha_nodes, exprs, node_vertexes);
+  return std::make_shared<ReteMetaStore>(alpha_nodes, exprs, node_vertexes);
 }
 
-template<class T>
-inline ReteMetaStorePtr<T> create_rete_meta_store(
-  typename ReteMetaStore<T>::AlphaNodeVector && alpha_nodes,
-  typename ReteMetaStore<T>::ExprVector && exprs,
-  NodeVertexVector && node_vertexes)
+inline ReteMetaStorePtr create_rete_meta_store(
+    ReteMetaStore::AlphaNodeVector && alpha_nodes,
+    ReteMetaStore::ExprVector && exprs,
+    NodeVertexVector && node_vertexes)
 {
-  return std::make_shared<ReteMetaStore<T>>(
-    std::forward<typename ReteMetaStore<T>::AlphaNodeVector>(alpha_nodes),
-    std::forward<typename ReteMetaStore<T>::ExprVector>(alpha_nodes),
-    std::forward<NodeVertexVector>(alpha_nodes) );
+  return std::make_shared<ReteMetaStore>(
+    std::forward<ReteMetaStore::AlphaNodeVector>(alpha_nodes),
+    std::forward<ReteMetaStore::ExprVector>(exprs),
+    std::forward<NodeVertexVector>(node_vertexes) );
 }
 
 } // namespace jets::rete

@@ -1,10 +1,8 @@
-#ifndef JETS_RDF_GRAPH_H
-#define JETS_RDF_GRAPH_H
+#ifndef JETS_RDF_RDF_GRAPH_H
+#define JETS_RDF_RDF_GRAPH_H
 
 #include <string>
 #include <memory>
-#include <unordered_set>
-#include <unordered_map>
 
 #include <boost/variant/multivisitors.hpp>
 
@@ -12,8 +10,9 @@
 #include <glog/logging.h>
 
 #include "jets/rdf/rdf_err.h"
-#include "jets/rdf/base_graph.h"
+#include "jets/rdf/rdf_ast.h"
 #include "jets/rdf/base_graph_iterator.h"
+#include "jets/rdf/base_graph.h"
 #include "jets/rdf/r_manager.h"
 #include "jets/rdf/graph_callback_mgr.h"
 
@@ -41,49 +40,31 @@ using AllOrRIndex = boost::variant<
 
 inline AllOrRIndex make_any(){return StarMatch();}
 
-// find visitor
-template<class RDFGraph>
-struct find_visitor: public boost::static_visitor<typename RDFGraph::Iterator>
-{
-  using S = StarMatch;
-  using R = r_index;
-  using I = typename RDFGraph::Iterator;
-  find_visitor(RDFGraph const*g) : g(g){}
-  I operator()(S const&s, S const&p, S const&o){return g->spo_graph_.find();}
-  I operator()(R const&s, S const&p, S const&o){return g->spo_graph_.find(s);}
-  I operator()(R const&s, R const&p, S const&o){return g->spo_graph_.find(s, p);}
-  I operator()(R const&s, R const&p, R const&o){return g->spo_graph_.find(s, p, o);}
-  I operator()(S const&s, R const&p, S const&o){return g->pos_graph_.find(p);}
-  I operator()(S const&s, R const&p, R const&o){return g->pos_graph_.find(p, o);}
-  I operator()(S const&s, S const&p, R const&o){return g->osp_graph_.find(o);}
-  I operator()(R const&s, S const&p, R const&o){return g->osp_graph_.find(o, s);}
-  RDFGraph const*g;
-};
+// find visitor defined after RDFGraph
+struct find_visitor;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // RDFGraph
-template<class BGraph, class RMgr> class RDFGraph;
-
-template<class BGraph, class RMgr>
-using RDFGraphPtr = std::shared_ptr<RDFGraph<BGraph, RMgr>>;
+class RDFGraph;
+using RDFGraphPtr = std::shared_ptr<RDFGraph>;
 
 // RDFSession -- decl
-template<class Graph> class RDFSession;
-template<class Graph>
-using RDFSessionPtr = std::shared_ptr<RDFSession<Graph>>;
+class RDFSession;
+using RDFSessionPtr = std::shared_ptr<RDFSession>;
 
-// RDFGraph implements a fully indexed rdf graph with type (r_index, r_index, r_index)
-template<class BGraph, class RMgr>
+// //////////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief RDFGraph is a fully indexed rdf graph with type (r_index, r_index, r_index)
+ * 
+ */
 class RDFGraph {
  public:
-  using RManager = RMgr;
-  using RManagerPtr = std::shared_ptr<RMgr>;
-  using Iterator = typename BGraph::Iterator;
+  using Iterator = BaseGraph::Iterator;
 
   RDFGraph() 
     : size_(0),
       is_locked_(false),
-      r_mgr_p(std::make_shared<RManager>()), 
+      r_mgr_p(create_rmanager()), 
       spo_graph_('s'), 
       pos_graph_('p'), 
       osp_graph_('o'),
@@ -93,7 +74,7 @@ class RDFGraph {
   RDFGraph(RManagerPtr meta_mgr) 
     : size_(0),
       is_locked_(false),
-      r_mgr_p(std::make_shared<RManager>(meta_mgr)), 
+      r_mgr_p(create_rmanager(meta_mgr)), 
       spo_graph_('s'), 
       pos_graph_('p'), 
       osp_graph_('o'),
@@ -105,7 +86,8 @@ class RDFGraph {
    * 
    * @return int the nbr of triples in the graph
    */
-  inline int size() const{
+  inline int size() const
+  {
     return size_;
   }
 
@@ -125,36 +107,46 @@ class RDFGraph {
    * 
    * @return RManagerPtr 
    */
-  inline RManagerPtr get_rmgr()const {
+  inline RManagerPtr 
+  get_rmgr()const 
+  {
     return r_mgr_p;
   }
 
-  inline bool contains(r_index s, r_index p, r_index o) const {
+  inline bool 
+  contains(r_index s, r_index p, r_index o) const 
+  {
     return spo_graph_.contains(s, p, o);
   }
   
-  inline bool contains_sp(r_index s, r_index p) const {
+  inline bool 
+  contains_sp(r_index s, r_index p) const 
+  {
     return spo_graph_.contains(s, p);
   }
 
   // find methods
-  inline Iterator find() const {
+  inline Iterator 
+  find() const 
+  {
     return spo_graph_.find();
   }
 
-  inline Iterator find(r_index s) const {
+  inline Iterator 
+  find(r_index s) const 
+  {
     return spo_graph_.find(s);
   }
 
-  inline Iterator find(r_index s, r_index p) const {
+  inline Iterator 
+  find(r_index s, r_index p) const 
+  {
     return spo_graph_.find(s, p);
   }
 
-  inline Iterator find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o) {
-    // std::cout<<"FIND :: "<<s<<", "<<p<<", "<<o<<std::endl;
-    find_visitor<RDFGraph> v(this);
-    return  boost::apply_visitor(v, s, p, o);
-  }
+  // defined below after the find_manager definition
+  inline Iterator 
+  find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o);
 
   // insert methods
   template<typename L>
@@ -265,23 +257,48 @@ set_rmgr(RManagerPtr p)
 }
 
  private:
-  friend struct find_visitor<RDFGraph>;
-  friend class RDFSession<RDFGraph>;
+  friend struct find_visitor;
+  friend class RDFSession;
 
   int      size_;
   bool     is_locked_;
   RManagerPtr r_mgr_p;
-  BGraph spo_graph_;
-  BGraph pos_graph_;
-  BGraph osp_graph_;
+  BaseGraph spo_graph_;
+  BaseGraph pos_graph_;
+  BaseGraph osp_graph_;
   GraphCallbackManagerPtr graph_callback_mgr_;
 };
 
-template<class BGraph, class RMgr>
-RDFGraphPtr<BGraph, RMgr> create_rdf_graph()
+// find visitor
+struct find_visitor: public boost::static_visitor<RDFGraph::Iterator>
 {
-  return std::make_shared<RDFGraph<BGraph, RMgr>>();
+  using S = StarMatch;
+  using R = r_index;
+  using I = RDFGraph::Iterator;
+  find_visitor(RDFGraph const* g) : g(g){}
+  I operator()(S const&s, S const&p, S const&o){return g->spo_graph_.find();}
+  I operator()(R const&s, S const&p, S const&o){return g->spo_graph_.find(s);}
+  I operator()(R const&s, R const&p, S const&o){return g->spo_graph_.find(s, p);}
+  I operator()(R const&s, R const&p, R const&o){return g->spo_graph_.find(s, p, o);}
+  I operator()(S const&s, R const&p, S const&o){return g->pos_graph_.find(p);}
+  I operator()(S const&s, R const&p, R const&o){return g->pos_graph_.find(p, o);}
+  I operator()(S const&s, S const&p, R const&o){return g->osp_graph_.find(o);}
+  I operator()(R const&s, S const&p, R const&o){return g->osp_graph_.find(o, s);}
+  RDFGraph const*g;
+};
+
+RDFGraph::Iterator 
+RDFGraph::find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o)
+{
+  find_visitor v(this);
+  return  boost::apply_visitor(v, s, p, o);
+}
+
+inline RDFGraphPtr 
+create_rdf_graph(RManagerPtr meta_mgr=nullptr)
+{
+  return std::make_shared<RDFGraph>(meta_mgr);
 }
 
 } // namespace jets::rdf
-#endif // JETS_RDF_GRAPH_H
+#endif // JETS_RDF_RDF_GRAPH_H
