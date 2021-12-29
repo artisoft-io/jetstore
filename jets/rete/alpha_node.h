@@ -8,8 +8,8 @@
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/node_vertex.h"
 #include "jets/rete/beta_row.h"
-#include "jets/rete/beta_relation.h"
 #include "jets/rete/beta_row_iterator.h"
+#include "jets/rete/beta_relation.h"
 #include "jets/rete/graph_callback_mgr_impl.h"
 
 // Component representing the Alpha Node of a Rete Network
@@ -22,7 +22,7 @@ using RStar3 = rdf::TripleBase<rstar>;
 
 // forward declaration
 class BetaRelation;
-template<class T> class ReteSession;
+class ReteSession;
 
 // ======================================================================================
 // Variant to query BetaRelation  as variant<PosMatch, r_index>
@@ -101,25 +101,15 @@ using RPos3 = rdf::TripleBase<PosOrRIndex>;
  *
  * Note: AlphaNodes contains metadata information only and are managed by the
  *       ReteMetaStore.
- * 
- * @tparam T RDFSession implementation class
  */
-template<class T>
 class AlphaNode;
-
-template<class T>
-using AlphaNodePtr = std::shared_ptr<AlphaNode<T>>;
+using AlphaNodePtr = std::shared_ptr<AlphaNode>;
 
 //
 // AlphaNode making the rete network
-template<class T>
 class AlphaNode {
  public:
-  using RDFSession = T;
-  using RDFSessionPtr = std::shared_ptr<T>;
-  using Iterator = typename T::Iterator;
-  using RDFGraph = typename T::RDFGraph;
-  using RDFGraphPtr = std::shared_ptr<RDFGraph>;
+  using Iterator = rdf::RDFSession::Iterator;
 
   // AlphaNode()
   //   : node_vertex_(nullptr), is_antecedent_(false)
@@ -145,13 +135,13 @@ class AlphaNode {
   }
 
   virtual int
-  register_callback(ReteSession<T> * rete_session, ReteCallBackList<T> * callbacks)const=0;
+  register_callback(ReteSession * rete_session, ReteCallBackList * callbacks)const=0;
 
   // Call to get all triples from rdf session matching `parent_row`
   // Applicable to antecedent terms only, call during initial graph visit only
   // Will throw if called on a consequent term
   virtual Iterator
-  find_matching_triples(RDFSession * rdf_session, BetaRow const* parent_row)const=0;
+  find_matching_triples(rdf::RDFSession * rdf_session, BetaRow const* parent_row)const=0;
 
   // Called to query rows matching `triple`, 
   // case merging with new triples from inferred graph
@@ -170,12 +160,6 @@ class AlphaNode {
   b_index    node_vertex_;
   bool       is_antecedent_;
 };
-
-// template<class T>
-// AlphaNodePtr<T> create_alpha_node(b_index node_vertex)
-// {
-//   return std::make_shared<AlphaNode<T>>(node_vertex);
-// }
 
 } // namespace jets::rete
 #endif // JETS_RETE_ALPHA_NODE_H

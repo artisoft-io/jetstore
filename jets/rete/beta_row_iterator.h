@@ -223,27 +223,32 @@ class PtrAdaptIterator: public BetaRowIterator {
   Iterator end_;
 };
 
-inline BetaRowIteratorPtr create_all_rows_iterator(beta_row_set::const_iterator begin, beta_row_set::const_iterator end)
+inline BetaRowIteratorPtr 
+create_all_rows_iterator(beta_row_set::const_iterator begin, beta_row_set::const_iterator end)
 {
   return std::make_shared<PtrAdaptIterator<beta_row_set::const_iterator>>(begin, end);
 }
 
-inline BetaRowIteratorPtr create_pending_rows_iterator(beta_row_list::const_iterator begin, beta_row_list::const_iterator end)
+inline BetaRowIteratorPtr 
+create_pending_rows_iterator(beta_row_list::const_iterator begin, beta_row_list::const_iterator end)
 {
   return std::make_shared<PtrAdaptIterator<beta_row_list::const_iterator>>(begin, end);
 }
 
-inline BetaRowIteratorPtr create_idx1_rows_iterator(BetaRowIndexes1::const_iterator begin, BetaRowIndexes1::const_iterator end)
+inline BetaRowIteratorPtr 
+create_idx1_rows_iterator(BetaRowIndexes1::const_iterator begin, BetaRowIndexes1::const_iterator end)
 {
   return std::make_shared<BaseIterator<BetaRowIndexes1::const_iterator>>(begin, end);
 }
 
-inline BetaRowIteratorPtr create_idx2_rows_iterator(BetaRowIndexes2::const_iterator begin, BetaRowIndexes2::const_iterator end)
+inline BetaRowIteratorPtr 
+create_idx2_rows_iterator(BetaRowIndexes2::const_iterator begin, BetaRowIndexes2::const_iterator end)
 {
   return std::make_shared<BaseIterator<BetaRowIndexes2::const_iterator>>(begin, end);
 }
 
-inline BetaRowIteratorPtr create_idx3_rows_iterator(BetaRowIndexes3::const_iterator begin, BetaRowIndexes3::const_iterator end)
+inline BetaRowIteratorPtr 
+create_idx3_rows_iterator(BetaRowIndexes3::const_iterator begin, BetaRowIndexes3::const_iterator end)
 {
   return std::make_shared<BaseIterator<BetaRowIndexes3::const_iterator>>(begin, end);
 }

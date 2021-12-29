@@ -22,8 +22,8 @@ namespace jets::rete {
 // BetaRelation class -- main class for the rete network
 // --------------------------------------------------------------------------------------
 // Forward declaration
-template<class T> class AlphaNode;
-template<class T> class ReteSession;
+class AlphaNode;
+class ReteSession;
 
 class BetaRelation;
 using BetaRelationPtr = std::shared_ptr<BetaRelation>;
@@ -99,22 +99,19 @@ class BetaRelation {
  * @return int 0 if normal, -1 if error
  */
   // Defined in rete_session.h
-  template<class T>
   int
-  insert_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row);
+  insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row);
 
   // Defined in rete_session.h
   /**
    * @brief Remove `beta_row` from beta relation if fount in beta relation
    * 
-   * @tparam T 
    * @param rete_session 
    * @param beta_row BetaRow to remove
    * @return int 
    */
-  template<class T>
   int
-  remove_beta_row(ReteSession<T> * rete_session, BetaRowPtr beta_row);
+  remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row);
 
   /**
    * @brief Get the idx1 rows iterator object
@@ -216,7 +213,7 @@ class BetaRelation {
 
 
  private:
-  template<class W> friend class AlphaNode;
+  friend class AlphaNode;
 
   b_index         node_vertex_;
   bool            is_activated_;
@@ -227,7 +224,8 @@ class BetaRelation {
   BetaRowIndxVec3 beta_row_idx3_;
 };
 
-inline BetaRelationPtr create_beta_node(b_index node_vertex)
+inline BetaRelationPtr 
+create_beta_node(b_index node_vertex)
 {
   return std::make_shared<BetaRelation>(node_vertex);
 }

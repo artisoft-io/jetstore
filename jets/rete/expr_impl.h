@@ -11,11 +11,10 @@ namespace jets::rete {
 // ======================================================================================
 // ExprConjunction
 // --------------------------------------------------------------------------------------
-template<class T>
-typename ExprConjunction<T>::ExprDataType
-ExprConjunction<T>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const 
+inline ExprConjunction::ExprDataType
+ExprConjunction::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  ExprConjunction<T>::ExprDataType v = false;  // default value if list is empty
+  ExprConjunction::ExprDataType v = rdf::LInt32(0);  // default value if list is empty
   for(auto const& item: this->data_) {
     v = item->eval(rete_session, beta_row);
     if(not rdf::to_bool(&v)) return v;
@@ -25,11 +24,10 @@ ExprConjunction<T>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)
 
 // ExprDisjunction
 // --------------------------------------------------------------------------------------
-template<class T>
-typename ExprDisjunction<T>::ExprDataType
-ExprDisjunction<T>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const 
+inline ExprDisjunction::ExprDataType
+ExprDisjunction::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  ExprDisjunction<T>::ExprDataType v = false;  // default value if list is empty
+  ExprDisjunction::ExprDataType v = rdf::LInt32(0);  // default value if list is empty
   for(auto const& item: this->data_) {
     v = item->eval(rete_session, beta_row);
     if(rdf::to_bool(&v)) return v;
@@ -39,42 +37,40 @@ ExprDisjunction<T>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)
 
 // ExprCst
 // --------------------------------------------------------------------------------------
-template<class T>
-typename ExprCst<T>::ExprDataType
-ExprCst<T>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const 
+inline ExprCst::ExprDataType
+ExprCst::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
   return data_;
 }
 
 // ExprBindedVar
 // --------------------------------------------------------------------------------------
-template<class T>
-typename ExprBindedVar<T>::ExprDataType
-ExprBindedVar<T>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const 
+inline ExprBindedVar::ExprDataType
+ExprBindedVar::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
   return *beta_row->get(data_);
 }
 
 // ExprBinaryOp
 // --------------------------------------------------------------------------------------
-template<class T, class Op>
-typename ExprBinaryOp<T, Op>::ExprDataType
-ExprBinaryOp<T, Op>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const 
+template<class Op>
+typename ExprBinaryOp<Op>::ExprDataType
+ExprBinaryOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  ExprBinaryOp<T, Op>::ExprDataType lhs = this->lhs_->eval(rete_session, beta_row);
-  ExprBinaryOp<T, Op>::ExprDataType rhs = this->rhs_->eval(rete_session, beta_row);
-  ExprBinaryOp<T, Op>::ExprDataType result = this->oper_->eval(rete_session, lhs, rhs);
+  ExprBinaryOp<Op>::ExprDataType lhs = this->lhs_->eval(rete_session, beta_row);
+  ExprBinaryOp<Op>::ExprDataType rhs = this->rhs_->eval(rete_session, beta_row);
+  ExprBinaryOp<Op>::ExprDataType result = this->oper_->eval(rete_session, lhs, rhs);
   return result;
 }
 
 // ExprUnaryOp
 // --------------------------------------------------------------------------------------
-template<class T, class Op>
-typename ExprUnaryOp<T, Op>::ExprDataType
-ExprUnaryOp<T, Op>::eval(ReteSession<T> * rete_session, BetaRow const* beta_row)const 
+template<class Op>
+typename ExprUnaryOp<Op>::ExprDataType
+ExprUnaryOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  ExprUnaryOp<T, Op>::ExprDataType arg = this->arg_->eval(rete_session, beta_row);
-  ExprUnaryOp<T, Op>::ExprDataType result = this->oper_->eval(rete_session, arg);
+  ExprUnaryOp<Op>::ExprDataType arg = this->arg_->eval(rete_session, beta_row);
+  ExprUnaryOp<Op>::ExprDataType result = this->oper_->eval(rete_session, arg);
   return result;
 }
 

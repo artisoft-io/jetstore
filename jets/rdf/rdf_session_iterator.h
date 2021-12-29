@@ -5,17 +5,15 @@
 #include <utility>
 
 #include "absl/hash/hash.h"
+
 #include "jets/rdf/rdf_err.h"
-#include "jets/rdf/base_graph.h"
 #include "jets/rdf/rdf_ast.h"
-#include "jets/rdf/w_node.h"
+#include "jets/rdf/rdf_graph.h"
 
 namespace jets::rdf {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // class RDFSessionIterator
-//
-/////////////////////////////////////////////////////////////////////////////////////////
 /**
  * The unified iterator over the triple graph structured as:
  *
@@ -23,7 +21,8 @@ namespace jets::rdf {
  * 		- (subject, predicate, object), known as spo
  * 		- (predicate, object, subject), known as pos
  * 		- (object, subject, predicate), known as osp
- * 
+ *
+ * @see RDFGraph
  * Example:
  * \code {.cpp}
  * while(not itor.is_end()) {
@@ -33,8 +32,8 @@ namespace jets::rdf {
  * }  
  * \endcode
  */
-template <class Iterator>
 struct RDFSessionIterator {
+  using Iterator = RDFGraph::Iterator;
 
   inline RDFSessionIterator(Iterator const& meta_itor, Iterator const& asserted_itor, Iterator const& inferred_itor)
       : meta_itor_(meta_itor),
@@ -49,18 +48,17 @@ struct RDFSessionIterator {
       {}
 
   RDFSessionIterator() = delete;
-
-  inline RDFSessionIterator(RDFSessionIterator const& rhs) = default;
-  inline RDFSessionIterator(RDFSessionIterator && rhs) = default;
-
-  inline RDFSessionIterator& operator=(RDFSessionIterator const& rhs) = default;
+  RDFSessionIterator(RDFSessionIterator const& rhs) = default;
+  RDFSessionIterator(RDFSessionIterator && rhs) = default;
+  RDFSessionIterator& operator=(RDFSessionIterator const& rhs) = default;
 
   /**
    * Test if the iterator has exhausted all triples in his collection.
    *
    * @return true if the iterator has no more triples to return
    */
-  inline bool is_end() const 
+  inline bool 
+  is_end() const 
   {
     return meta_itor_.is_end() and asserted_itor_.is_end() and inferred_itor_.is_end();
   }
@@ -70,7 +68,8 @@ struct RDFSessionIterator {
    *
    * @return false if the iterator has no more triples to return
    */
-  inline bool next() 
+  inline bool 
+  next() 
   {
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {
@@ -83,7 +82,8 @@ struct RDFSessionIterator {
     }
   }
 
-  inline r_index get_subject() const 
+  inline r_index 
+  get_subject() const 
   {
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {
@@ -96,7 +96,8 @@ struct RDFSessionIterator {
     }
   }
 
-  inline r_index get_predicate() const 
+  inline r_index 
+  get_predicate() const 
   {
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {
@@ -109,7 +110,8 @@ struct RDFSessionIterator {
     }
   }
 
-  inline r_index get_object() const 
+  inline r_index 
+  get_object() const 
   {
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {
@@ -122,7 +124,8 @@ struct RDFSessionIterator {
     }
   }
 
-  inline r_index * get_triple(r_index * t3) const 
+  inline r_index * 
+  get_triple(r_index * t3) const 
   {    
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {
@@ -142,7 +145,8 @@ struct RDFSessionIterator {
     return t3;
   }
 
-  inline Triple as_triple() const 
+  inline Triple 
+  as_triple() const 
   {    
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {

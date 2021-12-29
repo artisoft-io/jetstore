@@ -4,10 +4,11 @@
 #include <string>
 
 #include "absl/hash/hash.h"
+
 #include "jets/rdf/rdf_err.h"
-#include "jets/rdf/base_graph.h"
 #include "jets/rdf/rdf_ast.h"
 #include "jets/rdf/w_node.h"
+#include "jets/rdf/containers_type.h"
 
 namespace jets::rdf {
 namespace bgi_internal {
@@ -20,96 +21,91 @@ namespace bgi_internal {
 //    itor.next();
 //  }
 //
-template <class T>  // T is the W_SET parameter of `BaseGraph`
 struct w_itor_set {
-  inline w_itor_set() : m_itor(), m_end() {}
+  inline w_itor_set() : itor_(), end_() {}
 
-  inline w_itor_set(typename T::const_iterator const& itor_,
-                    typename T::const_iterator const& end_)
-      : m_itor(itor_), m_end(end_) {}
+  inline w_itor_set(WSetType::const_iterator const& itor_,
+                    WSetType::const_iterator const& end_)
+      : itor_(itor_), end_(end_) {}
 
   w_itor_set(const w_itor_set& rhs) = default;
 
   w_itor_set& operator=(const w_itor_set& rhs) = default;
 
-  inline void set_itor(typename T::const_iterator const& itor,
-                       typename T::const_iterator const& end) {
-    m_itor = itor;
-    m_end = end;
+  inline void set_itor(WSetType::const_iterator const& itor,
+                       WSetType::const_iterator const& end) {
+    itor_ = itor;
+    end_ = end;
   }
 
   inline r_index get_index() const {
     if (is_end()) return nullptr;
-    return m_itor->get_index();
+    return itor_->get_index();
   }
 
-  inline bool is_end() const { return m_itor == m_end; }
+  inline bool is_end() const { return itor_ == end_; }
 
   inline bool next() {
     if (is_end()) return false;
-    ++m_itor;
+    ++itor_;
     return !is_end();
   }
 
  private:
-  typename T::const_iterator m_itor;
-  typename T::const_iterator m_end;
+  WSetType::const_iterator itor_;
+  WSetType::const_iterator end_;
 };
 
 /**
- * Struct to provide the familiar iteration semantics to u_map_type and
- * `v_map_type` collections.
+ * Struct to provide iteration semantics to UMapType and VMapType
  *
- * Provide iteration over the keys of the template class collection.
+ * Provide iteration over the keys of UMapType and VMapType collection.
  */
-template <class T>  // T is either u_map_type or v_map_type
+template <class T>  // T is either UMapType and VMapType
 class itor_map {
  public:
-  inline itor_map() : m_v(0), m_itor(), m_end(){};
+  inline itor_map() : v_(0), itor_(), end_(){};
 
-  inline itor_map(r_index v_, typename T::const_iterator const& itor_,
-                  typename T::const_iterator const& end_)
-      : m_v(v_), m_itor(itor_), m_end(end_) {
-    if (m_v == nullptr) m_itor = m_end;
+  inline itor_map(r_index v_, typename T::const_iterator const& itor,
+                  typename T::const_iterator const& end)
+    : v_(v_), itor_(itor), end_(end) 
+  {
+    if (v_ == nullptr) itor_ = end_;
   }
 
   inline itor_map(const itor_map& rhs)
-      : m_v(rhs.m_v), m_itor(rhs.m_itor), m_end(rhs.m_end){};
+    : v_(rhs.v_), itor_(rhs.itor_), end_(rhs.end_)
+  {}
 
-  /**
-   * Assign operator
-   */
   inline itor_map& operator=(const itor_map& rhs) = default;
 
   inline void set_itor(typename T::const_iterator const& itor,
-                       typename T::const_iterator const& end) {
-    m_itor = itor;
-    m_end = end;
+                       typename T::const_iterator const& end) 
+  {
+    itor_ = itor;
+    end_ = end;
   }
 
-  inline r_index get_index() const { return m_v; }
-
-  inline bool is_end() const { return m_itor == m_end; }
+  inline r_index get_index() const { return v_; }
+  inline bool is_end() const { return itor_ == end_; }
 
   /**
    * Move to the next key in the collection.
    *
-   * The class argument \c W is either of type \c itor_map<v_map_type> or \c
-   * w_itor_set which is the iterator of the next level. Meaning:
+   * The template argument W is: 
+   *  - itor_map<VMapType> when T=UMapType, or
+   *  - WSetType           when T=VMapType
    *
-   * 		- If \c T is of type \c u_map_type, then \c W is \c
-   * itor_map<v_map_type>
-   * 		- If \c T is of type \c v_map_type, then \c W is \c w_itor_set
-   *
-   * When \c m_itor is advanced to the next key of the collection, the iterator
-   * \c W is reset to the iterator over the values associated to the new key of
-   * \c m_itor.
+   * When itor_ is advanced to the next key of the collection, the iterator
+   * W is reset to the iterator over the values associated to the new key of
+   * itor_.
    */
-  template <class W>  // W is either itor_map<v_map_type> or w_itor_set
-  inline bool next(W& w_itor) {
-    if (m_itor != m_end) ++m_itor;
-    if (m_itor == m_end) {
-      m_v = nullptr;
+  template <class W> 
+  inline bool next(W& w_itor) 
+  {
+    if (itor_ != end_) ++itor_;
+    if (itor_ == end_) {
+      v_ = nullptr;
       return false;
     }
     this->set_position(w_itor);
@@ -117,56 +113,128 @@ class itor_map {
   }
 
   /**
-   * Set the param \c w_itor to iterate over the values (m_itor->second)
-   * associated with the key (m_itor->first).
+   * Set w_itor to iterate over the values (itor_->second)
+   * associated with the key (itor_->first).
    *
-   * @see next()
+   * The template argument W is: 
+   *  - itor_map<VMapType> when T=UMapType, or
+   *  - WSetType           when T=VMapType
    */
-  template <class W>  // W is either itor_map<v_map_type> or w_itor_set
-  inline void set_position(W& w_itor) {
-    if (m_itor != m_end) {
-      m_v = m_itor->first;
-      w_itor.set_itor(m_itor->second.begin(), m_itor->second.end());
+  template <class W>
+  inline void set_position(W& w_itor) 
+  {
+    if (itor_ != end_) {
+      v_ = itor_->first;
+      w_itor.set_itor(itor_->second.begin(), itor_->second.end());
     }
   }
 
  private:
-  r_index m_v;
-  typename T::const_iterator m_itor;
-  typename T::const_iterator m_end;
+  r_index v_;
+  typename T::const_iterator itor_;
+  typename T::const_iterator end_;
 };
 }   // namespace bgi_internal
+// //////////////////////////////////////////////////////////////////////////////////////
+/**
+ * Map (u, v, w) ==> (s, p, o) according to \c m_spin code.
+ *
+   *  - (u, v, w) => 's' => (u, v, w) <=> (s, p, o)
+   *  - (u, v, w) => 'p' => (u, v, w) <=> (p, o, s)
+   *  - (u, v, w) => 'o' => (u, v, w) <=> (o, s, p)
+ *
+ * @param[in] u incoming index
+ * @param[in] v incoming index
+ * @param[in] w incoming index
+ * @param[out] s outgoing index
+ * @param[out] p outgoing index
+ * @param[out] o outgoing index
+ */
+inline void
+lookup_uvw2spo(char const spin, 
+  r_index  const& u, r_index  const& v, r_index  const& w, 
+  r_index  &s, r_index  &p, r_index  &o)
+{
+  if(spin == 's') {					// case 'spo'  <==> "uvw'
+    s = u;
+    p = v;
+    o = w;
+  } else if(spin == 'p') {	// case 'pos'  <==> "uvw'
+    s = w;
+    p = u;
+    o = v;
+  } else {									// case 'osp'  <==> "uvw'
+    s = v;
+    p = w;
+    o = u;
+  }
+}
+
+/**
+ * Map (s, p, o) ==> (u, v, w) according to \c m_spin code.
+ *
+   *  - (s, p, o) => 's' => (s, p, o) <=> (u, v, w)
+   *  - (s, p, o) => 'p' => (p, o, s) <=> (u, v, w)
+   *  - (s, p, o) => 'o' => (o, s, p) <=> (u, v, w)
+ *
+ * @param[in] s incoming index
+ * @param[in] p incoming index
+ * @param[in] o incoming index
+ * @param[out] u outgoing index
+ * @param[out] v outgoing index
+ * @param[out] w outgoing index
+ */
+inline void
+lookup_spo2uvw(char const spin, 
+  r_index  const& s, r_index  const& p, r_index  const& o, 
+  r_index  &u, r_index  &v, r_index  &w)
+{
+  if(spin == 's') {					// case 'spo'  <==> "uvw'
+    u = s;
+    v = p;
+    w = o;
+  } else if(spin == 'p') {	// case 'pos'  <==> "uvw'
+    w = s;
+    u = p;
+    v = o;
+  } else {									// case 'osp'  <==> "uvw'
+    v = s;
+    w = p;
+    u = o;
+  }
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // class BaseGraphIterator
-//
-/////////////////////////////////////////////////////////////////////////////////////////
 /**
- * The unified iterator over the triple graph structured as:
+ * The unified iterator for BaseGraph
  *
- * 	map(u, map(v, set(w))), where the triple (u, v, w) can either be:
- * 		- (subject, predicate, object), known as spo
- * 		- (predicate, object, subject), known as pos
- * 		- (object, subject, predicate), known as osp
+ * BaseGraph is a collection of triples (u, v, w) structured as
+ * map(u, map(v, set(w))). 
+ *
+ * The triple (u, v, w) can either be:
+ *	- (subject, predicate, object), known as spo
+ *	- (predicate, object, subject), known as pos
+ *	- (object, subject, predicate), known as osp
  *
  */
-template <class U, class V, class W>
 struct BaseGraphIterator {
-    using U_ITOR = bgi_internal::itor_map<U>;
-    using V_ITOR = bgi_internal::itor_map<V>;
-    using W_ITOR = bgi_internal::w_itor_set<W>;
+    using U_ITOR = bgi_internal::itor_map<UMapType>;
+    using V_ITOR = bgi_internal::itor_map<VMapType>;
+    using W_ITOR = bgi_internal::w_itor_set;
 
   inline BaseGraphIterator(char const lookup, U_ITOR u_itor_,V_ITOR v_itor_, W_ITOR w_itor_)
-      : m_lookup(lookup),
-        m_u_itor(u_itor_),
-        m_v_itor(v_itor_),
-        m_w_itor(w_itor_) {}
+    : spin_(lookup),
+      u_itor_(u_itor_),
+      v_itor_(v_itor_),
+      w_itor_(w_itor_) 
+  {}
 
   inline BaseGraphIterator()
-      : m_lookup('s'), m_u_itor(), m_v_itor(), m_w_itor() {}
+    : spin_('s'), u_itor_(), v_itor_(), w_itor_() 
+  {}
 
   inline BaseGraphIterator(BaseGraphIterator const& rhs) = default;
-
   inline BaseGraphIterator& operator=(BaseGraphIterator const& rhs) = default;
 
   /**
@@ -174,8 +242,9 @@ struct BaseGraphIterator {
    *
    * @return true if the iterator has no more triples to return
    */
-  inline bool is_end() const {
-    return m_u_itor.is_end() and m_v_itor.is_end() and m_w_itor.is_end();
+  inline bool is_end() const 
+  {
+    return u_itor_.is_end() and v_itor_.is_end() and w_itor_.is_end();
   }
 
   /**
@@ -183,57 +252,61 @@ struct BaseGraphIterator {
    *
    * @return false if the iterator has no more triples to return
    */
-  inline bool next() {
+  inline bool next() 
+  {
     if (is_end()) return false;
 
-    if (!m_w_itor.next()) {
-      if (!m_v_itor.next(m_w_itor)) {
-        if (m_u_itor.next(m_v_itor)) {
-          m_v_itor.set_position(m_w_itor);
+    if (!w_itor_.next()) {
+      if (!v_itor_.next(w_itor_)) {
+        if (u_itor_.next(v_itor_)) {
+          v_itor_.set_position(w_itor_);
         }
       }
     }
     return !is_end();
   }
 
-  inline r_index get_subject() const {
+  inline r_index get_subject() const 
+  {
     if (is_end())
       throw rdf_exception(
           "BaseGraphIterator::get_object: ERROR: called past end of "
           "iterator!");
     r_index s, p, o;
-    lookup_uvw2spo(m_lookup, m_u_itor.get_index(), m_v_itor.get_index(),
-                   m_w_itor.get_index(), s, p, o);
+    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
+                   w_itor_.get_index(), s, p, o);
     return s;
   }
 
-  inline r_index get_predicate() const {
+  inline r_index get_predicate() const 
+  {
     if (is_end())
       throw rdf_exception(
           "BaseGraphIterator::get_predicate: ERROR: called past end of "
           "iterator!");
     r_index s, p, o;
-    lookup_uvw2spo(m_lookup, m_u_itor.get_index(), m_v_itor.get_index(),
-                   m_w_itor.get_index(), s, p, o);
+    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
+                   w_itor_.get_index(), s, p, o);
     return p;
   }
 
-  inline r_index get_object() const {
+  inline r_index get_object() const 
+  {
     if (is_end())
       throw rdf_exception(
           "BaseGraphIterator::get_object: ERROR: called past end of "
           "iterator!");
     r_index s, p, o;
-    lookup_uvw2spo(m_lookup, m_u_itor.get_index(), m_v_itor.get_index(),
-                   m_w_itor.get_index(), s, p, o);
+    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
+                   w_itor_.get_index(), s, p, o);
     return o;
   }
 
  private:
-  char m_lookup;
-  U_ITOR m_u_itor;
-  V_ITOR m_v_itor;
-  W_ITOR m_w_itor;
+  char spin_;
+  U_ITOR u_itor_;
+  V_ITOR v_itor_;
+  W_ITOR w_itor_;
 };
 
 }  // namespace jets::rdf

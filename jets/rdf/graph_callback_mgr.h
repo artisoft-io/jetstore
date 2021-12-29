@@ -5,8 +5,8 @@
 #include <memory>
 #include <list>
 
-#include "jets/rdf/base_graph.h"
 #include "jets/rdf/rdf_ast.h"
+#include "jets/rdf/base_graph.h"
 
 // Component to manage list of call backs to notify when triples are added or removed
 // from BaseGraph. This is an abstract base class, the implementation class is
@@ -29,8 +29,6 @@ class GraphCallbackManager {
 
   virtual void
   triple_deleted(r_index u, r_index v, r_index w)const=0;
-
- private:
 };
 
 } // namespace jets::rdf

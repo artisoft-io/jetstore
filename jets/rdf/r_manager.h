@@ -11,36 +11,35 @@
 
 #include "jets/rdf/rdf_err.h"
 #include "jets/rdf/rdf_ast.h"
+#include "jets/rdf/containers_type.h"
 
 // Component to manage all the rdf resources and literals of a graph
 namespace jets::rdf {
-template <class DataMap> class RManager;
-
-template <class DataMap>
-using RManagerPtr = std::shared_ptr<RManager<DataMap>>;
+class RManager;
+using RManagerPtr = std::shared_ptr<RManager>;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // RManager manage and allocate all resources and literals used in a RDFGraph
-template <class DataMap>
 class RManager {
  public:
   using ResourceList = std::list<Rptr>;
+  using DataMap = LiteralDataMap;
 
   inline RManager() 
-      : is_locked_(false),
-        last_bnode_key_(0),
-        r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
-        lmap_(),
-        root_mgr_p_()
-        {}
+    : is_locked_(false),
+      last_bnode_key_(0),
+      r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
+      lmap_(),
+      root_mgr_p_()
+  {}
 
-  inline RManager(RManagerPtr<DataMap> root_mgr_p) 
-      : is_locked_(false),
-        last_bnode_key_(0),
-        r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
-        lmap_(),
-        root_mgr_p_(root_mgr_p)
-        {}
+  inline RManager(RManagerPtr root_mgr_p) 
+    : is_locked_(false),
+      last_bnode_key_(0),
+      r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
+      lmap_(),
+      root_mgr_p_(root_mgr_p)
+  {}
 
   /**
    * @return size_t the nbr of resources excluding nulls and resources in metamap.
@@ -57,62 +56,72 @@ class RManager {
     return is_locked_;
   }
 
-  inline void set_locked()
+  inline void 
+  set_locked()
   {
     this->is_locked_ = true;
   }
 
-  inline r_index get_null() const
+  inline r_index 
+  get_null() const
   {
     return r_null_ptr_.get();
   }
 
   template<class T>
-  inline r_index get_literal(T v) const
+  inline r_index 
+  get_literal(T v) const
   {
     Rptr lptr = mkLiteral(v);
     return get_item(lptr);
   }
 
   template<class T>
-  inline r_index create_literal(T v)
+  inline r_index 
+  create_literal(T v)
   {
     Rptr lptr = mkLiteral(v);
     return insert_item(lptr);
   }
 
   template<class T>
-  inline r_index get_resource(T v) const
+  inline r_index 
+  get_resource(T v) const
   {
     Rptr lptr = mkResource(v);
     return get_item(lptr);
   }
 
   template<class T>
-  inline r_index create_resource(T v)
+  inline r_index 
+  create_resource(T v)
   {
     Rptr lptr = mkResource(v);
     return insert_item(lptr);
   }
 
-  inline r_index get_bnode(int v) const
+  inline r_index 
+  get_bnode(int v) const
   {
     Rptr lptr = mkBlankNode(v);
     return get_item(lptr);
   }
 
-  inline r_index create_bnode(int v)
+  inline r_index 
+  create_bnode(int v)
   {
     Rptr lptr = mkBlankNode(v);
     return insert_item(lptr);
   }
 
-  inline r_index create_bnode()
+  inline r_index 
+  create_bnode()
   {
     return create_bnode(get_next_key());
   }
 
-  inline r_index insert_item(Rptr lptr)
+  inline r_index 
+  insert_item(Rptr lptr)
   {
     if(is_locked_) throw rdf_exception("Accessing meta_graph to rdf index -- must use session graph instead");
     if(root_mgr_p_) {
@@ -131,7 +140,8 @@ class RManager {
     return ret.first->second;
   }
 
-  inline r_index get_item(Rptr lptr) const
+  inline r_index 
+  get_item(Rptr lptr) const
   {
     if(root_mgr_p_) {
       auto itor = root_mgr_p_->lmap_.find(lptr);
@@ -149,25 +159,25 @@ class RManager {
   }
 
  protected:
-  inline int get_next_key()
+  inline int 
+  get_next_key()
   {
     return ++last_bnode_key_;
   }
 
  private:
-  bool                  is_locked_;
-  int                   last_bnode_key_;
-  Rptr                  r_null_ptr_;
-  DataMap               lmap_;
-  RManagerPtr<DataMap>  root_mgr_p_;
-
+  bool         is_locked_;
+  int          last_bnode_key_;
+  Rptr         r_null_ptr_;
+  DataMap      lmap_;
+  RManagerPtr  root_mgr_p_;
 };
 
-template <class DataMap>
-RManagerPtr<DataMap> create_rmanager(RManagerPtr<DataMap> meta_mgr = nullptr)
+inline RManagerPtr 
+create_rmanager(RManagerPtr meta_mgr = nullptr)
 {
-  return std::make_shared<RManager<DataMap>>(meta_mgr);
+  return std::make_shared<RManager>(meta_mgr);
 }
 
-} // namespace jets::rdf::rdf_core
+} // namespace jets::rdf
 #endif // JETS_RDF_R_MANAGER_H

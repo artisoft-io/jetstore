@@ -3,7 +3,6 @@ cc_library(
     srcs = [
         "node_vertex.h",
         "beta_relation.h",
-        "beta_relation.cc",
         "beta_row_initializer.h",
         "beta_row_iterator.h",
         "beta_row.h",

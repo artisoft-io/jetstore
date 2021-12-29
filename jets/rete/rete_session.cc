@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -14,27 +15,33 @@
 
 namespace jets::rete {
 
-template<class T>
   int 
-  ReteSession<T>::initialize()
+  ReteSession::initialize()
   {
+  std::cout<<"**BetaRelationTest ReteSession::Initialize)**1"<<std::endl;
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
-    for(int ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
-
-      // Initialize BetaRelationVector beta_relations_
-      beta_relations_[ipos] = create_beta_node(this->rule_ms_->node_vertexes_[ipos]);
+    // Initialize BetaRelationVector beta_relations_
+    for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
+      beta_relations_.push_back(create_beta_node(this->rule_ms_->node_vertexes_[ipos].get()));
     }
+  std::cout<<"**BetaRelationTest ReteSession::Initialize)**2"<<std::endl;
     this->set_graph_callbacks();
+  std::cout<<"**BetaRelationTest ReteSession::Initialize)**3x"<<std::endl;
     return 0;
   }
 
-template<class T>
   int 
-  ReteSession<T>::set_graph_callbacks()
+  ReteSession::set_graph_callbacks()
   {
+    // Check if has any AlphaNode (to support test mode)
+    if(this->rule_ms_->alpha_nodes_.empty()) {
+      LOG(WARNING) << "ReteSession::set_graph_callbacks: ReteMetaStore does not "
+        "have AlphNodes, skipping grapg callback setup)";
+      return -1;
+    }
     // Preparing the list of callbacks from the AlphaNodes
-    ReteCallBackList<T> callbacks;
-    for(int ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
+    ReteCallBackList callbacks;
+    for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
 
       // Register GraphCallbackManager using antecedent AlphaNode adaptor
       // Taking into consideration that antecedent AlphaNodes are nodes:
@@ -46,30 +53,27 @@ template<class T>
     return 0;
   }
 
-template<class T>
   int 
-  ReteSession<T>::remove_graph_callbacks()
+  ReteSession::remove_graph_callbacks()
   {
     this->rdf_session()->inferred_graph()->set_graph_callback_manager({});
     return 0;
   }
 
-template<class T>
   int 
-  ReteSession<T>::execute_rules()
+  ReteSession::execute_rules()
   {
     // This is the only place we call execute_rule with compute_consequent = true
     return execute_rules(0, true, true);
   }
 
-template<class T>
   int 
-  ReteSession<T>::execute_rules(int from_vertex, bool is_inferring, bool compute_consequents)
+  ReteSession::execute_rules(int from_vertex, bool is_inferring, bool compute_consequents)
   {
     // Visit the beta nodes
     int err = visit_rete_graph(from_vertex, is_inferring);
     if(err < 0) {
-      LOG(ERROR) << "ReteSession<T>::execute_rules: error returned from "
+      LOG(ERROR) << "ReteSession::execute_rules: error returned from "
         "visit_rete_graph(from_vertex="<<from_vertex<<", is_inferring="<<is_inferring<<")";
       return err;
     }
@@ -77,7 +81,7 @@ template<class T>
     if(compute_consequents) {
       err = compute_consequent_triples();
       if(err < 0) {
-        LOG(ERROR) << "ReteSession<T>::execute_rules: error returned from "
+        LOG(ERROR) << "ReteSession::execute_rules: error returned from "
           "compute_consequent_triples() called with: from_vertex="<<from_vertex<<", is_inferring="<<is_inferring<<".";
         return err;
       }
@@ -86,9 +90,8 @@ template<class T>
     return 0;
   }
 
-template<class T>
   int 
-  ReteSession<T>::visit_rete_graph(int from_vertex, bool is_inferring)
+  ReteSession::visit_rete_graph(int from_vertex, bool is_inferring)
   {
 			std::vector<int> stack;
 			stack.reserve(rule_ms_->nbr_vertices());
@@ -140,9 +143,8 @@ template<class T>
     return 0;
   }
 
-template<class T>
   int 
-  ReteSession<T>::schedule_consequent_terms(BetaRowPtr beta_row)
+  ReteSession::schedule_consequent_terms(BetaRowPtr beta_row)
   {
     assert(beta_row);
     //* TODO Check for max visit allowed for a vertex
@@ -150,9 +152,8 @@ template<class T>
     return 0;
   }
 
-template<class T>
   int 
-  ReteSession<T>::compute_consequent_triples()
+  ReteSession::compute_consequent_triples()
   {
     while(not this->pending_beta_rows_.empty()) {
       BetaRowPtr beta_row = this->pending_beta_rows_.top();
@@ -180,7 +181,7 @@ template<class T>
         if(beta_row->is_inserted()) {
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
-            this->rdf_session_->insert_inferred(consequent_node->compute_consequent_triple(beta_row));
+            this->rdf_session_->insert_inferred(consequent_node->compute_consequent_triple(beta_row.get()));
           }
         } else {
           // beta_row status must be kDeleted, meaning retracting mode
@@ -192,7 +193,7 @@ template<class T>
           }
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
-            this->rdf_session_->retract(consequent_node->compute_consequent_triple(beta_row));
+            this->rdf_session_->retract(consequent_node->compute_consequent_triple(beta_row.get()));
           }
         }
       }
@@ -200,9 +201,8 @@ template<class T>
     return 0;
   }
 
-template<class T>
   int
-  ReteSession<T>::process_parent_rows(BetaRelation * current_relation, AlphaNode<T> const* alpha_node, 
+  ReteSession::process_parent_rows(BetaRelation * current_relation, AlphaNode const* alpha_node, 
     BetaRowIterator * parent_row_itor, bool is_inserted)
   {    
     // for each BetaRow of parent beta node, 
@@ -218,16 +218,16 @@ template<class T>
       while(not t3_itor.is_end()) {
 
         // create the beta row
-        auto beta_row = create_beta_row(cmeta_node, beta_row_initializer->get_size());
+        auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
         // initialize the beta row with parent_row and t3
-        rdf::Triple triple = t3_itor->as_triple();
+        rdf::Triple triple = t3_itor.as_triple();
         beta_row->initialize(beta_row_initializer, parent_row, &triple);
 
         // evaluate the current_relation filter if any
         bool keepit = true;
         if(cmeta_node->has_expr()) {
           auto const* expr = this->rule_ms_->get_expr(cmeta_node->expr_vertex);
-          keepit = expr->eval_filter(this, beta_row);
+          keepit = expr->eval_filter(this, beta_row.get());
         }
 
         // insert or remove the row from current_relation based on is_inserted
@@ -247,12 +247,11 @@ template<class T>
     return 0;
   }
 
-template<class T>
   int
-  ReteSession<T>::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
+  ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
     b_index meta_node = this->rule_ms_->get_node_vertex(vertex);
-    auto * parent_beta_relation = this->get_beta_relation(meta_node->parent_node_vertex);
+    auto * parent_beta_relation = this->get_beta_relation(meta_node->parent_node_vertex->vertex);
     auto * current_relation = this->get_beta_relation(vertex);
     if(not parent_beta_relation or not current_relation) {
       LOG(ERROR) << "ReteSession::triple_updated @ vertex "
