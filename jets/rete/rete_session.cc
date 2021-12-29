@@ -18,15 +18,12 @@ namespace jets::rete {
   int 
   ReteSession::initialize()
   {
-  std::cout<<"**BetaRelationTest ReteSession::Initialize)**1"<<std::endl;
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
       beta_relations_.push_back(create_beta_node(this->rule_ms_->node_vertexes_[ipos].get()));
     }
-  std::cout<<"**BetaRelationTest ReteSession::Initialize)**2"<<std::endl;
     this->set_graph_callbacks();
-  std::cout<<"**BetaRelationTest ReteSession::Initialize)**3x"<<std::endl;
     return 0;
   }
 
