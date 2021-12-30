@@ -3,46 +3,35 @@
 
 #include <string>
 #include <memory>
-#include <list>
 
 #include "jets/rdf/rdf_types.h"
 #include "node_vertex.h"
+#include "jets/rete/beta_row.h"
 #include "jets/rete/beta_row_iterator.h"
-#include "jets/rete/alpha_node.h"
+#include "jets/rete/beta_relation.h"
 #include "jets/rete/graph_callback_mgr_impl.h"
+#include "jets/rete/alpha_node.h"
 
 // This file contains the implementation classes for AlphaNode
 namespace jets::rete {
 // //////////////////////////////////////////////////////////////////////////////////////
 // AlphaNode Implementation Class
 // --------------------------------------------------------------------------------------
-template<class T, class Fu, class Fv, class Fw>
-class AlphaNodeImpl: public AlphaNode<T> {
+template<class Fu, class Fv, class Fw>
+class AlphaNodeImpl: public AlphaNode {
  public:
-  using AlphaNode<T>::RDFSession ;
-  using AlphaNode<T>::RDFSessionPtr;
-  using AlphaNode<T>::Iterator;
-  using AlphaNode<T>::RDFGraph;
-  using AlphaNode<T>::RDFGraphPtr;
+  using AlphaNode::Iterator;
 
   AlphaNodeImpl() = delete;
-  // AlphaNodeImpl()
-  //   : AlphaNode<T>(),fu_(),fv_(),fw_()
-  // {}
-
-  // AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
-  //   Fu fu, Fv fv, Fw fw) 
-  //   : AlphaNode<T>(node_vertex, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
-  // {}
 
   AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
     Fu const&fu, Fv const&fv, Fw const&fw) 
-    : AlphaNode<T>(node_vertex, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
+    : AlphaNode(node_vertex, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
   {}
 
   AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
     Fu &&fu, Fv &&fv, Fw &&fw) 
-    : AlphaNode<T>(node_vertex, is_antecedent),
+    : AlphaNode(node_vertex, is_antecedent),
       fu_(std::forward<Fu>(fu)),fv_(std::forward<Fv>(fv)),fw_(std::forward<Fw>(fw))
   {}
 
@@ -50,7 +39,7 @@ class AlphaNodeImpl: public AlphaNode<T> {
   {}
 
   int
-  register_callback(ReteSession<T> * rete_session, ReteCallBackList<T> * callbacks)const override
+  register_callback(ReteSession * rete_session, ReteCallBackList * callbacks)const override
   {
     assert(rete_session);
     assert(callbacks);
@@ -58,7 +47,7 @@ class AlphaNodeImpl: public AlphaNode<T> {
     rdf::r_index p = fv_.to_cst();
     rdf::r_index o = fw_.to_cst();
     if(not s or not p or not o) {
-      callbacks->push_back(ReteCallBack<T>{rete_session, this->get_node_vertex()->vertex});
+      callbacks->push_back(ReteCallBack{rete_session, this->get_node_vertex()->vertex});
     }
     return 0;
   }
@@ -72,10 +61,10 @@ class AlphaNodeImpl: public AlphaNode<T> {
    * Applicable to antecedent terms only, call during initial graph visit only
    * @param rdf_session 
    * @param parent_row 
-   * @return AlphaNode<T>::Iterator 
+   * @return AlphaNode::Iterator 
    */
-  typename AlphaNode<T>::Iterator
-  find_matching_triples(typename AlphaNode<T>::RDFSession * rdf_session, 
+  typename AlphaNode::Iterator
+  find_matching_triples(rdf::RDFSession * rdf_session, 
     BetaRow const* parent_row)const override
   {
     return rdf_session->find(fu_.eval(parent_row), fv_.eval(parent_row), fw_.eval(parent_row));
@@ -139,11 +128,20 @@ class AlphaNodeImpl: public AlphaNode<T> {
   Fw fw_;
 };
 
-// template<class T>
-// AlphaNodePtr<T> create_alpha_node(b_index node_vertex)
-// {
-//   return std::make_shared<AlphaNode<T>>(node_vertex);
-// }
+template<class Fu, class Fv, class Fw>
+AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent,
+    Fu const& fu, Fv const& fv, Fw const& fw)
+{
+  return std::make_shared<AlphaNodeImpl>(node_vertex, is_antecedent, fu, fv, fw);
+}
+
+template<class Fu, class Fv, class Fw>
+AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent,
+    Fu && fu, Fv && fv, Fw && fw)
+{
+  return std::make_shared<AlphaNodeImpl>(node_vertex, is_antecedent, 
+    std::forward<Fu>(fu), std::forward<Fv>(fv), std::forward<Fw>(fw));
+}
 
 } // namespace jets::rete
 #endif // JETS_RETE_ALPHA_NODE_IMPL_H

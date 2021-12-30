@@ -32,8 +32,13 @@ enum AntecedentQueryType {
   kQTuv     = 2,     // find(u, v)
   kQTuvw    = 3,     // find(u, v, w) -- may return multiple BetaRow rows
 };
+
 struct AntecedentQuerySpec {
-  int key;                    // key to register the query with BetaRelation indexes
+  AntecedentQuerySpec(int key, AntecedentQueryType type, 
+    char spin, int upos, int vpos, int wpos)
+    : key(key), type(type), spin(spin), u_pos(upos), v_pos(vpos), w_pos(wpos)
+  {}
+  int key;                    // key to register the query with BetaRelation indexes, key start a 0 per type
   AntecedentQueryType type;   // Specify query function call to use and retained arguments
   char spin;                  // Specify rotation of arguments to be applied by antecedent: spo => uvw
   int u_pos;                  // BetaRow pos of u (in the uvw coordinates, i.e. rotated)
@@ -45,6 +50,14 @@ struct AntecedentQuerySpec {
 // Note w_pos is required for query type 3 only
 // Note u_pos, v_pos, and w_pos take value -1 when not specified
 using AntecedentQuerySpecPtr = std::shared_ptr<AntecedentQuerySpec>;
+
+inline 
+AntecedentQuerySpecPtr create_antecedent_query_spec(
+  int key, AntecedentQueryType type, 
+  char spin, int upos, int vpos, int wpos)
+{
+  return std::make_shared<AntecedentQuerySpec>(key, type, spin, upos, vpos, wpos);
+}
 
 // Reversed lookup for descendent nodes to speed up insert/delete in indexes struct
 using b_index_set = absl::flat_hash_set<b_index>;

@@ -141,6 +141,40 @@ class BetaRelation {
     return create_idx3_rows_iterator(result.first, result.second);
   }
 
+  /**
+   * @brief Initialize the BetaRelation object indexes
+   * 
+   * Allocate and initialize all 3 indexes
+   *    - BetaRowIndxVec1
+   *    - BetaRowIndxVec2
+   *    - BetaRowIndxVec3
+   * @return int 
+   */
+  int
+  initialize()
+  {
+    int sz1=0, sz2=0, sz3=0;
+    for(auto const& b_index: node_vertex_->child_nodes) {
+      AntecedentQuerySpecPtr const& query_spec = b_index->antecedent_query_spec;
+      switch (query_spec->type) {
+      case AntecedentQueryType::kQTu: 
+      sz1 += 1;
+        break;
+      case AntecedentQueryType::kQTuv:
+      sz2 += 1;
+        break;
+      case AntecedentQueryType::kQTuvw:
+      sz3 += 1;
+        break;
+      case AntecedentQueryType::kQTAll:
+      break;
+      }
+    }
+    beta_row_idx1_.resize(sz1);
+    beta_row_idx2_.resize(sz2);
+    beta_row_idx3_.resize(sz3);
+    return 0;
+  }
 
  protected:
   int
