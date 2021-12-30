@@ -21,7 +21,9 @@ namespace jets::rete {
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
-      beta_relations_.push_back(create_beta_node(this->rule_ms_->node_vertexes_[ipos].get()));
+      auto bn = create_beta_node(this->rule_ms_->node_vertexes_[ipos].get());
+      bn->initialize();
+      beta_relations_.push_back(bn);
     }
     this->set_graph_callbacks();
     return 0;
