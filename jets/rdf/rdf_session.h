@@ -75,6 +75,28 @@ class RDFSession {
   }
 
   /**
+   * @brief Get the `RManager` raw ptr
+   * 
+   * @return RManager const *
+   */
+  inline RManager const*
+  rmgr()const 
+  {
+    return asserted_graph_->rmgr();
+  }
+
+  /**
+   * @brief Get the `RManager` raw ptr
+   * 
+   * @return RManager *
+   */
+  inline RManager *
+  rmgr()
+  {
+    return asserted_graph_->rmgr();
+  }
+
+  /**
    * @brief Get the meta graph shared ptr
    */
   inline RDFGraphPtr 

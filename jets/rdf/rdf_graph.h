@@ -113,6 +113,28 @@ class RDFGraph {
     return r_mgr_p;
   }
 
+  /**
+   * @brief Get the `RManager` raw ptr
+   * 
+   * @return RManager const*
+   */
+  inline RManager const*
+  rmgr()const 
+  {
+    return r_mgr_p.get();
+  }
+
+  /**
+   * @brief Get the `RManager` raw ptr
+   * 
+   * @return RManager *
+   */
+  inline RManager *
+  rmgr()
+  {
+    return r_mgr_p.get();
+  }
+
   inline bool 
   contains(r_index s, r_index p, r_index o) const 
   {

@@ -7,6 +7,7 @@ cc_library(
         "beta_row_iterator.h",
         "beta_row.h",
         "alpha_node.h",
+        "alpha_functors.h",
         "alpha_node_impl.h",
         "expr.h",
         "expr_impl.h",

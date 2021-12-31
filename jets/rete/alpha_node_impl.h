@@ -103,6 +103,7 @@ class AlphaNodeImpl: public AlphaNode {
     case AntecedentQueryType::kQTAll:
       return beta_relation->get_all_rows_iterator();
     }
+    return {};
   }
 
   // Return consequent `triple` for BetaRow
@@ -132,14 +133,14 @@ template<class Fu, class Fv, class Fw>
 AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent,
     Fu const& fu, Fv const& fv, Fw const& fw)
 {
-  return std::make_shared<AlphaNodeImpl>(node_vertex, is_antecedent, fu, fv, fw);
+  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, is_antecedent, fu, fv, fw);
 }
 
 template<class Fu, class Fv, class Fw>
 AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent,
     Fu && fu, Fv && fv, Fw && fw)
 {
-  return std::make_shared<AlphaNodeImpl>(node_vertex, is_antecedent, 
+  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, is_antecedent, 
     std::forward<Fu>(fu), std::forward<Fv>(fv), std::forward<Fw>(fw));
 }
 
