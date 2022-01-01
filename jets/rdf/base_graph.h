@@ -11,6 +11,7 @@
 #include "jets/rdf/rdf_ast.h"
 #include "jets/rdf/w_node.h"
 #include "jets/rdf/base_graph_iterator.h"
+#include "jets/rdf/graph_callback_mgr.h"
 
 namespace jets::rdf {
 // //////////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +49,8 @@ class BaseGraph {
     : spin_(spin),
       umap_data_(),
       v_end_(),
-      w_end_()
+      w_end_(),
+      graph_callback_mgr_()
   {}
 
   inline void clear() 
@@ -258,7 +260,10 @@ class BaseGraph {
 
 		// If not inserted, then increase the ref_count by 1
     auto pair = vtor->second.insert(WSetType::value_type{w});
-    if (!pair.second) pair.first->add_ref_count();
+    if (!pair.second) {
+      pair.first->add_ref_count();
+      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_inserted(u, v, w);
+    }
     return pair.second;
   }
 
@@ -288,6 +293,9 @@ class BaseGraph {
     if (vtor == utor->second.end()) return 0;
 
     int count = vtor->second.erase(WSetType::value_type{w});
+    if(count and this->graph_callback_mgr_) {
+      this->graph_callback_mgr_->triple_deleted(u, v, w); 
+    }
     if (vtor->second.empty()) {
       utor->second.erase(v);
       if (utor->second.empty()) {
@@ -348,12 +356,23 @@ class BaseGraph {
     return retract(u, v, w);
   }
 
+  // GraphCallbackManager functions
+  inline void
+  add_graph_callback(ReteCallBackPtr cp) 
+  {
+    if(not this->graph_callback_mgr_) {
+      this->graph_callback_mgr_ = std::make_shared<GraphCallbackManager>();
+    }
+    this->graph_callback_mgr_->add_callback(cp);
+  }
+
  private:
   char const spin_;
   UMapType umap_data_;
   // have empty iterators
   VMapType::const_iterator v_end_;
   WSetType::const_iterator w_end_;
+  GraphCallbackManagerPtr graph_callback_mgr_;
 };
 
 inline 

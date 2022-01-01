@@ -106,6 +106,12 @@ struct NodeVertex {
   {}
 
   inline bool
+  is_head_vertice()const
+  {
+    return vertex == 0;
+  }
+
+  inline bool
   has_expr()const
   {
     return expr_vertex >= 0;

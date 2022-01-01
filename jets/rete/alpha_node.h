@@ -134,8 +134,15 @@ class AlphaNode {
     return is_antecedent_;
   }
 
+  /**
+   * @brief Register callback with infer graph and construct AntecedentQuerySpec
+   * 
+   * @param rete_session 
+   * @param callbacks 
+   * @return int 
+   */
   virtual int
-  register_callback(ReteSession * rete_session, ReteCallBackList * callbacks)const=0;
+  register_callback(ReteSession * rete_session)const=0;
 
   // Call to get all triples from rdf session matching `parent_row`
   // Applicable to antecedent terms only, call during initial graph visit only

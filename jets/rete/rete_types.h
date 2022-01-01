@@ -11,11 +11,11 @@
 #include "jets/rete/beta_relation.h"
 #include "jets/rete/graph_callback_mgr_impl.h"
 #include "jets/rete/alpha_node.h"
-#include "jets/rete/alpha_node_impl.h"
 #include "jets/rete/expr.h"
 #include "jets/rete/rete_meta_store.h"
 #include "jets/rete/expr_impl.h"
 #include "jets/rete/rete_session.h"
+#include "jets/rete/alpha_node_impl.h"
 #include "jets/rete/alpha_functors.h"
 
 #endif // JETS_RETE_TYPES_H

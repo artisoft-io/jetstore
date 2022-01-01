@@ -18,7 +18,7 @@ class BetaRelationTest : public ::testing::Test {
     : node_vertexes(), beta_relations(), rete_session(),
       rete_meta_store(), rdf_session() 
   {
-    // create antecedent query spec for the child vertices 1, 2, 3 with corresponding antecedentQuery key 1, 2 ,3
+    // create antecedent query spec for the child vertices 1, 2, 3
     AntecedentQuerySpecPtr aqspec1 = create_antecedent_query_spec(0, AntecedentQueryType::kQTu, 's', 0, -1, -1);
     AntecedentQuerySpecPtr aqspec2 = create_antecedent_query_spec(0, AntecedentQueryType::kQTuv, 's', 0, 1, -1);
     AntecedentQuerySpecPtr aqspec3 = create_antecedent_query_spec(0, AntecedentQueryType::kQTuvw, 's', 0, 1, 2);

@@ -16,6 +16,7 @@
 #include "jets/rete/beta_row.h"
 #include "jets/rete/beta_row_iterator.h"
 #include "jets/rete/beta_relation.h"
+#include "jets/rete/graph_callback_mgr_impl.h"
 #include "jets/rete/alpha_node.h"
 #include "jets/rete/expr.h"
 #include "jets/rete/rete_meta_store.h"
@@ -198,14 +199,11 @@ class ReteSession {
 
  private:
  friend class BetaRelation;
-  int
-  process_parent_rows(BetaRelation * current_relation, AlphaNode const* alpha_node,
-    BetaRowIterator * parent_row_itor, bool is_inserted);
 
-  ReteMetaStore const*  rule_ms_;
-  rdf::RDFSession  *       rdf_session_;
-  BetaRelationVector       beta_relations_;
-  BetaRowPriorityQueue     pending_beta_rows_;
+  ReteMetaStore const*    rule_ms_;
+  rdf::RDFSession  *      rdf_session_;
+  BetaRelationVector      beta_relations_;
+  BetaRowPriorityQueue    pending_beta_rows_;
 };
 
 inline ReteSessionPtr create_rete_session(ReteMetaStore const* rule_ms, rdf::RDFSession * rdf_session)
@@ -284,18 +282,18 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   return 0;
 }
 
-// Declaired in graph_callback_mgr_impl.h
-inline void
-ReteCallBack::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
-{
-  this->rete_session_->triple_inserted(this->vertex_, s, p, o);
-}
-// Declaired in graph_callback_mgr_impl.h
-inline void
-ReteCallBack::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
-{
-  this->rete_session_->triple_deleted(this->vertex_, s, p, o);
-}
+// // Declaired in graph_callback_mgr_impl.h
+// inline void
+// ReteCallBack::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+// {
+//   this->rete_session_->triple_inserted(this->vertex_, s, p, o);
+// }
+// // Declaired in graph_callback_mgr_impl.h
+// inline void
+// ReteCallBack::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+// {
+//   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
+// }
 
 } // namespace jets::rete
 #endif // JETS_RETE_RETE_SESSION_H

@@ -14,7 +14,6 @@
 #include "jets/rdf/base_graph_iterator.h"
 #include "jets/rdf/base_graph.h"
 #include "jets/rdf/r_manager.h"
-#include "jets/rdf/graph_callback_mgr.h"
 
 namespace jets::rdf {
 // ======================================================================================
@@ -28,8 +27,8 @@ inline std::ostream & operator<<(std::ostream & out, StarMatch const& r)
 }
 
 enum star_idx_ast_which_order {
-    rdf_star_t                       = 0 ,
-    rdf_r_index_t                    = 1 
+    rdf_star_t        = 0 ,
+    rdf_r_index_t     = 1 
 };
 
 //* NOTE: If updated, MUST update ast_which_order and possibly ast_sort_order
@@ -67,8 +66,7 @@ class RDFGraph {
       r_mgr_p(create_rmanager()), 
       spo_graph_('s'), 
       pos_graph_('p'), 
-      osp_graph_('o'),
-      graph_callback_mgr_()
+      osp_graph_('o')
     {}
 
   RDFGraph(RManagerPtr meta_mgr) 
@@ -77,8 +75,7 @@ class RDFGraph {
       r_mgr_p(create_rmanager(meta_mgr)), 
       spo_graph_('s'), 
       pos_graph_('p'), 
-      osp_graph_('o'),
-      graph_callback_mgr_()
+      osp_graph_('o')
     {}
 
   /**
@@ -210,7 +207,6 @@ class RDFGraph {
       pos_graph_.insert(p, o, s);
       osp_graph_.insert(o, s, p);
       size_+= 1;
-      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_inserted(s, p, o);
       return 1;
     }
     return 0;
@@ -233,7 +229,6 @@ class RDFGraph {
       pos_graph_.erase(p, o, s);
       osp_graph_.erase(o, s, p);
       size_-= 1;
-      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
     }
     return 0;
@@ -256,17 +251,15 @@ class RDFGraph {
       pos_graph_.retract(p, o, s);
       osp_graph_.retract(o, s, p);
       size_-= 1;
-      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
     }
     return 0;
   }
 
-  // GraphCallbackManager functions
-  inline void
-  set_graph_callback_manager(GraphCallbackManagerPtr graph_callback_mgr) 
+  inline int
+  register_callback(char spin, int vertex, r_index u_filter, r_index v_filter, r_index w_filter) 
   {
-    this->graph_callback_mgr_ = graph_callback_mgr;
+    return 0;
   }
 
  protected:
@@ -288,7 +281,6 @@ set_rmgr(RManagerPtr p)
   BaseGraph spo_graph_;
   BaseGraph pos_graph_;
   BaseGraph osp_graph_;
-  GraphCallbackManagerPtr graph_callback_mgr_;
 };
 
 // find visitor

@@ -93,7 +93,6 @@ class BetaRelation {
 /**
  * @brief Insert BetaRow into BetaRelation and transfer ownsership of the row as well.
  * 
- * @tparam T RDFSession used
  * @param rete_session Current session that owns the BetaRelation
  * @param beta_row the row to insert
  * @return int 0 if normal, -1 if error
