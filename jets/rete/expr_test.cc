@@ -146,9 +146,9 @@ TEST(ExprTest, AddVisitor1Test) {
   auto op = create_expr_binary_operator<AddVisitor>(x1, x2);
 
   rdf::RManager rmanager;
-  auto v1 = rmanager.create_literal<int32_t>(1);
+  auto v3 = rmanager.create_literal<int32_t>(3);
   auto v4 = rmanager.create_literal<int32_t>(4);
-  EXPECT_TRUE(op->eval(nullptr, nullptr)==*v1 );
+  EXPECT_TRUE(op->eval(nullptr, nullptr)==*v3 );
   EXPECT_FALSE(op->eval(nullptr, nullptr)==*v4 );
 }
 
@@ -162,6 +162,20 @@ TEST(ExprTest, AddVisitor2Test) {
   auto v4 = rmanager.create_literal<int32_t>(4);
   EXPECT_TRUE(op->eval(nullptr, nullptr)==*vnull );
   EXPECT_FALSE(op->eval(nullptr, nullptr)==*v4 );
+}
+
+TEST(ExprTest, AddVisitor3Test) {
+  auto x1 = create_expr_cst(rdf::RdfAstType(rdf::LInt32(1)));
+  auto x2 = create_expr_cst(rdf::RdfAstType(rdf::LDouble(1.9)));
+  auto op = create_expr_binary_operator<AddVisitor>(x1, x2);
+  EXPECT_TRUE(op->eval(nullptr, nullptr)==rdf::RdfAstType(rdf::LInt32(2)) );
+}
+
+TEST(ExprTest, AddVisitor4Test) {
+  auto x1 = create_expr_cst(rdf::RdfAstType(rdf::LDouble(1.9)));
+  auto x2 = create_expr_cst(rdf::RdfAstType(rdf::LInt32(1)));
+  auto op = create_expr_binary_operator<AddVisitor>(x1, x2);
+  EXPECT_FLOAT_EQ(boost::get<rdf::LDouble>(op->eval(nullptr, nullptr)).data , 2.9 );
 }
 
 }   // namespace

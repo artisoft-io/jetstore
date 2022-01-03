@@ -2,12 +2,15 @@
 #define JETS_RETE_EXPR_OPERATORS_H
 
 #include <cctype>
+#include <cstdint>
 #include <type_traits>
 #include <algorithm>
 #include <string>
 #include <memory>
 #include <utility>
 #include <regex>
+
+#include <boost/numeric/conversion/cast.hpp>
 
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/beta_row.h"
@@ -25,121 +28,58 @@ template<class R> struct xliteral< rdf::LUInt64, R>   {typedef R result;};
 template<class R> struct xliteral< rdf::LDouble, R>   {typedef R result;};
 template<class R> struct xliteral< rdf::LString, R>   {typedef R result;};
 
+using RDFTTYPE = rdf::RdfAstType;
 // AddVisitor
 // --------------------------------------------------------------------------------------
-struct AddVisitor: public boost::static_visitor<rdf::RdfAstType>
+struct AddVisitor: public boost::static_visitor<RDFTTYPE>
 {
   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> 
-  typename std::enable_if<T::is_literal, rdf::RdfAstType>::type
-  operator()(T lhs, U rhs) const {return rdf::RDFNull();};
-  template<class T, class U> 
-  typename std::enable_if< typename std::negation< T::is_literal >::type, rdf::RdfAstType>::type
-  operator()(T lhs, U rhs) const {return rdf::RDFNull();};
-  template<class T> 
-  rdf::RdfAstType operator()(T lhs, T rhs) const {return rdf::LInt32(1);};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::RDFNull();};
 
-  // rdf::RdfAstType operator()(rdf::LInt32         lhs, rdf::LInt32         rhs){return {lhs.data+rhs.data};}
-  // rdf::RdfAstType operator()(rdf::LUInt32        lhs, rdf::LUInt32        rhs){return {lhs.data+rhs.data};}
-  // rdf::RdfAstType operator()(rdf::LInt64         lhs, rdf::LInt64         rhs){return {lhs.data+rhs.data};}
-  // rdf::RdfAstType operator()(rdf::LUInt64        lhs, rdf::LUInt64        rhs){return {lhs.data+rhs.data};}
-  // rdf::RdfAstType operator()(rdf::LDouble        lhs, rdf::LDouble        rhs){return {lhs.data+rhs.data};}
-  // rdf::RdfAstType operator()(rdf::LString        lhs, rdf::LString        rhs){return {lhs.data+rhs.data};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
+  // RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LString rhs){return {lhs.data+rhs.data};}
+
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt32{lhs.data+rhs.data};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
+  // RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LString rhs){return {lhs.data+rhs.data};}
+
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return rdf::LInt64{lhs.data+rhs.data};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
+  // RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LString rhs){return {lhs.data+rhs.data};}
+
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
+  // RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LString rhs){return {lhs.data+rhs.data};}
+
+  RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble lhs, rdf::LUInt32 rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt64  rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble lhs, rdf::LUInt64 rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble lhs, rdf::LDouble rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
+  // RDFTTYPE operator()(rdf::LDouble lhs, rdf::LString rhs){return {lhs.data+rhs.data};}
+
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LInt32  rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt32 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LInt64  rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt64 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LDouble rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LString rhs)const{return rdf::LString{lhs.data+rhs.data};}
   ReteSession * rs;
   BetaRow const* br;
 };
-
-// This WORKS
-// struct AddVisitor: public boost::static_visitor<rdf::RdfAstType>
-// {
-//   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-//   template<class T, class U> 
-//   rdf::RdfAstType operator()(T lhs, U rhs) const {return rdf::RDFNull();};
-//   template<class T> 
-//   rdf::RdfAstType operator()(T lhs, T rhs) const {return rdf::LInt32(1);};
-
-//   // rdf::RdfAstType operator()(rdf::LInt32         lhs, rdf::LInt32         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt32        lhs, rdf::LUInt32        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LInt64         lhs, rdf::LInt64         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt64        lhs, rdf::LUInt64        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LDouble        lhs, rdf::LDouble        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LString        lhs, rdf::LString        rhs){return {lhs.data+rhs.data};}
-//   ReteSession * rs;
-//   BetaRow const* br;
-// };
-
-// struct AddVisitor: public boost::static_visitor<rdf::RdfAstType>
-// {
-//   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-//   template<class T, class U> 
-//   typename xliteral<T, rdf::RdfAstType>::result 
-//   operator()(T lhs, U rhs)
-//   {return T(lhs.data+rhs.data);};
-//   template<class T, class U> rdf::RdfAstType 
-//   operator()(typename std::enable_if<T::is_resource, T>::type lhs, typename std::enable_if<T::is_literal, T>::type rhs)
-//   {return rdf::RDFNull();};
-//   template<class T, class U> rdf::RdfAstType 
-//   operator()(typename std::enable_if<T::is_literal, T>::type lhs, typename std::enable_if<T::is_resource, T>::type rhs)
-//   {return rdf::RDFNull();};
-//   template<class T, class U> rdf::RdfAstType 
-//   operator()(typename std::enable_if<T::is_resource, T>::type lhs, typename std::enable_if<T::is_resource, T>::type rhs)
-//   {return rdf::RDFNull();};
-
-//   // rdf::RdfAstType operator()(rdf::LInt32         lhs, rdf::LInt32         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt32        lhs, rdf::LUInt32        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LInt64         lhs, rdf::LInt64         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt64        lhs, rdf::LUInt64        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LDouble        lhs, rdf::LDouble        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LString        lhs, rdf::LString        rhs){return {lhs.data+rhs.data};}
-//   ReteSession * rs;
-//   BetaRow const* br;
-// };
-
-// struct AddVisitor: public boost::static_visitor<rdf::RdfAstType>
-// {
-//   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-//   template<class T, class U> rdf::RdfAstType 
-//   operator()(typename std::enable_if<T::is_literal, T>::type lhs, typename std::enable_if<T::is_literal, T>::type rhs)
-//   {return T(lhs.data+rhs.data);};
-//   template<class T, class U> rdf::RdfAstType 
-//   operator()(typename std::enable_if<T::is_resource, T>::type lhs, typename std::enable_if<T::is_literal, T>::type rhs)
-//   {return rdf::RDFNull();};
-//   template<class T, class U> rdf::RdfAstType 
-//   operator()(typename std::enable_if<T::is_literal, T>::type lhs, typename std::enable_if<T::is_resource, T>::type rhs)
-//   {return rdf::RDFNull();};
-//   template<class T, class U> rdf::RdfAstType 
-//   operator()(typename std::enable_if<T::is_resource, T>::type lhs, typename std::enable_if<T::is_resource, T>::type rhs)
-//   {return rdf::RDFNull();};
-
-//   // rdf::RdfAstType operator()(rdf::LInt32         lhs, rdf::LInt32         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt32        lhs, rdf::LUInt32        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LInt64         lhs, rdf::LInt64         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt64        lhs, rdf::LUInt64        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LDouble        lhs, rdf::LDouble        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LString        lhs, rdf::LString        rhs){return {lhs.data+rhs.data};}
-//   ReteSession * rs;
-//   BetaRow const* br;
-// };
-
-// struct AddVisitor: public boost::static_visitor<rdf::RdfAstType>
-// {
-//   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-//   // template<class T, class U> rdf::RdfAstType operator()(T, U){return rdf::RDFNull();};
-//   template<class T, typename T1 = typename std::enable_if<T::is_literal, T>::type, 
-//     class U, typename U1 = typename std::enable_if<U::is_literal, U>::type> 
-//   rdf::RdfAstType operator()(T1 lhs, U1 rhs){return T(lhs.data+rhs.data);};
-//   template<class T, typename T1 = typename std::enable_if<T::is_non_literal, T>::type, 
-//     class U, typename U1 = typename std::enable_if<U::is_non_literal, U>::type> 
-//   rdf::RdfAstType operator()(T1 lhs, U1 rhs){return T(lhs.data+rhs.data);};
-//   // rdf::RdfAstType operator()(rdf::LInt32         lhs, rdf::LInt32         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt32        lhs, rdf::LUInt32        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LInt64         lhs, rdf::LInt64         rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LUInt64        lhs, rdf::LUInt64        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LDouble        lhs, rdf::LDouble        rhs){return {lhs.data+rhs.data};}
-//   // rdf::RdfAstType operator()(rdf::LString        lhs, rdf::LString        rhs){return {lhs.data+rhs.data};}
-//   ReteSession * rs;
-//   BetaRow const* br;
-// };
 
 // EqVisitor
 // --------------------------------------------------------------------------------------
