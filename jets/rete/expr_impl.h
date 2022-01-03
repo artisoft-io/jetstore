@@ -57,10 +57,8 @@ template<class Op>
 typename ExprBinaryOp<Op>::ExprDataType
 ExprBinaryOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  ExprBinaryOp<Op>::ExprDataType lhs = this->lhs_->eval(rete_session, beta_row);
-  ExprBinaryOp<Op>::ExprDataType rhs = this->rhs_->eval(rete_session, beta_row);
-  ExprBinaryOp<Op>::ExprDataType result = this->oper_->eval(rete_session, lhs, rhs);
-  return result;
+  return boost::apply_visitor(Op(rete_session, beta_row), 
+    this->lhs_->eval(rete_session, beta_row), this->rhs_->eval(rete_session, beta_row));
 }
 
 // ExprUnaryOp
@@ -69,9 +67,7 @@ template<class Op>
 typename ExprUnaryOp<Op>::ExprDataType
 ExprUnaryOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  ExprUnaryOp<Op>::ExprDataType arg = this->arg_->eval(rete_session, beta_row);
-  ExprUnaryOp<Op>::ExprDataType result = this->oper_->eval(rete_session, arg);
-  return result;
+  return boost::apply_visitor(Op(rete_session, beta_row), this->lhs_->eval(rete_session, beta_row));
 }
 
 } // namespace jets::rete

@@ -60,124 +60,69 @@ class AlphaNodeImpl: public AlphaNode {
     if(this->get_node_vertex()->is_head_vertice()) return 0;
     
     int vertex = this->get_node_vertex()->vertex;
-    if(fu_.is_var()) {
-      if(fv_.is_var()) {
-        if(fw_.is_var()) {
+    rdf::r_index u = fu_.to_cst();
+    rdf::r_index v = fv_.to_cst();
+    rdf::r_index w = fw_.to_cst();
+    if(not u) {
+      if(not v) {
+        if(not w) {
           // case (*, *, *)
-          // register to spo for all triples
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (*, *, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
+          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
+            create_rete_callback(rete_session, vertex, nullptr, nullptr, nullptr));
         } else {
           // case (*, *, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', vertex, fw_.get_cst(), nullptr, nullptr);
-        }
-      } else if(fv_.is_index()) {
-        if(fw_.is_var()) {
-          // case (*, i, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (*, i, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
-        } else {
-          // case (*, i, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', vertex, fw_.get_cst(), nullptr, nullptr);
+          rete_session->rdf_session()->inferred_graph()->register_callback('o', 
+            create_rete_callback(rete_session, vertex, w, nullptr, nullptr));
         }
       } else {
-        if(fw_.is_var()) {
+        if(not w) {
           // case (*, r, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', vertex, fv_.get_cst(), nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (*, r, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', vertex, fv_.get_cst(), nullptr, nullptr);
+          rete_session->rdf_session()->inferred_graph()->register_callback('p', 
+            create_rete_callback(rete_session, vertex, v, nullptr, nullptr));
         } else {
           // case (*, r, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', vertex, fv_.get_cst(), fw_.get_cst(), nullptr);
+          rete_session->rdf_session()->inferred_graph()->register_callback('p', 
+            create_rete_callback(rete_session, vertex, v, w, nullptr));
         }
       }
 
-    } else if(fu_.is_index()) {
-      if(fv_.is_var()) {
-        if(fw_.is_var()) {
-          // case (i, *, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (i, *, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
-        } else {
-          // case (i, *, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', vertex, fw_.get_cst(), nullptr, nullptr);
-        }
-      } else if(fv_.is_index()) {
-        if(fw_.is_var()) {
-          // case (i, i, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (i, i, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, nullptr, nullptr, nullptr);
-        } else {
-          // case (i, i, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', vertex, fw_.get_cst(), nullptr, nullptr);
-        }
-      } else {
-        if(fw_.is_var()) {
-          // case (i, r, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', vertex, fv_.get_cst(), nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (i, r, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', vertex, fv_.get_cst(), nullptr, nullptr);
-        } else {
-          // case (i, r, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', vertex, fv_.get_cst(), fw_.get_cst(), nullptr);
-        }
-      }
     } else {
-      if(fv_.is_var()) {
-        if(fw_.is_var()) {
+      if(not v) {
+        if(not w) {
           // case (r, *, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, fu_.get_cst(), nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (r, *, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, fu_.get_cst(), nullptr, nullptr);
+          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
+            create_rete_callback(rete_session, vertex, u, nullptr, nullptr));
         } else {
           // case (r, *, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', vertex, fw_.get_cst(), fu_.get_cst(), nullptr);
-        }
-      } else if(fv_.is_index()) {
-        if(fw_.is_var()) {
-          // case (r, i, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, fu_.get_cst(), nullptr, nullptr);
-        } else if(fw_.is_index()) {
-          // case (r, i, i)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, fu_.get_cst(), nullptr, nullptr);
-        } else {
-          // case (r, i, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', vertex, fw_.get_cst(), fu_.get_cst(), nullptr);
+          rete_session->rdf_session()->inferred_graph()->register_callback('o', 
+            create_rete_callback(rete_session, vertex, w, u, nullptr));
         }
       } else {
-        if(fw_.is_var()) {
+        if(not w) {
           // case (r, r, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, fu_.get_cst(), fv_.get_cst(), nullptr);
-        } else if(fw_.is_index()) {
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, fu_.get_cst(), fv_.get_cst(), nullptr);
+          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
+            create_rete_callback(rete_session, vertex, u, v, nullptr));
           // case (r, r, i)
         } else {
           // case (r, r, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', vertex, fu_.get_cst(), fv_.get_cst(), fw_.get_cst());
+          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
+            create_rete_callback(rete_session, vertex, u, v, w));
         }
       }
     }
     return 0;
   }
 
-  // Call to get all triples from rdf session matching `parent_row`
-  // Applicable to antecedent terms only, call during initial graph visit only
-  // Will throw if called on a consequent term
   /**
    * @brief Get all triples from rdf session matching `parent_row`
+   *
+   * Invoking the functors to_AllOrRIndex methods, case:
+   *  - F_cst: return the rdf resource of the functor (constant value)
+   *  - F_binded: return the binded rdf resource from parent_row @ index of the functor.
+   *  - F_var: return 'any' (StarMatch) to indicate a unbinded variable
    * 
    * Applicable to antecedent terms only, call during initial graph visit only
+   * Will throw if called on a consequent term
    * @param rdf_session 
    * @param parent_row 
    * @return AlphaNode::Iterator 
@@ -186,7 +131,10 @@ class AlphaNodeImpl: public AlphaNode {
   find_matching_triples(rdf::RDFSession * rdf_session, 
     BetaRow const* parent_row)const override
   {
-    return rdf_session->find(fu_.eval(parent_row), fv_.eval(parent_row), fw_.eval(parent_row));
+    if(not this->is_antecedent()) {
+      RETE_EXCEPTION("AlphaNodeImpl::find_matching_triples: Called on alpha node that is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
+    }
+    return rdf_session->find(fu_.to_AllOrRIndex(parent_row), fv_.to_AllOrRIndex(parent_row), fw_.to_AllOrRIndex(parent_row));
   }
 
   /**
@@ -226,9 +174,6 @@ class AlphaNodeImpl: public AlphaNode {
     return {};
   }
 
-  // Return consequent `triple` for BetaRow
-  // Applicable to consequent terms only
-  // Will throw if called on an antecedent term
   /**
    * @brief Return consequent `triple` for BetaRow
    * 
@@ -240,7 +185,10 @@ class AlphaNodeImpl: public AlphaNode {
   rdf::Triple
   compute_consequent_triple(BetaRow * beta_row)const override
   {
-    return {fu_.eval(beta_row), fv_.eval(beta_row), fw_.eval(beta_row)};
+    if(this->is_antecedent()) {
+      RETE_EXCEPTION("AlphaNodeImpl::compute_consequent_triple: Called on alpha node that is NOT an consequent term, vertex: "<<this->get_node_vertex()->vertex);
+    }
+    return {fu_.to_r_index(beta_row), fv_.to_r_index(beta_row), fw_.to_r_index(beta_row)};
   }
 
  private:

@@ -174,7 +174,18 @@ class RDFSession {
   }
 
   inline Iterator 
-  find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o) 
+  find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o) const
+  {
+    // std::cout<<"RdfSession::find ("<<s<<", "<<p<<", "<<o<<")"<<std::endl;
+    return Iterator(
+      asserted_graph_->find(s, p, o),
+      inferred_graph_->find(s, p, o),
+      meta_graph_->find(s, p, o)
+    );
+  }
+
+  inline Iterator 
+  find_idx(r_index s, r_index p, r_index o) const 
   {
     return Iterator(
       asserted_graph_->find(s, p, o),

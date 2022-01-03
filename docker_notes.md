@@ -22,8 +22,8 @@ bazel build --sandbox_debug  //jets:jetstore
 bazel build //jets/rete:jets_rete_test --verbose_failures --experimental_ui_max_stdouterr_bytes=5000000
 
 # Need this
-BAZEL_CXXOPTS="-std=c++17:-O3" bazel build --verbose_failures //jets/rdf:jets_rdf_test
-BAZEL_CXXOPTS="-std=c++17:-O3" bazel build --verbose_failures //jets/rdf:jets_rdf_benchmark
+BAZEL_CXXOPTS="-std=c++20:-O3" bazel build --verbose_failures //jets/rdf:jets_rdf_test
+BAZEL_CXXOPTS="-std=c++20:-O3" bazel build --verbose_failures //jets/rdf:jets_rdf_benchmark
 
 # To Run with log to stderr
 GLOG_logtostderr=1 bazel-bin/jets/jetstore 
@@ -31,11 +31,11 @@ GLOG_logtostderr=1 bazel-bin/jets/jetstore --languages=francais,english
 
 # Running tests
 bazel test --test_output=all //jets/rdf:jets_rdf_test
-BAZEL_CXXOPTS="-std=c++17:-O3" bazel test --test_output=all //jets/rdf:jets_rdf_benchmark
+BAZEL_CXXOPTS="-std=c++20:-O3" bazel test --test_output=all //jets/rdf:jets_rdf_benchmark
 
-BAZEL_CXXOPTS="-std=c++17:-O3" bazel build --test_output=all //jets/rdf:jets_rdf_benchmark
+BAZEL_CXXOPTS="-std=c++20:-O3" bazel build --test_output=all //jets/rdf:jets_rdf_benchmark
 
-BAZEL_CXXOPTS="-std=c++17:-O3" bazel build --test_output=all //jets/rete:jets_rete_test
+BAZEL_CXXOPTS="-std=c++20:-O3" bazel build --test_output=all //jets/rete:jets_rete_test
 
 # To generate compile_commands.json:
 INSTALL_DIR="/usr/local/bin"

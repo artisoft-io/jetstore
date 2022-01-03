@@ -3,6 +3,9 @@
 
 #include "jets/rdf/rdf_types.h"
 #include "rdf_ast.h"
+#include "rdf_graph.h"
+
+using namespace jets::rdf;
 
 // class RSBase {
 //   public:
@@ -87,35 +90,48 @@
 // // Register the function as a benchmark
 // BENCHMARK(BM_RVDVisitor);
 
-static void BM_To_BOOLOp(benchmark::State& state) {
+static void BM_Find_Visitor(benchmark::State& state) {
+  RDFSessionPtr rdf_session = create_rdf_session(create_rdf_graph());
+  auto * rmgr = rdf_session->rmgr();
+  auto r1 = rmgr->create_resource("r1");
+  rdf_session->insert(r1, r1, r1);
+  auto any = make_any();
 
-  auto banane_s = jets::rdf::mkResource("banane");
-  auto false_s  = jets::rdf::mkLiteral("false");
-  auto f0lse_s  = jets::rdf::mkLiteral("f0lse");
-  auto FALSE_s  = jets::rdf::mkLiteral("FALSE");
-  auto TRUE_s  = jets::rdf::mkLiteral("TRUE");
-  auto f_s  =    jets::rdf::mkLiteral("f");
-  auto T_s  =    jets::rdf::mkLiteral("T");
-  auto zero_s  = jets::rdf::mkLiteral("0");
-  auto one_s  = jets::rdf::mkLiteral("1");
-
-
-  int k=0;
   for (auto _ : state) {
-    auto b0 = jets::rdf::to_bool(banane_s.get());
-    auto b1 = jets::rdf::to_bool(false_s.get());
-    auto b2 = jets::rdf::to_bool(f0lse_s.get());
-    auto b3 = jets::rdf::to_bool(FALSE_s.get());
-    auto b4 = jets::rdf::to_bool(TRUE_s.get());
-    auto b5 = jets::rdf::to_bool(f_s.get());
-    auto b6 = jets::rdf::to_bool(T_s.get());
-    auto b7 = jets::rdf::to_bool(zero_s.get());
-    auto b8 = jets::rdf::to_bool(one_s.get());
-    k += b0 or b1 or b2 or b3 or b4 or b5 or b6 or b7 or b8;
+    rdf_session->find(r1, r1, r1);
+    rdf_session->find(r1, r1, any);
+    rdf_session->find(r1, any, r1);
+    rdf_session->find(r1, any, any);
+    rdf_session->find(any, r1, r1);
+    rdf_session->find(any, r1, any);
+    rdf_session->find(any, any, r1);
+    rdf_session->find(any, any, any);
   }
 
 }
 // Register the function as a benchmark
-BENCHMARK(BM_To_BOOLOp);
+BENCHMARK(BM_Find_Visitor);
+
+static void BM_Find_Index(benchmark::State& state) {
+  RDFSessionPtr rdf_session = create_rdf_session(create_rdf_graph());
+  auto * rmgr = rdf_session->rmgr();
+  auto r1 = rmgr->create_resource("r1");
+  rdf_session->insert(r1, r1, r1);
+  r_index any = nullptr;
+
+  for (auto _ : state) {
+    rdf_session->find_idx(r1, r1, r1);
+    rdf_session->find_idx(r1, r1, any);
+    rdf_session->find_idx(r1, any, r1);
+    rdf_session->find_idx(r1, any, any);
+    rdf_session->find_idx(any, r1, r1);
+    rdf_session->find_idx(any, r1, any);
+    rdf_session->find_idx(any, any, r1);
+    rdf_session->find_idx(any, any, any);
+  }
+
+}
+// Register the function as a benchmark
+BENCHMARK(BM_Find_Index);
 
 BENCHMARK_MAIN();

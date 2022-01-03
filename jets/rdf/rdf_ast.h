@@ -2,6 +2,7 @@
 #define JETS_RDF_AST_H
 
 #include <cinttypes>
+#include <type_traits>
 #include <string>
 #include <string_view>
 #include <algorithm>
@@ -26,8 +27,11 @@ namespace jets::rdf {
  * 
  */
 struct RDFNull {
+  using is_non_resource = std::true_type;
+  using is_non_literal = std::true_type;
   RDFNull() = default;
   RDFNull(RDFNull const&) = default;
+  RDFNull(RDFNull &&) = default;
   inline RDFNull& operator=(RDFNull const&){return *this;}
   inline bool operator==(RDFNull  const& rhs) const{return true;}
   template<typename W>
@@ -44,9 +48,12 @@ inline std::ostream & operator<<(std::ostream & out, RDFNull bn)
 // BlankNode is the default-construct of the RdfAst, see (https://www.boost.org/doc/libs/1_77_0/doc/html/variant/tutorial.html)
 // it must have a default-construct constructor.
 struct BlankNode {
+  using is_resource = std::true_type;
+  using is_non_literal = std::true_type;
   BlankNode() = default;
   explicit BlankNode(int32_t n):key(n){}
   BlankNode(BlankNode const&) = default;
+  BlankNode(BlankNode &&) = default;
   inline BlankNode& operator=(BlankNode const&){return *this;}
   inline bool operator==(BlankNode  const& rhs) const{return this->key == rhs.key;}
   template<typename W>
@@ -64,8 +71,9 @@ inline std::ostream & operator<<(std::ostream & out, BlankNode bn)
 
 // NamedResource -- the common rdf named resource
 struct NamedResource {
+  using is_resource = std::true_type;
+  using is_non_literal = std::true_type;
   NamedResource() = default;
-  explicit NamedResource(std::string n):name(n){}
   explicit NamedResource(std::string const& n):name(n){}
   explicit NamedResource(char const* n):name(n){}
   explicit NamedResource(std::string && n):name(std::forward<std::string>(n)){}
@@ -90,8 +98,11 @@ inline std::ostream & operator<<(std::ostream & out, NamedResource const& r)
 // Literal -- for each supported literal type
 template<class T>
 struct Literal {
+  using is_non_resource = std::true_type;
+  using is_literal = std::true_type;
   Literal() = default;
-  explicit Literal(T v):data(v){}
+  explicit Literal(T const&v):data(v){}
+  explicit Literal(T &&v):data(std::forward<T>(v)){}
   Literal(Literal const&) = default;
   Literal(Literal &&) = default;
   inline Literal& operator=(Literal const& rhs){this->data = rhs.data; return *this;}
@@ -124,6 +135,25 @@ using LInt64  = Literal<std::int64_t>;
 using LUInt64 = Literal<std::uint64_t>;
 using LDouble = Literal<double>;
 using LString = Literal<std::string>;
+
+// ======================================================================================
+// Utility Functions
+// -----------------------------------------------------------------------------
+inline std::string 
+trim(std::string const& str)
+{
+  static constexpr char kWhitespaces[] = " \n\r";
+  // try {
+      if(str.empty()) return {};
+      auto p1 = str.find_first_not_of(&kWhitespaces[0], 0, sizeof(kWhitespaces));
+      if(p1 == std::string::npos) return {};
+      auto p2 = str.find_last_not_of(&kWhitespaces[0], std::string::npos, sizeof(kWhitespaces));
+      if(p2 == std::string::npos) return {};
+      return str.substr(p1, p2-p1+1);
+  // } catch(...) {
+  //     return ;
+  // }
+}
 
 // ======================================================================================
 // Main AST Class
@@ -220,6 +250,11 @@ struct TripleBase {
 
 // rdf::Triple class for convenience in some api
 using Triple = TripleBase<r_index>;
+inline std::ostream & operator<<(std::ostream & out, Triple const& t3)
+{
+  out << "("<<t3.subject<<","<<t3.predicate<<","<<t3.object<<")";
+  return out;
+}
 
 // Function to compute hash value for rdf data
 // ======================================================================================
@@ -325,6 +360,15 @@ to_bool(r_index r)
   if(not r) return false;
   return boost::apply_visitor(to_bool_visitor(), *r);
 }
+
+inline bool
+to_bool(RdfAstType v)
+{
+  return boost::apply_visitor(to_bool_visitor(), v);
+}
+
+inline RdfAstType True() { return LInt32(1);}
+inline RdfAstType False() { return LInt32(0);}
 
 // ==================================================================================
 // Resource and Literals Factory constructors

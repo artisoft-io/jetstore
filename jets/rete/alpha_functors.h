@@ -13,7 +13,13 @@
 #include "jets/rete/rete_session.h"
 
 // This file contains the AlphaNode class parameters Fu, Fv, Fw classes
+// Methods usage:
+//  - to_const is used for determining the ReteCallBackImpl to use
+//  - rdf::AllOrRIndex is used by antecedent terms to invoke find on the rdf_session
+//  - to_r_index is used by consequent terms to evaluate  the functor
 namespace jets::rete {
+// F_binded
+// --------------------------------------------------------------------------------------
 struct F_binded {
   F_binded(int parent_pos): data(parent_pos){}
 
@@ -30,14 +36,23 @@ struct F_binded {
 
   inline
   rdf::r_index
-  eval(BetaRow const* parent_row)const
+  to_r_index(BetaRow const* parent_row)const
   {
     return parent_row->get(data);
+  }
+
+  inline
+  rdf::AllOrRIndex
+  to_AllOrRIndex(BetaRow const* parent_row)const
+  {
+    return {parent_row->get(data)};
   }
 
   int data;
 };
 
+// F_var
+// --------------------------------------------------------------------------------------
 struct F_var {
   F_var(std::string const& var_name): data(var_name){}
   F_var(std::string && var_name)
@@ -56,14 +71,23 @@ struct F_var {
 
   inline
   rdf::r_index
-  eval(BetaRow const* parent_row)const
+  to_r_index(BetaRow const* parent_row)const
   {
     return nullptr;
+  }
+
+  inline
+  rdf::AllOrRIndex
+  to_AllOrRIndex(BetaRow const* parent_row)const
+  {
+    return {rdf::StarMatch()};
   }
 
   std::string data;
 };
 
+// F_cst
+// --------------------------------------------------------------------------------------
 struct F_cst {
   F_cst(rdf::r_index r): data(r){}
 
@@ -80,14 +104,23 @@ struct F_cst {
 
   inline
   rdf::r_index
-  eval(BetaRow const* parent_row)const
+  to_r_index(BetaRow const* parent_row)const
   {
     return data;
+  }
+
+  inline
+  rdf::AllOrRIndex
+  to_AllOrRIndex(BetaRow const* parent_row)const
+  {
+    return {data};
   }
 
   rdf::r_index data;
 };
 
+// F_expr
+// --------------------------------------------------------------------------------------
 struct F_expr {
   F_expr(ReteSession * rete_session, ExprBasePtr expr)
     : rete_session(rete_session), data(expr){}
@@ -105,11 +138,18 @@ struct F_expr {
 
   inline
   rdf::r_index
-  eval(BetaRow const* parent_row)
+  to_r_index(BetaRow const* parent_row)const
   {
     auto * rmgr = rete_session->rdf_session()->rmgr();
     auto rv = data->eval(rete_session, parent_row);
     return rmgr->insert_item( std::make_shared<rdf::RdfAstType>(rv) );
+  }
+
+  inline
+  rdf::AllOrRIndex
+  to_AllOrRIndex(BetaRow const* parent_row)const
+  {
+    return {to_r_index(parent_row)};
   }
 
   ReteSession * rete_session;

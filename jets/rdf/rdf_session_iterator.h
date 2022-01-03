@@ -129,16 +129,16 @@ struct RDFSessionIterator {
   {    
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {
-        t3[0] = inferred_itor_.get_object(); 
+        t3[0] = inferred_itor_.get_subject(); 
         t3[1] = inferred_itor_.get_predicate(); 
         t3[2] = inferred_itor_.get_object(); 
       } else {
-        t3[0] = asserted_itor_.get_object(); 
+        t3[0] = asserted_itor_.get_subject(); 
         t3[1] = asserted_itor_.get_predicate(); 
         t3[2] = asserted_itor_.get_object(); 
       }
     } else {
-      t3[0] = meta_itor_.get_object(); 
+      t3[0] = meta_itor_.get_subject(); 
       t3[1] = meta_itor_.get_predicate(); 
       t3[2] = meta_itor_.get_object(); 
     }
@@ -150,16 +150,16 @@ struct RDFSessionIterator {
   {    
     if(meta_itor_.is_end()) {
       if(asserted_itor_.is_end()) {
-        return Triple(inferred_itor_.get_object(), 
+        return Triple(inferred_itor_.get_subject(), 
           inferred_itor_.get_predicate(), 
           inferred_itor_.get_object());
       } else {
-        return Triple(asserted_itor_.get_object(), 
+        return Triple(asserted_itor_.get_subject(), 
           asserted_itor_.get_predicate(), 
           asserted_itor_.get_object());
       }
     } else {
-        return Triple(meta_itor_.get_object(), 
+        return Triple(meta_itor_.get_subject(), 
           meta_itor_.get_predicate(), 
           meta_itor_.get_object());
     }

@@ -171,6 +171,7 @@ TEST_F(BetaRelationTest, AlphaFunctor1Test)
   auto itor = nd->find_matching_triples(rdf_session.get(), row.get());
   while(not itor.is_end()) {
     auto t3 = itor.as_triple();
+    // std::cout << "** TRIPLE ** ("<<t3.subject<<", "<<t3.predicate<<", "<<t3.object<<")"<<std::endl;
     EXPECT_TRUE(t3.subject==s0 or t3.subject==s1);
     EXPECT_EQ(t3.predicate, rmgr->create_resource("p0"));
     EXPECT_EQ(t3.object, rmgr->create_resource("o0"));
@@ -182,7 +183,7 @@ TEST_F(BetaRelationTest, AlphaFunctor2Test)
 {
   auto * rmgr = rdf_session->rmgr();
   auto s0 = rmgr->create_resource("s0");
-  AlphaNodePtr nd = create_alpha_node<F_binded, F_cst, F_cst>(node_vertexes[0].get(), true,
+  AlphaNodePtr nd = create_alpha_node<F_binded, F_cst, F_cst>(node_vertexes[0].get(), false,
     F_binded(0), F_cst(rmgr->create_resource("p0")), F_cst(rmgr->create_resource("o0")) );
   auto row = ::jets::rete::create_beta_row(node_vertexes[0].get(), 3);
   EXPECT_EQ(row->put(0, s0), 0);

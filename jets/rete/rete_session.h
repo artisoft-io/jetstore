@@ -163,7 +163,6 @@ class ReteSession {
  * 
  * Perform DFS graph visitation starting at node `from_vertex`
  *
- * @tparam T ReteSession template parameter corresponding to the RDFSession type
  * @param from_vertex Starting point of graph visitation
  * @param is_inferring apply inferrence if true, retract inferrence if false
  * @return int 0 if normal, -1 if error
@@ -282,18 +281,24 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   return 0;
 }
 
-// // Declaired in graph_callback_mgr_impl.h
-// inline void
-// ReteCallBack::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
-// {
-//   this->rete_session_->triple_inserted(this->vertex_, s, p, o);
-// }
-// // Declaired in graph_callback_mgr_impl.h
-// inline void
-// ReteCallBack::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
-// {
-//   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
-// }
+// Declaired in graph_callback_mgr_impl.h
+inline void
+ReteCallBackImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+{
+  if(this->u_filter_ and this->u_filter_!=s) return;
+  if(this->v_filter_ and this->v_filter_!=p) return;
+  if(this->w_filter_ and this->w_filter_!=o) return;
+  this->rete_session_->triple_inserted(this->vertex_, s, p, o);
+}
+// Declaired in graph_callback_mgr_impl.h
+inline void
+ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+{
+  if(this->u_filter_ and this->u_filter_!=s) return;
+  if(this->v_filter_ and this->v_filter_!=p) return;
+  if(this->w_filter_ and this->w_filter_!=o) return;
+  this->rete_session_->triple_deleted(this->vertex_, s, p, o);
+}
 
 } // namespace jets::rete
 #endif // JETS_RETE_RETE_SESSION_H

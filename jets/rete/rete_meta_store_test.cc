@@ -15,12 +15,13 @@ class AlphaNodeStub: public AlphaNode {
  public:
   AlphaNodeStub(b_index node_vertex, bool is_antecedent)
     : AlphaNode(node_vertex, is_antecedent) {}
-  // default virtual function impl -- they are not used in the tests
+
   int
-  register_callback(ReteSession * rete_session, ReteCallBackList * callbacks)const override
+  register_callback(ReteSession * rete_session)const override
   {
     return 0;
   }
+
   typename AlphaNode::Iterator
   find_matching_triples(rdf::RDFSession * rdf_session, 
     BetaRow const* parent_row)const override

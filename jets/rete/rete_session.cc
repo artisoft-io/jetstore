@@ -39,23 +39,20 @@ namespace jets::rete {
       return -1;
     }
     // Preparing the list of callbacks from the AlphaNodes
-    ReteCallBackList callbacks;
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
 
       // Register GraphCallbackManager using antecedent AlphaNode adaptor
       // Taking into consideration that antecedent AlphaNodes have the
       // same index as NodeVertex
-      this->rule_ms_->alpha_nodes_[ipos]->register_callback(this, &callbacks);
+      this->rule_ms_->alpha_nodes_[ipos]->register_callback(this);
     }
-    auto graph_callback_mgr = create_graph_callback(std::move(callbacks));
-    this->rdf_session()->inferred_graph()->set_graph_callback_manager(graph_callback_mgr);
     return 0;
   }
 
   int 
   ReteSession::remove_graph_callbacks()
   {
-    this->rdf_session()->inferred_graph()->set_graph_callback_manager({});
+    this->rdf_session()->inferred_graph()->remove_all_callbacks();
     return 0;
   }
 
@@ -243,14 +240,15 @@ namespace jets::rete {
     b_index meta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
-    if(not meta_node->parent_node_vertex) return 0;
+    if(meta_node->is_head_vertice()) return 0;
 
     auto * parent_beta_relation = this->get_beta_relation(meta_node->parent_node_vertex->vertex);
     auto * current_relation = this->get_beta_relation(vertex);
-    if(not current_relation) {
+    if(not parent_beta_relation or not current_relation) {
       LOG(ERROR) << "ReteSession::triple_updated @ vertex "
-                  <<vertex<<": error beta_relation is null!";
-      return -1;
+        <<vertex<<": error parent_beta_relation or beta_relation is null!";
+      RETE_EXCEPTION("ReteSession::triple_updated @ vertex "
+        <<vertex<<": error parent_beta_relation or beta_relation is null!");
     }
 
     // Clear the pending rows in current_relation, since they were for the last pass

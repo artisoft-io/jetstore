@@ -155,6 +155,7 @@ class BaseGraph {
    * @return an Iterator over the triples identified as (s, p, *)
    */
   Iterator find(r_index u, r_index v) const {
+    // std::cout<<"BaseGraph::find ("<<u<<", "<<v<<") spin "<<this->spin_<<std::endl;
     auto utor = umap_data_.find(u);
     if (utor == umap_data_.end()) {
       return Iterator(spin_, Iterator::U_ITOR(0, umap_data_.end(), umap_data_.end()),
@@ -262,7 +263,11 @@ class BaseGraph {
     auto pair = vtor->second.insert(WSetType::value_type{w});
     if (!pair.second) {
       pair.first->add_ref_count();
-      if(this->graph_callback_mgr_) this->graph_callback_mgr_->triple_inserted(u, v, w);
+      if(this->graph_callback_mgr_) {
+        r_index s, p, o;
+        lookup_uvw2spo(spin_, u, v, w, s, p, o);
+        this->graph_callback_mgr_->triple_inserted(s, p, o);
+      }
     }
     return pair.second;
   }
@@ -294,7 +299,9 @@ class BaseGraph {
 
     int count = vtor->second.erase(WSetType::value_type{w});
     if(count and this->graph_callback_mgr_) {
-      this->graph_callback_mgr_->triple_deleted(u, v, w); 
+        r_index s, p, o;
+        lookup_uvw2spo(spin_, u, v, w, s, p, o);
+      this->graph_callback_mgr_->triple_deleted(s, p, o); 
     }
     if (vtor->second.empty()) {
       utor->second.erase(v);
@@ -364,6 +371,12 @@ class BaseGraph {
       this->graph_callback_mgr_ = std::make_shared<GraphCallbackManager>();
     }
     this->graph_callback_mgr_->add_callback(cp);
+  }
+
+  inline void
+  remove_all_callbacks()
+  {
+    this->graph_callback_mgr_->clear_callbacks();
   }
 
  private:

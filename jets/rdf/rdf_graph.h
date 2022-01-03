@@ -163,9 +163,59 @@ class RDFGraph {
     return spo_graph_.find(s, p);
   }
 
-  // defined below after the find_manager definition
+  // defined below after the find_visitor definition
   inline Iterator 
-  find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o);
+  find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o)const;
+
+  /**
+   * @brief DO not use! for benchmarking only
+   * 
+   * @param s 
+   * @param p 
+   * @param o 
+   * @return Iterator 
+   */
+  inline Iterator 
+  find_idx(r_index s, r_index p, r_index o) const 
+  {
+    if(s) {
+      if(p) {
+        if(o) {
+          // case (r, r, r)
+          return this->spo_graph_.find(s, p, o);
+        } else {
+          // case (r, r, *)
+          return this->spo_graph_.find(s, p);
+        }
+      } else {
+        if(o) {
+          // case (r, *, r)
+          return this->osp_graph_.find(o, s);
+        } else {
+          // case (r, *, *)
+          return this->spo_graph_.find(s);
+        }
+      }
+    } else {
+      if(p) {
+        if(o) {
+          // case (*, r, r)
+          return this->pos_graph_.find(p, o);
+        } else {
+          // case (*, r, *)
+          return this->pos_graph_.find(p);
+        }
+      } else {
+        if(o) {
+          // case (*, *, r)
+          return this->osp_graph_.find(o);
+        } else {
+          // case (*, *, *)
+          return this->spo_graph_.find();
+        }
+      }
+    }
+  }
 
   // insert methods
   template<typename L>
@@ -257,9 +307,20 @@ class RDFGraph {
   }
 
   inline int
-  register_callback(char spin, int vertex, r_index u_filter, r_index v_filter, r_index w_filter) 
+  register_callback(char spin, ReteCallBackPtr cb) 
   {
+    if(spin == 's')      this->spo_graph_.add_graph_callback(cb);
+    else if(spin == 'p') this->pos_graph_.add_graph_callback(cb);
+    else                 this->osp_graph_.add_graph_callback(cb);
     return 0;
+  }
+
+  inline void
+  remove_all_callbacks()
+  {
+    this->spo_graph_.remove_all_callbacks();
+    this->pos_graph_.remove_all_callbacks();
+    this->osp_graph_.remove_all_callbacks();
   }
 
  protected:
@@ -302,7 +363,7 @@ struct find_visitor: public boost::static_visitor<RDFGraph::Iterator>
 };
 
 RDFGraph::Iterator 
-RDFGraph::find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o)
+RDFGraph::find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o)const
 {
   find_visitor v(this);
   return  boost::apply_visitor(v, s, p, o);
