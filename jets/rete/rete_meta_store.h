@@ -127,9 +127,9 @@ class ReteMetaStore {
     for(int ipos=0; ipos<sz; ++ipos) {
       // validate that alpha node at ipos < nbr_vertices are antecedent nodes
       auto & alpha_ptr =  this->alpha_nodes_[ipos];
-      if(ipos<this->nbr_vertices() and not alpha_ptr->is_antecedent() ) {
+      if(ipos<(this->nbr_vertices()-1) and not alpha_ptr->is_antecedent() ) {
         LOG(ERROR) << "ReteMetaStore::initialize: error AlphaNode "
-          "with vertex < nbr_vertices that is NOT an antecedent term!";
+          "with vertex "<<ipos<<" < nbr_vertices "<<this->nbr_vertices()<<" that is NOT an antecedent term!";
         return -1;
       }
       if(not alpha_ptr->is_antecedent()) {

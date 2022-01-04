@@ -50,14 +50,14 @@ class ReteSession {
   using Iterator = rdf::RDFSession::Iterator;
 
   ReteSession()
-    : rule_ms_(nullptr),
+    : rule_ms_(),
       rdf_session_(nullptr),
       beta_relations_(),
       pending_beta_rows_()
     {}
 
   explicit ReteSession(rdf::RDFSession * rdf_session) 
-    : rule_ms_(nullptr),
+    : rule_ms_(),
       rdf_session_(rdf_session),
       beta_relations_(),
       pending_beta_rows_()
@@ -72,7 +72,7 @@ class ReteSession {
   inline ReteMetaStore const*
   rule_ms()const
   {
-    return rule_ms_;
+    return rule_ms_.get();
   }
 
   inline BetaRelation *
@@ -127,7 +127,7 @@ class ReteSession {
    * @return int 
    */
   int
-  initialize(ReteMetaStore const* rule_ms);
+  initialize(ReteMetaStorePtr rule_ms);
 
  protected:
   int
@@ -201,7 +201,7 @@ class ReteSession {
  private:
  friend class BetaRelation;
 
-  ReteMetaStore const*    rule_ms_;
+  ReteMetaStorePtr        rule_ms_;
   rdf::RDFSession  *      rdf_session_;
   BetaRelationVector      beta_relations_;
   BetaRowPriorityQueue    pending_beta_rows_;

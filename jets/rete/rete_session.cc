@@ -9,6 +9,7 @@
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
 #include "rete_err.h"
+#include "rete_meta_store.h"
 
 // DEFINE_bool(big_menu, true, "Include 'advanced' options in the menu listing");
 // DEFINE_string(languages, "english,french,german",
@@ -17,12 +18,13 @@
 namespace jets::rete {
 
   int 
-  ReteSession::initialize(ReteMetaStore const* rule_ms)
+  ReteSession::initialize(ReteMetaStorePtr rule_ms)
   {
     if(not rule_ms) {
       RETE_EXCEPTION("ReteSession::Initialize requires a valid ReteMetaStore as argument");
     }
     this->rule_ms_ = rule_ms;
+    std::cout<<"ReteSession::initialize init beta relations..."<<std::endl;
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
@@ -30,6 +32,7 @@ namespace jets::rete {
       bn->initialize();
       beta_relations_.push_back(bn);
     }
+    std::cout<<"ReteSession::initialize BetaRelations initalized -- now calbacks"<<std::endl;
     this->set_graph_callbacks();
     return 0;
   }
@@ -71,6 +74,8 @@ namespace jets::rete {
   int 
   ReteSession::execute_rules(int from_vertex, bool is_inferring, bool compute_consequents)
   {
+    std::cout<<"ReteSession::execute_rules called, starting at "<<from_vertex<<std::endl;
+
     // Visit the beta nodes
     int err = visit_rete_graph(from_vertex, is_inferring);
     if(err < 0) {
