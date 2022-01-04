@@ -67,7 +67,7 @@ template<class Op>
 typename ExprUnaryOp<Op>::ExprDataType
 ExprUnaryOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  return boost::apply_visitor(Op(rete_session, beta_row), this->lhs_->eval(rete_session, beta_row));
+  return boost::apply_visitor(Op(rete_session, beta_row), this->arg_->eval(rete_session, beta_row));
 }
 
 } // namespace jets::rete

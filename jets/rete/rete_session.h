@@ -56,8 +56,8 @@ class ReteSession {
       pending_beta_rows_()
     {}
 
-  ReteSession(ReteMetaStore const* rule_ms, rdf::RDFSession * rdf_session) 
-    : rule_ms_(rule_ms),
+  explicit ReteSession(rdf::RDFSession * rdf_session) 
+    : rule_ms_(nullptr),
       rdf_session_(rdf_session),
       beta_relations_(),
       pending_beta_rows_()
@@ -122,10 +122,12 @@ class ReteSession {
    *    `beta_relations_[ipos] = create_beta_node(rule_ms_->node_vertexes_[ipos]);`
    *  - Register GraphCallbackManager using antecedent AlphaNode adaptor
    * 
+   * @param rule_ms ReteMetaStore to use for the ReteSession
+   * 
    * @return int 
    */
   int
-  initialize();
+  initialize(ReteMetaStore const* rule_ms);
 
  protected:
   int
@@ -205,9 +207,9 @@ class ReteSession {
   BetaRowPriorityQueue    pending_beta_rows_;
 };
 
-inline ReteSessionPtr create_rete_session(ReteMetaStore const* rule_ms, rdf::RDFSession * rdf_session)
+inline ReteSessionPtr create_rete_session(rdf::RDFSession * rdf_session)
 {
-  return std::make_shared<ReteSession>(rule_ms, rdf_session);
+  return std::make_shared<ReteSession>(rdf_session);
 }
 
 inline int

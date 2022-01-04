@@ -7,11 +7,13 @@
 #include <string_view>
 #include <algorithm>
 #include <memory>
+#include <utility>
 #include <iostream>
 
 #include "absl/hash/hash.h"
-
 #include "boost/variant.hpp"
+
+#include "jets/rdf/other/fcmp.h"
 
 namespace jets::rdf {
 
@@ -107,9 +109,7 @@ struct Literal {
   Literal(Literal &&) = default;
   inline Literal& operator=(Literal const& rhs){this->data = rhs.data; return *this;}
   inline Literal& operator=(Literal && rhs){this->data = std::forward<T>(rhs.data); return *this;}
-  inline bool operator==(Literal  const& rhs) const{return this->data == rhs.data;}
-  template<typename D>
-  inline bool operator==(Literal<D> const& rhs)const{return false;}
+  inline bool operator==(Literal const& rhs)const{return this->data == rhs.data;}
   inline bool operator!=(Literal  const& rhs) const{return not this->operator==(rhs);}
   inline bool operator< (Literal  const& rhs) const{return this->data < rhs.data;}
   T data;
@@ -136,23 +136,75 @@ using LUInt64 = Literal<std::uint64_t>;
 using LDouble = Literal<double>;
 using LString = Literal<std::string>;
 
+// Functions to make double literals comparable
+// --------------------------------------------------------------------------------------
+inline double
+round_to_digits(double value, int digits)
+{
+  if(value == 0.0) return 0.0;
+  if(not std::isfinite(value)) return value;
+  double factor = pow(10.0, digits - ceil(log10(fabs(value))));
+  return round(value * factor) / factor;
+}
+
+inline bool
+is_eq(LDouble const& lhs, LDouble const& rhs)
+{
+  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
+  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
+  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
+    std::numeric_limits<double>::epsilon()) == 0;
+}
+
+inline bool
+is_gt(LDouble const& lhs, LDouble const& rhs)
+{
+  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
+  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
+  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
+    std::numeric_limits<double>::epsilon()) > 0;
+}
+
+inline bool
+is_ge(LDouble const& lhs, LDouble const& rhs)
+{
+  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
+  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
+  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
+    std::numeric_limits<double>::epsilon()) >= 0;
+}
+
+inline bool
+is_lt(LDouble const& lhs, LDouble const& rhs)
+{
+  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
+  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
+  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
+    std::numeric_limits<double>::epsilon()) < 0;
+}
+
+inline bool
+is_le(LDouble const& lhs, LDouble const& rhs)
+{
+  if(std::isnan(lhs.data) or std::isnan(rhs.data)) return false;
+  if(std::isinf(lhs.data) or std::isinf(rhs.data)) return false;
+  return fcmp(round_to_digits(lhs.data, 15), round_to_digits(rhs.data, 15), 
+    std::numeric_limits<double>::epsilon()) <= 0;
+}
+
 // ======================================================================================
 // Utility Functions
 // -----------------------------------------------------------------------------
 inline std::string 
 trim(std::string const& str)
 {
-  static constexpr char kWhitespaces[] = " \n\r";
-  // try {
-      if(str.empty()) return {};
-      auto p1 = str.find_first_not_of(&kWhitespaces[0], 0, sizeof(kWhitespaces));
-      if(p1 == std::string::npos) return {};
-      auto p2 = str.find_last_not_of(&kWhitespaces[0], std::string::npos, sizeof(kWhitespaces));
-      if(p2 == std::string::npos) return {};
-      return str.substr(p1, p2-p1+1);
-  // } catch(...) {
-  //     return ;
-  // }
+  static constexpr char kWhitespaces[] = " \t\n\r";
+  if(str.empty()) return {};
+  auto p1 = str.find_first_not_of(&kWhitespaces[0], 0, sizeof(kWhitespaces));
+  if(p1 == std::string::npos) return {};
+  auto p2 = str.find_last_not_of(&kWhitespaces[0], std::string::npos, sizeof(kWhitespaces));
+  if(p2 == std::string::npos) return {};
+  return str.substr(p1, p2-p1+1);
 }
 
 // ======================================================================================
@@ -369,6 +421,8 @@ to_bool(RdfAstType v)
 
 inline RdfAstType True() { return LInt32(1);}
 inline RdfAstType False() { return LInt32(0);}
+
+inline RdfAstType Null() { return RDFNull();}
 
 // ==================================================================================
 // Resource and Literals Factory constructors

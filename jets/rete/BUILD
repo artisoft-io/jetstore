@@ -69,7 +69,7 @@ cc_test(
         "expr_test.cc", 
         "node_vertex_test.cc", 
         "rete_meta_store_test.cc", 
-        # "rete_session_test.cc", 
+        "rete_session_test.cc", 
     ],
     deps = [
         "//jets/rdf:jets_rdf",
@@ -84,6 +84,7 @@ cc_test(
     size = "small",
     srcs = [
         "beta_row_benchmark.cc", 
+        "expr_benchmark.cc", 
     ],
     deps = [
         "//jets/rdf:jets_rdf",

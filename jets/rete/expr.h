@@ -144,6 +144,10 @@ create_expr_cst(typename ExprCst::data_type &&v)
 
 // ExprBindedVar
 // --------------------------------------------------------------------------------------
+/**
+ * @brief Expr with a F_binded functor, binded to BetaRow value
+ * 
+ */
 class ExprBindedVar: public ExprBase {
  public:
  using ExprBase::ExprDataType;

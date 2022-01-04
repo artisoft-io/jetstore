@@ -8,6 +8,7 @@
 
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
+#include "rete_err.h"
 
 // DEFINE_bool(big_menu, true, "Include 'advanced' options in the menu listing");
 // DEFINE_string(languages, "english,french,german",
@@ -16,8 +17,12 @@
 namespace jets::rete {
 
   int 
-  ReteSession::initialize()
+  ReteSession::initialize(ReteMetaStore const* rule_ms)
   {
+    if(not rule_ms) {
+      RETE_EXCEPTION("ReteSession::Initialize requires a valid ReteMetaStore as argument");
+    }
+    this->rule_ms_ = rule_ms;
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {

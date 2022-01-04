@@ -30,4 +30,4 @@ static void BM_SimpleBetaRow(benchmark::State& state) {
 // Register the function as a benchmark
 BENCHMARK(BM_SimpleBetaRow);
 
-BENCHMARK_MAIN();
+// BENCHMARK_MAIN();

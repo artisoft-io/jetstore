@@ -4,17 +4,12 @@
 
 #include <gtest/gtest.h>
 
-#include "alpha_functors.h"
-#include "beta_row.h"
-#include "expr.h"
+#include "expr_operators.h"
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
 
 namespace jets::rete {
 namespace {
-struct AddOp {
-
-};
 /**
  * @brief The integrated suite fixture for ReteSession and ReteMetaStore
  *
@@ -30,53 +25,49 @@ class ReteSessionTest : public ::testing::Test {
     NodeVertexVector   node_vertexes;
     BetaRelationVector beta_relations;
     this->rdf_session = rdf::create_rdf_session(rdf::create_rdf_graph());
+    this->rete_session = create_rete_session(rdf_session.get());
     auto * rmgr = rdf_session->rmgr();
     auto has_node = rmgr->create_resource("has_node");
     auto plus1_node = rmgr->create_resource("plus1_node");
 
     //rule> (head node0).(?s has_node ?n1) -> (?s1 plus1_node expr(?n1 + 1))
+    // ----------------------------------------------------------------------------------
     // No need for AntecedentQuerySpec since the only vertex reads from the graph
 
     // BetaRowInitializer -- row: [?s, ?n1]
     auto ri0 = create_row_initializer(2);
     ri0->put(0, 0 | brc_triple);
     ri0->put(1, 2 | brc_triple);
+
+    // AntecedentQuerySpec: there is NO AntecedentQuerySpec associated with node 0 
+    // and all node having node 0 as parent.
+    // In other words, the first BetaRelation of a rule does not have an parent for
+    // the antecedent to query
+
+    // NodeVertex
     node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 0, 10, ri0, {}));
     node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 0, 10, ri0, {}));
 
     // AlphaNodes
     ReteMetaStore::AlphaNodeVector alpha_nodes;
-    // Add antecedent term on vertex 1
+
+    // Add Antecedent term on vertex 1
     alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), true,
       F_var("?s"), F_cst(has_node), F_var("?n1") ));
-    // Add consequent term on vertex 1
-    auto lhs = create_expr_binded_var(0);
-    auto rhs = create_expr_cst(rdf::RdfAstType(rdf::LInt32(1)));
-    // RENDU ICI XXX;
-    // auto expr = create_expr_binary_operator((std::shared_ptr<>(), lhs, rhs);
-    // alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[1].get(), false,
-    //   F_binded(0), F_cst(plus1_node), F_expr(expr) ));
 
-    // create & initalize the meta store
+    // Add Consequent term on vertex 1: (?s1 plus1_node expr(?n1 + 1))
+    auto lhs = create_expr_binded_var(1);
+    auto rhs = create_expr_cst(rdf::RdfAstType(rdf::LInt32(1)));
+    auto expr = create_expr_binary_operator<AddVisitor>(lhs, rhs);
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[1].get(), false,
+      F_binded(0), F_cst(plus1_node), F_expr(this->rete_session.get(), expr) ));
+
+    // create & initalize the meta store -- TODO have an expression builder with meta store
     rete_meta_store = create_rete_meta_store({}, {}, node_vertexes);
     rete_meta_store->initialize();
 
-    // create & initialize the beta relation entities
-    for(size_t i=0; i<node_vertexes.size(); ++i) {
-      auto bn = create_beta_node(node_vertexes[i].get());
-      bn->initialize();
-      beta_relations.push_back(bn);
-    }
-    rete_session = create_rete_session(rete_meta_store.get(), rdf_session.get());
-    rete_session->initialize();
-  }
-
-  BetaRowPtr 
-  create_beta_row(b_index node_vertex, BetaRowPtr parent_row, rdf::Triple triple) 
-  {
-    BetaRowPtr beta_row = ::jets::rete::create_beta_row(node_vertex, node_vertex->beta_row_initializer->get_size());
-    beta_row->initialize(node_vertex->beta_row_initializer.get(), parent_row.get(), &triple);
-    return beta_row;
+    // Initialize the rete_session now that the rule base is ready
+    this->rete_session->initialize(rete_meta_store.get());
   }
 
   ReteSessionPtr  rete_session;

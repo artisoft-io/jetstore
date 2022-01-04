@@ -51,8 +51,8 @@ class BetaRelationTest : public ::testing::Test {
       beta_relations.push_back(bn);
     }
     rdf_session = rdf::create_rdf_session(rdf::create_rdf_graph());
-    rete_session = create_rete_session(rete_meta_store.get(), rdf_session.get());
-    rete_session->initialize();
+    rete_session = create_rete_session(rdf_session.get());
+    rete_session->initialize(rete_meta_store.get());
   }
 
   BetaRowPtr 
