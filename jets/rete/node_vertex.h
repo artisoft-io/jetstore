@@ -33,7 +33,21 @@ enum AntecedentQueryType {
   kQTuvw    = 3,     // find(u, v, w) -- may return multiple BetaRow rows
 };
 
+/**
+ * @brief Specify the query against the parent beta node for triples matching current term
+ * 
+ */
 struct AntecedentQuerySpec {
+  /**
+   * @brief Construct a new Antecedent Query Spec object
+   * 
+   * @param key Parent BetaRelation query index, unique by type
+   * @param type Parent BetaRelation index type
+   * @param spin Rotation of current term based on F_binded functor position
+   * @param upos Parent BetaRow pos for u, (u, v, w) is rotated matched triple of current term
+   * @param vpos Parent BetaRow pos for v, (u, v, w) is rotated matched triple of current term
+   * @param wpos Parent BetaRow pos for w, (u, v, w) is rotated matched triple of current term
+   */
   AntecedentQuerySpec(int key, AntecedentQueryType type, 
     char spin, int upos, int vpos, int wpos)
     : key(key), type(type), spin(spin), u_pos(upos), v_pos(vpos), w_pos(wpos)

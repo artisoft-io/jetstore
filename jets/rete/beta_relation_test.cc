@@ -36,9 +36,9 @@ class BetaRelationTest : public ::testing::Test {
     ri1->put(1, 1 | brc_parent_node);
     ri1->put(2, 2 | brc_triple);
     node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 0, 10, ri0, {}));
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 0, 10, ri1, aqspec1));
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 2, false, 0, 10, ri1, aqspec2));
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 3, false, 0, 10, ri1, aqspec3));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, -1, 10, ri1, aqspec1));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 2, false, -1, 10, ri1, aqspec2));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 3, false, -1, 10, ri1, aqspec3));
 
     // create & initalize the meta store
     rete_meta_store = create_rete_meta_store({}, {}, node_vertexes);
@@ -110,37 +110,6 @@ TEST_F(BetaRelationTest, AntecedentQuerySpecTest)
   EXPECT_EQ(beta_relations[0]->insert_beta_row(rete_session.get(), row1), 0);
   EXPECT_EQ(beta_relations[0]->insert_beta_row(rete_session.get(), row2), 0);
 
-  {
-    auto o0 = rmanager.create_resource("o0");
-    auto o1 = rmanager.create_resource("o1");
-    auto itor = beta_relations[0]->get_idx1_rows_iterator(0, rmanager.create_resource("s0"));
-    int cnt=0;
-    while(not itor->is_end()) {
-      auto row = itor->get_row();
-      EXPECT_EQ(row->get(0), rmanager.create_resource("s0"));
-      EXPECT_EQ(row->get(1), rmanager.create_resource("p0"));
-      EXPECT_TRUE(row->get(2)==o0 or row->get(2)==o1);
-      ++cnt;
-      itor->next();
-    }
-    EXPECT_EQ(cnt, 2);
-  }
-
-  {
-    auto o0 = rmanager.create_resource("o0");
-    auto o1 = rmanager.create_resource("o1");
-    auto itor = beta_relations[0]->get_idx2_rows_iterator(0, rmanager.create_resource("s0"), rmanager.create_resource("p0"));
-    int cnt=0;
-    while(not itor->is_end()) {
-      auto row = itor->get_row();
-      EXPECT_EQ(row->get(0), rmanager.create_resource("s0"));
-      EXPECT_EQ(row->get(1), rmanager.create_resource("p0"));
-      EXPECT_TRUE(row->get(2)==o0 or row->get(2)==o1);
-      ++cnt;
-      itor->next();
-    }
-    EXPECT_EQ(cnt, 2);
-  }
 
   {
     auto s2 = rmanager.create_resource("s2");

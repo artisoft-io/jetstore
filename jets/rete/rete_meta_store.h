@@ -1,6 +1,7 @@
 #ifndef JETS_RETE_RETE_META_STORE_H
 #define JETS_RETE_RETE_META_STORE_H
 
+#include <algorithm>
 #include <string>
 #include <memory>
 #include <list>

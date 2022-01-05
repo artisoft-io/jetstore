@@ -6,8 +6,10 @@
 #include <glog/logging.h>
 // #include <gflags/gflags.h>
 
+#include "beta_row_initializer.h"
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
+#include "node_vertex.h"
 #include "rete_err.h"
 #include "rete_meta_store.h"
 
@@ -28,8 +30,13 @@ namespace jets::rete {
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
-      auto bn = create_beta_node(this->rule_ms_->node_vertexes_[ipos].get());
+      auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
+      auto bn = create_beta_node(meta_node);
       bn->initialize();
+      if(meta_node->is_head_vertice()) {
+        // put an empty BetaRow to kick start the propagation in the rete network
+        bn->insert_beta_row(this, create_beta_row(meta_node, 0));
+      }
       beta_relations_.push_back(bn);
     }
     std::cout<<"ReteSession::initialize BetaRelations initalized -- now calbacks"<<std::endl;
@@ -99,6 +106,7 @@ namespace jets::rete {
   int 
   ReteSession::visit_rete_graph(int from_vertex, bool is_inferring)
   {
+    std::cout<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring "<<is_inferring<<std::endl;
 			std::vector<int> stack;
 			stack.reserve(rule_ms_->nbr_vertices());
 			
@@ -109,13 +117,26 @@ namespace jets::rete {
 				int parent_vertex = stack.back();
 				stack.pop_back();
 
+        std::cout<<"ReteSession::visit_rete_graph stack pop `parent_vertex` "<<parent_vertex<<std::endl;
+
         b_index parent_node = this->rule_ms_->get_node_vertex(parent_vertex);
-				b_index_set::const_iterator itor = parent_node->child_nodes.begin();
-				b_index_set::const_iterator end  = parent_node->child_nodes.end();
+        if(not parent_node) {
+          std::cout<<"We've found a problem!"<<std::endl;
+        }
+        std::cout<<"ReteSession::visit_rete_graph stack pop *(2) `parent_vertex` "<<parent_vertex<<" :: "<<parent_node->vertex<<std::endl;
+        if(parent_node->child_nodes.empty()) continue;
+        std::cout<<"ReteSession::visit_rete_graph stack pop *(3) `parent_vertex` "<<parent_vertex<<" :: "<<parent_node->vertex<<std::endl;
+				auto itor = parent_node->child_nodes.begin();
+				auto end  = parent_node->child_nodes.end();
 				for(; itor!=end; ++itor) {
+        std::cout<<"ReteSession::visit_rete_graph stack pop (4) `parent_vertex` "<<parent_vertex<<" :: "<<parent_node->vertex<<std::endl;
 
           // Compute beta relation between `parent_vertex` and `vertex`
 					int current_vertex = (*itor)->vertex;
+        std::cout<<"ReteSession::visit_rete_graph stack pop (5) `parent_vertex` "<<parent_vertex<<" :: current vertex "<<current_vertex<<std::endl;
+
+          std::cout<<"ReteSession::visit_rete_graph Compute beta relation between `parent_vertex` "<<parent_vertex<<", and `current_vertex`  "<<current_vertex<<std::endl;
+
           auto * parent_beta_relation = this->get_beta_relation(parent_vertex);
           auto * current_relation = this->get_beta_relation(current_vertex);
           if(not parent_beta_relation or not current_relation) {
@@ -149,6 +170,8 @@ namespace jets::rete {
             auto const* parent_row = parent_row_itor->get_row();
             auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
             while(not t3_itor.is_end()) {
+
+              std::cout<<"ReteSession::visit_rete_graph Compute beta relation between `row` "<<parent_row<<", and `t3`  "<<t3_itor.as_triple()<<std::endl;
 
               // create the beta row
               auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
