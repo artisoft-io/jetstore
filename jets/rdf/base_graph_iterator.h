@@ -302,6 +302,19 @@ struct BaseGraphIterator {
     return o;
   }
 
+  inline Triple 
+  as_triple() const 
+  {    
+    if (is_end())
+      throw rdf_exception(
+          "BaseGraphIterator::as_triple: ERROR: called past end of "
+          "iterator!");
+    r_index s, p, o;
+    lookup_uvw2spo(spin_, u_itor_.get_index(), v_itor_.get_index(),
+                   w_itor_.get_index(), s, p, o);
+    return Triple(s, p, o);
+  }
+
  private:
   char spin_;
   U_ITOR u_itor_;

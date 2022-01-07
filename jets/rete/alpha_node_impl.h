@@ -132,9 +132,11 @@ class AlphaNodeImpl: public AlphaNode {
     BetaRow const* parent_row)const override
   {
     if(not this->is_antecedent()) {
-      RETE_EXCEPTION("AlphaNodeImpl::find_matching_triples: Called on alpha node that is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
+      RETE_EXCEPTION("AlphaNodeImpl::find_matching_triples: Called on alpha node that "
+        "is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
     }
-    return rdf_session->find(fu_.to_AllOrRIndex(parent_row), fv_.to_AllOrRIndex(parent_row), fw_.to_AllOrRIndex(parent_row));
+    return rdf_session->find(fu_.to_AllOrRIndex(parent_row), fv_.to_AllOrRIndex(parent_row), 
+      fw_.to_AllOrRIndex(parent_row));
   }
 
   /**
@@ -152,7 +154,8 @@ class AlphaNodeImpl: public AlphaNode {
   find_matching_rows(BetaRelation * parent_beta_relation, rdf::r_index s, rdf::r_index p, rdf::r_index o)const override
   {
     if(not this->is_antecedent()) {
-      RETE_EXCEPTION("AlphaNodeImpl::find_matching_rows: Called on alpha node that is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
+      RETE_EXCEPTION("AlphaNodeImpl::find_matching_rows: Called on alpha node that "
+        "is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
     }
     // Get QuerySpec from NodeVertex
     AntecedentQuerySpecPtr const& query_spec = this->get_node_vertex()->antecedent_query_spec;
@@ -183,12 +186,17 @@ class AlphaNodeImpl: public AlphaNode {
    * @return rdf::Triple 
    */
   rdf::Triple
-  compute_consequent_triple(BetaRow * beta_row)const override
+  compute_consequent_triple(ReteSession * rete_session, BetaRow * beta_row)const override
   {
     if(this->is_antecedent()) {
-      RETE_EXCEPTION("AlphaNodeImpl::compute_consequent_triple: Called on alpha node that is NOT an consequent term, vertex: "<<this->get_node_vertex()->vertex);
+      RETE_EXCEPTION("AlphaNodeImpl::compute_consequent_triple: Called on alpha node "
+        "that is NOT an consequent term, vertex: "<<this->get_node_vertex()->vertex);
     }
-    return {fu_.to_r_index(beta_row), fv_.to_r_index(beta_row), fw_.to_r_index(beta_row)};
+    return {
+      fu_.to_r_index(rete_session, beta_row), 
+      fv_.to_r_index(rete_session, beta_row), 
+      fw_.to_r_index(rete_session, beta_row)
+    };
   }
 
  private:

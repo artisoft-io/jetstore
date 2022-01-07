@@ -21,6 +21,10 @@ namespace jets::rete {
 // It is possible that 2 child beta node have the same query spec, that would be the
 // case if two child nodes are different only by the filter term.
 // --------------------------------------------------------------------------------------
+// Forward definition
+class ExprBase;
+using ExprBasePtr = std::shared_ptr<ExprBase>;
+
 struct NodeVertex;
 using NodeVertexPtr = std::shared_ptr<NodeVertex>;
 using b_index = NodeVertex const *;
@@ -41,18 +45,17 @@ struct AntecedentQuerySpec {
   /**
    * @brief Construct a new Antecedent Query Spec object
    * 
-   * @param key Parent BetaRelation query index, unique by type
+   * @param key Parent BetaRelation query index, unique by type for parent node (not globaly unique)
    * @param type Parent BetaRelation index type
    * @param spin Rotation of current term based on F_binded functor position
    * @param upos Parent BetaRow pos for u, (u, v, w) is rotated matched triple of current term
    * @param vpos Parent BetaRow pos for v, (u, v, w) is rotated matched triple of current term
    * @param wpos Parent BetaRow pos for w, (u, v, w) is rotated matched triple of current term
    */
-  AntecedentQuerySpec(int key, AntecedentQueryType type, 
-    char spin, int upos, int vpos, int wpos)
-    : key(key), type(type), spin(spin), u_pos(upos), v_pos(vpos), w_pos(wpos)
+  AntecedentQuerySpec(AntecedentQueryType type, char spin, int upos, int vpos, int wpos)
+    : key(0), type(type), spin(spin), u_pos(upos), v_pos(vpos), w_pos(wpos)
   {}
-  int key;                    // key to register the query with BetaRelation indexes, key start a 0 per type
+  int key;                    // key to register the query, set by BetaRelation::initialize()
   AntecedentQueryType type;   // Specify query function call to use and retained arguments
   char spin;                  // Specify rotation of arguments to be applied by antecedent: spo => uvw
   int u_pos;                  // BetaRow pos of u (in the uvw coordinates, i.e. rotated)
@@ -67,10 +70,10 @@ using AntecedentQuerySpecPtr = std::shared_ptr<AntecedentQuerySpec>;
 
 inline 
 AntecedentQuerySpecPtr create_antecedent_query_spec(
-  int key, AntecedentQueryType type, 
+  AntecedentQueryType type, 
   char spin, int upos, int vpos, int wpos)
 {
-  return std::make_shared<AntecedentQuerySpec>(key, type, spin, upos, vpos, wpos);
+  return std::make_shared<AntecedentQuerySpec>(type, spin, upos, vpos, wpos);
 }
 
 // Reversed lookup for descendent nodes to speed up insert/delete in indexes struct
@@ -94,8 +97,8 @@ struct NodeVertex {
       consequent_alpha_vertexes(),
       vertex(0),
       is_negation(false),
-      expr_vertex(-1),
       salience(0),
+      filter_expr(),
       beta_row_initializer(),
       antecedent_query_spec()
   {}
@@ -104,8 +107,8 @@ struct NodeVertex {
     b_index parent_node_vertex, 
     int vertex, 
     bool is_negation, 
-    int expr_vertex, 
     int salience, 
+    ExprBasePtr filter_expr,
     BetaRowInitializerPtr beta_row_initializer,
     AntecedentQuerySpecPtr antecedent_query_spec) 
     : parent_node_vertex(parent_node_vertex),
@@ -113,8 +116,8 @@ struct NodeVertex {
       consequent_alpha_vertexes(),
       vertex(vertex),
       is_negation(is_negation),
-      expr_vertex(expr_vertex),
       salience(salience),
+      filter_expr(filter_expr),
       beta_row_initializer(beta_row_initializer),
       antecedent_query_spec(antecedent_query_spec)
   {}
@@ -128,7 +131,7 @@ struct NodeVertex {
   inline bool
   has_expr()const
   {
-    return expr_vertex >= 0;
+    return filter_expr.use_count() > 0;
   }
 
   inline BetaRowInitializer const*
@@ -149,19 +152,19 @@ struct NodeVertex {
   consequent_set           consequent_alpha_vertexes;
   int                      vertex;
   bool                     is_negation;
-  int                      expr_vertex;
   int                      salience;
+  ExprBasePtr              filter_expr;
   BetaRowInitializerPtr    beta_row_initializer;
   AntecedentQuerySpecPtr   antecedent_query_spec;
 };
 
 inline 
 NodeVertexPtr create_node_vertex(
-  b_index parent_node_vertex, int vertex, bool is_negation, int expr_vertex, int salience,
+  b_index parent_node_vertex, int vertex, bool is_negation, int salience, ExprBasePtr filter,
   BetaRowInitializerPtr beta_row_initializer, AntecedentQuerySpecPtr antecedent_query_spec)
 {
   return std::make_shared<NodeVertex>(parent_node_vertex, vertex, 
-    is_negation, expr_vertex, salience, beta_row_initializer, antecedent_query_spec);
+    is_negation, salience, filter, beta_row_initializer, antecedent_query_spec);
 }
 
 } // namespace jets::rete

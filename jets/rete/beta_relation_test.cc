@@ -19,29 +19,29 @@ class BetaRelationTest : public ::testing::Test {
       rete_meta_store(), rdf_session() 
   {
     // create antecedent query spec for the child vertices 1, 2, 3
-    AntecedentQuerySpecPtr aqspec1 = create_antecedent_query_spec(0, AntecedentQueryType::kQTu, 's', 0, -1, -1);
-    AntecedentQuerySpecPtr aqspec2 = create_antecedent_query_spec(0, AntecedentQueryType::kQTuv, 's', 0, 1, -1);
-    AntecedentQuerySpecPtr aqspec3 = create_antecedent_query_spec(0, AntecedentQueryType::kQTuvw, 's', 0, 1, 2);
+    AntecedentQuerySpecPtr aqspec1 = create_antecedent_query_spec(AntecedentQueryType::kQTu, 's', 0, -1, -1);
+    AntecedentQuerySpecPtr aqspec2 = create_antecedent_query_spec(AntecedentQueryType::kQTuv, 's', 0, 1, -1);
+    AntecedentQuerySpecPtr aqspec3 = create_antecedent_query_spec(AntecedentQueryType::kQTuvw, 's', 0, 1, 2);
 
     // we have 1 paths:
     // v0->v1
     // v0 row: [p1, p2, p3]
     // v1 row: [p1, p2, t2]
     auto ri0 = create_row_initializer(3);
-    ri0->put(0, 0 | brc_triple);
-    ri0->put(1, 1 | brc_triple);
-    ri0->put(1, 2 | brc_triple);
+    ri0->put(0, 0 | brc_triple, "p1");
+    ri0->put(1, 1 | brc_triple, "p2");
+    ri0->put(2, 2 | brc_triple, "p3");
     auto ri1 = create_row_initializer(3);
-    ri1->put(0, 0 | brc_parent_node);
-    ri1->put(1, 1 | brc_parent_node);
-    ri1->put(2, 2 | brc_triple);
-    node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 0, 10, ri0, {}));
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, -1, 10, ri1, aqspec1));
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 2, false, -1, 10, ri1, aqspec2));
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 3, false, -1, 10, ri1, aqspec3));
+    ri1->put(0, 0 | brc_parent_node, "p1");
+    ri1->put(1, 1 | brc_parent_node, "p2");
+    ri1->put(2, 2 | brc_triple, "p3");
+    node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 10, {}, ri0, {}));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 10, {}, ri1, aqspec1));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 2, false, 10, {}, ri1, aqspec2));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 3, false, 10, {}, ri1, aqspec3));
 
     // create & initalize the meta store
-    rete_meta_store = create_rete_meta_store({}, {}, node_vertexes);
+    rete_meta_store = create_rete_meta_store({}, node_vertexes);
     rete_meta_store->initialize();
 
     // create & initialize the beta relation entities
@@ -156,7 +156,7 @@ TEST_F(BetaRelationTest, AlphaFunctor2Test)
     F_binded(0), F_cst(rmgr->create_resource("p0")), F_cst(rmgr->create_resource("o0")) );
   auto row = ::jets::rete::create_beta_row(node_vertexes[0].get(), 3);
   EXPECT_EQ(row->put(0, s0), 0);
-  auto t3 = nd->compute_consequent_triple(row.get());
+  auto t3 = nd->compute_consequent_triple(nullptr, row.get());
   EXPECT_EQ(t3.subject, s0);
   EXPECT_EQ(t3.predicate, rmgr->create_resource("p0"));
   EXPECT_EQ(t3.object, rmgr->create_resource("o0"));

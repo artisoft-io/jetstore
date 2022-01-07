@@ -1,7 +1,11 @@
 #ifndef JETS_RETE_BETA_ROW_INITIALIZER_H
 #define JETS_RETE_BETA_ROW_INITIALIZER_H
 
+#include <cstddef>
 #include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
 
 // Metadata Component describing the schema of BetaRow::data
 namespace jets::rete {
@@ -23,26 +27,25 @@ using BetaRowInitializerPtr = std::shared_ptr<BetaRowInitializer>;
 // BetaRelation making the rete network
 class BetaRowInitializer {
  public:
-  using const_iterator = int const*;
+  using data_vector = std::vector<int>;
+  using label_vector = std::vector<std::string>;
+  using data_const_iterator = data_vector::const_iterator;
+  using labels_const_iterator = label_vector::const_iterator;
 
 
   BetaRowInitializer() 
-    : data_(nullptr),
-      size_(0)
+    : data_(),
+      labels_()
   {}
 
   explicit BetaRowInitializer(int size) 
-    : data_(nullptr),
-      size_(size)
-  {
-    if(size_ > 0) data_ = new int[size_ + 1]; // +1 for end()
-  }
+    : data_(size),
+      labels_(size)
+  {}
 
   virtual inline
   ~BetaRowInitializer()
-  {
-    if(data_) delete [] data_;
-  }
+  {}
 
   BetaRowInitializer(BetaRowInitializer const&) = delete;
   BetaRowInitializer & operator=(BetaRowInitializer const&) = delete;
@@ -50,16 +53,17 @@ class BetaRowInitializer {
   inline int
   get_size()const
   {
-    return size_;
+    return (int)data_.size();
   }
 
   // Method to initialize data_ 
   // return -1 if called with invalid pos
   inline int 
-  put(int pos, int val)
+  put(int pos, int val, std::string_view label)
   {
-    if(pos < 0 or pos >= size_) return -1;
+    if(pos < 0 or pos >= this->get_size()) return -1;
     data_[pos] = val;
+    labels_[pos] = label;
     return 0;
   }
 
@@ -68,30 +72,49 @@ class BetaRowInitializer {
   inline int 
   get(int pos)const
   {
-    if(pos < 0 or pos >= size_) return -1;
+    if(pos < 0 or pos >= this->get_size()) return -1;
     return data_[pos];
   }
 
-  // const_iterator used to initialize BetaRow upon row creation
-  inline const_iterator
-  begin()const
+  // Method to get labels_[pos] 
+  // return empty if called with invalid pos
+  inline std::string_view
+  get_label(int pos)const
   {
-    if(data_) return &data_[0];
-    return nullptr;
+    if(pos < 0 or pos >= this->get_size()) return {};
+    return labels_[pos];
   }
 
-  inline const_iterator
+  // const_iterator used to initialize BetaRow upon row creation
+  inline data_const_iterator
+  begin()const
+  {
+    return data_.begin();
+  }
+
+  inline data_const_iterator
   end()const
   {
-    if(data_) return &data_[size_];
-    return nullptr;
+    return data_.end();
+  }
+
+  inline labels_const_iterator
+  labels_begin()const
+  {
+    return labels_.begin();
+  }
+
+  inline labels_const_iterator
+  labels_end()const
+  {
+    return labels_.end();
   }
 
  protected:
 
  private:
-  int *  data_;
-  int    size_;
+  data_vector   data_;
+  label_vector  labels_;
 };
 
 inline 

@@ -161,7 +161,7 @@ class AlphaNode {
   // Applicable to consequent terms only
   // Will throw if called on an antecedent term
   virtual rdf::Triple
-  compute_consequent_triple(BetaRow * beta_row)const=0;
+  compute_consequent_triple(ReteSession * rete_session, BetaRow * beta_row)const=0;
 
  private:
   b_index    node_vertex_;

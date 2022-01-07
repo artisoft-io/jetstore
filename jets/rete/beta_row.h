@@ -3,6 +3,7 @@
 
 #include <string>
 #include <memory>
+#include <ostream>
 
 #include "absl/hash/hash.h"
 
@@ -164,6 +165,35 @@ class BetaRow {
 inline BetaRowPtr create_beta_row(b_index node_vertex, int size)
 {
   return std::make_shared<BetaRow>(node_vertex, size);
+}
+
+inline std::ostream & operator<<(std::ostream & out, BetaRow const* row)
+{
+  if(not row) out << "NULL";
+  else {
+    if(row->get_node_vertex() and row->get_node_vertex()->get_beta_row_initializer()) {
+      auto ri = row->get_node_vertex()->get_beta_row_initializer();
+      out << "[";
+      for(int i=0; i<row->get_size(); i++) {
+        if(i > 0) out << ", ";
+        out << ri->get_label(i);
+      }
+      out << "]";
+    }
+    out << "(";
+    for(int i=0; i<row->get_size(); i++) {
+      if(i > 0) out << ", ";
+      out << row->get(i);
+    }
+    out << ")";
+  }
+  return out;
+}
+
+inline std::ostream & operator<<(std::ostream & out, BetaRowPtr const& r)
+{
+  out << r.get();
+  return out;
 }
 
 } // namespace jets::rete

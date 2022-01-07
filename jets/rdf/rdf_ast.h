@@ -235,7 +235,9 @@ using RdfAstType = boost::variant<
     LDouble,
     LString >;
 
+// ======================================================================================
 // r_index
+// -----------------------------------------------------------------------------
 using r_index = RdfAstType const *;
 inline std::ostream & operator<<(std::ostream & out, r_index const& r)
 {
@@ -247,6 +249,9 @@ inline std::ostream & operator<<(std::ostream & out, r_index const& r)
   return out;
 }
 
+// ======================================================================================
+// Rptr
+// -----------------------------------------------------------------------------
 using Rptr = std::shared_ptr<RdfAstType>;
 inline r_index to_r_index(Rptr r)
 {
@@ -262,7 +267,9 @@ inline std::ostream & operator<<(std::ostream & out, Rptr const& r)
   return out;
 }
 
+// ======================================================================================
 // triple template class
+// -----------------------------------------------------------------------------
 template<typename T>
 struct TripleBase {
   TripleBase() = default;
@@ -306,6 +313,14 @@ inline std::ostream & operator<<(std::ostream & out, Triple const& t3)
 {
   out << "("<<t3.subject<<","<<t3.predicate<<","<<t3.object<<")";
   return out;
+}
+
+inline std::string
+to_string(Triple const& t)
+{
+  std::ostringstream out;
+  out << t;
+  return out.str();
 }
 
 // Function to compute hash value for rdf data

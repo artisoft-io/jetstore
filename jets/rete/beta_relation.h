@@ -152,29 +152,30 @@ class BetaRelation {
   int
   initialize()
   {
-    int sz1=0, sz2=0, sz3=0;
-    for(auto const& b_index: this->node_vertex_->child_nodes) {
-      AntecedentQuerySpecPtr query_spec = b_index->antecedent_query_spec;
+    beta_row_idx1_.clear();
+    beta_row_idx2_.clear();
+    beta_row_idx3_.clear();
+    for(auto const& meta_nd: this->node_vertex_->child_nodes) {
+      AntecedentQuerySpecPtr query_spec = meta_nd->antecedent_query_spec;
       if(query_spec) {
         switch (query_spec->type) {
         case AntecedentQueryType::kQTu: 
-          sz1 += 1;
+          beta_row_idx1_.push_back({});
+          query_spec->key = (int)(beta_row_idx1_.size()-1); 
           break;
         case AntecedentQueryType::kQTuv:
-          sz2 += 1;
+          beta_row_idx2_.push_back({});
+          query_spec->key = (int)(beta_row_idx2_.size()-1); 
           break;
         case AntecedentQueryType::kQTuvw:
-          sz3 += 1;
+          beta_row_idx3_.push_back({});
+          query_spec->key = (int)(beta_row_idx3_.size()-1); 
           break;
         case AntecedentQueryType::kQTAll:
           break;
         }
       }
     }
-    std::cout<<"BetaRelation::initialize: "<<node_vertex_->vertex<<" resizing row indexes as "<<sz1<<", "<<sz2<<", "<<sz3<<std::endl;
-    beta_row_idx1_.resize(sz1);
-    beta_row_idx2_.resize(sz2);
-    beta_row_idx3_.resize(sz3);
     return 0;
   }
 
@@ -182,10 +183,10 @@ class BetaRelation {
   int
   add_indexes(BetaRowPtr & beta_row)
   {
-    std::cout<<"BetaRelation::add_indexes: called for "<<node_vertex_->vertex<<" with row "<<beta_row<<std::endl;
     if(this->node_vertex_->is_head_vertice()) return 0;
-    for(auto const& b_index: node_vertex_->child_nodes) {
-      AntecedentQuerySpecPtr const& query_spec = b_index->antecedent_query_spec;
+    for(auto const& meta_nd: node_vertex_->child_nodes) {
+      std::cout<<"** Adding indexes for vertex "<<this->node_vertex_->vertex<<", from child "<<meta_nd->vertex<<std::endl;
+      AntecedentQuerySpecPtr const& query_spec = meta_nd->antecedent_query_spec;
       switch (query_spec->type) {
       case AntecedentQueryType::kQTu: 
         // idx_mm is a multimap r_index, beta_row*
@@ -218,8 +219,8 @@ class BetaRelation {
   int
   remove_indexes(BetaRowPtr & beta_row)
   {
-    for(auto const& b_index: node_vertex_->child_nodes) {
-      AntecedentQuerySpecPtr const& query_spec = b_index->antecedent_query_spec;
+    for(auto const& meta_nd: node_vertex_->child_nodes) {
+      AntecedentQuerySpecPtr const& query_spec = meta_nd->antecedent_query_spec;
       switch (query_spec->type) {
       case AntecedentQueryType::kQTu: 
         // idx_mm is a multimap r_index, beta_row*

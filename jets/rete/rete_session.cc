@@ -92,6 +92,7 @@ namespace jets::rete {
     }
 
     if(compute_consequents) {
+      std::cout<<"execute_rules: COMPUTING CONSEQUENT TERMS"<<std::endl;
       err = compute_consequent_triples();
       if(err < 0) {
         LOG(ERROR) << "ReteSession::execute_rules: error returned from "
@@ -107,105 +108,99 @@ namespace jets::rete {
   ReteSession::visit_rete_graph(int from_vertex, bool is_inferring)
   {
     std::cout<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring "<<is_inferring<<std::endl;
-			std::vector<int> stack;
-			stack.reserve(rule_ms_->nbr_vertices());
-			
-			stack.push_back({from_vertex});
-			
-			while(!stack.empty()) {
-			
-				int parent_vertex = stack.back();
-				stack.pop_back();
+    std::vector<int> stack;
+    stack.reserve(rule_ms_->nbr_vertices());
+    
+    stack.push_back({from_vertex});
+    
+    while(!stack.empty()) {
+      int parent_vertex = stack.back();
+      stack.pop_back();
 
-        std::cout<<"ReteSession::visit_rete_graph stack pop `parent_vertex` "<<parent_vertex<<std::endl;
+      std::cout<<"ReteSession::visit_rete_graph stack pop `parent_vertex` "<<parent_vertex<<std::endl;
 
-        b_index parent_node = this->rule_ms_->get_node_vertex(parent_vertex);
-        if(not parent_node) {
-          std::cout<<"We've found a problem!"<<std::endl;
+      b_index parent_node = this->rule_ms_->get_node_vertex(parent_vertex);
+      for(auto const* cmeta_node: parent_node->child_nodes) {
+        std::cout<<"For child node: "<<cmeta_node->vertex<<std::endl;
+
+        // Compute beta relation between `parent_vertex` and `vertex`
+        int current_vertex = cmeta_node->vertex;
+        auto * parent_beta_relation = this->get_beta_relation(parent_vertex);
+        auto * current_relation = this->get_beta_relation(current_vertex);
+        if(not parent_beta_relation or not current_relation) {
+          LOG(ERROR) << "visit_rete_graph from_vertex "
+                      <<from_vertex<<": error beta_relation is null!";
+          return -1;
         }
-        std::cout<<"ReteSession::visit_rete_graph stack pop *(2) `parent_vertex` "<<parent_vertex<<" :: "<<parent_node->vertex<<std::endl;
-        if(parent_node->child_nodes.empty()) continue;
-        std::cout<<"ReteSession::visit_rete_graph stack pop *(3) `parent_vertex` "<<parent_vertex<<" :: "<<parent_node->vertex<<std::endl;
-				auto itor = parent_node->child_nodes.begin();
-				auto end  = parent_node->child_nodes.end();
-				for(; itor!=end; ++itor) {
-        std::cout<<"ReteSession::visit_rete_graph stack pop (4) `parent_vertex` "<<parent_vertex<<" :: "<<parent_node->vertex<<std::endl;
 
-          // Compute beta relation between `parent_vertex` and `vertex`
-					int current_vertex = (*itor)->vertex;
-        std::cout<<"ReteSession::visit_rete_graph stack pop (5) `parent_vertex` "<<parent_vertex<<" :: current vertex "<<current_vertex<<std::endl;
+        // Clear the pending rows in current_relation, since they were for the last pass
+        current_relation->clear_pending_rows();
 
-          std::cout<<"ReteSession::visit_rete_graph Compute beta relation between `parent_vertex` "<<parent_vertex<<", and `current_vertex`  "<<current_vertex<<std::endl;
+        // Get an iterator over all applicable rows from the parent beta node
+        BetaRowIteratorPtr parent_row_itor;
+        bool need_all_rows = !current_relation->is_activated();
+        if(need_all_rows) {
+          parent_row_itor = parent_beta_relation->get_all_rows_iterator();
+        } else {
+          parent_row_itor = parent_beta_relation->get_pending_rows_iterator();
+        }
 
-          auto * parent_beta_relation = this->get_beta_relation(parent_vertex);
-          auto * current_relation = this->get_beta_relation(current_vertex);
-          if(not parent_beta_relation or not current_relation) {
-            LOG(ERROR) << "visit_rete_graph from_vertex "
-                       <<from_vertex<<": error beta_relation is null!";
-            return -1;
-          }
+        // process rows from parent beta node:
+        // for each BetaRow of parent beta node, 
+        // compute the inferred/retracted BetaRow for current_relation
+        auto const* alpha_node = this->rule_ms_->get_alpha_node(current_vertex);
+        // b_index cmeta_node = current_relation->get_node_vertex();
+        auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
+        while(!parent_row_itor->is_end()) {
 
-          // Clear the pending rows in current_relation, since they were for the last pass
-          current_relation->clear_pending_rows();
+          // for each triple from the rdf graph matching the AlphaNode
+          // compute the BetaRow to infer or retract
+          auto const* parent_row = parent_row_itor->get_row();
+          auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
+          while(not t3_itor.is_end()) {
 
-          // Get an iterator over all applicable rows from the parent beta node
-          BetaRowIteratorPtr parent_row_itor;
-          bool need_all_rows = !current_relation->is_activated();
-          if(need_all_rows) {
-            parent_row_itor = parent_beta_relation->get_all_rows_iterator();
-          } else {
-            parent_row_itor = parent_beta_relation->get_pending_rows_iterator();
-          }
+            std::cout<<"    ReteSession::visit_rete_graph Compute beta relation between `row` "<<parent_row<<", and `t3`  "<<t3_itor.as_triple()<<std::endl;
 
-          // process rows from parent beta node:
-          // for each BetaRow of parent beta node, 
-          // compute the inferred/retracted BetaRow for current_relation
-          auto const* alpha_node = this->rule_ms_->get_alpha_node(current_vertex);
-          b_index cmeta_node = current_relation->get_node_vertex();
-          auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
-          while(!parent_row_itor->is_end()) {
+            // create the beta row
+            auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+            // initialize the beta row with parent_row and t3
+            rdf::Triple triple = t3_itor.as_triple();
+            beta_row->initialize(beta_row_initializer, parent_row, &triple);
 
-            // for each triple from the rdf graph matching the AlphaNode
-            // compute the BetaRow to infer or retract
-            auto const* parent_row = parent_row_itor->get_row();
-            auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
-            while(not t3_itor.is_end()) {
+            std::cout<<"    Row initialized, beta_row: "<<beta_row<<std::endl;
 
-              std::cout<<"ReteSession::visit_rete_graph Compute beta relation between `row` "<<parent_row<<", and `t3`  "<<t3_itor.as_triple()<<std::endl;
-
-              // create the beta row
-              auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
-              // initialize the beta row with parent_row and t3
-              rdf::Triple triple = t3_itor.as_triple();
-              beta_row->initialize(beta_row_initializer, parent_row, &triple);
-
-              // evaluate the current_relation filter if any
-              bool keepit = true;
-              if(cmeta_node->has_expr()) {
-                auto const* expr = this->rule_ms_->get_expr(cmeta_node->expr_vertex);
-                keepit = expr->eval_filter(this, beta_row.get());
-              }
-
-              // insert or remove the row from current_relation based on is_inferring
-              if(keepit) {
-                if(is_inferring) {
-                  // Add row to current beta relation (current_relation)
-                  current_relation->insert_beta_row(this, beta_row);
-                } else {
-                  // Remove row from current beta relation (current_relation)
-                  current_relation->remove_beta_row(this, beta_row);
-                }
-              }
-              t3_itor.next();
+            // evaluate the current_relation filter if any
+            bool keepit = true;
+            if(cmeta_node->has_expr()) {
+            std::cout<<"    Applying Filter ... "<<std::endl;
+              keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
+            std::cout<<"    Filter applied, keepit: "<<keepit<<std::endl;
             }
-            parent_row_itor->next();
-          }
 
-          // mark current beta node as activated and push it on the stack so to visit it's childrens
-          if(need_all_rows) current_relation->set_activated(true);
-          stack.push_back(current_vertex);
-				}
-			}
+            // insert or remove the row from current_relation based on is_inferring
+            if(keepit) {
+              if(is_inferring) {
+                // Add row to current beta relation (current_relation)
+            std::cout<<"    Adding BetaRow to relation"<<std::endl;
+                current_relation->insert_beta_row(this, beta_row);
+              } else {
+                // Remove row from current beta relation (current_relation)
+            std::cout<<"    Removing BetaRow to relation"<<std::endl;
+                current_relation->remove_beta_row(this, beta_row);
+              }
+            std::cout<<"    BetaRow added to relation"<<std::endl;
+            }
+            t3_itor.next();
+          }
+          parent_row_itor->next();
+        }
+
+        // mark current beta node as activated and push it on the stack so to visit it's childrens
+        if(need_all_rows) current_relation->set_activated(true);
+        stack.push_back(current_vertex);
+      }
+    }
+    std::cout<<"OK done for visit_rete_graph"<<std::endl;
     return 0;
   }
 
@@ -229,6 +224,7 @@ namespace jets::rete {
         std::cout<<"compute_consequent_triples: row already processed: "<<beta_row<<", skipping"<<std::endl;
         continue;
       }
+      std::cout<<"ReteSession::compute_consequent_triples for vertex "<<beta_row->get_node_vertex()->vertex<<", with row "<<beta_row<<std::endl;
 
       // get the beta node and the vertex_node associated with the beta_row
       b_index meta_node = beta_row->get_node_vertex();
@@ -247,7 +243,9 @@ namespace jets::rete {
         if(beta_row->is_inserted()) {
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
-            this->rdf_session_->insert_inferred(consequent_node->compute_consequent_triple(beta_row.get()));
+            //*
+            std::cout<<"    Inferring triple: "<<consequent_node->compute_consequent_triple(this, beta_row.get())<<std::endl;
+            this->rdf_session_->insert_inferred(consequent_node->compute_consequent_triple(this, beta_row.get()));
           }
         } else {
           // beta_row status must be kDeleted, meaning retracting mode
@@ -259,7 +257,9 @@ namespace jets::rete {
           }
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
-            this->rdf_session_->retract(consequent_node->compute_consequent_triple(beta_row.get()));
+            //*
+            std::cout<<"    Retracting triple: "<<consequent_node->compute_consequent_triple(this, beta_row.get())<<std::endl;
+            this->rdf_session_->retract(consequent_node->compute_consequent_triple(this, beta_row.get()));
           }
         }
       }
@@ -309,8 +309,7 @@ namespace jets::rete {
       // evaluate the current_relation filter if any
       bool keepit = true;
       if(cmeta_node->has_expr()) {
-        auto const* expr = this->rule_ms_->get_expr(cmeta_node->expr_vertex);
-        keepit = expr->eval_filter(this, beta_row.get());
+        keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
       }
 
       // insert or remove the row from current_relation based on is_inserted

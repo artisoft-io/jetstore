@@ -168,6 +168,45 @@ struct EqVisitor: public boost::static_visitor<RDFTTYPE>
   BetaRow const* br;
 };
 
+// LeVisitor
+// --------------------------------------------------------------------------------------
+struct LeVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  LeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::False();};
+  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::True();}
+  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::BlankNode     rhs)const{return rdf::LInt32{lhs.key <= rhs.key};}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return rdf::LInt32{lhs.name <= rhs.name};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_less_equal(lhs.data, rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{is_le(lhs, rhs)};}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const{return rdf::LInt32{lhs.data <= rhs.data};}
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 // RegexVisitor
 // --------------------------------------------------------------------------------------
 struct RegexVisitor: public boost::static_visitor<RDFTTYPE>

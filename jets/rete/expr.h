@@ -26,10 +26,8 @@ namespace jets::rete {
 // //////////////////////////////////////////////////////////////////////////////////////
 // ExprBase class -- Abstract base class for an expression tree
 // --------------------------------------------------------------------------------------
+// Definition of ExprBasePtr is in node_vertex.h
 class ReteSession;
-
-class ExprBase;
-using ExprBasePtr = std::shared_ptr<ExprBase>;
 
 // ExprBase - Abstract base class for an expression tree
 // The expression tree is performing operation on rdf::RdfAstType

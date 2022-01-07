@@ -3,6 +3,8 @@
 
 #include <string>
 #include <memory>
+#include <list>
+#include <ostream>
 
 #include <boost/variant/multivisitors.hpp>
 
@@ -373,6 +375,30 @@ inline RDFGraphPtr
 create_rdf_graph(RManagerPtr meta_mgr=nullptr)
 {
   return std::make_shared<RDFGraph>(meta_mgr);
+}
+
+inline std::ostream & operator<<(std::ostream & out, RDFGraph const* g)
+{
+  if(not g) out << "NULL";
+  else {
+    std::list<std::string> triples;
+    auto itor = g->find();
+    while(not itor.is_end()) {
+      triples.push_back(to_string(itor.as_triple()));
+      itor.next();
+    }
+    triples.sort();
+    for(auto const& item: triples) {
+      out << item << std::endl;
+    }
+  }
+  return out;
+}
+
+inline std::ostream & operator<<(std::ostream & out, RDFGraphPtr const& r)
+{
+  out << r.get();
+  return out;
 }
 
 } // namespace jets::rdf

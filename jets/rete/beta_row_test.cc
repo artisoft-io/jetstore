@@ -12,7 +12,7 @@ namespace jets::rete {
 namespace {
 // Simple test
 TEST(BetaRowStatusTest, StatusTest) {
-    auto node_ptr = create_node_vertex(nullptr, 0, false, 0, 10, {}, {});
+    auto node_ptr = create_node_vertex(nullptr, 0, false, 10, {}, {}, {});
     BetaRowPtr row = create_beta_row(node_ptr.get(), 3);
     row->set_status(BetaRowStatus::kInserted);
     EXPECT_EQ(row->is_deleted(), false);
@@ -34,7 +34,7 @@ class BetaRowTest : public ::testing::Test {
   BetaRowTest() : br0(), br1(), ri0(), nv0() {
       int row_size = 3;
       ri0 = create_row_initializer(row_size);
-      nv0 = create_node_vertex(nullptr, 0, false, 0, 10, ri0, {});
+      nv0 = create_node_vertex(nullptr, 0, false, 10, {}, ri0, {});
       br0 = create_beta_row(nv0.get(), row_size);
       br1 = create_beta_row(nv0.get(), row_size);
   }
@@ -49,14 +49,19 @@ class BetaRowTest : public ::testing::Test {
 TEST_F(BetaRowTest, RowInitializerTest) {
     EXPECT_EQ(ri0->get_size(), 3);
 
-    EXPECT_EQ(ri0->put(0, 0 | brc_parent_node), 0);
-    EXPECT_EQ(ri0->put(1, 0 | brc_triple), 0);
-    EXPECT_EQ(ri0->put(2, 1 | brc_parent_node), 0);
+    EXPECT_EQ(ri0->put(0, 0 | brc_parent_node, "a"), 0);
+    EXPECT_EQ(ri0->put(1, 0 | brc_triple, "b"), 0);
+    EXPECT_EQ(ri0->put(2, 1 | brc_parent_node, "c"), 0);
 
     EXPECT_EQ(ri0->get(0) & brc_low_mask, 0);
     EXPECT_EQ(ri0->get(1) & brc_low_mask, 0);
     EXPECT_EQ(ri0->get(2) & brc_low_mask, 1);
     EXPECT_EQ(ri0->get(3), -1);
+
+    EXPECT_EQ(ri0->get_label(0), std::string_view("a"));
+    EXPECT_EQ(ri0->get_label(1), std::string_view("b"));
+    EXPECT_EQ(ri0->get_label(2), std::string_view("c"));
+    EXPECT_EQ(ri0->get_label(3), std::string_view(""));
 }
 
 TEST_F(BetaRowTest, BetaRowTest) {
@@ -84,9 +89,9 @@ TEST_F(BetaRowTest, BetaRowInitializeTest) {
     // setup the row initializer
     EXPECT_EQ(ri0->get_size(), 3);
 
-    EXPECT_EQ(ri0->put(0, 0 | brc_parent_node), 0);
-    EXPECT_EQ(ri0->put(1, 2 | brc_triple), 0);
-    EXPECT_EQ(ri0->put(2, 1 | brc_parent_node), 0);
+    EXPECT_EQ(ri0->put(0, 0 | brc_parent_node, "a"), 0);
+    EXPECT_EQ(ri0->put(1, 2 | brc_triple, "a"), 0);
+    EXPECT_EQ(ri0->put(2, 1 | brc_parent_node, "a"), 0);
 
     // rdf resource manager
     rdf::RManager rmanager;

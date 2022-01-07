@@ -17,7 +17,6 @@
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/node_vertex.h"
 #include "jets/rete/alpha_node.h"
-#include "jets/rete/expr.h"
 
 
 // Component to manage all the rdf resources and literals of a graph
@@ -53,24 +52,14 @@ class ReteMetaStore {
 
   ReteMetaStore()
     : alpha_nodes_(),
-      exprs_(),
       node_vertexes_()
   {}
-  // ReteMetaStore(AlphaNodeVector alpha_nodes, ExprVector exprs, NodeVertexVector node_vertexes)
-  //   : alpha_nodes_(alpha_nodes), 
-  //     exprs_(exprs),
-  //     node_vertexes_(node_vertexes)
-  // {}
-  ReteMetaStore(AlphaNodeVector const& alpha_nodes, ExprVector const& exprs, 
-    NodeVertexVector const& node_vertexes)
+  ReteMetaStore(AlphaNodeVector const& alpha_nodes, NodeVertexVector const& node_vertexes)
     : alpha_nodes_(alpha_nodes), 
-      exprs_(exprs),
       node_vertexes_(node_vertexes)
   {}
-  ReteMetaStore(AlphaNodeVector && alpha_nodes, ExprVector && exprs, 
-      NodeVertexVector && node_vertexes)
+  ReteMetaStore(AlphaNodeVector && alpha_nodes, NodeVertexVector && node_vertexes)
     : alpha_nodes_(std::forward<AlphaNodeVector>(alpha_nodes)), 
-      exprs_(std::forward<ExprVector>(exprs)), 
       node_vertexes_(std::forward<NodeVertexVector>(node_vertexes))
   {}
 
@@ -88,13 +77,6 @@ class ReteMetaStore {
   {
     if(vertex<0 or vertex >= static_cast<int>(alpha_nodes_.size())) return {};
     return alpha_nodes_[vertex].get();
-  }
-
-  inline ExprBase const*
-  get_expr(int vertex)const
-  {
-    if(vertex<0 or vertex >= static_cast<int>(exprs_.size())) return {};
-    return exprs_[vertex].get();
   }
 
   inline b_index
@@ -145,26 +127,22 @@ class ReteMetaStore {
  private:
   friend class ReteSession;
   AlphaNodeVector  alpha_nodes_;
-  ExprVector       exprs_;
   NodeVertexVector node_vertexes_;
 };
 
 inline ReteMetaStorePtr create_rete_meta_store(
     ReteMetaStore::AlphaNodeVector const& alpha_nodes,
-    ReteMetaStore::ExprVector const& exprs,
     NodeVertexVector const& node_vertexes)
 {
-  return std::make_shared<ReteMetaStore>(alpha_nodes, exprs, node_vertexes);
+  return std::make_shared<ReteMetaStore>(alpha_nodes, node_vertexes);
 }
 
 inline ReteMetaStorePtr create_rete_meta_store(
     ReteMetaStore::AlphaNodeVector && alpha_nodes,
-    ReteMetaStore::ExprVector && exprs,
     NodeVertexVector && node_vertexes)
 {
   return std::make_shared<ReteMetaStore>(
     std::forward<ReteMetaStore::AlphaNodeVector>(alpha_nodes),
-    std::forward<ReteMetaStore::ExprVector>(exprs),
     std::forward<NodeVertexVector>(node_vertexes) );
 }
 

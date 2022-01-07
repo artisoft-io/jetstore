@@ -7,7 +7,8 @@
 #include <utility>
 
 #include "jets/rdf/rdf_types.h"
-#include "node_vertex.h"
+#include "jets/rete/rete_err.h"
+#include "jets/rete/node_vertex.h"
 #include "jets/rete/beta_row.h"
 #include "jets/rete/expr.h"
 #include "jets/rete/rete_session.h"
@@ -36,7 +37,7 @@ struct F_binded {
 
   inline
   rdf::r_index
-  to_r_index(BetaRow const* parent_row)const
+  to_r_index(ReteSession *, BetaRow const* parent_row)const
   {
     return parent_row->get(data);
   }
@@ -71,7 +72,7 @@ struct F_var {
 
   inline
   rdf::r_index
-  to_r_index(BetaRow const* parent_row)const
+  to_r_index(ReteSession *, BetaRow const*)const
   {
     return nullptr;
   }
@@ -104,7 +105,7 @@ struct F_cst {
 
   inline
   rdf::r_index
-  to_r_index(BetaRow const* parent_row)const
+  to_r_index(ReteSession *, BetaRow const*)const
   {
     return data;
   }
@@ -122,8 +123,7 @@ struct F_cst {
 // F_expr
 // --------------------------------------------------------------------------------------
 struct F_expr {
-  F_expr(ReteSession * rete_session, ExprBasePtr expr)
-    : rete_session(rete_session), data(expr){}
+  explicit F_expr(ExprBasePtr expr) : data(expr){}
 
   F_expr(F_expr const&) = default;
   F_expr(F_expr &&) = default;
@@ -138,7 +138,7 @@ struct F_expr {
 
   inline
   rdf::r_index
-  to_r_index(BetaRow const* parent_row)const
+  to_r_index(ReteSession * rete_session, BetaRow const* parent_row)const
   {
     auto * rmgr = rete_session->rdf_session()->rmgr();
     auto rv = data->eval(rete_session, parent_row);
@@ -149,10 +149,10 @@ struct F_expr {
   rdf::AllOrRIndex
   to_AllOrRIndex(BetaRow const* parent_row)const
   {
-    return {to_r_index(parent_row)};
+    RETE_EXCEPTION("Error: F_exp::to_AllOrRIndex should never be called as this functor"
+      " cannot be used as an antecedent term");
   }
 
-  ReteSession * rete_session;
   ExprBasePtr data;
 };
 
