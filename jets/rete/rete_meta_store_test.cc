@@ -35,11 +35,39 @@ class AlphaNodeStub: public AlphaNode {
   {
       return {};
   }
-  rdf::Triple
-  compute_consequent_triple(ReteSession * rete_session, BetaRow * beta_row)const override
+  rdf::SearchTriple
+  compute_find_triple(BetaRow const* parent_row)const override
   {
     return {};
   }
+  rdf::Triple
+  compute_consequent_triple(ReteSession * rete_session, BetaRow const* beta_row)const override
+  {
+    return {};
+  }
+  void
+  index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  {}
+
+  /**
+   * @brief Remove index beta_row in beta_relation indexes according to the functors template arguments
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   * @param beta_row  BetaRow to index
+   */
+  void
+  remove_index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  {}
+
+  /**
+   * @brief Initialize BetaRelation indexes for this child AlphaNode
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   */
+  void
+  initialize_indexes(BetaRelation * beta_relation)const override
+  {}
+
 };
 AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent)
 {
@@ -60,10 +88,10 @@ class ReteMetaStoreTest : public ::testing::Test {
   ReteMetaStoreTest() : good_alpha_nodes(), bad_alpha_nodes(), node_vertexes() {
       // 4 NodeVertex corresponding to Beta nodes
       node_vertexes.reserve(4);
-      node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 10, {}, {}, {}));
-      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 10, {}, {}, {}));
-      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 2, false, 10, {}, {}, {}));
-      node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 3, false, 10, {}, {}, {}));
+      node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 10, {}, {}));
+      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 10, {}, {}));
+      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 2, false, 10, {}, {}));
+      node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 3, false, 10, {}, {}));
       // The good 7 AlphaNode
       good_alpha_nodes.reserve(7);
       good_alpha_nodes.push_back(create_alpha_node(node_vertexes[0].get(), true));

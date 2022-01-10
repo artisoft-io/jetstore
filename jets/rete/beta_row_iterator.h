@@ -17,32 +17,6 @@
 namespace jets::rete {
 // Declaration of Container Types for BetaRelation Class
 /////////////////////////////////////////////////////////////////////////////////////////
-using beta_row_set = absl::flat_hash_set<BetaRowPtr>;
-
-// Compute the hash of BetaRow
-template <typename H>
-H AbslHashValue(H h, BetaRowPtr const& s) {
-  if(s->get_size() == 0) return h;
-  auto itor = s->begin();
-  auto end = s->end();
-  for(; itor !=end; itor++) {
-      h = H::combine(std::move(h), *itor);
-  }
-  return h;
-}
-
-inline bool 
-operator==(BetaRowPtr const& lhs, BetaRowPtr const& rhs) 
-{ 
-  auto sz = lhs->get_size();
-  if(sz != rhs->get_size()) return false;
-
-  for(int i=0; i<sz; i++) {
-    if(lhs->get(i) != rhs->get(i)) return false;
-  }
-  return true; 
-}
-
 // Container for indexes on BetaRow
 using BetaRowIndxKey2 = std::tuple<rdf::r_index, rdf::r_index>;
 using BetaRowIndxKey3 = std::tuple<rdf::r_index, rdf::r_index, rdf::r_index>;

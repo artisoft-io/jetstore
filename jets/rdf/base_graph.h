@@ -49,8 +49,7 @@ class BaseGraph {
     : spin_(spin),
       umap_data_(),
       v_end_(),
-      w_end_(),
-      graph_callback_mgr_()
+      w_end_()
   {}
 
   inline void clear() 
@@ -263,11 +262,6 @@ class BaseGraph {
     auto pair = vtor->second.insert(WSetType::value_type{w});
     if (!pair.second) {
       pair.first->add_ref_count();
-      if(this->graph_callback_mgr_) {
-        r_index s, p, o;
-        lookup_uvw2spo(spin_, u, v, w, s, p, o);
-        this->graph_callback_mgr_->triple_inserted(s, p, o);
-      }
     }
     return pair.second;
   }
@@ -298,11 +292,6 @@ class BaseGraph {
     if (vtor == utor->second.end()) return 0;
 
     int count = vtor->second.erase(WSetType::value_type{w});
-    if(count and this->graph_callback_mgr_) {
-        r_index s, p, o;
-        lookup_uvw2spo(spin_, u, v, w, s, p, o);
-      this->graph_callback_mgr_->triple_deleted(s, p, o); 
-    }
     if (vtor->second.empty()) {
       utor->second.erase(v);
       if (utor->second.empty()) {
@@ -363,29 +352,12 @@ class BaseGraph {
     return retract(u, v, w);
   }
 
-  // GraphCallbackManager functions
-  inline void
-  add_graph_callback(ReteCallBackPtr cp) 
-  {
-    if(not this->graph_callback_mgr_) {
-      this->graph_callback_mgr_ = std::make_shared<GraphCallbackManager>();
-    }
-    this->graph_callback_mgr_->add_callback(cp);
-  }
-
-  inline void
-  remove_all_callbacks()
-  {
-    this->graph_callback_mgr_->clear_callbacks();
-  }
-
  private:
   char const spin_;
   UMapType umap_data_;
   // have empty iterators
   VMapType::const_iterator v_end_;
   WSetType::const_iterator w_end_;
-  GraphCallbackManagerPtr graph_callback_mgr_;
 };
 
 inline 

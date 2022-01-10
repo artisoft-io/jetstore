@@ -12,6 +12,7 @@
 #include "jets/rete/beta_row.h"
 #include "jets/rete/expr.h"
 #include "jets/rete/rete_session.h"
+#include "jets/rete/antecedent_query_visitor.h"
 
 // This file contains the AlphaNode class parameters Fu, Fv, Fw classes
 // Methods usage:
@@ -49,6 +50,13 @@ struct F_binded {
     return {parent_row->get(data)};
   }
 
+  inline
+  AQV
+  to_AQV()const
+  {
+    return {AQIndex(data)};
+  }
+
   int data;
 };
 
@@ -84,6 +92,13 @@ struct F_var {
     return {rdf::StarMatch()};
   }
 
+  inline
+  AQV
+  to_AQV()const
+  {
+    return {AQOther()};
+  }
+
   std::string data;
 };
 
@@ -115,6 +130,13 @@ struct F_cst {
   to_AllOrRIndex(BetaRow const* parent_row)const
   {
     return {data};
+  }
+
+  inline
+  AQV
+  to_AQV()const
+  {
+    return {AQOther()};
   }
 
   rdf::r_index data;
@@ -151,6 +173,13 @@ struct F_expr {
   {
     RETE_EXCEPTION("Error: F_exp::to_AllOrRIndex should never be called as this functor"
       " cannot be used as an antecedent term");
+  }
+
+  inline
+  AQV
+  to_AQV()const
+  {
+    return {AQOther()};
   }
 
   ExprBasePtr data;

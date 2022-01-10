@@ -3,6 +3,7 @@
 
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
+#include "jets/rete/rete_types_impl.h"
 
 using namespace jets::rdf;
 using namespace jets::rete;

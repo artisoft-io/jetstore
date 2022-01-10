@@ -20,9 +20,9 @@ class ReteCallBackImpl: public rdf::ReteCallBack {
     : ReteCallBack(),
       rete_session_(rete_session), 
       vertex_(vertex),
-      u_filter_(u_filter),
-      v_filter_(v_filter),
-      w_filter_(w_filter)
+      s_filter_(u_filter),
+      p_filter_(v_filter),
+      o_filter_(w_filter)
   {};
   ~ReteCallBackImpl()=default;
 
@@ -41,16 +41,16 @@ class ReteCallBackImpl: public rdf::ReteCallBack {
  private:
   ReteSession * rete_session_;
   int           vertex_;
-  rdf::r_index  u_filter_;
-  rdf::r_index  v_filter_;
-  rdf::r_index  w_filter_;
+  rdf::r_index  s_filter_;
+  rdf::r_index  p_filter_;
+  rdf::r_index  o_filter_;
 };
 
 inline rdf::ReteCallBackPtr
 create_rete_callback(ReteSession * rete_session, int vertex,
-  rdf::r_index u_filter, rdf::r_index v_filter, rdf::r_index w_filter)
+  rdf::r_index s_filter, rdf::r_index p_filter, rdf::r_index o_filter)
 {
-  return std::make_shared<ReteCallBackImpl>(rete_session, vertex, u_filter, v_filter, w_filter);
+  return std::make_shared<ReteCallBackImpl>(rete_session, vertex, s_filter, p_filter, o_filter);
 }
 
 } // namespace jets::rete

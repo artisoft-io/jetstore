@@ -4,14 +4,17 @@
 #include <string>
 #include <memory>
 
+#include <boost/variant/multivisitors.hpp>
+
 #include "jets/rdf/rdf_types.h"
-#include "node_vertex.h"
+#include "jets/rete/node_vertex.h"
 #include "jets/rete/beta_row.h"
 #include "jets/rete/beta_row_iterator.h"
 #include "jets/rete/beta_relation.h"
 #include "jets/rete/graph_callback_mgr_impl.h"
 #include "jets/rete/alpha_node.h"
 #include "jets/rete/rete_session.h"
+#include "jets/rete/antecedent_query_visitor.h"
 
 // This file contains the implementation classes for AlphaNode
 namespace jets::rete {
@@ -63,53 +66,9 @@ class AlphaNodeImpl: public AlphaNode {
     rdf::r_index u = fu_.to_cst();
     rdf::r_index v = fv_.to_cst();
     rdf::r_index w = fw_.to_cst();
-    if(not u) {
-      if(not v) {
-        if(not w) {
-          // case (*, *, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
-            create_rete_callback(rete_session, vertex, nullptr, nullptr, nullptr));
-        } else {
-          // case (*, *, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', 
-            create_rete_callback(rete_session, vertex, w, nullptr, nullptr));
-        }
-      } else {
-        if(not w) {
-          // case (*, r, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', 
-            create_rete_callback(rete_session, vertex, v, nullptr, nullptr));
-        } else {
-          // case (*, r, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('p', 
-            create_rete_callback(rete_session, vertex, v, w, nullptr));
-        }
-      }
-
-    } else {
-      if(not v) {
-        if(not w) {
-          // case (r, *, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
-            create_rete_callback(rete_session, vertex, u, nullptr, nullptr));
-        } else {
-          // case (r, *, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('o', 
-            create_rete_callback(rete_session, vertex, w, u, nullptr));
-        }
-      } else {
-        if(not w) {
-          // case (r, r, *)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
-            create_rete_callback(rete_session, vertex, u, v, nullptr));
-          // case (r, r, i)
-        } else {
-          // case (r, r, r)
-          rete_session->rdf_session()->inferred_graph()->register_callback('s', 
-            create_rete_callback(rete_session, vertex, u, v, w));
-        }
-      }
-    }
+    std::cout<<"AlphaNode::register callback for vertex "<<vertex<<" with pattern "<<rdf::Triple(u, v, w)<<std::endl;
+    rete_session->rdf_session()->inferred_graph()->register_callback(
+      create_rete_callback(rete_session, vertex, u, v, w));
     return 0;
   }
 
@@ -140,6 +99,44 @@ class AlphaNodeImpl: public AlphaNode {
   }
 
   /**
+   * @brief Index beta_row in beta_relation indexes according to the functors template arguments
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   * @param beta_row  BetaRow to index
+   */
+  void
+  index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  {
+    AQVIndexBetaRowsVisitor visitor(beta_relation, beta_relation->get_node_vertex(), beta_row);
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
+  }
+
+  /**
+   * @brief Remove index beta_row in beta_relation indexes according to the functors template arguments
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   * @param beta_row  BetaRow to index
+   */
+  void
+  remove_index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  {
+    AQVRemoveIndexBetaRowsVisitor visitor(beta_relation, beta_relation->get_node_vertex(), beta_row);
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
+  }
+
+  /**
+   * @brief Initialize BetaRelation indexes for this child AlphaNode
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   */
+  void
+  initialize_indexes(BetaRelation * beta_relation)const override
+  {
+    AQVInitializeIndexesVisitor visitor(beta_relation, beta_relation->get_node_vertex());
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
+  }
+
+  /**
    * @brief Called to query rows from parent beta node matching `triple`, case merging with new triples from inferred graph
    *
    * The parent beta row is queried using the AntecedentQuerySpec from the current beta node,
@@ -157,24 +154,8 @@ class AlphaNodeImpl: public AlphaNode {
       RETE_EXCEPTION("AlphaNodeImpl::find_matching_rows: Called on alpha node that "
         "is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
     }
-    // Get QuerySpec from NodeVertex
-    AntecedentQuerySpecPtr const& query_spec = this->get_node_vertex()->antecedent_query_spec;
-    rdf::r_index u, v, w;
-    rdf::lookup_spo2uvw(query_spec->spin, s, p, o, u, v, w);
-    switch (query_spec->type) {
-    case AntecedentQueryType::kQTu: 
-      return parent_beta_relation->get_idx1_rows_iterator(query_spec->key, u);
-
-    case AntecedentQueryType::kQTuv:
-      return parent_beta_relation->get_idx2_rows_iterator(query_spec->key, u, v);
-
-    case AntecedentQueryType::kQTuvw:
-      return parent_beta_relation->get_idx3_rows_iterator(query_spec->key, u, v, w);
-
-    case AntecedentQueryType::kQTAll:
-      return parent_beta_relation->get_all_rows_iterator();
-    }
-    return {};
+    AQVMatchingRowsVisitor visitor(parent_beta_relation, this->get_node_vertex(), s, p, o);
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
   }
 
   /**
@@ -186,7 +167,7 @@ class AlphaNodeImpl: public AlphaNode {
    * @return rdf::Triple 
    */
   rdf::Triple
-  compute_consequent_triple(ReteSession * rete_session, BetaRow * beta_row)const override
+  compute_consequent_triple(ReteSession * rete_session, BetaRow const* beta_row)const override
   {
     if(this->is_antecedent()) {
       RETE_EXCEPTION("AlphaNodeImpl::compute_consequent_triple: Called on alpha node "
@@ -196,6 +177,30 @@ class AlphaNodeImpl: public AlphaNode {
       fu_.to_r_index(rete_session, beta_row), 
       fv_.to_r_index(rete_session, beta_row), 
       fw_.to_r_index(rete_session, beta_row)
+    };
+  }
+
+  /**
+   * @brief Return find statement as a `triple`
+   * 
+   * So far, this is used for diagnostics and printing.
+   * This function is an alternative to find_matching_triples
+   * Applicable to antecedent terms only,
+   * Will throw if called on an antecedent term
+   * @param parent_row BetaRow from parent beta node
+   * @return SearchTriple 
+   */
+  rdf::SearchTriple
+  compute_find_triple(BetaRow const* parent_row)const override
+  {
+    if(not this->is_antecedent()) {
+      RETE_EXCEPTION("AlphaNodeImpl::compute_find_triple: Called on alpha node "
+        "that IS an consequent term, vertex: "<<this->get_node_vertex()->vertex);
+    }
+    return {
+      fu_.to_AllOrRIndex(parent_row), 
+      fv_.to_AllOrRIndex(parent_row), 
+      fw_.to_AllOrRIndex(parent_row)
     };
   }
 
@@ -219,6 +224,5 @@ AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent,
   return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, is_antecedent, 
     std::forward<Fu>(fu), std::forward<Fv>(fv), std::forward<Fw>(fw));
 }
-
 } // namespace jets::rete
 #endif // JETS_RETE_ALPHA_NODE_IMPL_H

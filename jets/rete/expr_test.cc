@@ -7,10 +7,9 @@
 
 #include <gtest/gtest.h>
 
-#include "expr.h"
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
-#include "rete_err.h"
+#include "jets/rete/rete_types_impl.h"
 
 namespace jets::rete {
 namespace {

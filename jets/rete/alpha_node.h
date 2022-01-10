@@ -111,10 +111,6 @@ class AlphaNode {
  public:
   using Iterator = rdf::RDFSession::Iterator;
 
-  // AlphaNode()
-  //   : node_vertex_(nullptr), is_antecedent_(false)
-  // {}
-
   AlphaNode(b_index node_vertex, bool is_antecedent) 
     : node_vertex_(node_vertex), is_antecedent_(is_antecedent)
   {}
@@ -144,24 +140,86 @@ class AlphaNode {
   virtual int
   register_callback(ReteSession * rete_session)const=0;
 
-  // Call to get all triples from rdf session matching `parent_row`
-  // Applicable to antecedent terms only, call during initial graph visit only
-  // Will throw if called on a consequent term
+  /**
+   * @brief Get all triples from rdf session matching `parent_row`
+   *
+   * Invoking the functors to_AllOrRIndex methods, case:
+   *  - F_cst: return the rdf resource of the functor (constant value)
+   *  - F_binded: return the binded rdf resource from parent_row @ index of the functor.
+   *  - F_var: return 'any' (StarMatch) to indicate a unbinded variable
+   * 
+   * Applicable to antecedent terms only, call during initial graph visit only
+   * Will throw if called on a consequent term
+   * @param rdf_session 
+   * @param parent_row 
+   * @return AlphaNode::Iterator 
+   */
   virtual Iterator
   find_matching_triples(rdf::RDFSession * rdf_session, BetaRow const* parent_row)const=0;
 
-  // Called to query rows matching `triple`, 
-  // case merging with new triples from inferred graph
-  // Applicable to antecedent terms only
-  // Will throw if called on a consequent term
+  /**
+   * @brief Return find statement as a `triple`
+   * 
+   * So far, this is used for diagnostics and printing.
+   * This function is an alternative to find_matching_triples
+   * Applicable to antecedent terms only,
+   * Will throw if called on an antecedent term
+   * @param parent_row BetaRow from parent beta node
+   * @return SearchTriple
+   */
+  virtual rdf::SearchTriple
+  compute_find_triple(BetaRow const* parent_row)const=0;
+
+  /**
+   * @brief Index beta_row in beta_relation indexes according to the functors template arguments
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   * @param beta_row  BetaRow to index
+   */
+  virtual void
+  index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const=0;
+
+  /**
+   * @brief Remove index beta_row in beta_relation indexes according to the functors template arguments
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   * @param beta_row  BetaRow to index
+   */
+  virtual void
+  remove_index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const=0;
+
+  /**
+   * @brief Initialize BetaRelation indexes for this child AlphaNode
+   * 
+   * @param beta_relation BetaRelation with the indexes
+   */
+  virtual void
+  initialize_indexes(BetaRelation * beta_relation)const=0;
+
+  /**
+   * @brief Called to query rows from parent beta node matching `triple`, case merging with new triples from inferred graph
+   *
+   * The parent beta row is queried using the AntecedentQuerySpec from the current beta node,
+   * that is the beta node with the same node vertex as the alpha node (since it's am antecedent term)
+   * 
+   * Applicable to antecedent terms only, will throw otherwise
+   * @param parent_beta_relation 
+   * @param triple 
+   * @return BetaRowIteratorPtr 
+   */
   virtual BetaRowIteratorPtr
   find_matching_rows(BetaRelation * beta_relation,  rdf::r_index s, rdf::r_index p, rdf::r_index o)const=0;
 
-  // Return consequent `triple` for BetaRow
-  // Applicable to consequent terms only
-  // Will throw if called on an antecedent term
+  /**
+   * @brief Return consequent `triple` for BetaRow
+   * 
+   * Applicable to consequent terms only,
+   * Will throw if called on an antecedent term
+   * @param beta_row to apply index retrieval
+   * @return rdf::Triple 
+   */
   virtual rdf::Triple
-  compute_consequent_triple(ReteSession * rete_session, BetaRow * beta_row)const=0;
+  compute_consequent_triple(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
  private:
   b_index    node_vertex_;

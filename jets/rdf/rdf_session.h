@@ -12,7 +12,7 @@
 #include <glog/logging.h>
 
 #include "jets/rdf/rdf_err.h"
-#include "rdf_ast.h"
+#include "jets/rdf/rdf_ast.h"
 #include "jets/rdf/r_manager.h"
 #include "jets/rdf/rdf_graph.h"
 #include "jets/rdf/rdf_session_iterator.h"
@@ -178,7 +178,7 @@ class RDFSession {
   inline Iterator 
   find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o) const
   {
-    // std::cout<<"RdfSession::find ("<<s<<", "<<p<<", "<<o<<")"<<std::endl;
+    // std::cout<<"    RdfSession::find ("<<s<<", "<<p<<", "<<o<<")"<<std::endl;
     return Iterator(
       asserted_graph_->find(s, p, o),
       inferred_graph_->find(s, p, o),
@@ -224,14 +224,14 @@ class RDFSession {
 
   // insert triple (s, p, o), returns 1 if inserted zero otherwise
   inline int
-  insert(r_index s, r_index p, r_index o)
+  insert(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
                  << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
       return 0;
     }
-    return asserted_graph_->insert(s, p, o);
+    return asserted_graph_->insert(s, p, o, notify_listners);
   }
 
   // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
@@ -300,27 +300,15 @@ class RDFSession {
 
   // insert triple (s, p, o), returns 1 if inserted zero otherwise
   inline int
-  insert_inferred(r_index s, r_index p, r_index o)
+  insert_inferred(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
                  << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
       return 0;
     }
-    return inferred_graph_->insert(s, p, o);
+    return inferred_graph_->insert(s, p, o, notify_listners);
   }
-
-  // // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
-  // inline int
-  // insert_inferred(Triple t3)
-  // {
-  //   if(!t3.subject or !t3.predicate or !t3.object) {
-  //     LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-  //                << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
-  //     return 0;
-  //   }
-  //   return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
-  // }
 
   // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
   inline int
@@ -331,6 +319,7 @@ class RDFSession {
                  << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
       return 0;
     }
+    // std::cout<<"    RdfSession::insert_inferred "<<t3<<std::endl;
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
 
@@ -343,6 +332,7 @@ class RDFSession {
                  << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
       return 0;
     }
+    // std::cout<<"    RdfSession::insert_inferred&& "<<t3<<std::endl;
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
   // ------------------------------------------------------------------------------------

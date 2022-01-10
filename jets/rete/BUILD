@@ -1,6 +1,7 @@
 cc_library(
     name = "jets_rete",
     srcs = [
+        "antecedent_query_visitor.h",
         "alpha_functors.h",
         "alpha_node_impl.h",
         "alpha_node.h",
@@ -18,6 +19,7 @@ cc_library(
         "rete_session.cc",
         "rete_session.h",
         "rete_types.h",
+        "rete_types_impl.h",
         "@com_google_absl//absl/hash",
     ],
     visibility = ["//visibility:public"],
@@ -63,7 +65,6 @@ cc_test(
     name = "jets_rete_test",
     size = "small",
     srcs = [
-        "beta_relation_test.cc", 
         "beta_row_initializer_test.cc", 
         "beta_row_test.cc", 
         "expr_test.cc", 

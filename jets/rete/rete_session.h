@@ -212,6 +212,9 @@ inline ReteSessionPtr create_rete_session(rdf::RDFSession * rdf_session)
   return std::make_shared<ReteSession>(rdf_session);
 }
 
+// //////////////////////////////////////////////////////////////////////////////////////
+// BetaRelation methods
+// --------------------------------------------------------------------------------------
 inline int
 BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 {
@@ -223,16 +226,23 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Flag row as new and pending to infer triples
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
+      std::cout<<"BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Inserted - scheduled consequent"<<std::endl;
     } else {
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
+      std::cout<<"BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Processed - no consequents"<<std::endl;
     }
 
     // Add row to pending queue to notify child nodes
     this->pending_beta_rows_.push_back(beta_row);
 
     // Add row indexes
-    this->add_indexes(beta_row);
+    if(this->node_vertex_->is_head_vertice()) return 0;
+    for(auto const& meta_nd: node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms_->get_alpha_node(meta_nd->vertex);
+      alpha_node->index_beta_row(this, beta_row.get());
+    }
+
   }
   return 0;
 }
@@ -243,12 +253,15 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   auto itor = this->all_beta_rows_.find(beta_row);
   if(itor==this->all_beta_rows_.end()) {
     // Already deleted!
+    std::cout<<"BetaRowPtr not found, must be already deleted.(D01)"<<std::endl;
     return 0;
   }
   // make sure we point to the right instance
   beta_row = *itor;
+  std::cout<<"BetaRelation::remove_beta_row: called with row "<<beta_row<<", status "<<beta_row->get_status()<<", vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
   if(beta_row->is_deleted()) {
     // Marked deleted already
+    std::cout<<"Marked as deleted already"<<std::endl;
     return 0;
   }
 
@@ -258,47 +271,88 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     if(beta_row->is_inserted()) {
       // Row was marked kInserted, not inferred yet
       // Cancel row insertion **
+    std::cout<<"Row marked kInserted, not inferred yet ** Cancel row insertion **"<<std::endl;
       beta_row->set_status(BetaRowStatus::kProcessed);
       // Put the row in the pending queue to notify children
       this->pending_beta_rows_.push_back(beta_row);
-      this->remove_indexes(beta_row);
+      // remove the indexes associated with the beta row
+      for(auto const& meta_nd: node_vertex_->child_nodes) {
+        auto alpha_node = rete_session->rule_ms_->get_alpha_node(meta_nd->vertex);
+        alpha_node->remove_index_beta_row(this, beta_row.get());
+      }
+
       this->all_beta_rows_.erase(beta_row);
       return 0;
     }
 
-    // Row must be in kProcessed state -- neet to put it for delete/retract
+    std::cout<<"Row marked kProcessed, need to put it for delete/retract"<<std::endl;
+    // Row must be in kProcessed state -- need to put it for delete/retract
     beta_row->set_status(BetaRowStatus::kDeleted);
     // Put the row in the pending queue to notify children
     this->pending_beta_rows_.push_back(beta_row);
-    this->remove_indexes(beta_row);
+    // remove the indexes associated with the beta row
+    for(auto const& meta_nd: node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms_->get_alpha_node(meta_nd->vertex);
+      alpha_node->remove_index_beta_row(this, beta_row.get());
+    }
     rete_session->schedule_consequent_terms(beta_row);
 
   } else {
     // No consequent terms, remove and propagate down
     beta_row->set_status(BetaRowStatus::kProcessed);
     this->pending_beta_rows_.push_back(beta_row);
-    this->remove_indexes(beta_row);
+    // remove the indexes associated with the beta row
+    for(auto const& meta_nd: node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms_->get_alpha_node(meta_nd->vertex);
+      alpha_node->remove_index_beta_row(this, beta_row.get());
+    }
     this->all_beta_rows_.erase(beta_row);
   }
   return 0;
 }
+  /**
+   * @brief Initialize the BetaRelation object indexes
+   * 
+   * Allocate and initialize all 3 indexes
+   *    - BetaRowIndxVec1
+   *    - BetaRowIndxVec2
+   *    - BetaRowIndxVec3
+   * @return int 
+   */
+  // Defined in rete_session.h
+  inline int
+  BetaRelation::initialize(ReteSession * rete_session)
+  {
+    beta_row_idx1_.clear();
+    beta_row_idx2_.clear();
+    beta_row_idx3_.clear();
+    for(auto const& meta_nd: this->node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms_->get_alpha_node(meta_nd->vertex);
+      alpha_node->initialize_indexes(this);
+    }
+    return 0;
+  }
 
 // Declaired in graph_callback_mgr_impl.h
 inline void
 ReteCallBackImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
 {
-  if(this->u_filter_ and this->u_filter_!=s) return;
-  if(this->v_filter_ and this->v_filter_!=p) return;
-  if(this->w_filter_ and this->w_filter_!=o) return;
+  if(this->s_filter_ and this->s_filter_!=s) return;
+  if(this->p_filter_ and this->p_filter_!=p) return;
+  if(this->o_filter_ and this->o_filter_!=o) return;
+  std::cout<<"        ReteCallBackImpl::triple_inserted t3: "<<rdf::Triple(s, p, o)<<
+    ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_<<std::endl;
   this->rete_session_->triple_inserted(this->vertex_, s, p, o);
 }
 // Declaired in graph_callback_mgr_impl.h
 inline void
 ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
 {
-  if(this->u_filter_ and this->u_filter_!=s) return;
-  if(this->v_filter_ and this->v_filter_!=p) return;
-  if(this->w_filter_ and this->w_filter_!=o) return;
+  if(this->s_filter_ and this->s_filter_!=s) return;
+  if(this->p_filter_ and this->p_filter_!=p) return;
+  if(this->o_filter_ and this->o_filter_!=o) return;
+  std::cout<<"        ReteCallBackImpl::triple_deleted t3: "<<rdf::Triple(s, p, o)<<
+    ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_<<std::endl;
   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
 }
 

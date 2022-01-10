@@ -15,6 +15,7 @@
 #include "jets/rdf/rdf_ast.h"
 #include "jets/rdf/base_graph_iterator.h"
 #include "jets/rdf/base_graph.h"
+#include "jets/rdf/graph_callback_mgr.h"
 #include "jets/rdf/r_manager.h"
 
 namespace jets::rdf {
@@ -40,6 +41,22 @@ using AllOrRIndex = boost::variant<
         r_index >;
 
 inline AllOrRIndex make_any(){return StarMatch();}
+
+// SearchTriple class for convenience in printing the seach criteria
+using SearchTriple = TripleBase<AllOrRIndex>;
+inline std::ostream & operator<<(std::ostream & out, SearchTriple const& t3)
+{
+  out << "("<<t3.subject<<","<<t3.predicate<<","<<t3.object<<")";
+  return out;
+}
+
+inline std::string
+to_string(SearchTriple const& t)
+{
+  std::ostringstream out;
+  out << t;
+  return out.str();
+}
 
 // find visitor defined after RDFGraph
 struct find_visitor;
@@ -68,7 +85,8 @@ class RDFGraph {
       r_mgr_p(create_rmanager()), 
       spo_graph_('s'), 
       pos_graph_('p'), 
-      osp_graph_('o')
+      osp_graph_('o'),
+      graph_callback_mgr_(create_graph_callback_mgr())
     {}
 
   RDFGraph(RManagerPtr meta_mgr) 
@@ -77,7 +95,8 @@ class RDFGraph {
       r_mgr_p(create_rmanager(meta_mgr)), 
       spo_graph_('s'), 
       pos_graph_('p'), 
-      osp_graph_('o')
+      osp_graph_('o'),
+      graph_callback_mgr_(create_graph_callback_mgr())
     {}
 
   /**
@@ -259,6 +278,7 @@ class RDFGraph {
       pos_graph_.insert(p, o, s);
       osp_graph_.insert(o, s, p);
       size_+= 1;
+      if(notify_listners) this->graph_callback_mgr_->triple_inserted(s, p, o);
       return 1;
     }
     return 0;
@@ -281,6 +301,7 @@ class RDFGraph {
       pos_graph_.erase(p, o, s);
       osp_graph_.erase(o, s, p);
       size_-= 1;
+      if(notify_listners) this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
     }
     return 0;
@@ -303,26 +324,23 @@ class RDFGraph {
       pos_graph_.retract(p, o, s);
       osp_graph_.retract(o, s, p);
       size_-= 1;
+      if(notify_listners) this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
     }
     return 0;
   }
 
   inline int
-  register_callback(char spin, ReteCallBackPtr cb) 
+  register_callback(ReteCallBackPtr cb) 
   {
-    if(spin == 's')      this->spo_graph_.add_graph_callback(cb);
-    else if(spin == 'p') this->pos_graph_.add_graph_callback(cb);
-    else                 this->osp_graph_.add_graph_callback(cb);
+    this->graph_callback_mgr_->add_callback(cb);
     return 0;
   }
 
   inline void
   remove_all_callbacks()
   {
-    this->spo_graph_.remove_all_callbacks();
-    this->pos_graph_.remove_all_callbacks();
-    this->osp_graph_.remove_all_callbacks();
+    this->graph_callback_mgr_->clear_callbacks();
   }
 
  protected:
@@ -344,6 +362,7 @@ set_rmgr(RManagerPtr p)
   BaseGraph spo_graph_;
   BaseGraph pos_graph_;
   BaseGraph osp_graph_;
+  GraphCallbackManagerPtr graph_callback_mgr_;
 };
 
 // find visitor

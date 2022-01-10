@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "expr.h"
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/node_vertex.h"
 #include "jets/rete/beta_row_initializer.h"
@@ -24,6 +23,8 @@ namespace jets::rete {
 // Forward declaration
 class AlphaNode;
 class ReteSession;
+struct AQVIndexBetaRowsVisitor;
+struct AQVRemoveIndexBetaRowsVisitor;
 
 class BetaRelation;
 using BetaRelationPtr = std::shared_ptr<BetaRelation>;
@@ -78,6 +79,12 @@ class BetaRelation {
     pending_beta_rows_.clear();
   }
 
+  inline bool
+  has_pending_rows()
+  {
+    return not pending_beta_rows_.empty();
+  }
+
   inline BetaRowIteratorPtr
   get_all_rows_iterator()const
   {
@@ -101,7 +108,6 @@ class BetaRelation {
   int
   insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row);
 
-  // Defined in rete_session.h
   /**
    * @brief Remove `beta_row` from beta relation if fount in beta relation
    * 
@@ -109,6 +115,7 @@ class BetaRelation {
    * @param beta_row BetaRow to remove
    * @return int 
    */
+  // Defined in rete_session.h
   int
   remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row);
 
@@ -120,15 +127,16 @@ class BetaRelation {
    * @return BetaRowIteratorPtr 
    */
   inline BetaRowIteratorPtr
-  get_idx1_rows_iterator(int key, rdf::r_index u)const
+  get_idx1_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
   {
     auto result = this->beta_row_idx1_[key].equal_range( u ); 
     return create_idx1_rows_iterator(result.first, result.second);
   }
 
   inline BetaRowIteratorPtr
-  get_idx2_rows_iterator(int key, rdf::r_index u, rdf::r_index v)const
+  get_idx2_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
   {
+    std::cout<<"BetaRelation::get_idx2_rows_iterator with key ("<<u<<", "<<v<<")"<<std::endl;
     auto result = this->beta_row_idx2_[key].equal_range( {u, v} ); 
     return create_idx2_rows_iterator(result.first, result.second);
   }
@@ -149,110 +157,17 @@ class BetaRelation {
    *    - BetaRowIndxVec3
    * @return int 
    */
+  // Defined in rete_session.h
   int
-  initialize()
-  {
-    beta_row_idx1_.clear();
-    beta_row_idx2_.clear();
-    beta_row_idx3_.clear();
-    for(auto const& meta_nd: this->node_vertex_->child_nodes) {
-      AntecedentQuerySpecPtr query_spec = meta_nd->antecedent_query_spec;
-      if(query_spec) {
-        switch (query_spec->type) {
-        case AntecedentQueryType::kQTu: 
-          beta_row_idx1_.push_back({});
-          query_spec->key = (int)(beta_row_idx1_.size()-1); 
-          break;
-        case AntecedentQueryType::kQTuv:
-          beta_row_idx2_.push_back({});
-          query_spec->key = (int)(beta_row_idx2_.size()-1); 
-          break;
-        case AntecedentQueryType::kQTuvw:
-          beta_row_idx3_.push_back({});
-          query_spec->key = (int)(beta_row_idx3_.size()-1); 
-          break;
-        case AntecedentQueryType::kQTAll:
-          break;
-        }
-      }
-    }
-    return 0;
-  }
+  initialize(ReteSession * rete_session);
 
  protected:
-  int
-  add_indexes(BetaRowPtr & beta_row)
-  {
-    if(this->node_vertex_->is_head_vertice()) return 0;
-    for(auto const& meta_nd: node_vertex_->child_nodes) {
-      std::cout<<"** Adding indexes for vertex "<<this->node_vertex_->vertex<<", from child "<<meta_nd->vertex<<std::endl;
-      AntecedentQuerySpecPtr const& query_spec = meta_nd->antecedent_query_spec;
-      switch (query_spec->type) {
-      case AntecedentQueryType::kQTu: 
-        // idx_mm is a multimap r_index, beta_row*
-        beta_row_idx1_[query_spec->key].insert(
-          {beta_row->get(query_spec->u_pos), beta_row.get()}
-        ); 
-        break;
-      case AntecedentQueryType::kQTuv:
-        // idx_mm is a multimap pair<r_index,r_index>, beta_row*
-        beta_row_idx2_[query_spec->key].insert(
-          {{beta_row->get(query_spec->u_pos), 
-            beta_row->get(query_spec->v_pos)}, beta_row.get()}
-        ); 
-        break;
-      case AntecedentQueryType::kQTuvw:
-        // idx_mm is a multimap tuple<r_index,r_index, r_index>, beta_row*
-        beta_row_idx3_[query_spec->key].insert(
-          {{beta_row->get(query_spec->u_pos), 
-            beta_row->get(query_spec->v_pos), 
-            beta_row->get(query_spec->w_pos)}, beta_row.get()}
-        ); 
-        break;
-      case AntecedentQueryType::kQTAll:
-      break;
-      }
-    }
-    return 0;
-  }
-
-  int
-  remove_indexes(BetaRowPtr & beta_row)
-  {
-    for(auto const& meta_nd: node_vertex_->child_nodes) {
-      AntecedentQuerySpecPtr const& query_spec = meta_nd->antecedent_query_spec;
-      switch (query_spec->type) {
-      case AntecedentQueryType::kQTu: 
-        // idx_mm is a multimap r_index, beta_row*
-        beta_row_idx1_[query_spec->key].erase(
-          {beta_row->get(query_spec->u_pos)}
-        ); 
-        break;
-      case AntecedentQueryType::kQTuv:
-        // idx_mm is a multimap pair<r_index,r_index>, beta_row*
-        beta_row_idx2_[query_spec->key].erase(
-          {beta_row->get(query_spec->u_pos), 
-            beta_row->get(query_spec->v_pos)}
-        ); 
-        break;
-      case AntecedentQueryType::kQTuvw:
-        // idx_mm is a multimap tuple<r_index,r_index, r_index>, beta_row*
-        beta_row_idx3_[query_spec->key].erase(
-          {beta_row->get(query_spec->u_pos), 
-            beta_row->get(query_spec->v_pos), 
-            beta_row->get(query_spec->w_pos)}
-        ); 
-        break;
-      case AntecedentQueryType::kQTAll:
-      break;
-      }
-    }
-    return 0;
-  }
-
 
  private:
   friend class AlphaNode;
+  friend struct AQVIndexBetaRowsVisitor;
+  friend struct AQVRemoveIndexBetaRowsVisitor;
+  friend struct AQVInitializeIndexesVisitor;
 
   b_index         node_vertex_;
   bool            is_activated_;

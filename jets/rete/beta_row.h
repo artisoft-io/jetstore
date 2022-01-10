@@ -4,12 +4,13 @@
 #include <string>
 #include <memory>
 #include <ostream>
+#include <unordered_set>
 
 #include "absl/hash/hash.h"
 
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_err.h"
-#include "beta_row_initializer.h"
+#include "jets/rete/beta_row_initializer.h"
 #include "jets/rete/node_vertex.h"
 
 
@@ -59,10 +60,7 @@ class BetaRow {
   }
 
   inline void
-  set_status(BetaRowStatus status)
-  {
-    status_ = status;
-  }
+  set_status(BetaRowStatus status);
 
   inline BetaRowStatus
   get_status()const
@@ -152,6 +150,20 @@ class BetaRow {
     return nullptr;
   }
 
+
+inline bool 
+operator==(BetaRow const& rhs)const
+{ 
+  std::cout<<"** operator BetaRow == BetaRow called"<<std::endl;
+  auto sz = this->get_size();
+  if(sz != rhs.get_size()) return false;
+
+  for(int i=0; i<sz; i++) {
+    if(this->get(i) != rhs.get(i)) return false;
+  }
+  return true; 
+}
+
  protected:
 
  private:
@@ -167,25 +179,40 @@ inline BetaRowPtr create_beta_row(b_index node_vertex, int size)
   return std::make_shared<BetaRow>(node_vertex, size);
 }
 
+inline std::ostream & operator<<(std::ostream & out, BetaRow const& row)
+{
+  if(row.get_node_vertex() and row.get_node_vertex()->get_beta_row_initializer()) {
+    auto ri = row.get_node_vertex()->get_beta_row_initializer();
+    out << "[";
+    for(int i=0; i<row.get_size(); i++) {
+      if(i > 0) out << ", ";
+      out << ri->get_label(i);
+    }
+    out << "]";
+  }
+  out << "(";
+  for(int i=0; i<row.get_size(); i++) {
+    if(i > 0) out << ", ";
+    out << row.get(i);
+  }
+  out << ")";
+  return out;
+}
+
+inline std::ostream & operator<<(std::ostream & out, BetaRow * row)
+{
+  if(not row) out << "NULL";
+  else {
+    out << *row;
+  }
+  return out;
+}
+
 inline std::ostream & operator<<(std::ostream & out, BetaRow const* row)
 {
   if(not row) out << "NULL";
   else {
-    if(row->get_node_vertex() and row->get_node_vertex()->get_beta_row_initializer()) {
-      auto ri = row->get_node_vertex()->get_beta_row_initializer();
-      out << "[";
-      for(int i=0; i<row->get_size(); i++) {
-        if(i > 0) out << ", ";
-        out << ri->get_label(i);
-      }
-      out << "]";
-    }
-    out << "(";
-    for(int i=0; i<row->get_size(); i++) {
-      if(i > 0) out << ", ";
-      out << row->get(i);
-    }
-    out << ")";
+    out << *row;
   }
   return out;
 }
@@ -195,6 +222,53 @@ inline std::ostream & operator<<(std::ostream & out, BetaRowPtr const& r)
   out << r.get();
   return out;
 }
+
+// ======================================================================================
+// Making BetaRow Hashable
+// --------------------------------------------------------------------------------------
+inline void
+BetaRow::set_status(BetaRowStatus status)
+{
+  std::cout<<"BetaRow "<<this<<", vertex "<<this->node_vertex_->vertex<<", status from "<<this->status_ <<" to "<<status<<std::endl;
+  status_ = status;
+}
+
+// Compute the hash and equality of BetaRow
+template <typename H>
+H AbslHashValue(H h, BetaRow * s) {
+  if(s->get_size() == 0) return h;
+  // std::cout<<"** Computing BetaRow* Hash "<<std::endl;
+  auto itor = s->begin();
+  auto end = s->end();
+  for(; itor !=end; itor++) {
+      h = H::combine(std::move(h), *itor);
+  }
+  return h;
+}
+
+inline bool 
+operator==(BetaRowPtr const& lhs, BetaRowPtr const& rhs) 
+{ 
+  // std::cout<<"** operator BetaRowPtr == BetaRowPtr called with lhs "<<lhs<<", rhs "<<rhs<<std::endl;
+  auto sz = lhs->get_size();
+  if(sz != rhs->get_size()) {
+    // std::cout<<">> unequal size: "<<lhs->get_size()<<" != "<<rhs->get_size() <<std::endl;
+    return false;
+  }
+
+  for(int i=0; i<sz; i++) {
+    if(lhs->get(i) != rhs->get(i)) {
+      // std::cout<<">> unequal value at "<<i<<": "<<lhs->get(i)<<" != "<<rhs->get(i) <<std::endl;
+      return false;
+    }
+  }
+  // std::cout<<"!! YES EQUAL "<<std::endl;
+  return true; 
+}
+
+// using beta_row_set = absl::flat_hash_set<BetaRowPtr, absl::Hash<BetaRowPtr>>;
+using beta_row_set = std::unordered_set<BetaRowPtr, absl::Hash<BetaRowPtr>>;
+
 
 } // namespace jets::rete
 #endif // JETS_RETE_BETA_ROW_H
