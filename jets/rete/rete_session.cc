@@ -340,18 +340,18 @@ namespace jets::rete {
         // Add/Remove row to current beta relation (current_relation)
         if(is_inserted) {
           if(not cmeta_node->is_negation) {
-            std::cout<<"INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
           } else {
-            std::cout<<"REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
           }
         } else {
           if(not cmeta_node->is_negation) {
-            std::cout<<"REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
           } else {
-            std::cout<<"INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
           }
         }

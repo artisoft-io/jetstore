@@ -30,6 +30,9 @@ class ReteSessionTest : public ::testing::Test {
     auto node1 = rmgr->create_resource("node1");
     auto node2 = rmgr->create_resource("node2");
     auto node3 = rmgr->create_resource("node3");
+    auto node10 = rmgr->create_resource("node10");
+    auto node20 = rmgr->create_resource("node20");
+    auto node30 = rmgr->create_resource("node30");
     auto fnode = rmgr->create_resource("fnode");
     auto f2node = rmgr->create_resource("f2node");
 
@@ -41,8 +44,12 @@ class ReteSessionTest : public ::testing::Test {
     //        node 0        node 3            node 4
 
     //rule4> (head node0).(?s node1 ?n1) -> (?s node2 ?n1)                    :: s=10
-    //rule5> (head node0).(?s node1 ?n1).not(?s node2 ?n1) -> (?s node3 ?n1)  :: s=100
+    //rule5> (head node0).(?s node1 ?n1).not(?s node2 ?n1) -> (?s node3 ?n1)  :: s=20
     //        node 0        node 5            node 6
+
+    //rule6> (head node0).(?s node10 ?n1) .(?s node2 ?n1) -> (?s node20 ?n1)                     :: s=10
+    //rule7> (head node0).(?s node10 ?n1) .(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1)  :: s=20
+    //        node 0        node 7            node 8         node 9           node 10
     // ----------------------------------------------------------------------------------
     // No need for AntecedentQuerySpec since the only vertex reads from the graph
 
@@ -100,6 +107,14 @@ class ReteSessionTest : public ::testing::Test {
     node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 5, false, 10, {}, ri5));
     // node 6: not(?s node2 ?n2)
     node_vertexes.push_back(create_node_vertex(node_vertexes[5].get(), 6, true, 20, {}, ri6));
+    // node 7: (?s node10 ?n1)
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 7, false, 10, {}, ri5));
+    // node 8: (?s node2 ?n1)
+    node_vertexes.push_back(create_node_vertex(node_vertexes[7].get(), 8, false, 10, {}, ri6));
+    // node 9: not(?s node20 ?n1)
+    node_vertexes.push_back(create_node_vertex(node_vertexes[8].get(), 9, true, 0, {}, ri6));
+    // node 10: (?s node1 ?n1)
+    node_vertexes.push_back(create_node_vertex(node_vertexes[9].get(), 10, false, 5, {}, ri6));
 
     // AlphaNodes
     ReteMetaStore::AlphaNodeVector alpha_nodes;
@@ -133,6 +148,22 @@ class ReteSessionTest : public ::testing::Test {
     alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[6].get(), true,
       F_binded(0), F_cst(node2), F_binded(1) ));
 
+    // Add Antecedent term on vertex 7: (?s node10 ?n1)
+    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[7].get(), true,
+      F_var("?s"), F_cst(node10), F_var("?n1") ));
+
+    // Add Antecedent term on vertex 8: (?s node2 ?n1)
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[8].get(), true,
+      F_binded(0), F_cst(node2), F_binded(1) ));
+
+    // Add Antecedent term on vertex 9: not(?s node20 ?n1)
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[9].get(), true,
+      F_binded(0), F_cst(node20), F_binded(1) ));
+
+    // Add Antecedent term on vertex 10: (?s node1 ?n1)
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[10].get(), true,
+      F_binded(0), F_cst(node1), F_binded(1) ));
+
     {
       // Add Consequent term on vertex 1: (?s1 plus1_node expr(?n1 + 1))
       auto lhs = create_expr_binded_var(1);
@@ -163,6 +194,12 @@ class ReteSessionTest : public ::testing::Test {
     // Add Consequent term on vertex 6: (?s node3 ?n1)
     alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[6].get(), false,
       F_binded(0), F_cst(node3), F_binded(1) ));
+    // Add Consequent term on vertex 8:(?s node20 ?n1)
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[8].get(), false,
+      F_binded(0), F_cst(node20), F_binded(1) ));
+    // Add Consequent term on vertex 10: (?s node30 ?n1)
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[10].get(), false,
+      F_binded(0), F_cst(node30), F_binded(1) ));
 
     // ReteMetaStore
     // create & initalize the meta store -- TODO have an expression builder with meta store
@@ -270,7 +307,29 @@ TEST_F(ReteSessionTest, TestRule4Rule5)
   std::cout<<"TestRule4Rule5 RdfSession Contains:"<<std::endl;
   std::cout<<"-------------------------------------"<<std::endl;
   std::cout<<this->rdf_session<<std::endl<<std::endl;
-  std::cout<<"Done done!"<<std::endl;
+}
+
+TEST_F(ReteSessionTest, TestRule6Rule7)
+{
+  // rdf resource manager
+  rdf::RManager * rmanager = this->rdf_session->rmgr();
+  auto s0 = rmanager->create_resource("s0");
+  auto p0 = rmanager->create_resource("node1");
+  auto p1 = rmanager->create_resource("node10");
+  auto o0 = rmanager->create_resource("n1");
+  this->rdf_session->insert(s0, p0, o0);
+  this->rdf_session->insert(s0, p1, o0);
+
+  this->rete_session->execute_rules();
+
+  auto rp1 = rmanager->create_resource("node20");
+  auto rp2 = rmanager->create_resource("node30");
+  EXPECT_TRUE(this->rdf_session->contains(s0, p0, o0));
+  EXPECT_TRUE(this->rdf_session->contains(s0, rp1, o0));
+  EXPECT_FALSE(this->rdf_session->contains(s0, rp2, o0));
+  std::cout<<"TestRule6Rule7 RdfSession Contains:"<<std::endl;
+  std::cout<<"-------------------------------------"<<std::endl;
+  std::cout<<this->rdf_session<<std::endl<<std::endl;
 }
 
 TEST_F(ReteSessionTest, TestAllRules)
@@ -298,6 +357,12 @@ TEST_F(ReteSessionTest, TestAllRules)
   { // Rule 4 Rule 5
     auto s0 = rmanager->create_resource("s0");
     auto p0 = rmanager->create_resource("node1");
+    auto o0 = rmanager->create_resource("n1");
+    this->rdf_session->insert(s0, p0, o0);
+  }
+  { // Rule 6 Rule 7
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("node10");
     auto o0 = rmanager->create_resource("n1");
     this->rdf_session->insert(s0, p0, o0);
   }
@@ -341,6 +406,17 @@ TEST_F(ReteSessionTest, TestAllRules)
     this->rdf_session->insert(s0, p0, o0);
     auto p1 = rmanager->create_resource("node2");
     auto p2 = rmanager->create_resource("node3");
+    EXPECT_TRUE(this->rdf_session->contains(s0, p0, o0));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1, o0));
+    EXPECT_FALSE(this->rdf_session->contains(s0, p2, o0));
+  }
+  { // Rule 6 Rule 7
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("node10");
+    auto o0 = rmanager->create_resource("n1");
+    this->rdf_session->insert(s0, p0, o0);
+    auto p1 = rmanager->create_resource("node20");
+    auto p2 = rmanager->create_resource("node30");
     EXPECT_TRUE(this->rdf_session->contains(s0, p0, o0));
     EXPECT_TRUE(this->rdf_session->contains(s0, p1, o0));
     EXPECT_FALSE(this->rdf_session->contains(s0, p2, o0));
