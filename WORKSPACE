@@ -32,6 +32,35 @@ http_archive(
     urls = ["https://github.com/bazelbuild/platforms/archive/98939346da932eef0b54cf808622f5bb0928f00b.zip"],
 )
 
+# Bazel python rules
+http_archive(
+    name = "rules_python",
+    sha256 = "a30abdfc7126d497a7698c29c46ea9901c6392d6ed315171a6df5ce433aa4502",
+    strip_prefix = "rules_python-0.6.0",
+    url = "https://github.com/bazelbuild/rules_python/archive/0.6.0.tar.gz",
+)
+
+load("@rules_python//python:pip.bzl", "pip_install")
+
+# Create a central external repo, @jst_deps, that contains Bazel targets for all the
+# third-party packages specified in the requirements.txt file.
+pip_install(
+   name = "jst_deps",
+   requirements = "//jetstore-tools:requirements.txt",
+)
+
+# Adding support for antlr4
+http_archive(
+    name = "rules_antlr",
+    sha256 = "26e6a83c665cf6c1093b628b3a749071322f0f70305d12ede30909695ed85591",
+    strip_prefix = "rules_antlr-0.5.0",
+    urls = ["https://github.com/marcohu/rules_antlr/archive/0.5.0.tar.gz"],
+)
+
+load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
+load("@rules_antlr//antlr:lang.bzl", "PYTHON")
+rules_antlr_dependencies("4.8", PYTHON)
+
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 git_repository(
@@ -69,3 +98,6 @@ http_archive(
 
 # load("@com_grail_bazel_compdb//:deps.bzl", "bazel_compdb_deps")
 # bazel_compdb_deps()
+
+# The Python toolchain must be registered ALWAYS at the end of the file
+register_toolchains("//jetstore-tools:py_3_toolchain")
