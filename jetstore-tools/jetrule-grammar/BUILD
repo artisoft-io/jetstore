@@ -10,22 +10,23 @@ antlr(
 
 py_library(
     name = "jetrule_lang_lib",
-    srcs = [
-      ":jetrule_g4_gen",
-      "jet_listener.py",                # this produce my-rules.jr.json from input file my-rule.jr
-      "jet_listener_postprocessing.py"  # this augment  my-rules.jr.json
-      # next is to validate the integrity on the input my-rules.jr.json, then generate the rete network, output my-rules.rete.json
-    ],
+    srcs = [":jetrule_g4_gen"],
 )
 
 py_binary(
     name = "jetrule_compiler",
-    srcs = ["jetrule_compiler.py"],
+    srcs = [
+      "jetrule_compiler.py",
+      "jet_listener.py",                # this produce my-rules.jr.json from input file my-rule.jr
+      "jet_listener_postprocessing.py"  # this augment  my-rules.jr.json
+      # next is to validate the integrity on the input my-rules.jr.json, then generate the rete network, output my-rules.rete.json
+    ],
+    imports = ["jetrule_g4_gen.py"],
     python_version = "PY3",
     # data = [":transform"],  # a cc_binary which we invoke at run time
     deps = [
         ":jetrule_lang_lib",
-        "@antlr4_runtimes//:python",
+        # "@antlr4_runtimes//:python",
         requirement("absl-py"),
     ],
 )
