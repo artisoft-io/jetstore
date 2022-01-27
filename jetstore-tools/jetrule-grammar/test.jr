@@ -1,0 +1,133 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Testing JetRule Grammar
+# ---------------------------------------------------------------------------------------
+
+# =======================================================================================
+# Defining Constants Resources and Literals
+# ---------------------------------------------------------------------------------------
+# The JetRule language now have true and false already defined as boolean, adding here
+# for illustration:
+int isTrue = 1;
+int isFalse = 0;
+
+# Defining some constants (e.g. Exclusion Types)
+# ---------------------------------------------------------------------------------------
+text NOT_IN_CONTRACT      = "NOT COVERED IN CONTRACT";
+text EXCLUDED_STATE       = "STATE";
+text HH_AUTH              = "HH_AUTH";
+text EXCL_HH_AUTH         = "HH AUTH";
+text EXCLUDED_COUNTY      = "COUNTY";
+text EXCLUDED_TIN         = "TIN";
+text EXCLUDED_TIN_STATE   = "TIN/STATE";
+text EXCL_MER_COM         = "MERGED COMPONENTS";
+text EXCL_AMT_PAID        = "MERGED \"MARKET\" CHARGE BACK";
+text EXCLUDED_GROUPID     = "GROUPID";
+text EXCLUDED_MODALITY    = "MODALITY";
+
+# Defining volatile resources (aka Local Resources)
+# ---------------------------------------------------------------------------------------
+resource medicareRateObjTC1              = "_0:medicareRateObjTC1";  # Support RC legacy
+resource medicareRateObjTC2              = "_0:medicareRateObjTC2";  # Support RC legacy
+
+resource None  = null;
+resource uuid  = create_uuid_resource();
+
+# Some special cases
+resource usi:key = "usi:key";
+resource usi:"lookup_table" = "usi:key";
+
+# Preferred way to define volative resources
+# ---------------------------------------------------------------------------------------
+volatile_resource medicareRateObj261     = "medicareRateObj261";
+volatile_resource medicareRateObj262     = "medicareRateObj262";
+
+
+# =======================================================================================
+# Defining Lookup Tables
+# ---------------------------------------------------------------------------------------
+# lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
+# Note: Legacy trd lookup table will have to be converted to csv
+# Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
+lookup_table usi:ProcedureLookup {
+  $table_name = usi__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
+  $key = [PROC_CODE],                     # Key columns, resource PROC_CODE automatically created
+
+  # Value columns, corresponding resource automatically created
+  $columns = [PROC_RID, PROC_MID, PROC_DESC]
+};
+
+# Another example that is already using a csv file 
+# based on USI: *include-lookup* "MSK/MSK_DRG_TRIGGER.lookup"
+lookup_table MSK_DRG_TRIGGER {
+  $table_name = usi__msk_trigger_drg_codes,         # main table
+  $key = [DRG],                                     # Lookup key
+
+  # Value columns, corresponding resource automatically created
+  # Data type based on columns type
+  $columns = [MSK_AREA_DRG_TRIGGER_ONLY, MSK_TAG, TRIGGER_TAG_DRG_ONLY, DRG, OVERLAP, USE_ANESTHESIA]
+};
+
+
+# =======================================================================================
+# Defining Jet Rules
+# ---------------------------------------------------------------------------------------
+# property s: salience, o: optimization, tag: label
+# optimization is true by default
+[Rule1, s=+100, o=false, tag="USI"]: 
+  (?clm01 rdf:type usi:Claim).
+  not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
+  ->
+  (?clm01 rdf:type usi:SpecialClaim).
+  (?clm01 xyz ?drg)
+;
+
+[Rule2, s=100, o=true, tag="USI"]: 
+  (?clm01 rdf:type usi:Claim).
+  not(?clm01 usi:hasDRG ?drg).[true and false]
+  ->
+  (?clm01 rdf:type usi:SpecialClaim)
+;
+
+[Rule3]: 
+  (?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)].
+  (?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2].
+  ->
+  (?clm01 rdf:type usi:SpecialClaim).
+  (?clm02 rdf:type usi:SpecialClaim)
+;
+
+[Rule4]: 
+  (?clm01 has_code ?code).[not(?a1 or b1) and (not ?a2)]
+  ->
+  (?clm01 value (?a1 + ?b2)).
+  (?clm01 value2 ?a1 + ?b2).
+  (?clm01 value2 (not ?b2))
+;
+
+[Rule5]: 
+  (?clm01 has_code ?code).
+  ->
+  (?clm01 usi:"lookup_table" true)
+;
+
+[Rule6]: 
+  (?clm01 has_code r1).
+  (?clm01 has_str r2).
+  ->
+  (?clm01 usi:"lookup_table" "valueX").
+  (?clm01 usi:market "MERGED \"MARKET\" CHARGE BACK").
+  (?clm01 usi:market text("MERGED \"MARKET\" CHARGE BACK"))
+
+;
+
+[Rule7]: 
+  (?clm01 has_code int(1)).
+  (?clm01 has_str "value").
+  (?clm01 hasTrue true).
+  ->
+  (?clm01 usi:"lookup_table" true).
+  (?clm01 has_literal int(1)).
+  (?clm01 has_expr (int(1) + long(4)))
+;
+
+# That's it for now!

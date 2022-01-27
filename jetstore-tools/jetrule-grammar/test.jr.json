@@ -1,0 +1,816 @@
+{
+    "literals": [
+        {
+            "type": "int",
+            "id": "isTrue",
+            "value": "1"
+        },
+        {
+            "type": "int",
+            "id": "isFalse",
+            "value": "0"
+        },
+        {
+            "type": "text",
+            "id": "NOT_IN_CONTRACT",
+            "value": "NOT COVERED IN CONTRACT"
+        },
+        {
+            "type": "text",
+            "id": "EXCLUDED_STATE",
+            "value": "STATE"
+        },
+        {
+            "type": "text",
+            "id": "HH_AUTH",
+            "value": "HH_AUTH"
+        },
+        {
+            "type": "text",
+            "id": "EXCL_HH_AUTH",
+            "value": "HH AUTH"
+        },
+        {
+            "type": "text",
+            "id": "EXCLUDED_COUNTY",
+            "value": "COUNTY"
+        },
+        {
+            "type": "text",
+            "id": "EXCLUDED_TIN",
+            "value": "TIN"
+        },
+        {
+            "type": "text",
+            "id": "EXCLUDED_TIN_STATE",
+            "value": "TIN/STATE"
+        },
+        {
+            "type": "text",
+            "id": "EXCL_MER_COM",
+            "value": "MERGED COMPONENTS"
+        },
+        {
+            "type": "text",
+            "id": "EXCL_AMT_PAID",
+            "value": "MERGED \"MARKET\" CHARGE BACK"
+        },
+        {
+            "type": "text",
+            "id": "EXCLUDED_GROUPID",
+            "value": "GROUPID"
+        },
+        {
+            "type": "text",
+            "id": "EXCLUDED_MODALITY",
+            "value": "MODALITY"
+        }
+    ],
+    "resources": [
+        {
+            "type": "resource",
+            "id": "medicareRateObjTC1",
+            "value": "_0:medicareRateObjTC1"
+        },
+        {
+            "type": "resource",
+            "id": "medicareRateObjTC2",
+            "value": "_0:medicareRateObjTC2"
+        },
+        {
+            "type": "resource",
+            "id": "None",
+            "value": "null"
+        },
+        {
+            "type": "resource",
+            "id": "uuid",
+            "value": "create_uuid_resource()"
+        },
+        {
+            "type": "resource",
+            "id": "usi:key",
+            "value": "usi:key"
+        },
+        {
+            "type": "resource",
+            "id": "usi:lookup_table",
+            "value": "usi:key"
+        },
+        {
+            "type": "volatile_resource",
+            "id": "medicareRateObj261",
+            "value": "medicareRateObj261"
+        },
+        {
+            "type": "volatile_resource",
+            "id": "medicareRateObj262",
+            "value": "medicareRateObj262"
+        }
+    ],
+    "lookup_tables": [
+        {
+            "name": "usi:ProcedureLookup",
+            "table": "usi__cm_proc_codes",
+            "keys": "PROC_CODE",
+            "columns": "PROC_RID,PROC_MID,PROC_DESC"
+        },
+        {
+            "name": "MSK_DRG_TRIGGER",
+            "table": "usi__msk_trigger_drg_codes",
+            "keys": "DRG",
+            "columns": "MSK_AREA_DRG_TRIGGER_ONLY,MSK_TAG,TRIGGER_TAG_DRG_ONLY,DRG,OVERLAP,USE_ANESTHESIA"
+        }
+    ],
+    "jet_rules": [
+        {
+            "name": "Rule1",
+            "properties": {
+                "s": "+100",
+                "o": "false",
+                "tag": "USI"
+            },
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:Claim"
+                        }
+                    ]
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:hasDRG"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?drg"
+                        }
+                    ],
+                    "filter": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "var",
+                                "id": "?clm01"
+                            },
+                            "op": "+",
+                            "rhs": {
+                                "type": "var",
+                                "id": "?drg"
+                            }
+                        },
+                        "op": "+",
+                        "rhs": {
+                            "type": "int",
+                            "value": "1"
+                        }
+                    }
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:SpecialClaim"
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "xyz"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?drg"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Rule2",
+            "properties": {
+                "s": "100",
+                "o": "true",
+                "tag": "USI"
+            },
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:Claim"
+                        }
+                    ]
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:hasDRG"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?drg"
+                        }
+                    ],
+                    "filter": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "keyword",
+                            "value": "true"
+                        },
+                        "op": "and",
+                        "rhs": {
+                            "type": "keyword",
+                            "value": "false"
+                        }
+                    }
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:SpecialClaim"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Rule3",
+            "properties": {},
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:Claim"
+                        }
+                    ],
+                    "filter": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "var",
+                                "id": "?a1"
+                            },
+                            "op": "+",
+                            "rhs": {
+                                "type": "identifier",
+                                "value": "b1"
+                            }
+                        },
+                        "op": "*",
+                        "rhs": {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "var",
+                                "id": "?a2"
+                            },
+                            "op": "+",
+                            "rhs": {
+                                "type": "identifier",
+                                "value": "b2"
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:Claim"
+                        }
+                    ],
+                    "filter": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "var",
+                                "id": "?a1"
+                            },
+                            "op": "or",
+                            "rhs": {
+                                "type": "identifier",
+                                "value": "b1"
+                            }
+                        },
+                        "op": "and",
+                        "rhs": {
+                            "type": "var",
+                            "id": "?a2"
+                        }
+                    }
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:SpecialClaim"
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm02"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:SpecialClaim"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Rule4",
+            "properties": {},
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_code"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?code"
+                        }
+                    ],
+                    "filter": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "unary",
+                            "op": "not",
+                            "arg": {
+                                "type": "binary",
+                                "lhs": {
+                                    "type": "var",
+                                    "id": "?a1"
+                                },
+                                "op": "or",
+                                "rhs": {
+                                    "type": "identifier",
+                                    "value": "b1"
+                                }
+                            }
+                        },
+                        "op": "and",
+                        "rhs": {
+                            "type": "unary",
+                            "op": "not",
+                            "arg": {
+                                "type": "var",
+                                "id": "?a2"
+                            }
+                        }
+                    }
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "value"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "var",
+                                "id": "?a1"
+                            },
+                            "op": "+",
+                            "rhs": {
+                                "type": "var",
+                                "id": "?b2"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "value2"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "var",
+                                "id": "?a1"
+                            },
+                            "op": "+",
+                            "rhs": {
+                                "type": "var",
+                                "id": "?b2"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "value2"
+                        },
+                        {
+                            "type": "unary",
+                            "op": "not",
+                            "arg": {
+                                "type": "var",
+                                "id": "?b2"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Rule5",
+            "properties": {},
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_code"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?code"
+                        }
+                    ]
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:lookup_table"
+                        },
+                        {
+                            "type": "keyword",
+                            "value": "true"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Rule6",
+            "properties": {},
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_code"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "r1"
+                        }
+                    ]
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_str"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "r2"
+                        }
+                    ]
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:lookup_table"
+                        },
+                        {
+                            "type": "text",
+                            "id": "valueX"
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:market"
+                        },
+                        {
+                            "type": "text",
+                            "id": "MERGED \"MARKET\" CHARGE BACK"
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:market"
+                        },
+                        {
+                            "type": "text",
+                            "id": "MERGED \"MARKET\" CHARGE BACK"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Rule7",
+            "properties": {},
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_code"
+                        },
+                        {
+                            "type": "int",
+                            "value": "1"
+                        }
+                    ]
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_str"
+                        },
+                        {
+                            "type": "text",
+                            "id": "value"
+                        }
+                    ]
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hasTrue"
+                        },
+                        {
+                            "type": "keyword",
+                            "value": "true"
+                        }
+                    ]
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "usi:lookup_table"
+                        },
+                        {
+                            "type": "keyword",
+                            "value": "true"
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_literal"
+                        },
+                        {
+                            "type": "int",
+                            "value": "1"
+                        }
+                    ]
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "has_expr"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "int",
+                                "value": "1"
+                            },
+                            "op": "+",
+                            "rhs": {
+                                "type": "long",
+                                "value": "4"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

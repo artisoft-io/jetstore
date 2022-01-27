@@ -1,6 +1,6 @@
 workspace(name = "io_artisoft_jetstore")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 http_archive(
   name = "com_google_absl",
@@ -31,6 +31,42 @@ http_archive(
     strip_prefix = "platforms-98939346da932eef0b54cf808622f5bb0928f00b",
     urls = ["https://github.com/bazelbuild/platforms/archive/98939346da932eef0b54cf808622f5bb0928f00b.zip"],
 )
+
+# Bazel python rules
+http_archive(
+    name = "rules_python",
+    sha256 = "a30abdfc7126d497a7698c29c46ea9901c6392d6ed315171a6df5ce433aa4502",
+    strip_prefix = "rules_python-0.6.0",
+    url = "https://github.com/bazelbuild/rules_python/archive/0.6.0.tar.gz",
+)
+
+load("@rules_python//python:pip.bzl", "pip_install")
+
+# Create a central external repo, @jst_deps, that contains Bazel targets for all the
+# third-party packages specified in the requirements.txt file.
+pip_install(
+   name = "jst_deps",
+   requirements = "//jetstore-tools:requirements.txt",
+)
+
+# # Adding support for antlr4, using jar
+# http_file(
+#     name = "antlr4_jar",
+#     sha256 = "bd11b2464bc8aee5f51b119dff617101b77fa729540ee7f08241a6a672e6bc81",
+#     urls = ["https://www.antlr.org/download/antlr-4.9-complete.jar"],
+# )
+
+# Adding support for antlr4 via bazel rules
+http_archive(
+    name = "rules_antlr",
+    sha256 = "234c401cfabab78f2d7f5589239d98f16f04338768a72888f660831964948ab1",
+    strip_prefix = "rules_antlr-0.6.0",
+    urls = ["https://github.com/artisoft-io/rules_antlr/archive/refs/tags/0.6.0.tar.gz"],
+)
+
+load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
+load("@rules_antlr//antlr:lang.bzl", "PYTHON")
+rules_antlr_dependencies("4.9.3", PYTHON)
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
@@ -69,3 +105,6 @@ http_archive(
 
 # load("@com_grail_bazel_compdb//:deps.bzl", "bazel_compdb_deps")
 # bazel_compdb_deps()
+
+# The Python toolchain must be registered ALWAYS at the end of the file
+register_toolchains("//jetstore-tools:py_3_toolchain")
