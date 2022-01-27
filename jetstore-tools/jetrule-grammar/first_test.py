@@ -59,16 +59,16 @@ class JetRuleListenerTest(absltest.TestCase):
       text EXCLUDED_TIN         = "TIN";
       text EXCLUDED_TIN_STATE   = "TIN/STATE";
       text EXCL_MER_COM         = "MERGED COMPONENTS";
-      text EXCL_AMT_PAID        = "MERGED \"MARKET\" CHARGE BACK";
+      text EXCL_AMT_PAID        = "MERGED \\"MARKET\\" CHARGE BACK";
       text EXCLUDED_GROUPID     = "GROUPID";
       text EXCLUDED_MODALITY    = "MODALITY";
     """)
     listener = self._get_listener(data)
 
-    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1"}, {"type": "int", "id": "isFalse", "value": "0"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
-    print('GOT:',json.dumps(listener.jetRules, indent=4))
-    print()
-    print('COMPACT:',json.dumps(listener.jetRules))
+    expected = """{"literals": [{"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}, {"type": "text", "id": "HH_AUTH", "value": "HH_AUTH"}, {"type": "text", "id": "EXCL_HH_AUTH", "value": "HH AUTH"}, {"type": "text", "id": "EXCLUDED_COUNTY", "value": "COUNTY"}, {"type": "text", "id": "EXCLUDED_TIN", "value": "TIN"}, {"type": "text", "id": "EXCLUDED_TIN_STATE", "value": "TIN/STATE"}, {"type": "text", "id": "EXCL_MER_COM", "value": "MERGED COMPONENTS"}, {"type": "text", "id": "EXCL_AMT_PAID", "value": "MERGED \\"MARKET\\" CHARGE BACK"}, {"type": "text", "id": "EXCLUDED_GROUPID", "value": "GROUPID"}, {"type": "text", "id": "EXCLUDED_MODALITY", "value": "MODALITY"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
+    # print('GOT:',json.dumps(listener.jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(listener.jetRules))
     self.assertEqual(json.dumps(listener.jetRules), expected)
 
 

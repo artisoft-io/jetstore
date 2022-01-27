@@ -21,11 +21,12 @@ class JetListener(JetRuleListener):
 
   # Enter a parse tree produced by JetRuleParser#jetrule.
   def enterJetrule(self, ctx:JetRuleParser.JetruleContext):
-    print('Starting Visiting Rule File...')
+    # print('Starting Visiting Rule File...')
+    pass
 
   # Exit a parse tree produced by JetRuleParser#jetrule.
   def exitJetrule(self, ctx:JetRuleParser.JetruleContext):
-    print('Finished Visiting Rule File')
+    # print('Finished Visiting Rule File')
     self.jetRules = {
       'literals': self.literals,
       'resources': self.resources,

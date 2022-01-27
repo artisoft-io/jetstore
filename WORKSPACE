@@ -1,6 +1,6 @@
 workspace(name = "io_artisoft_jetstore")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 http_archive(
   name = "com_google_absl",
@@ -49,7 +49,14 @@ pip_install(
    requirements = "//jetstore-tools:requirements.txt",
 )
 
-# Adding support for antlr4
+# # Adding support for antlr4, using jar
+# http_file(
+#     name = "antlr4_jar",
+#     sha256 = "bd11b2464bc8aee5f51b119dff617101b77fa729540ee7f08241a6a672e6bc81",
+#     urls = ["https://www.antlr.org/download/antlr-4.9-complete.jar"],
+# )
+
+# Adding support for antlr4 via bazel rules
 http_archive(
     name = "rules_antlr",
     sha256 = "234c401cfabab78f2d7f5589239d98f16f04338768a72888f660831964948ab1",
