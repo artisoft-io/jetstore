@@ -52,14 +52,14 @@ pip_install(
 # Adding support for antlr4
 http_archive(
     name = "rules_antlr",
-    sha256 = "26e6a83c665cf6c1093b628b3a749071322f0f70305d12ede30909695ed85591",
-    strip_prefix = "rules_antlr-0.5.0",
-    urls = ["https://github.com/marcohu/rules_antlr/archive/0.5.0.tar.gz"],
+    sha256 = "234c401cfabab78f2d7f5589239d98f16f04338768a72888f660831964948ab1",
+    strip_prefix = "rules_antlr-0.6.0",
+    urls = ["https://github.com/artisoft-io/rules_antlr/archive/refs/tags/0.6.0.tar.gz"],
 )
 
 load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
 load("@rules_antlr//antlr:lang.bzl", "PYTHON")
-rules_antlr_dependencies("4.8", PYTHON)
+rules_antlr_dependencies("4.9.3", PYTHON)
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 

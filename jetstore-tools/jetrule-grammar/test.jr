@@ -12,17 +12,17 @@ int isFalse = 0;
 
 # Defining some constants (e.g. Exclusion Types)
 # ---------------------------------------------------------------------------------------
-text NOT_IN_CONTRACT                     = "NOT COVERED IN CONTRACT";
-text EXCLUDED_STATE                      = "STATE";
-text HH_AUTH                             = "HH_AUTH";
-text EXCL_HH_AUTH                        = "HH AUTH";
-text EXCLUDED_COUNTY                     = "COUNTY";
-text EXCLUDED_TIN                        = "TIN";
-text EXCLUDED_TIN_STATE                  = "TIN/STATE";
-text EXCL_MER_COM                        = "MERGED COMPONENTS";
-text EXCL_AMT_PAID                       = "MERGED \"MARKET\" CHARGE BACK";
-text EXCLUDED_GROUPID                    = "GROUPID";
-text EXCLUDED_MODALITY                   = "MODALITY";
+text NOT_IN_CONTRACT      = "NOT COVERED IN CONTRACT";
+text EXCLUDED_STATE       = "STATE";
+text HH_AUTH              = "HH_AUTH";
+text EXCL_HH_AUTH         = "HH AUTH";
+text EXCLUDED_COUNTY      = "COUNTY";
+text EXCLUDED_TIN         = "TIN";
+text EXCLUDED_TIN_STATE   = "TIN/STATE";
+text EXCL_MER_COM         = "MERGED COMPONENTS";
+text EXCL_AMT_PAID        = "MERGED \"MARKET\" CHARGE BACK";
+text EXCLUDED_GROUPID     = "GROUPID";
+text EXCLUDED_MODALITY    = "MODALITY";
 
 # Defining volatile resources (aka Local Resources)
 # ---------------------------------------------------------------------------------------
