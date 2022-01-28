@@ -133,7 +133,7 @@ class JetListenerTest(absltest.TestCase):
     """)
     listener = self._get_listener(data)
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [{"name": "usi:ProcedureLookup", "table": "usi__cm_proc_codes", "keys": "PROC_CODE", "columns": "PROC_RID,PROC_MID,PROC_DESC"}, {"name": "MSK_DRG_TRIGGER", "table": "usi__msk_trigger_drg_codes", "keys": "DRG", "columns": "MSK_AREA_DRG_TRIGGER_ONLY,MSK_TAG,TRIGGER_TAG_DRG_ONLY,DRG,OVERLAP,USE_ANESTHESIA"}], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [{"name": "usi:ProcedureLookup", "table": "usi__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"]}, {"name": "MSK_DRG_TRIGGER", "table": "usi__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(listener.jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(listener.jetRules))

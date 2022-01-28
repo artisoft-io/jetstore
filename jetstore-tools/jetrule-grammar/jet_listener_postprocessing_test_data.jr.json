@@ -106,20 +106,103 @@
       "type": "volatile_resource",
       "id": "medicareRateObj262",
       "value": "medicareRateObj262"
+    },
+    {
+      "id": "usi:ProcedureLookup",
+      "type": "resource",
+      "value": "usi:ProcedureLookup"
+    },
+    {
+      "id": "cPROC_RID",
+      "type": "resource",
+      "value": "cPROC_RID"
+    },
+    {
+      "id": "cPROC_MID",
+      "type": "resource",
+      "value": "cPROC_MID"
+    },
+    {
+      "id": "cPROC_DESC",
+      "type": "resource",
+      "value": "cPROC_DESC"
+    },
+    {
+      "id": "MSK_DRG_TRIGGER",
+      "type": "resource",
+      "value": "MSK_DRG_TRIGGER"
+    },
+    {
+      "id": "cMSK_AREA_DRG_TRIGGER_ONLY",
+      "type": "resource",
+      "value": "cMSK_AREA_DRG_TRIGGER_ONLY"
+    },
+    {
+      "id": "cMSK_TAG",
+      "type": "resource",
+      "value": "cMSK_TAG"
+    },
+    {
+      "id": "cTRIGGER_TAG_DRG_ONLY",
+      "type": "resource",
+      "value": "cTRIGGER_TAG_DRG_ONLY"
+    },
+    {
+      "id": "cDRG",
+      "type": "resource",
+      "value": "cDRG"
+    },
+    {
+      "id": "cOVERLAP",
+      "type": "resource",
+      "value": "cOVERLAP"
+    },
+    {
+      "id": "cUSE_ANESTHESIA",
+      "type": "resource",
+      "value": "cUSE_ANESTHESIA"
     }
   ],
   "lookup_tables": [
     {
       "name": "usi:ProcedureLookup",
       "table": "usi__cm_proc_codes",
-      "keys": "PROC_CODE",
-      "columns": "PROC_RID,PROC_MID,PROC_DESC"
+      "key": [
+        "PROC_CODE"
+      ],
+      "columns": [
+        "PROC_RID",
+        "PROC_MID",
+        "PROC_DESC"
+      ],
+      "resources": [
+        "cPROC_RID",
+        "cPROC_MID",
+        "cPROC_DESC"
+      ]
     },
     {
       "name": "MSK_DRG_TRIGGER",
       "table": "usi__msk_trigger_drg_codes",
-      "keys": "DRG",
-      "columns": "MSK_AREA_DRG_TRIGGER_ONLY,MSK_TAG,TRIGGER_TAG_DRG_ONLY,DRG,OVERLAP,USE_ANESTHESIA"
+      "key": [
+        "DRG"
+      ],
+      "columns": [
+        "MSK_AREA_DRG_TRIGGER_ONLY",
+        "MSK_TAG",
+        "TRIGGER_TAG_DRG_ONLY",
+        "DRG",
+        "OVERLAP",
+        "USE_ANESTHESIA"
+      ],
+      "resources": [
+        "cMSK_AREA_DRG_TRIGGER_ONLY",
+        "cMSK_TAG",
+        "cTRIGGER_TAG_DRG_ONLY",
+        "cDRG",
+        "cOVERLAP",
+        "cUSE_ANESTHESIA"
+      ]
     }
   ],
   "jet_rules": [

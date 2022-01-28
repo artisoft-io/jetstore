@@ -31,6 +31,7 @@ class JetRulesPostProcessorTest2(absltest.TestCase):
 
     # augment the output with post processor
     postProcessor = JetRulesPostProcessor(listener.jetRules)
+    postProcessor.createResourcesForLookupTables()
     postProcessor.mapVariables()
     postProcessor.addNormalizedLabels()
     postProcessor.addLabels()

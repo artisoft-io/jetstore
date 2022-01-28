@@ -31,11 +31,77 @@ class JetRulesPostProcessorTest(absltest.TestCase):
 
     # augment the output with post processor
     postProcessor = JetRulesPostProcessor(listener.jetRules)
+    postProcessor.createResourcesForLookupTables()
     postProcessor.mapVariables()
     postProcessor.addNormalizedLabels()
     postProcessor.addLabels()
 
     return postProcessor.jetRules
+
+  def test_lookup_table1(self):
+    data = a4.InputStream("""
+      # =======================================================================================
+      # Defining Lookup Tables
+      # ---------------------------------------------------------------------------------------
+      # lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
+      # Note: Legacy trd lookup table will have to be converted to csv
+      # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
+      lookup_table usi:ProcedureLookup {
+        $table_name = usi__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
+        $key = [PROC_CODE],                     # Key columns, resource PROC_CODE automatically created
+
+        # Value columns, corresponding resource automatically created
+        $columns = [PROC_RID, PROC_MID, PROC_DESC]
+      };
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+
+    # validate the whole result
+    expected = """{"literals": [], "resources": [{"id": "usi:ProcedureLookup", "type": "resource", "value": "usi:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "cPROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "cPROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "cPROC_DESC"}], "lookup_tables": [{"name": "usi:ProcedureLookup", "table": "usi__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": []}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
+
+  def test_lookup_table2(self):
+    data = a4.InputStream("""
+      lookup_table MSK_DRG_TRIGGER {
+        $table_name = usi__msk_trigger_drg_codes,         # main table
+        $key = [DRG],                                     # Lookup key
+
+        # Value columns, corresponding resource automatically created
+        # Data type based on columns type
+        $columns = [MSK_AREA_DRG_TRIGGER_ONLY, MSK_TAG, TRIGGER_TAG_DRG_ONLY, DRG, OVERLAP, USE_ANESTHESIA]
+      };
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+
+    # validate the whole result
+    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK_AREA_DRG_TRIGGER_ONLY", "type": "resource", "value": "cMSK_AREA_DRG_TRIGGER_ONLY"}, {"id": "cMSK_TAG", "type": "resource", "value": "cMSK_TAG"}, {"id": "cTRIGGER_TAG_DRG_ONLY", "type": "resource", "value": "cTRIGGER_TAG_DRG_ONLY"}, {"id": "cDRG", "type": "resource", "value": "cDRG"}, {"id": "cOVERLAP", "type": "resource", "value": "cOVERLAP"}, {"id": "cUSE_ANESTHESIA", "type": "resource", "value": "cUSE_ANESTHESIA"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "usi__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"], "resources": ["cMSK_AREA_DRG_TRIGGER_ONLY", "cMSK_TAG", "cTRIGGER_TAG_DRG_ONLY", "cDRG", "cOVERLAP", "cUSE_ANESTHESIA"]}], "jet_rules": []}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
+
+  def test_lookup_table3(self):
+    data = a4.InputStream("""
+      # Testing name mapping
+      lookup_table MSK_DRG_TRIGGER {
+        $table_name = usi__msk_trigger_drg_codes,         # main table
+        $key = [DRG, DRG2],                               # composite Lookup key
+
+        # Using column names that need fixing to become resource name
+        $columns = [MSK (9), MSK_TAG, TRIGGER_TAG_DRG_ONLY, DRG, OVERLAP, USE_ANESTHESIA]
+      };
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+
+    # validate the whole result
+    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK_AREA_DRG_TRIGGER_ONLY", "type": "resource", "value": "cMSK_AREA_DRG_TRIGGER_ONLY"}, {"id": "cMSK_TAG", "type": "resource", "value": "cMSK_TAG"}, {"id": "cTRIGGER_TAG_DRG_ONLY", "type": "resource", "value": "cTRIGGER_TAG_DRG_ONLY"}, {"id": "cDRG", "type": "resource", "value": "cDRG"}, {"id": "cOVERLAP", "type": "resource", "value": "cOVERLAP"}, {"id": "cUSE_ANESTHESIA", "type": "resource", "value": "cUSE_ANESTHESIA"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "usi__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"], "resources": ["cMSK_AREA_DRG_TRIGGER_ONLY", "cMSK_TAG", "cTRIGGER_TAG_DRG_ONLY", "cDRG", "cOVERLAP", "cUSE_ANESTHESIA"]}], "jet_rules": []}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule1(self):
     data = a4.InputStream("""
@@ -178,7 +244,6 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     """)
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    print('*** rule_label:',rule_label)
 
     # reprocess the rule_label to ensure to get the same result
     data = a4.InputStream(rule_label)
@@ -208,7 +273,6 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     """)
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    print('*** rule_label:',rule_label)
 
     # reprocess the rule_label to ensure to get the same result
     data = a4.InputStream(rule_label)
