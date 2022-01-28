@@ -1,0 +1,227 @@
+"""JetListenerPostProcessor tests"""
+
+import sys
+import json
+from absl import flags
+from absl.testing import absltest
+import antlr4 as a4
+
+from jet_listener import JetListener
+from jet_listener_postprocessing import JetRulesPostProcessor
+from JetRuleParser import JetRuleParser
+from JetRuleLexer import JetRuleLexer
+
+FLAGS = flags.FLAGS
+
+class JetRulesPostProcessorTest(absltest.TestCase):
+
+  def _get_augmented_data(self, data) -> JetListener:
+    # lexer
+    lexer = JetRuleLexer(data)
+    stream = a4.CommonTokenStream(lexer)
+    
+    # parser
+    parser = JetRuleParser(stream)
+    tree = parser.jetrule()
+
+    # evaluator
+    listener = JetListener()
+    walker = a4.ParseTreeWalker()
+    walker.walk(listener, tree)
+
+    # augment the output with post processor
+    postProcessor = JetRulesPostProcessor(listener.jetRules)
+    postProcessor.mapVariables()
+    postProcessor.addNormalizedLabels()
+    postProcessor.addLabels()
+
+    return postProcessor.jetRules
+
+  def test_jetrule1(self):
+    data = a4.InputStream("""
+      # =======================================================================================
+      # Defining Jet Rules
+      # ---------------------------------------------------------------------------------------
+      # property s: salience, o: optimization, tag: label
+      # optimization is true by default
+      [Rule1, s=+100, o=false, tag="USI"]: 
+        (?clm01 rdf:type usi:Claim).
+        not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
+        ->
+        (?clm01 rdf:type usi:SpecialClaim).
+        (?clm01 xyz ?drg)
+      ;
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+    rule_label = postprocessed_data['jet_rules'][0]['label']
+
+    # reprocess the rule_label to ensure to get the same result
+    data = a4.InputStream(rule_label)
+    postprocessed_data = self._get_augmented_data(data)
+    self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+
+    # validate the whole result
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "false", "tag": "\\"USI\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "normalizedLabel": "(?x1 rdf:type usi:Claim)", "label": "(?clm01 rdf:type usi:Claim)"}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "usi:hasDRG"}, {"type": "var", "id": "?x2", "label": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?x1", "label": "?clm01"}, "op": "+", "rhs": {"type": "var", "id": "?x2", "label": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}, "normalizedLabel": "not(?x1 usi:hasDRG ?x2).[(?x1 + ?x2) + int(1)]", "label": "not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1)]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type usi:SpecialClaim)", "label": "(?clm01 rdf:type usi:SpecialClaim)"}, {"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "id": "?x2", "label": "?drg"}], "normalizedLabel": "(?x1 xyz ?x2)", "label": "(?clm01 xyz ?drg)"}], "normalizedLabel": "[Rule1, s=+100, o=false, tag=\\"USI\\"]:(?x1 rdf:type usi:Claim).not(?x1 usi:hasDRG ?x2).[(?x1 + ?x2) + int(1)] -> (?x1 rdf:type usi:SpecialClaim).(?x1 xyz ?x2);", "label": "[Rule1, s=+100, o=false, tag=\\"USI\\"]:(?clm01 rdf:type usi:Claim).not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1)] -> (?clm01 rdf:type usi:SpecialClaim).(?clm01 xyz ?drg);"}]}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
+
+  def test_jetrule2(self):
+    data = a4.InputStream("""
+      [Rule2, s=100, o=true, tag="USI"]: 
+        (?clm01 rdf:type usi:Claim).
+        not(?clm01 usi:hasDRG ?drg).[true and false]
+        ->
+        (?clm01 rdf:type usi:SpecialClaim)
+      ;
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+    rule_label = postprocessed_data['jet_rules'][0]['label']
+
+    # reprocess the rule_label to ensure to get the same result
+    data = a4.InputStream(rule_label)
+    postprocessed_data = self._get_augmented_data(data)
+    self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+
+    # validate the whole result
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true", "tag": "\\"USI\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "normalizedLabel": "(?x1 rdf:type usi:Claim)", "label": "(?clm01 rdf:type usi:Claim)"}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "usi:hasDRG"}, {"type": "var", "id": "?x2", "label": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}, "normalizedLabel": "not(?x1 usi:hasDRG ?x2).[true and false]", "label": "not(?clm01 usi:hasDRG ?drg).[true and false]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type usi:SpecialClaim)", "label": "(?clm01 rdf:type usi:SpecialClaim)"}], "normalizedLabel": "[Rule2, s=100, o=true, tag=\\"USI\\"]:(?x1 rdf:type usi:Claim).not(?x1 usi:hasDRG ?x2).[true and false] -> (?x1 rdf:type usi:SpecialClaim);", "label": "[Rule2, s=100, o=true, tag=\\"USI\\"]:(?clm01 rdf:type usi:Claim).not(?clm01 usi:hasDRG ?drg).[true and false] -> (?clm01 rdf:type usi:SpecialClaim);"}]}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
+
+  def test_jetrule3(self):
+    data = a4.InputStream("""
+      [Rule3]: 
+        (?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)].
+        (?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2].
+        ->
+        (?clm01 rdf:type usi:SpecialClaim).
+        (?clm02 rdf:type usi:SpecialClaim)
+      ;
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+    rule_label = postprocessed_data['jet_rules'][0]['label']
+
+    # reprocess the rule_label to ensure to get the same result
+    data = a4.InputStream(rule_label)
+    postprocessed_data = self._get_augmented_data(data)
+    self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+
+    # validate the whole result
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?x2", "label": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "id": "?x3", "label": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}, "normalizedLabel": "(?x1 rdf:type usi:Claim).[(?x2 + b1) * (?x3 + b2)]", "label": "(?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)]"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?x2", "label": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "id": "?x3", "label": "?a2"}}, "normalizedLabel": "(?x1 rdf:type usi:Claim).[(?x2 or b1) and ?x3]", "label": "(?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type usi:SpecialClaim)", "label": "(?clm01 rdf:type usi:SpecialClaim)"}, {"type": "consequent", "triple": [{"type": "var", "id": "?x4", "label": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}], "normalizedLabel": "(?x4 rdf:type usi:SpecialClaim)", "label": "(?clm02 rdf:type usi:SpecialClaim)"}], "normalizedLabel": "[Rule3]:(?x1 rdf:type usi:Claim).[(?x2 + b1) * (?x3 + b2)].(?x1 rdf:type usi:Claim).[(?x2 or b1) and ?x3] -> (?x1 rdf:type usi:SpecialClaim).(?x4 rdf:type usi:SpecialClaim);", "label": "[Rule3]:(?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)].(?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2] -> (?clm01 rdf:type usi:SpecialClaim).(?clm02 rdf:type usi:SpecialClaim);"}]}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
+
+  def test_jetrule4(self):
+    data = a4.InputStream("""
+      [Rule4]: 
+        (?clm01 has_code ?code).[not(?a1 or b1) and (not ?a2)]
+        ->
+        (?clm01 value (?a1 + ?b2)).
+        (?clm01 value2 ?a1 + ?b2).
+        (?clm01 value2 (not ?b2))
+      ;
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+    rule_label = postprocessed_data['jet_rules'][0]['label']
+
+    # reprocess the rule_label to ensure to get the same result
+    data = a4.InputStream(rule_label)
+    postprocessed_data = self._get_augmented_data(data)
+    self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+
+    # validate the whole result
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?x2", "label": "?code"}], "filter": {"type": "binary", "lhs": {"type": "unary", "op": "not", "arg": {"type": "binary", "lhs": {"type": "var", "id": "?x3", "label": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}}, "op": "and", "rhs": {"type": "unary", "op": "not", "arg": {"type": "var", "id": "?x4", "label": "?a2"}}}, "normalizedLabel": "(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)]", "label": "(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value"}, {"type": "binary", "lhs": {"type": "var", "id": "?x3", "label": "?a1"}, "op": "+", "rhs": {"type": "var", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value ?x3 + ?x5)", "label": "(?clm01 value ?a1 + ?b2)"}, {"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "binary", "lhs": {"type": "var", "id": "?x3", "label": "?a1"}, "op": "+", "rhs": {"type": "var", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value2 ?x3 + ?x5)", "label": "(?clm01 value2 ?a1 + ?b2)"}, {"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "unary", "op": "not", "arg": {"type": "var", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value2 not ?x5)", "label": "(?clm01 value2 not ?b2)"}], "normalizedLabel": "[Rule4]:(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)] -> (?x1 value ?x3 + ?x5).(?x1 value2 ?x3 + ?x5).(?x1 value2 not ?x5);", "label": "[Rule4]:(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)] -> (?clm01 value ?a1 + ?b2).(?clm01 value2 ?a1 + ?b2).(?clm01 value2 not ?b2);"}]}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
+
+  # def test_jetrule5(self):
+  #   data = a4.InputStream("""
+  #     [Rule5]: 
+  #       (?clm01 has_code ?code).
+  #       ->
+  #       (?clm01 usi:"lookup_table" true)
+  #     ;
+  #   """)
+  #   postprocessed_data = self._get_augmented_data(data)
+  #   rule_label = postprocessed_data['jet_rules'][0]['label']
+
+  #   # reprocess the rule_label to ensure to get the same result
+  #   data = a4.InputStream(rule_label)
+  #   postprocessed_data = self._get_augmented_data(data)
+  #   self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+
+  #   # validate the whole result
+  #   expected = ""
+  #   print('GOT:',json.dumps(postprocessed_data, indent=2))
+  #   print()
+  #   print('COMPACT:',json.dumps(postprocessed_data))
+  #   self.assertEqual(json.dumps(postprocessed_data), expected)
+
+  def test_jetrule6(self):
+    data = a4.InputStream("""
+      [Rule6]: 
+        (?clm01 has_code r1).
+        (?clm01 has_str r2).
+        ->
+        (?clm01 usi:lookupTbl "valueX").
+        (?clm01 usi:market "MERGED \\"MARKET\\" CHARGE BACK").
+        (?clm01 usi:market text("MERGED \\"MARKET\\" CHARGE BACK"))
+
+      ;
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+    rule_label = postprocessed_data['jet_rules'][0]['label']
+    print('*** rule_label:',rule_label)
+
+    # reprocess the rule_label to ensure to get the same result
+    data = a4.InputStream(rule_label)
+    postprocessed_data = self._get_augmented_data(data)
+    self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+
+    # validate the whole result
+    with open('jetstore-tools/jetrule-grammar/rule6_test.json', 'rt', encoding='utf-8') as f:
+      expected = json.loads(f.read())
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    # print('EXPECTED:',json.dumps(expected))
+    self.assertEqual(json.dumps(postprocessed_data), json.dumps(expected))
+
+  def test_jetrule7(self):
+    data = a4.InputStream("""
+      [Rule7]: 
+        (?clm01 has_code int(1)).
+        (?clm01 has_str "value").
+        (?clm01 hasTrue true).
+        ->
+        (?clm01 usi:lookupTbl true).
+        (?clm01 has_literal int(1)).
+        (?clm01 has_expr (int(1) + long(4)))
+      ;
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+    rule_label = postprocessed_data['jet_rules'][0]['label']
+    print('*** rule_label:',rule_label)
+
+    # reprocess the rule_label to ensure to get the same result
+    data = a4.InputStream(rule_label)
+    postprocessed_data = self._get_augmented_data(data)
+    self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+
+    # validate the whole result
+    with open('jetstore-tools/jetrule-grammar/rule7_test.json', 'rt', encoding='utf-8') as f:
+      expected = json.loads(f.read())
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), json.dumps(expected))
+
+if __name__ == '__main__':
+  absltest.main()
