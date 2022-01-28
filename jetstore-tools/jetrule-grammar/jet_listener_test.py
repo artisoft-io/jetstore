@@ -114,21 +114,21 @@ class JetListenerTest(absltest.TestCase):
       # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
       lookup_table usi:ProcedureLookup {
         $table_name = usi__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
-        $key = [PROC_CODE],                     # Key columns, resource PROC_CODE automatically created
+        $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
 
         # Value columns, corresponding resource automatically created
-        $columns = [PROC_RID, PROC_MID, PROC_DESC]
+        $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
       };
 
       # Another example that is already using a csv file 
       # based on USI: *include-lookup* "MSK/MSK_DRG_TRIGGER.lookup"
       lookup_table MSK_DRG_TRIGGER {
         $table_name = usi__msk_trigger_drg_codes,         # main table
-        $key = [DRG],                                     # Lookup key
+        $key = ["DRG"],                                   # Lookup key
 
         # Value columns, corresponding resource automatically created
         # Data type based on columns type
-        $columns = [MSK_AREA_DRG_TRIGGER_ONLY, MSK_TAG, TRIGGER_TAG_DRG_ONLY, DRG, OVERLAP, USE_ANESTHESIA]
+        $columns = ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]
       };
     """)
     listener = self._get_listener(data)

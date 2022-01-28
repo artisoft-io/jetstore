@@ -71,7 +71,7 @@ class JetRulesPostProcessor:
             c = '_'
           rname += c
         value = 'c' + rname.upper()
-        self._addResource(value, value)
+        self._addResource(value, column)
         resources.append(value)
       item['resources'] = resources
       

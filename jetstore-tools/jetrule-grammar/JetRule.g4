@@ -80,14 +80,14 @@ lookupTableStmt: LookupTable lookupName=declIdentifier '{'
     COMMENT*
     TableName ASSIGN tblStorageName=Identifier ',' 
     COMMENT*
-    Key ASSIGN tblKeys=identifierList ',' 
+    Key ASSIGN tblKeys=stringList ',' 
     COMMENT*
-    Columns ASSIGN tblColumns=identifierList 
+    Columns ASSIGN tblColumns=stringList 
     COMMENT*
   '}' SEMICOLON;
 
-identifierList: '[' seq=identifierSeq? ']';
-identifierSeq: declIdentifier (',' declIdentifier)* ;
+stringList: '[' seqCtx=stringSeq? ']';
+stringSeq: slist+=String (',' slist+=String)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Jet Rule

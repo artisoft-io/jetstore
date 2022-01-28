@@ -69,7 +69,14 @@ class JetListener(JetRuleListener):
   # -------------------------------------------------------------------------------------
   def exitLookupTableStmt(self, ctx:JetRuleParser.LookupTableStmtContext):
     if not ctx.tblStorageName: return
-    self.lookups.append({'name': ctx.lookupName.getText(), 'table': ctx.tblStorageName.text, 'key': ctx.tblKeys.seq.getText().split(','), 'columns': ctx.tblColumns.seq.getText().split(',')})
+    if not ctx.tblKeys: return
+    keys = []
+    for v in ctx.tblKeys.seqCtx.slist:
+      keys.append(self.escapeString(v.text))
+    columns = []
+    for v in ctx.tblColumns.seqCtx.slist:
+      columns.append(self.escapeString(v.text))
+    self.lookups.append({'name': ctx.lookupName.getText(), 'table': ctx.tblStorageName.text, 'key': keys, 'columns': columns})
 
   # =====================================================================================
   # Jet Rules
