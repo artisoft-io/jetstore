@@ -68,6 +68,7 @@ class JetListener(JetRuleListener):
   # Lookup Tables
   # -------------------------------------------------------------------------------------
   def exitLookupTableStmt(self, ctx:JetRuleParser.LookupTableStmtContext):
+    if not ctx.tblStorageName: return
     self.lookups.append({'name': ctx.lookupName.getText(), 'table': ctx.tblStorageName.text, 'keys': ctx.tblKeys.seq.getText(), 'columns': ctx.tblColumns.seq.getText()})
 
   # =====================================================================================
@@ -93,7 +94,8 @@ class JetListener(JetRuleListener):
   def exitRuleProperties(self, ctx:JetRuleParser.RulePropertiesContext):
     key = ctx.key.text
     val = ctx.valCtx.val
-    val = self.escapeString(val.text) if val else ctx.valCtx.intval.getText()
+    # val = self.escapeString(val.text) if val else ctx.valCtx.intval.getText()
+    val = val.text if val else ctx.valCtx.intval.getText()
     self.ruleProps[key] = val
 
   # Function to remove the escape \" for resource with name clashing reserved keywords

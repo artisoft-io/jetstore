@@ -12,9 +12,9 @@ class JetRulesPostProcessor:
   def mapVariables(self):
     if not self.jetRules: raise Exception("Invalid jetRules structure: ",self.jetRules)
     rules = self.jetRules.get('jet_rules')
-    if not rules: raise Exception("Invalid jetRules structure: ",self.jetRules)
+    # if not rules: raise Exception("Invalid jetRules structure: ",self.jetRules)
     for rule in rules:
-      print('Processing Rule:', rule['name'])
+      # print('Processing Rule:', rule['name'])
       self.varMapping = {}
 
       for item in rule.get('antecedents', []):
@@ -33,6 +33,7 @@ class JetRulesPostProcessor:
 
   # Process recursively elm according to it's type
   def processElm(self, elm: Dict[str, object]):
+    if not elm: return None
     type = elm.get('type')
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
@@ -63,11 +64,17 @@ class JetRulesPostProcessor:
   def _addLabels(self, label_name: str, useNormalizedVar: bool):
     if not self.jetRules: raise Exception("Invalid jetRules structure: ",self.jetRules)
     rules = self.jetRules.get('jet_rules')
-    if not rules: raise Exception("Invalid jetRules structure: ",self.jetRules)
-    for rule in rules:
-      print('Augmenting Rule:', rule['name'])
 
-      label = ''
+    for rule in rules:
+      name = rule.get('name')
+      if not name: raise Exception("Invalid jetRules structure: ",self.jetRules)
+      props = rule.get('properties')
+      ptxt = ''
+      if props:
+        ptxt = ', '.join(['{0}={1}'.format(k, v) for k, v in props.items()])
+        ptxt = ', ' + ptxt
+
+      label = '[{0}{1}]:'.format(name, ptxt)
       isFirst = True
       for item in rule.get('antecedents', []):
         normalizedLabel = self.makeLabel(item, useNormalizedVar)
@@ -88,11 +95,23 @@ class JetRulesPostProcessor:
         isFirst = False
         label += normalizedLabel
 
+      label += ';'
+
       rule[label_name] = label
 
+  def escapeText(self, txt: str):
+    if len(txt) < 3: return txt
+    result = ''
+    sz = len(txt)
+    for i in range(sz):
+      if txt[i] == '"':
+        result += '\\'
+      result += txt[i]
+    return result
 
   # Recursive function to build the label of the rule antecedent or consequent
   def makeLabel(self, elm: Dict[str, object], useNormalizedVar: bool) -> str:
+    if not elm: return ''
     type = elm.get('type')
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
@@ -153,7 +172,8 @@ class JetRulesPostProcessor:
         return elm['label']
 
     if type == 'text':
-      return '"{0}"'.format(elm['id'])
+      return '"{0}"'.format(self.escapeText(elm['id']))
+      # return '"{0}"'.format(elm['id'])
     if type == 'int': return 'int({0})'.format(elm['value'])
     if type == 'uint': return 'uint({0})'.format(elm['value'])
     if type == 'long': return 'long({0})'.format(elm['value'])

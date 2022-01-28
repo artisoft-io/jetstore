@@ -26,8 +26,8 @@ text EXCLUDED_MODALITY    = "MODALITY";
 
 # Defining volatile resources (aka Local Resources)
 # ---------------------------------------------------------------------------------------
-resource medicareRateObjTC1              = "_0:medicareRateObjTC1";  # Support RC legacy
-resource medicareRateObjTC2              = "_0:medicareRateObjTC2";  # Support RC legacy
+resource medicareRateObjTC1 = "_0:medicareRateObjTC1";  # Support RC legacy
+resource medicareRateObjTC2 = "_0:medicareRateObjTC2";  # Support RC legacy
 
 resource None  = null;
 resource uuid  = create_uuid_resource();
