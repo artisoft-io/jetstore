@@ -115,17 +115,17 @@
     {
       "id": "cPROC_RID",
       "type": "resource",
-      "value": "cPROC_RID"
+      "value": "PROC_RID"
     },
     {
       "id": "cPROC_MID",
       "type": "resource",
-      "value": "cPROC_MID"
+      "value": "PROC_MID"
     },
     {
       "id": "cPROC_DESC",
       "type": "resource",
-      "value": "cPROC_DESC"
+      "value": "PROC_DESC"
     },
     {
       "id": "MSK_DRG_TRIGGER",
@@ -135,32 +135,32 @@
     {
       "id": "cMSK_AREA_DRG_TRIGGER_ONLY",
       "type": "resource",
-      "value": "cMSK_AREA_DRG_TRIGGER_ONLY"
+      "value": "MSK_AREA_DRG_TRIGGER_ONLY"
     },
     {
       "id": "cMSK_TAG",
       "type": "resource",
-      "value": "cMSK_TAG"
+      "value": "MSK_TAG"
     },
     {
       "id": "cTRIGGER_TAG_DRG_ONLY",
       "type": "resource",
-      "value": "cTRIGGER_TAG_DRG_ONLY"
+      "value": "TRIGGER_TAG_DRG_ONLY"
     },
     {
       "id": "cDRG",
       "type": "resource",
-      "value": "cDRG"
+      "value": "DRG"
     },
     {
       "id": "cOVERLAP",
       "type": "resource",
-      "value": "cOVERLAP"
+      "value": "OVERLAP"
     },
     {
       "id": "cUSE_ANESTHESIA",
       "type": "resource",
-      "value": "cUSE_ANESTHESIA"
+      "value": "USE_ANESTHESIA"
     }
   ],
   "lookup_tables": [

@@ -1,32 +1,63 @@
+from typing import Dict
 from absl import app
 from absl import flags
 import antlr4 as a4
 from pathlib import Path
 import json
+import io
 import os
+import re
 import sys
 from jet_listener import JetListener
+from jetrule_context import JetRuleContext
 from jet_listener_postprocessing import JetRulesPostProcessor
 from JetRuleParser import JetRuleParser
 from JetRuleLexer import JetRuleLexer
 from JetRuleListener import JetRuleListener
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string("jr", None, "JetRule file", required=True)
+# flags.DEFINE_string("jr", "default useful if required", "JetRule file", required=True)
+flags.DEFINE_string("jr", None, "JetRule file")
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
 
+def getInput(fname: str) -> io.StringIO:
+  return open(fname, 'rt', encoding='utf-8')
 
-def main(argv):
-  del argv  # Unused.
+def readInput(fin: io.StringIO, pat, fout: io.StringIO) -> None:
+    while True:
+      jline = fin.readline()
+      if not jline:
+        break
 
-  path = Path(FLAGS.jr)
-  if not os.path.exists(path) or not os.path.isfile(path):
-    print('ERROR: JetRule file {0} does not exist or is not a file'.format(path))
-    sys.exit('ERROR: JetRule file does not exist or is not a file') 
+      m = pat.match(jline)
+      if m:
+          print('Match found: ', m.group(1))
+          readInput(getInput(m.group(1)), pat, fout)
+      else:
+        fout.write(jline)
 
-  data =  a4.FileStream(path, encoding='utf-8')
-    
+
+# read and process the rule file
+# ---------------------------------------------------------------------------------------
+def readJetRuleFile(path: str) -> Dict[str, object]:
+  pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
+  fout = io.StringIO()
+  fname = FLAGS.jr
+
+  # read recursively the input file and it's imports
+  readInput(getInput(fname), pat, fout)
+  fout.seek(0)
+
+  jetrules = processJetRule(fout)
+  return jetrules
+
+
+# process the input jetrule buffer
+# ---------------------------------------------------------------------------------------
+def processJetRule(input: io.StringIO) -> Dict[str, object]:
+  data =  a4.InputStream(input.read())
+  
   # lexer
   lexer = JetRuleLexer(data)
   stream = a4.CommonTokenStream(lexer)
@@ -40,9 +71,41 @@ def main(argv):
   walker = a4.ParseTreeWalker()
   walker.walk(listener, tree)
 
+  return listener.jetRules
+
+
+# post-process the input jetrule buffer
+# ---------------------------------------------------------------------------------------
+def postprocessJetRule(data: Dict[str, object]) -> Dict[str, object]:
+
+    # Create the context for post processing
+    ctx = JetRuleContext(data)
+
+    # augment the output with post processor
+    postProcessor = JetRulesPostProcessor(ctx)
+    postProcessor.createResourcesForLookupTables()
+    postProcessor.mapVariables()
+    postProcessor.addNormalizedLabels()
+    postProcessor.addLabels()
+
+    return ctx.jetRules
+
+
+# command line invocation
+# ---------------------------------------------------------------------------------------
+def main(argv):
+  del argv  # Unused.
+
+  path = Path(FLAGS.jr)
+  if not os.path.exists(path) or not os.path.isfile(path):
+    print('ERROR: JetRule file {0} does not exist or is not a file'.format(path))
+    sys.exit('ERROR: JetRule file does not exist or is not a file') 
+
+  jetrules = readJetRuleFile(path)
+
   # Save the JetRule data structure
   with open(str(path)+'.json', 'wt', encoding='utf-8') as f:
-    f.write(json.dumps(listener.jetRules, indent=4))
+    f.write(json.dumps(jetrules, indent=4))
 
   print('Result saved to {0}.json'.format(path))
 

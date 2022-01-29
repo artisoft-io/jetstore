@@ -1,67 +1,21 @@
 import sys
-from typing import Dict
+from typing import Dict, Sequence
+from jetrule_context import JetRuleContext
 import json
 
 class JetRulesPostProcessor:
 
-  def __init__(self, data: object):
-    self.jetRules = data
-    self.varMapping = {}
-    self.literalMap = {}
-    self.resourceMap = {}
-    self.errors = []
-
-    # initalize the literal and resource map
-    if not self.jetRules: 
-      raise Exception("Invalid jetRules structure: ",self.jetRules)
-
-    self.literals = self.jetRules.get('literals')
-    self.resources = self.jetRules.get('resources')
-    self.lookup_tables = self.jetRules.get('lookup_tables')
-    self.jet_rules = self.jetRules.get('jet_rules')
-
-    if self.literals is None or self.resources is None or self.lookup_tables is None or self.jet_rules is None: 
-      raise Exception("Invalid jetRules structure: ",self.jetRules)
-
-    self._initMap(self.literalMap, self.literals, 'Literal')
-    self._initMap(self.resourceMap, self.resources, 'Resource')
-
-  def _initMap(self, map, items, tag):
-    for item in items:
-      id = item['id']
-      type = item['type']
-      value = item['value']
-      c = map.get(id)
-      if c:
-        if c['type'] != type or c['value'] != value:
-          self.errors.append('Error: {0} with id {1} is define multiple times.'.format(tag, id))
-      map[item['id']] = item
-
-  def _addRL(self, map, tag, name: str, type: str, value):
-    r = map.get(name)
-    if r and (r['value'] != value or type != r.get('type')):
-      self.errors.append('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
-
-    item = {'id': name, 'type': type, 'value': value}
-    map[name] = item
-    return item
-
-  def _addResource(self, name: str, value: str):
-    item = self._addRL(self.resourceMap, 'resource', name, 'resource', value)
-    self.resources.append(item)
-
-  def _addLiteral(self, name: str, type: str, value: str):
-    item = self._addRL(self.literalMap, 'literal', name, type, value)
-    self.literals.append(item)
+  def __init__(self, ctx: JetRuleContext):
+    self.ctx = ctx
 
   # =====================================================================================
   # createResourcesForLookupTables
   # -------------------------------------------------------------------------------------
   # visit lookup tables data structure to create resources corresponding to table names
   def createResourcesForLookupTables(self):
-    for item in self.lookup_tables:
+    for item in self.ctx.lookup_tables:
       name = item.get('name')
-      self._addResource(name, name)
+      self.ctx.addResource(name, name)
       columns = item['columns']
       resources = []
       for column in columns:
@@ -71,7 +25,7 @@ class JetRulesPostProcessor:
             c = '_'
           rname += c
         value = 'c' + rname.upper()
-        self._addResource(value, column)
+        self.ctx.addResource(value, column)
         resources.append(value)
       item['resources'] = resources
       
@@ -81,9 +35,9 @@ class JetRulesPostProcessor:
   # -------------------------------------------------------------------------------------
   # visit jetRules data structure to map variables
   def mapVariables(self):
-    if not self.jetRules: raise Exception("Invalid jetRules structure: ",self.jetRules)
-    rules = self.jetRules.get('jet_rules')
-    # if not rules: raise Exception("Invalid jetRules structure: ",self.jetRules)
+    if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
+    rules = self.ctx.jetRules.get('jet_rules')
+    # if not rules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
     for rule in rules:
       # print('Processing Rule:', rule['name'])
       self.varMapping = {}
@@ -136,12 +90,12 @@ class JetRulesPostProcessor:
     return self._addLabels('normalizedLabel', True)
 
   def _addLabels(self, label_name: str, useNormalizedVar: bool):
-    if not self.jetRules: raise Exception("Invalid jetRules structure: ",self.jetRules)
-    rules = self.jetRules.get('jet_rules')
+    if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
+    rules = self.ctx.jetRules.get('jet_rules')
 
     for rule in rules:
       name = rule.get('name')
-      if not name: raise Exception("Invalid jetRules structure: ",self.jetRules)
+      if not name: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
       props = rule.get('properties')
       ptxt = ''
       if props:

@@ -4,42 +4,22 @@ import sys
 import json
 from absl import flags
 from absl.testing import absltest
-import antlr4 as a4
+import io
 
 from jet_listener import JetListener
 from jet_listener_postprocessing import JetRulesPostProcessor
-from JetRuleParser import JetRuleParser
-from JetRuleLexer import JetRuleLexer
+import jetrule_compiler as compiler
 
 FLAGS = flags.FLAGS
 
 class JetRulesPostProcessorTest(absltest.TestCase):
 
-  def _get_augmented_data(self, data) -> JetListener:
-    # lexer
-    lexer = JetRuleLexer(data)
-    stream = a4.CommonTokenStream(lexer)
-    
-    # parser
-    parser = JetRuleParser(stream)
-    tree = parser.jetrule()
-
-    # evaluator
-    listener = JetListener()
-    walker = a4.ParseTreeWalker()
-    walker.walk(listener, tree)
-
-    # augment the output with post processor
-    postProcessor = JetRulesPostProcessor(listener.jetRules)
-    postProcessor.createResourcesForLookupTables()
-    postProcessor.mapVariables()
-    postProcessor.addNormalizedLabels()
-    postProcessor.addLabels()
-
-    return postProcessor.jetRules
+  def _get_augmented_data(self, data: io.StringIO) -> JetListener:
+    jetRulesSpec =  compiler.processJetRule(data)
+    return compiler.postprocessJetRule(jetRulesSpec)
 
   def test_lookup_table1(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       # =======================================================================================
       # Defining Lookup Tables
       # ---------------------------------------------------------------------------------------
@@ -64,7 +44,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_lookup_table2(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       lookup_table MSK_DRG_TRIGGER {
         $table_name = usi__msk_trigger_drg_codes,         # main table
         $key = ["DRG"],                                   # Lookup key
@@ -84,7 +64,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_lookup_table3(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       # Testing name mapping
       lookup_table MSK_DRG_TRIGGER {
         $table_name = usi__msk_trigger_drg_codes,         # main table
@@ -104,7 +84,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule1(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       # =======================================================================================
       # Defining Jet Rules
       # ---------------------------------------------------------------------------------------
@@ -122,7 +102,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     rule_label = postprocessed_data['jet_rules'][0]['label']
 
     # reprocess the rule_label to ensure to get the same result
-    data = a4.InputStream(rule_label)
+    data = io.StringIO(rule_label)
     postprocessed_data = self._get_augmented_data(data)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
@@ -134,7 +114,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule2(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       [Rule2, s=100, o=true, tag="USI"]: 
         (?clm01 rdf:type usi:Claim).
         not(?clm01 usi:hasDRG ?drg).[true and false]
@@ -146,7 +126,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     rule_label = postprocessed_data['jet_rules'][0]['label']
 
     # reprocess the rule_label to ensure to get the same result
-    data = a4.InputStream(rule_label)
+    data = io.StringIO(rule_label)
     postprocessed_data = self._get_augmented_data(data)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
@@ -158,7 +138,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule3(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       [Rule3]: 
         (?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)].
         (?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2].
@@ -171,7 +151,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     rule_label = postprocessed_data['jet_rules'][0]['label']
 
     # reprocess the rule_label to ensure to get the same result
-    data = a4.InputStream(rule_label)
+    data = io.StringIO(rule_label)
     postprocessed_data = self._get_augmented_data(data)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
@@ -183,7 +163,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule4(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       [Rule4]: 
         (?clm01 has_code ?code).[not(?a1 or b1) and (not ?a2)]
         ->
@@ -196,7 +176,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     rule_label = postprocessed_data['jet_rules'][0]['label']
 
     # reprocess the rule_label to ensure to get the same result
-    data = a4.InputStream(rule_label)
+    data = io.StringIO(rule_label)
     postprocessed_data = self._get_augmented_data(data)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
@@ -208,7 +188,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   # def test_jetrule5(self):
-  #   data = a4.InputStream("""
+  #   data = io.StringIO("""
   #     [Rule5]: 
   #       (?clm01 has_code ?code).
   #       ->
@@ -219,7 +199,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
   #   rule_label = postprocessed_data['jet_rules'][0]['label']
 
   #   # reprocess the rule_label to ensure to get the same result
-  #   data = a4.InputStream(rule_label)
+  #   data = io.StringIO(rule_label)
   #   postprocessed_data = self._get_augmented_data(data)
   #   self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
@@ -231,7 +211,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
   #   self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule6(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       [Rule6]: 
         (?clm01 has_code r1).
         (?clm01 has_str r2).
@@ -246,7 +226,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     rule_label = postprocessed_data['jet_rules'][0]['label']
 
     # reprocess the rule_label to ensure to get the same result
-    data = a4.InputStream(rule_label)
+    data = io.StringIO(rule_label)
     postprocessed_data = self._get_augmented_data(data)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
@@ -260,7 +240,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), json.dumps(expected))
 
   def test_jetrule7(self):
-    data = a4.InputStream("""
+    data = io.StringIO("""
       [Rule7]: 
         (?clm01 has_code int(1)).
         (?clm01 has_str "value").
@@ -275,7 +255,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     rule_label = postprocessed_data['jet_rules'][0]['label']
 
     # reprocess the rule_label to ensure to get the same result
-    data = a4.InputStream(rule_label)
+    data = io.StringIO(rule_label)
     postprocessed_data = self._get_augmented_data(data)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
