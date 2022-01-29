@@ -6,6 +6,7 @@ import io
 import re
 from absl import app
 from absl import flags
+from JetRuleLexer import JetRuleLexer
 
 
 class JetRuleValidator:
@@ -38,16 +39,19 @@ def main(argv):
   # if FLAGS.debug:
   #   print('non-flag arguments:', argv)
   print('Reading file', FLAGS.jr, 'and importing included files recursively')
+
   pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
+  for symbolName in JetRuleLexer.literalNames:
+    print("symbol:",symbolName.replace("'", ''), '->', symbolName.replace("'", '"'))
   
-  # def output_file(out: TextIO, fin: TextIO, keep_license: bool) -> None:
-  fout = io.StringIO()
-  fname = FLAGS.jr
-  readFile(fname, pat, fout)
+  # # def output_file(out: TextIO, fin: TextIO, keep_license: bool) -> None:
+  # fout = io.StringIO()
+  # fname = FLAGS.jr
+  # readFile(fname, pat, fout)
   
   # Done reading content
-  fout.seek(0)
-  print('Read this:\n',fout.read())
+  # fout.seek(0)
+  # print('Read this:\n',fout.read())
 
 
 if __name__ == '__main__':

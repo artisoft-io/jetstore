@@ -1,6 +1,7 @@
 import sys
 from typing import Dict, Sequence
 import json
+from JetRuleLexer import JetRuleLexer
 
 class JetRuleContext:
 
@@ -9,6 +10,9 @@ class JetRuleContext:
     self.literalMap = {}
     self.resourceMap = {}
     self.errors = []
+
+    # Prepare a set of symbol names to be able to escape them in resource names
+    self.symbolNames = set([symbolName.replace("'", '') for symbolName in JetRuleLexer.literalNames])
 
     # initalize the literal and resource map
     if not self.jetRules: 

@@ -207,7 +207,15 @@ class JetRulesPostProcessor:
     if type == 'long': return 'long({0})'.format(elm['value'])
     if type == 'ulong': return 'ulong({0})'.format(elm['value'])
 
-    if type in ['identifier', 'keyword']:
+    if type == 'identifier':
+      parts = elm['value'].split(':')
+      for i in range(1, len(parts)):
+        if parts[i] in self.ctx.symbolNames:
+          parts[i] = '"{0}"'.format(parts[i])
+      
+      return ':'.join(parts)
+
+    if type == 'keyword':
       return elm['value']
       
 if __name__ == "__main__":

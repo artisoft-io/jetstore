@@ -187,28 +187,28 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(postprocessed_data))
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
-  # def test_jetrule5(self):
-  #   data = io.StringIO("""
-  #     [Rule5]: 
-  #       (?clm01 has_code ?code).
-  #       ->
-  #       (?clm01 usi:"lookup_table" true)
-  #     ;
-  #   """)
-  #   postprocessed_data = self._get_augmented_data(data)
-  #   rule_label = postprocessed_data['jet_rules'][0]['label']
+  def test_jetrule5(self):
+    data = io.StringIO("""
+      [Rule5]: 
+        (?clm01 has_code ?code).
+        ->
+        (?clm01 usi:"lookup_table" true)
+      ;
+    """)
+    postprocessed_data = self._get_augmented_data(data)
+    rule_label = postprocessed_data['jet_rules'][0]['label']
 
-  #   # reprocess the rule_label to ensure to get the same result
-  #   data = io.StringIO(rule_label)
-  #   postprocessed_data = self._get_augmented_data(data)
-  #   self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
+    # reprocess the rule_label to ensure to get the same result
+    data = io.StringIO(rule_label)
+    postprocessed_data = self._get_augmented_data(data)
+    self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
-  #   # validate the whole result
-  #   expected = ""
-  #   print('GOT:',json.dumps(postprocessed_data, indent=2))
-  #   print()
-  #   print('COMPACT:',json.dumps(postprocessed_data))
-  #   self.assertEqual(json.dumps(postprocessed_data), expected)
+    # validate the whole result
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?x2", "label": "?code"}], "normalizedLabel": "(?x1 has_code ?x2)", "label": "(?clm01 has_code ?code)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "usi:lookup_table"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 usi:\\"lookup_table\\" true)", "label": "(?clm01 usi:\\"lookup_table\\" true)"}], "normalizedLabel": "[Rule5]:(?x1 has_code ?x2) -> (?x1 usi:\\"lookup_table\\" true);", "label": "[Rule5]:(?clm01 has_code ?code) -> (?clm01 usi:\\"lookup_table\\" true);"}]}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+    self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule6(self):
     data = io.StringIO("""
