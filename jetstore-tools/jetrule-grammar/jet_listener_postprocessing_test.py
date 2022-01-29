@@ -1,22 +1,21 @@
 """JetListenerPostProcessor tests"""
 
-import sys
 import json
+from typing import Dict
 from absl import flags
 from absl.testing import absltest
 import io
 
-from jet_listener import JetListener
-from jet_listener_postprocessing import JetRulesPostProcessor
 import jetrule_compiler as compiler
 
 FLAGS = flags.FLAGS
 
 class JetRulesPostProcessorTest(absltest.TestCase):
 
-  def _get_augmented_data(self, data: io.StringIO) -> JetListener:
+  def _get_augmented_data(self, data: io.StringIO) -> Dict[str, object]:
     jetRulesSpec =  compiler.processJetRule(data)
-    return compiler.postprocessJetRule(jetRulesSpec)
+    ctx = compiler.postprocessJetRule(jetRulesSpec)
+    return ctx.jetRules
 
   def test_lookup_table1(self):
     data = io.StringIO("""

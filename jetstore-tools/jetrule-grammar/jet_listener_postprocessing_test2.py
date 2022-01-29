@@ -16,8 +16,8 @@ class JetRulesPostProcessorTest2(absltest.TestCase):
   def _get_augmented_data(self) -> JetListener:
     data = compiler.getInput("jetstore-tools/jetrule-grammar/jet_listener_postprocessing_test_data.jr")
     jetRulesSpec =  compiler.processJetRule(data)
-    return compiler.postprocessJetRule(jetRulesSpec)
-
+    ctx = compiler.postprocessJetRule(jetRulesSpec)
+    data.close()
     return ctx.jetRules
 
   # Test data file are accessible using the path relative to the root of the workspace

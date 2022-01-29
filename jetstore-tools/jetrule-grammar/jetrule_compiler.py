@@ -10,10 +10,10 @@ import re
 import sys
 from jet_listener import JetListener
 from jetrule_context import JetRuleContext
+from jetrule_validator import JetRuleValidator
 from jet_listener_postprocessing import JetRulesPostProcessor
 from JetRuleParser import JetRuleParser
 from JetRuleLexer import JetRuleLexer
-from JetRuleListener import JetRuleListener
 
 FLAGS = flags.FLAGS
 # flags.DEFINE_string("jr", "default useful if required", "JetRule file", required=True)
@@ -81,25 +81,32 @@ def processJetRule(input: io.StringIO) -> Dict[str, object]:
   listener = JetListener()
   walker = a4.ParseTreeWalker()
   walker.walk(listener, tree)
-
   return listener.jetRules
 
 
 # post-process the input jetrule buffer
 # ---------------------------------------------------------------------------------------
-def postprocessJetRule(data: Dict[str, object]) -> Dict[str, object]:
+def postprocessJetRule(data: Dict[str, object]) -> JetRuleContext:
 
-    # Create the context for post processing
-    ctx = JetRuleContext(data)
+  # Create the context for post processing
+  ctx = JetRuleContext(data)
 
-    # augment the output with post processor
-    postProcessor = JetRulesPostProcessor(ctx)
-    postProcessor.createResourcesForLookupTables()
-    postProcessor.mapVariables()
-    postProcessor.addNormalizedLabels()
-    postProcessor.addLabels()
+  # augment the output with post processor
+  postProcessor = JetRulesPostProcessor(ctx)
+  postProcessor.createResourcesForLookupTables()
+  postProcessor.mapVariables()
+  postProcessor.addNormalizedLabels()
+  postProcessor.addLabels()
+  return ctx
 
-    return ctx.jetRules
+
+# validate the input jetrule buffer
+# ---------------------------------------------------------------------------------------
+def validateJetRule(jetrule_ctx: JetRuleContext, is_preflight: bool) -> bool:
+
+  # augment the output with post processor
+  validator = JetRuleValidator(jetrule_ctx)
+  return validator.validateVariables(is_preflight)
 
 
 # command line invocation
@@ -119,7 +126,6 @@ def main(argv):
     f.write(json.dumps(jetrules, indent=4))
 
   print('Result saved to {0}.json'.format(path))
-
 
 
 if __name__ == '__main__':

@@ -56,3 +56,6 @@ class JetRuleContext:
   def addLiteral(self, name: str, type: str, value: str):
     item = self._addRL(self.literalMap, 'literal', name, type, value)
     self.literals.append(item)
+
+  def err(self, msg: str) -> None:
+    self.errors.append(msg)
