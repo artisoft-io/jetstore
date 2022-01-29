@@ -21,35 +21,46 @@ flags.DEFINE_string("jr", None, "JetRule file")
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
 
+class InputProvider:
+
+  def __init__(self, base_path: Path):
+    self.base_path = base_path
+
+  # default provider
+  def getRuleFile(self, fname: str):
+    path = os.path.join(self.base_path, fname)
+    return getInput(path)
+
 def getInput(fname: str) -> io.StringIO:
   return open(fname, 'rt', encoding='utf-8')
 
-def readInput(fin: io.StringIO, pat, fout: io.StringIO) -> None:
+def readInput(fin: io.StringIO, in_provider: InputProvider, pat, fout: io.StringIO) -> None:
     while True:
       jline = fin.readline()
       if not jline:
+        fin.close()
         break
 
       m = pat.match(jline)
       if m:
           print('Match found: ', m.group(1))
-          readInput(getInput(m.group(1)), pat, fout)
+          readInput(in_provider.getRuleFile(m.group(1)), in_provider, pat, fout)
       else:
         fout.write(jline)
 
 
 # read and process the rule file
 # ---------------------------------------------------------------------------------------
-def readJetRuleFile(path: str) -> Dict[str, object]:
+def readJetRuleFile(fname: str, in_provider: InputProvider) -> Dict[str, object]:
   pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
   fout = io.StringIO()
-  fname = FLAGS.jr
 
   # read recursively the input file and it's imports
-  readInput(getInput(fname), pat, fout)
+  readInput(in_provider.getRuleFile(fname), in_provider, pat, fout)
   fout.seek(0)
 
   jetrules = processJetRule(fout)
+  fout.close()
   return jetrules
 
 
