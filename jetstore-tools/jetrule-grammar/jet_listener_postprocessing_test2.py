@@ -13,10 +13,10 @@ FLAGS = flags.FLAGS
 
 class JetRulesPostProcessorTest2(absltest.TestCase):
 
-  def _get_augmented_data(self) -> JetListener:
+  def _get_augmented_data(self):
     data = compiler.getInput("jetstore-tools/jetrule-grammar/jet_listener_postprocessing_test_data.jr")
-    jetRulesSpec =  compiler.processJetRule(data)
-    ctx = compiler.postprocessJetRule(jetRulesSpec)
+    jetrule_ctx =  compiler.processJetRule(data)
+    ctx = compiler.postprocessJetRule(jetrule_ctx)
     data.close()
     return ctx.jetRules
 

@@ -12,10 +12,10 @@ FLAGS = flags.FLAGS
 
 class JetRulesPostProcessorTest(absltest.TestCase):
 
-  def _get_augmented_data(self, data: io.StringIO) -> Dict[str, object]:
-    jetRulesSpec =  compiler.processJetRule(data)
-    ctx = compiler.postprocessJetRule(jetRulesSpec)
-    return ctx.jetRules
+  def _get_augmented_data(self, input_data: io.StringIO) -> Dict[str, object]:
+    jetrule_ctx =  compiler.processJetRule(input_data)
+    compiler.postprocessJetRule(jetrule_ctx)
+    return jetrule_ctx.jetRules
 
   def test_lookup_table1(self):
     data = io.StringIO("""

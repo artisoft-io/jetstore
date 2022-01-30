@@ -14,12 +14,20 @@ from jetrule_validator import JetRuleValidator
 from jet_listener_postprocessing import JetRulesPostProcessor
 from JetRuleParser import JetRuleParser
 from JetRuleLexer import JetRuleLexer
+from antlr4.error.ErrorListener import *
 
 FLAGS = flags.FLAGS
 # flags.DEFINE_string("jr", "default useful if required", "JetRule file", required=True)
 flags.DEFINE_string("jr", None, "JetRule file")
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
+
+ERRORS = []
+class JetRuleErrorListener(ErrorListener):
+
+  def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+      ERRORS.append("line {0}:{1} {2}".format(line, column, msg))
+
 
 class InputProvider:
 
@@ -59,54 +67,73 @@ def readJetRuleFile(fname: str, in_provider: InputProvider) -> Dict[str, object]
   readInput(in_provider.getRuleFile(fname), in_provider, pat, fout)
   fout.seek(0)
 
-  jetrules = processJetRule(fout)
+  jetrule_ctx = processJetRule(fout)
   fout.close()
-  return jetrules
+  return jetrule_ctx.jetRules
 
 
 # process the input jetrule buffer
 # ---------------------------------------------------------------------------------------
-def processJetRule(input: io.StringIO) -> Dict[str, object]:
-  data =  a4.InputStream(input.read())
-  
+def processJetRule(input: io.StringIO) -> JetRuleContext:
+  # reset
+  ERRORS.clear()
+
+  # input data
+  input_data =  a4.InputStream(input.read())
+
   # lexer
-  lexer = JetRuleLexer(data)
+  lexer = JetRuleLexer(input_data)
   stream = a4.CommonTokenStream(lexer)
   
   # parser
   parser = JetRuleParser(stream)
+  parser.removeErrorListeners() 
+
+  errorListener = JetRuleErrorListener()
+  parser.addErrorListener(errorListener)  
+
+  # build the tree
   tree = parser.jetrule()
 
   # evaluator
   listener = JetListener()
   walker = a4.ParseTreeWalker()
   walker.walk(listener, tree)
-  return listener.jetRules
+
+  errors = []
+  for err in ERRORS:
+    errors.append(err)
+
+  ctx = JetRuleContext(listener.jetRules, errors)
+  return ctx
 
 
 # post-process the input jetrule buffer
 # ---------------------------------------------------------------------------------------
-def postprocessJetRule(data: Dict[str, object]) -> JetRuleContext:
+def postprocessJetRule(jetrule_ctx: JetRuleContext) -> JetRuleContext:
 
-  # Create the context for post processing
-  ctx = JetRuleContext(data)
+  if jetrule_ctx.ERROR:
+    return jetrule_ctx
 
   # augment the output with post processor
-  postProcessor = JetRulesPostProcessor(ctx)
+  postProcessor = JetRulesPostProcessor(jetrule_ctx)
   postProcessor.createResourcesForLookupTables()
   postProcessor.mapVariables()
   postProcessor.addNormalizedLabels()
   postProcessor.addLabels()
-  return ctx
+  return jetrule_ctx
 
 
 # validate the input jetrule buffer
 # ---------------------------------------------------------------------------------------
 def validateJetRule(jetrule_ctx: JetRuleContext, is_preflight: bool) -> bool:
 
+  if jetrule_ctx.ERROR:
+    return False
+
   # augment the output with post processor
   validator = JetRuleValidator(jetrule_ctx)
-  return validator.validateVariables(is_preflight)
+  return validator.validateJetRule(is_preflight)
 
 
 # command line invocation

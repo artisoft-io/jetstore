@@ -33,13 +33,13 @@ class JetRuleValidator:
 
     def validateBinded(self, var: str) -> bool:
       is_binded = var in self.binded_vars
-      # print('*** validateBinded for var',var,'is',is_binded)
       if not is_binded:
         self.err(
           "Error rule {0}: Variable '{1}' is not binded in this context '{2}' "
           "and must be for the rule to be valid.".format(
             self.rule_name, var, self.term_label)
         )
+      # print('*** validateBinded for var',var,'is',is_binded, 'has errors?',self.has_errors)
       return is_binded
 
     def addBinded(self, var: str) -> bool:
@@ -51,14 +51,25 @@ class JetRuleValidator:
       if self.elm_type in ['filter', 'consequent', 'negated']:
         return self.validateBinded(var)
       return self.addBinded(var)
+    
+    def validateIdentifier(self, var: str) -> bool:
+      # print('*** Validate Identifier for rule', self.rule_name, 'visiting elm type', self.elm_type, 'validating identifier', var, 'preflight', self.preflight)
+      defined = var in self.jetrule_ctx.defined_resources
+      if not defined:
+        self.err(
+          "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
+          "it must be define.".format(
+            self.rule_name, var, self.term_label)
+        )
+      return defined
 
   # =====================================================================================
-  # validateVariables
+  # validateJetRule
   # -------------------------------------------------------------------------------------
   # Validate jetrules antecedent and consequents terms to ensure the correct use of 
   # unbinded variables
   # Returns True when valid, False otherwise
-  def validateVariables(self, preflight: bool = False) -> bool:
+  def validateJetRule(self, preflight: bool = False) -> bool:
     ctx = JetRuleValidator.ValidationContext(self.ctx, preflight)
     rules = self.ctx.jetRules.get('jet_rules')
 
@@ -73,10 +84,13 @@ class JetRuleValidator:
         self.validateElm(item, ctx)
         if ctx.preflight and ctx.has_errors: return not ctx.has_errors
 
+      # print('*** Validate JetRule rule', ctx.rule_name, 'done with antecedents', 'preflight', ctx.preflight)
+
       for item in rule.get('consequents', []):
         ctx.setTermLabel(item['label'])
         ctx.setElmType('consequent')
         self.validateElm(item, ctx)
+        # print('*** Validate JetRule rule', ctx.rule_name, 'doing consequent: type',ctx.elm_type,'has_errors?',ctx.has_errors, 'preflight', ctx.preflight)
         if ctx.preflight and ctx.has_errors: return not ctx.has_errors
     
     return not ctx.has_errors
@@ -88,6 +102,8 @@ class JetRuleValidator:
     type = elm.get('type')
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
+    # print('    validateElm', ctx.rule_name, 'elem type', type, 'preflight', ctx.preflight)
+
     # Antecedent Term
     if type == 'antecedent':
       ctx.setElmType('antecedent')
@@ -98,9 +114,21 @@ class JetRuleValidator:
       # Validate the triple elm
       triple = elm['triple']
       self.validateElm(triple[0], ctx)
+      if type == 'keyword':
+        ctx.err(
+          "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
+          "it must be define.".format(
+            ctx.rule_name, elm.get('value'), ctx.term_label)
+        )
       if ctx.preflight and ctx.has_errors: return ctx.has_errors
 
       self.validateElm(triple[1], ctx)
+      if type == 'keyword':
+        ctx.err(
+          "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
+          "it must be define.".format(
+            ctx.rule_name, elm.get('value'), ctx.term_label)
+        )
       if ctx.preflight and ctx.has_errors: return ctx.has_errors
 
       self.validateElm(triple[2], ctx)
@@ -115,6 +143,7 @@ class JetRuleValidator:
 
     # Consequent Term
     if type == 'consequent':
+      ctx.setElmType('consequent')
       triple = elm['triple']
       self.validateElm(triple[0], ctx)
       if ctx.preflight and ctx.has_errors: return ctx.has_errors
@@ -135,7 +164,10 @@ class JetRuleValidator:
     if type == 'var':
       return ctx.validateVar(elm['label'])
 
-    if type in ['text','int','uint','long','ulong','identifier','keyword']:
+    if type == 'identifier':
+      return ctx.validateIdentifier(elm['value'])
+
+    if type in ['text','int','uint','long','ulong','keyword']:
       pass
 
     return ctx.has_errors

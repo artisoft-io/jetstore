@@ -5,11 +5,22 @@ from JetRuleLexer import JetRuleLexer
 
 class JetRuleContext:
 
-  def __init__(self, data: Dict[str, object]):
+  def __init__(self, data: Dict[str, object], errors: Sequence[str]):
     self.jetRules = data
     self.literalMap = {}
     self.resourceMap = {}
-    self.errors = []
+    self.errors = errors
+
+    self.literals = None
+    self.resources = None
+    self.lookup_tables = None
+    self.jet_rules = None
+    self.defined_resources = None
+
+    self.ERROR = False
+    if self.errors:
+      self.ERROR = True
+      return
 
     # Prepare a set of symbol names to be able to escape them in resource names
     self.symbolNames = set([symbolName.replace("'", '') for symbolName in JetRuleLexer.literalNames])
@@ -28,6 +39,9 @@ class JetRuleContext:
 
     self._initMap(self.literalMap, self.literals, 'Literal')
     self._initMap(self.resourceMap, self.resources, 'Resource')
+
+    # collect all defined resources and literals for rule validation
+    self.defined_resources = frozenset(self.literalMap.keys() | self.resourceMap.keys())
 
   def _initMap(self, map, items, tag):
     for item in items:
