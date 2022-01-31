@@ -3,7 +3,13 @@ from jet_listener_postprocessing import JetRulesPostProcessor
 from dataclasses import dataclass, field
 from typing import Any, Sequence, Set
 from typing import Dict
-import queue
+import apsw
+
+print ("      Using APSW file",apsw.__file__)                # from the extension module
+print ("         APSW version",apsw.apswversion())           # from the extension module
+print ("   SQLite lib version",apsw.sqlitelibversion())      # from the sqlite library code
+print ("SQLite header version",apsw.SQLITE_VERSION_NUMBER)   # from the sqlite header file at compile time
+print()
 
 class JetRuleRete:
   def __init__(self, ctx: JetRuleContext):

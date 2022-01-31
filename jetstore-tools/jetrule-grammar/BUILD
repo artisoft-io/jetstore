@@ -18,8 +18,11 @@ py_binary(
   srcs = [
     "jetrule_compiler.py",
     "jet_listener.py",                # this produce my-rules.jr.json from input file my-rule.jr
-    "jet_listener_postprocessing.py"  # this augment  my-rules.jr.json
-    # next is to validate the integrity on the input my-rules.jr.json, then generate the rete network, output my-rules.rete.json
+    "jet_listener_postprocessing.py", # this augment  my-rules.jr.json
+    "jetrule_validator.py",
+    "jetrule_optimizer.py",
+    "jetrule_rete.py",
+    "jetrule_context.py",
   ],
   imports = ["jetrule_g4_gen.py"],
   python_version = "PY3",
@@ -28,6 +31,7 @@ py_binary(
       ":jetrule_lang_lib",
       "@antlr4_runtimes//:python",
       requirement("absl-py"),
+      requirement("apsw"),
   ],
 )
 
