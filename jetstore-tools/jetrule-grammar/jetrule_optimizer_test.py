@@ -180,7 +180,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(postprocessed_data))
 
     # validate that empty rule file is ok
-    # self.assertEqual(json.dumps(postprocessed_data), expected)
+    self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
     is_valid = compiler.validateJetRule(jetrule_ctx, False)
@@ -193,6 +193,42 @@ class JetRulesOptimizerTest(absltest.TestCase):
 
     optimized_data = jetrule_ctx.jetRules
     optimized_expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleO4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or true) and ?x1]", "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or true) and ?clm01]", "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?x1", "label": "?clm01"}, "op": "or", "rhs": {"type": "keyword", "value": "true"}}, "op": "and", "rhs": {"type": "var", "id": "?x1", "label": "?clm01"}}}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "var", "id": "?x2", "label": "?good"}], "normalizedLabel": "(?x1 is_good ?x2)", "label": "(?clm01 is_good ?good)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "authoredLabel": "[RuleO4]:(?clm01 rdf:type acme:Claim).[?clm01].(?clm01 is_good ?good).[?clm01 or true] -> (?clm01 is_good true);", "normalizedLabel": "[RuleO4]:(?x1 rdf:type acme:Claim).[(?x1 or true) and ?x1].(?x1 is_good ?x2) -> (?x1 is_good true);", "label": "[RuleO4]:(?clm01 rdf:type acme:Claim).[(?clm01 or true) and ?clm01].(?clm01 is_good ?good) -> (?clm01 is_good true);"}]}"""
+    # print()
+    # print('OPTIMIZED GOT:',json.dumps(optimized_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(optimized_data))
+    self.assertEqual(json.dumps(optimized_data), optimized_expected)
+
+  def test_optimize5(self):
+    data = io.StringIO("""
+      # =======================================================================================
+      resource rdf:type = "rdf:type";
+      resource acme:Claim = "acme:Claim";
+      volatile_resource is_good = "is_good";
+      [RuleO5]: 
+        (?clm01 reverse_of ?clm02).
+        (?clm03 rdf:type acme:Claim).
+        (?clm01 rdf:type acme:Claim).
+        (?clm02 rdf:type acme:Claim)
+        ->
+        (?clm01 is_good true).
+      ;
+    """)
+
+  # Result:
+  # "authoredLabel": "[RuleO5]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);",
+  # "normalizedLabel": "[RuleO5]:(?x1 rdf:type acme:Claim).(?x2 rdf:type acme:Claim).(?x2 reverse_of ?x3).(?x3 rdf:type acme:Claim) -> (?x2 is_good true);",
+  # "label": "[RuleO5]:(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm01 reverse_of ?clm02).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);"    
+
+    jetrule_ctx = self._get_augmented_data(data)
+    data.close()
+
+    # Optimize the rules
+    optimizer = JetRuleOptimizer(jetrule_ctx)
+    optimizer.optimizeJetRules()
+
+    optimized_data = jetrule_ctx.jetRules
+    optimized_expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleO5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm03"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm03 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x2", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x2 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x2", "label": "?clm01"}, {"type": "identifier", "value": "reverse_of"}, {"type": "var", "id": "?x3", "label": "?clm02"}], "normalizedLabel": "(?x2 reverse_of ?x3)", "label": "(?clm01 reverse_of ?clm02)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x3", "label": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x3 rdf:type acme:Claim)", "label": "(?clm02 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x2", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x2 is_good true)", "label": "(?clm01 is_good true)"}], "authoredLabel": "[RuleO5]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);", "normalizedLabel": "[RuleO5]:(?x1 rdf:type acme:Claim).(?x2 rdf:type acme:Claim).(?x2 reverse_of ?x3).(?x3 rdf:type acme:Claim) -> (?x2 is_good true);", "label": "[RuleO5]:(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm01 reverse_of ?clm02).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);"}]}"""
     # print()
     # print('OPTIMIZED GOT:',json.dumps(optimized_data, indent=2))
     # print()
