@@ -7,8 +7,8 @@
 # lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
 # Note: Legacy trd lookup table will have to be converted to csv
 # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
-lookup_table usi:ProcedureLookup {
-  $table_name = usi__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
+lookup_table acme:ProcedureLookup {
+  $table_name = acme__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
   $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
 
   # Value columns, corresponding resource automatically created

@@ -33,8 +33,8 @@ resource None  = null;
 resource uuid  = create_uuid_resource();
 
 # Some special cases
-resource usi:key = "usi:key";
-resource usi:"lookup_table" = "usi:key";
+resource acme:key = "acme:key";
+resource acme:"lookup_table" = "acme:key";
 
 # Preferred way to define volative resources
 # ---------------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ volatile_resource medicareRateObj262     = "medicareRateObj262";
 # lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
 # Note: Legacy trd lookup table will have to be converted to csv
 # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
-lookup_table usi:ProcedureLookup {
+lookup_table acme:ProcedureLookup {
   $table_name = usi__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
   $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
 
@@ -74,26 +74,26 @@ lookup_table MSK_DRG_TRIGGER {
 # property s: salience, o: optimization, tag: label
 # optimization is true by default
 [Rule1, s=+100, o=false, tag="USI"]: 
-  (?clm01 rdf:type usi:Claim).
-  not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
+  (?clm01 rdf:type acme:Claim).
+  not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
   ->
-  (?clm01 rdf:type usi:SpecialClaim).
+  (?clm01 rdf:type acme:SpecialClaim).
   (?clm01 xyz ?drg)
 ;
 
 [Rule2, s=100, o=true, tag="USI"]: 
-  (?clm01 rdf:type usi:Claim).
-  not(?clm01 usi:hasDRG ?drg).[true and false]
+  (?clm01 rdf:type acme:Claim).
+  not(?clm01 acme:hasDRG ?drg).[true and false]
   ->
-  (?clm01 rdf:type usi:SpecialClaim)
+  (?clm01 rdf:type acme:SpecialClaim)
 ;
 
 [Rule3]: 
-  (?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)].
-  (?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2].
+  (?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].
+  (?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2].
   ->
-  (?clm01 rdf:type usi:SpecialClaim).
-  (?clm02 rdf:type usi:SpecialClaim)
+  (?clm01 rdf:type acme:SpecialClaim).
+  (?clm02 rdf:type acme:SpecialClaim)
 ;
 
 [Rule4]: 
@@ -107,16 +107,16 @@ lookup_table MSK_DRG_TRIGGER {
 [Rule5]: 
   (?clm01 has_code ?code).
   ->
-  (?clm01 usi:"lookup_table" true)
+  (?clm01 acme:"lookup_table" true)
 ;
 
 [Rule6]: 
   (?clm01 has_code r1).
   (?clm01 has_str r2).
   ->
-  (?clm01 usi:"lookup_table" "valueX").
-  (?clm01 usi:market "MERGED \"MARKET\" CHARGE BACK").
-  (?clm01 usi:market text("MERGED \"MARKET\" CHARGE BACK"))
+  (?clm01 acme:"lookup_table" "valueX").
+  (?clm01 acme:market "MERGED \"MARKET\" CHARGE BACK").
+  (?clm01 acme:market text("MERGED \"MARKET\" CHARGE BACK"))
 
 ;
 
@@ -125,7 +125,7 @@ lookup_table MSK_DRG_TRIGGER {
   (?clm01 has_str "value").
   (?clm01 hasTrue true).
   ->
-  (?clm01 usi:"lookup_table" true).
+  (?clm01 acme:"lookup_table" true).
   (?clm01 has_literal int(1)).
   (?clm01 has_expr (int(1) + long(4)))
 ;

@@ -89,13 +89,13 @@
       },
       {
           "type": "resource",
-          "id": "usi:key",
-          "value": "usi:key"
+          "id": "acme:key",
+          "value": "acme:key"
       },
       {
           "type": "resource",
-          "id": "usi:lookup_table",
-          "value": "usi:key"
+          "id": "acme:lookup_table",
+          "value": "acme:key"
       },
       {
           "type": "volatile_resource",
@@ -108,9 +108,9 @@
           "value": "medicareRateObj262"
       },
       {
-          "id": "usi:ProcedureLookup",
+          "id": "acme:ProcedureLookup",
           "type": "resource",
-          "value": "usi:ProcedureLookup"
+          "value": "acme:ProcedureLookup"
       },
       {
           "id": "cPROC_RID",
@@ -165,7 +165,7 @@
   ],
   "lookup_tables": [
       {
-          "name": "usi:ProcedureLookup",
+          "name": "acme:ProcedureLookup",
           "table": "usi__cm_proc_codes",
           "key": [
               "PROC_CODE"
@@ -229,11 +229,11 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
                   ],
-                  "normalizedLabel": "(?x1 rdf:type usi:Claim)",
-                  "label": "(?clm01 rdf:type usi:Claim)"
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                  "label": "(?clm01 rdf:type acme:Claim)"
               },
               {
                   "type": "antecedent",
@@ -246,7 +246,7 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:hasDRG"
+                          "value": "acme:hasDRG"
                       },
                       {
                           "type": "var",
@@ -276,8 +276,8 @@
                           "value": "1"
                       }
                   },
-                  "normalizedLabel": "not(?x1 usi:hasDRG ?x2).[(?x1 + ?x2) + int(1)]",
-                  "label": "not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1)]"
+                  "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)]",
+                  "label": "not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)]"
               }
           ],
           "consequents": [
@@ -295,11 +295,11 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
                   ],
-                  "normalizedLabel": "(?x1 rdf:type usi:SpecialClaim)",
-                  "label": "(?clm01 rdf:type usi:SpecialClaim)"
+                  "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm01 rdf:type acme:SpecialClaim)"
               },
               {
                   "type": "consequent",
@@ -323,8 +323,8 @@
                   "label": "(?clm01 xyz ?drg)"
               }
           ],
-          "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"USI\"]:(?x1 rdf:type usi:Claim).not(?x1 usi:hasDRG ?x2).[(?x1 + ?x2) + int(1)] -> (?x1 rdf:type usi:SpecialClaim).(?x1 xyz ?x2);",
-          "label": "[Rule1, s=+100, o=false, tag=\"USI\"]:(?clm01 rdf:type usi:Claim).not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1)] -> (?clm01 rdf:type usi:SpecialClaim).(?clm01 xyz ?drg);"
+          "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"USI\"]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)] -> (?x1 rdf:type acme:SpecialClaim).(?x1 xyz ?x2);",
+          "label": "[Rule1, s=+100, o=false, tag=\"USI\"]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)] -> (?clm01 rdf:type acme:SpecialClaim).(?clm01 xyz ?drg);"
       },
       {
           "name": "Rule2",
@@ -349,11 +349,11 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
                   ],
-                  "normalizedLabel": "(?x1 rdf:type usi:Claim)",
-                  "label": "(?clm01 rdf:type usi:Claim)"
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                  "label": "(?clm01 rdf:type acme:Claim)"
               },
               {
                   "type": "antecedent",
@@ -366,7 +366,7 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:hasDRG"
+                          "value": "acme:hasDRG"
                       },
                       {
                           "type": "var",
@@ -386,8 +386,8 @@
                           "value": "false"
                       }
                   },
-                  "normalizedLabel": "not(?x1 usi:hasDRG ?x2).[true and false]",
-                  "label": "not(?clm01 usi:hasDRG ?drg).[true and false]"
+                  "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[true and false]",
+                  "label": "not(?clm01 acme:hasDRG ?drg).[true and false]"
               }
           ],
           "consequents": [
@@ -405,15 +405,15 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
                   ],
-                  "normalizedLabel": "(?x1 rdf:type usi:SpecialClaim)",
-                  "label": "(?clm01 rdf:type usi:SpecialClaim)"
+                  "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm01 rdf:type acme:SpecialClaim)"
               }
           ],
-          "normalizedLabel": "[Rule2, s=100, o=true, tag=\"USI\"]:(?x1 rdf:type usi:Claim).not(?x1 usi:hasDRG ?x2).[true and false] -> (?x1 rdf:type usi:SpecialClaim);",
-          "label": "[Rule2, s=100, o=true, tag=\"USI\"]:(?clm01 rdf:type usi:Claim).not(?clm01 usi:hasDRG ?drg).[true and false] -> (?clm01 rdf:type usi:SpecialClaim);"
+          "normalizedLabel": "[Rule2, s=100, o=true, tag=\"USI\"]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[true and false] -> (?x1 rdf:type acme:SpecialClaim);",
+          "label": "[Rule2, s=100, o=true, tag=\"USI\"]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[true and false] -> (?clm01 rdf:type acme:SpecialClaim);"
       },
       {
           "name": "Rule3",
@@ -434,7 +434,7 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
                   ],
                   "filter": {
@@ -467,8 +467,8 @@
                           }
                       }
                   },
-                  "normalizedLabel": "(?x1 rdf:type usi:Claim).[(?x2 + b1) * (?x3 + b2)]",
-                  "label": "(?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)]"
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)]",
+                  "label": "(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)]"
               },
               {
                   "type": "antecedent",
@@ -485,7 +485,7 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
                   ],
                   "filter": {
@@ -510,8 +510,8 @@
                           "label": "?a2"
                       }
                   },
-                  "normalizedLabel": "(?x1 rdf:type usi:Claim).[(?x2 or b1) and ?x3]",
-                  "label": "(?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2]"
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3]",
+                  "label": "(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2]"
               }
           ],
           "consequents": [
@@ -529,11 +529,11 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
                   ],
-                  "normalizedLabel": "(?x1 rdf:type usi:SpecialClaim)",
-                  "label": "(?clm01 rdf:type usi:SpecialClaim)"
+                  "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm01 rdf:type acme:SpecialClaim)"
               },
               {
                   "type": "consequent",
@@ -549,15 +549,15 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
                   ],
-                  "normalizedLabel": "(?x4 rdf:type usi:SpecialClaim)",
-                  "label": "(?clm02 rdf:type usi:SpecialClaim)"
+                  "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm02 rdf:type acme:SpecialClaim)"
               }
           ],
-          "normalizedLabel": "[Rule3]:(?x1 rdf:type usi:Claim).[(?x2 + b1) * (?x3 + b2)].(?x1 rdf:type usi:Claim).[(?x2 or b1) and ?x3] -> (?x1 rdf:type usi:SpecialClaim).(?x4 rdf:type usi:SpecialClaim);",
-          "label": "[Rule3]:(?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)].(?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2] -> (?clm01 rdf:type usi:SpecialClaim).(?clm02 rdf:type usi:SpecialClaim);"
+          "normalizedLabel": "[Rule3]:(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)].(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3] -> (?x1 rdf:type acme:SpecialClaim).(?x4 rdf:type acme:SpecialClaim);",
+          "label": "[Rule3]:(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2] -> (?clm01 rdf:type acme:SpecialClaim).(?clm02 rdf:type acme:SpecialClaim);"
       },
       {
           "name": "Rule4",
@@ -744,19 +744,19 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:lookup_table"
+                          "value": "acme:lookup_table"
                       },
                       {
                           "type": "keyword",
                           "value": "true"
                       }
                   ],
-                  "normalizedLabel": "(?x1 usi:\"lookup_table\" true)",
-                  "label": "(?clm01 usi:\"lookup_table\" true)"
+                  "normalizedLabel": "(?x1 acme:\"lookup_table\" true)",
+                  "label": "(?clm01 acme:\"lookup_table\" true)"
               }
           ],
-          "normalizedLabel": "[Rule5]:(?x1 has_code ?x2) -> (?x1 usi:\"lookup_table\" true);",
-          "label": "[Rule5]:(?clm01 has_code ?code) -> (?clm01 usi:\"lookup_table\" true);"
+          "normalizedLabel": "[Rule5]:(?x1 has_code ?x2) -> (?x1 acme:\"lookup_table\" true);",
+          "label": "[Rule5]:(?clm01 has_code ?code) -> (?clm01 acme:\"lookup_table\" true);"
       },
       {
           "name": "Rule6",
@@ -816,15 +816,15 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:lookup_table"
+                          "value": "acme:lookup_table"
                       },
                       {
                           "type": "text",
                           "id": "valueX"
                       }
                   ],
-                  "normalizedLabel": "(?x1 usi:\"lookup_table\" \"valueX\")",
-                  "label": "(?clm01 usi:\"lookup_table\" \"valueX\")"
+                  "normalizedLabel": "(?x1 acme:\"lookup_table\" \"valueX\")",
+                  "label": "(?clm01 acme:\"lookup_table\" \"valueX\")"
               },
               {
                   "type": "consequent",
@@ -836,15 +836,15 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:market"
+                          "value": "acme:market"
                       },
                       {
                           "type": "text",
                           "id": "MERGED \"MARKET\" CHARGE BACK"
                       }
                   ],
-                  "normalizedLabel": "(?x1 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")",
-                  "label": "(?clm01 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")"
+                  "normalizedLabel": "(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")",
+                  "label": "(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")"
               },
               {
                   "type": "consequent",
@@ -856,19 +856,19 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:market"
+                          "value": "acme:market"
                       },
                       {
                           "type": "text",
                           "id": "MERGED \"MARKET\" CHARGE BACK"
                       }
                   ],
-                  "normalizedLabel": "(?x1 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")",
-                  "label": "(?clm01 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")"
+                  "normalizedLabel": "(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")",
+                  "label": "(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")"
               }
           ],
-          "normalizedLabel": "[Rule6]:(?x1 has_code r1).(?x1 has_str r2) -> (?x1 usi:\"lookup_table\" \"valueX\").(?x1 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\").(?x1 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\");",
-          "label": "[Rule6]:(?clm01 has_code r1).(?clm01 has_str r2) -> (?clm01 usi:\"lookup_table\" \"valueX\").(?clm01 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\").(?clm01 usi:market \"MERGED \\\"MARKET\\\" CHARGE BACK\");"
+          "normalizedLabel": "[Rule6]:(?x1 has_code r1).(?x1 has_str r2) -> (?x1 acme:\"lookup_table\" \"valueX\").(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\").(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\");",
+          "label": "[Rule6]:(?clm01 has_code r1).(?clm01 has_str r2) -> (?clm01 acme:\"lookup_table\" \"valueX\").(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\").(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\");"
       },
       {
           "name": "Rule7",
@@ -949,15 +949,15 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:lookup_table"
+                          "value": "acme:lookup_table"
                       },
                       {
                           "type": "keyword",
                           "value": "true"
                       }
                   ],
-                  "normalizedLabel": "(?x1 usi:\"lookup_table\" true)",
-                  "label": "(?clm01 usi:\"lookup_table\" true)"
+                  "normalizedLabel": "(?x1 acme:\"lookup_table\" true)",
+                  "label": "(?clm01 acme:\"lookup_table\" true)"
               },
               {
                   "type": "consequent",
@@ -1008,8 +1008,8 @@
                   "label": "(?clm01 has_expr int(1) + long(4))"
               }
           ],
-          "normalizedLabel": "[Rule7]:(?x1 has_code int(1)).(?x1 has_str \"value\").(?x1 hasTrue true) -> (?x1 usi:\"lookup_table\" true).(?x1 has_literal int(1)).(?x1 has_expr int(1) + long(4));",
-          "label": "[Rule7]:(?clm01 has_code int(1)).(?clm01 has_str \"value\").(?clm01 hasTrue true) -> (?clm01 usi:\"lookup_table\" true).(?clm01 has_literal int(1)).(?clm01 has_expr int(1) + long(4));"
+          "normalizedLabel": "[Rule7]:(?x1 has_code int(1)).(?x1 has_str \"value\").(?x1 hasTrue true) -> (?x1 acme:\"lookup_table\" true).(?x1 has_literal int(1)).(?x1 has_expr int(1) + long(4));",
+          "label": "[Rule7]:(?clm01 has_code int(1)).(?clm01 has_str \"value\").(?clm01 hasTrue true) -> (?clm01 acme:\"lookup_table\" true).(?clm01 has_literal int(1)).(?clm01 has_expr int(1) + long(4));"
       }
   ]
 }

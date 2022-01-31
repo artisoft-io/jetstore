@@ -11,6 +11,9 @@ class JetRuleContext:
     self.resourceMap = {}
     self.errors = errors
 
+    # For rete network
+    self.rete_nodes = []
+
     self.literals = None
     self.resources = None
     self.lookup_tables = None

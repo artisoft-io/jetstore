@@ -8,7 +8,7 @@ import "import_test2.jr"
 # ---------------------------------------------------------------------------------------
 int isTrue = 1;
 
-# Defining some constants (e.g. Exclusion Types)
+# Defining some constants (e.g. Exclacmeon Types)
 # ---------------------------------------------------------------------------------------
 text NOT_IN_CONTRACT      = "NOT COVERED IN CONTRACT";
 text EXCLUDED_STATE       = "STATE";

@@ -18,7 +18,7 @@ class JetListenerTest2(absltest.TestCase):
     data.close()
     return ctx.jetRules
 
-  # Test data file are accessible using the path relative to the root of the workspace
+  # Test data file are accessible acmeng the path relative to the root of the workspace
   def test_rule_file1(self):
     jetRules = self._get_listener_data()
 

@@ -29,7 +29,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     postprocessed_data = self._get_from_file("import_test1.jr")
 
     # validate the whole result
-    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1"}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}], "resources": [{"id": "usi:ProcedureLookup", "type": "resource", "value": "usi:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "usi:ProcedureLookup", "table": "usi__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": []}"""
+    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1"}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -68,10 +68,10 @@ class JetRulesValidatorTest(absltest.TestCase):
       # Simplest rule that is valid
       # ---------------------------------------------------------------------------------------
       resource rdf:type = "rdf:type";
-      resource usi:Claim = "usi:Claim";
+      resource acme:Claim = "acme:Claim";
       volatile_resource is_good = "is_good";
       [RuleV1]: 
-        (?clm01 rdf:type usi:Claim).
+        (?clm01 rdf:type acme:Claim).
         ->
         (?clm01 is_good true).
       ;
@@ -81,7 +81,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "usi:Claim", "value": "usi:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "normalizedLabel": "(?x1 rdf:type usi:Claim)", "label": "(?clm01 rdf:type usi:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "normalizedLabel": "[RuleV1]:(?x1 rdf:type usi:Claim) -> (?x1 is_good true);", "label": "[RuleV1]:(?clm01 rdf:type usi:Claim) -> (?clm01 is_good true);"}]}"""
+    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "normalizedLabel": "[RuleV1]:(?x1 rdf:type acme:Claim) -> (?x1 is_good true);", "label": "[RuleV1]:(?clm01 rdf:type acme:Claim) -> (?clm01 is_good true);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -100,10 +100,10 @@ class JetRulesValidatorTest(absltest.TestCase):
       # Simplest rule that is valid
       # ---------------------------------------------------------------------------------------
       resource rdf:type = "rdf:type";
-      resource usi:Claim = "usi:Claim";
+      resource acme:Claim = "acme:Claim";
       volatile_resource is_good = "is_good";
       [RuleV1]: 
-        (?clm01 rdf:type usi:Claim).
+        (?clm01 rdf:type acme:Claim).
         ->
         (?clm01 is_good true).
       ;
@@ -113,7 +113,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "usi:Claim", "value": "usi:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "normalizedLabel": "(?x1 rdf:type usi:Claim)", "label": "(?clm01 rdf:type usi:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "normalizedLabel": "[RuleV1]:(?x1 rdf:type usi:Claim) -> (?x1 is_good true);", "label": "[RuleV1]:(?clm01 rdf:type usi:Claim) -> (?clm01 is_good true);"}]}"""
+    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "normalizedLabel": "[RuleV1]:(?x1 rdf:type acme:Claim) -> (?x1 is_good true);", "label": "[RuleV1]:(?clm01 rdf:type acme:Claim) -> (?clm01 is_good true);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -132,9 +132,9 @@ class JetRulesValidatorTest(absltest.TestCase):
       # Simplest rule that is NOT valid
       # ---------------------------------------------------------------------------------------
       resource rdf:type = "rdf:type";
-      resource usi:Claim = "usi:Claim";
+      resource acme:Claim = "acme:Claim";
       [RuleV2]: 
-        (?clm01 rdf:type usi:Claim).
+        (?clm01 rdf:type acme:Claim).
         ->
         (?clm02 is_good false).
       ;
@@ -144,7 +144,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "usi:Claim", "value": "usi:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV2", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "normalizedLabel": "(?x1 rdf:type usi:Claim)", "label": "(?clm01 rdf:type usi:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x2", "label": "?clm02"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "false"}], "normalizedLabel": "(?x2 is_good false)", "label": "(?clm02 is_good false)"}], "normalizedLabel": "[RuleV2]:(?x1 rdf:type usi:Claim) -> (?x2 is_good false);", "label": "[RuleV2]:(?clm01 rdf:type usi:Claim) -> (?clm02 is_good false);"}]}"""
+    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV2", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x2", "label": "?clm02"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "false"}], "normalizedLabel": "(?x2 is_good false)", "label": "(?clm02 is_good false)"}], "normalizedLabel": "[RuleV2]:(?x1 rdf:type acme:Claim) -> (?x2 is_good false);", "label": "[RuleV2]:(?clm01 rdf:type acme:Claim) -> (?clm02 is_good false);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -166,9 +166,9 @@ class JetRulesValidatorTest(absltest.TestCase):
       # Simplest rule that is NOT valid
       # ---------------------------------------------------------------------------------------
       resource rdf:type = "rdf:type";
-      resource usi:Claim = "usi:Claim";
+      resource acme:Claim = "acme:Claim";
       [RuleV3]: 
-        (?clm01 rdf:type usi:Claim).
+        (?clm01 rdf:type acme:Claim).
         ->
         (?clm02 is_good false).
       ;
@@ -178,7 +178,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "usi:Claim", "value": "usi:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "normalizedLabel": "(?x1 rdf:type usi:Claim)", "label": "(?clm01 rdf:type usi:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x2", "label": "?clm02"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "false"}], "normalizedLabel": "(?x2 is_good false)", "label": "(?clm02 is_good false)"}], "normalizedLabel": "[RuleV3]:(?x1 rdf:type usi:Claim) -> (?x2 is_good false);", "label": "[RuleV3]:(?clm01 rdf:type usi:Claim) -> (?clm02 is_good false);"}]}"""
+    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x2", "label": "?clm02"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "false"}], "normalizedLabel": "(?x2 is_good false)", "label": "(?clm02 is_good false)"}], "normalizedLabel": "[RuleV3]:(?x1 rdf:type acme:Claim) -> (?x2 is_good false);", "label": "[RuleV3]:(?clm01 rdf:type acme:Claim) -> (?clm02 is_good false);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -198,9 +198,9 @@ class JetRulesValidatorTest(absltest.TestCase):
       # Simplest rule that is NOT valid
       # ---------------------------------------------------------------------------------------
       resource rdf:type = "rdf:type";
-      resource usi:Claim = "usi:Claim";
+      resource acme:Claim = "acme:Claim";
       [RuleV4]: 
-        (?clm01 rdf:type usi:Claim).[?clm02]
+        (?clm01 rdf:type acme:Claim).[?clm02]
         ->
         (?clm01 is_good false).
       ;
@@ -210,7 +210,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "usi:Claim", "value": "usi:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "filter": {"type": "var", "id": "?x2", "label": "?clm02"}, "normalizedLabel": "(?x1 rdf:type usi:Claim).[?x2]", "label": "(?clm01 rdf:type usi:Claim).[?clm02]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "false"}], "normalizedLabel": "(?x1 is_good false)", "label": "(?clm01 is_good false)"}], "normalizedLabel": "[RuleV4]:(?x1 rdf:type usi:Claim).[?x2] -> (?x1 is_good false);", "label": "[RuleV4]:(?clm01 rdf:type usi:Claim).[?clm02] -> (?clm01 is_good false);"}]}"""
+    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "var", "id": "?x2", "label": "?clm02"}, "normalizedLabel": "(?x1 rdf:type acme:Claim).[?x2]", "label": "(?clm01 rdf:type acme:Claim).[?clm02]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "false"}], "normalizedLabel": "(?x1 is_good false)", "label": "(?clm01 is_good false)"}], "normalizedLabel": "[RuleV4]:(?x1 rdf:type acme:Claim).[?x2] -> (?x1 is_good false);", "label": "[RuleV4]:(?clm01 rdf:type acme:Claim).[?clm02] -> (?clm01 is_good false);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -222,7 +222,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     is_valid = compiler.validateJetRule(jetrule_ctx, False)
     self.assertEqual(is_valid, False)
     # print('*** Errors?',jetrule_ctx.errors)
-    self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleV4: Variable '?clm02' is not binded in this context '(?clm01 rdf:type usi:Claim).[?clm02]' and must be for the rule to be valid.")
+    self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleV4: Variable '?clm02' is not binded in this context '(?clm01 rdf:type acme:Claim).[?clm02]' and must be for the rule to be valid.")
     self.assertEqual(jetrule_ctx.errors[1], "Error rule RuleV4: Identifier 'is_good' is not defined in this context '(?clm01 is_good false)', it must be define.")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
@@ -231,9 +231,9 @@ class JetRulesValidatorTest(absltest.TestCase):
       # =======================================================================================
       # Simplest rule that is NOT valid
       # ---------------------------------------------------------------------------------------
-      resource usi:Claim = "usi:Claim";
+      resource acme:Claim = "acme:Claim";
       [RuleV5]: 
-        (true ?clm01 usi:Claim)
+        (true ?clm01 acme:Claim)
         ->
         (?clm01 false false).
       ;
@@ -243,8 +243,13 @@ class JetRulesValidatorTest(absltest.TestCase):
 
     self.assertEqual(jetrule_ctx.ERROR, True)
 
+    # print('GOT')
+    # for k in jetrule_ctx.errors:
+    #   print(k)
+    # print()
+
     self.assertEqual(jetrule_ctx.errors[0], "line 7:9 extraneous input 'true' expecting {'?', Identifier}")
-    self.assertEqual(jetrule_ctx.errors[1], "line 7:30 mismatched input ')' expecting {'?', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'true', 'false', Identifier, String}")
+    self.assertEqual(jetrule_ctx.errors[1], "line 7:31 mismatched input ')' expecting {'?', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'true', 'false', Identifier, String}")
     self.assertEqual(jetrule_ctx.errors[2], "line 9:16 mismatched input 'false' expecting {'?', Identifier}")
     self.assertEqual(jetrule_ctx.errors[3], "line 9:22 extraneous input 'false' expecting ')'")
     self.assertEqual(len(jetrule_ctx.errors), 4)

@@ -63,7 +63,10 @@ class JetRulesPostProcessor:
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
     if type == 'var':
-      id = elm['id']
+      # Check to see if it has already a label, if so use it as id
+      id = elm.get('label')
+      if not id:
+        id = elm['id']
       mappedVar = self.varMapping.get(id)
       if mappedVar is None:
         mappedVar = '?x' + str(len(self.varMapping)+1)

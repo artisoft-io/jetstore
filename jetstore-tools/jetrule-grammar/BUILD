@@ -107,6 +107,38 @@ py_test(
   imports = ["jetrule_g4_gen.py"],
 )
 
+py_test(
+  name = "jetrule_optimizer_test",
+  srcs = ["jetrule_optimizer_test.py"],
+  python_version = "PY3",
+  srcs_version = "PY3",
+  deps = [
+    ":jetrule_compiler",
+    requirement("absl-py"),
+  ],
+  # data = [
+  #   ":import_test1.jr",
+  #   ":import_test2.jr",
+  # ],
+  imports = ["jetrule_g4_gen.py"],
+)
+
+py_test(
+  name = "jetrule_rete_test",
+  srcs = ["jetrule_rete_test.py"],
+  python_version = "PY3",
+  srcs_version = "PY3",
+  deps = [
+    ":jetrule_compiler",
+    requirement("absl-py"),
+  ],
+  # data = [
+  #   ":import_test1.jr",
+  #   ":import_test2.jr",
+  # ],
+  imports = ["jetrule_g4_gen.py"],
+)
+
 # genrule(
 #     name = "gen_jetrule_parser",
 #     srcs = [

@@ -39,7 +39,7 @@ class JetListenerTest(absltest.TestCase):
 
   def test_literals2(self):
     data = io.StringIO("""
-      # Defining some constants (e.g. Exclusion Types)
+      # Defining some constants (e.g. Exclacmeon Types)
       # ---------------------------------------------------------------------------------------
       text NOT_IN_CONTRACT      = "NOT COVERED IN CONTRACT";
       text EXCLUDED_STATE       = "STATE";
@@ -71,13 +71,13 @@ class JetListenerTest(absltest.TestCase):
       resource uuid  = create_uuid_resource();
 
       # Some special cases
-      resource usi:key = "usi:key";
-      resource usi:"lookup_table" = "usi:key";  # Escaping keyword 'lookup_table' in resource name
+      resource acme:key = "acme:key";
+      resource acme:"lookup_table" = "acme:key";  # Escaping keyword 'lookup_table' in resource name
     """)
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "medicareRateObjTC1", "value": "_0:medicareRateObjTC1"}, {"type": "resource", "id": "medicareRateObjTC2", "value": "_0:medicareRateObjTC2"}, {"type": "resource", "id": "None", "value": "null"}, {"type": "resource", "id": "uuid", "value": "create_uuid_resource()"}, {"type": "resource", "id": "usi:key", "value": "usi:key"}, {"type": "resource", "id": "usi:lookup_table", "value": "usi:key"}], "lookup_tables": [], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [{"type": "resource", "id": "medicareRateObjTC1", "value": "_0:medicareRateObjTC1"}, {"type": "resource", "id": "medicareRateObjTC2", "value": "_0:medicareRateObjTC2"}, {"type": "resource", "id": "None", "value": "null"}, {"type": "resource", "id": "uuid", "value": "create_uuid_resource()"}, {"type": "resource", "id": "acme:key", "value": "acme:key"}, {"type": "resource", "id": "acme:lookup_table", "value": "acme:key"}], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -106,18 +106,18 @@ class JetListenerTest(absltest.TestCase):
       # lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
       # Note: Legacy trd lookup table will have to be converted to csv
       # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
-      lookup_table usi:ProcedureLookup {
-        $table_name = usi__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
+      lookup_table acme:ProcedureLookup {
+        $table_name = acme__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
         $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
 
         # Value columns, corresponding resource automatically created
         $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
       };
 
-      # Another example that is already using a csv file 
+      # Another example that is already acmeng a csv file 
       # based on USI: *include-lookup* "MSK/MSK_DRG_TRIGGER.lookup"
       lookup_table MSK_DRG_TRIGGER {
-        $table_name = usi__msk_trigger_drg_codes,         # main table
+        $table_name = acme__msk_trigger_drg_codes,         # main table
         $key = ["DRG"],                                   # Lookup key
 
         # Value columns, corresponding resource automatically created
@@ -128,7 +128,7 @@ class JetListenerTest(absltest.TestCase):
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [{"name": "usi:ProcedureLookup", "table": "usi__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"]}, {"name": "MSK_DRG_TRIGGER", "table": "usi__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]}], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"]}, {"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -142,17 +142,17 @@ class JetListenerTest(absltest.TestCase):
       # property s: salience, o: optimization, tag: label
       # optimization is true by default
       [Rule1, s=+100, o=false, tag="USI"]: 
-        (?clm01 rdf:type usi:Claim).
-        not(?clm01 usi:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
+        (?clm01 rdf:type acme:Claim).
+        not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
         ->
-        (?clm01 rdf:type usi:SpecialClaim).
+        (?clm01 rdf:type acme:SpecialClaim).
         (?clm01 xyz ?drg)
       ;
     """)
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "false", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "usi:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?clm01"}, "op": "+", "rhs": {"type": "var", "id": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "id": "?drg"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "false", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?clm01"}, "op": "+", "rhs": {"type": "var", "id": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "id": "?drg"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -161,16 +161,16 @@ class JetListenerTest(absltest.TestCase):
   def test_jetrule2(self):
     data = io.StringIO("""
       [Rule2, s=100, o=true, tag="USI"]: 
-        (?clm01 rdf:type usi:Claim).
-        not(?clm01 usi:hasDRG ?drg).[true and false]
+        (?clm01 rdf:type acme:Claim).
+        not(?clm01 acme:hasDRG ?drg).[true and false]
         ->
-        (?clm01 rdf:type usi:SpecialClaim)
+        (?clm01 rdf:type acme:SpecialClaim)
       ;
     """)
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "usi:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -179,17 +179,17 @@ class JetListenerTest(absltest.TestCase):
   def test_jetrule3(self):
     data = io.StringIO("""
       [Rule3]: 
-        (?clm01 rdf:type usi:Claim).[(?a1 + b1) * (?a2 + b2)].
-        (?clm01 rdf:type usi:Claim).[(?a1 or b1) and ?a2].
+        (?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].
+        (?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2].
         ->
-        (?clm01 rdf:type usi:SpecialClaim).
-        (?clm02 rdf:type usi:SpecialClaim)
+        (?clm01 rdf:type acme:SpecialClaim).
+        (?clm02 rdf:type acme:SpecialClaim)
       ;
     """)
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "id": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "id": "?a2"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "usi:SpecialClaim"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "id": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "id": "?a2"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -219,13 +219,13 @@ class JetListenerTest(absltest.TestCase):
       [Rule5]: 
         (?clm01 has_code ?code).
         ->
-        (?clm01 usi:"lookup_table" true)
+        (?clm01 acme:"lookup_table" true)
       ;
     """)
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?code"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "usi:lookup_table"}, {"type": "keyword", "value": "true"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?code"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -237,16 +237,16 @@ class JetListenerTest(absltest.TestCase):
         (?clm01 has_code r1).
         (?clm01 has_str r2).
         ->
-        (?clm01 usi:"lookup_table" "valueX").
-        (?clm01 usi:market "MERGED \\"MARKET\\" CHARGE BACK").
-        (?clm01 usi:market text("MERGED \\"MARKET\\" CHARGE BACK"))
+        (?clm01 acme:"lookup_table" "valueX").
+        (?clm01 acme:market "MERGED \\"MARKET\\" CHARGE BACK").
+        (?clm01 acme:market text("MERGED \\"MARKET\\" CHARGE BACK"))
 
       ;
     """)
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule6", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "identifier", "value": "r1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "identifier", "value": "r2"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "usi:lookup_table"}, {"type": "text", "id": "valueX"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "usi:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "usi:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule6", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "identifier", "value": "r1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "identifier", "value": "r2"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "text", "id": "valueX"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -259,7 +259,7 @@ class JetListenerTest(absltest.TestCase):
         (?clm01 has_str "value").
         (?clm01 hasTrue true).
         ->
-        (?clm01 usi:"lookup_table" true).
+        (?clm01 acme:"lookup_table" true).
         (?clm01 has_literal int(1)).
         (?clm01 has_expr (int(1) + long(4)))
       ;
@@ -267,7 +267,7 @@ class JetListenerTest(absltest.TestCase):
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule7", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "int", "value": "1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "text", "id": "value"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "hasTrue"}, {"type": "keyword", "value": "true"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "usi:lookup_table"}, {"type": "keyword", "value": "true"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_literal"}, {"type": "int", "value": "1"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_expr"}, {"type": "binary", "lhs": {"type": "int", "value": "1"}, "op": "+", "rhs": {"type": "long", "value": "4"}}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule7", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "int", "value": "1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "text", "id": "value"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "hasTrue"}, {"type": "keyword", "value": "true"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_literal"}, {"type": "int", "value": "1"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_expr"}, {"type": "binary", "lhs": {"type": "int", "value": "1"}, "op": "+", "rhs": {"type": "long", "value": "4"}}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
