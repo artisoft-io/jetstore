@@ -89,13 +89,13 @@
       },
       {
           "type": "resource",
-          "id": "usi:key",
-          "value": "usi:key"
+          "id": "acme:key",
+          "value": "acme:key"
       },
       {
           "type": "resource",
-          "id": "usi:lookup_table",
-          "value": "usi:key"
+          "id": "acme:lookup_table",
+          "value": "acme:key"
       },
       {
           "type": "volatile_resource",
@@ -106,20 +106,103 @@
           "type": "volatile_resource",
           "id": "medicareRateObj262",
           "value": "medicareRateObj262"
+      },
+      {
+          "id": "acme:ProcedureLookup",
+          "type": "resource",
+          "value": "acme:ProcedureLookup"
+      },
+      {
+          "id": "cPROC_RID",
+          "type": "resource",
+          "value": "PROC_RID"
+      },
+      {
+          "id": "cPROC_MID",
+          "type": "resource",
+          "value": "PROC_MID"
+      },
+      {
+          "id": "cPROC_DESC",
+          "type": "resource",
+          "value": "PROC_DESC"
+      },
+      {
+          "id": "MSK_DRG_TRIGGER",
+          "type": "resource",
+          "value": "MSK_DRG_TRIGGER"
+      },
+      {
+          "id": "cMSK_AREA_DRG_TRIGGER_ONLY",
+          "type": "resource",
+          "value": "MSK_AREA_DRG_TRIGGER_ONLY"
+      },
+      {
+          "id": "cMSK_TAG",
+          "type": "resource",
+          "value": "MSK_TAG"
+      },
+      {
+          "id": "cTRIGGER_TAG_DRG_ONLY",
+          "type": "resource",
+          "value": "TRIGGER_TAG_DRG_ONLY"
+      },
+      {
+          "id": "cDRG",
+          "type": "resource",
+          "value": "DRG"
+      },
+      {
+          "id": "cOVERLAP",
+          "type": "resource",
+          "value": "OVERLAP"
+      },
+      {
+          "id": "cUSE_ANESTHESIA",
+          "type": "resource",
+          "value": "USE_ANESTHESIA"
       }
   ],
   "lookup_tables": [
       {
-          "name": "usi:ProcedureLookup",
+          "name": "acme:ProcedureLookup",
           "table": "usi__cm_proc_codes",
-          "keys": "PROC_CODE",
-          "columns": "PROC_RID,PROC_MID,PROC_DESC"
+          "key": [
+              "PROC_CODE"
+          ],
+          "columns": [
+              "PROC_RID",
+              "PROC_MID",
+              "PROC_DESC"
+          ],
+          "resources": [
+              "cPROC_RID",
+              "cPROC_MID",
+              "cPROC_DESC"
+          ]
       },
       {
           "name": "MSK_DRG_TRIGGER",
           "table": "usi__msk_trigger_drg_codes",
-          "keys": "DRG",
-          "columns": "MSK_AREA_DRG_TRIGGER_ONLY,MSK_TAG,TRIGGER_TAG_DRG_ONLY,DRG,OVERLAP,USE_ANESTHESIA"
+          "key": [
+              "DRG"
+          ],
+          "columns": [
+              "MSK_AREA_DRG_TRIGGER_ONLY",
+              "MSK_TAG",
+              "TRIGGER_TAG_DRG_ONLY",
+              "DRG",
+              "OVERLAP",
+              "USE_ANESTHESIA"
+          ],
+          "resources": [
+              "cMSK_AREA_DRG_TRIGGER_ONLY",
+              "cMSK_TAG",
+              "cTRIGGER_TAG_DRG_ONLY",
+              "cDRG",
+              "cOVERLAP",
+              "cUSE_ANESTHESIA"
+          ]
       }
   ],
   "jet_rules": [
@@ -137,7 +220,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -145,9 +229,11 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                  "label": "(?clm01 rdf:type acme:Claim)"
               },
               {
                   "type": "antecedent",
@@ -155,15 +241,17 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:hasDRG"
+                          "value": "acme:hasDRG"
                       },
                       {
                           "type": "var",
-                          "id": "?drg"
+                          "id": "?x2",
+                          "label": "?drg"
                       }
                   ],
                   "filter": {
@@ -172,12 +260,14 @@
                           "type": "binary",
                           "lhs": {
                               "type": "var",
-                              "id": "?clm01"
+                              "id": "?x1",
+                              "label": "?clm01"
                           },
                           "op": "+",
                           "rhs": {
                               "type": "var",
-                              "id": "?drg"
+                              "id": "?x2",
+                              "label": "?drg"
                           }
                       },
                       "op": "+",
@@ -185,7 +275,9 @@
                           "type": "int",
                           "value": "1"
                       }
-                  }
+                  },
+                  "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)]",
+                  "label": "not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)]"
               }
           ],
           "consequents": [
@@ -194,7 +286,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -202,16 +295,19 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm01 rdf:type acme:SpecialClaim)"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -219,11 +315,16 @@
                       },
                       {
                           "type": "var",
-                          "id": "?drg"
+                          "id": "?x2",
+                          "label": "?drg"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 xyz ?x2)",
+                  "label": "(?clm01 xyz ?drg)"
               }
-          ]
+          ],
+          "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"USI\"]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)] -> (?x1 rdf:type acme:SpecialClaim).(?x1 xyz ?x2);",
+          "label": "[Rule1, s=+100, o=false, tag=\"USI\"]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)] -> (?clm01 rdf:type acme:SpecialClaim).(?clm01 xyz ?drg);"
       },
       {
           "name": "Rule2",
@@ -239,7 +340,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -247,9 +349,11 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                  "label": "(?clm01 rdf:type acme:Claim)"
               },
               {
                   "type": "antecedent",
@@ -257,15 +361,17 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:hasDRG"
+                          "value": "acme:hasDRG"
                       },
                       {
                           "type": "var",
-                          "id": "?drg"
+                          "id": "?x2",
+                          "label": "?drg"
                       }
                   ],
                   "filter": {
@@ -279,7 +385,9 @@
                           "type": "keyword",
                           "value": "false"
                       }
-                  }
+                  },
+                  "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[true and false]",
+                  "label": "not(?clm01 acme:hasDRG ?drg).[true and false]"
               }
           ],
           "consequents": [
@@ -288,7 +396,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -296,11 +405,15 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm01 rdf:type acme:SpecialClaim)"
               }
-          ]
+          ],
+          "normalizedLabel": "[Rule2, s=100, o=true, tag=\"USI\"]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[true and false] -> (?x1 rdf:type acme:SpecialClaim);",
+          "label": "[Rule2, s=100, o=true, tag=\"USI\"]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[true and false] -> (?clm01 rdf:type acme:SpecialClaim);"
       },
       {
           "name": "Rule3",
@@ -312,7 +425,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -320,7 +434,7 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
                   ],
                   "filter": {
@@ -329,7 +443,8 @@
                           "type": "binary",
                           "lhs": {
                               "type": "var",
-                              "id": "?a1"
+                              "id": "?x2",
+                              "label": "?a1"
                           },
                           "op": "+",
                           "rhs": {
@@ -342,7 +457,8 @@
                           "type": "binary",
                           "lhs": {
                               "type": "var",
-                              "id": "?a2"
+                              "id": "?x3",
+                              "label": "?a2"
                           },
                           "op": "+",
                           "rhs": {
@@ -350,7 +466,9 @@
                               "value": "b2"
                           }
                       }
-                  }
+                  },
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)]",
+                  "label": "(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)]"
               },
               {
                   "type": "antecedent",
@@ -358,7 +476,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -366,7 +485,7 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:Claim"
+                          "value": "acme:Claim"
                       }
                   ],
                   "filter": {
@@ -375,7 +494,8 @@
                           "type": "binary",
                           "lhs": {
                               "type": "var",
-                              "id": "?a1"
+                              "id": "?x2",
+                              "label": "?a1"
                           },
                           "op": "or",
                           "rhs": {
@@ -386,9 +506,12 @@
                       "op": "and",
                       "rhs": {
                           "type": "var",
-                          "id": "?a2"
+                          "id": "?x3",
+                          "label": "?a2"
                       }
-                  }
+                  },
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3]",
+                  "label": "(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2]"
               }
           ],
           "consequents": [
@@ -397,7 +520,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -405,16 +529,19 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm01 rdf:type acme:SpecialClaim)"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm02"
+                          "id": "?x4",
+                          "label": "?clm02"
                       },
                       {
                           "type": "identifier",
@@ -422,11 +549,15 @@
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:SpecialClaim"
+                          "value": "acme:SpecialClaim"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm02 rdf:type acme:SpecialClaim)"
               }
-          ]
+          ],
+          "normalizedLabel": "[Rule3]:(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)].(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3] -> (?x1 rdf:type acme:SpecialClaim).(?x4 rdf:type acme:SpecialClaim);",
+          "label": "[Rule3]:(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2] -> (?clm01 rdf:type acme:SpecialClaim).(?clm02 rdf:type acme:SpecialClaim);"
       },
       {
           "name": "Rule4",
@@ -438,7 +569,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -446,7 +578,8 @@
                       },
                       {
                           "type": "var",
-                          "id": "?code"
+                          "id": "?x2",
+                          "label": "?code"
                       }
                   ],
                   "filter": {
@@ -458,7 +591,8 @@
                               "type": "binary",
                               "lhs": {
                                   "type": "var",
-                                  "id": "?a1"
+                                  "id": "?x3",
+                                  "label": "?a1"
                               },
                               "op": "or",
                               "rhs": {
@@ -473,10 +607,13 @@
                           "op": "not",
                           "arg": {
                               "type": "var",
-                              "id": "?a2"
+                              "id": "?x4",
+                              "label": "?a2"
                           }
                       }
-                  }
+                  },
+                  "normalizedLabel": "(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)]",
+                  "label": "(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)]"
               }
           ],
           "consequents": [
@@ -485,7 +622,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -495,22 +633,27 @@
                           "type": "binary",
                           "lhs": {
                               "type": "var",
-                              "id": "?a1"
+                              "id": "?x3",
+                              "label": "?a1"
                           },
                           "op": "+",
                           "rhs": {
                               "type": "var",
-                              "id": "?b2"
+                              "id": "?x5",
+                              "label": "?b2"
                           }
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 value ?x3 + ?x5)",
+                  "label": "(?clm01 value ?a1 + ?b2)"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -520,22 +663,27 @@
                           "type": "binary",
                           "lhs": {
                               "type": "var",
-                              "id": "?a1"
+                              "id": "?x3",
+                              "label": "?a1"
                           },
                           "op": "+",
                           "rhs": {
                               "type": "var",
-                              "id": "?b2"
+                              "id": "?x5",
+                              "label": "?b2"
                           }
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 value2 ?x3 + ?x5)",
+                  "label": "(?clm01 value2 ?a1 + ?b2)"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -546,12 +694,17 @@
                           "op": "not",
                           "arg": {
                               "type": "var",
-                              "id": "?b2"
+                              "id": "?x5",
+                              "label": "?b2"
                           }
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 value2 not ?x5)",
+                  "label": "(?clm01 value2 not ?b2)"
               }
-          ]
+          ],
+          "normalizedLabel": "[Rule4]:(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)] -> (?x1 value ?x3 + ?x5).(?x1 value2 ?x3 + ?x5).(?x1 value2 not ?x5);",
+          "label": "[Rule4]:(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)] -> (?clm01 value ?a1 + ?b2).(?clm01 value2 ?a1 + ?b2).(?clm01 value2 not ?b2);"
       },
       {
           "name": "Rule5",
@@ -563,7 +716,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -571,9 +725,12 @@
                       },
                       {
                           "type": "var",
-                          "id": "?code"
+                          "id": "?x2",
+                          "label": "?code"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 has_code ?x2)",
+                  "label": "(?clm01 has_code ?code)"
               }
           ],
           "consequents": [
@@ -582,19 +739,24 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:lookup_table"
+                          "value": "acme:lookup_table"
                       },
                       {
                           "type": "keyword",
                           "value": "true"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 acme:\"lookup_table\" true)",
+                  "label": "(?clm01 acme:\"lookup_table\" true)"
               }
-          ]
+          ],
+          "normalizedLabel": "[Rule5]:(?x1 has_code ?x2) -> (?x1 acme:\"lookup_table\" true);",
+          "label": "[Rule5]:(?clm01 has_code ?code) -> (?clm01 acme:\"lookup_table\" true);"
       },
       {
           "name": "Rule6",
@@ -606,7 +768,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -616,7 +779,9 @@
                           "type": "identifier",
                           "value": "r1"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 has_code r1)",
+                  "label": "(?clm01 has_code r1)"
               },
               {
                   "type": "antecedent",
@@ -624,7 +789,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -634,7 +800,9 @@
                           "type": "identifier",
                           "value": "r2"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 has_str r2)",
+                  "label": "(?clm01 has_str r2)"
               }
           ],
           "consequents": [
@@ -643,53 +811,64 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:lookup_table"
+                          "value": "acme:lookup_table"
                       },
                       {
                           "type": "text",
                           "id": "valueX"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 acme:\"lookup_table\" \"valueX\")",
+                  "label": "(?clm01 acme:\"lookup_table\" \"valueX\")"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:market"
+                          "value": "acme:market"
                       },
                       {
                           "type": "text",
                           "id": "MERGED \"MARKET\" CHARGE BACK"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")",
+                  "label": "(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:market"
+                          "value": "acme:market"
                       },
                       {
                           "type": "text",
                           "id": "MERGED \"MARKET\" CHARGE BACK"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")",
+                  "label": "(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\")"
               }
-          ]
+          ],
+          "normalizedLabel": "[Rule6]:(?x1 has_code r1).(?x1 has_str r2) -> (?x1 acme:\"lookup_table\" \"valueX\").(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\").(?x1 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\");",
+          "label": "[Rule6]:(?clm01 has_code r1).(?clm01 has_str r2) -> (?clm01 acme:\"lookup_table\" \"valueX\").(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\").(?clm01 acme:market \"MERGED \\\"MARKET\\\" CHARGE BACK\");"
       },
       {
           "name": "Rule7",
@@ -701,7 +880,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -711,7 +891,9 @@
                           "type": "int",
                           "value": "1"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 has_code int(1))",
+                  "label": "(?clm01 has_code int(1))"
               },
               {
                   "type": "antecedent",
@@ -719,7 +901,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -729,7 +912,9 @@
                           "type": "text",
                           "id": "value"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 has_str \"value\")",
+                  "label": "(?clm01 has_str \"value\")"
               },
               {
                   "type": "antecedent",
@@ -737,7 +922,8 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -747,7 +933,9 @@
                           "type": "keyword",
                           "value": "true"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 hasTrue true)",
+                  "label": "(?clm01 hasTrue true)"
               }
           ],
           "consequents": [
@@ -756,24 +944,28 @@
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
-                          "value": "usi:lookup_table"
+                          "value": "acme:lookup_table"
                       },
                       {
                           "type": "keyword",
                           "value": "true"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 acme:\"lookup_table\" true)",
+                  "label": "(?clm01 acme:\"lookup_table\" true)"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -783,14 +975,17 @@
                           "type": "int",
                           "value": "1"
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 has_literal int(1))",
+                  "label": "(?clm01 has_literal int(1))"
               },
               {
                   "type": "consequent",
                   "triple": [
                       {
                           "type": "var",
-                          "id": "?clm01"
+                          "id": "?x1",
+                          "label": "?clm01"
                       },
                       {
                           "type": "identifier",
@@ -808,9 +1003,13 @@
                               "value": "4"
                           }
                       }
-                  ]
+                  ],
+                  "normalizedLabel": "(?x1 has_expr int(1) + long(4))",
+                  "label": "(?clm01 has_expr int(1) + long(4))"
               }
-          ]
+          ],
+          "normalizedLabel": "[Rule7]:(?x1 has_code int(1)).(?x1 has_str \"value\").(?x1 hasTrue true) -> (?x1 acme:\"lookup_table\" true).(?x1 has_literal int(1)).(?x1 has_expr int(1) + long(4));",
+          "label": "[Rule7]:(?clm01 has_code int(1)).(?clm01 has_str \"value\").(?clm01 hasTrue true) -> (?clm01 acme:\"lookup_table\" true).(?clm01 has_literal int(1)).(?clm01 has_expr int(1) + long(4));"
       }
   ]
 }

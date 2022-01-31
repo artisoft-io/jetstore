@@ -1,18 +1,43 @@
 import sys
-from typing import Dict
+from typing import Dict, Sequence
+from jetrule_context import JetRuleContext
 import json
 
 class JetRulesPostProcessor:
 
-  def __init__(self, data: object):
-    self.jetRules = data
-    self.varMapping = {}
+  def __init__(self, ctx: JetRuleContext):
+    self.ctx = ctx
 
+  # =====================================================================================
+  # createResourcesForLookupTables
+  # -------------------------------------------------------------------------------------
+  # visit lookup tables data structure to create resources corresponding to table names
+  def createResourcesForLookupTables(self):
+    for item in self.ctx.lookup_tables:
+      name = item.get('name')
+      self.ctx.addResource(name, name)
+      columns = item['columns']
+      resources = []
+      for column in columns:
+        rname = ''        
+        for c in column:
+          if not c.isalnum():
+            c = '_'
+          rname += c
+        value = 'c' + rname.upper()
+        self.ctx.addResource(value, column)
+        resources.append(value)
+      item['resources'] = resources
+      
+
+  # =====================================================================================
+  # mapVariables
+  # -------------------------------------------------------------------------------------
   # visit jetRules data structure to map variables
   def mapVariables(self):
-    if not self.jetRules: raise Exception("Invalid jetRules structure: ",self.jetRules)
-    rules = self.jetRules.get('jet_rules')
-    # if not rules: raise Exception("Invalid jetRules structure: ",self.jetRules)
+    if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
+    rules = self.ctx.jetRules.get('jet_rules')
+    # if not rules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
     for rule in rules:
       # print('Processing Rule:', rule['name'])
       self.varMapping = {}
@@ -38,7 +63,10 @@ class JetRulesPostProcessor:
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
     if type == 'var':
-      id = elm['id']
+      # Check to see if it has already a label, if so use it as id
+      id = elm.get('label')
+      if not id:
+        id = elm['id']
       mappedVar = self.varMapping.get(id)
       if mappedVar is None:
         mappedVar = '?x' + str(len(self.varMapping)+1)
@@ -53,6 +81,9 @@ class JetRulesPostProcessor:
     if type == 'unary':
       self.processElm(elm['arg'])
 
+  # =====================================================================================
+  # addLabels
+  # -------------------------------------------------------------------------------------
   # Augment rule's antecedents and consequents with
   # a label using the normalized variables
   def addLabels(self):
@@ -62,12 +93,12 @@ class JetRulesPostProcessor:
     return self._addLabels('normalizedLabel', True)
 
   def _addLabels(self, label_name: str, useNormalizedVar: bool):
-    if not self.jetRules: raise Exception("Invalid jetRules structure: ",self.jetRules)
-    rules = self.jetRules.get('jet_rules')
+    if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
+    rules = self.ctx.jetRules.get('jet_rules')
 
     for rule in rules:
       name = rule.get('name')
-      if not name: raise Exception("Invalid jetRules structure: ",self.jetRules)
+      if not name: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
       props = rule.get('properties')
       ptxt = ''
       if props:
@@ -179,7 +210,15 @@ class JetRulesPostProcessor:
     if type == 'long': return 'long({0})'.format(elm['value'])
     if type == 'ulong': return 'ulong({0})'.format(elm['value'])
 
-    if type in ['identifier', 'keyword']:
+    if type == 'identifier':
+      parts = elm['value'].split(':')
+      for i in range(1, len(parts)):
+        if parts[i] in self.ctx.symbolNames:
+          parts[i] = '"{0}"'.format(parts[i])
+      
+      return ':'.join(parts)
+
+    if type == 'keyword':
       return elm['value']
       
 if __name__ == "__main__":

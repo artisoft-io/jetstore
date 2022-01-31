@@ -4,42 +4,30 @@ import sys
 import json
 from absl import flags
 from absl.testing import absltest
-import antlr4 as a4
-
-from jet_listener import JetListener
-from JetRuleParser import JetRuleParser
-from JetRuleLexer import JetRuleLexer
+import io
+import jetrule_compiler as compiler
 
 FLAGS = flags.FLAGS
 
 class JetListenerTest2(absltest.TestCase):
 
-  def _get_listener(self, data) -> JetListener:
-    # lexer
-    lexer = JetRuleLexer(data)
-    stream = a4.CommonTokenStream(lexer)
-    
-    # parser
-    parser = JetRuleParser(stream)
-    tree = parser.jetrule()
+  def _get_listener_data(self):
+    data = compiler.getInput("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr")
+    jetrule_ctx =  compiler.processJetRule(data)
+    ctx = compiler.postprocessJetRule(jetrule_ctx)
+    data.close()
+    return ctx.jetRules
 
-    # evaluator
-    listener = JetListener()
-    walker = a4.ParseTreeWalker()
-    walker.walk(listener, tree)
-    return listener
-
-  # Test data file are accessible using the path relative to the root of the workspace
+  # Test data file are accessible acmeng the path relative to the root of the workspace
   def test_rule_file1(self):
-    data = a4.FileStream("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr", encoding='utf-8')
-    listener = self._get_listener(data)
+    jetRules = self._get_listener_data()
 
     with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
-    # print('GOT:',json.dumps(listener.jetRules, indent=4))
+    # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
-    # print('COMPACT:',json.dumps(listener.jetRules))
-    self.assertEqual(json.dumps(listener.jetRules), json.dumps(expected))
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), json.dumps(expected))
 
 
 if __name__ == '__main__':

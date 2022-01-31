@@ -6,11 +6,11 @@ Our main interest is to implement a python visitor for processing
 the generated parse tree. The command to generate the python
 parser is:
 ```
-antlr4 -Dlanguage=Python3 JetRule.g4 -visitor -o py
+antlr4 -Dlanguage=Python3 JetRule.g4 -o py
 ```
 The python code will be generated in the `py/` sub-directory.
 
-#### Testing the the custom JetRule visitor
+#### Testing the the custom JetRule listener
 ```
 python3 jetListener.py test.jr
 ```

@@ -96,6 +96,16 @@ http_archive(
     urls = ["https://github.com/google/glog/archive/v0.5.0.zip"],
 )
 
+# Add SQLite
+# Then sqlite is available as @com_github_rockwotj_sqlite_bazel//:sqlite3.
+SQLITE_BAZEL_COMMIT = "1e793d9f9350de0fce449b5186fea46693c8622e"
+
+http_archive(
+    name = "com_github_rockwotj_sqlite_bazel",
+    strip_prefix = "sqlite-bazel-" + SQLITE_BAZEL_COMMIT,
+    urls = ["https://github.com/rockwotj/sqlite-bazel/archive/%s.zip" % SQLITE_BAZEL_COMMIT],
+)
+
 # # To generate compile_commands.json
 # http_archive(
 #     name = "com_grail_bazel_compdb",
