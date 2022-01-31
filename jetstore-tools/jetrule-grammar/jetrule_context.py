@@ -54,13 +54,13 @@ class JetRuleContext:
       c = map.get(id)
       if c:
         if c['type'] != type or c['value'] != value:
-          self.errors.append('Error: {0} with id {1} is define multiple times.'.format(tag, id))
+          self.err('Error: {0} with id {1} is define multiple times.'.format(tag, id))
       map[item['id']] = item
 
   def _addRL(self, map, tag, name: str, type: str, value):
     r = map.get(name)
     if r and (r['value'] != value or type != r.get('type')):
-      self.errors.append('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
+      self.err('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
 
     item = {'id': name, 'type': type, 'value': value}
     map[name] = item
@@ -75,4 +75,5 @@ class JetRuleContext:
     self.literals.append(item)
 
   def err(self, msg: str) -> None:
+    self.ERROR = True
     self.errors.append(msg)

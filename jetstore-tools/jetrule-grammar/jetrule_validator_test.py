@@ -19,6 +19,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     jetRulesSpec =  compiler.readJetRuleFile(fname, in_provider)
     jetrule_ctx =  JetRuleContext(jetRulesSpec, [])
     compiler.postprocessJetRule(jetrule_ctx)
+    self.assertEqual(jetrule_ctx.ERROR, False)
     return jetrule_ctx.jetRules
 
   def _get_augmented_data(self, data: io.StringIO) -> JetRuleContext:
@@ -46,6 +47,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     """)
     jetrule_ctx = self._get_augmented_data(data)
     data.close()
+    self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -58,7 +60,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -78,6 +80,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     """)
     jetrule_ctx = self._get_augmented_data(data)
     data.close()
+    self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -90,39 +93,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
-    self.assertEqual(is_valid, True)
-    self.assertEqual(len(jetrule_ctx.errors), 0)
-
-  def test_validate_var2b(self):
-    data = io.StringIO("""
-      # =======================================================================================
-      # Simplest rule that is valid
-      # ---------------------------------------------------------------------------------------
-      resource rdf:type = "rdf:type";
-      resource acme:Claim = "acme:Claim";
-      volatile_resource is_good = "is_good";
-      [RuleV1]: 
-        (?clm01 rdf:type acme:Claim).
-        ->
-        (?clm01 is_good true).
-      ;
-    """)
-    jetrule_ctx = self._get_augmented_data(data)
-    data.close()
-    postprocessed_data = jetrule_ctx.jetRules
-
-    # validate that empty rule file is ok
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "normalizedLabel": "[RuleV1]:(?x1 rdf:type acme:Claim) -> (?x1 is_good true);", "label": "[RuleV1]:(?clm01 rdf:type acme:Claim) -> (?clm01 is_good true);"}]}"""
-    # print('GOT:',json.dumps(postprocessed_data, indent=2))
-    # print()
-    # print('COMPACT:',json.dumps(postprocessed_data))
-
-    # validate that empty rule file is ok
-    self.assertEqual(json.dumps(postprocessed_data), expected)
-
-    # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, True)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -141,6 +112,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     """)
     jetrule_ctx = self._get_augmented_data(data)
     data.close()
+    self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -153,44 +125,12 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, False)
     # print('*** Errors?',jetrule_ctx.errors)
     self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleV2: Variable '?clm02' is not binded in this context '(?clm02 is_good false)' and must be for the rule to be valid.")
     self.assertEqual(jetrule_ctx.errors[1], "Error rule RuleV2: Identifier 'is_good' is not defined in this context '(?clm02 is_good false)', it must be define.")
     self.assertEqual(len(jetrule_ctx.errors), 2)
-
-  def test_validate_var4(self):
-    data = io.StringIO("""
-      # =======================================================================================
-      # Simplest rule that is NOT valid
-      # ---------------------------------------------------------------------------------------
-      resource rdf:type = "rdf:type";
-      resource acme:Claim = "acme:Claim";
-      [RuleV3]: 
-        (?clm01 rdf:type acme:Claim).
-        ->
-        (?clm02 is_good false).
-      ;
-    """)
-    jetrule_ctx = self._get_augmented_data(data)
-    data.close()
-    postprocessed_data = jetrule_ctx.jetRules
-
-    # validate that empty rule file is ok
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleV3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x2", "label": "?clm02"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "false"}], "normalizedLabel": "(?x2 is_good false)", "label": "(?clm02 is_good false)"}], "normalizedLabel": "[RuleV3]:(?x1 rdf:type acme:Claim) -> (?x2 is_good false);", "label": "[RuleV3]:(?clm01 rdf:type acme:Claim) -> (?clm02 is_good false);"}]}"""
-    # print('GOT:',json.dumps(postprocessed_data, indent=2))
-    # print()
-    # print('COMPACT:',json.dumps(postprocessed_data))
-
-    # validate that empty rule file is ok
-    self.assertEqual(json.dumps(postprocessed_data), expected)
-
-    # Validate variables in preflight mode
-    is_valid = compiler.validateJetRule(jetrule_ctx, True)
-    self.assertEqual(is_valid, False)           # Indicates that it's not valid but in preflight mode
-    # print('*** Errors?',jetrule_ctx.errors)   # in preflight mode, errors are not reported in ctx obj
-    self.assertEqual(len(jetrule_ctx.errors), 0)
 
   def test_validate_var5(self):
     data = io.StringIO("""
@@ -207,6 +147,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     """)
     jetrule_ctx = self._get_augmented_data(data)
     data.close()
+    self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -219,12 +160,50 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables 
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, False)
+    self.assertEqual(jetrule_ctx.ERROR, True)
     # print('*** Errors?',jetrule_ctx.errors)
     self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleV4: Variable '?clm02' is not binded in this context '(?clm01 rdf:type acme:Claim).[?clm02]' and must be for the rule to be valid.")
     self.assertEqual(jetrule_ctx.errors[1], "Error rule RuleV4: Identifier 'is_good' is not defined in this context '(?clm01 is_good false)', it must be define.")
     self.assertEqual(len(jetrule_ctx.errors), 2)
+
+
+  def test_validate_lookup1(self):
+    data = io.StringIO("""
+      # Testing name mapping
+      lookup_table MSK_DRG_TRIGGER {
+        $table_name = acme__msk_trigger_drg_codes,         # main table
+        $key = ["DRG", "DRG2"],                            # composite Lookup key
+
+        # Using column names that need fixing to become resource name
+        $columns = ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%", "#%#"]
+      };
+    """)
+    jetrule_ctx = self._get_augmented_data(data)
+    data.close()
+    postprocessed_data = jetrule_ctx.jetRules
+
+    # Error on generate resources
+    self.assertEqual(jetrule_ctx.ERROR, True)
+    self.assertEqual(jetrule_ctx.errors[0], 'Error: Creating resource with id c___ that already exist with a different definition.')
+    self.assertEqual(len(jetrule_ctx.errors), 1)
+
+    # Validate the output
+    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK__9_", "type": "resource", "value": "MSK (9)"}, {"id": "c_TAG_3_", "type": "resource", "value": "$TAG(3)"}, {"id": "cTRIGGER_", "type": "resource", "value": "TRIGGER+"}, {"id": "cDRG", "type": "resource", "value": "DRG"}, {"id": "c123", "type": "resource", "value": "123"}, {"id": "c___", "type": "resource", "value": "#%%"}, {"id": "c___", "type": "resource", "value": "#%#"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG", "DRG2"], "columns": ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%", "#%#"], "resources": ["cMSK__9_", "c_TAG_3_", "cTRIGGER_", "cDRG", "c123", "c___", "c___"]}], "jet_rules": []}"""
+    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(postprocessed_data))
+
+    # validate the output
+    self.assertEqual(json.dumps(postprocessed_data), expected)
+
+    # Validate the error is still reported via the rule validation even if there are no rules
+    is_valid = compiler.validateJetRule(jetrule_ctx)
+    # print('*** VALIDATE LOOKUP1: is_valid?',is_valid,'jetrule_ctx.ERROR?',jetrule_ctx.ERROR)
+    self.assertEqual(is_valid, False)
+    self.assertEqual(jetrule_ctx.ERROR, True)
+    # print('*** Errors?',jetrule_ctx.errors)
 
   def test_validate_keyword1(self):
     data = io.StringIO("""
@@ -240,7 +219,6 @@ class JetRulesValidatorTest(absltest.TestCase):
     """)
     jetrule_ctx = self._get_augmented_data(data)
     data.close()
-
     self.assertEqual(jetrule_ctx.ERROR, True)
 
     # print('GOT')

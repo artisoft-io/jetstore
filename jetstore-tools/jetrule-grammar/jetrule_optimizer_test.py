@@ -49,7 +49,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -94,7 +94,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -140,7 +140,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -183,7 +183,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx, False)
+    is_valid = compiler.validateJetRule(jetrule_ctx)
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -222,6 +222,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
 
     jetrule_ctx = self._get_augmented_data(data)
     data.close()
+    self.assertEqual(jetrule_ctx.ERROR, False)
 
     # Optimize the rules
     optimizer = JetRuleOptimizer(jetrule_ctx)

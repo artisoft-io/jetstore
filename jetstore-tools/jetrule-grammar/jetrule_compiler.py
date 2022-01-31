@@ -126,14 +126,11 @@ def postprocessJetRule(jetrule_ctx: JetRuleContext) -> JetRuleContext:
 
 # validate the input jetrule buffer
 # ---------------------------------------------------------------------------------------
-def validateJetRule(jetrule_ctx: JetRuleContext, is_preflight: bool) -> bool:
-
-  if jetrule_ctx.ERROR:
-    return False
+def validateJetRule(jetrule_ctx: JetRuleContext) -> bool:
 
   # augment the output with post processor
   validator = JetRuleValidator(jetrule_ctx)
-  return validator.validateJetRule(is_preflight)
+  return validator.validateJetRule()
 
 
 # command line invocation
