@@ -23,7 +23,7 @@ class JetRulesPostProcessorTest2(absltest.TestCase):
   # Test data file are accessible using the path relative to the root of the workspace
   def test_rule_file1(self):
     postprocessed_data = self._get_augmented_data()
-    # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    print('GOT:',json.dumps(postprocessed_data, indent=2))
 
     with open("jetstore-tools/jetrule-grammar/jet_listener_postprocessing_test_data.jr.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())

@@ -80,12 +80,14 @@
       {
           "type": "resource",
           "id": "None",
-          "value": "null"
+          "symbol": "null",
+          "value": null
       },
       {
           "type": "resource",
           "id": "uuid",
-          "value": "create_uuid_resource()"
+          "symbol": "create_uuid_resource()",
+          "value": null
       },
       {
           "type": "resource",
