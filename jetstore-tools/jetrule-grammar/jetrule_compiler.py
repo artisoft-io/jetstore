@@ -22,6 +22,7 @@ flags.DEFINE_string("jr", None, "JetRule file")
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
 
+#TODO Remove this global variable and move it to JetRuleErrorListener class
 ERRORS = []
 class JetRuleErrorListener(ErrorListener):
 

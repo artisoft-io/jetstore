@@ -77,7 +77,7 @@ class JetListenerTest(absltest.TestCase):
     jetRules = self._get_listener_data(data)
     data.close()
 
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "medicareRateObjTC1", "value": "_0:medicareRateObjTC1"}, {"type": "resource", "id": "medicareRateObjTC2", "value": "_0:medicareRateObjTC2"}, {"type": "resource", "id": "None", "value": "null"}, {"type": "resource", "id": "uuid", "value": "create_uuid_resource()"}, {"type": "resource", "id": "acme:key", "value": "acme:key"}, {"type": "resource", "id": "acme:lookup_table", "value": "acme:key"}], "lookup_tables": [], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [{"type": "resource", "id": "medicareRateObjTC1", "value": "_0:medicareRateObjTC1"}, {"type": "resource", "id": "medicareRateObjTC2", "value": "_0:medicareRateObjTC2"}, {"type": "resource", "id": "None", "symbol": "null", "value": null}, {"type": "resource", "id": "uuid", "symbol": "create_uuid_resource()", "value": null}, {"type": "resource", "id": "acme:key", "value": "acme:key"}, {"type": "resource", "id": "acme:lookup_table", "value": "acme:key"}], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
     # print('COMPACT:',json.dumps(jetRules))

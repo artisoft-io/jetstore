@@ -59,10 +59,21 @@ class JetListener(JetRuleListener):
   # Resources
   # -------------------------------------------------------------------------------------
   def exitNamedResourceStmt(self, ctx:JetRuleParser.NamedResourceStmtContext):
-    self.resources.append({ 'type': 'resource', 'id': self.escape(ctx.resName.getText()), 'value':  self.escapeString(ctx.resCtx.resVal.text)})
+    id = self.escape(ctx.resName.getText()) if ctx.resName else None
+    value = None
+    if ctx.resCtx and ctx.resCtx.resVal:
+      value = ctx.resCtx.resVal.text
+    if value and value[0]=='"':
+      value = self.escapeString(ctx.resCtx.resVal.text)
+      self.resources.append({ 'type': 'resource', 'id': id, 'value':  value})
+    else:
+      symbol = value
+      self.resources.append({ 'type': 'resource', 'id': id, 'symbol': symbol, 'value':  None})
 
   def exitVolatileResourceStmt(self, ctx:JetRuleParser.VolatileResourceStmtContext):
-    self.resources.append({ 'type': 'volatile_resource', 'id': self.escape(ctx.resName.getText()), 'value': self.escapeString(ctx.resVal.text) })
+    id = self.escape(ctx.resName.getText()) if ctx.resName else None
+    value = self.escapeString(ctx.resVal.text) if ctx.resVal else None
+    self.resources.append({ 'type': 'volatile_resource', 'id': id, 'value': value })
 
   # =====================================================================================
   # Lookup Tables

@@ -7,7 +7,7 @@ class JetRuleContext:
 
   def __init__(self, data: Dict[str, object], errors: Sequence[str]):
     self.jetRules = data
-    self.literalMap = {}
+    # resourceMap contains literals and resources
     self.resourceMap = {}
     self.errors = errors
 
@@ -40,24 +40,35 @@ class JetRuleContext:
     if self.literals is None or self.resources is None or self.lookup_tables is None or self.jet_rules is None: 
       raise Exception("Invalid jetRules structure: ",self.jetRules)
 
-    self._initMap(self.literalMap, self.literals, 'Literal')
+    self._initMap(self.resourceMap, self.literals, 'Literal')
     self._initMap(self.resourceMap, self.resources, 'Resource')
 
     # collect all defined resources and literals for rule validation
-    self.defined_resources = frozenset(self.literalMap.keys() | self.resourceMap.keys())
+    self.defined_resources = frozenset(self.resourceMap.keys())
 
-  def _initMap(self, map, items, tag):
+  def _initMap(self, map: Dict[str, object], items, tag):
     for item in items:
       id = item['id']
       type = item['type']
       value = item['value']
+      symbol = item.get('symbol')
       c = map.get(id)
       if c:
-        if c['type'] != type or c['value'] != value:
-          self.err('Error: {0} with id {1} is define multiple times.'.format(tag, id))
+        if symbol:    # special case, symbol used to initialize a resource
+          cs = c.get('symbol')
+          if not cs or cs != symbol:
+            ot = cs if cs else c['type']
+            self.err('Error: {0} with id {1} is define multiple times, one is a symbol, {2}, the other is of different type {3}'.format(tag, id, symbol, ot))
+        else:
+          if c['type'] != type:
+            self.err('Error: {0} with id {1} is define multiple times with different type: {2} and {3}'.format(tag, id, type, c['type']))
+          if c['value'] != value:
+            self.err('Error: {0} with id {1} is define multiple times with different value: {2} and {3}'.format(tag, id, value, c['value']))
       map[item['id']] = item
 
   def _addRL(self, map, tag, name: str, type: str, value):
+    assert type is not None
+    assert value is not None
     r = map.get(name)
     if r and (r['value'] != value or type != r.get('type')):
       self.err('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
@@ -71,7 +82,7 @@ class JetRuleContext:
     self.resources.append(item)
 
   def addLiteral(self, name: str, type: str, value: str):
-    item = self._addRL(self.literalMap, 'literal', name, type, value)
+    item = self._addRL(self.resourceMap, 'literal', name, type, value)
     self.literals.append(item)
 
   def err(self, msg: str) -> None:
