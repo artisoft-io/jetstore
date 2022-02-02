@@ -7,24 +7,29 @@ from absl import flags
 from absl.testing import absltest
 import io
 
-import jetrule_compiler as compiler
+from jetrule_compiler import JetRuleCompiler, InputProvider
 from jetrule_context import JetRuleContext
+from jetrule_validator import JetRuleValidator
 
 FLAGS = flags.FLAGS
 
 class JetRulesValidatorTest(absltest.TestCase):
 
   def _get_from_file(self, fname: str) -> Dict[str, object]:
-    in_provider = compiler.InputProvider('jetstore-tools/jetrule-grammar')
-    jetRulesSpec =  compiler.readJetRuleFile(fname, in_provider)
-    jetrule_ctx =  JetRuleContext(jetRulesSpec, [])
-    compiler.postprocessJetRule(jetrule_ctx)
+    in_provider = InputProvider('jetstore-tools/jetrule-grammar')
+    compiler = JetRuleCompiler()
+    compiler.processJetRuleFile(fname, in_provider)
+    compiler.postprocessJetRule()
+    jetrule_ctx = compiler.jetrule_ctx
     self.assertEqual(jetrule_ctx.ERROR, False)
     return jetrule_ctx.jetRules
 
-  def _get_augmented_data(self, data: io.StringIO) -> JetRuleContext:
-    jetrule_ctx =  compiler.processJetRule(data)
-    return compiler.postprocessJetRule(jetrule_ctx)
+  def _get_augmented_data(self, input_data: str) -> JetRuleContext:
+    compiler = JetRuleCompiler()
+    compiler.processJetRule(input_data)
+    compiler.postprocessJetRule()
+    jetrule_ctx = compiler.jetrule_ctx
+    return jetrule_ctx
 
   def test_import1(self):
     postprocessed_data = self._get_from_file("import_test1.jr")
@@ -39,14 +44,13 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_validate_var1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Defining Constants Resources and Literals
       # ---------------------------------------------------------------------------------------
       # That should not create any error since no rules are declared
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
@@ -60,12 +64,13 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
   def test_validate_var2(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rule that is valid
       # ---------------------------------------------------------------------------------------
@@ -77,9 +82,8 @@ class JetRulesValidatorTest(absltest.TestCase):
         ->
         (?clm01 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
@@ -93,12 +97,13 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
   def test_validate_var3(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rule that is NOT valid
       # ---------------------------------------------------------------------------------------
@@ -109,9 +114,8 @@ class JetRulesValidatorTest(absltest.TestCase):
         ->
         (?clm02 is_good false).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
@@ -125,7 +129,8 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, False)
     # print('*** Errors?',jetrule_ctx.errors)
     self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleV2: Variable '?clm02' is not binded in this context '(?clm02 is_good false)' and must be for the rule to be valid.")
@@ -133,7 +138,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
   def test_validate_var5(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rule that is NOT valid
       # ---------------------------------------------------------------------------------------
@@ -144,9 +149,8 @@ class JetRulesValidatorTest(absltest.TestCase):
         ->
         (?clm01 is_good false).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
     postprocessed_data = jetrule_ctx.jetRules
 
@@ -160,7 +164,8 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables 
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, False)
     self.assertEqual(jetrule_ctx.ERROR, True)
     # print('*** Errors?',jetrule_ctx.errors)
@@ -170,7 +175,7 @@ class JetRulesValidatorTest(absltest.TestCase):
 
 
   def test_validate_lookup1(self):
-    data = io.StringIO("""
+    data = """
       # Testing name mapping
       lookup_table MSK_DRG_TRIGGER {
         $table_name = acme__msk_trigger_drg_codes,         # main table
@@ -179,9 +184,8 @@ class JetRulesValidatorTest(absltest.TestCase):
         # Using column names that need fixing to become resource name
         $columns = ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%", "#%#"]
       };
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     postprocessed_data = jetrule_ctx.jetRules
 
     # Error on generate resources
@@ -199,14 +203,15 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate the error is still reported via the rule validation even if there are no rules
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     # print('*** VALIDATE LOOKUP1: is_valid?',is_valid,'jetrule_ctx.ERROR?',jetrule_ctx.ERROR)
     self.assertEqual(is_valid, False)
     self.assertEqual(jetrule_ctx.ERROR, True)
     # print('*** Errors?',jetrule_ctx.errors)
 
   def test_validate_keyword1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rule that is NOT valid
       # ---------------------------------------------------------------------------------------
@@ -216,9 +221,8 @@ class JetRulesValidatorTest(absltest.TestCase):
         ->
         (?clm01 false false).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, True)
 
     # print('GOT')

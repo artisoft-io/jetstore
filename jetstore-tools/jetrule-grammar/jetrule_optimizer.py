@@ -20,6 +20,7 @@ class JetRuleOptimizer:
   # =====================================================================================
   # optimizeJetRules
   # -------------------------------------------------------------------------------------
+  # Main method for the class
   # First pass at reordering antecendent terms and identifying possible head terms
   # Select the term occuring the most across all rules to be the head term.
   # Build the rete network and rearrange antecedents to maximize the number of
@@ -37,6 +38,7 @@ class JetRuleOptimizer:
 
     # for each jetrule evaluate the priority of each antecendent and pick the one
     # with the highest priority (lower number)
+    filters = None
     for rule in rules:
       name = rule.get('name')
       if not name: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)

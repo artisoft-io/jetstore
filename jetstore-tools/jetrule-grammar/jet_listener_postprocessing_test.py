@@ -6,19 +6,27 @@ from absl import flags
 from absl.testing import absltest
 import io
 
-import jetrule_compiler as compiler
+from jetrule_compiler import JetRuleCompiler
+from jetrule_context import JetRuleContext
 
 FLAGS = flags.FLAGS
 
 class JetRulesPostProcessorTest(absltest.TestCase):
 
-  def _get_augmented_data(self, input_data: io.StringIO) -> Dict[str, object]:
-    jetrule_ctx =  compiler.processJetRule(input_data)
-    compiler.postprocessJetRule(jetrule_ctx)
-    return jetrule_ctx.jetRules
+  def _get_augmented_data(self, input_data: str) -> Dict[str, object]:
+    compiler = JetRuleCompiler()
+    compiler.processJetRule(input_data)
+    jetRules = compiler.postprocessJetRule()
+    return jetRules
+
+  def _process_data(self, input_data: str) -> JetRuleContext:
+    compiler = JetRuleCompiler()
+    compiler.processJetRule(input_data)
+    compiler.postprocessJetRule()
+    return compiler.jetrule_ctx
 
   def test_lookup_table1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Defining Lookup Tables
       # ---------------------------------------------------------------------------------------
@@ -32,9 +40,8 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         # Value columns, corresponding resource automatically created
         $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
       };
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
-    data.close()
 
     # validate the whole result
     expected = """{"literals": [], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": []}"""
@@ -44,7 +51,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_lookup_table2(self):
-    data = io.StringIO("""
+    data = """
       lookup_table MSK_DRG_TRIGGER {
         $table_name = acme__msk_trigger_drg_codes,         # main table
         $key = ["DRG"],                                   # Lookup key
@@ -53,9 +60,8 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         # Data type based on columns type
         $columns = ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]
       };
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
-    data.close()
 
     # validate the whole result
     expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK_AREA_DRG_TRIGGER_ONLY", "type": "resource", "value": "MSK_AREA_DRG_TRIGGER_ONLY"}, {"id": "cMSK_TAG", "type": "resource", "value": "MSK_TAG"}, {"id": "cTRIGGER_TAG_DRG_ONLY", "type": "resource", "value": "TRIGGER_TAG_DRG_ONLY"}, {"id": "cDRG", "type": "resource", "value": "DRG"}, {"id": "cOVERLAP", "type": "resource", "value": "OVERLAP"}, {"id": "cUSE_ANESTHESIA", "type": "resource", "value": "USE_ANESTHESIA"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"], "resources": ["cMSK_AREA_DRG_TRIGGER_ONLY", "cMSK_TAG", "cTRIGGER_TAG_DRG_ONLY", "cDRG", "cOVERLAP", "cUSE_ANESTHESIA"]}], "jet_rules": []}"""
@@ -65,7 +71,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_lookup_table3(self):
-    data = io.StringIO("""
+    data = """
       # Testing name mapping
       lookup_table MSK_DRG_TRIGGER {
         $table_name = acme__msk_trigger_drg_codes,         # main table
@@ -74,9 +80,8 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         # Using column names that need fixing to become resource name
         $columns = ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%"]
       };
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
-    data.close()
 
     # validate the whole result
     expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK__9_", "type": "resource", "value": "MSK (9)"}, {"id": "c_TAG_3_", "type": "resource", "value": "$TAG(3)"}, {"id": "cTRIGGER_", "type": "resource", "value": "TRIGGER+"}, {"id": "cDRG", "type": "resource", "value": "DRG"}, {"id": "c123", "type": "resource", "value": "123"}, {"id": "c___", "type": "resource", "value": "#%%"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG", "DRG2"], "columns": ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%"], "resources": ["cMSK__9_", "c_TAG_3_", "cTRIGGER_", "cDRG", "c123", "c___"]}], "jet_rules": []}"""
@@ -86,7 +91,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Defining Jet Rules
       # ---------------------------------------------------------------------------------------
@@ -99,15 +104,12 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         (?clm01 rdf:type acme:SpecialClaim).
         (?clm01 xyz ?drg)
       ;
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    data.close()
 
     # reprocess the rule_label to ensure to get the same result
-    data = io.StringIO(rule_label)
-    postprocessed_data = self._get_augmented_data(data)
-    data.close()
+    postprocessed_data = self._get_augmented_data(rule_label)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
@@ -118,22 +120,19 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule2(self):
-    data = io.StringIO("""
+    data = """
       [Rule2, s=100, o=true, tag="USI"]: 
         (?clm01 rdf:type acme:Claim).
         not(?clm01 acme:hasDRG ?drg).[true and false]
         ->
         (?clm01 rdf:type acme:SpecialClaim)
       ;
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    data.close()
 
     # reprocess the rule_label to ensure to get the same result
-    data = io.StringIO(rule_label)
-    postprocessed_data = self._get_augmented_data(data)
-    data.close()
+    postprocessed_data = self._get_augmented_data(rule_label)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
@@ -144,7 +143,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule3(self):
-    data = io.StringIO("""
+    data = """
       [Rule3]: 
         (?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].
         (?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2].
@@ -152,15 +151,12 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         (?clm01 rdf:type acme:SpecialClaim).
         (?clm02 rdf:type acme:SpecialClaim)
       ;
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    data.close()
 
     # reprocess the rule_label to ensure to get the same result
-    data = io.StringIO(rule_label)
-    postprocessed_data = self._get_augmented_data(data)
-    data.close()
+    postprocessed_data = self._get_augmented_data(rule_label)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
@@ -171,7 +167,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule4(self):
-    data = io.StringIO("""
+    data = """
       [Rule4]: 
         (?clm01 has_code ?code).[not(?a1 or b1) and (not ?a2)]
         ->
@@ -179,15 +175,12 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         (?clm01 value2 ?a1 + ?b2).
         (?clm01 value2 (not ?b2))
       ;
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    data.close()
 
     # reprocess the rule_label to ensure to get the same result
-    data = io.StringIO(rule_label)
-    postprocessed_data = self._get_augmented_data(data)
-    data.close()
+    postprocessed_data = self._get_augmented_data(rule_label)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
@@ -198,21 +191,18 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule5(self):
-    data = io.StringIO("""
+    data = """
       [Rule5]: 
         (?clm01 has_code ?code).
         ->
         (?clm01 acme:"lookup_table" true)
       ;
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    data.close()
 
     # reprocess the rule_label to ensure to get the same result
-    data = io.StringIO(rule_label)
-    postprocessed_data = self._get_augmented_data(data)
-    data.close()
+    postprocessed_data = self._get_augmented_data(rule_label)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
@@ -223,7 +213,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_jetrule6(self):
-    data = io.StringIO("""
+    data = """
       [Rule6]: 
         (?clm01 has_code r1).
         (?clm01 has_str r2).
@@ -233,16 +223,13 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         (?clm01 acme:market text("MERGED \\"MARKET\\" CHARGE BACK"))
 
       ;
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    data.close()
 
     # reprocess the rule_label to ensure to get the same result
-    data = io.StringIO(rule_label)
-    postprocessed_data = self._get_augmented_data(data)
+    postprocessed_data = self._get_augmented_data(rule_label)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
-    data.close()
 
     # validate the whole result
     with open('jetstore-tools/jetrule-grammar/rule6_test.json', 'rt', encoding='utf-8') as f:
@@ -254,7 +241,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), json.dumps(expected))
 
   def test_jetrule7(self):
-    data = io.StringIO("""
+    data = """
       [Rule7]: 
         (?clm01 has_code int(1)).
         (?clm01 has_str "value").
@@ -264,15 +251,12 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         (?clm01 has_literal int(1)).
         (?clm01 has_expr (int(1) + long(4)))
       ;
-    """)
+    """
     postprocessed_data = self._get_augmented_data(data)
     rule_label = postprocessed_data['jet_rules'][0]['label']
-    data.close()
 
     # reprocess the rule_label to ensure to get the same result
-    data = io.StringIO(rule_label)
-    postprocessed_data = self._get_augmented_data(data)
-    data.close()
+    postprocessed_data = self._get_augmented_data(rule_label)
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
@@ -284,7 +268,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), json.dumps(expected))
 
   def test_conflicting_definition1(self):
-    data = io.StringIO("""
+    data = """
       # Some fine resources
       resource None  = null;
       resource uid  = create_uuid_resource();
@@ -294,7 +278,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
 
       # No so fine resources...
       resource None = "null";
-    """)
+    """
     # GOT: {
     #   "literals": [
     #     {
@@ -336,9 +320,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     #   "lookup_tables": [],
     #   "jet_rules": []
     # }
-    jetrule_ctx =  compiler.processJetRule(data)
-    data.close()
-    compiler.postprocessJetRule(jetrule_ctx)
+    jetrule_ctx =  self._process_data(data)
     # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], 'Error: Resource with id uid is define multiple times, one is a symbol, null, the other is of different type create_uuid_resource()')
@@ -350,7 +332,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     # print()
 
   def test_conflicting_definition2(self):
-    data = io.StringIO("""
+    data = """
       # Some fine resources
       resource None  = null;
       volatile_resource perfectly_fine  = "perfectly_fine";
@@ -359,11 +341,9 @@ class JetRulesPostProcessorTest(absltest.TestCase):
       # No so fine resources...
       resource rcode = "rcode";
       resource rcode = "my-rcode";
-    """)
+    """
 
-    jetrule_ctx =  compiler.processJetRule(data)
-    data.close()
-    compiler.postprocessJetRule(jetrule_ctx)
+    jetrule_ctx =  self._process_data(data)
     self.assertEqual(jetrule_ctx.ERROR, True)
     # print('GOT')
     # for k in jetrule_ctx.errors:
@@ -372,7 +352,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error: Resource with id rcode is define multiple times with different value: my-rcode and rcode")
 
   def test_conflicting_definition3(self):
-    data = io.StringIO("""
+    data = """
       # Some fine resources
       resource None  = null;
       volatile_resource perfectly_fine  = "perfectly_fine";
@@ -380,11 +360,9 @@ class JetRulesPostProcessorTest(absltest.TestCase):
 
       # No so fine resources...
       long err_code = 999;
-    """)
+    """
 
-    jetrule_ctx =  compiler.processJetRule(data)
-    data.close()
-    compiler.postprocessJetRule(jetrule_ctx)
+    jetrule_ctx =  self._process_data(data)
     self.assertEqual(jetrule_ctx.ERROR, True)
     # print('GOT')
     # for k in jetrule_ctx.errors:
@@ -393,7 +371,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error: Literal with id err_code is define multiple times with different type: long and int")
 
   def test_conflicting_definition4(self):
-    data = io.StringIO("""
+    data = """
       # Some fine resources
       resource None  = null;
       volatile_resource perfectly_fine  = "perfectly_fine";
@@ -402,11 +380,9 @@ class JetRulesPostProcessorTest(absltest.TestCase):
       # No so fine resources...
       text NAME = "name";
       text NAME = "another_name";
-    """)
+    """
 
-    jetrule_ctx =  compiler.processJetRule(data)
-    data.close()
-    compiler.postprocessJetRule(jetrule_ctx)
+    jetrule_ctx =  self._process_data(data)
     self.assertEqual(jetrule_ctx.ERROR, True)
     # print('GOT')
     # for k in jetrule_ctx.errors:
@@ -415,7 +391,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error: Literal with id NAME is define multiple times with different value: another_name and name")
 
   def test_conflicting_definition5(self):
-    data = io.StringIO("""
+    data = """
       # Some fine resources
       resource None  = null;
       volatile_resource perfectly_fine  = "perfectly_fine";
@@ -424,11 +400,9 @@ class JetRulesPostProcessorTest(absltest.TestCase):
       # No so fine resources...
       int all_wrong = 1;
       resource all_wrong = "all_wrong";
-    """)
+    """
 
-    jetrule_ctx =  compiler.processJetRule(data)
-    data.close()
-    compiler.postprocessJetRule(jetrule_ctx)
+    jetrule_ctx =  self._process_data(data)
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], 'Error: Resource with id all_wrong is define multiple times with different type: resource and int')
     self.assertEqual(jetrule_ctx.errors[1], 'Error: Resource with id all_wrong is define multiple times with different value: all_wrong and 1')

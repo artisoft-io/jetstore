@@ -5,21 +5,20 @@ import json
 from typing import Dict
 from absl import flags
 from absl.testing import absltest
-import io
 
-import jetrule_compiler as compiler
+from jetrule_compiler import JetRuleCompiler
 
 FLAGS = flags.FLAGS
 
 class JetListenerTest(absltest.TestCase):
 
-  def _get_listener_data(self, data) -> Dict[str, object]:
-
-    jetrule_ctx = compiler.processJetRule(data)
-    return jetrule_ctx.jetRules
+  def _get_listener_data(self, data: str) -> Dict[str, object]:
+    compiler = JetRuleCompiler()
+    jetRules = compiler.processJetRule(data)
+    return jetRules
 
   def test_literals1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Defining Constants Resources and Literals
       # ---------------------------------------------------------------------------------------
@@ -27,10 +26,9 @@ class JetListenerTest(absltest.TestCase):
       # for illustration:
       int isTrue = 1;     # this is a comment.
       int isFalse = 0;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1"}, {"type": "int", "id": "isFalse", "value": "0"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
@@ -38,7 +36,7 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_literals2(self):
-    data = io.StringIO("""
+    data = """
       # Defining some constants (e.g. Exclacmeon Types)
       # ---------------------------------------------------------------------------------------
       text NOT_IN_CONTRACT      = "NOT COVERED IN CONTRACT";
@@ -52,10 +50,9 @@ class JetListenerTest(absltest.TestCase):
       text EXCL_AMT_PAID        = "MERGED \\"MARKET\\" CHARGE BACK";
       text EXCLUDED_GROUPID     = "GROUPID";
       text EXCLUDED_MODALITY    = "MODALITY";
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [{"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}, {"type": "text", "id": "HH_AUTH", "value": "HH_AUTH"}, {"type": "text", "id": "EXCL_HH_AUTH", "value": "HH AUTH"}, {"type": "text", "id": "EXCLUDED_COUNTY", "value": "COUNTY"}, {"type": "text", "id": "EXCLUDED_TIN", "value": "TIN"}, {"type": "text", "id": "EXCLUDED_TIN_STATE", "value": "TIN/STATE"}, {"type": "text", "id": "EXCL_MER_COM", "value": "MERGED COMPONENTS"}, {"type": "text", "id": "EXCL_AMT_PAID", "value": "MERGED \\"MARKET\\" CHARGE BACK"}, {"type": "text", "id": "EXCLUDED_GROUPID", "value": "GROUPID"}, {"type": "text", "id": "EXCLUDED_MODALITY", "value": "MODALITY"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
@@ -63,7 +60,7 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_resource(self):
-    data = io.StringIO("""
+    data = """
       resource medicareRateObjTC1 = "_0:medicareRateObjTC1";  # Support RC legacy
       resource medicareRateObjTC2 = "_0:medicareRateObjTC2";  # Support RC legacy
 
@@ -73,10 +70,9 @@ class JetListenerTest(absltest.TestCase):
       # Some special cases
       resource acme:key = "acme:key";
       resource acme:"lookup_table" = "acme:key";  # Escaping keyword 'lookup_table' in resource name
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [{"type": "resource", "id": "medicareRateObjTC1", "value": "_0:medicareRateObjTC1"}, {"type": "resource", "id": "medicareRateObjTC2", "value": "_0:medicareRateObjTC2"}, {"type": "resource", "id": "None", "symbol": "null", "value": null}, {"type": "resource", "id": "uuid", "symbol": "create_uuid_resource()", "value": null}, {"type": "resource", "id": "acme:key", "value": "acme:key"}, {"type": "resource", "id": "acme:lookup_table", "value": "acme:key"}], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
@@ -84,22 +80,20 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_volatile_resource(self):
-    data = io.StringIO("""
+    data = """
       volatile_resource medicareRateObj261     = "medicareRateObj261";
       volatile_resource medicareRateObj262     = "medicareRateObj262";
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [{"type": "volatile_resource", "id": "medicareRateObj261", "value": "medicareRateObj261"}, {"type": "volatile_resource", "id": "medicareRateObj262", "value": "medicareRateObj262"}], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
-    data.close()
-
+    
   def test_lookup_table(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Defining Lookup Tables
       # ---------------------------------------------------------------------------------------
@@ -124,10 +118,9 @@ class JetListenerTest(absltest.TestCase):
         # Data type based on columns type
         $columns = ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]
       };
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"]}, {"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
@@ -135,7 +128,7 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetrule1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Defining Jet Rules
       # ---------------------------------------------------------------------------------------
@@ -148,10 +141,9 @@ class JetListenerTest(absltest.TestCase):
         (?clm01 rdf:type acme:SpecialClaim).
         (?clm01 xyz ?drg)
       ;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "false", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?clm01"}, "op": "+", "rhs": {"type": "var", "id": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "id": "?drg"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
@@ -159,17 +151,16 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetrule2(self):
-    data = io.StringIO("""
+    data = """
       [Rule2, s=100, o=true, tag="USI"]: 
         (?clm01 rdf:type acme:Claim).
         not(?clm01 acme:hasDRG ?drg).[true and false]
         ->
         (?clm01 rdf:type acme:SpecialClaim)
       ;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
@@ -177,7 +168,7 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetrule3(self):
-    data = io.StringIO("""
+    data = """
       [Rule3]: 
         (?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].
         (?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2].
@@ -185,10 +176,9 @@ class JetListenerTest(absltest.TestCase):
         (?clm01 rdf:type acme:SpecialClaim).
         (?clm02 rdf:type acme:SpecialClaim)
       ;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "id": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "id": "?a2"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
@@ -196,7 +186,7 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetrule4(self):
-    data = io.StringIO("""
+    data = """
       [Rule4]: 
         (?clm01 has_code ?code).[not(?a1 or b1) and (not ?a2)]
         ->
@@ -204,10 +194,9 @@ class JetListenerTest(absltest.TestCase):
         (?clm01 value2 ?a1 + ?b2).
         (?clm01 value2 (not ?b2))
       ;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?code"}], "filter": {"type": "binary", "lhs": {"type": "unary", "op": "not", "arg": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}}, "op": "and", "rhs": {"type": "unary", "op": "not", "arg": {"type": "var", "id": "?a2"}}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "value"}, {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "var", "id": "?b2"}}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "var", "id": "?b2"}}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "unary", "op": "not", "arg": {"type": "var", "id": "?b2"}}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
@@ -215,16 +204,15 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetrule5(self):
-    data = io.StringIO("""
+    data = """
       [Rule5]: 
         (?clm01 has_code ?code).
         ->
         (?clm01 acme:"lookup_table" true)
       ;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?code"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
@@ -232,7 +220,7 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetrule6(self):
-    data = io.StringIO("""
+    data = """
       [Rule6]: 
         (?clm01 has_code r1).
         (?clm01 has_str r2).
@@ -242,10 +230,9 @@ class JetListenerTest(absltest.TestCase):
         (?clm01 acme:market text("MERGED \\"MARKET\\" CHARGE BACK"))
 
       ;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule6", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "identifier", "value": "r1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "identifier", "value": "r2"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "text", "id": "valueX"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
@@ -253,7 +240,7 @@ class JetListenerTest(absltest.TestCase):
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetrule7(self):
-    data = io.StringIO("""
+    data = """
       [Rule7]: 
         (?clm01 has_code int(1)).
         (?clm01 has_str "value").
@@ -263,10 +250,9 @@ class JetListenerTest(absltest.TestCase):
         (?clm01 has_literal int(1)).
         (?clm01 has_expr (int(1) + long(4)))
       ;
-    """)
+    """
     jetRules = self._get_listener_data(data)
-    data.close()
-
+    
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule7", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "int", "value": "1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "text", "id": "value"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "hasTrue"}, {"type": "keyword", "value": "true"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_literal"}, {"type": "int", "value": "1"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_expr"}, {"type": "binary", "lhs": {"type": "int", "value": "1"}, "op": "+", "rhs": {"type": "long", "value": "4"}}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
