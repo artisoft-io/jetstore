@@ -144,6 +144,7 @@ class JetRuleCompiler:
       errors.append(err)
 
     self.jetrule_ctx = JetRuleContext(listener.jetRules, errors)
+    self.jetrule_ctx.state = JetRuleContext.STATE_PROCESSED
     return self.jetrule_ctx.jetRules
 
 
@@ -153,6 +154,7 @@ class JetRuleCompiler:
   def postprocessJetRule(self) -> Dict[str, object]:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
+    assert self.jetrule_ctx.state==JetRuleContext.STATE_PROCESSED, 'Must call processJetRule() first'
 
     if self.jetrule_ctx.ERROR:
       return self.jetrule_ctx
@@ -163,6 +165,7 @@ class JetRuleCompiler:
     postProcessor.mapVariables()
     postProcessor.addNormalizedLabels()
     postProcessor.addLabels()
+    self.jetrule_ctx.state = JetRuleContext.STATE_POSTPROCESSED
     return self.jetrule_ctx.jetRules
 
 
@@ -171,9 +174,11 @@ class JetRuleCompiler:
   def validateJetRule(self) -> bool:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
+    assert self.jetrule_ctx.state == JetRuleContext.STATE_POSTPROCESSED, 'Must call postprocessJetRule() first'
 
     # augment the output with post processor
     validator = JetRuleValidator(self.jetrule_ctx)
+    self.jetrule_ctx.state = JetRuleContext.STATE_VALIDATED
     return validator.validateJetRule()
 
 
@@ -182,9 +187,11 @@ class JetRuleCompiler:
   def optimizeJetRule(self) -> Dict[str, object]:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
+    assert self.jetrule_ctx.state >= JetRuleContext.STATE_POSTPROCESSED, 'Must call at least postprocessJetRule() first'
 
     optimizer = JetRuleOptimizer(self.jetrule_ctx)
     optimizer.optimizeJetRules()
+    self.jetrule_ctx.state = JetRuleContext.STATE_OPTIMIZED
     return self.jetrule_ctx.jetRules
 
 
@@ -193,9 +200,11 @@ class JetRuleCompiler:
   def addReteMarkingJetRule(self) -> Dict[str, object]:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
+    assert self.jetrule_ctx.state >= JetRuleContext.STATE_POSTPROCESSED, 'Must call at least postprocessJetRule() first'
 
     rete = JetRuleRete(self.jetrule_ctx)
     rete.addReteMarkup()
+    self.jetrule_ctx.state = JetRuleContext.STATE_RETE_MARKINGS
     return self.jetrule_ctx.jetRules
 
 
