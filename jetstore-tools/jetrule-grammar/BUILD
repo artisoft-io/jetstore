@@ -128,6 +128,18 @@ py_test(
 )
 
 py_test(
+  name = "jetrule_compiler_test",
+  srcs = ["jetrule_compiler_test.py"],
+  python_version = "PY3",
+  srcs_version = "PY3",
+  deps = [
+    ":jetrule_compiler",
+    requirement("absl-py"),
+  ],
+  imports = ["jetrule_g4_gen.py"],
+)
+
+py_test(
   name = "jetrule_rete_test",
   srcs = ["jetrule_rete_test.py"],
   python_version = "PY3",

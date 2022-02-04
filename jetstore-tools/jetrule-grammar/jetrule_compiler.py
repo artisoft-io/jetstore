@@ -64,7 +64,35 @@ class JetRuleCompiler:
         fout.write(line)
 
   # =====================================================================================
-  # processJetRule
+  # compileJetRuleFile
+  # -------------------------------------------------------------------------------------
+  # All-in-one processing of jetrule file
+  # initalize self.jetrule_ctx
+  # Compile file fname and process import statement recursively
+  # return the jetrule data structure
+  # ---------------------------------------------------------------------------------------
+  def compileJetRuleFile(self, fname: str, in_provider: InputProvider) -> Dict[str, object]:
+    self.processJetRuleFile(fname, in_provider)
+    return self._compileReminderTasks()
+
+  # compile the input jetrule buffer
+  # return the jetrule data structure for convenience
+  # ---------------------------------------------------------------------------------------
+  def compileJetRule(self, input: str) -> Dict[str, object]:
+    self.processJetRule(input)
+    return self._compileReminderTasks()
+
+  # Compile the JetRule beyond the initial processing
+  def _compileReminderTasks(self) -> Dict[str, object]:
+    self.postprocessJetRule()
+    self.validateJetRule()
+    self.optimizeJetRule()
+    self.addReteMarkingJetRule()
+    return self.jetrule_ctx.jetRules
+
+
+  # =====================================================================================
+  # processJetRuleFile
   # -------------------------------------------------------------------------------------
   # Read input jetrule file and returns the initial jetrule data structure
   # return the jetrule data structure for convenience
