@@ -134,7 +134,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(is_valid, False)
     # print('*** Errors?',jetrule_ctx.errors)
     self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleV2: Variable '?clm02' is not binded in this context '(?clm02 is_good false)' and must be for the rule to be valid.")
-    self.assertEqual(jetrule_ctx.errors[1], "Error rule RuleV2: Identifier 'is_good' is not defined in this context '(?clm02 is_good false)', it must be define.")
+    self.assertEqual(jetrule_ctx.errors[1], "Error rule RuleV2: Identifier 'is_good' is not defined in this context '(?clm02 is_good false)', it must be defined.")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
   def test_validate_var5(self):
@@ -170,7 +170,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.ERROR, True)
     # print('*** Errors?',jetrule_ctx.errors)
     self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleV4: Variable '?clm02' is not binded in this context '(?clm01 rdf:type acme:Claim).[?clm02]' and must be for the rule to be valid.")
-    self.assertEqual(jetrule_ctx.errors[1], "Error rule RuleV4: Identifier 'is_good' is not defined in this context '(?clm01 is_good false)', it must be define.")
+    self.assertEqual(jetrule_ctx.errors[1], "Error rule RuleV4: Identifier 'is_good' is not defined in this context '(?clm01 is_good false)', it must be defined.")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
 

@@ -1,9 +1,17 @@
 import sys
+import enum
 from typing import Dict, Sequence
 import json
 from JetRuleLexer import JetRuleLexer
 
 class JetRuleContext:
+
+  STATE_READY = 1
+  STATE_PROCESSED = 2
+  STATE_POSTPROCESSED = 3
+  STATE_VALIDATED = 4
+  STATE_OPTIMIZED = 5
+  STATE_RETE_MARKINGS = 6
 
   def __init__(self, data: Dict[str, object], errors: Sequence[str]):
     self.jetRules = data
@@ -45,6 +53,9 @@ class JetRuleContext:
 
     # collect all defined resources and literals for rule validation
     self.defined_resources = frozenset(self.resourceMap.keys())
+
+    # init done whew!
+    self.state = JetRuleContext.STATE_READY
 
   def _initMap(self, map: Dict[str, object], items, tag):
     for item in items:
