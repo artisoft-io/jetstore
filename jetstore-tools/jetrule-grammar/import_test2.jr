@@ -1,16 +1,14 @@
-# =======================================================================================
-# This is content of import_test2.jr
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Testing JetRule Grammar
 # ---------------------------------------------------------------------------------------
+import "import_test21.jr"
+bad;
 # =======================================================================================
-# Defining Lookup Tables
+# Defining Constants Resources and Literals
 # ---------------------------------------------------------------------------------------
-# lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
-# Note: Legacy trd lookup table will have to be converted to csv
-# Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
-lookup_table acme:ProcedureLookup {
-  $table_name = acme__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
-  $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
+int isTrue = 1;
 
-  # Value columns, corresponding resource automatically created
-  $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
-};
+# Defining some constants (e.g. Exclacmeon Types)
+# ---------------------------------------------------------------------------------------
+text NOT_IN_CONTRACT      = "NOT COVERED IN CONTRACT";
+text EXCLUDED_STATE       = "STATE";

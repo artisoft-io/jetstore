@@ -104,10 +104,6 @@ py_test(
     ":jetrule_compiler",
     requirement("absl-py"),
   ],
-  data = [
-    ":import_test1.jr",
-    ":import_test2.jr",
-  ],
   imports = ["jetrule_g4_gen.py"],
 )
 
@@ -135,6 +131,18 @@ py_test(
   deps = [
     ":jetrule_compiler",
     requirement("absl-py"),
+  ],
+  data = [
+    ":import_test1.jr",
+    ":import_test11.jr",
+    ":import_test2.jr",
+    ":import_test21.jr",
+    ":import_test3.jr",
+    ":import_test31.jr",
+    ":import_test32.jr",
+    ":import_test4.jr",
+    ":import_test41.jr",
+    ":import_test42.jr",
   ],
   imports = ["jetrule_g4_gen.py"],
 )

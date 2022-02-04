@@ -8,6 +8,7 @@ import io
 import os
 import re
 import sys
+import queue
 from jet_listener import JetListener
 from jetrule_context import JetRuleContext
 from jetrule_validator import JetRuleValidator
@@ -50,18 +51,57 @@ class JetRuleCompiler:
 
   def __init__(self):
     self.jetrule_ctx = None
+    self.global_line_nbr = 0
+    self.imported_rule_files = None
+    self.imported_rule_file_names = None
+    self.processing_rule_files_q = None
+    self.a4_err_pat = re.compile(r'line\s+(\d+):(\d+)\s+(.*)')
 
   # =====================================================================================
   # Internal methods
   # -------------------------------------------------------------------------------------
-  def _readInput(in_data: str, in_provider: InputProvider, pat, fout: io.StringIO) -> None:
+  def _readInput(self, in_data: str, in_provider: InputProvider, pat, fout: io.StringIO) -> None:
     for line in in_data.splitlines(keepends=True):
       m = pat.match(line)
       if m:
-          print('Importing file: ', m.group(1))
-          JetRuleCompiler._readInput(in_provider.getRuleFile(m.group(1)), in_provider, pat, fout)
+          fname = m.group(1)
+          # Pause the current file
+          file_info = self.processing_rule_files_q.get()
+          current_file_name = file_info['fname']
+          file_info['end_pos'] = self.global_line_nbr
+          file_offset = self.global_line_nbr - file_info['start_pos'] + file_info['file_offset'] + 1
+
+          if fname in self.imported_rule_file_names:
+            # print('File already imported:', fname, ', skipping it')
+
+            # Put another entry for the current file for the remaining statements
+            file_info = {'fname': current_file_name, 'start_pos': self.global_line_nbr, 'file_offset': file_offset}
+            self.imported_rule_files.append(file_info)
+            self.processing_rule_files_q.put(file_info)
+
+          else:
+            # print('Importing file: ', fname)
+
+            # Put a new entry to track new file to import
+            file_info = {'fname': fname, 'start_pos': self.global_line_nbr, 'file_offset': 0}
+            self.imported_rule_files.append(file_info)
+            self.imported_rule_file_names.add(fname)
+            self.processing_rule_files_q.put(file_info)
+            self._readInput(in_provider.getRuleFile(fname), in_provider, pat, fout)
+
+            # Put another entry for the current file for the remaining statements
+            file_info = {'fname': current_file_name, 'start_pos': self.global_line_nbr, 'file_offset': file_offset}
+            self.imported_rule_files.append(file_info)
+            self.processing_rule_files_q.put(file_info)
       else:
         fout.write(line)
+        # keep track of line nbr
+        self.global_line_nbr += 1
+
+    # Done with current file
+    file_info = self.processing_rule_files_q.get()
+    file_info['end_pos'] = self.global_line_nbr
+
 
   # =====================================================================================
   # compileJetRuleFile
@@ -84,10 +124,11 @@ class JetRuleCompiler:
 
   # Compile the JetRule beyond the initial processing
   def _compileReminderTasks(self) -> Dict[str, object]:
-    self.postprocessJetRule()
-    self.validateJetRule()
-    self.optimizeJetRule()
-    self.addReteMarkingJetRule()
+    if not self.jetrule_ctx.ERROR:
+      self.postprocessJetRule()
+      self.validateJetRule()
+      self.optimizeJetRule()
+      self.addReteMarkingJetRule()      
     return self.jetrule_ctx.jetRules
 
 
@@ -101,9 +142,19 @@ class JetRuleCompiler:
     pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
     fout = io.StringIO()
 
+    # keep track of the imports for error reporting
+    #   'start_pos' is the first line of the rule file (incl)
+    #   'end_pos' is the last line of the rule file (excl), ie. +1
+    self.global_line_nbr = 1
+    self.processing_rule_files_q = queue.LifoQueue()
+    file_info = {'fname': fname, 'start_pos': 1, 'file_offset': 0}
+    self.imported_rule_files = [file_info]
+    self.imported_rule_file_names = set([fname])
+    self.processing_rule_files_q.put(file_info)
+
     # read recursively the input file and it's imports
     in_file = in_provider.getRuleFile(fname)
-    JetRuleCompiler._readInput(in_file, in_provider, pat, fout)
+    self._readInput(in_file, in_provider, pat, fout)
     fout.seek(0)
     data = fout.read()
     fout.close()
@@ -141,7 +192,29 @@ class JetRuleCompiler:
 
     errors = []
     for err in ERRORS:
-      errors.append(err)
+      # post process antlr4 errors to put reference to the included file
+      # print('** got err:',err)
+      if self.imported_rule_files:
+        m = self.a4_err_pat.match(err)
+        if m:
+          line_nbr = int(m.group(1))
+          col_nbr = int(m.group(2))
+          err_msg = m.group(3)
+          # print('** matched on err, line',line_nbr, 'col', col_nbr)
+
+          # find which file this error falls into
+          fname = None
+          for file_info in self.imported_rule_files:
+            if line_nbr >= file_info['start_pos'] and line_nbr < file_info['end_pos']:
+              fname = file_info['fname']
+              break
+
+          if fname:
+            errors.append("Error in file '{0}' line {1}:{2} {3}".format(fname, line_nbr-file_info['start_pos']+file_info['file_offset']+1, col_nbr+1, err_msg))
+          else:
+            raise Exception('Oops something is wrong with the import file in JetRuleCompiler')
+      else:
+        errors.append(err)
 
     self.jetrule_ctx = JetRuleContext(listener.jetRules, errors)
     self.jetrule_ctx.state = JetRuleContext.STATE_PROCESSED
@@ -228,12 +301,7 @@ def main(argv):
 
   in_provider = InputProvider(base_path)
   compiler = JetRuleCompiler()
-  compiler.processJetRuleFile(in_fname, in_provider)
-  compiler.postprocessJetRule()
-  compiler.validateJetRule()
-  compiler.optimizeJetRule()
-  compiler.addReteMarkingJetRule()
-  jetrules = compiler.addReteMarkingJetRule()
+  jetrules = compiler.compileJetRuleFile(in_fname, in_provider)
 
   # Save the JetRule data structure
   with open(str(path)+'.json', 'wt', encoding='utf-8') as f:

@@ -15,33 +15,12 @@ FLAGS = flags.FLAGS
 
 class JetRulesValidatorTest(absltest.TestCase):
 
-  def _get_from_file(self, fname: str) -> Dict[str, object]:
-    in_provider = InputProvider('jetstore-tools/jetrule-grammar')
-    compiler = JetRuleCompiler()
-    compiler.processJetRuleFile(fname, in_provider)
-    compiler.postprocessJetRule()
-    jetrule_ctx = compiler.jetrule_ctx
-    self.assertEqual(jetrule_ctx.ERROR, False)
-    return jetrule_ctx.jetRules
-
   def _get_augmented_data(self, input_data: str) -> JetRuleContext:
     compiler = JetRuleCompiler()
     compiler.processJetRule(input_data)
     compiler.postprocessJetRule()
     jetrule_ctx = compiler.jetrule_ctx
     return jetrule_ctx
-
-  def test_import1(self):
-    postprocessed_data = self._get_from_file("import_test1.jr")
-
-    # validate the whole result
-    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1"}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": []}"""
-    # print('GOT:',json.dumps(postprocessed_data, indent=2))
-    # print()
-    # print('COMPACT:',json.dumps(postprocessed_data))
-
-    # validate the whole result
-    self.assertEqual(json.dumps(postprocessed_data), expected)
 
   def test_validate_var1(self):
     data = """

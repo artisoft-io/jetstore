@@ -14,12 +14,79 @@ FLAGS = flags.FLAGS
 
 class JetRulesCompilerTest(absltest.TestCase):
 
+  def _get_from_file(self, fname: str) -> JetRuleContext:
+    in_provider = InputProvider('jetstore-tools/jetrule-grammar')
+    compiler = JetRuleCompiler()
+    compiler.compileJetRuleFile(fname, in_provider)
+    # print('Compiler working memory for import files')
+    # print(compiler.imported_rule_files)
+    # print('***')
+    return compiler.jetrule_ctx
+
   def _get_augmented_data(self, input_data: str) -> JetRuleContext:
     compiler = JetRuleCompiler()
     compiler.compileJetRule(input_data)
     jetrule_ctx = compiler.jetrule_ctx
     return jetrule_ctx
-    
+
+
+  def test_import1(self):
+    jetrule_ctx = self._get_from_file("import_test1.jr")
+
+    self.assertEqual(jetrule_ctx.ERROR, False)
+
+    # validate the whole result
+    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1"}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": []}"""
+    # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
+
+    # validate the whole result
+    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+
+  def test_import2(self):
+    jetrule_ctx = self._get_from_file("import_test2.jr")
+
+    # for err in jetrule_ctx.errors:
+    #   print('***', err)
+    # print('***')
+    self.assertEqual(jetrule_ctx.ERROR, True)
+    self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test21.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(len(jetrule_ctx.errors), 2)
+
+  def test_import3(self):
+    jetrule_ctx = self._get_from_file("import_test3.jr")
+
+    # for err in jetrule_ctx.errors:
+    #   print('***', err)
+    # print('***')
+    self.assertEqual(jetrule_ctx.ERROR, True)
+
+    self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test3.jr' line 8:5 mismatched input 'true' expecting Identifier")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test31.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
+    self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test32.jr' line 5:8 mismatched input ':' expecting {',', ']'}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+
+    self.assertEqual(len(jetrule_ctx.errors), 5)
+
+
+  def test_import4(self):
+    jetrule_ctx = self._get_from_file("import_test4.jr")
+
+    # for err in jetrule_ctx.errors:
+    #   print('***', err)
+    # print('***')
+    self.assertEqual(jetrule_ctx.ERROR, True)
+
+    self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test4.jr' line 8:5 mismatched input 'true' expecting Identifier")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test41.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
+    self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test42.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+
+    self.assertEqual(len(jetrule_ctx.errors), 4)
+
 
   def test_compiler1(self):
     data = """
