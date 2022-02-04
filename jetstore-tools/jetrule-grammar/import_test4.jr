@@ -1,14 +1,18 @@
 # ///////////////////////////////////////////////////////////////////////////////////////
 # Testing JetRule Grammar
-# ---------------------------------------------------------------------------------------
-import "import_test11.jr"
 
 # =======================================================================================
 # Defining Constants Resources and Literals
 # ---------------------------------------------------------------------------------------
 int isTrue = 1;
+int true = 1; # no good
+
+# ---------------------------------------------------------------------------------------
+import "import_test41.jr"
+import "import_test42.jr"
+import "import_test41.jr"
 
 # Defining some constants (e.g. Exclacmeon Types)
 # ---------------------------------------------------------------------------------------
-text NOT_IN_CONTRACT      = "NOT COVERED IN CONTRACT";
+ztext NOT_GOOD_TYPE      = "NOT_GOOD_TYPE";
 text EXCLUDED_STATE       = "STATE";

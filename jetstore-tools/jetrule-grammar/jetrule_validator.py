@@ -55,7 +55,7 @@ class JetRuleValidator:
       if type == 'keyword':
         ctx.err(
           "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
-          "it must be define.".format(
+          "it must be defined.".format(
             ctx.rule_name, elm.get('value'), ctx.term_label)
         )
 
@@ -63,7 +63,7 @@ class JetRuleValidator:
       if type == 'keyword':
         ctx.err(
           "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
-          "it must be define.".format(
+          "it must be defined.".format(
             ctx.rule_name, elm.get('value'), ctx.term_label)
         )
 

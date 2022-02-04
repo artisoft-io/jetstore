@@ -1,9 +1,17 @@
 import sys
+import enum
 from typing import Dict, Sequence
 import json
 from JetRuleLexer import JetRuleLexer
 
 class JetRuleContext:
+
+  STATE_READY = 1
+  STATE_PROCESSED = 2
+  STATE_POSTPROCESSED = 3
+  STATE_VALIDATED = 4
+  STATE_OPTIMIZED = 5
+  STATE_RETE_MARKINGS = 6
 
   def __init__(self, data: Dict[str, object], errors: Sequence[str]):
     self.jetRules = data
@@ -46,6 +54,9 @@ class JetRuleContext:
     # collect all defined resources and literals for rule validation
     self.defined_resources = frozenset(self.resourceMap.keys())
 
+    # init done whew!
+    self.state = JetRuleContext.STATE_READY
+
   def _initMap(self, map: Dict[str, object], items, tag):
     for item in items:
       id = item['id']
@@ -61,9 +72,9 @@ class JetRuleContext:
             self.err('Error: {0} with id {1} is define multiple times, one is a symbol, {2}, the other is of different type {3}'.format(tag, id, symbol, ot))
         else:
           if c['type'] != type:
-            self.err('Error: {0} with id {1} is define multiple times with different type: {2} and {3}'.format(tag, id, type, c['type']))
+            self.err('Error: {0} with id {1} is define multiple times with different types: {2} and {3}'.format(tag, id, type, c['type']))
           if c['value'] != value:
-            self.err('Error: {0} with id {1} is define multiple times with different value: {2} and {3}'.format(tag, id, value, c['value']))
+            self.err('Error: {0} with id {1} is define multiple times with different values: {2} and {3}'.format(tag, id, value, c['value']))
       map[item['id']] = item
 
   def _addRL(self, map, tag, name: str, type: str, value):

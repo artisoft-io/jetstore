@@ -92,7 +92,14 @@ stringSeq: slist+=String (',' slist+=String)* ;
 // --------------------------------------------------------------------------------------
 // Define Jet Rule
 // --------------------------------------------------------------------------------------
-jetRuleStmt: '[' ruleName=Identifier ruleProperties* ']' ':' antecedent+ '->' consequent+ SEMICOLON ;
+jetRuleStmt: '[' ruleName=Identifier ruleProperties* ']' ':' 
+    COMMENT*
+    (antecedent COMMENT*)+ 
+    '->' 
+    COMMENT*
+    (consequent COMMENT*)+
+  SEMICOLON ;
+
 ruleProperties: ',' key=Identifier ASSIGN valCtx=propertyValue ;
 propertyValue: ( val=String | val=TRUE | val=FALSE | intval=intExpr ) ;
 

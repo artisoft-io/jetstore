@@ -48,7 +48,7 @@ class ValidationContext:
     if not defined:
       self.err(
         "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
-        "it must be define.".format(
+        "it must be defined.".format(
           self.rule_name, var, self.term_label)
       )
     return defined

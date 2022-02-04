@@ -1,0 +1,23 @@
+# =======================================================================================
+# This is content of import_test32.jr
+# =======================================================================================
+# Defining INVALID rule, having missing ']' after rule identifier
+[RuleI2: 
+  (?clm01 rdf:type acme:Claim).
+  ->
+  (?clm02 is_good false)    # bad -- undefined resource
+;
+# =======================================================================================
+# Simplest rule that is valid with comments everywhere!
+# ---------------------------------------------------------------------------------------
+[RuleI1]:                         # comment 1
+  (?clm01 is_good ?good).         # comment 2
+  # comment 3
+  (?clm01 rdf:type acme:Claim).   # comment 4
+  # comment 5
+  ->
+  # comment 6
+  (?clm01 is_good true).   # comment 8
+  # comment 9
+;
+# ---------------------------------------------------------------------------------------

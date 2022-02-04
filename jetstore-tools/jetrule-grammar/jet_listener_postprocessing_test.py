@@ -324,7 +324,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], 'Error: Resource with id uid is define multiple times, one is a symbol, null, the other is of different type create_uuid_resource()')
-    self.assertEqual(jetrule_ctx.errors[1], 'Error: Resource with id None is define multiple times with different value: null and None')
+    self.assertEqual(jetrule_ctx.errors[1], 'Error: Resource with id None is define multiple times with different values: null and None')
     self.assertEqual(len(jetrule_ctx.errors), 2)
     # print('GOT')
     # for k in jetrule_ctx.errors:
@@ -349,7 +349,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     # for k in jetrule_ctx.errors:
     #   print(k)
     # print()
-    self.assertEqual(jetrule_ctx.errors[0], "Error: Resource with id rcode is define multiple times with different value: my-rcode and rcode")
+    self.assertEqual(jetrule_ctx.errors[0], "Error: Resource with id rcode is define multiple times with different values: my-rcode and rcode")
 
   def test_conflicting_definition3(self):
     data = """
@@ -368,7 +368,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     # for k in jetrule_ctx.errors:
     #   print(k)
     # print()
-    self.assertEqual(jetrule_ctx.errors[0], "Error: Literal with id err_code is define multiple times with different type: long and int")
+    self.assertEqual(jetrule_ctx.errors[0], "Error: Literal with id err_code is define multiple times with different types: long and int")
 
   def test_conflicting_definition4(self):
     data = """
@@ -388,7 +388,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     # for k in jetrule_ctx.errors:
     #   print(k)
     # print()
-    self.assertEqual(jetrule_ctx.errors[0], "Error: Literal with id NAME is define multiple times with different value: another_name and name")
+    self.assertEqual(jetrule_ctx.errors[0], "Error: Literal with id NAME is define multiple times with different values: another_name and name")
 
   def test_conflicting_definition5(self):
     data = """
@@ -404,8 +404,8 @@ class JetRulesPostProcessorTest(absltest.TestCase):
 
     jetrule_ctx =  self._process_data(data)
     self.assertEqual(jetrule_ctx.ERROR, True)
-    self.assertEqual(jetrule_ctx.errors[0], 'Error: Resource with id all_wrong is define multiple times with different type: resource and int')
-    self.assertEqual(jetrule_ctx.errors[1], 'Error: Resource with id all_wrong is define multiple times with different value: all_wrong and 1')
+    self.assertEqual(jetrule_ctx.errors[0], 'Error: Resource with id all_wrong is define multiple times with different types: resource and int')
+    self.assertEqual(jetrule_ctx.errors[1], 'Error: Resource with id all_wrong is define multiple times with different values: all_wrong and 1')
     self.assertEqual(len(jetrule_ctx.errors), 2)
     # print('GOT')
     # for k in jetrule_ctx.errors:
