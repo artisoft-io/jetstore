@@ -7,21 +7,25 @@ from absl import flags
 from absl.testing import absltest
 import io
 
-import jetrule_compiler as compiler
+from jetrule_compiler import JetRuleCompiler, InputProvider
 from jetrule_context import JetRuleContext
 from jetrule_optimizer import JetRuleOptimizer
+from jetrule_validator import JetRuleValidator
 
 FLAGS = flags.FLAGS
 
 class JetRulesOptimizerTest(absltest.TestCase):
 
-  def _get_augmented_data(self, data: io.StringIO) -> JetRuleContext:
-    jetrule_ctx =  compiler.processJetRule(data)
-    return compiler.postprocessJetRule(jetrule_ctx)
+  def _get_augmented_data(self, input_data: str) -> JetRuleContext:
+    compiler = JetRuleCompiler()
+    compiler.processJetRule(input_data)
+    compiler.postprocessJetRule()
+    jetrule_ctx = compiler.jetrule_ctx
+    return jetrule_ctx
 
 
   def test_optimize1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rule that is valid
       # ---------------------------------------------------------------------------------------
@@ -34,9 +38,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
         ->
         (?clm01 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -49,7 +52,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -66,7 +70,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(optimized_data), optimized_expected)
 
   def test_optimize2(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rule that is valid
       # ---------------------------------------------------------------------------------------
@@ -79,9 +83,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
         ->
         (?clm02 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -94,7 +97,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -111,7 +115,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(optimized_data), optimized_expected)
 
   def test_optimize3(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rule that is valid
       # ---------------------------------------------------------------------------------------
@@ -125,9 +129,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
         ->
         (?clm02 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -140,7 +143,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -157,7 +161,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(optimized_data), optimized_expected)
 
   def test_optimize4(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       resource rdf:type = "rdf:type";
       resource acme:Claim = "acme:Claim";
@@ -168,9 +172,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
         ->
         (?clm01 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     postprocessed_data = jetrule_ctx.jetRules
 
     # validate that empty rule file is ok
@@ -183,7 +186,8 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
     # Validate variables
-    is_valid = compiler.validateJetRule(jetrule_ctx)
+    validator = JetRuleValidator(jetrule_ctx)
+    is_valid = validator.validateJetRule()
     self.assertEqual(is_valid, True)
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
@@ -200,7 +204,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
     self.assertEqual(json.dumps(optimized_data), optimized_expected)
 
   def test_optimize5(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       resource rdf:type = "rdf:type";
       resource acme:Claim = "acme:Claim";
@@ -213,7 +217,7 @@ class JetRulesOptimizerTest(absltest.TestCase):
         ->
         (?clm01 is_good true).
       ;
-    """)
+    """
 
   # Result:
   # "authoredLabel": "[RuleO5]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);",
@@ -221,7 +225,6 @@ class JetRulesOptimizerTest(absltest.TestCase):
   # "label": "[RuleO5]:(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm01 reverse_of ?clm02).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);"    
 
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
 
     # Optimize the rules

@@ -7,21 +7,26 @@ from absl import flags
 from absl.testing import absltest
 import io
 
-import jetrule_compiler as compiler
+from jetrule_compiler import JetRuleCompiler, InputProvider
 from jetrule_context import JetRuleContext
+from jetrule_optimizer import JetRuleOptimizer
+from jetrule_validator import JetRuleValidator
 from jetrule_rete import JetRuleRete
 
 FLAGS = flags.FLAGS
 
 class JetRulesReteTest(absltest.TestCase):
 
-  def _get_augmented_data(self, data: io.StringIO) -> JetRuleContext:
-    jetrule_ctx =  compiler.processJetRule(data)
-    return compiler.postprocessJetRule(jetrule_ctx)
+  def _get_augmented_data(self, input_data: str) -> JetRuleContext:
+    compiler = JetRuleCompiler()
+    compiler.processJetRule(input_data)
+    compiler.postprocessJetRule()
+    jetrule_ctx = compiler.jetrule_ctx
+    return jetrule_ctx
 
 
   def test_rete1(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rules that are valid
       # ---------------------------------------------------------------------------------------
@@ -40,9 +45,8 @@ class JetRulesReteTest(absltest.TestCase):
         ->
         (?clm01 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
 
     # Augment with rete markups
@@ -59,7 +63,7 @@ class JetRulesReteTest(absltest.TestCase):
 
 
   def test_rete2(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rules that are valid
       # ---------------------------------------------------------------------------------------
@@ -88,9 +92,8 @@ class JetRulesReteTest(absltest.TestCase):
         ->
         (?w1 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
 
     # Augment with rete markups
@@ -107,7 +110,7 @@ class JetRulesReteTest(absltest.TestCase):
 
 
   def test_rete3(self):
-    data = io.StringIO("""
+    data = """
       # =======================================================================================
       # Simplest rules that are valid
       # ---------------------------------------------------------------------------------------
@@ -136,9 +139,8 @@ class JetRulesReteTest(absltest.TestCase):
         ->
         (?w1 is_good true).
       ;
-    """)
+    """
     jetrule_ctx = self._get_augmented_data(data)
-    data.close()
     self.assertEqual(jetrule_ctx.ERROR, False)
 
     # Augment with rete markups

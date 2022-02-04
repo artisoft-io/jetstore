@@ -4,29 +4,32 @@ import sys
 import json
 from absl import flags
 from absl.testing import absltest
-import io
-import jetrule_compiler as compiler
+
+from jetrule_compiler import JetRuleCompiler, InputProvider
 
 FLAGS = flags.FLAGS
 
 class JetListenerTest2(absltest.TestCase):
 
-  def _get_listener_data(self):
-    data = compiler.getInput("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr")
-    jetrule_ctx =  compiler.processJetRule(data)
-    ctx = compiler.postprocessJetRule(jetrule_ctx)
-    data.close()
-    return ctx.jetRules
-
   # Test data file are accessible acmeng the path relative to the root of the workspace
   def test_rule_file1(self):
-    jetRules = self._get_listener_data()
+    provider = InputProvider("jetstore-tools/jetrule-grammar/")
+    compiler = JetRuleCompiler()
+    compiler.processJetRuleFile("jet_listerner_test_data.jr", provider)
+    compiler.postprocessJetRule()
+    compiler.validateJetRule()
+    compiler.optimizeJetRule()
+    jetRules = compiler.addReteMarkingJetRule()
+
 
     with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
     # print('GOT:',json.dumps(jetRules, indent=4))
+    # with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'wt', encoding='utf-8') as f:
+    #   f.write(json.dumps(jetRules, indent=4))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
+
     self.assertEqual(json.dumps(jetRules), json.dumps(expected))
 
 
