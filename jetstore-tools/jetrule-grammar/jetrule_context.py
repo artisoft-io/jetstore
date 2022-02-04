@@ -61,9 +61,9 @@ class JetRuleContext:
             self.err('Error: {0} with id {1} is define multiple times, one is a symbol, {2}, the other is of different type {3}'.format(tag, id, symbol, ot))
         else:
           if c['type'] != type:
-            self.err('Error: {0} with id {1} is define multiple times with different type: {2} and {3}'.format(tag, id, type, c['type']))
+            self.err('Error: {0} with id {1} is define multiple times with different types: {2} and {3}'.format(tag, id, type, c['type']))
           if c['value'] != value:
-            self.err('Error: {0} with id {1} is define multiple times with different value: {2} and {3}'.format(tag, id, value, c['value']))
+            self.err('Error: {0} with id {1} is define multiple times with different values: {2} and {3}'.format(tag, id, value, c['value']))
       map[item['id']] = item
 
   def _addRL(self, map, tag, name: str, type: str, value):
