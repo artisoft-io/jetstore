@@ -7,7 +7,7 @@
 resource lookup_table = "not good!";
 # ---------------------------------------------------------------------------------------
 # That would create an infinite loop since import_test4.jr imports this file as well
-#import "import_test4.jr"
+import "import_test4.jr"
 # ---------------------------------------------------------------------------------------
 resource rdf:type = "rdf:type";
 resource acme:Claim = "acme:Claim";
