@@ -31,6 +31,11 @@ resource medicareRateObjTC2 = "_0:medicareRateObjTC2";  # Support RC legacy
 
 resource None  = null;
 resource uuid  = create_uuid_resource();
+resource related_to  = "related_to";
+resource has_code  = "has_code";
+resource rdf:type  = "rdf:type";
+resource acme:Claim  = "acme:Claim";
+resource acme:SpecialClaim  = "acme:SpecialClaim";
 
 # Some special cases
 resource acme:key = "acme:key";
@@ -45,7 +50,7 @@ volatile_resource medicareRateObj262     = "medicareRateObj262";
 # =======================================================================================
 # Defining Lookup Tables
 # ---------------------------------------------------------------------------------------
-# lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
+# lookup example based on ACME: *include-lookup* "CM/Procedure CM.trd"
 # Note: Legacy trd lookup table will have to be converted to csv
 # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
 lookup_table acme:ProcedureLookup {
@@ -57,7 +62,7 @@ lookup_table acme:ProcedureLookup {
 };
 
 # Another example that is already using a csv file 
-# based on USI: *include-lookup* "MSK/MSK_DRG_TRIGGER.lookup"
+# based on ACME: *include-lookup* "MSK/MSK_DRG_TRIGGER.lookup"
 lookup_table MSK_DRG_TRIGGER {
   $table_name = usi__msk_trigger_drg_codes,         # main table
   $key = ["DRG"],                                   # Lookup key
@@ -73,61 +78,24 @@ lookup_table MSK_DRG_TRIGGER {
 # ---------------------------------------------------------------------------------------
 # property s: salience, o: optimization, tag: label
 # optimization is true by default
-[Rule1, s=+100, o=false, tag="USI"]: 
+[Rule1, s=+100, o=false, tag="ACME"]: 
   (?clm01 rdf:type acme:Claim).
-  not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
-  ->
-  (?clm01 rdf:type acme:SpecialClaim).
-  (?clm01 xyz ?drg)
-;
-
-[Rule2, s=100, o=true, tag="USI"]: 
-  (?clm01 rdf:type acme:Claim).
-  not(?clm01 acme:hasDRG ?drg).[true and false]
-  ->
-  (?clm01 rdf:type acme:SpecialClaim)
-;
-
-[Rule3]: 
-  (?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].
-  (?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2].
-  ->
-  (?clm01 rdf:type acme:SpecialClaim).
-  (?clm02 rdf:type acme:SpecialClaim)
-;
-
-[Rule4]: 
-  (?clm01 has_code ?code).[not(?a1 or b1) and (not ?a2)]
-  ->
-  (?clm01 value (?a1 + ?b2)).
-  (?clm01 value2 ?a1 + ?b2).
-  (?clm01 value2 (not ?b2))
-;
-
-[Rule5]: 
   (?clm01 has_code ?code).
+  (?clm02 rdf:type acme:Claim).
+  (?clm02 has_code ?code)
   ->
-  (?clm01 acme:"lookup_table" true)
+  (?clm01 related_to ?clm02)
 ;
 
-[Rule6]: 
-  (?clm01 has_code r1).
-  (?clm01 has_str r2).
+[Rule2, s=100, o=true, tag="ACME"]: 
+  (?clm01 rdf:type acme:Claim).
+  (?clm01 has_code ?code).
+  (?clm02 rdf:type acme:Claim).
+  (?clm02 has_code ?code).
+  (?clm01 related_to ?clm03)
+  (?clm03 rdf:type acme:Claim).
   ->
-  (?clm01 acme:"lookup_table" "valueX").
-  (?clm01 acme:market "MERGED \"MARKET\" CHARGE BACK").
-  (?clm01 acme:market text("MERGED \"MARKET\" CHARGE BACK"))
-
-;
-
-[Rule7]: 
-  (?clm01 has_code int(1)).
-  (?clm01 has_str "value").
-  (?clm01 hasTrue true).
-  ->
-  (?clm01 acme:"lookup_table" true).
-  (?clm01 has_literal int(1)).
-  (?clm01 has_expr (int(1) + long(4)))
+  (?clm03 rdf:type acme:SpecialClaim)
 ;
 
 # That's it for now!

@@ -15,7 +15,7 @@ class JetRuleRete:
     self.ctx = ctx
 
   # =====================================================================================
-  # addReteMarkup
+  # AddBetaRelationMarkup
   # -------------------------------------------------------------------------------------
   # Augmenting JetRule structure with rete markups: 
   #   - Add to antecedent: rete:parent_vertex and rete:vertex
@@ -34,8 +34,9 @@ class JetRuleRete:
     # self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
     # Let's add the reverse relationship
     for node in self.ctx.rete_nodes:
-      node['children_vertexes'] = []
+      node['antecedent_node'] = None
       node['consequent_nodes'] = []
+      node['children_vertexes'] = []
       parent_vertex = node['parent_vertex']
       if node['vertex'] > 0:
         self.ctx.rete_nodes[parent_vertex]['children_vertexes'].append(node['vertex'])
@@ -48,10 +49,26 @@ class JetRuleRete:
       for antecedent in rule['antecedents']:
         vertex = antecedent['vertex']
         self.ctx.rete_nodes[vertex]['antecedent_node'] = antecedent
+
       # Each node may have 0 or more consequents terms attached to them
       for consequent in rule['consequents']:
         vertex = consequent['vertex']
         self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent)
+
+    # Alter the jet_rules structure to replace antecedents with alpha_nodes
+    for rule in rules:
+      rule['alpha_nodes'] = []
+      for antecedent in rule['antecedents']:
+        vertex = antecedent['vertex']
+        # We're puting reference to the whole rete_node,
+        # we can change this to: 'alpha_node_vertices' and put the vertex only
+        rule['alpha_nodes'].append(self.ctx.rete_nodes[vertex])
+      # remove the antecedents from rule since some are duplicated, rete_nodes have
+      # the unique list of rete_nodes (unique antecedents)
+      del rule['antecedents']
+      # also remove consequents since they are now on the rete_node
+      del rule['consequents']
+
     # Now we have the nodes connected to the rules
     # do dfs to collect the bounded variables at each node,
     # do dfs on children and consequent terms to get the var that are needed
@@ -60,28 +77,83 @@ class JetRuleRete:
     for node in self.ctx.rete_nodes:
       parent_vertex = node['parent_vertex']
       if parent_vertex == 0 and node['vertex'] > 0:
-        bounded_vars = set()
-        self._set_beta_var(bounded_vars, node)
+        self._set_beta_var(set(), node)
 
-    # done, now alter the jetrule data structure to save the rete_nodes rather than the rules
-    del self.ctx.jetRules['jet_rules']    
+    # done, add to the jetrule data structure the rete_nodes
     self.ctx.jetRules['rete_nodes'] = self.ctx.rete_nodes
     # print('*** RETE NODES:')
     # for node in self.ctx.rete_nodes:
     #   print(json.dumps(node, indent=2))
 
+    # Perform validation on jetrule beta relation config
+    for node in self.ctx.rete_nodes:
+      parent_vertex = node['parent_vertex']
+      if parent_vertex == 0 and node['vertex'] > 0:
+        self._validate_rete_node(set(), set(), node)
 
-  def _set_beta_var(self, bounded_vars: Set[str], node: object):
+
+  # -------------------------------------------------------------------------------------
+  # Validate Rete Node
+  # -------------------------------------------------------------------------------------
+  # Perform validation on jetrule beta relation config:
+  # pruned node must be pruned in descendent nodes (children_nodes)
+  # var introduced at node (not in parent node) shall not be marked as is_binded = True
+  def _validate_rete_node(self, parent_vars: Set[str], parent_pruned_vars: Set[str], node: object):
+    # print('*** validate RETE NODE',node)
+    # check that the pruned var in parent are also pruned var in node
+    # meaning parent_pruned_var.issubset(node_prune_var) is True
+    if not parent_pruned_vars.issubset(node['antecedent_node']['pruned_var']):
+      raise Exception("Invalid rete_node, missing prune var form parent, rete_node:",node,'parent_pruned_vars',parent_pruned_vars)
+
+    for child_vertex in node['children_vertexes']:
+      self._validate_rete_node(set(node['antecedent_node']['beta_relation_vars']), set(node['antecedent_node']['pruned_var']), self.ctx.rete_nodes[child_vertex])  
+
+
+  def _validate_var(self, parent_binded_var: Set[str], elm: object):
+    type = elm.get('type')
+    if type is None: raise Exception("Invalid jetRules elm: ", elm)
+
+    if type == 'antecedent' or type == 'consequent':
+      triple = elm['triple']
+      self._validate_var(parent_binded_var, triple[0])
+      self._validate_var(parent_binded_var, triple[1])
+      self._validate_var(parent_binded_var, triple[2])
+      filter = elm.get('filter')
+      if filter:
+        self._validate_var(parent_binded_var, filter)
+      return
+
+    if type == 'binary':
+      self._validate_var(parent_binded_var, elm['lhs'])
+      self._validate_var(parent_binded_var, elm['rhs'])
+      return
+
+    if type == 'unary':
+      self._validate_var(parent_binded_var, elm['arg'])
+      return
+
+    if type == 'var':
+        if elm['is_binded'] and not elm['id'] in parent_binded_var:
+          raise Exception("Invalid rete_node, var marked as binded but is not in parent beta variable, var:",elm,'parent_binded_vars',parent_binded_var)
+    return
+
+
+  # -------------------------------------------------------------------------------------
+  # Set Beta Variables
+  # -------------------------------------------------------------------------------------
+  def _set_beta_var(self, binded_vars: Set[str], node: object):
+
+    # while collecting var of antecedent_node, add 'is_binded' indicator to var nodes
+    # to indicate if the variable is binded to the parent antecedent
     antecedent = node['antecedent_node']
-    self._add_var(bounded_vars, antecedent)
+    binded_vars = binded_vars.union(self._add_var(binded_vars, antecedent, check_binded=True))
 
     # collect the downstream var (dependent var)
-    dependent_vars = set()
-    self._add_child_var(dependent_vars, {'consequent_nodes': node['consequent_nodes'], 'children_vertexes': node['children_vertexes']})
+    dependent_vars = self._add_child_var({'consequent_nodes': node['consequent_nodes'], 'children_vertexes': node['children_vertexes']})
 
     # let's do it
-    pruned_var = bounded_vars.difference(dependent_vars)
-    beta_relation_vars = bounded_vars.difference(pruned_var)
+    pruned_var = binded_vars.difference(dependent_vars)
+    beta_relation_vars = binded_vars.difference(pruned_var)
 
     # let's put that in the antecedent node
     antecedent['beta_relation_vars'] = [ v for v in beta_relation_vars]
@@ -89,56 +161,65 @@ class JetRuleRete:
     antecedent['pruned_var'] = [v for v in pruned_var]
     antecedent['pruned_var'].sort()
     # print('Vertex ', node['vertex'])
-    # print('bounded_vars', bounded_vars)
+    # print('binded_vars', binded_vars)
     # print('pruned_var', pruned_var)
     # print('beta_relation_vars', beta_relation_vars)
 
     # Now do the children
     for child in node['children_vertexes']:
-      self._set_beta_var(bounded_vars, self.ctx.rete_nodes[child])
+      self._set_beta_var(binded_vars, self.ctx.rete_nodes[child])
 
 
-  def _add_var(self, bounded_var: Set[str], elm: object) -> None:
+  def _add_var(self, parent_binded_var: Set[str], elm: object, check_binded) -> Set[str]:
     type = elm.get('type')
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
     if type == 'antecedent' or type == 'consequent':
       triple = elm['triple']
-      self._add_var(bounded_var, triple[0])
-      self._add_var(bounded_var, triple[1])
-      self._add_var(bounded_var, triple[2])
+      binded_var = self._add_var(parent_binded_var, triple[0], check_binded=check_binded)
+      binded_var = binded_var.union(self._add_var(parent_binded_var, triple[1], check_binded=check_binded))
+      binded_var = binded_var.union(self._add_var(parent_binded_var, triple[2], check_binded=check_binded))
       filter = elm.get('filter')
       if filter:
-        self._add_var(bounded_var, filter)
-      return
+        binded_var = binded_var.union(self._add_var(parent_binded_var, filter, check_binded=check_binded))
+      return binded_var
 
     if type == 'binary':
-      self._add_var(bounded_var, elm['lhs'])
-      self._add_var(bounded_var, elm['rhs'])
-      return
+      binded_var = self._add_var(parent_binded_var, elm['lhs'], check_binded=check_binded)
+      binded_var = binded_var.union(self._add_var(parent_binded_var, elm['rhs'], check_binded=check_binded))
+      return binded_var
 
     if type == 'unary':
-      self._add_var(bounded_var, elm['arg'])
-      return
+      binded_var = self._add_var(parent_binded_var, elm['arg'], check_binded=check_binded)
+      return binded_var
 
     if type == 'var':
-      bounded_var.add(elm['id'])
-      return
+      if check_binded:
+        if elm['id'] in parent_binded_var:
+          elm['is_binded'] = True
+        else:
+          elm['is_binded'] = False
+      return set([elm['id']])
+    return set()
 
   # Add child var recursively (antecedents and consequents alike)
-  def _add_child_var(self, dependent_vars: Set[str], rete_node: object):
-    
+  def _add_child_var(self, rete_node: object) -> Set[str]:
+    dependent_vars = set()
     antecedent_node = rete_node.get('antecedent_node')
     if antecedent_node:
-      self._add_var(dependent_vars, antecedent_node)
+      dependent_vars = dependent_vars.union(self._add_var(set(), antecedent_node, check_binded=False))
 
     for consequent in rete_node['consequent_nodes']:
-      self._add_var(dependent_vars, consequent)
+      dependent_vars = dependent_vars.union(self._add_var(set(), consequent, check_binded=False))
 
     for child_vertex in rete_node['children_vertexes']:
-      self._add_child_var(dependent_vars, self.ctx.rete_nodes[child_vertex])
+      dependent_vars = dependent_vars.union(self._add_child_var(self.ctx.rete_nodes[child_vertex]))
 
-  # Connect nodes across rules by matching normalized labels
+    return dependent_vars
+
+  # =====================================================================================
+  # addReteMarkup
+  # -------------------------------------------------------------------------------------
   def addReteMarkup(self) -> None:
 
     # rule structure

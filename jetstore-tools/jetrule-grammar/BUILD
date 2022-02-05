@@ -80,22 +80,6 @@ py_test(
 )
 
 py_test(
-  name = "jet_listener_postprocessing_test2",
-  srcs = ["jet_listener_postprocessing_test2.py"],
-  python_version = "PY3",
-  srcs_version = "PY3",
-  deps = [
-    ":jetrule_compiler",
-    requirement("absl-py"),
-  ],
-  data = [
-    ":jet_listener_postprocessing_test_data.jr",
-    ":jet_listener_postprocessing_test_data.jr.json",
-  ],
-  imports = ["jetrule_g4_gen.py"],
-)
-
-py_test(
   name = "jetrule_validator_test",
   srcs = ["jetrule_validator_test.py"],
   python_version = "PY3",
