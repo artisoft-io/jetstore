@@ -277,6 +277,7 @@ class JetRuleCompiler:
 
     rete = JetRuleRete(self.jetrule_ctx)
     rete.addReteMarkup()
+    rete.addBetaRelationMarkup()
     self.jetrule_ctx.state = JetRuleContext.STATE_RETE_MARKINGS
     return self.jetrule_ctx.jetRules
 

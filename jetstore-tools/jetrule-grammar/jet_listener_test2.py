@@ -21,9 +21,12 @@ class JetListenerTest2(absltest.TestCase):
     compiler.optimizeJetRule()
     jetRules = compiler.addReteMarkingJetRule()
 
+    # jetRules = compiler.jetrule_ctx.rete_nodes
+
 
     with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
+
     # print('GOT:',json.dumps(jetRules, indent=4))
     # with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'wt', encoding='utf-8') as f:
     #   f.write(json.dumps(jetRules, indent=4))

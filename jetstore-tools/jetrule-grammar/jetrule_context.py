@@ -12,6 +12,7 @@ class JetRuleContext:
   STATE_VALIDATED = 4
   STATE_OPTIMIZED = 5
   STATE_RETE_MARKINGS = 6
+  STATE_BETA_RELATION_MARKINGS = 7
 
   def __init__(self, data: Dict[str, object], errors: Sequence[str]):
     self.jetRules = data

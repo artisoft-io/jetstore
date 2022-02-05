@@ -155,6 +155,44 @@ class JetRulesReteTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(rete_data))
     self.assertEqual(json.dumps(rete_data), rete_expected)
 
+  def test_beta_relation1(self):
+    data = """
+      # =======================================================================================
+      # Simplest rules that are valid
+      # ---------------------------------------------------------------------------------------
+      resource rdf:type = "rdf:type";
+      resource acme:Claim = "acme:Claim";
+      resource acme:PClaim = "acme:PClaim";
+      resource acme:EClaim = "acme:EClaim";
+      resource acme:FClaim = "acme:FClaim";
+      resource relatedTo = "relatedTo";
+      volatile_resource is_good = "is_good";
+      [RuleB10]: 
+        (?clm01 rdf:type acme:Claim).
+        (?clm01 relatedTo ?clm02).
+        (?clm02 relatedTo ?clm03).
+        (?clm01 acme:PClaim acme:Claim).
+        ->
+        (?clm01 is_good true).
+        (?clm03 is_good true).
+      ;
+    """
+    jetrule_ctx = self._get_augmented_data(data)
+    self.assertEqual(jetrule_ctx.ERROR, False)
+
+    # Augment with rete markups
+    rete = JetRuleRete(jetrule_ctx)
+    rete.addReteMarkup()
+    rete.addBetaRelationMarkup()
+
+    rete_data = jetrule_ctx.jetRules
+    rete_expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "resource", "id": "acme:PClaim", "value": "acme:PClaim"}, {"type": "resource", "id": "acme:EClaim", "value": "acme:EClaim"}, {"type": "resource", "id": "acme:FClaim", "value": "acme:FClaim"}, {"type": "resource", "id": "relatedTo", "value": "relatedTo"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "rete_nodes": [{"vertex": 0, "parent_vertex": 0, "label": "Head node", "children_vertexes": [1], "consequent_nodes": []}, {"vertex": 1, "parent_vertex": 0, "label": "(?x1 rdf:type acme:Claim)", "children_vertexes": [2], "consequent_nodes": [], "antecedent_node": {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)", "vertex": 1, "parent_vertex": 0, "beta_relation_vars": ["?x1"], "pruned_var": []}}, {"vertex": 2, "parent_vertex": 1, "label": "(?x1 relatedTo ?x2)", "children_vertexes": [3], "consequent_nodes": [], "antecedent_node": {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "relatedTo"}, {"type": "var", "id": "?x2", "label": "?clm02"}], "normalizedLabel": "(?x1 relatedTo ?x2)", "label": "(?clm01 relatedTo ?clm02)", "vertex": 2, "parent_vertex": 1, "beta_relation_vars": ["?x1", "?x2"], "pruned_var": []}}, {"vertex": 3, "parent_vertex": 2, "label": "(?x2 relatedTo ?x3)", "children_vertexes": [4], "consequent_nodes": [], "antecedent_node": {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x2", "label": "?clm02"}, {"type": "identifier", "value": "relatedTo"}, {"type": "var", "id": "?x3", "label": "?clm03"}], "normalizedLabel": "(?x2 relatedTo ?x3)", "label": "(?clm02 relatedTo ?clm03)", "vertex": 3, "parent_vertex": 2, "beta_relation_vars": ["?x1", "?x3"], "pruned_var": ["?x2"]}}, {"vertex": 4, "parent_vertex": 3, "label": "(?x1 acme:PClaim acme:Claim)", "children_vertexes": [], "consequent_nodes": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)", "vertex": 4}, {"type": "consequent", "triple": [{"type": "var", "id": "?x3", "label": "?clm03"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x3 is_good true)", "label": "(?clm03 is_good true)", "vertex": 4}], "antecedent_node": {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "acme:PClaim"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 acme:PClaim acme:Claim)", "label": "(?clm01 acme:PClaim acme:Claim)", "vertex": 4, "parent_vertex": 3, "beta_relation_vars": ["?x1", "?x3"], "pruned_var": ["?x2"]}}]}"""
+    # print()
+    # print('OPTIMIZED GOT:',json.dumps(rete_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(rete_data))
+    self.assertEqual(json.dumps(rete_data), rete_expected)
+
 
 if __name__ == '__main__':
   absltest.main()
