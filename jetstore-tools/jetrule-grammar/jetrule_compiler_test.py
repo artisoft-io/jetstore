@@ -36,7 +36,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.ERROR, False)
 
     # validate the whole result
-    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1"}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": [], "rete_nodes": [{"vertex": 0, "parent_vertex": 0, "label": "Head node", "antecedent_node": null, "consequent_nodes": [], "children_vertexes": []}]}"""
+    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "import_test11.jr"}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT", "source_file_name": "import_test11.jr"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE", "source_file_name": "import_test11.jr"}], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "source_file_name": "import_test11.jr", "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": [], "rete_nodes": [{"vertex": 0, "parent_vertex": 0, "label": "Head node", "antecedent_node": null, "consequent_nodes": [], "children_vertexes": []}]}"""
     # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
@@ -48,26 +48,28 @@ class JetRulesCompilerTest(absltest.TestCase):
     jetrule_ctx = self._get_from_file("import_test2.jr")
 
     # for err in jetrule_ctx.errors:
-    #   print('***', err)
-    # print('***')
+    #   print('2***', err)
+    # print('2***')
+    
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test21.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
-    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
   def test_import3(self):
     jetrule_ctx = self._get_from_file("import_test3.jr")
 
     # for err in jetrule_ctx.errors:
-    #   print('***', err)
-    # print('***')
+    #   print('3***', err)
+    # print('3***')
+    
     self.assertEqual(jetrule_ctx.ERROR, True)
 
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test3.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test31.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test32.jr' line 5:8 mismatched input ':' expecting {',', ']'}")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
-    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 5)
 
@@ -76,14 +78,15 @@ class JetRulesCompilerTest(absltest.TestCase):
     jetrule_ctx = self._get_from_file("import_test4.jr")
 
     # for err in jetrule_ctx.errors:
-    #   print('***', err)
-    # print('***')
+    #   print('4***', err)
+    # print('4***')
+
     self.assertEqual(jetrule_ctx.ERROR, True)
 
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test4.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test41.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test42.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 4)
 
@@ -112,6 +115,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     # print('OPTIMIZED GOT:',json.dumps(optimized_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(optimized_data))
+
     self.assertEqual(json.dumps(optimized_data), optimized_expected)
 
   def test_compiler2(self):
@@ -152,6 +156,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     # print('OPTIMIZED GOT:',json.dumps(optimized_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(optimized_data))
+    
     self.assertEqual(json.dumps(optimized_data), optimized_expected)
 
 

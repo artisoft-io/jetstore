@@ -32,7 +32,7 @@ class JetListenerTest2(absltest.TestCase):
     # print()
     # print('COMPACT:',json.dumps(jetRules))
 
-    # self.assertEqual(json.dumps(jetRules), json.dumps(expected))
+    self.assertEqual(json.dumps(jetRules), json.dumps(expected))
 
 
 if __name__ == '__main__':

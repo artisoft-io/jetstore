@@ -156,6 +156,11 @@ class JetRuleOptimizer:
       optimized_rule['consequents'] = rule.get('consequents')
       optimized_rule['authoredLabel'] = rule.get('label')
 
+      # Carry-over of @JetCompilerDirective
+      fname = rule.get('source_file_name')
+      if fname:
+        optimized_rule['source_file_name'] = fname
+
       # Add the rule to the new rule list
       optimized_rules.append(optimized_rule)
 

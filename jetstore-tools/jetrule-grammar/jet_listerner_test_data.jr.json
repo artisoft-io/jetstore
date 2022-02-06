@@ -1,1029 +1,1059 @@
 {
-    "literals": [
-        {
-            "type": "int",
-            "id": "isTrue",
-            "value": "1"
-        },
-        {
-            "type": "int",
-            "id": "isFalse",
-            "value": "0"
-        },
-        {
-            "type": "text",
-            "id": "NOT_IN_CONTRACT",
-            "value": "NOT COVERED IN CONTRACT"
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_STATE",
-            "value": "STATE"
-        },
-        {
-            "type": "text",
-            "id": "HH_AUTH",
-            "value": "HH_AUTH"
-        },
-        {
-            "type": "text",
-            "id": "EXCL_HH_AUTH",
-            "value": "HH AUTH"
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_COUNTY",
-            "value": "COUNTY"
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_TIN",
-            "value": "TIN"
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_TIN_STATE",
-            "value": "TIN/STATE"
-        },
-        {
-            "type": "text",
-            "id": "EXCL_MER_COM",
-            "value": "MERGED COMPONENTS"
-        },
-        {
-            "type": "text",
-            "id": "EXCL_AMT_PAID",
-            "value": "MERGED \"MARKET\" CHARGE BACK"
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_GROUPID",
-            "value": "GROUPID"
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_MODALITY",
-            "value": "MODALITY"
-        }
-    ],
-    "resources": [
-        {
-            "type": "resource",
-            "id": "medicareRateObjTC1",
-            "value": "_0:medicareRateObjTC1"
-        },
-        {
-            "type": "resource",
-            "id": "medicareRateObjTC2",
-            "value": "_0:medicareRateObjTC2"
-        },
-        {
-            "type": "resource",
-            "id": "None",
-            "symbol": "null",
-            "value": null
-        },
-        {
-            "type": "resource",
-            "id": "uuid",
-            "symbol": "create_uuid_resource()",
-            "value": null
-        },
-        {
-            "type": "resource",
-            "id": "related_to",
-            "value": "related_to"
-        },
-        {
-            "type": "resource",
-            "id": "has_code",
-            "value": "has_code"
-        },
-        {
-            "type": "resource",
-            "id": "rdf:type",
-            "value": "rdf:type"
-        },
-        {
-            "type": "resource",
-            "id": "acme:Claim",
-            "value": "acme:Claim"
-        },
-        {
-            "type": "resource",
-            "id": "acme:SpecialClaim",
-            "value": "acme:SpecialClaim"
-        },
-        {
-            "type": "resource",
-            "id": "acme:key",
-            "value": "acme:key"
-        },
-        {
-            "type": "resource",
-            "id": "acme:lookup_table",
-            "value": "acme:key"
-        },
-        {
-            "type": "volatile_resource",
-            "id": "medicareRateObj261",
-            "value": "medicareRateObj261"
-        },
-        {
-            "type": "volatile_resource",
-            "id": "medicareRateObj262",
-            "value": "medicareRateObj262"
-        },
-        {
-            "id": "acme:ProcedureLookup",
-            "type": "resource",
-            "value": "acme:ProcedureLookup"
-        },
-        {
-            "id": "cPROC_RID",
-            "type": "resource",
-            "value": "PROC_RID"
-        },
-        {
-            "id": "cPROC_MID",
-            "type": "resource",
-            "value": "PROC_MID"
-        },
-        {
-            "id": "cPROC_DESC",
-            "type": "resource",
-            "value": "PROC_DESC"
-        },
-        {
-            "id": "MSK_DRG_TRIGGER",
-            "type": "resource",
-            "value": "MSK_DRG_TRIGGER"
-        },
-        {
-            "id": "cMSK_AREA_DRG_TRIGGER_ONLY",
-            "type": "resource",
-            "value": "MSK_AREA_DRG_TRIGGER_ONLY"
-        },
-        {
-            "id": "cMSK_TAG",
-            "type": "resource",
-            "value": "MSK_TAG"
-        },
-        {
-            "id": "cTRIGGER_TAG_DRG_ONLY",
-            "type": "resource",
-            "value": "TRIGGER_TAG_DRG_ONLY"
-        },
-        {
-            "id": "cDRG",
-            "type": "resource",
-            "value": "DRG"
-        },
-        {
-            "id": "cOVERLAP",
-            "type": "resource",
-            "value": "OVERLAP"
-        },
-        {
-            "id": "cUSE_ANESTHESIA",
-            "type": "resource",
-            "value": "USE_ANESTHESIA"
-        }
-    ],
-    "lookup_tables": [
-        {
-            "name": "acme:ProcedureLookup",
-            "table": "usi__cm_proc_codes",
-            "key": [
-                "PROC_CODE"
-            ],
-            "columns": [
-                "PROC_RID",
-                "PROC_MID",
-                "PROC_DESC"
-            ],
-            "resources": [
-                "cPROC_RID",
-                "cPROC_MID",
-                "cPROC_DESC"
-            ]
-        },
-        {
-            "name": "MSK_DRG_TRIGGER",
-            "table": "usi__msk_trigger_drg_codes",
-            "key": [
-                "DRG"
-            ],
-            "columns": [
-                "MSK_AREA_DRG_TRIGGER_ONLY",
-                "MSK_TAG",
-                "TRIGGER_TAG_DRG_ONLY",
-                "DRG",
-                "OVERLAP",
-                "USE_ANESTHESIA"
-            ],
-            "resources": [
-                "cMSK_AREA_DRG_TRIGGER_ONLY",
-                "cMSK_TAG",
-                "cTRIGGER_TAG_DRG_ONLY",
-                "cDRG",
-                "cOVERLAP",
-                "cUSE_ANESTHESIA"
-            ]
-        }
-    ],
-    "jet_rules": [
-        {
-            "name": "Rule1",
-            "properties": {
-                "s": "+100",
-                "o": "false",
-                "tag": "\"ACME\""
-            },
-            "authoredLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code) -> (?clm01 related_to ?clm02);",
-            "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim) -> (?x1 related_to ?x3);",
-            "label": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim) -> (?clm01 related_to ?clm02);",
-            "alpha_nodes": [
-                {
-                    "vertex": 1,
-                    "parent_vertex": 0,
-                    "label": "(?x1 rdf:type acme:Claim)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x1",
-                                "label": "?clm01",
-                                "is_binded": false
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "rdf:type"
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "acme:Claim"
-                            }
-                        ],
-                        "normalizedLabel": "(?x1 rdf:type acme:Claim)",
-                        "label": "(?clm01 rdf:type acme:Claim)",
-                        "vertex": 1,
-                        "parent_vertex": 0,
-                        "beta_relation_vars": [
-                            "?x1"
-                        ],
-                        "pruned_var": []
-                    },
-                    "consequent_nodes": [],
-                    "children_vertexes": [
-                        2
-                    ]
-                },
-                {
-                    "vertex": 2,
-                    "parent_vertex": 1,
-                    "label": "(?x1 has_code ?x2)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x1",
-                                "label": "?clm01",
-                                "is_binded": true
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "has_code"
-                            },
-                            {
-                                "type": "var",
-                                "id": "?x2",
-                                "label": "?code",
-                                "is_binded": false
-                            }
-                        ],
-                        "normalizedLabel": "(?x1 has_code ?x2)",
-                        "label": "(?clm01 has_code ?code)",
-                        "vertex": 2,
-                        "parent_vertex": 1,
-                        "beta_relation_vars": [
-                            "?x1",
-                            "?x2"
-                        ],
-                        "pruned_var": []
-                    },
-                    "consequent_nodes": [],
-                    "children_vertexes": [
-                        3
-                    ]
-                },
-                {
-                    "vertex": 3,
-                    "parent_vertex": 2,
-                    "label": "(?x3 has_code ?x2)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x3",
-                                "label": "?clm02",
-                                "is_binded": false
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "has_code"
-                            },
-                            {
-                                "type": "var",
-                                "id": "?x2",
-                                "label": "?code",
-                                "is_binded": true
-                            }
-                        ],
-                        "normalizedLabel": "(?x3 has_code ?x2)",
-                        "label": "(?clm02 has_code ?code)",
-                        "vertex": 3,
-                        "parent_vertex": 2,
-                        "beta_relation_vars": [
-                            "?x1",
-                            "?x3"
-                        ],
-                        "pruned_var": [
-                            "?x2"
-                        ]
-                    },
-                    "consequent_nodes": [],
-                    "children_vertexes": [
-                        4
-                    ]
-                },
-                {
-                    "vertex": 4,
-                    "parent_vertex": 3,
-                    "label": "(?x3 rdf:type acme:Claim)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x3",
-                                "label": "?clm02",
-                                "is_binded": true
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "rdf:type"
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "acme:Claim"
-                            }
-                        ],
-                        "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-                        "label": "(?clm02 rdf:type acme:Claim)",
-                        "vertex": 4,
-                        "parent_vertex": 3,
-                        "beta_relation_vars": [
-                            "?x1",
-                            "?x3"
-                        ],
-                        "pruned_var": [
-                            "?x2"
-                        ]
-                    },
-                    "consequent_nodes": [
-                        {
-                            "type": "consequent",
-                            "triple": [
-                                {
-                                    "type": "var",
-                                    "id": "?x1",
-                                    "label": "?clm01"
-                                },
-                                {
-                                    "type": "identifier",
-                                    "value": "related_to"
-                                },
-                                {
-                                    "type": "var",
-                                    "id": "?x3",
-                                    "label": "?clm02"
-                                }
-                            ],
-                            "normalizedLabel": "(?x1 related_to ?x3)",
-                            "label": "(?clm01 related_to ?clm02)",
-                            "vertex": 4
-                        }
-                    ],
-                    "children_vertexes": [
-                        5
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "Rule2",
-            "properties": {
-                "s": "100",
-                "o": "true",
-                "tag": "\"ACME\""
-            },
-            "authoredLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);",
-            "normalizedLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim).(?x1 related_to ?x4).(?x4 rdf:type acme:Claim) -> (?x4 rdf:type acme:SpecialClaim);",
-            "label": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);",
-            "alpha_nodes": [
-                {
-                    "vertex": 1,
-                    "parent_vertex": 0,
-                    "label": "(?x1 rdf:type acme:Claim)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x1",
-                                "label": "?clm01",
-                                "is_binded": false
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "rdf:type"
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "acme:Claim"
-                            }
-                        ],
-                        "normalizedLabel": "(?x1 rdf:type acme:Claim)",
-                        "label": "(?clm01 rdf:type acme:Claim)",
-                        "vertex": 1,
-                        "parent_vertex": 0,
-                        "beta_relation_vars": [
-                            "?x1"
-                        ],
-                        "pruned_var": []
-                    },
-                    "consequent_nodes": [],
-                    "children_vertexes": [
-                        2
-                    ]
-                },
-                {
-                    "vertex": 2,
-                    "parent_vertex": 1,
-                    "label": "(?x1 has_code ?x2)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x1",
-                                "label": "?clm01",
-                                "is_binded": true
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "has_code"
-                            },
-                            {
-                                "type": "var",
-                                "id": "?x2",
-                                "label": "?code",
-                                "is_binded": false
-                            }
-                        ],
-                        "normalizedLabel": "(?x1 has_code ?x2)",
-                        "label": "(?clm01 has_code ?code)",
-                        "vertex": 2,
-                        "parent_vertex": 1,
-                        "beta_relation_vars": [
-                            "?x1",
-                            "?x2"
-                        ],
-                        "pruned_var": []
-                    },
-                    "consequent_nodes": [],
-                    "children_vertexes": [
-                        3
-                    ]
-                },
-                {
-                    "vertex": 3,
-                    "parent_vertex": 2,
-                    "label": "(?x3 has_code ?x2)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x3",
-                                "label": "?clm02",
-                                "is_binded": false
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "has_code"
-                            },
-                            {
-                                "type": "var",
-                                "id": "?x2",
-                                "label": "?code",
-                                "is_binded": true
-                            }
-                        ],
-                        "normalizedLabel": "(?x3 has_code ?x2)",
-                        "label": "(?clm02 has_code ?code)",
-                        "vertex": 3,
-                        "parent_vertex": 2,
-                        "beta_relation_vars": [
-                            "?x1",
-                            "?x3"
-                        ],
-                        "pruned_var": [
-                            "?x2"
-                        ]
-                    },
-                    "consequent_nodes": [],
-                    "children_vertexes": [
-                        4
-                    ]
-                },
-                {
-                    "vertex": 4,
-                    "parent_vertex": 3,
-                    "label": "(?x3 rdf:type acme:Claim)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x3",
-                                "label": "?clm02",
-                                "is_binded": true
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "rdf:type"
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "acme:Claim"
-                            }
-                        ],
-                        "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-                        "label": "(?clm02 rdf:type acme:Claim)",
-                        "vertex": 4,
-                        "parent_vertex": 3,
-                        "beta_relation_vars": [
-                            "?x1",
-                            "?x3"
-                        ],
-                        "pruned_var": [
-                            "?x2"
-                        ]
-                    },
-                    "consequent_nodes": [
-                        {
-                            "type": "consequent",
-                            "triple": [
-                                {
-                                    "type": "var",
-                                    "id": "?x1",
-                                    "label": "?clm01"
-                                },
-                                {
-                                    "type": "identifier",
-                                    "value": "related_to"
-                                },
-                                {
-                                    "type": "var",
-                                    "id": "?x3",
-                                    "label": "?clm02"
-                                }
-                            ],
-                            "normalizedLabel": "(?x1 related_to ?x3)",
-                            "label": "(?clm01 related_to ?clm02)",
-                            "vertex": 4
-                        }
-                    ],
-                    "children_vertexes": [
-                        5
-                    ]
-                },
-                {
-                    "vertex": 5,
-                    "parent_vertex": 4,
-                    "label": "(?x1 related_to ?x4)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x1",
-                                "label": "?clm01",
-                                "is_binded": true
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "related_to"
-                            },
-                            {
-                                "type": "var",
-                                "id": "?x4",
-                                "label": "?clm03",
-                                "is_binded": false
-                            }
-                        ],
-                        "normalizedLabel": "(?x1 related_to ?x4)",
-                        "label": "(?clm01 related_to ?clm03)",
-                        "vertex": 5,
-                        "parent_vertex": 4,
-                        "beta_relation_vars": [
-                            "?x4"
-                        ],
-                        "pruned_var": [
-                            "?x1",
-                            "?x2",
-                            "?x3"
-                        ]
-                    },
-                    "consequent_nodes": [],
-                    "children_vertexes": [
-                        6
-                    ]
-                },
-                {
-                    "vertex": 6,
-                    "parent_vertex": 5,
-                    "label": "(?x4 rdf:type acme:Claim)",
-                    "antecedent_node": {
-                        "type": "antecedent",
-                        "isNot": false,
-                        "triple": [
-                            {
-                                "type": "var",
-                                "id": "?x4",
-                                "label": "?clm03",
-                                "is_binded": true
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "rdf:type"
-                            },
-                            {
-                                "type": "identifier",
-                                "value": "acme:Claim"
-                            }
-                        ],
-                        "normalizedLabel": "(?x4 rdf:type acme:Claim)",
-                        "label": "(?clm03 rdf:type acme:Claim)",
-                        "vertex": 6,
-                        "parent_vertex": 5,
-                        "beta_relation_vars": [
-                            "?x4"
-                        ],
-                        "pruned_var": [
-                            "?x1",
-                            "?x2",
-                            "?x3"
-                        ]
-                    },
-                    "consequent_nodes": [
-                        {
-                            "type": "consequent",
-                            "triple": [
-                                {
-                                    "type": "var",
-                                    "id": "?x4",
-                                    "label": "?clm03"
-                                },
-                                {
-                                    "type": "identifier",
-                                    "value": "rdf:type"
-                                },
-                                {
-                                    "type": "identifier",
-                                    "value": "acme:SpecialClaim"
-                                }
-                            ],
-                            "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
-                            "label": "(?clm03 rdf:type acme:SpecialClaim)",
-                            "vertex": 6
-                        }
-                    ],
-                    "children_vertexes": []
-                }
-            ]
-        }
-    ],
-    "rete_nodes": [
-        {
-            "vertex": 0,
-            "parent_vertex": 0,
-            "label": "Head node",
-            "antecedent_node": null,
-            "consequent_nodes": [],
-            "children_vertexes": [
-                1
-            ]
-        },
-        {
-            "vertex": 1,
-            "parent_vertex": 0,
-            "label": "(?x1 rdf:type acme:Claim)",
-            "antecedent_node": {
-                "type": "antecedent",
-                "isNot": false,
-                "triple": [
-                    {
-                        "type": "var",
-                        "id": "?x1",
-                        "label": "?clm01",
-                        "is_binded": false
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "rdf:type"
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "acme:Claim"
-                    }
-                ],
-                "normalizedLabel": "(?x1 rdf:type acme:Claim)",
-                "label": "(?clm01 rdf:type acme:Claim)",
-                "vertex": 1,
-                "parent_vertex": 0,
-                "beta_relation_vars": [
-                    "?x1"
-                ],
-                "pruned_var": []
-            },
-            "consequent_nodes": [],
-            "children_vertexes": [
-                2
-            ]
-        },
-        {
-            "vertex": 2,
-            "parent_vertex": 1,
-            "label": "(?x1 has_code ?x2)",
-            "antecedent_node": {
-                "type": "antecedent",
-                "isNot": false,
-                "triple": [
-                    {
-                        "type": "var",
-                        "id": "?x1",
-                        "label": "?clm01",
-                        "is_binded": true
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "has_code"
-                    },
-                    {
-                        "type": "var",
-                        "id": "?x2",
-                        "label": "?code",
-                        "is_binded": false
-                    }
-                ],
-                "normalizedLabel": "(?x1 has_code ?x2)",
-                "label": "(?clm01 has_code ?code)",
-                "vertex": 2,
-                "parent_vertex": 1,
-                "beta_relation_vars": [
-                    "?x1",
-                    "?x2"
-                ],
-                "pruned_var": []
-            },
-            "consequent_nodes": [],
-            "children_vertexes": [
-                3
-            ]
-        },
-        {
-            "vertex": 3,
-            "parent_vertex": 2,
-            "label": "(?x3 has_code ?x2)",
-            "antecedent_node": {
-                "type": "antecedent",
-                "isNot": false,
-                "triple": [
-                    {
-                        "type": "var",
-                        "id": "?x3",
-                        "label": "?clm02",
-                        "is_binded": false
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "has_code"
-                    },
-                    {
-                        "type": "var",
-                        "id": "?x2",
-                        "label": "?code",
-                        "is_binded": true
-                    }
-                ],
-                "normalizedLabel": "(?x3 has_code ?x2)",
-                "label": "(?clm02 has_code ?code)",
-                "vertex": 3,
-                "parent_vertex": 2,
-                "beta_relation_vars": [
-                    "?x1",
-                    "?x3"
-                ],
-                "pruned_var": [
-                    "?x2"
-                ]
-            },
-            "consequent_nodes": [],
-            "children_vertexes": [
-                4
-            ]
-        },
-        {
-            "vertex": 4,
-            "parent_vertex": 3,
-            "label": "(?x3 rdf:type acme:Claim)",
-            "antecedent_node": {
-                "type": "antecedent",
-                "isNot": false,
-                "triple": [
-                    {
-                        "type": "var",
-                        "id": "?x3",
-                        "label": "?clm02",
-                        "is_binded": true
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "rdf:type"
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "acme:Claim"
-                    }
-                ],
-                "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-                "label": "(?clm02 rdf:type acme:Claim)",
-                "vertex": 4,
-                "parent_vertex": 3,
-                "beta_relation_vars": [
-                    "?x1",
-                    "?x3"
-                ],
-                "pruned_var": [
-                    "?x2"
-                ]
-            },
-            "consequent_nodes": [
-                {
-                    "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "label": "?clm01"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "related_to"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "label": "?clm02"
-                        }
-                    ],
-                    "normalizedLabel": "(?x1 related_to ?x3)",
-                    "label": "(?clm01 related_to ?clm02)",
-                    "vertex": 4
-                }
-            ],
-            "children_vertexes": [
-                5
-            ]
-        },
-        {
-            "vertex": 5,
-            "parent_vertex": 4,
-            "label": "(?x1 related_to ?x4)",
-            "antecedent_node": {
-                "type": "antecedent",
-                "isNot": false,
-                "triple": [
-                    {
-                        "type": "var",
-                        "id": "?x1",
-                        "label": "?clm01",
-                        "is_binded": true
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "related_to"
-                    },
-                    {
-                        "type": "var",
-                        "id": "?x4",
-                        "label": "?clm03",
-                        "is_binded": false
-                    }
-                ],
-                "normalizedLabel": "(?x1 related_to ?x4)",
-                "label": "(?clm01 related_to ?clm03)",
-                "vertex": 5,
-                "parent_vertex": 4,
-                "beta_relation_vars": [
-                    "?x4"
-                ],
-                "pruned_var": [
-                    "?x1",
-                    "?x2",
-                    "?x3"
-                ]
-            },
-            "consequent_nodes": [],
-            "children_vertexes": [
-                6
-            ]
-        },
-        {
-            "vertex": 6,
-            "parent_vertex": 5,
-            "label": "(?x4 rdf:type acme:Claim)",
-            "antecedent_node": {
-                "type": "antecedent",
-                "isNot": false,
-                "triple": [
-                    {
-                        "type": "var",
-                        "id": "?x4",
-                        "label": "?clm03",
-                        "is_binded": true
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "rdf:type"
-                    },
-                    {
-                        "type": "identifier",
-                        "value": "acme:Claim"
-                    }
-                ],
-                "normalizedLabel": "(?x4 rdf:type acme:Claim)",
-                "label": "(?clm03 rdf:type acme:Claim)",
-                "vertex": 6,
-                "parent_vertex": 5,
-                "beta_relation_vars": [
-                    "?x4"
-                ],
-                "pruned_var": [
-                    "?x1",
-                    "?x2",
-                    "?x3"
-                ]
-            },
-            "consequent_nodes": [
-                {
-                    "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x4",
-                            "label": "?clm03"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:SpecialClaim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
-                    "label": "(?clm03 rdf:type acme:SpecialClaim)",
-                    "vertex": 6
-                }
-            ],
-            "children_vertexes": []
-        }
-    ]
+  "literals": [
+      {
+          "type": "int",
+          "id": "isTrue",
+          "value": "1",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "int",
+          "id": "isFalse",
+          "value": "0",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "NOT_IN_CONTRACT",
+          "value": "NOT COVERED IN CONTRACT",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_STATE",
+          "value": "STATE",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "HH_AUTH",
+          "value": "HH_AUTH",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCL_HH_AUTH",
+          "value": "HH AUTH",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_COUNTY",
+          "value": "COUNTY",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_TIN",
+          "value": "TIN",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_TIN_STATE",
+          "value": "TIN/STATE",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCL_MER_COM",
+          "value": "MERGED COMPONENTS",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCL_AMT_PAID",
+          "value": "MERGED \"MARKET\" CHARGE BACK",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_GROUPID",
+          "value": "GROUPID",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_MODALITY",
+          "value": "MODALITY",
+          "source_file_name": "jet_listerner_test_data.jr"
+      }
+  ],
+  "resources": [
+      {
+          "type": "resource",
+          "id": "medicareRateObjTC1",
+          "value": "_0:medicareRateObjTC1",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "medicareRateObjTC2",
+          "value": "_0:medicareRateObjTC2",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "None",
+          "symbol": "null",
+          "value": null,
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "uuid",
+          "symbol": "create_uuid_resource()",
+          "value": null,
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "related_to",
+          "value": "related_to",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "has_code",
+          "value": "has_code",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "rdf:type",
+          "value": "rdf:type",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "acme:Claim",
+          "value": "acme:Claim",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "acme:SpecialClaim",
+          "value": "acme:SpecialClaim",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "acme:key",
+          "value": "acme:key",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "resource",
+          "id": "acme:lookup_table",
+          "value": "acme:key",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "volatile_resource",
+          "id": "medicareRateObj261",
+          "value": "medicareRateObj261",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "type": "volatile_resource",
+          "id": "medicareRateObj262",
+          "value": "medicareRateObj262",
+          "source_file_name": "jet_listerner_test_data.jr"
+      },
+      {
+          "id": "acme:ProcedureLookup",
+          "type": "resource",
+          "value": "acme:ProcedureLookup"
+      },
+      {
+          "id": "cPROC_RID",
+          "type": "resource",
+          "value": "PROC_RID"
+      },
+      {
+          "id": "cPROC_MID",
+          "type": "resource",
+          "value": "PROC_MID"
+      },
+      {
+          "id": "cPROC_DESC",
+          "type": "resource",
+          "value": "PROC_DESC"
+      },
+      {
+          "id": "MSK_DRG_TRIGGER",
+          "type": "resource",
+          "value": "MSK_DRG_TRIGGER"
+      },
+      {
+          "id": "cMSK_AREA_DRG_TRIGGER_ONLY",
+          "type": "resource",
+          "value": "MSK_AREA_DRG_TRIGGER_ONLY"
+      },
+      {
+          "id": "cMSK_TAG",
+          "type": "resource",
+          "value": "MSK_TAG"
+      },
+      {
+          "id": "cTRIGGER_TAG_DRG_ONLY",
+          "type": "resource",
+          "value": "TRIGGER_TAG_DRG_ONLY"
+      },
+      {
+          "id": "cDRG",
+          "type": "resource",
+          "value": "DRG"
+      },
+      {
+          "id": "cOVERLAP",
+          "type": "resource",
+          "value": "OVERLAP"
+      },
+      {
+          "id": "cUSE_ANESTHESIA",
+          "type": "resource",
+          "value": "USE_ANESTHESIA"
+      }
+  ],
+  "lookup_tables": [
+      {
+          "name": "acme:ProcedureLookup",
+          "table": "usi__cm_proc_codes",
+          "key": [
+              "PROC_CODE"
+          ],
+          "columns": [
+              "PROC_RID",
+              "PROC_MID",
+              "PROC_DESC"
+          ],
+          "source_file_name": "jet_listerner_test_data.jr",
+          "resources": [
+              "cPROC_RID",
+              "cPROC_MID",
+              "cPROC_DESC"
+          ]
+      },
+      {
+          "name": "MSK_DRG_TRIGGER",
+          "table": "usi__msk_trigger_drg_codes",
+          "key": [
+              "DRG"
+          ],
+          "columns": [
+              "MSK_AREA_DRG_TRIGGER_ONLY",
+              "MSK_TAG",
+              "TRIGGER_TAG_DRG_ONLY",
+              "DRG",
+              "OVERLAP",
+              "USE_ANESTHESIA"
+          ],
+          "source_file_name": "jet_listerner_test_data.jr",
+          "resources": [
+              "cMSK_AREA_DRG_TRIGGER_ONLY",
+              "cMSK_TAG",
+              "cTRIGGER_TAG_DRG_ONLY",
+              "cDRG",
+              "cOVERLAP",
+              "cUSE_ANESTHESIA"
+          ]
+      }
+  ],
+  "jet_rules": [
+      {
+          "name": "Rule1",
+          "properties": {
+              "s": "+100",
+              "o": "false",
+              "tag": "\"ACME\""
+          },
+          "authoredLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code) -> (?clm01 related_to ?clm02);",
+          "source_file_name": "jet_listerner_test_data.jr",
+          "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim) -> (?x1 related_to ?x3);",
+          "label": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim) -> (?clm01 related_to ?clm02);",
+          "alpha_nodes": [
+              {
+                  "vertex": 1,
+                  "parent_vertex": 0,
+                  "label": "(?x1 rdf:type acme:Claim)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x1",
+                              "label": "?clm01",
+                              "is_binded": false
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "rdf:type"
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "acme:Claim"
+                          }
+                      ],
+                      "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                      "label": "(?clm01 rdf:type acme:Claim)",
+                      "vertex": 1,
+                      "parent_vertex": 0,
+                      "beta_relation_vars": [
+                          "?x1"
+                      ],
+                      "pruned_var": []
+                  },
+                  "consequent_nodes": [],
+                  "children_vertexes": [
+                      2
+                  ]
+              },
+              {
+                  "vertex": 2,
+                  "parent_vertex": 1,
+                  "label": "(?x1 has_code ?x2)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x1",
+                              "label": "?clm01",
+                              "is_binded": true
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "has_code"
+                          },
+                          {
+                              "type": "var",
+                              "id": "?x2",
+                              "label": "?code",
+                              "is_binded": false
+                          }
+                      ],
+                      "normalizedLabel": "(?x1 has_code ?x2)",
+                      "label": "(?clm01 has_code ?code)",
+                      "vertex": 2,
+                      "parent_vertex": 1,
+                      "beta_relation_vars": [
+                          "?x1",
+                          "?x2"
+                      ],
+                      "pruned_var": []
+                  },
+                  "consequent_nodes": [],
+                  "children_vertexes": [
+                      3
+                  ]
+              },
+              {
+                  "vertex": 3,
+                  "parent_vertex": 2,
+                  "label": "(?x3 has_code ?x2)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x3",
+                              "label": "?clm02",
+                              "is_binded": false
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "has_code"
+                          },
+                          {
+                              "type": "var",
+                              "id": "?x2",
+                              "label": "?code",
+                              "is_binded": true
+                          }
+                      ],
+                      "normalizedLabel": "(?x3 has_code ?x2)",
+                      "label": "(?clm02 has_code ?code)",
+                      "vertex": 3,
+                      "parent_vertex": 2,
+                      "beta_relation_vars": [
+                          "?x1",
+                          "?x3"
+                      ],
+                      "pruned_var": [
+                          "?x2"
+                      ]
+                  },
+                  "consequent_nodes": [],
+                  "children_vertexes": [
+                      4
+                  ]
+              },
+              {
+                  "vertex": 4,
+                  "parent_vertex": 3,
+                  "label": "(?x3 rdf:type acme:Claim)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x3",
+                              "label": "?clm02",
+                              "is_binded": true
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "rdf:type"
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "acme:Claim"
+                          }
+                      ],
+                      "normalizedLabel": "(?x3 rdf:type acme:Claim)",
+                      "label": "(?clm02 rdf:type acme:Claim)",
+                      "vertex": 4,
+                      "parent_vertex": 3,
+                      "beta_relation_vars": [
+                          "?x1",
+                          "?x3"
+                      ],
+                      "pruned_var": [
+                          "?x2"
+                      ]
+                  },
+                  "consequent_nodes": [
+                      {
+                          "type": "consequent",
+                          "triple": [
+                              {
+                                  "type": "var",
+                                  "id": "?x1",
+                                  "label": "?clm01"
+                              },
+                              {
+                                  "type": "identifier",
+                                  "value": "related_to"
+                              },
+                              {
+                                  "type": "var",
+                                  "id": "?x3",
+                                  "label": "?clm02"
+                              }
+                          ],
+                          "normalizedLabel": "(?x1 related_to ?x3)",
+                          "label": "(?clm01 related_to ?clm02)",
+                          "vertex": 4
+                      }
+                  ],
+                  "children_vertexes": [
+                      5
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "Rule2",
+          "properties": {
+              "s": "100",
+              "o": "true",
+              "tag": "\"ACME\""
+          },
+          "authoredLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);",
+          "source_file_name": "jet_listerner_test_data.jr",
+          "normalizedLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim).(?x1 related_to ?x4).(?x4 rdf:type acme:Claim) -> (?x4 rdf:type acme:SpecialClaim);",
+          "label": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);",
+          "alpha_nodes": [
+              {
+                  "vertex": 1,
+                  "parent_vertex": 0,
+                  "label": "(?x1 rdf:type acme:Claim)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x1",
+                              "label": "?clm01",
+                              "is_binded": false
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "rdf:type"
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "acme:Claim"
+                          }
+                      ],
+                      "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                      "label": "(?clm01 rdf:type acme:Claim)",
+                      "vertex": 1,
+                      "parent_vertex": 0,
+                      "beta_relation_vars": [
+                          "?x1"
+                      ],
+                      "pruned_var": []
+                  },
+                  "consequent_nodes": [],
+                  "children_vertexes": [
+                      2
+                  ]
+              },
+              {
+                  "vertex": 2,
+                  "parent_vertex": 1,
+                  "label": "(?x1 has_code ?x2)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x1",
+                              "label": "?clm01",
+                              "is_binded": true
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "has_code"
+                          },
+                          {
+                              "type": "var",
+                              "id": "?x2",
+                              "label": "?code",
+                              "is_binded": false
+                          }
+                      ],
+                      "normalizedLabel": "(?x1 has_code ?x2)",
+                      "label": "(?clm01 has_code ?code)",
+                      "vertex": 2,
+                      "parent_vertex": 1,
+                      "beta_relation_vars": [
+                          "?x1",
+                          "?x2"
+                      ],
+                      "pruned_var": []
+                  },
+                  "consequent_nodes": [],
+                  "children_vertexes": [
+                      3
+                  ]
+              },
+              {
+                  "vertex": 3,
+                  "parent_vertex": 2,
+                  "label": "(?x3 has_code ?x2)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x3",
+                              "label": "?clm02",
+                              "is_binded": false
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "has_code"
+                          },
+                          {
+                              "type": "var",
+                              "id": "?x2",
+                              "label": "?code",
+                              "is_binded": true
+                          }
+                      ],
+                      "normalizedLabel": "(?x3 has_code ?x2)",
+                      "label": "(?clm02 has_code ?code)",
+                      "vertex": 3,
+                      "parent_vertex": 2,
+                      "beta_relation_vars": [
+                          "?x1",
+                          "?x3"
+                      ],
+                      "pruned_var": [
+                          "?x2"
+                      ]
+                  },
+                  "consequent_nodes": [],
+                  "children_vertexes": [
+                      4
+                  ]
+              },
+              {
+                  "vertex": 4,
+                  "parent_vertex": 3,
+                  "label": "(?x3 rdf:type acme:Claim)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x3",
+                              "label": "?clm02",
+                              "is_binded": true
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "rdf:type"
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "acme:Claim"
+                          }
+                      ],
+                      "normalizedLabel": "(?x3 rdf:type acme:Claim)",
+                      "label": "(?clm02 rdf:type acme:Claim)",
+                      "vertex": 4,
+                      "parent_vertex": 3,
+                      "beta_relation_vars": [
+                          "?x1",
+                          "?x3"
+                      ],
+                      "pruned_var": [
+                          "?x2"
+                      ]
+                  },
+                  "consequent_nodes": [
+                      {
+                          "type": "consequent",
+                          "triple": [
+                              {
+                                  "type": "var",
+                                  "id": "?x1",
+                                  "label": "?clm01"
+                              },
+                              {
+                                  "type": "identifier",
+                                  "value": "related_to"
+                              },
+                              {
+                                  "type": "var",
+                                  "id": "?x3",
+                                  "label": "?clm02"
+                              }
+                          ],
+                          "normalizedLabel": "(?x1 related_to ?x3)",
+                          "label": "(?clm01 related_to ?clm02)",
+                          "vertex": 4
+                      }
+                  ],
+                  "children_vertexes": [
+                      5
+                  ]
+              },
+              {
+                  "vertex": 5,
+                  "parent_vertex": 4,
+                  "label": "(?x1 related_to ?x4)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x1",
+                              "label": "?clm01",
+                              "is_binded": true
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "related_to"
+                          },
+                          {
+                              "type": "var",
+                              "id": "?x4",
+                              "label": "?clm03",
+                              "is_binded": false
+                          }
+                      ],
+                      "normalizedLabel": "(?x1 related_to ?x4)",
+                      "label": "(?clm01 related_to ?clm03)",
+                      "vertex": 5,
+                      "parent_vertex": 4,
+                      "beta_relation_vars": [
+                          "?x4"
+                      ],
+                      "pruned_var": [
+                          "?x1",
+                          "?x2",
+                          "?x3"
+                      ]
+                  },
+                  "consequent_nodes": [],
+                  "children_vertexes": [
+                      6
+                  ]
+              },
+              {
+                  "vertex": 6,
+                  "parent_vertex": 5,
+                  "label": "(?x4 rdf:type acme:Claim)",
+                  "antecedent_node": {
+                      "type": "antecedent",
+                      "isNot": false,
+                      "triple": [
+                          {
+                              "type": "var",
+                              "id": "?x4",
+                              "label": "?clm03",
+                              "is_binded": true
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "rdf:type"
+                          },
+                          {
+                              "type": "identifier",
+                              "value": "acme:Claim"
+                          }
+                      ],
+                      "normalizedLabel": "(?x4 rdf:type acme:Claim)",
+                      "label": "(?clm03 rdf:type acme:Claim)",
+                      "vertex": 6,
+                      "parent_vertex": 5,
+                      "beta_relation_vars": [
+                          "?x4"
+                      ],
+                      "pruned_var": [
+                          "?x1",
+                          "?x2",
+                          "?x3"
+                      ]
+                  },
+                  "consequent_nodes": [
+                      {
+                          "type": "consequent",
+                          "triple": [
+                              {
+                                  "type": "var",
+                                  "id": "?x4",
+                                  "label": "?clm03"
+                              },
+                              {
+                                  "type": "identifier",
+                                  "value": "rdf:type"
+                              },
+                              {
+                                  "type": "identifier",
+                                  "value": "acme:SpecialClaim"
+                              }
+                          ],
+                          "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
+                          "label": "(?clm03 rdf:type acme:SpecialClaim)",
+                          "vertex": 6
+                      }
+                  ],
+                  "children_vertexes": []
+              }
+          ]
+      }
+  ],
+  "rete_nodes": [
+      {
+          "vertex": 0,
+          "parent_vertex": 0,
+          "label": "Head node",
+          "antecedent_node": null,
+          "consequent_nodes": [],
+          "children_vertexes": [
+              1
+          ]
+      },
+      {
+          "vertex": 1,
+          "parent_vertex": 0,
+          "label": "(?x1 rdf:type acme:Claim)",
+          "antecedent_node": {
+              "type": "antecedent",
+              "isNot": false,
+              "triple": [
+                  {
+                      "type": "var",
+                      "id": "?x1",
+                      "label": "?clm01",
+                      "is_binded": false
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "rdf:type"
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "acme:Claim"
+                  }
+              ],
+              "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+              "label": "(?clm01 rdf:type acme:Claim)",
+              "vertex": 1,
+              "parent_vertex": 0,
+              "beta_relation_vars": [
+                  "?x1"
+              ],
+              "pruned_var": []
+          },
+          "consequent_nodes": [],
+          "children_vertexes": [
+              2
+          ]
+      },
+      {
+          "vertex": 2,
+          "parent_vertex": 1,
+          "label": "(?x1 has_code ?x2)",
+          "antecedent_node": {
+              "type": "antecedent",
+              "isNot": false,
+              "triple": [
+                  {
+                      "type": "var",
+                      "id": "?x1",
+                      "label": "?clm01",
+                      "is_binded": true
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "has_code"
+                  },
+                  {
+                      "type": "var",
+                      "id": "?x2",
+                      "label": "?code",
+                      "is_binded": false
+                  }
+              ],
+              "normalizedLabel": "(?x1 has_code ?x2)",
+              "label": "(?clm01 has_code ?code)",
+              "vertex": 2,
+              "parent_vertex": 1,
+              "beta_relation_vars": [
+                  "?x1",
+                  "?x2"
+              ],
+              "pruned_var": []
+          },
+          "consequent_nodes": [],
+          "children_vertexes": [
+              3
+          ]
+      },
+      {
+          "vertex": 3,
+          "parent_vertex": 2,
+          "label": "(?x3 has_code ?x2)",
+          "antecedent_node": {
+              "type": "antecedent",
+              "isNot": false,
+              "triple": [
+                  {
+                      "type": "var",
+                      "id": "?x3",
+                      "label": "?clm02",
+                      "is_binded": false
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "has_code"
+                  },
+                  {
+                      "type": "var",
+                      "id": "?x2",
+                      "label": "?code",
+                      "is_binded": true
+                  }
+              ],
+              "normalizedLabel": "(?x3 has_code ?x2)",
+              "label": "(?clm02 has_code ?code)",
+              "vertex": 3,
+              "parent_vertex": 2,
+              "beta_relation_vars": [
+                  "?x1",
+                  "?x3"
+              ],
+              "pruned_var": [
+                  "?x2"
+              ]
+          },
+          "consequent_nodes": [],
+          "children_vertexes": [
+              4
+          ]
+      },
+      {
+          "vertex": 4,
+          "parent_vertex": 3,
+          "label": "(?x3 rdf:type acme:Claim)",
+          "antecedent_node": {
+              "type": "antecedent",
+              "isNot": false,
+              "triple": [
+                  {
+                      "type": "var",
+                      "id": "?x3",
+                      "label": "?clm02",
+                      "is_binded": true
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "rdf:type"
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "acme:Claim"
+                  }
+              ],
+              "normalizedLabel": "(?x3 rdf:type acme:Claim)",
+              "label": "(?clm02 rdf:type acme:Claim)",
+              "vertex": 4,
+              "parent_vertex": 3,
+              "beta_relation_vars": [
+                  "?x1",
+                  "?x3"
+              ],
+              "pruned_var": [
+                  "?x2"
+              ]
+          },
+          "consequent_nodes": [
+              {
+                  "type": "consequent",
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "label": "?clm01"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "related_to"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x3",
+                          "label": "?clm02"
+                      }
+                  ],
+                  "normalizedLabel": "(?x1 related_to ?x3)",
+                  "label": "(?clm01 related_to ?clm02)",
+                  "vertex": 4
+              }
+          ],
+          "children_vertexes": [
+              5
+          ]
+      },
+      {
+          "vertex": 5,
+          "parent_vertex": 4,
+          "label": "(?x1 related_to ?x4)",
+          "antecedent_node": {
+              "type": "antecedent",
+              "isNot": false,
+              "triple": [
+                  {
+                      "type": "var",
+                      "id": "?x1",
+                      "label": "?clm01",
+                      "is_binded": true
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "related_to"
+                  },
+                  {
+                      "type": "var",
+                      "id": "?x4",
+                      "label": "?clm03",
+                      "is_binded": false
+                  }
+              ],
+              "normalizedLabel": "(?x1 related_to ?x4)",
+              "label": "(?clm01 related_to ?clm03)",
+              "vertex": 5,
+              "parent_vertex": 4,
+              "beta_relation_vars": [
+                  "?x4"
+              ],
+              "pruned_var": [
+                  "?x1",
+                  "?x2",
+                  "?x3"
+              ]
+          },
+          "consequent_nodes": [],
+          "children_vertexes": [
+              6
+          ]
+      },
+      {
+          "vertex": 6,
+          "parent_vertex": 5,
+          "label": "(?x4 rdf:type acme:Claim)",
+          "antecedent_node": {
+              "type": "antecedent",
+              "isNot": false,
+              "triple": [
+                  {
+                      "type": "var",
+                      "id": "?x4",
+                      "label": "?clm03",
+                      "is_binded": true
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "rdf:type"
+                  },
+                  {
+                      "type": "identifier",
+                      "value": "acme:Claim"
+                  }
+              ],
+              "normalizedLabel": "(?x4 rdf:type acme:Claim)",
+              "label": "(?clm03 rdf:type acme:Claim)",
+              "vertex": 6,
+              "parent_vertex": 5,
+              "beta_relation_vars": [
+                  "?x4"
+              ],
+              "pruned_var": [
+                  "?x1",
+                  "?x2",
+                  "?x3"
+              ]
+          },
+          "consequent_nodes": [
+              {
+                  "type": "consequent",
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x4",
+                          "label": "?clm03"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:SpecialClaim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm03 rdf:type acme:SpecialClaim)",
+                  "vertex": 6
+              }
+          ],
+          "children_vertexes": []
+      }
+  ]
 }

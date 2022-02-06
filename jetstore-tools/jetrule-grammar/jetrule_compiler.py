@@ -65,11 +65,16 @@ class JetRuleCompiler:
       m = pat.match(line)
       if m:
           fname = m.group(1)
+          # replace the import statement with a compiler directive
+          # put a jet compiler directive to mark the file being imported
+          fout.write('@JetCompilerDirective source_file = "{0}";\n'.format(fname))
+          self.global_line_nbr += 1
+
           # Pause the current file
           file_info = self.processing_rule_files_q.get()
           current_file_name = file_info['fname']
           file_info['end_pos'] = self.global_line_nbr
-          file_offset = self.global_line_nbr - file_info['start_pos'] + file_info['file_offset'] + 1
+          file_offset = self.global_line_nbr - file_info['start_pos'] + file_info['file_offset']
 
           if fname in self.imported_rule_file_names:
             # print('File already imported:', fname, ', skipping it')
@@ -125,6 +130,9 @@ class JetRuleCompiler:
   # Compile the JetRule beyond the initial processing
   def _compileReminderTasks(self) -> Dict[str, object]:
     if not self.jetrule_ctx.ERROR:
+      # print('***@@**')
+      # print(json.dumps(self.jetrule_ctx.jetRules, indent=2))
+      # print('***@@**')
       self.postprocessJetRule()
       self.validateJetRule()
       self.optimizeJetRule()
@@ -141,13 +149,16 @@ class JetRuleCompiler:
   def processJetRuleFile(self, fname: str, in_provider: InputProvider) -> Dict[str, object]:
     pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
     fout = io.StringIO()
+    self.global_line_nbr = 1
+    # put jet compiler directive to mark the first file
+    fout.write('@JetCompilerDirective source_file = "{0}";\n'.format(fname))
+    self.global_line_nbr += 1
 
     # keep track of the imports for error reporting
     #   'start_pos' is the first line of the rule file (incl)
     #   'end_pos' is the last line of the rule file (excl), ie. +1
-    self.global_line_nbr = 1
     self.processing_rule_files_q = queue.LifoQueue()
-    file_info = {'fname': fname, 'start_pos': 1, 'file_offset': 0}
+    file_info = {'fname': fname, 'start_pos': self.global_line_nbr, 'file_offset': 0}
     self.imported_rule_files = [file_info]
     self.imported_rule_file_names = set([fname])
     self.processing_rule_files_q.put(file_info)

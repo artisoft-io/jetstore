@@ -14,6 +14,8 @@ class JetListener(JetRuleListener):
     self.lookups = []
     self.rules = []
     self.jetRules = None
+    self.current_file_name = None
+    self.compiler_directives = {}
 
     # Defining intermediate structure for Jet Rule
     self.ruleProps = {}
@@ -33,6 +35,28 @@ class JetListener(JetRuleListener):
       'lookup_tables': self.lookups,
       'jet_rules': self.rules
     }
+
+  # =====================================================================================
+  # Compiler Directives
+  # -------------------------------------------------------------------------------------
+  def exitJetCompilerDirectiveStmt(self, ctx:JetRuleParser.JetCompilerDirectiveStmtContext):
+    name = self.escape(ctx.varName.getText()) if ctx.varName else None
+    value = self.escapeString(ctx.declValue.text) if ctx.declValue else None
+    if name and value:
+      self.compiler_directives[name] = value
+      if name == 'source_file':
+        self.current_file_name = value
+
+  # Exit a parse tree produced by JetRuleParser#defineLiteralStmt.
+  def exitDefineLiteralStmt(self, ctx:JetRuleParser.DefineLiteralStmtContext):
+    if self.current_file_name and len(self.literals) > 0:
+      self.literals[-1]['source_file_name'] = self.current_file_name
+  
+  # Exit a parse tree produced by JetRuleParser#defineResourceStmt.
+  def exitDefineResourceStmt(self, ctx:JetRuleParser.DefineResourceStmtContext):
+    if self.current_file_name and len(self.resources) > 0:
+      self.resources[-1]['source_file_name'] = self.current_file_name
+
 
   # =====================================================================================
   # Literals
@@ -87,7 +111,10 @@ class JetListener(JetRuleListener):
     columns = []
     for v in ctx.tblColumns.seqCtx.slist:
       columns.append(self.escapeString(v.text))
-    self.lookups.append({'name': ctx.lookupName.getText(), 'table': ctx.tblStorageName.text, 'key': keys, 'columns': columns})
+    lookupTbl = {'name': ctx.lookupName.getText(), 'table': ctx.tblStorageName.text, 'key': keys, 'columns': columns}
+    if self.current_file_name:
+      lookupTbl['source_file_name'] = self.current_file_name
+    self.lookups.append(lookupTbl)
 
   # =====================================================================================
   # Jet Rules
@@ -103,10 +130,15 @@ class JetListener(JetRuleListener):
   # Exit a parse tree produced by JetRuleParser#jetRuleStmt.
   def exitJetRuleStmt(self, ctx:JetRuleParser.JetRuleStmtContext):
     # Putting the rule together
-    self.rules.append({'name': ctx.ruleName.text, 
+    jet_rule = {
+      'name': ctx.ruleName.text, 
       'properties': self.ruleProps, 
       'antecedents': self.ruleAntecedents,
-      'consequents': self.ruleConsequents  })
+      'consequents': self.ruleConsequents  
+    }
+    if self.current_file_name:
+      jet_rule['source_file_name'] = self.current_file_name
+    self.rules.append(jet_rule)
 
   # Exit a parse tree produced by JetRuleParser#ruleProperties.
   def exitRuleProperties(self, ctx:JetRuleParser.RulePropertiesContext):
