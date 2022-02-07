@@ -59,6 +59,8 @@ py_test(
   data = [
     ":jet_listerner_test_data.jr",
     ":jet_listerner_test_data.jr.json",
+    ":jet_listerner_test_data2.jr",
+    ":jet_listerner_test_data2.jrc.json",
   ],
   imports = ["jetrule_g4_gen.py"],
 )

@@ -17,6 +17,7 @@ class JetRulesCompilerTest(absltest.TestCase):
   def _get_from_file(self, fname: str) -> JetRuleContext:
     in_provider = InputProvider('jetstore-tools/jetrule-grammar')
     compiler = JetRuleCompiler()
+    compiler.verbose = True
     compiler.compileJetRuleFile(fname, in_provider)
     # print('Compiler working memory for import files')
     # print(compiler.imported_rule_files)
@@ -25,6 +26,7 @@ class JetRulesCompilerTest(absltest.TestCase):
 
   def _get_augmented_data(self, input_data: str) -> JetRuleContext:
     compiler = JetRuleCompiler()
+    compiler.verbose = True
     compiler.compileJetRule(input_data)
     jetrule_ctx = compiler.jetrule_ctx
     return jetrule_ctx

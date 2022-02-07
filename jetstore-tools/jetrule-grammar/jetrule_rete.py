@@ -57,12 +57,22 @@ class JetRuleRete:
 
     # Alter the jet_rules structure to replace antecedents with alpha_nodes
     for rule in rules:
-      rule['alpha_nodes'] = []
+
+      if self.ctx.verbose:
+        rule['alpha_nodes'] = []
+      else:
+        rule['alpha_node_vertices'] = []
+      
       for antecedent in rule['antecedents']:
         vertex = antecedent['vertex']
-        # We're puting reference to the whole rete_node,
-        # we can change this to: 'alpha_node_vertices' and put the vertex only
-        rule['alpha_nodes'].append(self.ctx.rete_nodes[vertex])
+
+        # We're puting reference to the whole rete_node if mode verbose
+        # otherwise put the vertex only
+        if self.ctx.verbose:
+          rule['alpha_nodes'].append(self.ctx.rete_nodes[vertex])
+        else:
+          rule['alpha_node_vertices'].append(vertex)
+      
       # remove the antecedents from rule since some are duplicated, rete_nodes have
       # the unique list of rete_nodes (unique antecedents)
       del rule['antecedents']

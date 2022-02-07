@@ -23,6 +23,7 @@ FLAGS = flags.FLAGS
 # flags.DEFINE_string("jr", "default useful if required", "JetRule file", required=True)
 flags.DEFINE_string("in_file", None, "JetRule file")
 flags.DEFINE_string("base_path", None, "Base path for in_file, out_file ad all imported files")
+flags.DEFINE_bool("verbose", False, "Base path for in_file, out_file ad all imported files")
 flags.DEFINE_string("out_file", None, "JetRule Rete Configuration")
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
@@ -51,6 +52,7 @@ class JetRuleCompiler:
 
   def __init__(self):
     self.jetrule_ctx = None
+    self.verbose = FLAGS.verbose
     self.global_line_nbr = 0
     self.imported_rule_files = None
     self.imported_rule_file_names = None
@@ -227,7 +229,7 @@ class JetRuleCompiler:
       else:
         errors.append(err)
 
-    self.jetrule_ctx = JetRuleContext(listener.jetRules, errors)
+    self.jetrule_ctx = JetRuleContext(listener.jetRules, self.verbose, errors)
     self.jetrule_ctx.state = JetRuleContext.STATE_PROCESSED
     return self.jetrule_ctx.jetRules
 

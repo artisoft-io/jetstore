@@ -14,8 +14,9 @@ class JetRuleContext:
   STATE_RETE_MARKINGS = 6
   STATE_BETA_RELATION_MARKINGS = 7
 
-  def __init__(self, data: Dict[str, object], errors: Sequence[str]):
+  def __init__(self, data: Dict[str, object], verbose: bool, errors: Sequence[str]):
     self.jetRules = data
+    self.verbose = verbose
     # resourceMap contains literals and resources
     self.resourceMap = {}
     self.errors = errors

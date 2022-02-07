@@ -254,7 +254,7 @@ class JetListenerTest(absltest.TestCase):
     jetRules = self._get_listener_data(data)
     
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule6", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "identifier", "value": "r1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "identifier", "value": "r2"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "text", "id": "valueX"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}]}]}"""
-    # print('GOT:',json.dumps(jetRules, indent=2))
+    print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)

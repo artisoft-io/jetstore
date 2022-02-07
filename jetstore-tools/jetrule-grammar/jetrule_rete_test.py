@@ -19,6 +19,7 @@ class JetRulesReteTest(absltest.TestCase):
 
   def _get_augmented_data(self, input_data: str) -> JetRuleContext:
     compiler = JetRuleCompiler()
+    compiler.verbose = True
     compiler.processJetRule(input_data)
     compiler.postprocessJetRule()
     jetrule_ctx = compiler.jetrule_ctx
