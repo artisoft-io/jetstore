@@ -15,24 +15,60 @@ class JetRuleRete:
     self.ctx = ctx
 
   # =====================================================================================
+  # addReteMarkup
+  # -------------------------------------------------------------------------------------
+  def addReteMarkup(self) -> None:
+
+    # rule structure
+    rules = self.ctx.jetRules.get('jet_rules')
+
+    # Rete data structure:
+    # List of nodes, pos 0 is head vertex and is reserved
+    # Node vertex is position in list
+    self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
+    self.ctx.jetReteNodes = {'rete_nodes': self.ctx.rete_nodes}
+
+    # For each rule, find the vertex matching a query based on partent_vertex and label
+    for rule in rules:
+      parent_vertex = 0
+      for antecedent in rule['antecedents']:
+        node = self.find_vertex(parent_vertex, antecedent['normalizedLabel'])
+        if not node:
+          node = {'vertex': len(self.ctx.rete_nodes), 'parent_vertex': parent_vertex, 'label': antecedent['normalizedLabel']}
+          self.ctx.rete_nodes.append(node)
+
+        antecedent['vertex'] = node['vertex']
+        antecedent['parent_vertex'] = node['parent_vertex']
+        parent_vertex = node['vertex']
+
+      # Mark the consequets
+      for consequent in rule['consequents']:
+        consequent['vertex'] = parent_vertex
+
+  def find_vertex(self, parent_vertex: int, label: str) -> object:
+    for node in self.ctx.rete_nodes:
+      if node['parent_vertex']==parent_vertex and node['label']==label:
+        return node
+    return None
+
+  # =====================================================================================
   # AddBetaRelationMarkup
   # -------------------------------------------------------------------------------------
   # Augmenting JetRule structure with rete markups: 
-  #   - Add to antecedent: rete:parent_vertex and rete:vertex
-  #   - Add to consequent: rete:vertex
-  # rete:parent_vertex and rete:vertex are integers
+  #   - Add to antecedent: parent_vertex and vertex
+  #   - Add to consequent: vertex
+  # parent_vertex and vertex are integers
   # --
   # Approach:
   # Build a rete network with beta nodes corresponding to rule antecedents.
-  # Take the next rule to consider based on how frequent the first term of the rule is 
-  # common among other rules. Then add the rule's antecedent to the rete network.
-  # Connect nodes across rules by matching normalized labels
+  # Add the rule's antecedent to the rete network.
+  # Connect nodes across rules by matching normalized labels (merging common antecedents)
   def addBetaRelationMarkup(self) -> None:
     # Rete data structure:
     # List of nodes, pos 0 is head vertex and is reserved
     # Node vertex is position in list
     # self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
-    # Let's add the reverse relationship
+    # Let's add the reverse relationship (children_vertexes)
     for node in self.ctx.rete_nodes:
       node['antecedent_node'] = None
       node['consequent_nodes'] = []
@@ -48,36 +84,38 @@ class JetRuleRete:
       # Each node have one antecedent attached to it
       for antecedent in rule['antecedents']:
         vertex = antecedent['vertex']
-        self.ctx.rete_nodes[vertex]['antecedent_node'] = antecedent
+        self.ctx.rete_nodes[vertex]['antecedent_node'] = antecedent.copy()
 
       # Each node may have 0 or more consequents terms attached to them
       for consequent in rule['consequents']:
         vertex = consequent['vertex']
-        self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent)
+        self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent.copy())
 
-    # Alter the jet_rules structure to replace antecedents with alpha_nodes
-    for rule in rules:
+    # # *** Let's not do this -- let's keep rules unchanges
+    # # Alter the jet_rules structure to replace antecedents with alpha_nodes
+    # for rule in rules:
 
-      if self.ctx.verbose:
-        rule['alpha_nodes'] = []
-      else:
-        rule['alpha_node_vertices'] = []
+    #   if self.ctx.verbose:
+    #     rule['alpha_nodes'] = []
+    #   else:
+    #     rule['alpha_node_vertices'] = []
       
-      for antecedent in rule['antecedents']:
-        vertex = antecedent['vertex']
+    #   for antecedent in rule['antecedents']:
+    #     vertex = antecedent['vertex']
 
-        # We're puting reference to the whole rete_node if mode verbose
-        # otherwise put the vertex only
-        if self.ctx.verbose:
-          rule['alpha_nodes'].append(self.ctx.rete_nodes[vertex])
-        else:
-          rule['alpha_node_vertices'].append(vertex)
+    #     # We're puting reference to the whole rete_node if mode verbose
+    #     # otherwise put the vertex only
+    #     if self.ctx.verbose:
+    #       rule['alpha_nodes'].append(self.ctx.rete_nodes[vertex])
+    #     else:
+    #       rule['alpha_node_vertices'].append(vertex)
       
-      # remove the antecedents from rule since some are duplicated, rete_nodes have
-      # the unique list of rete_nodes (unique antecedents)
-      del rule['antecedents']
-      # also remove consequents since they are now on the rete_node
-      del rule['consequents']
+    #   # remove the antecedents from rule since some are duplicated, rete_nodes have
+    #   # the unique list of rete_nodes (unique antecedents)
+    #   del rule['antecedents']
+    #   # also remove consequents since they are now on the rete_node
+    #   del rule['consequents']
+    # # *** Let's not do this -- let's keep rules unchanges
 
     # Now we have the nodes connected to the rules
     # do dfs to collect the bounded variables at each node,
@@ -89,8 +127,9 @@ class JetRuleRete:
       if parent_vertex == 0 and node['vertex'] > 0:
         self._set_beta_var(set(), node)
 
+    # LET'S NOT DO THIS
     # done, add to the jetrule data structure the rete_nodes
-    self.ctx.jetRules['rete_nodes'] = self.ctx.rete_nodes
+    # self.ctx.jetRules['rete_nodes'] = self.ctx.rete_nodes
     # print('*** RETE NODES:')
     # for node in self.ctx.rete_nodes:
     #   print(json.dumps(node, indent=2))
@@ -151,6 +190,7 @@ class JetRuleRete:
   # -------------------------------------------------------------------------------------
   # Set Beta Variables
   # -------------------------------------------------------------------------------------
+  # This work on self.ctx.rete_nodes data structure, argument 'node' is a rete_nodes
   def _set_beta_var(self, binded_vars: Set[str], node: object):
 
     # while collecting var of antecedent_node, add 'is_binded' indicator to var nodes
@@ -228,37 +268,16 @@ class JetRuleRete:
     return dependent_vars
 
   # =====================================================================================
-  # addReteMarkup
+  # normalizeReteNodes
   # -------------------------------------------------------------------------------------
-  def addReteMarkup(self) -> None:
+  # Perform last manipulation on the JetRuleContext.jetRules data structure to normalize
+  # the elements and be ready to persist using a sql model using sqlite
+  # ---
+  # Input JetRuleContext.jetRules
+  # Output JetRuleContext.jetReteNodes
 
-    # rule structure
-    rules = self.ctx.jetRules.get('jet_rules')
-
-    # Rete data structure:
-    # List of nodes, pos 0 is head vertex and is reserved
-    # Node vertex is position in list
-    self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
-
-    # For each rule, find the vertex matching a query based on partent_vertex and label
-    for rule in rules:
-      parent_vertex = 0
-      for antecedent in rule['antecedents']:
-        node = self.find_vertex(parent_vertex, antecedent['normalizedLabel'])
-        if not node:
-          node = {'vertex': len(self.ctx.rete_nodes), 'parent_vertex': parent_vertex, 'label': antecedent['normalizedLabel']}
-          self.ctx.rete_nodes.append(node)
-
-        antecedent['vertex'] = node['vertex']
-        antecedent['parent_vertex'] = node['parent_vertex']
-        parent_vertex = node['vertex']
-
-      # Mark the consequets
-      for consequent in rule['consequents']:
-        consequent['vertex'] = parent_vertex
-
-  def find_vertex(self, parent_vertex: int, label: str) -> object:
-    for node in self.ctx.rete_nodes:
-      if node['parent_vertex']==parent_vertex and node['label']==label:
-        return node
-    return None
+  def normalizeReteNodes(self) -> None:
+    if self.ctx.verbose:
+      print('Warning: JetRuleContext.verbose is True, will not normalize the Rete Nodes')
+      return
+    

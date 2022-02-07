@@ -52,10 +52,11 @@ class JetRuleCompiler:
 
   def __init__(self):
     self.jetrule_ctx = None
+    self.main_rule_fname = None     # will be used a rete config key within the workspace
     self.verbose = FLAGS.verbose
     self.global_line_nbr = 0
-    self.imported_rule_files = None
-    self.imported_rule_file_names = None
+    self.imported_file_info_list = None
+    self.imported_file_name_set = None
     self.processing_rule_files_q = None
     self.a4_err_pat = re.compile(r'line\s+(\d+):(\d+)\s+(.*)')
 
@@ -78,12 +79,12 @@ class JetRuleCompiler:
           file_info['end_pos'] = self.global_line_nbr
           file_offset = self.global_line_nbr - file_info['start_pos'] + file_info['file_offset']
 
-          if fname in self.imported_rule_file_names:
+          if fname in self.imported_file_name_set:
             # print('File already imported:', fname, ', skipping it')
 
             # Put another entry for the current file for the remaining statements
             file_info = {'fname': current_file_name, 'start_pos': self.global_line_nbr, 'file_offset': file_offset}
-            self.imported_rule_files.append(file_info)
+            self.imported_file_info_list.append(file_info)
             self.processing_rule_files_q.put(file_info)
 
           else:
@@ -91,14 +92,14 @@ class JetRuleCompiler:
 
             # Put a new entry to track new file to import
             file_info = {'fname': fname, 'start_pos': self.global_line_nbr, 'file_offset': 0}
-            self.imported_rule_files.append(file_info)
-            self.imported_rule_file_names.add(fname)
+            self.imported_file_info_list.append(file_info)
+            self.imported_file_name_set.add(fname)
             self.processing_rule_files_q.put(file_info)
             self._readInput(in_provider.getRuleFile(fname), in_provider, pat, fout)
 
             # Put another entry for the current file for the remaining statements
             file_info = {'fname': current_file_name, 'start_pos': self.global_line_nbr, 'file_offset': file_offset}
-            self.imported_rule_files.append(file_info)
+            self.imported_file_info_list.append(file_info)
             self.processing_rule_files_q.put(file_info)
       else:
         fout.write(line)
@@ -138,7 +139,10 @@ class JetRuleCompiler:
       self.postprocessJetRule()
       self.validateJetRule()
       self.optimizeJetRule()
-      self.addReteMarkingJetRule()      
+      self.compileJetRulesToReteNodes()
+      if self.verbose:
+        return self.jetrule_ctx.jetRules
+      return self.jetrule_ctx.jetReteNodes
     return self.jetrule_ctx.jetRules
 
 
@@ -150,6 +154,10 @@ class JetRuleCompiler:
   # ---------------------------------------------------------------------------------------
   def processJetRuleFile(self, fname: str, in_provider: InputProvider) -> Dict[str, object]:
     pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
+
+    # keep the fname as the main rule file of this knowledge base
+    self.main_rule_fname = fname
+
     fout = io.StringIO()
     self.global_line_nbr = 1
     # put jet compiler directive to mark the first file
@@ -161,8 +169,8 @@ class JetRuleCompiler:
     #   'end_pos' is the last line of the rule file (excl), ie. +1
     self.processing_rule_files_q = queue.LifoQueue()
     file_info = {'fname': fname, 'start_pos': self.global_line_nbr, 'file_offset': 0}
-    self.imported_rule_files = [file_info]
-    self.imported_rule_file_names = set([fname])
+    self.imported_file_info_list = [file_info]
+    self.imported_file_name_set = set([fname])
     self.processing_rule_files_q.put(file_info)
 
     # read recursively the input file and it's imports
@@ -207,7 +215,7 @@ class JetRuleCompiler:
     for err in ERRORS:
       # post process antlr4 errors to put reference to the included file
       # print('** got err:',err)
-      if self.imported_rule_files:
+      if self.imported_file_info_list:
         m = self.a4_err_pat.match(err)
         if m:
           line_nbr = int(m.group(1))
@@ -217,7 +225,7 @@ class JetRuleCompiler:
 
           # find which file this error falls into
           fname = None
-          for file_info in self.imported_rule_files:
+          for file_info in self.imported_file_info_list:
             if line_nbr >= file_info['start_pos'] and line_nbr < file_info['end_pos']:
               fname = file_info['fname']
               break
@@ -229,7 +237,13 @@ class JetRuleCompiler:
       else:
         errors.append(err)
 
-    self.jetrule_ctx = JetRuleContext(listener.jetRules, self.verbose, errors)
+    imported_file_names = None
+    if self.main_rule_fname:
+      imported_file_names = []
+      for item in self.imported_file_name_set:
+        if item != self.main_rule_fname:
+          imported_file_names.append(item)
+    self.jetrule_ctx = JetRuleContext(listener.jetRules, self.verbose, errors, self.main_rule_fname, imported_file_names)
     self.jetrule_ctx.state = JetRuleContext.STATE_PROCESSED
     return self.jetrule_ctx.jetRules
 
@@ -281,18 +295,26 @@ class JetRuleCompiler:
     return self.jetrule_ctx.jetRules
 
 
-  # Annotate the jetrules for Rete Network
+  # Compile jetrules to a Rete Network
   # ---------------------------------------------------------------------------------------
-  def addReteMarkingJetRule(self) -> Dict[str, object]:
+  def compileJetRulesToReteNodes(self) -> Dict[str, object]:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
     assert self.jetrule_ctx.state >= JetRuleContext.STATE_POSTPROCESSED, 'Must call at least postprocessJetRule() first'
 
+    # check if verbose mode, if so don't do the final compilation of the rules
+    if self.verbose:
+      return self.jetrule_ctx.jetRules
+
+    # Perform the final compilation of the rules, create the JetRuleContext.jetReteNodes data structure
+    # Leave the JetRuleContext.jetRules structure unchanged
     rete = JetRuleRete(self.jetrule_ctx)
     rete.addReteMarkup()
     rete.addBetaRelationMarkup()
-    self.jetrule_ctx.state = JetRuleContext.STATE_RETE_MARKINGS
-    return self.jetrule_ctx.jetRules
+    rete.normalizeReteNodes()
+    self.jetrule_ctx.state = JetRuleContext.STATE_COMPILED_RETE_NODES
+
+    return self.jetrule_ctx.jetReteNodes
 
 
 # =======================================================================================

@@ -6,24 +6,41 @@ from JetRuleLexer import JetRuleLexer
 
 class JetRuleContext:
 
-  STATE_READY = 1
-  STATE_PROCESSED = 2
-  STATE_POSTPROCESSED = 3
-  STATE_VALIDATED = 4
-  STATE_OPTIMIZED = 5
-  STATE_RETE_MARKINGS = 6
-  STATE_BETA_RELATION_MARKINGS = 7
+  STATE_PARSE_ERROR = 1
+  STATE_READY = 2
+  STATE_PROCESSED = 3
+  STATE_POSTPROCESSED = 4
+  STATE_VALIDATED = 5
+  STATE_OPTIMIZED = 6
+  STATE_COMPILE_ERROR = 7
+  STATE_COMPILED_RETE_NODES = 8
 
-  def __init__(self, data: Dict[str, object], verbose: bool, errors: Sequence[str]):
+  def __init__(self, data: Dict[str, object], verbose: bool, errors: Sequence[str], main_rule_fname: str, imported_files: Sequence[str]):
+    # Main jetrules data structure - json (without rule compilation)
     self.jetRules = data
+    self.main_rule_fname = main_rule_fname   # kbase key within the workspace
     self.verbose = verbose
+
+    # keeping track of the file imports
+    # Format {'main_file.jr': ['import1.jr','import2.jr']}
+    #TODO this will likely change to keep track of the import at file level, not at main file level
+    self.imported = {}
+    if main_rule_fname:
+      self.imported[main_rule_fname] = imported_files
+      self.jetRules['imports'] = self.imported
+
+
     # resourceMap contains literals and resources
     self.resourceMap = {}
     self.errors = errors
 
     # For rete network
+    # main data structure - json with rule compiled into a rete network
+    # This is filled by JetRuleRete class during the last compiler step 
+    self.jetReteNodes = None
     self.rete_nodes = []
 
+    # Shortcuts to elements in self.jetRules elements
     self.literals = None
     self.resources = None
     self.lookup_tables = None
@@ -79,23 +96,29 @@ class JetRuleContext:
             self.err('Error: {0} with id {1} is define multiple times with different values: {2} and {3}'.format(tag, id, value, c['value']))
       map[item['id']] = item
 
-  def _addRL(self, map, tag, name: str, type: str, value):
+  def _addRL(self, map, tag, name: str, type: str, value, source_fname: str) -> object:
     assert type is not None
     assert value is not None
     r = map.get(name)
-    if r and (r['value'] != value or type != r.get('type')):
-      self.err('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
+    if r:
+      if source_fname:
+        self.err('Error: Creating {0} with id {1} in file {2} but it already exist in file {3}.'.format(tag, name, source_fname, r.get('source_file_name')))
+      if r['value'] != value or type != r.get('type'):
+        self.err('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
 
     item = {'id': name, 'type': type, 'value': value}
+    if source_fname:
+      item['source_file_name'] = source_fname
     map[name] = item
     return item
 
-  def addResource(self, name: str, value: str):
-    item = self._addRL(self.resourceMap, 'resource', name, 'resource', value)
+  def addResource(self, name: str, value: str, source_fname: str):
+    item = self._addRL(self.resourceMap, 'resource', name, 'resource', value, source_fname)
     self.resources.append(item)
 
-  def addLiteral(self, name: str, type: str, value: str):
-    item = self._addRL(self.resourceMap, 'literal', name, type, value)
+  # not used, added for completeness
+  def addLiteral(self, name: str, type: str, value: str, source_fname: str):
+    item = self._addRL(self.resourceMap, 'literal', name, type, value, value, source_fname)
     self.literals.append(item)
 
   def err(self, msg: str) -> None:

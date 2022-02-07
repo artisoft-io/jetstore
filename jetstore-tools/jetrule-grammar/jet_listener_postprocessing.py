@@ -15,7 +15,8 @@ class JetRulesPostProcessor:
   def createResourcesForLookupTables(self):
     for item in self.ctx.lookup_tables:
       name = item.get('name')
-      self.ctx.addResource(name, name)
+      source_file_name = item.get('source_file_name')
+      self.ctx.addResource(name, name, source_file_name)
       columns = item['columns']
       resources = []
       for column in columns:
@@ -25,7 +26,7 @@ class JetRulesPostProcessor:
             c = '_'
           rname += c
         value = 'c' + rname.upper()
-        self.ctx.addResource(value, column)
+        self.ctx.addResource(value, column, source_file_name)
         resources.append(value)
       item['resources'] = resources
       
