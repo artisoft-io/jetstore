@@ -171,20 +171,20 @@ class JetListener(JetRuleListener):
   # is not included here to avoid duplication in function call
   def parseObjectAtom(self, txt:str, kws: JetRuleParser.KeywordsContext) -> Dict[str, str]:
     # possible inputs:
-    #   ?clm        -> {type: "var", id: "?clm"}
-    #   rdf:type    -> {type: "identifier", id: "rdf:type"}
-    #   localVal    -> {type: "identifier", id: "localVal"}
+    #   ?clm        -> {type: "var", value: "?clm"}
+    #   rdf:type    -> {type: "identifier", value: "rdf:type"}
+    #   localVal    -> {type: "identifier", value: "localVal"}
     #   "XYZ"       -> {type: "text", value: "XYZ"}
     #   text("XYZ") -> {type: "text", value: "XYZ"}
     #   int(1)      -> {type: "int", value: "1"}
     #   true        -> {type: "keyword", value: "true"}
     if not txt: return None
-    if txt[0] == '?': return {'type': 'var', 'id': txt}
-    if txt[0] == '"': return {'type': 'text', 'id': self.escapeString(txt)}
+    if txt[0] == '?': return {'type': 'var', 'value': txt}
+    if txt[0] == '"': return {'type': 'text', 'value': self.escapeString(txt)}
     v = txt.split('(')
     if len(v) > 1:
       w = {'type': v[0], 'value': v[1][0:-1]}
-      if v[1][0] == '"': return {'type': 'text', 'id': self.escapeString(v[1])[:-1]}
+      if v[1][0] == '"': return {'type': 'text', 'value': self.escapeString(v[1])[:-1]}
       return w
     # Check if it's a keyword
     if kws:

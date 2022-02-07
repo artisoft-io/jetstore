@@ -283,6 +283,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm01",
                               "id": "?x1",
                               "label": "?clm01",
                               "is_binded": false
@@ -320,6 +321,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm01",
                               "id": "?x1",
                               "label": "?clm01",
                               "is_binded": true
@@ -330,6 +332,7 @@
                           },
                           {
                               "type": "var",
+                              "value": "?code",
                               "id": "?x2",
                               "label": "?code",
                               "is_binded": false
@@ -360,6 +363,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm02",
                               "id": "?x3",
                               "label": "?clm02",
                               "is_binded": false
@@ -370,6 +374,7 @@
                           },
                           {
                               "type": "var",
+                              "value": "?code",
                               "id": "?x2",
                               "label": "?code",
                               "is_binded": true
@@ -402,6 +407,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm02",
                               "id": "?x3",
                               "label": "?clm02",
                               "is_binded": true
@@ -433,6 +439,7 @@
                           "triple": [
                               {
                                   "type": "var",
+                                  "value": "?clm01",
                                   "id": "?x1",
                                   "label": "?clm01"
                               },
@@ -442,6 +449,7 @@
                               },
                               {
                                   "type": "var",
+                                  "value": "?clm02",
                                   "id": "?x3",
                                   "label": "?clm02"
                               }
@@ -479,6 +487,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm01",
                               "id": "?x1",
                               "label": "?clm01",
                               "is_binded": false
@@ -516,6 +525,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm01",
                               "id": "?x1",
                               "label": "?clm01",
                               "is_binded": true
@@ -526,6 +536,7 @@
                           },
                           {
                               "type": "var",
+                              "value": "?code",
                               "id": "?x2",
                               "label": "?code",
                               "is_binded": false
@@ -556,6 +567,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm02",
                               "id": "?x3",
                               "label": "?clm02",
                               "is_binded": false
@@ -566,6 +578,7 @@
                           },
                           {
                               "type": "var",
+                              "value": "?code",
                               "id": "?x2",
                               "label": "?code",
                               "is_binded": true
@@ -598,6 +611,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm02",
                               "id": "?x3",
                               "label": "?clm02",
                               "is_binded": true
@@ -629,6 +643,7 @@
                           "triple": [
                               {
                                   "type": "var",
+                                  "value": "?clm01",
                                   "id": "?x1",
                                   "label": "?clm01"
                               },
@@ -638,6 +653,7 @@
                               },
                               {
                                   "type": "var",
+                                  "value": "?clm02",
                                   "id": "?x3",
                                   "label": "?clm02"
                               }
@@ -661,6 +677,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm01",
                               "id": "?x1",
                               "label": "?clm01",
                               "is_binded": true
@@ -671,6 +688,7 @@
                           },
                           {
                               "type": "var",
+                              "value": "?clm03",
                               "id": "?x4",
                               "label": "?clm03",
                               "is_binded": false
@@ -704,6 +722,7 @@
                       "triple": [
                           {
                               "type": "var",
+                              "value": "?clm03",
                               "id": "?x4",
                               "label": "?clm03",
                               "is_binded": true
@@ -736,6 +755,7 @@
                           "triple": [
                               {
                                   "type": "var",
+                                  "value": "?clm03",
                                   "id": "?x4",
                                   "label": "?clm03"
                               },
@@ -779,6 +799,7 @@
               "triple": [
                   {
                       "type": "var",
+                      "value": "?clm01",
                       "id": "?x1",
                       "label": "?clm01",
                       "is_binded": false
@@ -816,6 +837,7 @@
               "triple": [
                   {
                       "type": "var",
+                      "value": "?clm01",
                       "id": "?x1",
                       "label": "?clm01",
                       "is_binded": true
@@ -826,6 +848,7 @@
                   },
                   {
                       "type": "var",
+                      "value": "?code",
                       "id": "?x2",
                       "label": "?code",
                       "is_binded": false
@@ -856,6 +879,7 @@
               "triple": [
                   {
                       "type": "var",
+                      "value": "?clm02",
                       "id": "?x3",
                       "label": "?clm02",
                       "is_binded": false
@@ -866,6 +890,7 @@
                   },
                   {
                       "type": "var",
+                      "value": "?code",
                       "id": "?x2",
                       "label": "?code",
                       "is_binded": true
@@ -898,6 +923,7 @@
               "triple": [
                   {
                       "type": "var",
+                      "value": "?clm02",
                       "id": "?x3",
                       "label": "?clm02",
                       "is_binded": true
@@ -929,6 +955,7 @@
                   "triple": [
                       {
                           "type": "var",
+                          "value": "?clm01",
                           "id": "?x1",
                           "label": "?clm01"
                       },
@@ -938,6 +965,7 @@
                       },
                       {
                           "type": "var",
+                          "value": "?clm02",
                           "id": "?x3",
                           "label": "?clm02"
                       }
@@ -961,6 +989,7 @@
               "triple": [
                   {
                       "type": "var",
+                      "value": "?clm01",
                       "id": "?x1",
                       "label": "?clm01",
                       "is_binded": true
@@ -971,6 +1000,7 @@
                   },
                   {
                       "type": "var",
+                      "value": "?clm03",
                       "id": "?x4",
                       "label": "?clm03",
                       "is_binded": false
@@ -1004,6 +1034,7 @@
               "triple": [
                   {
                       "type": "var",
+                      "value": "?clm03",
                       "id": "?x4",
                       "label": "?clm03",
                       "is_binded": true
@@ -1036,6 +1067,7 @@
                   "triple": [
                       {
                           "type": "var",
+                          "value": "?clm03",
                           "id": "?x4",
                           "label": "?clm03"
                       },

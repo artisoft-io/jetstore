@@ -106,7 +106,7 @@ resource description = "description";
   (?clm01 has_code int(1))
   (?clm01 description "Section: (9).I7-9c")
   ->
-  (?clm01 has_expr (?clm01 + int(1)) + "some string")
+  (?clm01 has_expr (?clm01 + int(1)) + ("some string" or medicareRateObjTC1))
 ;
 
 # That's it for now!

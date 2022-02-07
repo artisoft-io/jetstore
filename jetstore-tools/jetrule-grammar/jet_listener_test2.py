@@ -52,7 +52,7 @@ class JetListenerTest2(absltest.TestCase):
       expected = json.loads(f.read())
 
     # print('GOT:',json.dumps(jetRules, indent=4))
-    # with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data2.jrc.json", 'wt', encoding='utf-8') as f:
+    # with open("/home/michel/projects/repos/jetstore/jetstore-tools/jetrule-grammar/jet_listerner_test_data2.jrc.json", 'wt', encoding='utf-8') as f:
     #   f.write(json.dumps(jetRules, indent=4))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
