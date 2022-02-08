@@ -26,7 +26,7 @@ class JetRuleRete:
     # List of nodes, pos 0 is head vertex and is reserved
     # Node vertex is position in list
     self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
-    self.ctx.jetReteNodes = {'resources':[], 'rete_nodes': self.ctx.rete_nodes}
+    self.ctx.jetReteNodes = {'resources':[], 'lookup_tables': self.ctx.lookup_tables, 'rete_nodes': self.ctx.rete_nodes}
 
     # For each rule, find the vertex matching a query based on partent_vertex and label
     for rule in rules:
