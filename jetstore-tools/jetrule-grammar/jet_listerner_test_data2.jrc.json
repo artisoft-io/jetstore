@@ -449,9 +449,9 @@
               2,
               7
           ],
-          "subject": 39,
-          "predicate": 19,
-          "object": 20
+          "subject_key": 39,
+          "predicate_key": 19,
+          "object_key": 20
       },
       {
           "type": "antecedent",
@@ -468,9 +468,9 @@
           "children_vertexes": [
               3
           ],
-          "subject": 40,
-          "predicate": 18,
-          "object": 41
+          "subject_key": 40,
+          "predicate_key": 18,
+          "object_key": 41
       },
       {
           "type": "antecedent",
@@ -489,9 +489,9 @@
           "children_vertexes": [
               4
           ],
-          "subject": 42,
-          "predicate": 18,
-          "object": 43
+          "subject_key": 42,
+          "predicate_key": 18,
+          "object_key": 43
       },
       {
           "type": "antecedent",
@@ -510,9 +510,9 @@
           "children_vertexes": [
               5
           ],
-          "subject": 44,
-          "predicate": 19,
-          "object": 20
+          "subject_key": 44,
+          "predicate_key": 19,
+          "object_key": 20
       },
       {
           "type": "antecedent",
@@ -532,9 +532,9 @@
           "children_vertexes": [
               6
           ],
-          "subject": 45,
-          "predicate": 17,
-          "object": 46
+          "subject_key": 45,
+          "predicate_key": 17,
+          "object_key": 46
       },
       {
           "type": "antecedent",
@@ -552,9 +552,9 @@
               "?x3"
           ],
           "children_vertexes": [],
-          "subject": 47,
-          "predicate": 19,
-          "object": 20
+          "subject_key": 47,
+          "predicate_key": 19,
+          "object_key": 20
       },
       {
           "type": "antecedent",
@@ -570,9 +570,9 @@
           "children_vertexes": [
               8
           ],
-          "subject": 48,
-          "predicate": 18,
-          "object": 49
+          "subject_key": 48,
+          "predicate_key": 18,
+          "object_key": 49
       },
       {
           "type": "antecedent",
@@ -586,35 +586,35 @@
           ],
           "pruned_var": [],
           "children_vertexes": [],
-          "subject": 50,
-          "predicate": 27,
-          "object": 51
+          "subject_key": 50,
+          "predicate_key": 27,
+          "object_key": 51
       },
       {
           "type": "consequent",
           "normalizedLabel": "(?x1 related_to ?x3)",
           "label": "(?clm01 related_to ?clm02)",
           "vertex": 4,
-          "subject": 52,
-          "predicate": 17,
-          "object": 53
+          "subject_key": 52,
+          "predicate_key": 17,
+          "object_key": 53
       },
       {
           "type": "consequent",
           "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
           "label": "(?clm03 rdf:type acme:SpecialClaim)",
           "vertex": 6,
-          "subject": 54,
-          "predicate": 19,
-          "object": 21
+          "subject_key": 54,
+          "predicate_key": 19,
+          "object_key": 21
       },
       {
           "type": "consequent",
           "normalizedLabel": "(?x1 has_expr (?x1 + int(1)) + (\"some string\" or medicareRateObjTC1))",
           "label": "(?clm01 has_expr (?clm01 + int(1)) + (\"some string\" or medicareRateObjTC1))",
           "vertex": 8,
-          "subject": 55,
-          "predicate": 26,
+          "subject_key": 55,
+          "predicate_key": 26,
           "obj_expr": {
               "type": "binary",
               "lhs": {

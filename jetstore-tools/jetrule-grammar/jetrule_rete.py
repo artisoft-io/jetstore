@@ -305,13 +305,13 @@ class JetRuleRete:
       node = self.ctx.rete_nodes[i]
       triple = node['triple']
       del node['triple']
-      node['subject'] = self._map_elm(resources, triple[0])
-      node['predicate'] = self._map_elm(resources, triple[1])
+      node['subject_key'] = self._map_elm(resources, triple[0])
+      node['predicate_key'] = self._map_elm(resources, triple[1])
       obj_elm = triple[2]
       if obj_elm['type'] in ['binary', 'unary']:
         node['obj_expr'] = self._map_expr(resources, obj_elm)
       else:
-        node['object'] = self._map_elm(resources, triple[2])   
+        node['object_key'] = self._map_elm(resources, triple[2])   
 
 
   # add elm to resources, set key as pos in sequence, return key
