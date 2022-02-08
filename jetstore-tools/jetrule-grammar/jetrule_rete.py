@@ -26,7 +26,7 @@ class JetRuleRete:
     # List of nodes, pos 0 is head vertex and is reserved
     # Node vertex is position in list
     self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
-    self.ctx.jetReteNodes = {'rete_nodes': self.ctx.rete_nodes}
+    self.ctx.jetReteNodes = {'resources':[], 'rete_nodes': self.ctx.rete_nodes}
 
     # For each rule, find the vertex matching a query based on partent_vertex and label
     for rule in rules:
@@ -270,14 +270,88 @@ class JetRuleRete:
   # =====================================================================================
   # normalizeReteNodes
   # -------------------------------------------------------------------------------------
-  # Perform last manipulation on the JetRuleContext.jetRules data structure to normalize
-  # the elements and be ready to persist using a sql model using sqlite
-  # ---
-  # Input JetRuleContext.jetRules
-  # Output JetRuleContext.jetReteNodes
-
+  # Perform last manipulation on self.ctx.rete_nodes to produce JetRuleContext.jetReteNodes
+  # data structure to normalize the elements and be ready to persist using a sql model using sqlite
+  # -------------------------------------------------------------------------------------
   def normalizeReteNodes(self) -> None:
     if self.ctx.verbose:
       print('Warning: JetRuleContext.verbose is True, will not normalize the Rete Nodes')
       return
+
+    # replace the rete_node with the original rete_node['antecedent_node']
+    for i in range(1, len(self.ctx.rete_nodes)):
+      node = self.ctx.rete_nodes[i]['antecedent_node']
+      node['consequent_nodes'] = self.ctx.rete_nodes[i]['consequent_nodes']
+      node['children_vertexes'] = self.ctx.rete_nodes[i]['children_vertexes']
+      self.ctx.rete_nodes[i] = node
     
+    # Add the consequent nodes at the end of the antecedent nodes
+    for i in range(1, len(self.ctx.rete_nodes)):
+      for node in self.ctx.rete_nodes[i]['consequent_nodes']:
+        self.ctx.rete_nodes.append(node)
+      del self.ctx.rete_nodes[i]['consequent_nodes']
+
+    # Add resources and literals to rete config
+    resources = self.ctx.jetReteNodes['resources']
+    key = 0
+    for k, v in self.ctx.resourceMap.items():
+      v['key'] = key
+      key += 1
+      resources.append(v)
+
+    # Transform the node['triple'] into reference to the resource
+    # Add var elm type to resources
+    for i in range(1, len(self.ctx.rete_nodes)):
+      node = self.ctx.rete_nodes[i]
+      triple = node['triple']
+      del node['triple']
+      node['subject'] = self._map_elm(resources, triple[0])
+      node['predicate'] = self._map_elm(resources, triple[1])
+      obj_elm = triple[2]
+      if obj_elm['type'] in ['binary', 'unary']:
+        node['obj_expr'] = self._map_expr(resources, obj_elm)
+      else:
+        node['object'] = self._map_elm(resources, triple[2])   
+
+
+  # add elm to resources, set key as pos in sequence, return key
+  def _add_key(self, resources: Sequence[Dict[str, object]], elm: Dict[str, object]) -> int:
+    key = len(resources)
+    elm['key'] = key
+    resources.append(elm)
+    return key
+
+  # map the expr to itself by replacing the leaf resource to a key
+  def _map_expr(self, resources, elm: Dict[str, object]) -> Dict[str, object]:
+    type = elm['type']
+    if type == 'binary':
+      elm['lhs'] = self._map_expr(resources, elm['lhs'])
+      elm['rhs'] = self._map_expr(resources, elm['rhs'])
+      return elm
+
+    if type == 'unary':
+      elm['arg'] = self._map_expr(resources, elm['arg'])
+      return elm
+    
+    # type must be literal, meaning we can use _map_elm
+    # that returns the key
+    return self._map_elm(resources, elm)
+
+
+  # map elm to an entry in resources based on type
+  # May add elm to resources
+  # return key,
+  def _map_elm(self, resources, elm) -> int:
+    type = elm['type']
+    
+    if type == 'var':
+      return self._add_key(resources, elm)
+
+    if type == 'identifier':
+      return self.ctx.resourceMap[elm['value']]['key']
+
+    if type in ['int','uint','long','ulong','double','text']:
+      elm['inline'] = True
+      return self._add_key(resources, elm)
+
+    raise Exception('ERROR JetRuleRete._add_elm: unknown type: '+str(type))
