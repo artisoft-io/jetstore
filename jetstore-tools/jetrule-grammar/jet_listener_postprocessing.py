@@ -15,7 +15,8 @@ class JetRulesPostProcessor:
   def createResourcesForLookupTables(self):
     for item in self.ctx.lookup_tables:
       name = item.get('name')
-      self.ctx.addResource(name, name)
+      source_file_name = item.get('source_file_name')
+      self.ctx.addResource(name, name, source_file_name)
       columns = item['columns']
       resources = []
       for column in columns:
@@ -25,7 +26,7 @@ class JetRulesPostProcessor:
             c = '_'
           rname += c
         value = 'c' + rname.upper()
-        self.ctx.addResource(value, column)
+        self.ctx.addResource(value, column, source_file_name)
         resources.append(value)
       item['resources'] = resources
       
@@ -63,10 +64,12 @@ class JetRulesPostProcessor:
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
     if type == 'var':
-      # Check to see if it has already a label, if so use it as id
+      # Check to see if it has already a label, if not look at value,
+      # then set it as id
       id = elm.get('label')
       if not id:
-        id = elm['id']
+        id = elm['value']
+      elm['id'] = id
       mappedVar = self.varMapping.get(id)
       if mappedVar is None:
         mappedVar = '?x' + str(len(self.varMapping)+1)
@@ -203,8 +206,7 @@ class JetRulesPostProcessor:
         return elm['label']
 
     if type == 'text':
-      return '"{0}"'.format(self.escapeText(elm['id']))
-      # return '"{0}"'.format(elm['id'])
+      return '"{0}"'.format(self.escapeText(elm['value']))
     if type == 'int': return 'int({0})'.format(elm['value'])
     if type == 'uint': return 'uint({0})'.format(elm['value'])
     if type == 'long': return 'long({0})'.format(elm['value'])

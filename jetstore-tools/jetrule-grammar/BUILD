@@ -59,6 +59,8 @@ py_test(
   data = [
     ":jet_listerner_test_data.jr",
     ":jet_listerner_test_data.jr.json",
+    ":jet_listerner_test_data2.jr",
+    ":jet_listerner_test_data2.jrc.json",
   ],
   imports = ["jetrule_g4_gen.py"],
 )
@@ -75,22 +77,6 @@ py_test(
   data = [
     ":rule6_test.json",
     ":rule7_test.json",
-  ],
-  imports = ["jetrule_g4_gen.py"],
-)
-
-py_test(
-  name = "jet_listener_postprocessing_test2",
-  srcs = ["jet_listener_postprocessing_test2.py"],
-  python_version = "PY3",
-  srcs_version = "PY3",
-  deps = [
-    ":jetrule_compiler",
-    requirement("absl-py"),
-  ],
-  data = [
-    ":jet_listener_postprocessing_test_data.jr",
-    ":jet_listener_postprocessing_test_data.jr.json",
   ],
   imports = ["jetrule_g4_gen.py"],
 )

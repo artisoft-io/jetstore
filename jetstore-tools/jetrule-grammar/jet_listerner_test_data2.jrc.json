@@ -1,0 +1,680 @@
+{
+  "resources": [
+      {
+          "type": "int",
+          "id": "isTrue",
+          "value": "1",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 0
+      },
+      {
+          "type": "int",
+          "id": "isFalse",
+          "value": "0",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 1
+      },
+      {
+          "type": "text",
+          "id": "NOT_IN_CONTRACT",
+          "value": "NOT COVERED IN CONTRACT",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 2
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_STATE",
+          "value": "STATE",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 3
+      },
+      {
+          "type": "text",
+          "id": "HH_AUTH",
+          "value": "HH_AUTH",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 4
+      },
+      {
+          "type": "text",
+          "id": "EXCL_HH_AUTH",
+          "value": "HH AUTH",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 5
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_COUNTY",
+          "value": "COUNTY",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 6
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_TIN",
+          "value": "TIN",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 7
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_TIN_STATE",
+          "value": "TIN/STATE",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 8
+      },
+      {
+          "type": "text",
+          "id": "EXCL_MER_COM",
+          "value": "MERGED COMPONENTS",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 9
+      },
+      {
+          "type": "text",
+          "id": "EXCL_AMT_PAID",
+          "value": "MERGED \"MARKET\" CHARGE BACK",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 10
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_GROUPID",
+          "value": "GROUPID",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 11
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_MODALITY",
+          "value": "MODALITY",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 12
+      },
+      {
+          "type": "resource",
+          "id": "medicareRateObjTC1",
+          "value": "_0:medicareRateObjTC1",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 13
+      },
+      {
+          "type": "resource",
+          "id": "medicareRateObjTC2",
+          "value": "_0:medicareRateObjTC2",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 14
+      },
+      {
+          "type": "resource",
+          "id": "None",
+          "symbol": "null",
+          "value": null,
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 15
+      },
+      {
+          "type": "resource",
+          "id": "uuid",
+          "symbol": "create_uuid_resource()",
+          "value": null,
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 16
+      },
+      {
+          "type": "resource",
+          "id": "related_to",
+          "value": "related_to",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 17
+      },
+      {
+          "type": "resource",
+          "id": "has_code",
+          "value": "has_code",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 18
+      },
+      {
+          "type": "resource",
+          "id": "rdf:type",
+          "value": "rdf:type",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 19
+      },
+      {
+          "type": "resource",
+          "id": "acme:Claim",
+          "value": "acme:Claim",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 20
+      },
+      {
+          "type": "resource",
+          "id": "acme:SpecialClaim",
+          "value": "acme:SpecialClaim",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 21
+      },
+      {
+          "type": "resource",
+          "id": "acme:key",
+          "value": "acme:key",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 22
+      },
+      {
+          "type": "resource",
+          "id": "acme:lookup_table",
+          "value": "acme:key",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 23
+      },
+      {
+          "type": "volatile_resource",
+          "id": "medicareRateObj261",
+          "value": "medicareRateObj261",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 24
+      },
+      {
+          "type": "volatile_resource",
+          "id": "medicareRateObj262",
+          "value": "medicareRateObj262",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 25
+      },
+      {
+          "type": "resource",
+          "id": "has_expr",
+          "value": "has_expr",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 26
+      },
+      {
+          "type": "resource",
+          "id": "description",
+          "value": "description",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 27
+      },
+      {
+          "id": "acme:ProcedureLookup",
+          "type": "resource",
+          "value": "acme:ProcedureLookup",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 28
+      },
+      {
+          "id": "cPROC_RID",
+          "type": "resource",
+          "value": "PROC_RID",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 29
+      },
+      {
+          "id": "cPROC_MID",
+          "type": "resource",
+          "value": "PROC_MID",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 30
+      },
+      {
+          "id": "cPROC_DESC",
+          "type": "resource",
+          "value": "PROC_DESC",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 31
+      },
+      {
+          "id": "MSK_DRG_TRIGGER",
+          "type": "resource",
+          "value": "MSK_DRG_TRIGGER",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 32
+      },
+      {
+          "id": "cMSK_AREA_DRG_TRIGGER_ONLY",
+          "type": "resource",
+          "value": "MSK_AREA_DRG_TRIGGER_ONLY",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 33
+      },
+      {
+          "id": "cMSK_TAG",
+          "type": "resource",
+          "value": "MSK_TAG",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 34
+      },
+      {
+          "id": "cTRIGGER_TAG_DRG_ONLY",
+          "type": "resource",
+          "value": "TRIGGER_TAG_DRG_ONLY",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 35
+      },
+      {
+          "id": "cDRG",
+          "type": "resource",
+          "value": "DRG",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 36
+      },
+      {
+          "id": "cOVERLAP",
+          "type": "resource",
+          "value": "OVERLAP",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 37
+      },
+      {
+          "id": "cUSE_ANESTHESIA",
+          "type": "resource",
+          "value": "USE_ANESTHESIA",
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "key": 38
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "is_binded": false,
+          "key": 39
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "is_binded": true,
+          "key": 40
+      },
+      {
+          "type": "var",
+          "value": "?code",
+          "id": "?x2",
+          "label": "?code",
+          "is_binded": false,
+          "key": 41
+      },
+      {
+          "type": "var",
+          "value": "?clm02",
+          "id": "?x3",
+          "label": "?clm02",
+          "is_binded": false,
+          "key": 42
+      },
+      {
+          "type": "var",
+          "value": "?code",
+          "id": "?x2",
+          "label": "?code",
+          "is_binded": true,
+          "key": 43
+      },
+      {
+          "type": "var",
+          "value": "?clm02",
+          "id": "?x3",
+          "label": "?clm02",
+          "is_binded": true,
+          "key": 44
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "is_binded": true,
+          "key": 45
+      },
+      {
+          "type": "var",
+          "value": "?clm03",
+          "id": "?x4",
+          "label": "?clm03",
+          "is_binded": false,
+          "key": 46
+      },
+      {
+          "type": "var",
+          "value": "?clm03",
+          "id": "?x4",
+          "label": "?clm03",
+          "is_binded": true,
+          "key": 47
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "is_binded": true,
+          "key": 48
+      },
+      {
+          "type": "int",
+          "value": "1",
+          "inline": true,
+          "key": 49
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "is_binded": true,
+          "key": 50
+      },
+      {
+          "type": "text",
+          "value": "Section: (9).I7-9c",
+          "inline": true,
+          "key": 51
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "key": 52
+      },
+      {
+          "type": "var",
+          "value": "?clm02",
+          "id": "?x3",
+          "label": "?clm02",
+          "key": 53
+      },
+      {
+          "type": "var",
+          "value": "?clm03",
+          "id": "?x4",
+          "label": "?clm03",
+          "key": 54
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "key": 55
+      },
+      {
+          "type": "var",
+          "value": "?clm01",
+          "id": "?x1",
+          "label": "?clm01",
+          "key": 56
+      },
+      {
+          "type": "int",
+          "value": "1",
+          "inline": true,
+          "key": 57
+      },
+      {
+          "type": "text",
+          "value": "some string",
+          "inline": true,
+          "key": 58
+      }
+  ],
+  "lookup_tables": [
+      {
+          "name": "acme:ProcedureLookup",
+          "table": "usi__cm_proc_codes",
+          "key": [
+              "PROC_CODE"
+          ],
+          "columns": [
+              "PROC_RID",
+              "PROC_MID",
+              "PROC_DESC"
+          ],
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "resources": [
+              "cPROC_RID",
+              "cPROC_MID",
+              "cPROC_DESC"
+          ]
+      },
+      {
+          "name": "MSK_DRG_TRIGGER",
+          "table": "usi__msk_trigger_drg_codes",
+          "key": [
+              "DRG"
+          ],
+          "columns": [
+              "MSK_AREA_DRG_TRIGGER_ONLY",
+              "MSK_TAG",
+              "TRIGGER_TAG_DRG_ONLY",
+              "DRG",
+              "OVERLAP",
+              "USE_ANESTHESIA"
+          ],
+          "source_file_name": "jet_listerner_test_data2.jr",
+          "resources": [
+              "cMSK_AREA_DRG_TRIGGER_ONLY",
+              "cMSK_TAG",
+              "cTRIGGER_TAG_DRG_ONLY",
+              "cDRG",
+              "cOVERLAP",
+              "cUSE_ANESTHESIA"
+          ]
+      }
+  ],
+  "rete_nodes": [
+      {
+          "vertex": 0,
+          "parent_vertex": 0,
+          "label": "Head node",
+          "antecedent_node": null,
+          "consequent_nodes": [],
+          "children_vertexes": [
+              1
+          ]
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+          "label": "(?clm01 rdf:type acme:Claim)",
+          "vertex": 1,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+              "?x1"
+          ],
+          "pruned_var": [],
+          "children_vertexes": [
+              2,
+              7
+          ],
+          "subject_key": 39,
+          "predicate_key": 19,
+          "object_key": 20
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 has_code ?x2)",
+          "label": "(?clm01 has_code ?code)",
+          "vertex": 2,
+          "parent_vertex": 1,
+          "beta_relation_vars": [
+              "?x1",
+              "?x2"
+          ],
+          "pruned_var": [],
+          "children_vertexes": [
+              3
+          ],
+          "subject_key": 40,
+          "predicate_key": 18,
+          "object_key": 41
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x3 has_code ?x2)",
+          "label": "(?clm02 has_code ?code)",
+          "vertex": 3,
+          "parent_vertex": 2,
+          "beta_relation_vars": [
+              "?x1",
+              "?x3"
+          ],
+          "pruned_var": [
+              "?x2"
+          ],
+          "children_vertexes": [
+              4
+          ],
+          "subject_key": 42,
+          "predicate_key": 18,
+          "object_key": 43
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x3 rdf:type acme:Claim)",
+          "label": "(?clm02 rdf:type acme:Claim)",
+          "vertex": 4,
+          "parent_vertex": 3,
+          "beta_relation_vars": [
+              "?x1",
+              "?x3"
+          ],
+          "pruned_var": [
+              "?x2"
+          ],
+          "children_vertexes": [
+              5
+          ],
+          "subject_key": 44,
+          "predicate_key": 19,
+          "object_key": 20
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 related_to ?x4)",
+          "label": "(?clm01 related_to ?clm03)",
+          "vertex": 5,
+          "parent_vertex": 4,
+          "beta_relation_vars": [
+              "?x4"
+          ],
+          "pruned_var": [
+              "?x1",
+              "?x2",
+              "?x3"
+          ],
+          "children_vertexes": [
+              6
+          ],
+          "subject_key": 45,
+          "predicate_key": 17,
+          "object_key": 46
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x4 rdf:type acme:Claim)",
+          "label": "(?clm03 rdf:type acme:Claim)",
+          "vertex": 6,
+          "parent_vertex": 5,
+          "beta_relation_vars": [
+              "?x4"
+          ],
+          "pruned_var": [
+              "?x1",
+              "?x2",
+              "?x3"
+          ],
+          "children_vertexes": [],
+          "subject_key": 47,
+          "predicate_key": 19,
+          "object_key": 20
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 has_code int(1))",
+          "label": "(?clm01 has_code int(1))",
+          "vertex": 7,
+          "parent_vertex": 1,
+          "beta_relation_vars": [
+              "?x1"
+          ],
+          "pruned_var": [],
+          "children_vertexes": [
+              8
+          ],
+          "subject_key": 48,
+          "predicate_key": 18,
+          "object_key": 49
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 description \"Section: (9).I7-9c\")",
+          "label": "(?clm01 description \"Section: (9).I7-9c\")",
+          "vertex": 8,
+          "parent_vertex": 7,
+          "beta_relation_vars": [
+              "?x1"
+          ],
+          "pruned_var": [],
+          "children_vertexes": [],
+          "subject_key": 50,
+          "predicate_key": 27,
+          "object_key": 51
+      },
+      {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 related_to ?x3)",
+          "label": "(?clm01 related_to ?clm02)",
+          "vertex": 4,
+          "subject_key": 52,
+          "predicate_key": 17,
+          "object_key": 53
+      },
+      {
+          "type": "consequent",
+          "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
+          "label": "(?clm03 rdf:type acme:SpecialClaim)",
+          "vertex": 6,
+          "subject_key": 54,
+          "predicate_key": 19,
+          "object_key": 21
+      },
+      {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 has_expr (?x1 + int(1)) + (\"some string\" or medicareRateObjTC1))",
+          "label": "(?clm01 has_expr (?clm01 + int(1)) + (\"some string\" or medicareRateObjTC1))",
+          "vertex": 8,
+          "subject_key": 55,
+          "predicate_key": 26,
+          "obj_expr": {
+              "type": "binary",
+              "lhs": {
+                  "type": "binary",
+                  "lhs": 56,
+                  "op": "+",
+                  "rhs": 57
+              },
+              "op": "+",
+              "rhs": {
+                  "type": "binary",
+                  "lhs": 58,
+                  "op": "or",
+                  "rhs": 13
+              }
+          }
+      }
+  ]
+}

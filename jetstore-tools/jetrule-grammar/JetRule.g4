@@ -7,12 +7,23 @@ grammar JetRule;
 jetrule: statement* EOF;
 
 statement
-  : defineLiteralStmt  
+  : jetCompilerDirectiveStmt
+  | defineLiteralStmt  
   | defineResourceStmt 
   | lookupTableStmt
   | jetRuleStmt
   | COMMENT            
   ;
+
+// --------------------------------------------------------------------------------------
+// Define Jet Compiler Directive Statements
+// --------------------------------------------------------------------------------------
+jetCompilerDirectiveStmt:  
+  JetCompilerDirective  
+  varName=declIdentifier 
+  ASSIGN declValue=String 
+  SEMICOLON
+;
 
 // --------------------------------------------------------------------------------------
 // Define Literal Statements
@@ -154,6 +165,10 @@ unaryOp
 // ======================================================================================
 // Lexer section
 // --------------------------------------------------------------------------------------
+// Jet Compiler directives and decorators
+JetCompilerDirective: '@JetCompilerDirective';
+
+// Literals and resources keywords
 Int32Type: 'int';
 UInt32Type: 'uint';
 Int64Type: 'long';

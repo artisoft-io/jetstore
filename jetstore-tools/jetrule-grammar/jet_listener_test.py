@@ -17,6 +17,26 @@ class JetListenerTest(absltest.TestCase):
     jetRules = compiler.processJetRule(data)
     return jetRules
 
+  def test_directive1(self):
+    data = """
+      # =======================================================================================
+      # Defining Constants Resources and Literals
+      # ---------------------------------------------------------------------------------------
+      # The JetRule language now have true and false already defined as boolean, adding here
+      # for illustration:
+      @JetCompilerDirective source_file = "literal.jr";
+
+      int isTrue = 1;     # this is a comment.
+      int isFalse = 0;
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "literal.jr"}, {"type": "int", "id": "isFalse", "value": "0", "source_file_name": "literal.jr"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
+    # print('GOT:',json.dumps(jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
   def test_literals1(self):
     data = """
       # =======================================================================================
@@ -144,7 +164,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "false", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?clm01"}, "op": "+", "rhs": {"type": "var", "id": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "id": "?drg"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "false", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "value": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?clm01"}, "op": "+", "rhs": {"type": "var", "value": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "value": "?drg"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -161,7 +181,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "id": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true", "tag": "\\\"USI\\\""}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "value": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -179,7 +199,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "id": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "id": "?a2"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "value": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "value": "?a2"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -197,7 +217,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?code"}], "filter": {"type": "binary", "lhs": {"type": "unary", "op": "not", "arg": {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}}, "op": "and", "rhs": {"type": "unary", "op": "not", "arg": {"type": "var", "id": "?a2"}}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "value"}, {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "var", "id": "?b2"}}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "binary", "lhs": {"type": "var", "id": "?a1"}, "op": "+", "rhs": {"type": "var", "id": "?b2"}}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "unary", "op": "not", "arg": {"type": "var", "id": "?b2"}}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "value": "?code"}], "filter": {"type": "binary", "lhs": {"type": "unary", "op": "not", "arg": {"type": "binary", "lhs": {"type": "var", "value": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}}, "op": "and", "rhs": {"type": "unary", "op": "not", "arg": {"type": "var", "value": "?a2"}}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "value"}, {"type": "binary", "lhs": {"type": "var", "value": "?a1"}, "op": "+", "rhs": {"type": "var", "value": "?b2"}}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "binary", "lhs": {"type": "var", "value": "?a1"}, "op": "+", "rhs": {"type": "var", "value": "?b2"}}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "unary", "op": "not", "arg": {"type": "var", "value": "?b2"}}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -213,7 +233,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "id": "?code"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "value": "?code"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -233,7 +253,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule6", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "identifier", "value": "r1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "identifier", "value": "r2"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "text", "id": "valueX"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "id": "MERGED \\"MARKET\\" CHARGE BACK"}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule6", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "identifier", "value": "r1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "identifier", "value": "r2"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "text", "value": "valueX"}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "value": "MERGED \\\"MARKET\\\" CHARGE BACK"}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:market"}, {"type": "text", "value": "MERGED \\\"MARKET\\\" CHARGE BACK"}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -253,7 +273,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule7", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "int", "value": "1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "text", "id": "value"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "hasTrue"}, {"type": "keyword", "value": "true"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_literal"}, {"type": "int", "value": "1"}]}, {"type": "consequent", "triple": [{"type": "var", "id": "?clm01"}, {"type": "identifier", "value": "has_expr"}, {"type": "binary", "lhs": {"type": "int", "value": "1"}, "op": "+", "rhs": {"type": "long", "value": "4"}}]}]}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule7", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "int", "value": "1"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_str"}, {"type": "text", "value": "value"}]}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "hasTrue"}, {"type": "keyword", "value": "true"}]}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_literal"}, {"type": "int", "value": "1"}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "has_expr"}, {"type": "binary", "lhs": {"type": "int", "value": "1"}, "op": "+", "rhs": {"type": "long", "value": "4"}}]}]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
