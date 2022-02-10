@@ -1,14 +1,6 @@
 from jetrule_context import JetRuleContext
 from typing import Any, Sequence, Set
 from typing import Dict
-import apsw
-import json
-
-print ("      Using APSW file",apsw.__file__)                # from the extension module
-print ("         APSW version",apsw.apswversion())           # from the extension module
-print ("   SQLite lib version",apsw.sqlitelibversion())      # from the sqlite library code
-print ("SQLite header version",apsw.SQLITE_VERSION_NUMBER)   # from the sqlite header file at compile time
-print()
 
 class JetRuleRete:
   def __init__(self, ctx: JetRuleContext):
@@ -26,9 +18,14 @@ class JetRuleRete:
     # List of nodes, pos 0 is head vertex and is reserved
     # Node vertex is position in list
     self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
-    self.ctx.jetReteNodes = {'resources':[], 'lookup_tables': self.ctx.lookup_tables, 'rete_nodes': self.ctx.rete_nodes}
+    self.ctx.jetReteNodes = {
+      'main_rule_file_name': self.ctx.main_rule_fname, 
+      'resources':[], 
+      'lookup_tables': self.ctx.lookup_tables, 
+      'rete_nodes': self.ctx.rete_nodes
+    }
 
-    # For each rule, find the vertex matching a query based on partent_vertex and label
+    # For each rule, find the vertex matching a query based on parent_vertex and label
     for rule in rules:
       parent_vertex = 0
       for antecedent in rule['antecedents']:
@@ -91,32 +88,6 @@ class JetRuleRete:
         vertex = consequent['vertex']
         self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent.copy())
 
-    # # *** Let's not do this -- let's keep rules unchanges
-    # # Alter the jet_rules structure to replace antecedents with alpha_nodes
-    # for rule in rules:
-
-    #   if self.ctx.verbose:
-    #     rule['alpha_nodes'] = []
-    #   else:
-    #     rule['alpha_node_vertices'] = []
-      
-    #   for antecedent in rule['antecedents']:
-    #     vertex = antecedent['vertex']
-
-    #     # We're puting reference to the whole rete_node if mode verbose
-    #     # otherwise put the vertex only
-    #     if self.ctx.verbose:
-    #       rule['alpha_nodes'].append(self.ctx.rete_nodes[vertex])
-    #     else:
-    #       rule['alpha_node_vertices'].append(vertex)
-      
-    #   # remove the antecedents from rule since some are duplicated, rete_nodes have
-    #   # the unique list of rete_nodes (unique antecedents)
-    #   del rule['antecedents']
-    #   # also remove consequents since they are now on the rete_node
-    #   del rule['consequents']
-    # # *** Let's not do this -- let's keep rules unchanges
-
     # Now we have the nodes connected to the rules
     # do dfs to collect the bounded variables at each node,
     # do dfs on children and consequent terms to get the var that are needed
@@ -127,13 +98,6 @@ class JetRuleRete:
       if parent_vertex == 0 and node['vertex'] > 0:
         self._set_beta_var(set(), node)
 
-    # LET'S NOT DO THIS
-    # done, add to the jetrule data structure the rete_nodes
-    # self.ctx.jetRules['rete_nodes'] = self.ctx.rete_nodes
-    # print('*** RETE NODES:')
-    # for node in self.ctx.rete_nodes:
-    #   print(json.dumps(node, indent=2))
-
     # Perform validation on jetrule beta relation config
     for node in self.ctx.rete_nodes:
       parent_vertex = node['parent_vertex']
@@ -142,61 +106,17 @@ class JetRuleRete:
 
 
   # -------------------------------------------------------------------------------------
-  # Validate Rete Node
-  # -------------------------------------------------------------------------------------
-  # Perform validation on jetrule beta relation config:
-  # pruned node must be pruned in descendent nodes (children_nodes)
-  # var introduced at node (not in parent node) shall not be marked as is_binded = True
-  def _validate_rete_node(self, parent_vars: Set[str], parent_pruned_vars: Set[str], node: object):
-    # print('*** validate RETE NODE',node)
-    # check that the pruned var in parent are also pruned var in node
-    # meaning parent_pruned_var.issubset(node_prune_var) is True
-    if not parent_pruned_vars.issubset(node['antecedent_node']['pruned_var']):
-      raise Exception("Invalid rete_node, missing prune var form parent, rete_node:",node,'parent_pruned_vars',parent_pruned_vars)
-
-    for child_vertex in node['children_vertexes']:
-      self._validate_rete_node(set(node['antecedent_node']['beta_relation_vars']), set(node['antecedent_node']['pruned_var']), self.ctx.rete_nodes[child_vertex])  
-
-
-  def _validate_var(self, parent_binded_var: Set[str], elm: object):
-    type = elm.get('type')
-    if type is None: raise Exception("Invalid jetRules elm: ", elm)
-
-    if type == 'antecedent' or type == 'consequent':
-      triple = elm['triple']
-      self._validate_var(parent_binded_var, triple[0])
-      self._validate_var(parent_binded_var, triple[1])
-      self._validate_var(parent_binded_var, triple[2])
-      filter = elm.get('filter')
-      if filter:
-        self._validate_var(parent_binded_var, filter)
-      return
-
-    if type == 'binary':
-      self._validate_var(parent_binded_var, elm['lhs'])
-      self._validate_var(parent_binded_var, elm['rhs'])
-      return
-
-    if type == 'unary':
-      self._validate_var(parent_binded_var, elm['arg'])
-      return
-
-    if type == 'var':
-        if elm['is_binded'] and not elm['id'] in parent_binded_var:
-          raise Exception("Invalid rete_node, var marked as binded but is not in parent beta variable, var:",elm,'parent_binded_vars',parent_binded_var)
-    return
-
-
-  # -------------------------------------------------------------------------------------
   # Set Beta Variables
   # -------------------------------------------------------------------------------------
   # This work on self.ctx.rete_nodes data structure, argument 'node' is a rete_nodes
   def _set_beta_var(self, binded_vars: Set[str], node: object):
 
-    # while collecting var of antecedent_node, add 'is_binded' indicator to var nodes
+    # while collecting var of antecedent_node and consequent_nodes, add 'is_binded' indicator to var nodes
     # to indicate if the variable is binded to the parent antecedent
     antecedent = node['antecedent_node']
     binded_vars = binded_vars.union(self._add_var(binded_vars, antecedent, check_binded=True))
+    for item in node['consequent_nodes']:
+      binded_vars = binded_vars.union(self._add_var(binded_vars, item, check_binded=True))
 
     # collect the downstream var (dependent var)
     dependent_vars = self._add_child_var({'consequent_nodes': node['consequent_nodes'], 'children_vertexes': node['children_vertexes']})
@@ -229,9 +149,11 @@ class JetRuleRete:
       binded_var = self._add_var(parent_binded_var, triple[0], check_binded=check_binded)
       binded_var = binded_var.union(self._add_var(parent_binded_var, triple[1], check_binded=check_binded))
       binded_var = binded_var.union(self._add_var(parent_binded_var, triple[2], check_binded=check_binded))
+      # filter shall have only binded var and var of current node are considered binded for filter and consequent nodes
+      # Also, since filter does not add new var, only check if check_binded is True
       filter = elm.get('filter')
-      if filter:
-        binded_var = binded_var.union(self._add_var(parent_binded_var, filter, check_binded=check_binded))
+      if check_binded and filter:
+        self._add_var(parent_binded_var.union(binded_var), filter, check_binded=check_binded)
       return binded_var
 
     if type == 'binary':
@@ -267,6 +189,69 @@ class JetRuleRete:
 
     return dependent_vars
 
+
+  # -------------------------------------------------------------------------------------
+  # Validate Rete Node
+  # -------------------------------------------------------------------------------------
+  # Perform validation on jetrule beta relation config:
+  # pruned node must be pruned in descendent nodes (children_nodes)
+  # var introduced at node (not in parent node) shall NOT be marked as is_binded = True
+  # while var introduced in filter of node (not in parent node) shall be marked as is_binded = True
+  def _validate_rete_node(self, parent_vars: Set[str], parent_pruned_vars: Set[str], node: object):
+    # print('*** validate RETE NODE',node)
+    # check that the pruned var in parent are also pruned var in node
+    # meaning parent_pruned_var.issubset(node_prune_var) is True
+    if not parent_pruned_vars.issubset(node['antecedent_node']['pruned_var']):
+      raise Exception("Invalid rete_node, missing prune var form parent, rete_node:",node,'parent_pruned_vars',parent_pruned_vars)
+
+    #  Validate that var at antecedent node (not in parent node) shall NOT be marked as is_binded = True
+    self._validate_var(parent_vars, node['antecedent_node'])
+
+    #  Validate that var at consequent node shall ALWAYS be marked as is_binded = True
+    binded_vars = parent_vars.union(node['antecedent_node']['beta_relation_vars'])
+    for item in node['consequent_nodes']:
+      self._validate_var(binded_vars, item)
+
+    #  Validate that var at filter node shall ALWAYS be marked as is_binded = True
+    filter = node['antecedent_node'].get('filter')
+    if filter:
+      self._validate_var(binded_vars, filter)
+
+    for child_vertex in node['children_vertexes']:
+      self._validate_rete_node(set(node['antecedent_node']['beta_relation_vars']), set(node['antecedent_node']['pruned_var']), self.ctx.rete_nodes[child_vertex])  
+
+
+  def _validate_var(self, parent_binded_var: Set[str], elm: object):
+    type = elm.get('type')
+    if type is None: raise Exception("Invalid jetRules elm: ", elm)
+
+    if type == 'antecedent' or type == 'consequent':
+      triple = elm['triple']
+      self._validate_var(parent_binded_var, triple[0])
+      self._validate_var(parent_binded_var, triple[1])
+      self._validate_var(parent_binded_var, triple[2])
+      # To validate the filter, we need to consider the parent_binded_var AND elm binded_var
+      filter = elm.get('filter')
+      if filter:
+        self._validate_var(parent_binded_var.union(elm['beta_relation_vars']), filter)
+      return
+
+    if type == 'binary':
+      self._validate_var(parent_binded_var, elm['lhs'])
+      self._validate_var(parent_binded_var, elm['rhs'])
+      return
+
+    if type == 'unary':
+      self._validate_var(parent_binded_var, elm['arg'])
+      return
+
+    if type == 'var':
+      if elm['is_binded'] and not elm['id'] in parent_binded_var:
+        raise Exception("Invalid rete_node, var marked as binded but is not in expected binded variable, var:",elm,'expected_binded_vars',parent_binded_var)
+      if not elm['is_binded'] and elm['id'] in parent_binded_var:
+        raise Exception("Invalid rete_node, var NOT marked as binded but IS in expected binded variable, var:",elm,'expected_binded_vars',parent_binded_var)
+    return
+
   # =====================================================================================
   # normalizeReteNodes
   # -------------------------------------------------------------------------------------
@@ -277,6 +262,12 @@ class JetRuleRete:
     if self.ctx.verbose:
       print('Warning: JetRuleContext.verbose is True, will not normalize the Rete Nodes')
       return
+
+    # cleanup the head node
+    head_node = self.ctx.rete_nodes[0]
+    head_node['type'] = 'head_node'
+    del head_node['antecedent_node']
+    del head_node['consequent_nodes']
 
     # replace the rete_node with the original rete_node['antecedent_node']
     for i in range(1, len(self.ctx.rete_nodes)):
@@ -300,6 +291,7 @@ class JetRuleRete:
       resources.append(v)
 
     # Transform the node['triple'] into reference to the resource
+    # also transform the node['filter'] into reference to the resources
     # Add var elm type to resources
     for i in range(1, len(self.ctx.rete_nodes)):
       node = self.ctx.rete_nodes[i]
@@ -311,13 +303,17 @@ class JetRuleRete:
       if obj_elm['type'] in ['binary', 'unary']:
         node['obj_expr'] = self._map_expr(resources, obj_elm)
       else:
-        node['object_key'] = self._map_elm(resources, triple[2])   
+        node['object_key'] = self._map_elm(resources, triple[2])
+      filter = node.get('filter')
+      if filter:
+        node['filter'] = self._map_expr(resources, filter)
 
 
   # add elm to resources, set key as pos in sequence, return key
   def _add_key(self, resources: Sequence[Dict[str, object]], elm: Dict[str, object]) -> int:
     key = len(resources)
     elm['key'] = key
+    elm['source_file_name'] = self.ctx.main_rule_fname
     resources.append(elm)
     return key
 

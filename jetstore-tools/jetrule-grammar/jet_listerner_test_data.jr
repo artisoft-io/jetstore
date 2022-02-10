@@ -94,6 +94,7 @@ lookup_table MSK_DRG_TRIGGER {
   (?clm02 has_code ?code).
   (?clm01 related_to ?clm03)
   (?clm03 rdf:type acme:Claim).
+  [(?clm01 or has_code) and int(1)]
   ->
   (?clm03 rdf:type acme:SpecialClaim)
 ;

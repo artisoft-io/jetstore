@@ -430,8 +430,30 @@
                           "value": "acme:Claim"
                       }
                   ],
-                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
-                  "label": "(?clm01 rdf:type acme:Claim)"
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or has_code) and int(1)]",
+                  "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)]",
+                  "filter": {
+                      "type": "binary",
+                      "lhs": {
+                          "type": "binary",
+                          "lhs": {
+                              "type": "var",
+                              "value": "?clm01",
+                              "id": "?x1",
+                              "label": "?clm01"
+                          },
+                          "op": "or",
+                          "rhs": {
+                              "type": "identifier",
+                              "value": "has_code"
+                          }
+                      },
+                      "op": "and",
+                      "rhs": {
+                          "type": "int",
+                          "value": "1"
+                      }
+                  }
               },
               {
                   "type": "antecedent",
@@ -573,10 +595,10 @@
                   "label": "(?clm03 rdf:type acme:SpecialClaim)"
               }
           ],
-          "authoredLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);",
+          "authoredLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)] -> (?clm03 rdf:type acme:SpecialClaim);",
           "source_file_name": "jet_listerner_test_data.jr",
-          "normalizedLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim).(?x1 related_to ?x4).(?x4 rdf:type acme:Claim) -> (?x4 rdf:type acme:SpecialClaim);",
-          "label": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);"
+          "normalizedLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).[(?x1 or has_code) and int(1)].(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim).(?x1 related_to ?x4).(?x4 rdf:type acme:Claim) -> (?x4 rdf:type acme:SpecialClaim);",
+          "label": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)].(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);"
       }
   ],
   "imports": {

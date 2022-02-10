@@ -18,7 +18,6 @@ class JetListenerTest2(absltest.TestCase):
     compiler.verbose = True
     jetRules = compiler.compileJetRuleFile("jet_listerner_test_data.jr", provider)
 
-    print('GOT')
     for k in compiler.jetrule_ctx.errors:
       print(k)
     print()
@@ -37,7 +36,7 @@ class JetListenerTest2(absltest.TestCase):
     # compiler.verbose = True
     jetRules = compiler.compileJetRuleFile("jet_listerner_test_data2.jr", provider)
 
-    print('GOT')
+    # print('GOT')
     for k in compiler.jetrule_ctx.errors:
       print(k)
     print()

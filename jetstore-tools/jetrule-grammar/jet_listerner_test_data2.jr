@@ -104,7 +104,8 @@ resource description = "description";
 [Rule3]: 
   (?clm01 rdf:type acme:Claim).
   (?clm01 has_code int(1))
-  (?clm01 description "Section: (9).I7-9c")
+  (?clm01 description "Section: (9).I7-9c").
+  [(?clm01 or has_expr) and int(1)]
   ->
   (?clm01 has_expr (?clm01 + int(1)) + ("some string" or medicareRateObjTC1))
 ;
