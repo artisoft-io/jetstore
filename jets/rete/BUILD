@@ -74,6 +74,7 @@ cc_test(
         "rete_session_test.cc", 
         "rete_meta_store_factory_test.cc", 
     ],
+    # data = [":rete_meta_store_test.db"],
     deps = [
         "//jets/rdf:jets_rdf",
         ":jets_rete",
