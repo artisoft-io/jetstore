@@ -2,37 +2,37 @@ workspace(name = "io_artisoft_jetstore")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
-http_archive(
+http_archive(                                         # Updated on 2022-02-12
   name = "com_google_absl",
-  urls = ["https://github.com/abseil/abseil-cpp/archive/98eb410c93ad059f9bba1bf43f5bb916fc92a5ea.zip"],
-  strip_prefix = "abseil-cpp-98eb410c93ad059f9bba1bf43f5bb916fc92a5ea",
+  urls = ["https://github.com/abseil/abseil-cpp/archive/73316fc3c565e5998983b0fb502d938ccddcded2.zip"],
+  strip_prefix = "abseil-cpp-73316fc3c565e5998983b0fb502d938ccddcded2",
 )
 
-# GoogleTest/GoogleMock framework. Used by most unit-tests.
+# google/googletest framework. Used by most unit-tests.
 http_archive(
-    name = "com_google_googletest",  # 2021-07-09T13:28:13Z
-    sha256 = "12ef65654dc01ab40f6f33f9d02c04f2097d2cd9fbe48dc6001b29543583b0ad",
-    strip_prefix = "googletest-8d51ffdfab10b3fba636ae69bc03da4b54f8c235",
-    urls = ["https://github.com/google/googletest/archive/8d51ffdfab10b3fba636ae69bc03da4b54f8c235.zip"],
+    name = "com_google_googletest",                   # Updated on 2022-02-12
+    # sha256 = "12ef65654dc01ab40f6f33f9d02c04f2097d2cd9fbe48dc6001b29543583b0ad",
+    strip_prefix = "googletest-0e402173c97aea7a00749e825b194bfede4f2e45",
+    urls = ["https://github.com/google/googletest/archive/0e402173c97aea7a00749e825b194bfede4f2e45.zip"],
 )
 
-# Google benchmark.
+# google/benchmark
 http_archive(
-    name = "com_github_google_benchmark",  # 2021-09-20T09:19:51Z
-    sha256 = "62e2f2e6d8a744d67e4bbc212fcfd06647080de4253c97ad5c6749e09faf2cb0",
-    strip_prefix = "benchmark-0baacde3618ca617da95375e0af13ce1baadea47",
-    urls = ["https://github.com/google/benchmark/archive/0baacde3618ca617da95375e0af13ce1baadea47.zip"],
+    name = "com_github_google_benchmark",             # Updated on 2022-02-12
+    # sha256 = "62e2f2e6d8a744d67e4bbc212fcfd06647080de4253c97ad5c6749e09faf2cb0",
+    strip_prefix = "benchmark-6e51dcbcc3965b3f4b13d4bab5e43895c1a73290",
+    urls = ["https://github.com/google/benchmark/archive/6e51dcbcc3965b3f4b13d4bab5e43895c1a73290.zip"],
 )
 
-# Bazel platform rules.
+# bazelbuild/platforms -- Bazel platform rules.
 http_archive(
-    name = "platforms",
-    sha256 = "b601beaf841244de5c5a50d2b2eddd34839788000fa1be4260ce6603ca0d8eb7",
-    strip_prefix = "platforms-98939346da932eef0b54cf808622f5bb0928f00b",
-    urls = ["https://github.com/bazelbuild/platforms/archive/98939346da932eef0b54cf808622f5bb0928f00b.zip"],
+    name = "platforms",                               # Updated on 2022-02-12
+    # sha256 = "b601beaf841244de5c5a50d2b2eddd34839788000fa1be4260ce6603ca0d8eb7",
+    strip_prefix = "platforms-fbd0d188dac49fbcab3d2876a2113507e6fc68e9",
+    urls = ["https://github.com/bazelbuild/platforms/archive/fbd0d188dac49fbcab3d2876a2113507e6fc68e9.zip"],
 )
 
-# Bazel python rules
+# bazelbuild/rules_python  -- Bazel python rules
 http_archive(
     name = "rules_python",
     sha256 = "a30abdfc7126d497a7698c29c46ea9901c6392d6ed315171a6df5ce433aa4502",

@@ -72,6 +72,7 @@ cc_test(
         "node_vertex_test.cc", 
         "rete_meta_store_test.cc", 
         "rete_session_test.cc", 
+        "rete_meta_store_factory_test.cc", 
     ],
     deps = [
         "//jets/rdf:jets_rdf",
