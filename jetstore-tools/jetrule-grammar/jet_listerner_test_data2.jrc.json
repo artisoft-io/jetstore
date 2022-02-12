@@ -1,5 +1,6 @@
 {
   "main_rule_file_name": "jet_listerner_test_data2.jr",
+  "support_rule_file_names": [],
   "resources": [
       {
           "type": "int",
@@ -278,99 +279,77 @@
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": false,
           "key": 39,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 40,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?code",
           "id": "?x2",
-          "label": "?code",
           "is_binded": false,
           "key": 41,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm02",
           "id": "?x3",
-          "label": "?clm02",
           "is_binded": false,
           "key": 42,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?code",
           "id": "?x2",
-          "label": "?code",
           "is_binded": true,
           "key": 43,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm02",
           "id": "?x3",
-          "label": "?clm02",
           "is_binded": true,
           "key": 44,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 45,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm03",
           "id": "?x4",
-          "label": "?clm03",
           "is_binded": false,
           "key": 46,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm03",
           "id": "?x4",
-          "label": "?clm03",
           "is_binded": true,
           "key": 47,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": false,
           "key": 48,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 49,
           "source_file_name": "jet_listerner_test_data2.jr"
@@ -384,9 +363,7 @@
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 51,
           "source_file_name": "jet_listerner_test_data2.jr"
@@ -400,9 +377,7 @@
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 53,
           "source_file_name": "jet_listerner_test_data2.jr"
@@ -416,45 +391,35 @@
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 55,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm02",
           "id": "?x3",
-          "label": "?clm02",
           "is_binded": true,
           "key": 56,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm03",
           "id": "?x4",
-          "label": "?clm03",
           "is_binded": true,
           "key": 57,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 58,
           "source_file_name": "jet_listerner_test_data2.jr"
       },
       {
           "type": "var",
-          "value": "?clm01",
           "id": "?x1",
-          "label": "?clm01",
           "is_binded": true,
           "key": 59,
           "source_file_name": "jet_listerner_test_data2.jr"
@@ -522,7 +487,6 @@
       {
           "vertex": 0,
           "parent_vertex": 0,
-          "label": "Head node",
           "children_vertexes": [
               1,
               7
@@ -533,7 +497,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x1 rdf:type acme:Claim)",
-          "label": "(?clm01 rdf:type acme:Claim)",
           "vertex": 1,
           "parent_vertex": 0,
           "beta_relation_vars": [
@@ -551,7 +514,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x1 has_code ?x2)",
-          "label": "(?clm01 has_code ?code)",
           "vertex": 2,
           "parent_vertex": 1,
           "beta_relation_vars": [
@@ -570,7 +532,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x3 has_code ?x2)",
-          "label": "(?clm02 has_code ?code)",
           "vertex": 3,
           "parent_vertex": 2,
           "beta_relation_vars": [
@@ -591,7 +552,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-          "label": "(?clm02 rdf:type acme:Claim)",
           "vertex": 4,
           "parent_vertex": 3,
           "beta_relation_vars": [
@@ -612,7 +572,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x1 related_to ?x4)",
-          "label": "(?clm01 related_to ?clm03)",
           "vertex": 5,
           "parent_vertex": 4,
           "beta_relation_vars": [
@@ -634,7 +593,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x4 rdf:type acme:Claim)",
-          "label": "(?clm03 rdf:type acme:Claim)",
           "vertex": 6,
           "parent_vertex": 5,
           "beta_relation_vars": [
@@ -654,7 +612,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or has_expr) and int(1)]",
-          "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or has_expr) and int(1)]",
           "filter": {
               "type": "binary",
               "lhs": {
@@ -683,7 +640,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x1 has_code int(1))",
-          "label": "(?clm01 has_code int(1))",
           "vertex": 8,
           "parent_vertex": 7,
           "beta_relation_vars": [
@@ -701,7 +657,6 @@
           "type": "antecedent",
           "isNot": false,
           "normalizedLabel": "(?x1 description \"Section: (9).I7-9c\")",
-          "label": "(?clm01 description \"Section: (9).I7-9c\")",
           "vertex": 9,
           "parent_vertex": 8,
           "beta_relation_vars": [
@@ -716,7 +671,6 @@
       {
           "type": "consequent",
           "normalizedLabel": "(?x1 related_to ?x3)",
-          "label": "(?clm01 related_to ?clm02)",
           "vertex": 4,
           "subject_key": 55,
           "predicate_key": 17,
@@ -725,7 +679,6 @@
       {
           "type": "consequent",
           "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
-          "label": "(?clm03 rdf:type acme:SpecialClaim)",
           "vertex": 6,
           "subject_key": 57,
           "predicate_key": 19,
@@ -734,7 +687,6 @@
       {
           "type": "consequent",
           "normalizedLabel": "(?x1 has_expr (?x1 + int(1)) + (\"some string\" or medicareRateObjTC1))",
-          "label": "(?clm01 has_expr (?clm01 + int(1)) + (\"some string\" or medicareRateObjTC1))",
           "vertex": 9,
           "subject_key": 58,
           "predicate_key": 26,

@@ -15,6 +15,7 @@ from jetrule_validator import JetRuleValidator
 from jet_listener_postprocessing import JetRulesPostProcessor
 from jetrule_optimizer import JetRuleOptimizer
 from jetrule_rete import JetRuleRete
+from jetrule_rete_sqlite import JetRuleReteSQLite
 from JetRuleParser import JetRuleParser
 from JetRuleLexer import JetRuleLexer
 from antlr4.error.ErrorListener import *
@@ -22,9 +23,8 @@ from antlr4.error.ErrorListener import *
 FLAGS = flags.FLAGS
 # flags.DEFINE_string("jr", "default useful if required", "JetRule file", required=True)
 flags.DEFINE_string("in_file", None, "JetRule file")
-flags.DEFINE_string("base_path", None, "Base path for in_file, out_file ad all imported files")
-flags.DEFINE_bool("verbose", False, "Base path for in_file, out_file ad all imported files")
-flags.DEFINE_string("out_file", None, "JetRule Rete Configuration")
+flags.DEFINE_string("base_path", None, "Base path for in_file, out_file and all imported files")
+flags.DEFINE_bool("verbose", False, "Base path for in_file, out_file and all imported files")
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
 
@@ -156,7 +156,7 @@ class JetRuleCompiler:
     pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
 
     # keep the fname as the main rule file of this knowledge base
-    self.main_rule_fname = fname
+    self.main_rule_fname = str(fname)
 
     fout = io.StringIO()
     self.global_line_nbr = 1
@@ -241,6 +241,7 @@ class JetRuleCompiler:
     if self.main_rule_fname:
       imported_file_names = []
       for item in self.imported_file_name_set:
+        item = str(item)                        # to make sure we don't have a Path obj
         if item != self.main_rule_fname:
           imported_file_names.append(item)
     self.jetrule_ctx = JetRuleContext(listener.jetRules, self.verbose, errors, self.main_rule_fname, imported_file_names)
@@ -325,10 +326,8 @@ def main(argv):
 
   
   in_fname = Path(FLAGS.in_file)
-  base_path_name = Path(FLAGS.base_path)
-  out_fname = Path(FLAGS.out_file)
 
-  base_path = Path(base_path_name)
+  base_path = Path(FLAGS.base_path)
   path = os.path.join(base_path, in_fname)
   path = os.path.abspath(path)
   if not os.path.exists(path) or not os.path.isfile(path):
@@ -337,14 +336,32 @@ def main(argv):
 
   in_provider = InputProvider(base_path)
   compiler = JetRuleCompiler()
-  jetrules = compiler.compileJetRuleFile(in_fname, in_provider)
+  compiler.compileJetRuleFile(str(in_fname), in_provider)
 
   # Save the JetRule data structure
-  with open(str(path)+'.json', 'wt', encoding='utf-8') as f:
-    f.write(json.dumps(jetrules, indent=4))
+  # path = os.path.join(base_path, out_fname)
+  in_tup = os.path.splitext(in_fname)
+  jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')
+  jetrete_path = os.path.join(base_path, in_tup[0]+'.jrc.json')
+  
+  with open(jetrules_path, 'wt', encoding='utf-8') as f:
+    f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
 
-  print('Result saved to {0}.json'.format(path))
+  print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
+
+  rete_db_helper = JetRuleReteSQLite(compiler.jetrule_ctx)
+  err = rete_db_helper.saveReteConfig()
+  if err:
+    print('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err)))
+    sys.exit('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err))) 
+
+  # Save the JetRete data structure
+  with open(jetrete_path, 'wt', encoding='utf-8') as f:
+    f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+
+  print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
 
 
 if __name__ == '__main__':
+  flags.mark_flag_as_required('in_file')
   app.run(main)

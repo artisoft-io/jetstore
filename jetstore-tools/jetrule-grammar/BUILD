@@ -17,6 +17,7 @@ py_binary(
   name = "jetrule_compiler",
   srcs = [
     "jetrule_compiler.py",
+    "jetrule_rete_sqlite.py",
     "jet_listener.py",                # this produce my-rules.jr.json from input file my-rule.jr
     "jet_listener_postprocessing.py", # this augment  my-rules.jr.json
     "jetrule_validator.py",
@@ -26,6 +27,12 @@ py_binary(
   ],
   imports = ["jetrule_g4_gen.py"],
   python_version = "PY3",
+  data = [
+    ":jet_listerner_test_data.jr",
+    ":jet_listerner_test_data.jr.json",
+    ":jet_listerner_test_data2.jr",
+    ":jet_listerner_test_data2.jrc.json",
+  ],
   # data = [":transform"],  # a cc_binary which we invoke at run time
   deps = [
       ":jetrule_lang_lib",

@@ -20,6 +20,7 @@ class JetRuleRete:
     self.ctx.rete_nodes = [{'vertex': 0, 'parent_vertex': 0, 'label': 'Head node'}]
     self.ctx.jetReteNodes = {
       'main_rule_file_name': self.ctx.main_rule_fname, 
+      'support_rule_file_names': self.ctx.imported.get(self.ctx.main_rule_fname), 
       'resources':[], 
       'lookup_tables': self.ctx.lookup_tables, 
       'rete_nodes': self.ctx.rete_nodes
@@ -266,19 +267,26 @@ class JetRuleRete:
     # cleanup the head node
     head_node = self.ctx.rete_nodes[0]
     head_node['type'] = 'head_node'
+    del head_node['label']
     del head_node['antecedent_node']
-    del head_node['consequent_nodes']
+    del head_node['consequent_nodes']    
 
     # replace the rete_node with the original rete_node['antecedent_node']
     for i in range(1, len(self.ctx.rete_nodes)):
       node = self.ctx.rete_nodes[i]['antecedent_node']
       node['consequent_nodes'] = self.ctx.rete_nodes[i]['consequent_nodes']
       node['children_vertexes'] = self.ctx.rete_nodes[i]['children_vertexes']
+      # remove the label since it use the original var and it's not meaningful in
+      # the rete network
+      del node['label']
       self.ctx.rete_nodes[i] = node
     
     # Add the consequent nodes at the end of the antecedent nodes
     for i in range(1, len(self.ctx.rete_nodes)):
       for node in self.ctx.rete_nodes[i]['consequent_nodes']:
+        # remove the label since it use the original var and it's not meaningful in
+        # the rete network
+        del node['label']
         self.ctx.rete_nodes.append(node)
       del self.ctx.rete_nodes[i]['consequent_nodes']
 
@@ -341,6 +349,10 @@ class JetRuleRete:
     type = elm['type']
     
     if type == 'var':
+      # remove label and value since they reference the original var and it's
+      # not of use for the rete network
+      del elm['value']
+      del elm['label']
       return self._add_key(resources, elm)
 
     if type == 'identifier':
