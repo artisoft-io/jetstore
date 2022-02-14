@@ -11,6 +11,7 @@
 
 #include "jets/rdf/rdf_err.h"
 #include "jets/rdf/rdf_ast.h"
+#include "jets/rdf/uuid.h"
 #include "jets/rdf/containers_type.h"
 
 // Component to manage all the rdf resources and literals of a graph
@@ -97,6 +98,13 @@ class RManager {
   create_resource(T v)
   {
     Rptr lptr = mkResource(v);
+    return insert_item(lptr);
+  }
+
+  inline r_index 
+  create_uuid_resource()
+  {
+    Rptr lptr = mkResource(create_uuid());
     return insert_item(lptr);
   }
 

@@ -62,6 +62,7 @@ class JetListener(JetRuleListener):
   # Literals
   # -------------------------------------------------------------------------------------
   def exitInt32LiteralStmt(self, ctx:JetRuleParser.Int32LiteralStmtContext):
+    # print('@@@ exitInt32LiteralStmt ::',ctx.Int32Type(),'::',ctx.declIdentifier(),'::',ctx.ASSIGN(),'::',ctx.intExpr(),'||+',ctx.declValue.PLUS(),'||-',ctx.declValue.MINUS(),'||D',ctx.declValue.DIGITS())
     self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
 
   def exitUInt32LiteralStmt(self, ctx:JetRuleParser.UInt32LiteralStmtContext):
@@ -83,11 +84,19 @@ class JetListener(JetRuleListener):
   # Resources
   # -------------------------------------------------------------------------------------
   def exitNamedResourceStmt(self, ctx:JetRuleParser.NamedResourceStmtContext):
-    id = self.escape(ctx.resName.getText()) if ctx.resName else None
+    if not ctx.resCtx or not ctx.resName:
+      return
+    id = self.escape(ctx.resName.getText())
     value = None
-    if ctx.resCtx and ctx.resCtx.resVal:
+    if ctx.resCtx.resVal:
       value = ctx.resCtx.resVal.text
-    if value and value[0]=='"':
+    elif ctx.resCtx.kws:
+      value = ctx.resCtx.kws.getText()
+
+    if value is None:
+      return
+
+    if value[0]=='"':
       value = self.escapeString(ctx.resCtx.resVal.text)
       self.resources.append({ 'type': 'resource', 'id': id, 'value':  value})
     else:

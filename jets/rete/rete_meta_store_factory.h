@@ -111,20 +111,19 @@ class ReteMetaStoreFactory {
     } 
 
     if( strcmp(type, "resource") == 0 ) {
-      //*
-      std::cout<<">> read_resources_cb: "<<key<<", GOT resource -- "<<std::string(type)<<", value "<<(value?std::string(value):std::string("NULL"))<<", symbol "<<(symbol?std::string(symbol):std::string("NULL"))<<std::endl;
-
       if(value) {
-        auto item = this->r_map_.insert({key, this->meta_graph_->rmgr()->create_resource(value)});
-        std::cout<<std::string("@@ inserted: ")<<item.first->second<<std::endl;
-
+        
+        // main case, use the value to create the resource
+        this->r_map_.insert({key, this->meta_graph_->rmgr()->create_resource(value)});
       } else {
 
+        // special case, use symbol or operator/function
         if( strcmp(symbol, "null") == 0) {
           this->r_map_.insert({key, this->meta_graph_->rmgr()->get_null()});
 
         } else if( strcmp(symbol, "create_uuid_resource()") == 0) {
-          // this->r_map_.insert({key, this->meta_graph_->rmgr()->create_uuid_resource()});
+          auto v = this->r_map_.insert({key, this->meta_graph_->rmgr()->create_uuid_resource()});
+
         } else {
           LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: read_resources_cb: unknown symbol: "<<std::string(symbol);
           return SQLITE_ERROR;
@@ -134,12 +133,10 @@ class ReteMetaStoreFactory {
     } 
     
     if( strcmp(type, "volatile_resource") == 0) {
-      //*
-      std::cout<<">> read_resources_cb: "<<key<<", GOT volatile_resource -- "<<std::string(type)<<", value "<<(value?std::string(value):std::string("NULL"))<<", symbol "<<(symbol?std::string(symbol):std::string("NULL"))<<std::endl;
       if(value) {
         std::string v("_0:");
-        v =+ value;
-        this->r_map_.insert({key, this->meta_graph_->rmgr()->create_resource(v)});
+        v += value;
+        auto vv = this->r_map_.insert({key, this->meta_graph_->rmgr()->create_resource(v)});
         return SQLITE_OK;
       }
       LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: read_resources_cb: volatile_resource with no value!";

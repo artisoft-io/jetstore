@@ -106,20 +106,54 @@ http_archive(
     urls = ["https://github.com/rockwotj/sqlite-bazel/archive/%s.zip" % SQLITE_BAZEL_COMMIT],
 )
 
-# Add nix packages for external dependencies
-# Import and load the Bazel rules to build Nix packages.
-http_archive(
-    name = "io_tweag_rules_nixpkgs",
-    sha256 = "7aee35c95251c1751e765f7da09c3bb096d41e6d6dca3c72544781a5573be4aa",
-    strip_prefix = "rules_nixpkgs-0.8.0",
-    urls = ["https://github.com/tweag/rules_nixpkgs/archive/v0.8.0.tar.gz"],
-)
-load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
-rules_nixpkgs_dependencies()
-load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_git_repository", "nixpkgs_package")
+# NIX
+# # Add nix packages for external dependencies
+# # Import and load the Bazel rules to build Nix packages.
+# http_archive(
+#     name = "io_tweag_rules_nixpkgs",
+#     sha256 = "7aee35c95251c1751e765f7da09c3bb096d41e6d6dca3c72544781a5573be4aa",
+#     strip_prefix = "rules_nixpkgs-0.8.0",
+#     urls = ["https://github.com/tweag/rules_nixpkgs/archive/v0.8.0.tar.gz"],
+# )
+# load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
+# rules_nixpkgs_dependencies()
+# load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_git_repository", "nixpkgs_package")
+# nixpkgs_package(name = "postgresql")
+# nixpkgs_package(name = "libpqxx")
+# NIX
 
-nixpkgs_package(name = "postgresql")
-nixpkgs_package(name = "libpqxx")
+# FOREIGN RULE
+http_archive(
+    name = "rules_foreign_cc",
+    sha256 = "bcd0c5f46a49b85b384906daae41d277b3dc0ff27c7c752cc51e43048a58ec83",
+    strip_prefix = "rules_foreign_cc-0.7.1",
+    url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.7.1.tar.gz",
+)
+
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+
+# This sets up some common toolchains for building targets. For more details, please see
+# https://bazelbuild.github.io/rules_foreign_cc/0.7.1/flatten.html#rules_foreign_cc_dependencies
+rules_foreign_cc_dependencies()
+# FOREIGN RULE
+
+# Add libpqxx repo -- will use a foreign rule to compile it with cmake
+_ALL_CONTENT = """\
+filegroup(
+    name = "all_srcs",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+"""
+# libpqxx source code repository
+http_archive(
+    name = "com_github_jtv_libpqxx",
+    build_file_content = _ALL_CONTENT,
+    strip_prefix = "libpqxx-7.7.0",
+    url = "https://github.com/jtv/libpqxx/archive/refs/tags/7.7.0.tar.gz",
+)
+# Add libpqxx repo -- will use a foreign rule to compile it with cmake
+
 
 # # To generate compile_commands.json
 # http_archive(

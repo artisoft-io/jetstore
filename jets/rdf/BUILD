@@ -17,6 +17,8 @@ cc_library(
         "rdf_types.h",
         "w_node.h",
         "@com_google_absl//absl/hash",
+        "uuid.h",
+        "uuid.cc",
     ],
     visibility = ["//visibility:public"],
     deps = [

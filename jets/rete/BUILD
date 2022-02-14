@@ -1,13 +1,31 @@
-cc_import(
-  name = "pqxx",
-  includes = ["@libpqxx//:include"],
-  # hdrs = ["@libpqxx//:include"],
-  # static_library = "@libpqxx//:libpqxx.a",
-  static_library = "libpqxx.a",
-  # If alwayslink is turned on,
-  # libmylib.a will be forcely linked into any binary that depends on it.
-  # alwayslink = 1,
+# USING NIX ATTEMPT
+# cc_import(
+#   name = "pqxx",
+#   includes = ["@libpqxx//:include"],
+#   # hdrs = ["@libpqxx//:include"],
+#   # static_library = "@libpqxx//:libpqxx.a",
+#   static_library = "libpqxx.a",
+#   # If alwayslink is turned on,
+#   # libmylib.a will be forcely linked into any binary that depends on it.
+#   # alwayslink = 1,
+# )
+# USING NIX ATTEMPT
+
+# USING FOREIGN_CC_DEPEDENCY
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+cmake(
+    name = "libpqxx",
+    # cache_entries = {
+    #     "CMAKE_C_FLAGS": "-fPIC",
+    # },
+    env = {
+      "SKIP_BUILD_TEST": "ON",
+      "BUILD_SHARED_LIBS": "OFF",
+    },
+    lib_source = "@com_github_jtv_libpqxx//:all_srcs",
+    out_static_libs = ["libpqxx.a"],
 )
+# USING FOREIGN_CC_DEPEDENCY
 
 cc_library(
     name = "jets_rete",
@@ -42,7 +60,7 @@ cc_library(
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_github_rockwotj_sqlite_bazel//:sqlite3",
-        ":pqxx"
+        ":libpqxx"
         # "@libpqxx//:lib",
     ],
     # linkopts = ["-lpqxx"],

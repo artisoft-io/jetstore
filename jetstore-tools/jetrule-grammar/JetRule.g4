@@ -79,7 +79,7 @@ namedResourceStmt:    ResourceType         resName=declIdentifier ASSIGN resCtx=
 volatileResourceStmt: resType=VolatileResourceType resName=declIdentifier ASSIGN resVal=String SEMICOLON;
 
 resourceValue
-  : resVal=NULL
+  : kws=keywords
   | resVal=CreateUUIDResource
   | resVal=String
   ;
@@ -137,6 +137,7 @@ objectAtom
 keywords
   : TRUE  
   | FALSE 
+  | NULL 
   ;
 
 exprTerm
@@ -168,7 +169,7 @@ unaryOp
 // Jet Compiler directives and decorators
 JetCompilerDirective: '@JetCompilerDirective';
 
-// Literals and resources keywords
+// Literals and resources
 Int32Type: 'int';
 UInt32Type: 'uint';
 Int64Type: 'long';
@@ -178,6 +179,8 @@ StringType: 'text';
 
 ResourceType: 'resource';
 VolatileResourceType: 'volatile_resource';
+
+// Functions
 CreateUUIDResource: 'create_uuid_resource()';
 
 // Properties for lookup tables
@@ -186,12 +189,16 @@ TableName: '$table_name';
 Key: '$key';
 Columns: '$columns';
 
+// Keywords / symbols
 TRUE: 'true';
 FALSE: 'false';
-NOT: 'not';
+NULL: 'null';
 
+// Unary operator
+NOT: 'not';
 TOTEXT: 'toText';
 
+// Binary operator
 PLUS: '+';
 MINUS: '-';
 MUL: '*';
@@ -201,7 +208,6 @@ AND: 'and';
 
 SEMICOLON: ';';
 ASSIGN: '=';
-NULL: 'null';
 
 Identifier:	NONDIGIT ( NONDIGIT | DIGITS)*;
 fragment NONDIGIT: [a-zA-Z_];
