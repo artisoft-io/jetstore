@@ -27,6 +27,7 @@ class JetRuleReteSQLite:
     self.workspace_connection = None
     self.read_cursor = None
     self.wc_key = None
+    self.resources_last_key = None
     self.expr_last_key = None
     self.write_cursor = None
     self.main_rule_file_key = None
@@ -49,13 +50,13 @@ class JetRuleReteSQLite:
           rete_db_path = 'jetrule_rete.db'
         path = os.path.join(Path(flags.FLAGS.base_path), rete_db_path)
         path = os.path.abspath(path)
-        # print('*** RETE_DB PATH',path)
-        if flags.FLAGS.clear_rete_db:
-          # print('*** DELETING',path)
+        print('*** RETE_DB PATH',path)
+        if flags.FLAGS.clear_rete_db and os.path.exists(path):
+          print('*** DELETING',path)
           os.remove(path)
         self.workspace_connection = apsw.Connection(path)
     except (Exception) as error:
-      print("Error:", error)
+      print("Error while opening rete_db (1):", error)
       return str(error)
     finally:
       pass
@@ -85,6 +86,17 @@ class JetRuleReteSQLite:
         self.wc_key += 1
       # print('GOT max(self.wc_key)',self.wc_key)
 
+      # Get resources last key
+      self.resources_last_key = None
+      for k, in self.read_cursor.execute("SELECT max(key) FROM resources"):
+        self.resources_last_key = k
+      if self.resources_last_key is None:
+        self.resources_last_key = 0
+      else:
+        self.resources_last_key += 1
+      # print('GOT max(self.resources_last_key)',self.resources_last_key)
+
+      # Get expressions last key
       self.expr_last_key = None
       for k, in self.read_cursor.execute("SELECT max(key) FROM expressions"):
         self.expr_last_key = k
@@ -109,11 +121,15 @@ class JetRuleReteSQLite:
 
       # Add all resources to rete_db, will skip source file already in rete_db
       # -------------------------------------------------------------------------
+      resources = self.ctx.jetReteNodes['resources']
       # print('Saving resources. . .')
-      for item in self.ctx.jetReteNodes['resources']:
+      for item in resources:
         skey = self.rule_file_keys.get(item['source_file_name'])
         if skey is not None:
-          row = [item['key'], item['type'], item.get('id'), item.get('value'), item.get('symbol'),
+          key = self.resources_last_key
+          self.resources_last_key += 1
+          item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+          row = [key, item['type'], item.get('id'), item.get('value'), item.get('symbol'),
                 item.get('is_binded'), item.get('inline'), skey]
           self.write_cursor.execute(
             "INSERT INTO resources (key, type, id, value, symbol, is_binded, inline, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
@@ -150,9 +166,22 @@ class JetRuleReteSQLite:
 
         brv = ','.join(beta_relation_vars) if beta_relation_vars else ''
         pv = ','.join(pruned_var) if pruned_var else ''
+        # Get the db_key for all resources
+        subject_key = item.get('subject_key')
+        if subject_key:
+          subject_key = resources[subject_key]['db_key']
+
+        predicate_key = item.get('predicate_key')
+        if predicate_key:
+          predicate_key = resources[predicate_key]['db_key']
+
+        object_key = item.get('predicate_key')
+        if object_key:
+          object_key = resources[object_key]['db_key']
+
         row = [
-          item['vertex'], item['type'], item.get('subject_key'), item.get('predicate_key'), 
-          item.get('object_key'), item.get('obj_expr_key'), item.get('filter_expr_key'), 
+          item['vertex'], item['type'], subject_key, predicate_key, object_key, 
+          item.get('obj_expr_key'), item.get('filter_expr_key'), 
           item.get('normalizedLabel'), item.get('parent_vertex'), brv, pv, self.main_rule_file_key
         ]
         self.write_cursor.execute(
@@ -168,7 +197,7 @@ class JetRuleReteSQLite:
       self.write_cursor = None
 
     except (Exception) as error:
-      print("Error:", error)
+      print("Error while saving rete_db (2):", error)
       return str(error)
 
     finally:
@@ -185,6 +214,7 @@ class JetRuleReteSQLite:
   # Add expression to expressions table recursivelly and return the key
   def _expr_2_key(self, expr: Dict[str, object]) -> int:
     assert expr, 'Expecting expression'
+    # Check if we have a resource key
     if isinstance(expr, int):
       return self._persist_expr(expr)
 
@@ -210,7 +240,9 @@ class JetRuleReteSQLite:
     key = self.expr_last_key
     self.expr_last_key += 1
     if isinstance(expr, int):
-      row = [key, 'resource', expr, None, None, None, None, None, None, self.main_rule_file_key]
+      # Convert the resource key to the db key (global key)
+      db_key = self.ctx.jetReteNodes['resources'][expr]['db_key']
+      row = [key, 'resource', db_key, None, None, None, None, None, None, self.main_rule_file_key]
     else:
       row = [
         key, expr['type'], expr.get('arg0_key'), expr.get('arg1_key'), expr.get('arg2_key'), 
@@ -263,15 +295,14 @@ class JetRuleReteSQLite:
       -- resources table
       -- --------------------
       CREATE TABLE IF NOT EXISTS resources (
-        key                INTEGER NOT NULL,
+        key                INTEGER PRIMARY KEY,
         type               STRING NOT NULL,
         id                 STRING,
         value              STRING,
         symbol             STRING,
         is_binded          BOOL,
         inline             BOOL,
-        source_file_key    INTEGER NOT NULL,
-        PRIMARY KEY (key, source_file_key)
+        source_file_key    INTEGER NOT NULL
       );
 
       -- --------------------

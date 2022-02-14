@@ -27,7 +27,6 @@ class JetListenerTest2(absltest.TestCase):
       expected = json.loads(f.read())
 
     # print('GOT:',json.dumps(jetRules, indent=4))
-
     self.assertEqual(json.dumps(jetRules), json.dumps(expected))
 
   def test_rule_file2(self):
@@ -47,7 +46,6 @@ class JetListenerTest2(absltest.TestCase):
       expected = json.loads(f.read())
 
     # print('GOT:',json.dumps(jetRules, indent=4))
-
     self.assertEqual(json.dumps(jetRules), json.dumps(expected))
 
 

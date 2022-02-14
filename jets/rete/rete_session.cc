@@ -17,12 +17,11 @@
 namespace jets::rete {
 
   int 
-  ReteSession::initialize(ReteMetaStorePtr rule_ms)
+  ReteSession::initialize()
   {
-    if(not rule_ms) {
+    if(not this->rule_ms_) {
       RETE_EXCEPTION("ReteSession::Initialize requires a valid ReteMetaStore as argument");
     }
-    this->rule_ms_ = rule_ms;
     std::cout<<"ReteSession::initialize init beta relations..."<<std::endl;
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_

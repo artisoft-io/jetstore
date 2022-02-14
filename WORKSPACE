@@ -106,6 +106,21 @@ http_archive(
     urls = ["https://github.com/rockwotj/sqlite-bazel/archive/%s.zip" % SQLITE_BAZEL_COMMIT],
 )
 
+# Add nix packages for external dependencies
+# Import and load the Bazel rules to build Nix packages.
+http_archive(
+    name = "io_tweag_rules_nixpkgs",
+    sha256 = "7aee35c95251c1751e765f7da09c3bb096d41e6d6dca3c72544781a5573be4aa",
+    strip_prefix = "rules_nixpkgs-0.8.0",
+    urls = ["https://github.com/tweag/rules_nixpkgs/archive/v0.8.0.tar.gz"],
+)
+load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
+rules_nixpkgs_dependencies()
+load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_git_repository", "nixpkgs_package")
+
+nixpkgs_package(name = "postgresql")
+nixpkgs_package(name = "libpqxx")
+
 # # To generate compile_commands.json
 # http_archive(
 #     name = "com_grail_bazel_compdb",

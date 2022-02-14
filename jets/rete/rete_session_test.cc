@@ -203,14 +203,14 @@ class ReteSessionTest : public ::testing::Test {
 
     // ReteMetaStore
     // create & initalize the meta store -- TODO have an expression builder with meta store
-    rete_meta_store = create_rete_meta_store(alpha_nodes, node_vertexes);
+    rete_meta_store = create_rete_meta_store(meta_graph, alpha_nodes, node_vertexes);
     rete_meta_store->initialize();
 
     // Cretae the rdf_session and the rete_session and initialize them
     // Initialize the rete_session now that the rule base is ready
     this->rdf_session = rdf::create_rdf_session(meta_graph);
-    this->rete_session = create_rete_session(rdf_session.get());
-    this->rete_session->initialize(rete_meta_store);
+    this->rete_session = create_rete_session(rete_meta_store.get(), rdf_session.get());
+    this->rete_session->initialize();
   }
 
   ReteSessionPtr  rete_session;

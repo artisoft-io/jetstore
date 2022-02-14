@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include "rete_meta_store_factory.h"
 #include "sqlite3.h"
 
 #include "jets/rdf/rdf_types.h"
@@ -27,14 +28,14 @@ static int callback(void *data, int argc, char **argv, char **azColName) {
 }
 
 
-class ReteMetaStoreFactoryTest : public ::testing::Test {
+class SQLiteTest : public ::testing::Test {
  protected:
-  ReteMetaStoreFactoryTest() : db_name("ms_test.db") {
+  SQLiteTest() : db_name("ms_test.db") {
 
     sqlite3 *db;
     char *zErrMsg = 0;
     int rc;
-    char *sql;
+    char const* sql;
 
     /* Open database */
       std::filesystem::path p(db_name);
@@ -106,44 +107,53 @@ class ReteMetaStoreFactoryTest : public ::testing::Test {
 };
 
 // Define the tests
-TEST_F(ReteMetaStoreFactoryTest, FirstTest) {
-    sqlite3 *db;
-    char *zErrMsg = 0;
-    int rc;
-    char *sql;
-    const char* data = "Callback function called";
+TEST_F(SQLiteTest, FirstTest) {
+  sqlite3 *db;
+  char *zErrMsg = 0;
+  int rc;
+  char const*sql;
+  const char* data = "Callback function called";
 
-    /* Open database */
-    rc = sqlite3_open(this->db_name.c_str(), &db);
-    if( rc ) {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-    } else {
-        fprintf(stderr, "Opened database successfully\n");
-    }
-   EXPECT_EQ(rc, SQLITE_OK);   
+  /* Open database */
+  rc = sqlite3_open(this->db_name.c_str(), &db);
+  if( rc ) {
+      fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+  } else {
+      fprintf(stderr, "Opened database successfully\n");
+  }
+  EXPECT_EQ(rc, SQLITE_OK);   
 
-    /* Create SQL statement */
-    sql = "SELECT * from COMPANY";
-    /* Execute SQL statement */
-    rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);    
-    if( rc != SQLITE_OK ) {
-        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-        sqlite3_free(zErrMsg);
-    } else {
-        fprintf(stdout, "Operation done successfully\n");
-    }
-   EXPECT_EQ(rc, SQLITE_OK);   
-
-   rc = sqlite3_close(db);
-   if( rc != SQLITE_OK ){
-      fprintf(stderr, "CLOSE error: %s\n", zErrMsg);
+  /* Create SQL statement */
+  sql = "SELECT * from COMPANY";
+  /* Execute SQL statement */
+  rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);    
+  if( rc != SQLITE_OK ) {
+      fprintf(stderr, "SQL error: %s\n", zErrMsg);
       sqlite3_free(zErrMsg);
-   } else {
-      fprintf(stdout, "DB closed successfully\n");
-   }
-   EXPECT_EQ(rc, SQLITE_OK);   
+  } else {
+      fprintf(stdout, "Operation done successfully\n");
+  }
+  EXPECT_EQ(rc, SQLITE_OK);   
 
+  rc = sqlite3_close(db);
+  if( rc != SQLITE_OK ){
+    fprintf(stderr, "CLOSE error: %s\n", zErrMsg);
+    sqlite3_free(zErrMsg);
+  } else {
+    fprintf(stdout, "DB closed successfully\n");
+  }
+  EXPECT_EQ(rc, SQLITE_OK);
 }
 
+TEST(ReteMetaStoreFactoryTest, FirstTest) {
+
+  ReteMetaStoreFactory factory("jets/rete/rete_meta_store_test.db");
+  factory.create_rete_meta_store("jet_listerner_test_data.jr");
+  auto const* meta_graph = factory.meta_graph();
+  auto r = meta_graph->get_rmgr()->get_resource("rdf:type");
+  EXPECT_EQ(rdf::get_name(r), "rdf:type");
+}
+
+//rete_meta_store_test.db
 }   // namespace
 }   // namespace jets::rete

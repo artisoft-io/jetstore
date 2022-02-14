@@ -1,3 +1,14 @@
+cc_import(
+  name = "pqxx",
+  includes = ["@libpqxx//:include"],
+  # hdrs = ["@libpqxx//:include"],
+  # static_library = "@libpqxx//:libpqxx.a",
+  static_library = "libpqxx.a",
+  # If alwayslink is turned on,
+  # libmylib.a will be forcely linked into any binary that depends on it.
+  # alwayslink = 1,
+)
+
 cc_library(
     name = "jets_rete",
     srcs = [
@@ -18,6 +29,7 @@ cc_library(
         "rete_meta_store.h",
         "rete_session.cc",
         "rete_session.h",
+        "rete_meta_store_factory.h",
         "rete_types.h",
         "rete_types_impl.h",
         "@com_google_absl//absl/hash",
@@ -30,7 +42,11 @@ cc_library(
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_github_rockwotj_sqlite_bazel//:sqlite3",
+        ":pqxx"
+        # "@libpqxx//:lib",
     ],
+    # linkopts = ["-lpqxx"],
+    # includes = ["@libpqxx//:include"],
     copts = [
         "-Iexternal/gtest/googletest-release-1.10.0/include",
         "-Iexternal/gtest/googletest-release-1.10.0"
@@ -72,9 +88,22 @@ cc_test(
         "node_vertex_test.cc", 
         "rete_meta_store_test.cc", 
         "rete_session_test.cc", 
+    ],
+    deps = [
+        "//jets/rdf:jets_rdf",
+        ":jets_rete",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "rete_meta_store_factory_test",
+    size = "small",
+    srcs = [
         "rete_meta_store_factory_test.cc", 
     ],
-    # data = [":rete_meta_store_test.db"],
+    data = [":rete_meta_store_test.db"],
     deps = [
         "//jets/rdf:jets_rdf",
         ":jets_rete",
