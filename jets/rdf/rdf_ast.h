@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <string>
 #include <string_view>
+#include <optional>
 #include <algorithm>
 #include <memory>
 #include <utility>
@@ -13,6 +14,7 @@
 #include "absl/hash/hash.h"
 #include "boost/variant.hpp"
 
+#include "jets/rdf/rdf_err.h"
 #include "jets/rdf/other/fcmp.h"
 
 namespace jets::rdf {
@@ -369,6 +371,13 @@ get_key(r_index r)
   return boost::apply_visitor(get_key_visitor(), *r);
 }
 
+inline int
+get_type(r_index r)
+{
+  if(not r) return -1;
+  return r->which();
+}
+
 struct get_name_visitor: public boost::static_visitor<std::string>
 {
   std::string operator()(RDFNull       const& )const{return {};}
@@ -386,6 +395,15 @@ get_name(r_index r)
 {
   if(not r) return {"NULL"};
   return boost::apply_visitor(get_name_visitor(), *r);
+}
+
+inline std::string const&
+get_text(r_index r)
+{
+  if(not r and r->which()!=rdf_literal_string_t) {
+    RDF_EXCEPTION("get_text call on r_index that is not a literal!");
+  }
+  return boost::get<LString>(*r).data;
 }
 
 struct to_bool_visitor: public boost::static_visitor<bool>

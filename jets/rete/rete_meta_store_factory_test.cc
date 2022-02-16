@@ -150,8 +150,14 @@ TEST(ReteMetaStoreFactoryTest, FirstTest) {
   ReteMetaStoreFactory factory("jets/rete/rete_meta_store_test.db");
   factory.create_rete_meta_store("jet_listerner_test_data.jr");
   auto const* meta_graph = factory.meta_graph();
+
   auto r = meta_graph->get_rmgr()->get_resource("rdf:type");
   EXPECT_EQ(rdf::get_name(r), "rdf:type");
+
+  auto l = meta_graph->get_rmgr()->get_literal("MERGED \"MARKET\" CHARGE BACK");
+  EXPECT_EQ(rdf::get_name(r), "rdf:type");
+
+  EXPECT_EQ(meta_graph->get_rmgr()->size(), 40);
 }
 
 //rete_meta_store_test.db

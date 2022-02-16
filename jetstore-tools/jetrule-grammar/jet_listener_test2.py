@@ -15,8 +15,7 @@ class JetListenerTest2(absltest.TestCase):
   def test_rule_file1(self):
     provider = InputProvider("jetstore-tools/jetrule-grammar/")
     compiler = JetRuleCompiler()
-    compiler.verbose = True
-    jetRules = compiler.compileJetRuleFile("jet_listerner_test_data.jr", provider)
+    compiler.compileJetRuleFile("jet_listerner_test_data.jr", provider)
 
     for k in compiler.jetrule_ctx.errors:
       print(k)
@@ -26,27 +25,34 @@ class JetListenerTest2(absltest.TestCase):
     with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
 
-    # print('GOT:',json.dumps(jetRules, indent=4))
-    self.assertEqual(json.dumps(jetRules), json.dumps(expected))
+    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetRules), json.dumps(expected))
 
-  def test_rule_file2(self):
-    provider = InputProvider("jetstore-tools/jetrule-grammar/")
-    compiler = JetRuleCompiler()
-    # compiler.verbose = True
-    jetRules = compiler.compileJetRuleFile("jet_listerner_test_data2.jr", provider)
+    # print('GOT RULES:',json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
+    # print()
+    # print('GOT RETE:',json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
 
-    # print('GOT')
-    for k in compiler.jetrule_ctx.errors:
-      print(k)
-    print()
-    self.assertEqual(compiler.jetrule_ctx.ERROR, False)
-
-    expected = ''
-    with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data2.jrc.json", 'rt', encoding='utf-8') as f:
+    with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jrc.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
 
-    # print('GOT:',json.dumps(jetRules, indent=4))
-    self.assertEqual(json.dumps(jetRules), json.dumps(expected))
+    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetReteNodes), json.dumps(expected))
+
+  # def test_rule_file2(self):
+  #   provider = InputProvider("jetstore-tools/jetrule-grammar/")
+  #   compiler = JetRuleCompiler()
+  #   jetRules = compiler.compileJetRuleFile("jet_listerner_test_data2.jr", provider).jetRules
+
+  #   # print('GOT')
+  #   for k in compiler.jetrule_ctx.errors:
+  #     print(k)
+  #   print()
+  #   self.assertEqual(compiler.jetrule_ctx.ERROR, False)
+
+  #   expected = ''
+  #   with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data2.jrc.json", 'rt', encoding='utf-8') as f:
+  #     expected = json.loads(f.read())
+
+  #   # print('GOT:',json.dumps(jetRules, indent=4))
+  #   # self.assertEqual(json.dumps(jetRules), json.dumps(expected))
 
 
 if __name__ == '__main__':

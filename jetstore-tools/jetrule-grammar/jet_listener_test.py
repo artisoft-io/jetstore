@@ -14,10 +14,10 @@ class JetListenerTest(absltest.TestCase):
 
   def _get_listener_data(self, data: str) -> Dict[str, object]:
     compiler = JetRuleCompiler()
-    jetRules = compiler.processJetRule(data)
+    jetRules = compiler.processJetRule(data).jetRules
     for err in compiler.jetrule_ctx.errors:
       print('ERROR ::',err)
-    self.assertFalse(compiler.jetrule_ctx.ERROR, "JetRuleCompiler Errors")
+    self.assertFalse(compiler.jetrule_ctx.ERROR, "Unexpected JetRuleCompiler Errors")
     return jetRules
 
   def test_directive1(self):

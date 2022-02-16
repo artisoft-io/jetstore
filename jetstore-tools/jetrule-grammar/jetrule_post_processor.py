@@ -37,9 +37,7 @@ class JetRulesPostProcessor:
   # visit jetRules data structure to map variables
   def mapVariables(self):
     if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
-    rules = self.ctx.jetRules.get('jet_rules')
-    # if not rules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
-    for rule in rules:
+    for rule in self.ctx.jet_rules:
       # print('Processing Rule:', rule['name'])
       self.varMapping = {}
 
@@ -84,6 +82,41 @@ class JetRulesPostProcessor:
     if type == 'unary':
       self.processElm(elm['arg'])
 
+
+  # =====================================================================================
+  # processRuleProperties
+  # -------------------------------------------------------------------------------------
+  # Augment rule's antecedents and consequents based on rule properties
+  def processRuleProperties(self):
+    if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
+    for rule in self.ctx.jet_rules:
+      properties = rule.get('properties', {})
+      # rule optimization flag -- always set with default of True
+      o = properties.get("o", "true")
+      optimization = True
+      if o[0] == 'f':
+        print('Rule',rule['name'],'has optimization turned off')
+        optimization = False
+      rule['optimization'] = optimization
+
+      # rule salience flag -- always set with default of 100
+      salience = 100
+      s = properties.get("s")
+      if s:
+        try:
+          salience = int(s)
+        except (TypeError, ValueError) as e:
+          msg = "Rule {0}: Invalid salience in rule property 's': {1}".format(rule['name'],e)
+          print(msg)
+          self.ctx.err(msg)
+        except:
+          msg = "Rule {0}: Invalid salience in rule property 's': {1}".format(rule['name'],s)
+          print(msg)
+          self.ctx.err(msg)
+      # Set the salience at the rule, will be moved to the last antecedent node vertex (by Rete)
+      rule['salience'] = salience
+
+
   # =====================================================================================
   # addLabels
   # -------------------------------------------------------------------------------------
@@ -97,9 +130,7 @@ class JetRulesPostProcessor:
 
   def _addLabels(self, label_name: str, useNormalizedVar: bool):
     if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
-    rules = self.ctx.jetRules.get('jet_rules')
-
-    for rule in rules:
+    for rule in self.ctx.jet_rules:
       name = rule.get('name')
       if not name: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
       props = rule.get('properties')
@@ -222,19 +253,3 @@ class JetRulesPostProcessor:
 
     if type == 'keyword':
       return elm['value']
-      
-if __name__ == "__main__":
-  
-  # Load the JetRules structure
-  with open('test.jr.json', 'rt', encoding='utf-8') as f:
-    data = json.loads(f.read())
-  postProcessor = JetRulesPostProcessor(data)
-  postProcessor.mapVariables()
-  postProcessor.addNormalizedLabels()
-  postProcessor.addLabels()
-
-  # Save the updated JetRule structure
-  with open('post_processed_test.jr.json', 'wt', encoding='utf-8') as f:
-    f.write(json.dumps(postProcessor.jetRules, indent=4))
-
-  print('Result saved to post_processed_test.jr.json')

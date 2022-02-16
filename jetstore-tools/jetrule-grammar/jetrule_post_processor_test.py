@@ -16,7 +16,9 @@ class JetRulesPostProcessorTest(absltest.TestCase):
   def _get_augmented_data(self, input_data: str) -> Dict[str, object]:
     compiler = JetRuleCompiler()
     compiler.processJetRule(input_data)
-    jetRules = compiler.postprocessJetRule()
+    jetRules = compiler.postprocessJetRule().jetRules
+    # not expecting any errors here
+    self.assertEqual(compiler.jetrule_ctx.ERROR, False)
     return jetRules
 
   def _process_data(self, input_data: str) -> JetRuleContext:
@@ -97,7 +99,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
       # ---------------------------------------------------------------------------------------
       # property s: salience, o: optimization, tag: label
       # optimization is true by default
-      [Rule1, s=+100, o=false]: 
+      [Rule1, s=+100, o=true]: 
         (?clm01 rdf:type acme:Claim).
         not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1) ]
         ->
@@ -113,7 +115,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "false"}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, "op": "+", "rhs": {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}, "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)]", "label": "not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)", "label": "(?clm01 rdf:type acme:SpecialClaim)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}], "normalizedLabel": "(?x1 xyz ?x2)", "label": "(?clm01 xyz ?drg)"}], "normalizedLabel": "[Rule1, s=+100, o=false]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)] -> (?x1 rdf:type acme:SpecialClaim).(?x1 xyz ?x2);", "label": "[Rule1, s=+100, o=false]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)] -> (?clm01 rdf:type acme:SpecialClaim).(?clm01 xyz ?drg);"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule1", "properties": {"s": "+100", "o": "true"}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, "op": "+", "rhs": {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}}, "op": "+", "rhs": {"type": "int", "value": "1"}}, "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)]", "label": "not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)", "label": "(?clm01 rdf:type acme:SpecialClaim)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}], "normalizedLabel": "(?x1 xyz ?x2)", "label": "(?clm01 xyz ?drg)"}], "optimization": true, "salience": 100, "normalizedLabel": "[Rule1, s=+100, o=true]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[(?x1 + ?x2) + int(1)] -> (?x1 rdf:type acme:SpecialClaim).(?x1 xyz ?x2);", "label": "[Rule1, s=+100, o=true]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[(?clm01 + ?drg) + int(1)] -> (?clm01 rdf:type acme:SpecialClaim).(?clm01 xyz ?drg);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -136,7 +138,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true"}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}, "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[true and false]", "label": "not(?clm01 acme:hasDRG ?drg).[true and false]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)", "label": "(?clm01 rdf:type acme:SpecialClaim)"}], "normalizedLabel": "[Rule2, s=100, o=true]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[true and false] -> (?x1 rdf:type acme:SpecialClaim);", "label": "[Rule2, s=100, o=true]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[true and false] -> (?clm01 rdf:type acme:SpecialClaim);"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule2", "properties": {"s": "100", "o": "true"}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "value": "?drg", "id": "?x2", "label": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "keyword", "value": "true"}, "op": "and", "rhs": {"type": "keyword", "value": "false"}}, "normalizedLabel": "not(?x1 acme:hasDRG ?x2).[true and false]", "label": "not(?clm01 acme:hasDRG ?drg).[true and false]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)", "label": "(?clm01 rdf:type acme:SpecialClaim)"}], "optimization": true, "salience": 100, "normalizedLabel": "[Rule2, s=100, o=true]:(?x1 rdf:type acme:Claim).not(?x1 acme:hasDRG ?x2).[true and false] -> (?x1 rdf:type acme:SpecialClaim);", "label": "[Rule2, s=100, o=true]:(?clm01 rdf:type acme:Claim).not(?clm01 acme:hasDRG ?drg).[true and false] -> (?clm01 rdf:type acme:SpecialClaim);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -160,7 +162,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x2", "label": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "value": "?a2", "id": "?x3", "label": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}, "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)]", "label": "(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)]"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x2", "label": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "value": "?a2", "id": "?x3", "label": "?a2"}}, "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3]", "label": "(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)", "label": "(?clm01 rdf:type acme:SpecialClaim)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm02", "id": "?x4", "label": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)", "label": "(?clm02 rdf:type acme:SpecialClaim)"}], "normalizedLabel": "[Rule3]:(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)].(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3] -> (?x1 rdf:type acme:SpecialClaim).(?x4 rdf:type acme:SpecialClaim);", "label": "[Rule3]:(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2] -> (?clm01 rdf:type acme:SpecialClaim).(?clm02 rdf:type acme:SpecialClaim);"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule3", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x2", "label": "?a1"}, "op": "+", "rhs": {"type": "identifier", "value": "b1"}}, "op": "*", "rhs": {"type": "binary", "lhs": {"type": "var", "value": "?a2", "id": "?x3", "label": "?a2"}, "op": "+", "rhs": {"type": "identifier", "value": "b2"}}}, "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)]", "label": "(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)]"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x2", "label": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}, "op": "and", "rhs": {"type": "var", "value": "?a2", "id": "?x3", "label": "?a2"}}, "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3]", "label": "(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x1 rdf:type acme:SpecialClaim)", "label": "(?clm01 rdf:type acme:SpecialClaim)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm02", "id": "?x4", "label": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}], "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)", "label": "(?clm02 rdf:type acme:SpecialClaim)"}], "optimization": true, "salience": 100, "normalizedLabel": "[Rule3]:(?x1 rdf:type acme:Claim).[(?x2 + b1) * (?x3 + b2)].(?x1 rdf:type acme:Claim).[(?x2 or b1) and ?x3] -> (?x1 rdf:type acme:SpecialClaim).(?x4 rdf:type acme:SpecialClaim);", "label": "[Rule3]:(?clm01 rdf:type acme:Claim).[(?a1 + b1) * (?a2 + b2)].(?clm01 rdf:type acme:Claim).[(?a1 or b1) and ?a2] -> (?clm01 rdf:type acme:SpecialClaim).(?clm02 rdf:type acme:SpecialClaim);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -184,7 +186,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "value": "?code", "id": "?x2", "label": "?code"}], "filter": {"type": "binary", "lhs": {"type": "unary", "op": "not", "arg": {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x3", "label": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}}, "op": "and", "rhs": {"type": "unary", "op": "not", "arg": {"type": "var", "value": "?a2", "id": "?x4", "label": "?a2"}}}, "normalizedLabel": "(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)]", "label": "(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value"}, {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x3", "label": "?a1"}, "op": "+", "rhs": {"type": "var", "value": "?b2", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value ?x3 + ?x5)", "label": "(?clm01 value ?a1 + ?b2)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x3", "label": "?a1"}, "op": "+", "rhs": {"type": "var", "value": "?b2", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value2 ?x3 + ?x5)", "label": "(?clm01 value2 ?a1 + ?b2)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "unary", "op": "not", "arg": {"type": "var", "value": "?b2", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value2 not ?x5)", "label": "(?clm01 value2 not ?b2)"}], "normalizedLabel": "[Rule4]:(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)] -> (?x1 value ?x3 + ?x5).(?x1 value2 ?x3 + ?x5).(?x1 value2 not ?x5);", "label": "[Rule4]:(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)] -> (?clm01 value ?a1 + ?b2).(?clm01 value2 ?a1 + ?b2).(?clm01 value2 not ?b2);"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "value": "?code", "id": "?x2", "label": "?code"}], "filter": {"type": "binary", "lhs": {"type": "unary", "op": "not", "arg": {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x3", "label": "?a1"}, "op": "or", "rhs": {"type": "identifier", "value": "b1"}}}, "op": "and", "rhs": {"type": "unary", "op": "not", "arg": {"type": "var", "value": "?a2", "id": "?x4", "label": "?a2"}}}, "normalizedLabel": "(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)]", "label": "(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)]"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value"}, {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x3", "label": "?a1"}, "op": "+", "rhs": {"type": "var", "value": "?b2", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value ?x3 + ?x5)", "label": "(?clm01 value ?a1 + ?b2)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "binary", "lhs": {"type": "var", "value": "?a1", "id": "?x3", "label": "?a1"}, "op": "+", "rhs": {"type": "var", "value": "?b2", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value2 ?x3 + ?x5)", "label": "(?clm01 value2 ?a1 + ?b2)"}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "value2"}, {"type": "unary", "op": "not", "arg": {"type": "var", "value": "?b2", "id": "?x5", "label": "?b2"}}], "normalizedLabel": "(?x1 value2 not ?x5)", "label": "(?clm01 value2 not ?b2)"}], "optimization": true, "salience": 100, "normalizedLabel": "[Rule4]:(?x1 has_code ?x2).[(not (?x3 or b1)) and (not ?x4)] -> (?x1 value ?x3 + ?x5).(?x1 value2 ?x3 + ?x5).(?x1 value2 not ?x5);", "label": "[Rule4]:(?clm01 has_code ?code).[(not (?a1 or b1)) and (not ?a2)] -> (?clm01 value ?a1 + ?b2).(?clm01 value2 ?a1 + ?b2).(?clm01 value2 not ?b2);"}]}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -206,11 +208,13 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "has_code"}, {"type": "var", "value": "?code", "id": "?x2", "label": "?code"}], "normalizedLabel": "(?x1 has_code ?x2)", "label": "(?clm01 has_code ?code)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "acme:lookup_table"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 acme:\\\"lookup_table\\\" true)", "label": "(?clm01 acme:\\\"lookup_table\\\" true)"}], "normalizedLabel": "[Rule5]:(?x1 has_code ?x2) -> (?x1 acme:\\\"lookup_table\\\" true);", "label": "[Rule5]:(?clm01 has_code ?code) -> (?clm01 acme:\\\"lookup_table\\\" true);"}]}"""
+    with open('jetstore-tools/jetrule-grammar/rule5_test.json', 'rt', encoding='utf-8') as f:
+      expected = json.loads(f.read())
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
+    # print('GOT EXPECTED:',json.dumps(expected, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
-    self.assertEqual(json.dumps(postprocessed_data), expected)
+    self.assertEqual(json.dumps(postprocessed_data), json.dumps(expected))
 
   def test_jetrule6(self):
     data = """
@@ -400,12 +404,65 @@ class JetRulesPostProcessorTest(absltest.TestCase):
       int all_wrong = 1;
       resource all_wrong = "all_wrong";
     """
-
     jetrule_ctx =  self._process_data(data)
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], 'Error: Resource with id all_wrong is define multiple times with different types: resource and int')
     self.assertEqual(jetrule_ctx.errors[1], 'Error: Resource with id all_wrong is define multiple times with different values: all_wrong and 1')
     self.assertEqual(len(jetrule_ctx.errors), 2)
+    # print('GOT')
+    # for k in jetrule_ctx.errors:
+    #   print(k)
+    # print()
+
+  def test_property_error1(self):
+    data = """
+      [RulePE1, s=$100]: 
+        (?clm01 rdf:type acme:Claim).
+        ->
+        (?clm01 rdf:type acme:SpecialClaim)
+      ;
+    """
+    jetrule_ctx =  self._process_data(data)
+    # print('@@@ GOT',jetrule_ctx.jetRules)
+    self.assertEqual(jetrule_ctx.ERROR, True)
+    self.assertEqual(jetrule_ctx.errors[0], "line 2:18 token recognition error at: '$1'")
+    self.assertEqual(len(jetrule_ctx.errors), 1)
+    # print('GOT')
+    # for k in jetrule_ctx.errors:
+    #   print(k)
+    # print()
+
+  def test_property_error2(self):
+    data = """
+      [RulePE1, s="$100"]: 
+        (?clm01 rdf:type acme:Claim).
+        ->
+        (?clm01 rdf:type acme:SpecialClaim)
+      ;
+    """
+    jetrule_ctx =  self._process_data(data)
+    # print('@@@ GOT',jetrule_ctx.jetRules)
+    self.assertEqual(jetrule_ctx.ERROR, True)
+    self.assertEqual(jetrule_ctx.errors[0], """Rule RulePE1: Invalid salience in rule property 's': invalid literal for int() with base 10: '"$100"'""")
+    self.assertEqual(len(jetrule_ctx.errors), 1)
+    # print('GOT')
+    # for k in jetrule_ctx.errors:
+    #   print(k)
+    # print()
+
+  def test_property_error3(self):
+    data = """
+      [RulePE1, s=true, o=1]: 
+        (?clm01 rdf:type acme:Claim).
+        ->
+        (?clm01 rdf:type acme:SpecialClaim)
+      ;
+    """
+    jetrule_ctx =  self._process_data(data)
+    # print('@@@ GOT',jetrule_ctx.jetRules)
+    self.assertEqual(jetrule_ctx.ERROR, True)
+    self.assertEqual(jetrule_ctx.errors[0], """Rule RulePE1: Invalid salience in rule property 's': invalid literal for int() with base 10: 'true'""")
+    self.assertEqual(len(jetrule_ctx.errors), 1)
     # print('GOT')
     # for k in jetrule_ctx.errors:
     #   print(k)

@@ -15,11 +15,11 @@ class JetRuleContext:
   STATE_COMPILE_ERROR = 7
   STATE_COMPILED_RETE_NODES = 8
 
-  def __init__(self, data: Dict[str, object], verbose: bool, errors: Sequence[str], main_rule_fname: str, imported_files: Sequence[str]):
+  def __init__(self, data: Dict[str, object], errors: Sequence[str], main_rule_fname: str, imported_files: Sequence[str]):
     # Main jetrules data structure - json (without rule compilation)
-    self.jetRules = data
+    # -----------------------------------------------
+    self.jetRules: Dict[str, object] = data
     self.main_rule_fname = main_rule_fname   # kbase key within the workspace
-    self.verbose = verbose
 
     # keeping track of the file imports
     # Format {'main_file.jr': ['import1.jr','import2.jr']}
@@ -36,11 +36,13 @@ class JetRuleContext:
 
     # For rete network
     # main data structure - json with rule compiled into a rete network
+    # -----------------------------------------------
     # This is filled by JetRuleRete class during the last compiler step 
-    self.jetReteNodes = None
+    self.jetReteNodes: Dict[str, object] = None
     self.rete_nodes = []
 
     # Shortcuts to elements in self.jetRules elements
+    # -----------------------------------------------
     self.literals = None
     self.resources = None
     self.lookup_tables = None

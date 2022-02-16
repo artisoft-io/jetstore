@@ -178,16 +178,31 @@ class JetRuleReteSQLite:
         object_key = item.get('predicate_key')
         if object_key:
           object_key = resources[object_key]['db_key']
+        
+        # Get the salience
+        salience = item.get('salience')
+        if salience:
+          s = set(salience)
+          if len(s) > 1:
+            print('ERROR: Multiple rules have same antecedents but different salience:',item.get('rules'))
+            return 'ERROR: Multiple rules have same antecedents but different salience:'+str(item.get('rules'))
+          salience = salience[0]
 
+        # Chceck if multiple rules have same antecedents
+        rules = item.get('rules')
+        if rules and len(rules)>1:
+          print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
+        
         row = [
           item['vertex'], item['type'], subject_key, predicate_key, object_key, 
           item.get('obj_expr_key'), item.get('filter_expr_key'), 
-          item.get('normalizedLabel'), item.get('parent_vertex'), brv, pv, self.main_rule_file_key
+          item.get('normalizedLabel'), item.get('parent_vertex'), brv, pv, self.main_rule_file_key,
+          item.get('is_negation'), salience
         ]
         self.write_cursor.execute(
           "INSERT INTO rete_nodes (vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, "
-          "normalizedLabel, parent_vertex, beta_relation_vars, pruned_var, source_file_key) "
-          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+          "normalizedLabel, parent_vertex, beta_relation_vars, pruned_var, source_file_key, is_negation, salience) "
+          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
           row)
 
       # All done, commiting the work
@@ -352,6 +367,8 @@ class JetRuleReteSQLite:
         beta_relation_vars STRING,
         pruned_var         STRING,
         source_file_key    INTEGER NOT NULL,
+        is_negation        INTEGER,
+        salience           INTEGER,
         PRIMARY KEY (vertex, type, source_file_key)
       );
     """)
