@@ -40,6 +40,7 @@ cc_library(
         "beta_row.h",
         "expr_impl.h",
         "expr_operators.h",
+        "expr_operator_factory.h",
         "expr.h",
         "graph_callback_mgr_impl.h",
         "node_vertex.h",
