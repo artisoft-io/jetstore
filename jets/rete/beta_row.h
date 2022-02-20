@@ -229,7 +229,7 @@ inline std::ostream & operator<<(std::ostream & out, BetaRowPtr const& r)
 inline void
 BetaRow::set_status(BetaRowStatus status)
 {
-  std::cout<<"BetaRow "<<this<<", vertex "<<this->node_vertex_->vertex<<", status from "<<this->status_ <<" to "<<status<<std::endl;
+  // std::cout<<"BetaRow "<<this<<", vertex "<<this->node_vertex_->vertex<<", status from "<<this->status_ <<" to "<<status<<std::endl;
   status_ = status;
 }
 

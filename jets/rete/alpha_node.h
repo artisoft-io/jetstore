@@ -111,8 +111,8 @@ class AlphaNode {
  public:
   using Iterator = rdf::RDFSession::Iterator;
 
-  AlphaNode(b_index node_vertex, bool is_antecedent) 
-    : node_vertex_(node_vertex), is_antecedent_(is_antecedent)
+  AlphaNode(b_index node_vertex, int key, bool is_antecedent) 
+    : node_vertex_(node_vertex), key_(key), is_antecedent_(is_antecedent)
   {}
 
   virtual ~AlphaNode() 
@@ -122,6 +122,12 @@ class AlphaNode {
   get_node_vertex()const
   {
     return node_vertex_;
+  }
+
+  inline int
+  get_key()const
+  {
+    return key_;
   }
 
   inline bool
@@ -221,10 +227,22 @@ class AlphaNode {
   virtual rdf::Triple
   compute_consequent_triple(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
+  virtual std::ostream & describe(std::ostream & out)const=0;
+
  private:
   b_index    node_vertex_;
+  int        key_;
   bool       is_antecedent_;
 };
+
+inline std::ostream & operator<<(std::ostream & out, AlphaNode const* node)
+{
+  if(not node) out << "NULL";
+  else {
+    node->describe(out);
+  }
+  return out;
+}
 
 } // namespace jets::rete
 #endif // JETS_RETE_ALPHA_NODE_H

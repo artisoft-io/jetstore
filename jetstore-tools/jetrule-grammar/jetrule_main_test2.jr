@@ -1,0 +1,28 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Testing JetRule Grammar
+# ---------------------------------------------------------------------------------------
+import "jetrule_support_test.jr"
+
+# =======================================================================================
+# Defining Constants Resources and Literals
+# ---------------------------------------------------------------------------------------
+resource acme:PClaim = "acme:PClaim";
+resource acme:EClaim = "acme:EClaim";
+resource acme:FClaim = "acme:FClaim";
+resource relatedTo = "relatedTo";
+volatile_resource is_good = "is_good";
+
+# =======================================================================================
+# Defining Jet Rules
+# ---------------------------------------------------------------------------------------
+[Rule2]: 
+  (?clm01 rdf:type acme:Claim).[?clm01]
+  (?clm01 relatedTo ?clm02).
+  (?clm02 ?property cPROC_RID).   # test using lookup table column from support rule file
+  (?clm01 acme:PClaim acme:Claim)
+  ->
+  (?clm01 is_good true).
+  (?clm02 ?property cPROC_RID)
+;
+
+# That's it for now!

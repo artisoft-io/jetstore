@@ -14,8 +14,8 @@ namespace {
 using namespace jets::rete;
 class AlphaNodeStub: public AlphaNode {
  public:
-  AlphaNodeStub(b_index node_vertex, bool is_antecedent)
-    : AlphaNode(node_vertex, is_antecedent) {}
+  AlphaNodeStub(b_index node_vertex, int key, bool is_antecedent)
+    : AlphaNode(node_vertex, key, is_antecedent) {}
 
   int
   register_callback(ReteSession * rete_session)const override
@@ -68,10 +68,16 @@ class AlphaNodeStub: public AlphaNode {
   initialize_indexes(BetaRelation * beta_relation)const override
   {}
 
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    return out;
+  }
+
 };
-AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent)
+AlphaNodePtr create_alpha_node(b_index node_vertex, int key, bool is_antecedent)
 {
-  return std::make_shared<AlphaNodeStub>(node_vertex, is_antecedent);
+  return std::make_shared<AlphaNodeStub>(node_vertex, key, is_antecedent);
 }
 
 // Simple test
@@ -89,28 +95,28 @@ class ReteMetaStoreTest : public ::testing::Test {
       meta_graph = rdf::create_rdf_graph();
       // 4 NodeVertex corresponding to Beta nodes
       node_vertexes.reserve(4);
-      node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 10, {}, {}));
-      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 10, {}, {}));
-      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 2, false, 10, {}, {}));
-      node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 3, false, 10, {}, {}));
+      node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, {}));
+      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 10, {}, {}));
+      node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 2, false, 10, {}, {}));
+      node_vertexes.push_back(create_node_vertex(node_vertexes[2].get(), 0, 3, false, 10, {}, {}));
       // The good 7 AlphaNode
       good_alpha_nodes.reserve(7);
-      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[0].get(), true));
-      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), true));
-      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[2].get(), true));
-      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), true));
-      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), false));
-      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), false));
-      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), false));
+      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[0].get(), 0, true));
+      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), 0, true));
+      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[2].get(), 0, true));
+      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), 0, true));
+      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), 0, false));
+      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), 0, false));
+      good_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), 0, false));
       // The bad 6 AlphaNode (having a consequent node at vertex 2)
       bad_alpha_nodes.reserve(7);
-      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[0].get(), true));
-      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), true));
-      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[2].get(), false)); //<- bad!
-      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), true));
-      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), false));
-      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), false));
-      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), false));
+      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[0].get(), 0, true));
+      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), 0, true));
+      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[2].get(), 0, false)); //<- bad!
+      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), 0, true));
+      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[1].get(), 0, false));
+      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), 0, false));
+      bad_alpha_nodes.push_back(create_alpha_node(node_vertexes[3].get(), 0, false));
   }
 
   ReteMetaStore::AlphaNodeVector good_alpha_nodes;

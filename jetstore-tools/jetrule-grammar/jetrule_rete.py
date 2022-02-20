@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 from jetrule_context import JetRuleContext
 from typing import Any, Sequence, Set
 from typing import Dict
@@ -87,11 +88,15 @@ class JetRuleRete:
         self.ctx.rete_nodes[vertex]['antecedent_node'] = antecedent.copy()
 
       # Each node may have 0 or more consequents terms attached to them
+      consequent_seq = 0
       for consequent in rule['consequents']:
         vertex = consequent['vertex']
-        self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent.copy())
+        consequent_copy = consequent.copy()
+        consequent_copy['consequent_seq'] = consequent_seq
+        consequent_seq += 1
+        self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent_copy)
       
-      # Carry rule's name and saliance to rete_node associated with the last antecedent
+      # Carry rule's name and salience to rete_node associated with the last antecedent
       # of the rule
       rete_node = self.ctx.rete_nodes[rule['antecedents'][-1]['vertex']]
       rete_node['rules'].append(rule['name'])
@@ -99,7 +104,7 @@ class JetRuleRete:
 
 
     # Now we have the nodes connected to the rules
-    # do dfs to collect the bounded variables at each node,
+    # do dfs to collect the binded variables at each node,
     # do dfs on children and consequent terms to get the var that are needed
     # Assign to each node (therefore to the associated antecedent) the beta row variables
     # prune variable that are not needed by descendent nodes
@@ -107,6 +112,43 @@ class JetRuleRete:
       parent_vertex = rete_node['parent_vertex']
       if parent_vertex == 0 and rete_node['vertex'] > 0:
         self._set_beta_var(set(), rete_node)
+
+    # Add 'var_pos' to var nodes of antecedents that are NOT binded,
+    # Set the var_pos to the triple pos, i.e. 0, 1, 2 for s, p, o resp.
+    # Note this applied to var that are needed downstream, otherwise no need
+    # to keep them.
+    # Also, collect the var nodes into 'beta_var_nodes', take the parent's
+    # 'beta_var_nodes' and add the unbinded var of the current antecedent
+    # that are NOT pruned.
+    # This will be used to construct the beta_row_initializers elms
+    # Note: at this point, reteNodes contains only antecedents and the head node
+    for vertex in range(1, len(self.ctx.rete_nodes)):
+      antecedent_node = self.ctx.rete_nodes[vertex]['antecedent_node']
+      parent_vertex = antecedent_node['parent_vertex']
+      beta_var_nodes = []
+      antecedent_node['beta_var_nodes'] = beta_var_nodes
+      if parent_vertex:
+        parent_beta_var_nodes = self.ctx.rete_nodes[parent_vertex]['antecedent_node']['beta_var_nodes'] 
+        for i in range(len(parent_beta_var_nodes)):
+          parent_var_node = parent_beta_var_nodes[i]
+          if parent_var_node['id'] in antecedent_node['pruned_var']:
+            continue
+          var_node = parent_var_node.copy()
+          var_node.pop('label', None)
+          var_node.pop('value', None)
+          var_node['is_binded'] = True
+          var_node['var_pos'] = i
+          var_node['vertex'] = antecedent_node['vertex']
+          beta_var_nodes.append(var_node)
+
+      triple = antecedent_node['triple']
+      for pos in range(3):
+        elm = triple[pos]
+        if elm['type'] == 'var' and not elm['is_binded'] \
+          and not elm['id'] in antecedent_node['pruned_var']:
+          elm['var_pos'] = pos
+          beta_var_nodes.append(elm)
+
 
     # Perform validation on jetrule beta relation config
     for rete_node in self.ctx.rete_nodes:
@@ -281,25 +323,25 @@ class JetRuleRete:
       rete_node = self.ctx.rete_nodes[i]['antecedent_node']
       rete_node['consequent_nodes'] = self.ctx.rete_nodes[i]['consequent_nodes']
       rete_node['children_vertexes'] = self.ctx.rete_nodes[i]['children_vertexes']
+
       # Carry over rules name and salience, if populated
       rules = self.ctx.rete_nodes[i].get('rules')
       if rules:
         rete_node['rules'] = rules
         rete_node['salience'] = self.ctx.rete_nodes[i].get('salience')
+
       # remove the label since it use the original var and it's not meaningful in
       # the rete network
       del rete_node['label']
       self.ctx.rete_nodes[i] = rete_node
     
-    # Add a copy the consequent nodes at the end of the antecedent nodes
-    # We put a copy to leave the original jetRule unchanges
+    # Add the consequent nodes at the end of the antecedent nodes
     for i in range(1, len(self.ctx.rete_nodes)):
-      for original_node in self.ctx.rete_nodes[i]['consequent_nodes']:
+      for consequent_node in self.ctx.rete_nodes[i]['consequent_nodes']:
         # remove the label since it use the original var and it's not meaningful in
         # the rete network
-        node = original_node.copy()
-        del node['label']
-        self.ctx.rete_nodes.append(node)
+        del consequent_node['label']
+        self.ctx.rete_nodes.append(consequent_node)
       del self.ctx.rete_nodes[i]['consequent_nodes']
 
     # Add resources and literals to rete config
@@ -310,23 +352,65 @@ class JetRuleRete:
       key += 1
       resources.append(v)
 
-    # Transform the rete_node['triple'] into reference to the resource
-    # also transform the rete_node['filter'] into reference to the resources
-    # Add var elm type to resources
+    # Transform the antecedent rete_node['triple'] into reference to resources via a key.
+    # also transform the consequent 'triple' and antecedent 'filter' into reference to 
+    # resources via a key.
+    # For Antecedents:
+    # The associated resource (via the key):
+    #   -  [F_cst functor]: will have a resource type of resource
+    #   -  [F_var functor]: for unbinded var, will have a resource type of var, is_binded = False
+    #   -  [F_binded functor]: for binded var, will have a resource type of var, is_binded = True, 
+    #                          is_antecedent = True, var_pos is the parent antecedent beta row pos.
+    # For Consequents and Filters:
+    # The associated resource (via the key):
+    #   -  [F_cst functor]: will have a resource type of resource
+    #   -  [F_binded functor]: for binded var, will have a resource type of var, is_binded = True, 
+    #                          is_antecedent = False, var_pos is the current antecedent beta row pos.
+    # Add var elm type to resources:
+    #   - put var id when not binded [F_var functor]
+    #   - put var_pos when binded (and id for convenience) [F_binded functor]
+    # NOTE: This has for side effect to modify the filter and obj expr to use
+    # resource keys for all resources and variables.
     for i in range(1, len(self.ctx.rete_nodes)):
       rete_node = self.ctx.rete_nodes[i]
+      vertex = rete_node['vertex']    # this is the antecedent vertex for consequent
+      type = rete_node['type']
+      is_antecedent = False
+      parent_vertex = 0
+      if type == 'antecedent':
+        is_antecedent = True
+        parent_vertex = rete_node['parent_vertex']
+
       triple = rete_node['triple']
       del rete_node['triple']
-      rete_node['subject_key'] = self._map_elm(resources, triple[0])
-      rete_node['predicate_key'] = self._map_elm(resources, triple[1])
+      state = {
+        'resources': resources,
+        'vertex': vertex,
+        'beta_relation_vars': self.ctx.rete_nodes[vertex].get('beta_relation_vars', []),
+        'parent_beta_relation_vars': self.ctx.rete_nodes[parent_vertex].get('beta_relation_vars', []),
+      }
+
+      rete_node['subject_key'] = self._map_elm(state, triple[0], is_antecedent=is_antecedent)
+      rete_node['predicate_key'] = self._map_elm(state, triple[1], is_antecedent=is_antecedent)
       obj_elm = triple[2]
       if obj_elm['type'] in ['binary', 'unary']:
-        rete_node['obj_expr'] = self._map_expr(resources, obj_elm)
+        rete_node['obj_expr'] = self._map_expr(state, obj_elm)
       else:
-        rete_node['object_key'] = self._map_elm(resources, triple[2])
+        rete_node['object_key'] = self._map_elm(state, triple[2], is_antecedent=is_antecedent)
       filter = rete_node.get('filter')
       if filter:
-        rete_node['filter'] = self._map_expr(resources, filter)
+        rete_node['filter'] = self._map_expr(state, filter)
+    
+    # Due to the side effect of the previous transformation, replace
+    # nodes literals and resources of jetRules for the full list of resources
+    # that include the variable definitions
+    jetRules = self.ctx.jetRules
+    self.ctx.jetRules = {
+      'resources': self.ctx.jetReteNodes['resources'],
+      'lookup_tables': jetRules['lookup_tables'],
+      'jet_rules': jetRules['jet_rules'],
+      'imports': jetRules['imports'],
+    }
 
 
   # add elm to resources, set key as pos in sequence, return key
@@ -338,40 +422,56 @@ class JetRuleRete:
     return key
 
   # map the expr to itself by replacing the leaf resource to a key
-  def _map_expr(self, resources, elm: Dict[str, object]) -> Dict[str, object]:
+  def _map_expr(self, state, elm: Dict[str, object]) -> Dict[str, object]:
     type = elm['type']
     if type == 'binary':
-      elm['lhs'] = self._map_expr(resources, elm['lhs'])
-      elm['rhs'] = self._map_expr(resources, elm['rhs'])
+      elm['lhs'] = self._map_expr(state, elm['lhs'])
+      elm['rhs'] = self._map_expr(state, elm['rhs'])
       return elm
 
     if type == 'unary':
-      elm['arg'] = self._map_expr(resources, elm['arg'])
+      elm['arg'] = self._map_expr(state, elm['arg'])
       return elm
     
     # type must be literal, meaning we can use _map_elm
     # that returns the key
-    return self._map_elm(resources, elm)
+    return self._map_elm(state, elm, is_antecedent=False)
 
 
   # map elm to an entry in resources based on type
   # May add elm to resources
   # return key,
-  def _map_elm(self, resources, elm) -> int:
+  def _map_elm(self, state, elm, is_antecedent: bool) -> int:
     type = elm['type']
     
     if type == 'var':
+      # add vertex to var elm to track which vertex this var belongs to
+      elm['vertex'] = state['vertex']
+      if elm['is_binded']:
+        elm['is_antecedent'] = is_antecedent
+        if is_antecedent:
+          # var_pos is pos in parent beta relation's var
+          if elm['id'] in state['parent_beta_relation_vars']:
+            elm['var_pos'] = state['parent_beta_relation_vars'].index(elm['id'])
+          else:
+            raise Exception('@@@@ ERROR: var id',elm['id'],', vertex',state['vertex'],', is a binded var in antecedent but it''s not in parent_beta_relation_vars:',state['parent_beta_relation_vars'])
+        else:
+          # var_pos is pos in beta relation's var
+          if elm['id'] in state['beta_relation_vars']:
+            elm['var_pos'] = state['beta_relation_vars'].index(elm['id'])
+          else:
+            raise Exception('@@@@ ERROR: var id',elm['id'],', vertex',state['vertex'],', is a binded var in consequent or filter but its not in beta_relation_vars:',state['beta_relation_vars'])
       # remove label and value since they reference the original var and it's
       # not of use for the rete network
       del elm['value']
       del elm['label']
-      return self._add_key(resources, elm)
+      return self._add_key(state['resources'], elm)
 
     if type == 'identifier':
       return self.ctx.resourceMap[elm['value']]['key']
 
     if type in ['int','uint','long','ulong','double','text', 'keyword']:
       elm['inline'] = True
-      return self._add_key(resources, elm)
+      return self._add_key(state['resources'], elm)
 
     raise Exception('ERROR JetRuleRete._add_elm: unknown type: '+str(type))

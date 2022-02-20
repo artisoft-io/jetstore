@@ -17,6 +17,7 @@ class JetRuleContext:
 
   def __init__(self, data: Dict[str, object], errors: Sequence[str], main_rule_fname: str, imported_files: Sequence[str]):
     # Main jetrules data structure - json (without rule compilation)
+    # NOTE: jetRule is overriden in JetRuleRete.normalizeReteNodes
     # -----------------------------------------------
     self.jetRules: Dict[str, object] = data
     self.main_rule_fname = main_rule_fname   # kbase key within the workspace
@@ -36,6 +37,7 @@ class JetRuleContext:
 
     # For rete network
     # main data structure - json with rule compiled into a rete network
+    # NOTE: jetReteNodes['rete_nodes'] is overriden in JetRuleRete.normalizeReteNodes
     # -----------------------------------------------
     # This is filled by JetRuleRete class during the last compiler step 
     self.jetReteNodes: Dict[str, object] = None
@@ -47,7 +49,7 @@ class JetRuleContext:
     self.resources = None
     self.lookup_tables = None
     self.jet_rules = None
-    self.defined_resources = None
+    self.defined_resources = None # All defined resource, populated after post processing
 
     self.ERROR = False
     if self.errors:
@@ -71,9 +73,6 @@ class JetRuleContext:
 
     self._initMap(self.resourceMap, self.literals, 'Literal')
     self._initMap(self.resourceMap, self.resources, 'Resource')
-
-    # collect all defined resources and literals for rule validation
-    self.defined_resources = frozenset(self.resourceMap.keys())
 
     # init done whew!
     self.state = JetRuleContext.STATE_READY

@@ -29,13 +29,15 @@ class JetRuleReteSQLite:
     self.wc_key = None
     self.resources_last_key = None
     self.expr_last_key = None
+    self.rete_node_last_key = None
+    self.beta_row_config_last_key = None
     self.write_cursor = None
     self.main_rule_file_key = None
 
   # =====================================================================================
   # saveReteConfig
   # -------------------------------------------------------------------------------------
-  def saveReteConfig(self, workspace_db: str=None) -> None:
+  def saveReteConfig(self, workspace_db: str=None) -> str:
     assert self.ctx, 'Must have a valid JetRuleContext'
     assert self.ctx.jetReteNodes, 'Must have a valid JetRuleContext.jetReteNodes'
     self.workspace_connection = None
@@ -106,6 +108,26 @@ class JetRuleReteSQLite:
         self.expr_last_key += 1
       # print('GOT max(self.expr_last_key)',self.expr_last_key)
 
+      # Get rete_nodes last key
+      self.rete_nodes_last_key = None
+      for k, in self.read_cursor.execute("SELECT max(key) FROM rete_nodes"):
+        self.rete_nodes_last_key = k
+      if self.rete_nodes_last_key is None:
+        self.rete_nodes_last_key = 0
+      else:
+        self.rete_nodes_last_key += 1
+      # print('GOT max(self.rete_nodes_last_key)',self.rete_nodes_last_key)
+
+      # Get beta_row_config last key
+      self.beta_row_config_last_key = None
+      for k, in self.read_cursor.execute("SELECT max(key) FROM beta_row_config"):
+        self.beta_row_config_last_key = k
+      if self.beta_row_config_last_key is None:
+        self.beta_row_config_last_key = 0
+      else:
+        self.beta_row_config_last_key += 1
+      # print('GOT max(self.beta_row_config_last_key)',self.beta_row_config_last_key)
+
       # Open the self.write_cursor
       self.write_cursor = self.workspace_connection.cursor()
       self.write_cursor.execute('BEGIN')
@@ -130,10 +152,20 @@ class JetRuleReteSQLite:
           self.resources_last_key += 1
           item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
           row = [key, item['type'], item.get('id'), item.get('value'), item.get('symbol'),
-                item.get('is_binded'), item.get('inline'), skey]
+                item.get('is_binded'), item.get('inline'), skey, item.get('vertex'), item.get('var_pos')]
           self.write_cursor.execute(
-            "INSERT INTO resources (key, type, id, value, symbol, is_binded, inline, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
+            "INSERT INTO resources (key, type, id, value, symbol, is_binded, "
+              "inline, source_file_key, vertex, row_pos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
             row)
+        else:
+          # file with skey already in db, get the resource 'db_key' from the db; column key in resources table
+          key = self._get_resource_key(item['id'])
+          if key is None:
+            err = "Error while getting key for resource with id '{0}', resource not found!".format(item['id'])
+            print(err)
+            return err
+          item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+
 
       # Add all lookup_table to rete_db, will skip source file already in rete_db
       # -------------------------------------------------------------------------
@@ -157,15 +189,10 @@ class JetRuleReteSQLite:
         if obj_expr:
           item['obj_expr_key'] = self._expr_2_key(obj_expr)
 
-      # Add rete_nodes to rete_nodes and 
+      # Add rete_nodes to rete_nodes table
       # -------------------------------------------------------------------------
       # print('Saving rete_nodes. . .')
       for item in self.ctx.jetReteNodes['rete_nodes']:
-        beta_relation_vars = item.get('beta_relation_vars')
-        pruned_var = item.get('pruned_var')
-
-        brv = ','.join(beta_relation_vars) if beta_relation_vars else ''
-        pv = ','.join(pruned_var) if pruned_var else ''
         # Get the db_key for all resources
         subject_key = item.get('subject_key')
         if subject_key:
@@ -175,7 +202,7 @@ class JetRuleReteSQLite:
         if predicate_key:
           predicate_key = resources[predicate_key]['db_key']
 
-        object_key = item.get('predicate_key')
+        object_key = item.get('object_key')
         if object_key:
           object_key = resources[object_key]['db_key']
         
@@ -188,22 +215,46 @@ class JetRuleReteSQLite:
             return 'ERROR: Multiple rules have same antecedents but different salience:'+str(item.get('rules'))
           salience = salience[0]
 
-        # Chceck if multiple rules have same antecedents
+        # Check if multiple rules have same antecedents
         rules = item.get('rules')
         if rules and len(rules)>1:
           print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
+
+        # Assign key to rete node
+        key = self.rete_nodes_last_key
+        self.rete_nodes_last_key += 1
         
         row = [
-          item['vertex'], item['type'], subject_key, predicate_key, object_key, 
+          key, item['vertex'], item['type'], subject_key, predicate_key, object_key, 
           item.get('obj_expr_key'), item.get('filter_expr_key'), 
-          item.get('normalizedLabel'), item.get('parent_vertex'), brv, pv, self.main_rule_file_key,
-          item.get('is_negation'), salience
+          item.get('normalizedLabel'), item.get('parent_vertex'), self.main_rule_file_key,
+          item.get('is_negation'), salience, item.get('consequent_seq', 0)
         ]
         self.write_cursor.execute(
-          "INSERT INTO rete_nodes (vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, "
-          "normalizedLabel, parent_vertex, beta_relation_vars, pruned_var, source_file_key, is_negation, salience) "
+          "INSERT INTO rete_nodes (key, vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, "
+          "normalizedLabel, parent_vertex, source_file_key, is_negation, salience, consequent_seq) "
           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
           row)
+
+        # Add beta_row_config table
+        # -------------------------------------------------------------------------
+        # print('Saving beta_row_configs. . .')
+        beta_var_nodes = item.get('beta_var_nodes', [])
+        for seq in range(len(beta_var_nodes)):
+          bvnode = beta_var_nodes[seq]
+
+          # Assign key to beta_row_config
+          key = self.beta_row_config_last_key
+          self.beta_row_config_last_key += 1
+
+          beta_row_config = [
+            key, bvnode['vertex'], seq, self.main_rule_file_key,
+            bvnode['var_pos'], bvnode['is_binded'], bvnode['id'], 
+          ]
+          self.write_cursor.execute(
+            "INSERT INTO beta_row_config (key, vertex, seq, source_file_key, row_pos, is_binded, id)"
+            "VALUES (?, ?, ?, ?, ?, ?, ?)", 
+            beta_row_config)
 
       # All done, commiting the work
       # print('done')
@@ -227,6 +278,8 @@ class JetRuleReteSQLite:
   # _expr_2_key
   # -------------------------------------------------------------------------------------
   # Add expression to expressions table recursivelly and return the key
+  # Put resource entities as well: resource (constant) and var (binded)
+  # expr is the resource key, so we can call persist directly.
   def _expr_2_key(self, expr: Dict[str, object]) -> int:
     assert expr, 'Expecting expression'
     # Check if we have a resource key
@@ -290,6 +343,15 @@ class JetRuleReteSQLite:
       return k
 
   # -------------------------------------------------------------------------------------
+  # _get_resource_key
+  # -------------------------------------------------------------------------------------
+  # Get the key associated with resource or literal id, exclude var
+  def _get_resource_key(self, id_: str) -> int:
+    for k, in self.read_cursor.execute("SELECT key FROM resources WHERE id = ? AND type != 'var'", (id_,)):
+      # print('*** Got',source_file_name,'with key',k)
+      return k
+
+  # -------------------------------------------------------------------------------------
   # _create_schema
   # -------------------------------------------------------------------------------------
   # Create rete_db schema if not already existing
@@ -315,9 +377,11 @@ class JetRuleReteSQLite:
         id                 STRING,
         value              STRING,
         symbol             STRING,
-        is_binded          BOOL,
+        is_binded          BOOL,     -- for var type only
         inline             BOOL,
-        source_file_key    INTEGER NOT NULL
+        source_file_key    INTEGER NOT NULL,
+        vertex             INTEGER,  -- for var type only, var for vertex
+        row_pos            INTEGER   -- for var type only, pos in beta row
       );
 
       -- --------------------
@@ -355,6 +419,7 @@ class JetRuleReteSQLite:
       -- rete_nodes table
       -- --------------------
       CREATE TABLE IF NOT EXISTS rete_nodes (
+        key                INTEGER PRIMARY KEY,
         vertex             INTEGER NOT NULL,
         type               STRING NOT NULL,
         subject_key        INTEGER,
@@ -364,12 +429,35 @@ class JetRuleReteSQLite:
         filter_expr_key    INTEGER,
         normalizedLabel    STRING,
         parent_vertex      INTEGER,
-        beta_relation_vars STRING,
-        pruned_var         STRING,
         source_file_key    INTEGER NOT NULL,
         is_negation        INTEGER,
         salience           INTEGER,
-        PRIMARY KEY (vertex, type, source_file_key)
+        consequent_seq     INTEGER NOT NULL,
+        UNIQUE (vertex, type, consequent_seq, source_file_key)
       );
+
+      -- --------------------
+      -- beta_row_config table
+      -- --------------------
+      CREATE TABLE IF NOT EXISTS beta_row_config (
+        key                INTEGER PRIMARY KEY,
+        vertex             INTEGER NOT NULL,
+        seq                INTEGER NOT NULL,
+        source_file_key    INTEGER NOT NULL,
+        row_pos            INTEGER NOT NULL,
+        is_binded          INTEGER,
+        id                 STRING,
+        UNIQUE (vertex, seq, source_file_key)
+      );
+
+      -- --------------------
+      -- schema_info table
+      -- --------------------
+      CREATE TABLE IF NOT EXISTS schema_info (
+        version_major      INTEGER NOT NULL,
+        version_minor      INTEGER NOT NULL
+      );
+      INSERT INTO schema_info (version_major, version_minor) 
+        VALUES (1, 0);
     """)
     cursor = None

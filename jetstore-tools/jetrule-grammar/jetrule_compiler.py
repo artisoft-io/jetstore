@@ -97,6 +97,10 @@ class JetRuleCompiler:
             self.processing_rule_files_q.put(file_info)
             self._readInput(in_provider.getRuleFile(fname), in_provider, pat, fout)
 
+            # Add a directive to indicate to the parser listener that we're back to including file
+            fout.write('@JetCompilerDirective source_file = "{0}";\n'.format(current_file_name))
+            self.global_line_nbr += 1
+
             # Put another entry for the current file for the remaining statements
             file_info = {'fname': current_file_name, 'start_pos': self.global_line_nbr, 'file_offset': file_offset}
             self.imported_file_info_list.append(file_info)
@@ -266,6 +270,10 @@ class JetRuleCompiler:
     postProcessor.addNormalizedLabels()
     postProcessor.addLabels()
     self.jetrule_ctx.state = JetRuleContext.STATE_POSTPROCESSED
+
+    # seal the defined resources in a frozen set, this is for validating rules
+    self.jetrule_ctx.defined_resources = frozenset(self.jetrule_ctx.resourceMap.keys())
+
     return self.jetrule_ctx
 
 
@@ -346,21 +354,18 @@ def main(argv):
   
   with open(jetrules_path, 'wt', encoding='utf-8') as f:
     f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
-
   print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
+
+  # Save the JetRete data structure
+  with open(jetrete_path, 'wt', encoding='utf-8') as f:
+    f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+  print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
 
   rete_db_helper = JetRuleReteSQLite(compiler.jetrule_ctx)
   err = rete_db_helper.saveReteConfig()
   if err:
     print('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err)))
     sys.exit('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err))) 
-
-  # Save the JetRete data structure
-  with open(jetrete_path, 'wt', encoding='utf-8') as f:
-    f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
-
-  print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
-
 
 if __name__ == '__main__':
   flags.mark_flag_as_required('in_file')

@@ -49,6 +49,8 @@ cc_library(
         "rete_session.cc",
         "rete_session.h",
         "rete_meta_store_factory.h",
+        "rete_meta_store_factory_helper.h",
+        "rete_meta_store_factory.cc",
         "rete_types.h",
         "rete_types_impl.h",
         "@com_google_absl//absl/hash",
@@ -122,7 +124,10 @@ cc_test(
     srcs = [
         "rete_meta_store_factory_test.cc", 
     ],
-    data = [":rete_meta_store_test.db"],
+    data = [
+      ":rete_meta_store_test.db",
+      "//jets/rete/rete_test_db:jetrule_rete_test.db",
+    ],
     deps = [
         "//jets/rdf:jets_rdf",
         ":jets_rete",

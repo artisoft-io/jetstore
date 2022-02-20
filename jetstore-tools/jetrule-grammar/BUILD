@@ -28,9 +28,10 @@ py_binary(
   imports = ["jetrule_g4_gen.py"],
   python_version = "PY3",
   data = [
-    ":jet_listerner_test_data.jr",
-    # ":jet_listerner_test_data.jr.json",
-    # ":jet_listerner_test_data.jrc.json",
+    ":jetrule_main_test.jr",
+    ":jetrule_main_test2.jr",
+    ":jetrule_support_test.jr",
+    "//jets/rete/rete_test_db:ms_factory_test1.jr",
   ],
   # data = [":transform"],  # a cc_binary which we invoke at run time
   deps = [
@@ -63,9 +64,10 @@ py_test(
     requirement("absl-py"),
   ],
   data = [
-    ":jet_listerner_test_data.jr",
-    ":jet_listerner_test_data.jr.json",
-    ":jet_listerner_test_data.jrc.json",
+    ":jetrule_main_test.jr",
+    ":jetrule_support_test.jr",
+    ":jetrule_main_test.jr.json",
+    ":jetrule_main_test.jrc.json",
   ],
   imports = ["jetrule_g4_gen.py"],
 )

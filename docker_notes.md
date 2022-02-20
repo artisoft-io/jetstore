@@ -62,4 +62,6 @@ bazel-compdb -q //cc/...
 bazel-compdb -q //cc/... -- [additional flags for bazel]
 
 # Running JetRule Compiler on test data
-jetstore$ bazel run //jetstore-tools/jetrule-grammar:jetrule_compiler -- --in_file jet_listerner_test_data.jr --base_path jetstore-tools/jetrule-grammar  --rete_db jetrule_rete.db 
+jetstore$ bazel run //jetstore-tools/jetrule-grammar:jetrule_compiler -- --in_file jetrule_main_test.jr --base_path jetstore-tools/jetrule-grammar  --rete_db jetrule_rete.db -d
+# Adding another main to the rule file
+jetstore$ bazel run //jetstore-tools/jetrule-grammar:jetrule_compiler -- --in_file jetrule_main_test2.jr --base_path jetstore-tools/jetrule-grammar  --rete_db jetrule_rete.db

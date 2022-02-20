@@ -18,12 +18,20 @@
 // Methods usage:
 //  - to_const is used for determining the ReteCallBackImpl to use
 //  - rdf::AllOrRIndex is used by antecedent terms to invoke find on the rdf_session
-//  - to_r_index is used by consequent terms to evaluate  the functor
+//  - to_r_index is used by consequent terms to evaluate  the functor using the beta row
+//    of the current antecedent (vertex)
 namespace jets::rete {
 // F_binded
 // --------------------------------------------------------------------------------------
+/**
+ * @brief Functor for binded variable
+ * The data member 'data' indicate the position of the beta row elm it is binded to.
+ *  - Case of antecedent terms, data is the position of the parent beta row
+ *  - Case of consequent terms and filters, data is the position of the 
+ *    associated antecedent (vertex), not it's parent as for antecedent term
+ */
 struct F_binded {
-  F_binded(int parent_pos): data(parent_pos){}
+  F_binded(int var_pos): data(var_pos){}
 
   F_binded(F_binded const&) = default;
   F_binded(F_binded &&) = default;
@@ -36,13 +44,25 @@ struct F_binded {
     return nullptr;
   }
 
+  /**
+   * @brief Evaluate functor for consequent and filter terms
+   * 
+   * @param beta_row of the associated antecedent term (aka current row)
+   * @return rdf::r_index 
+   */
   inline
   rdf::r_index
-  to_r_index(ReteSession *, BetaRow const* parent_row)const
+  to_r_index(ReteSession *, BetaRow const* beta_row)const
   {
-    return parent_row->get(data);
+    return beta_row->get(data);
   }
 
+  /**
+   * @brief Evaluate functor for antecedent term
+   * 
+   * @param parent_row beta row of parent antecedent
+   * @return rdf::AllOrRIndex 
+   */
   inline
   rdf::AllOrRIndex
   to_AllOrRIndex(BetaRow const* parent_row)const
@@ -60,8 +80,18 @@ struct F_binded {
   int data;
 };
 
+inline std::ostream & operator<<(std::ostream & out, F_binded const& node)
+{
+  out << "binded("<<node.data<<")";
+  return out;
+}
+
 // F_var
 // --------------------------------------------------------------------------------------
+/**
+ * @brief Functor for unbinded var, applicable to antecedent only
+ * 
+ */
 struct F_var {
   F_var(std::string const& var_name): data(var_name){}
   F_var(std::string && var_name)
@@ -102,6 +132,12 @@ struct F_var {
   std::string data;
 };
 
+inline std::ostream & operator<<(std::ostream & out, F_var const& node)
+{
+  out << "var("<<node.data<<")";
+  return out;
+}
+
 // F_cst
 // --------------------------------------------------------------------------------------
 struct F_cst {
@@ -141,6 +177,12 @@ struct F_cst {
 
   rdf::r_index data;
 };
+
+inline std::ostream & operator<<(std::ostream & out, F_cst const& node)
+{
+  out << "cst("<<node.data<<")";
+  return out;
+}
 
 // F_expr
 // --------------------------------------------------------------------------------------
@@ -184,6 +226,12 @@ struct F_expr {
 
   ExprBasePtr data;
 };
+
+inline std::ostream & operator<<(std::ostream & out, F_expr const& node)
+{
+  out << "expr("<<node.data<<")";
+  return out;
+}
 
 } // namespace jets::rete
 #endif // JETS_RETE_ALPHA_FUNCTORS_H

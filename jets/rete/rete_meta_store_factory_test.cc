@@ -147,17 +147,34 @@ TEST_F(SQLiteTest, FirstTest) {
 
 TEST(ReteMetaStoreFactoryTest, FirstTest) {
 
-  ReteMetaStoreFactory factory("jets/rete/rete_meta_store_test.db");
-  factory.create_rete_meta_store("jet_listerner_test_data.jr");
+  ReteMetaStoreFactory factory;
+  int res = factory.load_database("jets/rete/rete_test_db/jetrule_rete_test.db");
+  EXPECT_EQ(res, 0);
+
   auto const* meta_graph = factory.meta_graph();
 
   auto r = meta_graph->get_rmgr()->get_resource("rdf:type");
   EXPECT_EQ(rdf::get_name(r), "rdf:type");
+  EXPECT_EQ(meta_graph->get_rmgr()->size(), 3);
 
-  auto l = meta_graph->get_rmgr()->get_literal("MERGED \"MARKET\" CHARGE BACK");
-  EXPECT_EQ(rdf::get_name(r), "rdf:type");
+  // Get the Rete Meta Store
+  auto meta_store = factory.get_rete_meta_store("ms_factory_test1.jr");  
+  EXPECT_TRUE(meta_store);
 
-  EXPECT_EQ(meta_graph->get_rmgr()->size(), 40);
+  // Create the rdf_session and the rete_session and initialize them
+  // Initialize the rete_session now that the rule base is ready
+  auto rdf_session = rdf::create_rdf_session(factory.get_meta_graph());
+  auto rete_session = create_rete_session(meta_store.get(), rdf_session.get());
+  rete_session->initialize();
+  auto mgr = rdf_session->get_rmgr();
+  rdf::r_index iclaim = mgr->create_resource("iclaim");
+  rdf::r_index rdf_type = mgr->create_resource("rdf:type");
+  rdf::r_index hc_Claim = mgr->create_resource("hc:Claim");
+  rdf::r_index hc_BaseClaim = mgr->create_resource("hc:BaseClaim");
+  rdf_session->insert(iclaim, rdf_type, hc_Claim);
+  rete_session->execute_rules();
+
+  EXPECT_TRUE(rdf_session->contains(iclaim, rdf_type, hc_BaseClaim));
 }
 
 //rete_meta_store_test.db

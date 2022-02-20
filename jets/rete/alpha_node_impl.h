@@ -28,14 +28,14 @@ class AlphaNodeImpl: public AlphaNode {
 
   AlphaNodeImpl() = delete;
 
-  AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
+  AlphaNodeImpl(b_index node_vertex, int key, bool is_antecedent,
     Fu const&fu, Fv const&fv, Fw const&fw) 
-    : AlphaNode(node_vertex, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
+    : AlphaNode(node_vertex, key, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
   {}
 
-  AlphaNodeImpl(b_index node_vertex, bool is_antecedent,
+  AlphaNodeImpl(b_index node_vertex, int key, bool is_antecedent,
     Fu &&fu, Fv &&fv, Fw &&fw) 
-    : AlphaNode(node_vertex, is_antecedent),
+    : AlphaNode(node_vertex, key, is_antecedent),
       fu_(std::forward<Fu>(fu)),fv_(std::forward<Fv>(fv)),fw_(std::forward<Fw>(fw))
   {}
 
@@ -66,7 +66,7 @@ class AlphaNodeImpl: public AlphaNode {
     rdf::r_index u = fu_.to_cst();
     rdf::r_index v = fv_.to_cst();
     rdf::r_index w = fw_.to_cst();
-    std::cout<<"AlphaNode::register callback for vertex "<<vertex<<" with pattern "<<rdf::Triple(u, v, w)<<std::endl;
+    std::cout<<"AlphaNode::register callback @ alpha node "<<get_key()<<" for vertex "<<vertex<<" with pattern "<<rdf::Triple(u, v, w)<<std::endl;
     rete_session->rdf_session()->inferred_graph()->register_callback(
       create_rete_callback(rete_session, vertex, u, v, w));
     return 0;
@@ -91,8 +91,9 @@ class AlphaNodeImpl: public AlphaNode {
     BetaRow const* parent_row)const override
   {
     if(not this->is_antecedent()) {
-      RETE_EXCEPTION("AlphaNodeImpl::find_matching_triples: Called on alpha node that "
-        "is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
+      RETE_EXCEPTION("AlphaNodeImpl::find_matching_triples: Called on alpha node "<<
+        this->get_key()<<" that is NOT an antecedent term, vertex: "<<
+        this->get_node_vertex()->vertex);
     }
     return rdf_session->find(fu_.to_AllOrRIndex(parent_row), fv_.to_AllOrRIndex(parent_row), 
       fw_.to_AllOrRIndex(parent_row));
@@ -151,8 +152,9 @@ class AlphaNodeImpl: public AlphaNode {
   find_matching_rows(BetaRelation * parent_beta_relation, rdf::r_index s, rdf::r_index p, rdf::r_index o)const override
   {
     if(not this->is_antecedent()) {
-      RETE_EXCEPTION("AlphaNodeImpl::find_matching_rows: Called on alpha node that "
-        "is NOT an antecedent term, vertex: "<<this->get_node_vertex()->vertex);
+      RETE_EXCEPTION("AlphaNodeImpl::find_matching_rows: Called on alpha node "<<
+      this->get_key()<<" that is NOT an antecedent term, vertex: "<<
+      this->get_node_vertex()->vertex);
     }
     AQVMatchingRowsVisitor visitor(parent_beta_relation, this->get_node_vertex(), s, p, o);
     return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
@@ -170,8 +172,9 @@ class AlphaNodeImpl: public AlphaNode {
   compute_consequent_triple(ReteSession * rete_session, BetaRow const* beta_row)const override
   {
     if(this->is_antecedent()) {
-      RETE_EXCEPTION("AlphaNodeImpl::compute_consequent_triple: Called on alpha node "
-        "that is NOT an consequent term, vertex: "<<this->get_node_vertex()->vertex);
+      RETE_EXCEPTION("AlphaNodeImpl::compute_consequent_triple: Called on alpha node "<<
+      this->get_key()<<" that is NOT a consequent term, vertex: "<<
+      this->get_node_vertex()->vertex);
     }
     return {
       fu_.to_r_index(rete_session, beta_row), 
@@ -194,14 +197,24 @@ class AlphaNodeImpl: public AlphaNode {
   compute_find_triple(BetaRow const* parent_row)const override
   {
     if(not this->is_antecedent()) {
-      RETE_EXCEPTION("AlphaNodeImpl::compute_find_triple: Called on alpha node "
-        "that IS an consequent term, vertex: "<<this->get_node_vertex()->vertex);
+      RETE_EXCEPTION("AlphaNodeImpl::compute_find_triple: Called on alpha node "<<
+      this->get_key()<<" that IS a consequent term, vertex: "<<
+      this->get_node_vertex()->vertex);
     }
     return {
       fu_.to_AllOrRIndex(parent_row), 
       fv_.to_AllOrRIndex(parent_row), 
       fw_.to_AllOrRIndex(parent_row)
     };
+  }
+
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "AlphaNode: key "<< this->get_key() << 
+      " "<<(this->is_antecedent()?"antecedent":"consequent") <<
+      " ("<<this->fu_<<", "<<this->fv_<<", "<<this->fw_<<") ";
+    return out;
   }
 
  private:
@@ -211,17 +224,17 @@ class AlphaNodeImpl: public AlphaNode {
 };
 
 template<class Fu, class Fv, class Fw>
-AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent,
+AlphaNodePtr create_alpha_node(b_index node_vertex, int key, bool is_antecedent,
     Fu const& fu, Fv const& fv, Fw const& fw)
 {
-  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, is_antecedent, fu, fv, fw);
+  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, key, is_antecedent, fu, fv, fw);
 }
 
 template<class Fu, class Fv, class Fw>
-AlphaNodePtr create_alpha_node(b_index node_vertex, bool is_antecedent,
+AlphaNodePtr create_alpha_node(b_index node_vertex, int key, bool is_antecedent,
     Fu && fu, Fv && fv, Fw && fw)
 {
-  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, is_antecedent, 
+  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, key, is_antecedent, 
     std::forward<Fu>(fu), std::forward<Fv>(fv), std::forward<Fw>(fw));
 }
 } // namespace jets::rete

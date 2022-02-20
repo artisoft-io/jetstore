@@ -15,25 +15,27 @@ class JetListenerTest2(absltest.TestCase):
   def test_rule_file1(self):
     provider = InputProvider("jetstore-tools/jetrule-grammar/")
     compiler = JetRuleCompiler()
-    compiler.compileJetRuleFile("jet_listerner_test_data.jr", provider)
+    compiler.compileJetRuleFile("jetrule_main_test.jr", provider)
 
     for k in compiler.jetrule_ctx.errors:
       print(k)
     print()
     self.assertEqual(compiler.jetrule_ctx.ERROR, False)
 
-    with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'rt', encoding='utf-8') as f:
+    with open("jetstore-tools/jetrule-grammar/jetrule_main_test.jr.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
 
+    # TEST HERE
     self.assertEqual(json.dumps(compiler.jetrule_ctx.jetRules), json.dumps(expected))
 
     # print('GOT RULES:',json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
     # print()
     # print('GOT RETE:',json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
 
-    with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jrc.json", 'rt', encoding='utf-8') as f:
+    with open("jetstore-tools/jetrule-grammar/jetrule_main_test.jrc.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
 
+    # TEST HERE
     self.assertEqual(json.dumps(compiler.jetrule_ctx.jetReteNodes), json.dumps(expected))
 
   # def test_rule_file2(self):
