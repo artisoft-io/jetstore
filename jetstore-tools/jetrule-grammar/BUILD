@@ -32,6 +32,7 @@ py_binary(
     ":jetrule_main_test2.jr",
     ":jetrule_support_test.jr",
     "//jets/rete/rete_test_db:ms_factory_test1.jr",
+    "//jets/rete/rete_test_db:ms_factory_test2.jr",
   ],
   # data = [":transform"],  # a cc_binary which we invoke at run time
   deps = [
@@ -68,6 +69,8 @@ py_test(
     ":jetrule_support_test.jr",
     ":jetrule_main_test.jr.json",
     ":jetrule_main_test.jrc.json",
+    "//jets/rete/rete_test_db:ms_factory_test2.jr",
+    "//jets/rete/rete_test_db:ms_factory_test2.jrc.json",
   ],
   imports = ["jetrule_g4_gen.py"],
 )

@@ -119,8 +119,9 @@ inline std::ostream & operator<<(std::ostream & out, b_index node)
 {
   if(not node) out << "NULL";
   else {
+    int parent_vertex = node->parent_node_vertex?node->parent_node_vertex->vertex:0;
     out << "NodeVertex: key "<< node->key <<
-      ", vertex "<<node->vertex <<", parent vertex "<<node->parent_node_vertex <<
+      ", vertex "<<node->vertex <<", parent vertex "<<parent_vertex <<
       ", negation? "<<node->is_negation <<", salience "<<node->salience;
   }
   return out;

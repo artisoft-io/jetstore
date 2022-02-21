@@ -72,6 +72,18 @@ class ReteMetaStore {
     return this->meta_graph_.get();
   }
 
+  inline AlphaNodeVector const&
+  alpha_nodes()const
+  {
+    return this->alpha_nodes_;
+  }
+
+  inline NodeVertexVector const&
+  node_vertexes()const
+  {
+    return this->node_vertexes_;
+  }
+
   /**
    * @brief Get the alpha node object by key
    * 
@@ -104,6 +116,18 @@ class ReteMetaStore {
   int
   initialize()
   {
+
+    // std::cout<<"Node Vertexes:"<<std::endl;
+    // for(auto const&item: this->node_vertexes()){
+    //   std::cout<<"    "<<item.get()<<std::endl;
+    // }
+    // std::cout<<"Alpha Nodes:"<<std::endl;
+    // for(auto const&item: this->alpha_nodes()){
+    //   std::cout<<"    "<<item.get()<<std::endl;
+    // }
+    // std::cout<<"========="<<std::endl;
+
+
     // Perform reverse lookup of children NodeVertex using
     // NodeVertex parent_node property
     for(auto const& nodeptr: this->node_vertexes_) {

@@ -151,6 +151,8 @@ exprTerm
 
 binaryOp
   : PLUS
+  | EQ
+  | REGEX2
   | MINUS
   | MUL
   | DIV
@@ -199,6 +201,8 @@ NOT: 'not';
 TOTEXT: 'toText';
 
 // Binary operator
+EQ: '==';
+REGEX2: 'r?';
 PLUS: '+';
 MINUS: '-';
 MUL: '*';

@@ -66,7 +66,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
   }
   // Prepared statement for MetaStore alpha nodes
   auto const* alpha_nodes_sql = "SELECT * FROM rete_nodes "
-                    "WHERE source_file_key is ? ORDER BY vertex ASC, consequent_seq ASC";
+                    "WHERE source_file_key is ? ORDER BY key ASC";
   res = sqlite3_prepare_v2( this->db_, alpha_nodes_sql, -1, &this->alpha_nodes_stmt_, 0 );
   if ( res != SQLITE_OK ) {
     return res;
@@ -431,7 +431,7 @@ ReteMetaStoreFactory::load_alpha_nodes(int file_key, NodeVertexVector const& nod
       return -1;
     }
 
-    std::cout<<"Creating AlphaNode: "<<type<<" ("<<subject_key<<", "<<predicate_key<<", "<<object_key<<")"<<std::endl;
+    std::cout<<"Creating AlphaNode: "<<type<<" is_antecedent?"<<is_antecedent<<" ("<<subject_key<<", "<<predicate_key<<", "<<object_key<<")"<<std::endl;
 
     auto fu = this->create_func_factory(subject_key);
     auto fv = this->create_func_factory(predicate_key);
