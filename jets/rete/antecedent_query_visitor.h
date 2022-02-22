@@ -89,17 +89,17 @@ struct AQVMatchingRowsVisitor: public boost::static_visitor<BetaRowIteratorPtr>
   using O = AQOther;
   using R = BetaRowIteratorPtr;
   AQVMatchingRowsVisitor(BetaRelation * g, b_index m, rdf::r_index s, rdf::r_index p, rdf::r_index o) 
-    : parent_beta_relation(g), current_meta_node(m), t3(s, p, o){}
-  R operator()(I const&s, I const&p, I const&o){return parent_beta_relation->get_idx3_rows_iterator(current_meta_node->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(O const&s, I const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(current_meta_node->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(O const&s, O const&p, I const&o){return parent_beta_relation->get_idx1_rows_iterator(current_meta_node->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+    : parent_beta_relation(g), node_vertex(m), t3(s, p, o){}
+  R operator()(I const&s, I const&p, I const&o){return parent_beta_relation->get_idx3_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(O const&s, I const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(O const&s, O const&p, I const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
   R operator()(O const&s, O const&p, O const&o){return parent_beta_relation->get_all_rows_iterator();}
-  R operator()(I const&s, O const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(current_meta_node->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(I const&s, O const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(current_meta_node->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(I const&s, I const&p, O const&o){return parent_beta_relation->get_idx2_rows_iterator(current_meta_node->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(O const&s, I const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(current_meta_node->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(I const&s, O const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(I const&s, O const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(I const&s, I const&p, O const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(O const&s, I const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
   BetaRelation * parent_beta_relation;
-  b_index current_meta_node;
+  b_index node_vertex;
   rdf::Triple t3;
 };
 
@@ -109,7 +109,7 @@ struct AQVIndexBetaRowsVisitor: public boost::static_visitor<>
   using I = AQIndex;
   using O = AQOther;
   AQVIndexBetaRowsVisitor(BetaRelation * g, b_index m, BetaRow const* r) 
-    : beta_relation(g), current_meta_node(m), row(r), key(m->antecedent_query_key) {}
+    : beta_relation(g), node_vertex(m), row(r), key(m->antecedent_query_key) {}
   void operator()(I const&s, I const&p, I const&o){ beta_relation->beta_row_idx3_[key].insert( {{s.to_r(row), p.to_r(row), o.to_r(row)}, row} );}
   void operator()(O const&s, I const&p, I const&o){ beta_relation->beta_row_idx2_[key].insert( {{p.to_r(row), o.to_r(row)}, row} );}
   void operator()(O const&s, O const&p, I const&o){ beta_relation->beta_row_idx1_[key].insert( {o.to_r(row), row} );}
@@ -119,7 +119,7 @@ struct AQVIndexBetaRowsVisitor: public boost::static_visitor<>
   void operator()(I const&s, I const&p, O const&o){ beta_relation->beta_row_idx2_[key].insert( {{s.to_r(row), p.to_r(row)}, row} );}
   void operator()(O const&s, I const&p, O const&o){ beta_relation->beta_row_idx1_[key].insert( {p.to_r(row), row} );}
   BetaRelation * beta_relation;
-  b_index current_meta_node;
+  b_index node_vertex;
   BetaRow const* row;
   int key;
 };
@@ -130,7 +130,7 @@ struct AQVRemoveIndexBetaRowsVisitor: public boost::static_visitor<>
   using I = AQIndex;
   using O = AQOther;
   AQVRemoveIndexBetaRowsVisitor(BetaRelation * g, b_index m, BetaRow const* r) 
-    : beta_relation(g), current_meta_node(m), row(r), key(m->antecedent_query_key) {}
+    : beta_relation(g), node_vertex(m), row(r), key(m->antecedent_query_key) {}
   void operator()(I const&s, I const&p, I const&o){ beta_relation->beta_row_idx3_[key].erase( {s.to_r(row), p.to_r(row), o.to_r(row)} );}
   void operator()(O const&s, I const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {p.to_r(row), o.to_r(row)} );}
   void operator()(O const&s, O const&p, I const&o){ beta_relation->beta_row_idx1_[key].erase( o.to_r(row) );}
@@ -140,7 +140,7 @@ struct AQVRemoveIndexBetaRowsVisitor: public boost::static_visitor<>
   void operator()(I const&s, I const&p, O const&o){ beta_relation->beta_row_idx2_[key].erase( {s.to_r(row), p.to_r(row)} );}
   void operator()(O const&s, I const&p, O const&o){ beta_relation->beta_row_idx1_[key].erase( p.to_r(row) );}
   BetaRelation * beta_relation;
-  b_index current_meta_node;
+  b_index node_vertex;
   BetaRow const* row;
   int key;
 };
@@ -151,15 +151,15 @@ struct AQVInitializeIndexesVisitor: public boost::static_visitor<>
   using I = AQIndex;
   using O = AQOther;
   AQVInitializeIndexesVisitor(BetaRelation * g, b_index m) 
-    : beta_relation(g), current_meta_node(m) {}
-  void operator()(I const&, I const&, I const&){ this->current_meta_node->antecedent_query_key = this->add_query3();}
-  void operator()(O const&, I const&, I const&){ this->current_meta_node->antecedent_query_key = this->add_query2();}
-  void operator()(O const&, O const&, I const&){ this->current_meta_node->antecedent_query_key = this->add_query1();}
+    : beta_relation(g), node_vertex(m) {}
+  void operator()(I const&, I const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query3(); std::cout<<"Q3 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">"<<std::endl;}
+  void operator()(O const&, I const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query2();std::cout<<"Q2 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">"<<std::endl;}
+  void operator()(O const&, O const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query1();std::cout<<"Q1 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">"<<std::endl;}
   void operator()(O const&, O const&, O const&){ }
-  void operator()(I const&, O const&, I const&){ this->current_meta_node->antecedent_query_key = this->add_query2();}
-  void operator()(I const&, O const&, O const&){ this->current_meta_node->antecedent_query_key = this->add_query1();}
-  void operator()(I const&, I const&, O const&){ this->current_meta_node->antecedent_query_key = this->add_query2();}
-  void operator()(O const&, I const&, O const&){ this->current_meta_node->antecedent_query_key = this->add_query1();}
+  void operator()(I const&, O const&, I const&){ this->node_vertex->antecedent_query_key = this->add_query2();std::cout<<"Q2 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">"<<std::endl;}
+  void operator()(I const&, O const&, O const&){ this->node_vertex->antecedent_query_key = this->add_query1();std::cout<<"Q1 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">"<<std::endl;}
+  void operator()(I const&, I const&, O const&){ this->node_vertex->antecedent_query_key = this->add_query2();std::cout<<"Q2 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">"<<std::endl;}
+  void operator()(O const&, I const&, O const&){ this->node_vertex->antecedent_query_key = this->add_query1();std::cout<<"Q1 parent beta row vertex "<<this->beta_relation->node_vertex_->vertex<<" | Child NodeVertex "<<this->node_vertex->vertex<<", antecedent_query_key "<<this->node_vertex->antecedent_query_key<<">"<<std::endl;}
 
   inline int
   add_query1() {beta_relation->beta_row_idx1_.push_back({}); return (int)(beta_relation->beta_row_idx1_.size()-1);}
@@ -168,7 +168,7 @@ struct AQVInitializeIndexesVisitor: public boost::static_visitor<>
   inline int
   add_query3() {beta_relation->beta_row_idx3_.push_back({}); return (int)(beta_relation->beta_row_idx3_.size()-1);}
   BetaRelation * beta_relation;
-  b_index current_meta_node;
+  b_index node_vertex;
 };
 
 

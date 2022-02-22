@@ -311,7 +311,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     std::string normalizedLabel ((char const*)sqlite3_column_text( this->node_vertexes_stmt_, 8 ));   //  STRING,
 
     //*
-    std::cout << "Creating filter with key: "<< filter_expr_key << std::endl;
+    if(filter_expr_key >= 0) std::cout << "Creating filter with key: "<< filter_expr_key << std::endl;
 
     // Create Filter
     ExprBasePtr filter{};
@@ -758,9 +758,9 @@ ReteMetaStoreFactory::create_beta_row_initializer(int vertex, int file_key, Beta
     }
     // Get the data out of the row
     int seq                   = get_column_int_value( this->br_stmt_, 2  );   //  INTEGER NOT NULL,
-    int row_pos               = get_column_int_value( this->br_stmt_, 3  );   //  INTEGER NOT NULL,
-    int is_binded             = get_column_int_value( this->br_stmt_, 4  );   //  INTEGER,
-    std::string id ((char const*)sqlite3_column_text( this->br_stmt_, 5 ));   //  STRING NOT NULL,
+    int row_pos               = get_column_int_value( this->br_stmt_, 4  );   //  INTEGER NOT NULL,
+    int is_binded             = get_column_int_value( this->br_stmt_, 5  );   //  INTEGER,
+    std::string id ((char const*)sqlite3_column_text( this->br_stmt_, 6 ));   //  STRING NOT NULL,
 
     // Add the initializer row
     if(is_binded) {

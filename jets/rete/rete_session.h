@@ -81,6 +81,12 @@ class ReteSession {
     if(vertex<0 or vertex>= static_cast<int>(beta_relations_.size())) return nullptr;
     return beta_relations_[vertex].get();
   }
+
+  inline BetaRelationVector const&
+  beta_relations()const
+  {
+    return beta_relations_;
+  }
   
   int 
   execute_rules();
@@ -227,11 +233,11 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Flag row as new and pending to infer triples
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
-      std::cout<<"BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Inserted - scheduled consequent"<<std::endl;
+      std::cout<<"    BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Inserted - scheduled consequent"<<std::endl;
     } else {
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
-      std::cout<<"BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Processed - no consequents"<<std::endl;
+      std::cout<<"    BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Processed - no consequents"<<std::endl;
     }
 
     // Add row to pending queue to notify child nodes
@@ -239,9 +245,9 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 
     // Add row indexes
     if(this->node_vertex_->is_head_vertice()) return 0;
-    for(auto const& meta_nd: node_vertex_->child_nodes) {
-      auto alpha_node = rete_session->rule_ms()->get_alpha_node(meta_nd->vertex);
-      alpha_node->index_beta_row(this, beta_row.get());
+    for(auto const& child_node_vertex: node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
+      alpha_node->index_beta_row(this, child_node_vertex, beta_row.get());
     }
 
   }
@@ -259,10 +265,10 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   }
   // make sure we point to the right instance
   beta_row = *itor;
-  std::cout<<"BetaRelation::remove_beta_row: called with row "<<beta_row<<", status "<<beta_row->get_status()<<", vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+  std::cout<<"    BetaRelation::remove_beta_row: called with row "<<beta_row<<", status "<<beta_row->get_status()<<", vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
   if(beta_row->is_deleted()) {
     // Marked deleted already
-    std::cout<<"Marked as deleted already"<<std::endl;
+    std::cout<<"    Marked as deleted already"<<std::endl;
     return 0;
   }
 
@@ -277,9 +283,9 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Put the row in the pending queue to notify children
       this->pending_beta_rows_.push_back(beta_row);
       // remove the indexes associated with the beta row
-      for(auto const& meta_nd: node_vertex_->child_nodes) {
-        auto alpha_node = rete_session->rule_ms()->get_alpha_node(meta_nd->vertex);
-        alpha_node->remove_index_beta_row(this, beta_row.get());
+      for(auto const& child_node_vertex: node_vertex_->child_nodes) {
+        auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
+        alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());
       }
 
       this->all_beta_rows_.erase(beta_row);
@@ -292,9 +298,9 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     // Put the row in the pending queue to notify children
     this->pending_beta_rows_.push_back(beta_row);
     // remove the indexes associated with the beta row
-    for(auto const& meta_nd: node_vertex_->child_nodes) {
-      auto alpha_node = rete_session->rule_ms()->get_alpha_node(meta_nd->vertex);
-      alpha_node->remove_index_beta_row(this, beta_row.get());
+    for(auto const& child_node_vertex: node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
+      alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());
     }
     rete_session->schedule_consequent_terms(beta_row);
 
@@ -303,9 +309,9 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     beta_row->set_status(BetaRowStatus::kProcessed);
     this->pending_beta_rows_.push_back(beta_row);
     // remove the indexes associated with the beta row
-    for(auto const& meta_nd: node_vertex_->child_nodes) {
-      auto alpha_node = rete_session->rule_ms()->get_alpha_node(meta_nd->vertex);
-      alpha_node->remove_index_beta_row(this, beta_row.get());
+    for(auto const& child_node_vertex: node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
+      alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());
     }
     this->all_beta_rows_.erase(beta_row);
   }
@@ -327,9 +333,9 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     beta_row_idx1_.clear();
     beta_row_idx2_.clear();
     beta_row_idx3_.clear();
-    for(auto const& meta_nd: this->node_vertex_->child_nodes) {
-      auto alpha_node = rete_session->rule_ms()->get_alpha_node(meta_nd->vertex);
-      alpha_node->initialize_indexes(this);
+    for(auto const& child_node_vertex: this->node_vertex_->child_nodes) {
+      auto child_alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
+      child_alpha_node->initialize_indexes(this, child_node_vertex);
     }
     return 0;
   }

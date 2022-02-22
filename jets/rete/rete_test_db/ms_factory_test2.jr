@@ -47,8 +47,8 @@ resource last_name_rx = "last_name_rx";
   (?ctx last_name_rx ?lname_rx).
   (?clm01 hc:raw_name ?name)
   ->
-  (?clm01 hc:first_name first_name_rx r? ?name).
-  (?clm01 hc:last_name last_name_rx r? ?name)
+  (?clm01 hc:first_name ?fname_rx r? ?name).
+  (?clm01 hc:last_name ?lname_rx r? ?name)
 ;
 
 [Rule4]:

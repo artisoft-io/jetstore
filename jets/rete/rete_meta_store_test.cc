@@ -46,7 +46,7 @@ class AlphaNodeStub: public AlphaNode {
     return {};
   }
   void
-  index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const override
   {}
 
   /**
@@ -56,7 +56,7 @@ class AlphaNodeStub: public AlphaNode {
    * @param beta_row  BetaRow to index
    */
   void
-  remove_index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  remove_index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const override
   {}
 
   /**
@@ -65,7 +65,7 @@ class AlphaNodeStub: public AlphaNode {
    * @param beta_relation BetaRelation with the indexes
    */
   void
-  initialize_indexes(BetaRelation * beta_relation)const override
+  initialize_indexes(BetaRelation * parent_beta_relation, b_index child_node_vertex)const override
   {}
 
   std::ostream & 

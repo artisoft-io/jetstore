@@ -193,7 +193,18 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
   auto meta_store = factory.get_rete_meta_store("ms_factory_test2.jr");  
   EXPECT_TRUE(meta_store);
 
-  // Print nodes
+  // Create the rdf_session and the rete_session and initialize them
+  // Initialize the rete_session now that the rule base is ready
+  auto rdf_session = rdf::create_rdf_session(factory.get_meta_graph());
+  auto rete_session = create_rete_session(meta_store.get(), rdf_session.get());
+  rete_session->initialize();  
+  auto mgr = rdf_session->get_rmgr();
+
+  // Print nodes configuration
+  std::cout<<"Beta Nodes: "<<rete_session->beta_relations().size()<<std::endl;
+  for(auto item: rete_session->beta_relations()){
+    std::cout<<"    "<<item<<std::endl;
+  }
   std::cout<<"Node Vertexes: "<<meta_store->nbr_vertices()<<std::endl;
   for(auto item: meta_store->node_vertexes()){
     std::cout<<"    "<<item<<std::endl;
@@ -204,12 +215,7 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
   }
   std::cout<<"========="<<std::endl;
 
-  // Create the rdf_session and the rete_session and initialize them
-  // Initialize the rete_session now that the rule base is ready
-  auto rdf_session = rdf::create_rdf_session(factory.get_meta_graph());
-  auto rete_session = create_rete_session(meta_store.get(), rdf_session.get());
-  rete_session->initialize();
-  auto mgr = rdf_session->get_rmgr();
+
   // Context Obj
   rdf::r_index iJetCtx = mgr->create_resource("iJetCtx");
   rdf::r_index jet_Context = mgr->create_resource("jet:Context");
@@ -230,16 +236,26 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
   rdf_session->insert(iclaim, hc_code1, mgr->create_literal(2));
   rdf_session->insert(iclaim, hc_code2, mgr->create_literal(3));
   rdf_session->insert(iclaim, hc_raw_name, mgr->create_literal("John Smith"));
-  rete_session->execute_rules();
 
-  std::cout << "DONE EXECUTE RULES" << std::endl;
-
-  auto any = rdf::make_any();
-  auto itor = rdf_session->find(any, rdf_type, hc_Claim);
-  while(not itor.is_end()) {
-    std::cout << itor.as_triple() << std::endl;
+  {  
+    std::cout << "ASSERTED FACTS" << std::endl;
+    auto itor = rdf_session->find();
+    while(not itor.is_end()) {
+      std::cout << itor.as_triple() << std::endl;
+      itor.next();
+    }
   }
-
+  rete_session->execute_rules();
+  std::cout << "DONE EXECUTE RULES" << std::endl;
+  
+  {
+    std::cout << "INFERRED FACTS" << std::endl;
+    auto itor = rdf_session->get_inferred_graph()->find();
+    while(not itor.is_end()) {
+      std::cout << itor.as_triple() << std::endl;
+      itor.next();
+    }
+  }
   EXPECT_TRUE(rdf_session->contains(iclaim, rdf_type, hc_BaseClaim));
 }
 

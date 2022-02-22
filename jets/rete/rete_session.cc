@@ -103,7 +103,7 @@ namespace jets::rete {
   int 
   ReteSession::visit_rete_graph(int from_vertex, bool is_inferring)
   {
-    std::cout<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring "<<is_inferring<<std::endl;
+    std::cout<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring? "<<is_inferring<<std::endl;
     std::vector<int> stack;
     stack.reserve(rule_ms_->nbr_vertices());
     
@@ -113,11 +113,9 @@ namespace jets::rete {
       int parent_vertex = stack.back();
       stack.pop_back();
 
-      std::cout<<"visit_rete_graph stack pop `parent_vertex` "<<parent_vertex<<std::endl;
-
       b_index parent_node = this->rule_ms_->get_node_vertex(parent_vertex);
       for(auto const* cmeta_node: parent_node->child_nodes) {
-        std::cout<<"  For child node: "<<cmeta_node->vertex<<std::endl;
+        std::cout<<"  @ parent node "<<parent_vertex<<" | child node "<<cmeta_node->vertex<<">"<<std::endl;
 
         // Compute beta relation between `parent_vertex` and `vertex`
         int current_vertex = cmeta_node->vertex;
@@ -262,6 +260,7 @@ namespace jets::rete {
           // Mark row as Processed
           beta_row->set_status(BetaRowStatus::kProcessed);
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
+            std::cout<<"**HERE* consequent vertex "<<consequent_vertex<<std::endl;
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             //*
             std::cout<<"    Inferring triple: "<<consequent_node->compute_consequent_triple(this, beta_row.get())<<std::endl;
@@ -292,7 +291,7 @@ namespace jets::rete {
   int
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
-    std::cout<<"ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted<<std::endl;
+    std::cout<<"        ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted<<std::endl;
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
@@ -322,10 +321,13 @@ namespace jets::rete {
     while(!parent_row_itor->is_end()) {
 
       // create the beta row to add/retract
-      auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+      auto beta_row = create_beta_row(cmeta_node, beta_row_initializer->get_size());
 
       // initialize the beta row with parent_row and t3
       auto const* parent_row = parent_row_itor->get_row();
+
+      std::cout<<"            Parent Row "<<parent_row<<"  +  "<<t3<<"  =>  Row ..."<</*beta_row<<*/std::endl;
+
       beta_row->initialize(beta_row_initializer, parent_row, &t3);
 
       // evaluate the current_relation filter if any
@@ -339,18 +341,18 @@ namespace jets::rete {
         // Add/Remove row to current beta relation (current_relation)
         if(is_inserted) {
           if(not cmeta_node->is_negation) {
-            std::cout<<"1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
           } else {
-            std::cout<<"2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
           }
         } else {
           if(not cmeta_node->is_negation) {
-            std::cout<<"3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
           } else {
-            std::cout<<"4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
           }
         }
@@ -360,10 +362,12 @@ namespace jets::rete {
     }
     // Propagate down the rete network
     if(current_relation->has_pending_rows()) {
-      auto err = this->visit_rete_graph(vertex, false);
+      auto err = this->visit_rete_graph(vertex, is_inserted);
       if(err) return err;
     }
 
+    //*
+    std::cout<<"Leaving ReteSession::triple_updated"<<std::endl;
     return 0;
   }
 

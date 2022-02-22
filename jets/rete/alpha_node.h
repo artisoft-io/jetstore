@@ -183,7 +183,7 @@ class AlphaNode {
    * @param beta_row  BetaRow to index
    */
   virtual void
-  index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const=0;
+  index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const=0;
 
   /**
    * @brief Remove index beta_row in beta_relation indexes according to the functors template arguments
@@ -192,7 +192,7 @@ class AlphaNode {
    * @param beta_row  BetaRow to index
    */
   virtual void
-  remove_index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const=0;
+  remove_index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const=0;
 
   /**
    * @brief Initialize BetaRelation indexes for this child AlphaNode
@@ -200,7 +200,7 @@ class AlphaNode {
    * @param beta_relation BetaRelation with the indexes
    */
   virtual void
-  initialize_indexes(BetaRelation * beta_relation)const=0;
+  initialize_indexes(BetaRelation * parent_beta_relation, b_index child_node_vertex)const=0;
 
   /**
    * @brief Called to query rows from parent beta node matching `triple`, case merging with new triples from inferred graph
@@ -214,7 +214,7 @@ class AlphaNode {
    * @return BetaRowIteratorPtr 
    */
   virtual BetaRowIteratorPtr
-  find_matching_rows(BetaRelation * beta_relation,  rdf::r_index s, rdf::r_index p, rdf::r_index o)const=0;
+  find_matching_rows(BetaRelation * parent_beta_relation,  rdf::r_index s, rdf::r_index p, rdf::r_index o)const=0;
 
   /**
    * @brief Return consequent `triple` for BetaRow

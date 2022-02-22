@@ -106,10 +106,10 @@ class AlphaNodeImpl: public AlphaNode {
    * @param beta_row  BetaRow to index
    */
   void
-  index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const override
   {
-    AQVIndexBetaRowsVisitor visitor(beta_relation, beta_relation->get_node_vertex(), beta_row);
-    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
+    AQVIndexBetaRowsVisitor visitor(parent_beta_relation, child_node_vertex, beta_row);
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fw_.to_AQV());
   }
 
   /**
@@ -119,22 +119,22 @@ class AlphaNodeImpl: public AlphaNode {
    * @param beta_row  BetaRow to index
    */
   void
-  remove_index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const override
+  remove_index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const override
   {
-    AQVRemoveIndexBetaRowsVisitor visitor(beta_relation, beta_relation->get_node_vertex(), beta_row);
-    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
+    AQVRemoveIndexBetaRowsVisitor visitor(parent_beta_relation, child_node_vertex, beta_row);
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fw_.to_AQV());
   }
 
   /**
    * @brief Initialize BetaRelation indexes for this child AlphaNode
    * 
-   * @param beta_relation BetaRelation with the indexes
+   * @param beta_relation BetaRelation of the parent node of vertex of this AlphaNode
    */
   void
-  initialize_indexes(BetaRelation * beta_relation)const override
+  initialize_indexes(BetaRelation * parent_beta_relation, b_index child_node_vertex)const override
   {
-    AQVInitializeIndexesVisitor visitor(beta_relation, beta_relation->get_node_vertex());
-    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
+    AQVInitializeIndexesVisitor visitor(parent_beta_relation, child_node_vertex);
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fw_.to_AQV());
   }
 
   /**
@@ -157,7 +157,7 @@ class AlphaNodeImpl: public AlphaNode {
       this->get_node_vertex()->vertex);
     }
     AQVMatchingRowsVisitor visitor(parent_beta_relation, this->get_node_vertex(), s, p, o);
-    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fv_.to_AQV());
+    return boost::apply_visitor(visitor, fu_.to_AQV(), fv_.to_AQV(), fw_.to_AQV());
   }
 
   /**
@@ -211,8 +211,8 @@ class AlphaNodeImpl: public AlphaNode {
   std::ostream & 
   describe(std::ostream & out)const override
   {
-    out << "AlphaNode: key "<< this->get_key() << 
-      " "<<(this->is_antecedent()?"antecedent":"consequent") <<
+    out << "AlphaNode: key "<< this->get_key() << ", vertex "<<this->get_node_vertex()->vertex<<
+      " is a"<<(this->is_antecedent()?"n antecedent":" consequent") <<
       " ("<<this->fu_<<", "<<this->fv_<<", "<<this->fw_<<") ";
     return out;
   }
