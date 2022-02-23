@@ -127,7 +127,7 @@ class BetaRelation {
    * @return BetaRowIteratorPtr 
    */
   inline BetaRowIteratorPtr
-  get_idx1_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
+  get_idx1_rows_iterator(int key, rdf::r_index u)const
   {
     std::cout<<"        BetaRelation::get_idx1_rows_iterator with key "<<key<<", index ("<<u<<")"<<std::endl;
     auto result = this->beta_row_idx1_[key].equal_range( u ); 
@@ -135,7 +135,7 @@ class BetaRelation {
   }
 
   inline BetaRowIteratorPtr
-  get_idx2_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
+  get_idx2_rows_iterator(int key, rdf::r_index u, rdf::r_index v)const
   {
     std::cout<<"        BetaRelation::get_idx2_rows_iterator with key "<<key<<", index ("<<u<<", "<<v<<")"<<std::endl;
     auto result = this->beta_row_idx2_[key].equal_range( {u, v} ); 

@@ -230,7 +230,7 @@ class JetRuleReteSQLite:
           key, item['vertex'], item['type'], subject_key, predicate_key, object_key, 
           item.get('obj_expr_key'), item.get('filter_expr_key'), 
           item.get('normalizedLabel'), item.get('parent_vertex'), self.main_rule_file_key,
-          item.get('is_negation'), salience, item.get('consequent_seq', 0)
+          item.get('isNot'), salience, item.get('consequent_seq', 0)
         ]
         self.write_cursor.execute(
           "INSERT INTO rete_nodes (key, vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, "

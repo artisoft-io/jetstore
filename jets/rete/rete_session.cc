@@ -356,6 +356,7 @@ namespace jets::rete {
           }
         }
       }
+      //* ERROR!! Must propagate down for each row individually to so propage as infer or retract appropriately
     
       parent_row_itor->next();
     }

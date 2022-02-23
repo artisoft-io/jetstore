@@ -59,3 +59,20 @@ resource last_name_rx = "last_name_rx";
   ->
   (?clm01 hc:full_name ((?first + " ") + ?last))
 ;
+
+resource node1 = "node1";
+resource node2 = "node2";
+resource node3 = "node3";
+
+[Rule5,s=10]:
+  (?s node1 ?n1)
+  ->
+  (?s node2 ?n1)
+;
+
+[Rule6,s=20]:
+  (?s node1 ?n1).
+  not(?s node2 ?n1)
+  ->
+  (?s node3 ?n1)
+;

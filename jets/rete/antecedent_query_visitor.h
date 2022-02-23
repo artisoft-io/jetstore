@@ -91,13 +91,13 @@ struct AQVMatchingRowsVisitor: public boost::static_visitor<BetaRowIteratorPtr>
   AQVMatchingRowsVisitor(BetaRelation * g, b_index m, rdf::r_index s, rdf::r_index p, rdf::r_index o) 
     : parent_beta_relation(g), node_vertex(m), t3(s, p, o){}
   R operator()(I const&s, I const&p, I const&o){return parent_beta_relation->get_idx3_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(O const&s, I const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(O const&s, O const&p, I const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(O const&s, I const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, p.f(t3.predicate), o.f(t3.object));}
+  R operator()(O const&s, O const&p, I const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, o.f(t3.object));}
   R operator()(O const&s, O const&p, O const&o){return parent_beta_relation->get_all_rows_iterator();}
-  R operator()(I const&s, O const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(I const&s, O const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(I const&s, I const&p, O const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
-  R operator()(O const&s, I const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate), o.f(t3.object));}
+  R operator()(I const&s, O const&p, I const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), o.f(t3.object));}
+  R operator()(I const&s, O const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject));}
+  R operator()(I const&s, I const&p, O const&o){return parent_beta_relation->get_idx2_rows_iterator(node_vertex->antecedent_query_key, s.f(t3.subject), p.f(t3.predicate));}
+  R operator()(O const&s, I const&p, O const&o){return parent_beta_relation->get_idx1_rows_iterator(node_vertex->antecedent_query_key, p.f(t3.predicate));}
   BetaRelation * parent_beta_relation;
   b_index node_vertex;
   rdf::Triple t3;

@@ -236,6 +236,7 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
   rdf_session->insert(iclaim, hc_code1, mgr->create_literal(2));
   rdf_session->insert(iclaim, hc_code2, mgr->create_literal(3));
   rdf_session->insert(iclaim, hc_raw_name, mgr->create_literal("John Smith"));
+  rdf_session->insert(mgr->create_resource("s0"), mgr->create_resource("node1"), mgr->create_resource("n1"));
 
   {  
     std::cout << "ASSERTED FACTS" << std::endl;
@@ -261,6 +262,7 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
   EXPECT_TRUE(rdf_session->contains(iclaim, mgr->create_resource("hc:first_name"), mgr->create_literal("John")));
   EXPECT_TRUE(rdf_session->contains(iclaim, mgr->create_resource("hc:last_name"), mgr->create_literal("Smith")));
   EXPECT_TRUE(rdf_session->contains(iclaim, mgr->create_resource("hc:code5"), mgr->create_literal(5)));
+  EXPECT_TRUE(rdf_session->contains(mgr->create_resource("s0"), mgr->create_resource("node2"), mgr->create_resource("n1")));
 }
 
 //rete_meta_store_test.db
