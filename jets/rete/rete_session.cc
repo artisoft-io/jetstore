@@ -260,7 +260,6 @@ namespace jets::rete {
           // Mark row as Processed
           beta_row->set_status(BetaRowStatus::kProcessed);
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
-            std::cout<<"**HERE* consequent vertex "<<consequent_vertex<<std::endl;
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             //*
             std::cout<<"    Inferring triple: "<<consequent_node->compute_consequent_triple(this, beta_row.get())<<std::endl;
@@ -365,9 +364,6 @@ namespace jets::rete {
       auto err = this->visit_rete_graph(vertex, is_inserted);
       if(err) return err;
     }
-
-    //*
-    std::cout<<"Leaving ReteSession::triple_updated"<<std::endl;
     return 0;
   }
 

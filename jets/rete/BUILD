@@ -100,14 +100,53 @@ cc_library(
 # )
 
 cc_test(
-    name = "jets_rete_test",
+    name = "beta_row_test",
     size = "small",
     srcs = [
         "beta_row_initializer_test.cc", 
         "beta_row_test.cc", 
+    ],
+    deps = [
+        "//jets/rdf:jets_rdf",
+        ":jets_rete",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "expr_test",
+    size = "small",
+    srcs = [
         "expr_test.cc", 
+    ],
+    deps = [
+        "//jets/rdf:jets_rdf",
+        ":jets_rete",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "rete_meta_store_base_test",
+    size = "small",
+    srcs = [
         "node_vertex_test.cc", 
         "rete_meta_store_test.cc", 
+    ],
+    deps = [
+        "//jets/rdf:jets_rdf",
+        ":jets_rete",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "rete_session_test",
+    size = "small",
+    srcs = [
         "rete_session_test.cc", 
     ],
     deps = [

@@ -4,6 +4,9 @@
 #include <string>
 #include <string_view>
 
+#include <glog/logging.h>
+
+#include "jets/rete/rete_err.h"
 #include "jets/rete/expr_operators.h"
 #include "jets/rete/expr.h"
 
@@ -12,22 +15,28 @@
 namespace jets::rete {
 
 inline ExprBasePtr
-create_binary_expr(ExprBasePtr lhs, std::string_view op, ExprBasePtr rhs)
+create_binary_expr(int key, ExprBasePtr lhs, std::string const& op, ExprBasePtr rhs)
 {
-  if(op == "+") return create_expr_binary_operator<AddVisitor>(lhs, rhs);
-  if(op == "==") return create_expr_binary_operator<EqVisitor>(lhs, rhs);
-  if(op == "<=") return create_expr_binary_operator<LeVisitor>(lhs, rhs);
-  if(op == "r?") return create_expr_binary_operator<RegexVisitor>(lhs, rhs);
-  return {};
+  if(op == "+") return create_expr_binary_operator<AddVisitor>(key, lhs, rhs);
+  if(op == "==") return create_expr_binary_operator<EqVisitor>(key, lhs, rhs);
+  if(op == "<=") return create_expr_binary_operator<LeVisitor>(key, lhs, rhs);
+  if(op == "r?") return create_expr_binary_operator<RegexVisitor>(key, lhs, rhs);
+  LOG(ERROR) << "create_binary_expr: ERROR unknown binary operator: "<<
+    op<<", called with key "<<key;
+  RETE_EXCEPTION("create_binary_expr: ERROR unknown binary operator: "<<
+    op<<", called with key "<<key);
 }
 
 inline ExprBasePtr
-create_unary_expr(std::string_view op, ExprBasePtr arg)
+create_unary_expr(int key, std::string const& op, ExprBasePtr arg)
 {
-  if(op == "toUpper") return create_expr_unary_operator<ToUpperVisitor>(arg);
-  if(op == "toLower") return create_expr_unary_operator<ToLowerVisitor>(arg);
-  if(op == "trim") return create_expr_unary_operator<TrimVisitor>(arg);
-  return {};
+  if(op == "toUpper") return create_expr_unary_operator<ToUpperVisitor>(key, arg);
+  if(op == "toLower") return create_expr_unary_operator<ToLowerVisitor>(key, arg);
+  if(op == "trim") return create_expr_unary_operator<TrimVisitor>(key, arg);
+  LOG(ERROR) << "create_unary_expr: ERROR unknown unary operator: "<<
+    op<<", called with key "<<key;
+  RETE_EXCEPTION("create_unary_expr: ERROR unknown unary operator: "<<
+    op<<", called with key "<<key);
 }
 
 

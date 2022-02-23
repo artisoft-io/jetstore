@@ -233,11 +233,17 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Flag row as new and pending to infer triples
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
-      std::cout<<"    BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Inserted - scheduled consequent"<<std::endl;
+      std::cout<<"    BetaRelation::insert_beta_row at vertex "<<
+        this->get_node_vertex()->vertex<<", row "<<beta_row<<
+        " added, status set to Inserted - scheduled consequent - "<<
+        (this->get_node_vertex()->child_nodes.empty()?"no children":"has children")<<std::endl;
     } else {
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
-      std::cout<<"    BetaRelation::insert_beta_row: row "<<beta_row<<" added, status set to Processed - no consequents"<<std::endl;
+      std::cout<<"    BetaRelation::insert_beta_row at vertex "<<
+        this->get_node_vertex()->vertex<<", row "<<beta_row<<
+        " added, status set to Processed - no consequents - "<<
+        (this->get_node_vertex()->child_nodes.empty()?"no children":"has children")<<std::endl;
     }
 
     // Add row to pending queue to notify child nodes
@@ -265,7 +271,10 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   }
   // make sure we point to the right instance
   beta_row = *itor;
-  std::cout<<"    BetaRelation::remove_beta_row: called with row "<<beta_row<<", status "<<beta_row->get_status()<<", vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+  std::cout<<"    BetaRelation::remove_beta_row at vertex "<<
+    this->get_node_vertex()->vertex<<", row "<<beta_row<<
+    ", status "<<beta_row->get_status()<<" - "<<
+    (this->get_node_vertex()->child_nodes.empty()?"no children":"has children")<<std::endl;
   if(beta_row->is_deleted()) {
     // Marked deleted already
     std::cout<<"    Marked as deleted already"<<std::endl;
@@ -278,7 +287,7 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     if(beta_row->is_inserted()) {
       // Row was marked kInserted, not inferred yet
       // Cancel row insertion **
-    std::cout<<"Row marked kInserted, not inferred yet ** Cancel row insertion **"<<std::endl;
+      std::cout<<"Row marked kInserted, not inferred yet ** Cancel row insertion **"<<std::endl;
       beta_row->set_status(BetaRowStatus::kProcessed);
       // Put the row in the pending queue to notify children
       this->pending_beta_rows_.push_back(beta_row);

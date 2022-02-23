@@ -111,8 +111,11 @@ class AlphaNode {
  public:
   using Iterator = rdf::RDFSession::Iterator;
 
-  AlphaNode(b_index node_vertex, int key, bool is_antecedent) 
-    : node_vertex_(node_vertex), key_(key), is_antecedent_(is_antecedent)
+  AlphaNode(b_index node_vertex, int key, bool is_antecedent, std::string_view normalized_label) 
+    : node_vertex_(node_vertex), 
+      key_(key), 
+      is_antecedent_(is_antecedent),
+      normalized_label_(normalized_label)
   {}
 
   virtual ~AlphaNode() 
@@ -134,6 +137,12 @@ class AlphaNode {
   is_antecedent()const
   {
     return is_antecedent_;
+  }
+
+  inline std::string const&
+  get_normalized_label()const
+  {
+    return normalized_label_;
   }
 
   /**
@@ -230,9 +239,10 @@ class AlphaNode {
   virtual std::ostream & describe(std::ostream & out)const=0;
 
  private:
-  b_index    node_vertex_;
-  int        key_;
-  bool       is_antecedent_;
+  b_index     node_vertex_;
+  int         key_;
+  bool        is_antecedent_;
+  std::string normalized_label_;
 };
 
 inline std::ostream & operator<<(std::ostream & out, AlphaNode const* node)

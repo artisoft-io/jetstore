@@ -60,7 +60,7 @@ namespace jets::rete {
   class FcstFunc: public FuncFactory
   {
     public:
-    FcstFunc(rdf::r_index r): r(r) {}
+    FcstFunc(rdf::r_index r): FuncFactory(), r(r) {}
 
     virtual
     ~FcstFunc() {}
@@ -80,7 +80,7 @@ namespace jets::rete {
   class FbindedFunc: public FuncFactory
   {
     public:
-    FbindedFunc(int pos): pos(pos) {}
+    FbindedFunc(int pos): FuncFactory(), pos(pos) {}
 
     virtual
     ~FbindedFunc() {}
@@ -100,7 +100,7 @@ namespace jets::rete {
   class FvarFunc: public FuncFactory
   {
     public:
-    FvarFunc(std::string id): id(id) {}
+    FvarFunc(std::string id): FuncFactory(), id(id) {}
 
     virtual
     ~FvarFunc() {}
@@ -120,7 +120,7 @@ namespace jets::rete {
   class FexprFunc: public FuncFactory
   {
     public:
-    FexprFunc(ExprBasePtr expr): expr(expr) {}
+    FexprFunc(ExprBasePtr expr): FuncFactory(), expr(expr) {}
 
     virtual
     ~FexprFunc() {}

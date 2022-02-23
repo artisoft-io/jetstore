@@ -54,6 +54,7 @@ struct NodeVertex {
       is_negation(false),
       salience(0),
       filter_expr(),
+      normalized_label(),
       beta_row_initializer(),
       antecedent_query_key(0)
   {}
@@ -65,6 +66,7 @@ struct NodeVertex {
     bool is_negation, 
     int salience, 
     ExprBasePtr filter_expr,
+    std::string_view normalized_label,
     BetaRowInitializerPtr beta_row_initializer) 
     : key(key),
       parent_node_vertex(parent_node_vertex),
@@ -74,6 +76,7 @@ struct NodeVertex {
       is_negation(is_negation),
       salience(salience),
       filter_expr(filter_expr),
+      normalized_label(normalized_label),
       beta_row_initializer(beta_row_initializer),
       antecedent_query_key(0)
   {}
@@ -88,6 +91,12 @@ struct NodeVertex {
   has_expr()const
   {
     return filter_expr.use_count() > 0;
+  }
+
+  inline std::string const&
+  get_normalized_label()const
+  {
+    return normalized_label;
   }
 
   inline BetaRowInitializer const*
@@ -111,6 +120,7 @@ struct NodeVertex {
   bool                     is_negation;
   int                      salience;
   ExprBasePtr              filter_expr;
+  std::string              normalized_label;
   BetaRowInitializerPtr    beta_row_initializer;
   mutable int              antecedent_query_key;
 };
@@ -122,7 +132,24 @@ inline std::ostream & operator<<(std::ostream & out, b_index node)
     int parent_vertex = node->parent_node_vertex?node->parent_node_vertex->vertex:0;
     out << "NodeVertex: key "<< node->key <<
       ", vertex "<<node->vertex <<", parent vertex "<<parent_vertex <<
-      ", negation? "<<node->is_negation <<", salience "<<node->salience<<", antecedent_query_key"<<node->antecedent_query_key;
+      ", "<<node->normalized_label <<
+      ", negation? "<<node->is_negation <<", salience "<<node->salience<<
+      ", antecedent_query_key "<<node->antecedent_query_key<<
+      ", children {";
+    bool is_first = true;
+    for(auto child: node->child_nodes) {
+      if(not is_first) out << ", ";
+      is_first = false;
+      out << child->vertex;
+    }
+    out << "}, consequents {";
+    is_first = true;
+    for(auto consequent_vertex: node->consequent_alpha_vertexes) {
+      if(not is_first) out << ", ";
+      is_first = false;
+      out << consequent_vertex;
+    }
+    out << "}";
   }
   return out;
 }
@@ -139,10 +166,10 @@ inline std::ostream & operator<<(std::ostream & out, NodeVertexPtr node)
 inline 
 NodeVertexPtr create_node_vertex(
   b_index parent_node_vertex, int key, int vertex, bool is_negation, int salience, ExprBasePtr filter,
-  BetaRowInitializerPtr beta_row_initializer)
+  std::string_view normalized_label, BetaRowInitializerPtr beta_row_initializer)
 {
   return std::make_shared<NodeVertex>(parent_node_vertex, key, vertex, 
-    is_negation, salience, filter, beta_row_initializer);
+    is_negation, salience, filter, normalized_label, beta_row_initializer);
 }
 
 } // namespace jets::rete

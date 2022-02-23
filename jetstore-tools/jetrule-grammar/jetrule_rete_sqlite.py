@@ -53,8 +53,10 @@ class JetRuleReteSQLite:
         path = os.path.join(Path(flags.FLAGS.base_path), rete_db_path)
         path = os.path.abspath(path)
         print('*** RETE_DB PATH',path)
+        if not os.path.exists(path):
+          print('** DB Path does not exist, creating new rete_db at ',path)
         if flags.FLAGS.clear_rete_db and os.path.exists(path):
-          print('*** DELETING',path)
+          print('*** Clearing DB, creating new rete_db at ',path)
           os.remove(path)
         self.workspace_connection = apsw.Connection(path)
     except (Exception) as error:
@@ -195,20 +197,20 @@ class JetRuleReteSQLite:
       for item in self.ctx.jetReteNodes['rete_nodes']:
         # Get the db_key for all resources
         subject_key = item.get('subject_key')
-        if subject_key:
+        if subject_key is not None:
           subject_key = resources[subject_key]['db_key']
 
         predicate_key = item.get('predicate_key')
-        if predicate_key:
+        if predicate_key is not None:
           predicate_key = resources[predicate_key]['db_key']
 
         object_key = item.get('object_key')
-        if object_key:
+        if object_key is not None:
           object_key = resources[object_key]['db_key']
         
         # Get the salience
         salience = item.get('salience')
-        if salience:
+        if salience is not None:
           s = set(salience)
           if len(s) > 1:
             print('ERROR: Multiple rules have same antecedents but different salience:',item.get('rules'))

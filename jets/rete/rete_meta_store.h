@@ -116,23 +116,11 @@ class ReteMetaStore {
   int
   initialize()
   {
-
-    // std::cout<<"Node Vertexes:"<<std::endl;
-    // for(auto const&item: this->node_vertexes()){
-    //   std::cout<<"    "<<item.get()<<std::endl;
-    // }
-    // std::cout<<"Alpha Nodes:"<<std::endl;
-    // for(auto const&item: this->alpha_nodes()){
-    //   std::cout<<"    "<<item.get()<<std::endl;
-    // }
-    // std::cout<<"========="<<std::endl;
-
-
     // Perform reverse lookup of children NodeVertex using
     // NodeVertex parent_node property
     for(auto const& nodeptr: this->node_vertexes_) {
       b_index node = nodeptr.get();
-      // remember the root node does not have a parent node!!
+      // remember the root node does not have a parent node!
       if(not node->parent_node_vertex) continue;
       auto & parent_node = this->node_vertexes_[node->parent_node_vertex->vertex];
       parent_node->child_nodes.insert(node);

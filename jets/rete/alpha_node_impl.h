@@ -28,15 +28,20 @@ class AlphaNodeImpl: public AlphaNode {
 
   AlphaNodeImpl() = delete;
 
-  AlphaNodeImpl(b_index node_vertex, int key, bool is_antecedent,
-    Fu const&fu, Fv const&fv, Fw const&fw) 
-    : AlphaNode(node_vertex, key, is_antecedent),fu_(fu),fv_(fv),fw_(fw)
+  AlphaNodeImpl(b_index node_vertex, int key, bool is_antecedent, 
+    std::string_view normalized_label, Fu const&fu, Fv const&fv, Fw const&fw) 
+    : AlphaNode(node_vertex, key, is_antecedent, normalized_label),
+      fu_(fu),
+      fv_(fv),
+      fw_(fw)
   {}
 
   AlphaNodeImpl(b_index node_vertex, int key, bool is_antecedent,
-    Fu &&fu, Fv &&fv, Fw &&fw) 
-    : AlphaNode(node_vertex, key, is_antecedent),
-      fu_(std::forward<Fu>(fu)),fv_(std::forward<Fv>(fv)),fw_(std::forward<Fw>(fw))
+    std::string_view normalized_label, Fu &&fu, Fv &&fv, Fw &&fw) 
+    : AlphaNode(node_vertex, key, is_antecedent, normalized_label),
+      fu_(std::forward<Fu>(fu)),
+      fv_(std::forward<Fv>(fv)),
+      fw_(std::forward<Fw>(fw))
   {}
 
   virtual ~AlphaNodeImpl() 
@@ -212,6 +217,7 @@ class AlphaNodeImpl: public AlphaNode {
   describe(std::ostream & out)const override
   {
     out << "AlphaNode: key "<< this->get_key() << ", vertex "<<this->get_node_vertex()->vertex<<
+      ", "<<this->get_normalized_label() <<
       " is a"<<(this->is_antecedent()?"n antecedent":" consequent") <<
       " ("<<this->fu_<<", "<<this->fv_<<", "<<this->fw_<<") ";
     return out;
@@ -224,17 +230,19 @@ class AlphaNodeImpl: public AlphaNode {
 };
 
 template<class Fu, class Fv, class Fw>
-AlphaNodePtr create_alpha_node(b_index node_vertex, int key, bool is_antecedent,
-    Fu const& fu, Fv const& fv, Fw const& fw)
+AlphaNodePtr create_alpha_node(b_index node_vertex, int key, bool is_antecedent, 
+    std::string_view normalized_label, Fu const& fu, Fv const& fv, Fw const& fw)
 {
-  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, key, is_antecedent, fu, fv, fw);
+  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, key, 
+    is_antecedent, normalized_label, fu, fv, fw);
 }
 
 template<class Fu, class Fv, class Fw>
 AlphaNodePtr create_alpha_node(b_index node_vertex, int key, bool is_antecedent,
-    Fu && fu, Fv && fv, Fw && fw)
+    std::string_view normalized_label, Fu && fu, Fv && fv, Fw && fw)
 {
-  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, key, is_antecedent, 
+  return std::make_shared<AlphaNodeImpl<Fu,Fv,Fw>>(node_vertex, key, 
+    is_antecedent, normalized_label,
     std::forward<Fu>(fu), std::forward<Fv>(fv), std::forward<Fw>(fw));
 }
 } // namespace jets::rete

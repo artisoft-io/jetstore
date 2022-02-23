@@ -36,7 +36,8 @@ class ExprBase {
  public:
   using ExprDataType = rdf::RdfAstType;
 
-  ExprBase() {}
+  ExprBase(): key(-1) {}
+  explicit ExprBase(int key): key(key) {}
   virtual ~ExprBase() {}
 
   virtual ExprDataType
@@ -48,7 +49,19 @@ class ExprBase {
     auto result = eval(rete_session, beta_row);
     return rdf::to_bool(&result);
   }
+  virtual std::ostream & describe(std::ostream & out)const=0;
+
+  int key;
 };
+
+inline std::ostream & operator<<(std::ostream & out, ExprBasePtr node)
+{
+  if(not node) out << "NULL";
+  else {
+    node->describe(out);
+  }
+  return out;
+}
 
 // Implementation Classes
 // ======================================================================================
@@ -66,6 +79,13 @@ class ExprConjunction: public ExprBase {
 
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
+
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "conjunction("<< this->key << ")";
+    return out;
+  }
 
  private:
   
@@ -97,6 +117,13 @@ class ExprDisjunction: public ExprBase {
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "disjunction("<< this->key << ")";
+    return out;
+  }
+
  private:
   data_type data_;
 };
@@ -125,6 +152,13 @@ class ExprCst: public ExprBase {
   // defined in expr_impl.h
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
+
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "cst("<< this->data_ << ")";
+    return out;
+  }
 
  private:
   data_type data_;
@@ -158,6 +192,13 @@ class ExprBindedVar: public ExprBase {
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "binded("<< this->data_ << ")";
+    return out;
+  }
+
  private:
   data_type data_;
 };
@@ -179,13 +220,20 @@ class ExprBinaryOp: public ExprBase {
  public:
  using ExprBase::ExprDataType;
 
-  ExprBinaryOp(ExprBasePtr lhs, ExprBasePtr rhs)
-    : ExprBase(), lhs_(lhs), rhs_(rhs) {}
+  ExprBinaryOp(int key, ExprBasePtr lhs, ExprBasePtr rhs)
+    : ExprBase(key), lhs_(lhs), rhs_(rhs) {}
   virtual ~ExprBinaryOp() {}
 
   // defined in expr_impl.h
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
+
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "binary("<< this->key << ")";
+    return out;
+  }
 
  private:
   ExprBasePtr lhs_;
@@ -193,9 +241,9 @@ class ExprBinaryOp: public ExprBase {
 };
 template<class Op>
 ExprBasePtr 
-create_expr_binary_operator(ExprBasePtr lhs, ExprBasePtr rhs)
+create_expr_binary_operator(int key, ExprBasePtr lhs, ExprBasePtr rhs)
 {
-  return std::make_shared<ExprBinaryOp<Op>>(lhs, rhs);
+  return std::make_shared<ExprBinaryOp<Op>>(key, lhs, rhs);
 }
 
 // ExprUnaryOp
@@ -210,21 +258,28 @@ class ExprUnaryOp: public ExprBase {
  public:
  using ExprBase::ExprDataType;
 
-  explicit ExprUnaryOp(ExprBasePtr arg)
-    : ExprBase(), arg_(arg) {}
+  ExprUnaryOp(int key, ExprBasePtr arg)
+    : ExprBase(key), arg_(arg) {}
   virtual ~ExprUnaryOp() {}
 
   // defined in expr_impl.h
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
 
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "unary("<< this->key << ")";
+    return out;
+  }
+
  private:
   ExprBasePtr arg_;
 };
 template<class Op>
-ExprBasePtr create_expr_unary_operator(ExprBasePtr arg)
+ExprBasePtr create_expr_unary_operator(int key, ExprBasePtr arg)
 {
-  return std::make_shared<ExprUnaryOp<Op>>(arg);
+  return std::make_shared<ExprUnaryOp<Op>>(key, arg);
 }
 
 } // namespace jets::rete

@@ -230,8 +230,8 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
   rdf::r_index hc_code2 = mgr->create_resource("hc:code2");
   rdf::r_index hc_raw_name = mgr->create_resource("hc:raw_name");
   rdf_session->insert(iJetCtx, rdf_type, jet_Context);
-  rdf_session->insert(iJetCtx, first_name_rx, mgr->create_literal("/(\\w*)\\s*\\w*/gm"));
-  rdf_session->insert(iJetCtx, last_name_rx, mgr->create_literal("/\\w*\\s*(\\w*)/gm"));
+  rdf_session->insert(iJetCtx, first_name_rx, mgr->create_literal("\\s*(\\w*)\\s*"));
+  rdf_session->insert(iJetCtx, last_name_rx, mgr->create_literal("\\s*\\w*\\s*(\\w*)\\s*"));
   rdf_session->insert(iclaim, rdf_type, hc_Claim);
   rdf_session->insert(iclaim, hc_code1, mgr->create_literal(2));
   rdf_session->insert(iclaim, hc_code2, mgr->create_literal(3));
@@ -257,6 +257,10 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
     }
   }
   EXPECT_TRUE(rdf_session->contains(iclaim, rdf_type, hc_BaseClaim));
+  EXPECT_TRUE(rdf_session->contains(iclaim, mgr->create_resource("hc:full_name"), mgr->create_literal("John Smith")));
+  EXPECT_TRUE(rdf_session->contains(iclaim, mgr->create_resource("hc:first_name"), mgr->create_literal("John")));
+  EXPECT_TRUE(rdf_session->contains(iclaim, mgr->create_resource("hc:last_name"), mgr->create_literal("Smith")));
+  EXPECT_TRUE(rdf_session->contains(iclaim, mgr->create_resource("hc:code5"), mgr->create_literal(5)));
 }
 
 //rete_meta_store_test.db

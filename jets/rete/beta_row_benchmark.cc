@@ -17,7 +17,7 @@ static void BM_SimpleBetaRow(benchmark::State& state) {
   int row_size = 3;
   for (auto _ : state) {
     jets::rete::BetaRowInitializerPtr ri0 = jets::rete::create_row_initializer(row_size);
-    jets::rete::NodeVertexPtr nv0 = jets::rete::create_node_vertex(nullptr, 0, 0, false, 10, {}, ri0);
+    jets::rete::NodeVertexPtr nv0 = jets::rete::create_node_vertex(nullptr, 0, 0, false, 10, {}, "", ri0);
     jets::rete::BetaRowPtr br0    = jets::rete::create_beta_row(nv0.get(), row_size);
     ri0->put(0, 0 | jets::rete::brc_parent_node, "");
     ri0->put(1, 0 | jets::rete::brc_triple, "");
