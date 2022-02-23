@@ -305,9 +305,6 @@ namespace jets::rete {
         <<vertex<<": error parent_beta_relation or beta_relation is null!");
     }
 
-    // Clear the pending rows in current_relation, since they were for the last pass
-    current_relation->clear_pending_rows();
-
     // Get an iterator over all applicable rows from the parent beta node
     // which is provided by the alpha node adaptor
     auto const* alpha_node = this->rule_ms_->get_alpha_node(vertex);
@@ -318,6 +315,9 @@ namespace jets::rete {
     rdf::Triple t3(s, p, o);
     auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
     while(!parent_row_itor->is_end()) {
+
+      // Clear the pending rows in current_relation, we propagate for each parent row
+      current_relation->clear_pending_rows();
 
       // create the beta row to add/retract
       auto beta_row = create_beta_row(cmeta_node, beta_row_initializer->get_size());
@@ -342,28 +342,41 @@ namespace jets::rete {
           if(not cmeta_node->is_negation) {
             std::cout<<"                1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, true);
+              if(err) return err;
+            }
           } else {
             std::cout<<"                2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, false);
+              if(err) return err;
+            }
           }
         } else {
           if(not cmeta_node->is_negation) {
             std::cout<<"                3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, false);
+              if(err) return err;
+            }
           } else {
             std::cout<<"                4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, true);
+              if(err) return err;
+            }
           }
         }
       }
-      //* ERROR!! Must propagate down for each row individually to so propage as infer or retract appropriately
-    
       parent_row_itor->next();
-    }
-    // Propagate down the rete network
-    if(current_relation->has_pending_rows()) {
-      auto err = this->visit_rete_graph(vertex, is_inserted);
-      if(err) return err;
     }
     return 0;
   }

@@ -64,6 +64,7 @@ resource node1 = "node1";
 resource node2 = "node2";
 resource node3 = "node3";
 
+# The 2 rules below are the same as rule 4 and 5 in rete_session_test
 [Rule5,s=10]:
   (?s node1 ?n1)
   ->
@@ -75,4 +76,25 @@ resource node3 = "node3";
   not(?s node2 ?n1)
   ->
   (?s node3 ?n1)
+;
+
+resource node10 = "node10";
+resource node20 = "node20";
+resource node30 = "node30";
+
+# The 2 rules below are the same as rule 6 and 7 in rete_session_test
+[Rule7,s=10]:
+  (?s node10 ?n1).
+  (?s node2 ?n1)
+  ->
+  (?s node20 ?n1)
+;
+
+[Rule8,s=5]:
+  (?s node10 ?n1).
+  (?s node2 ?n1).
+  not(?s node20 ?n1).
+  (?s node1 ?n1).
+  ->
+  (?s node30 ?n1)
 ;

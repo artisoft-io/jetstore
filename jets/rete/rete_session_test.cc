@@ -48,7 +48,7 @@ class ReteSessionTest : public ::testing::Test {
     //        node 0        node 5            node 6
 
     //rule6> (head node0).(?s node10 ?n1) .(?s node2 ?n1) -> (?s node20 ?n1)                     :: s=10
-    //rule7> (head node0).(?s node10 ?n1) .(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1)  :: s=20
+    //rule7> (head node0).(?s node10 ?n1) .(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1)  :: s=5
     //        node 0        node 7            node 8         node 9           node 10
     // ----------------------------------------------------------------------------------
     // No need for AntecedentQuerySpec since the only vertex reads from the graph
@@ -332,101 +332,101 @@ TEST_F(ReteSessionTest, TestRule6Rule7)
   std::cout<<this->rdf_session<<std::endl<<std::endl;
 }
 
-// TEST_F(ReteSessionTest, TestAllRules)
-// {
-//   // rdf resource manager
-//   rdf::RManager * rmanager = this->rdf_session->rmgr();
-//   { // Rule1 Rule2
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("has_node");
-//     auto o0 = rmanager->create_literal<int>(1);
-//     this->rdf_session->insert(s0, p0, o0);
-//     auto p1 = rmanager->create_resource("has_node");
-//     auto o1 = rmanager->create_literal<int>(2);
-//     this->rdf_session->insert(s0, p1, o1);
-//   }
-//   { // Rule 3
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("fnode");
-//     auto o0 = rmanager->create_literal<int>(1);
-//     this->rdf_session->insert(s0, p0, o0);
-//     auto p1 = rmanager->create_resource("fnode");
-//     auto o1 = rmanager->create_literal<int>(2);
-//     this->rdf_session->insert(s0, p1, o1);
-//   }
-//   { // Rule 4 Rule 5
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("node1");
-//     auto o0 = rmanager->create_resource("n1");
-//     this->rdf_session->insert(s0, p0, o0);
-//   }
-//   { // Rule 6 Rule 7
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("node10");
-//     auto o0 = rmanager->create_resource("n1");
-//     this->rdf_session->insert(s0, p0, o0);
-//   }
+TEST_F(ReteSessionTest, TestAllRules)
+{
+  // rdf resource manager
+  rdf::RManager * rmanager = this->rdf_session->rmgr();
+  { // Rule1 Rule2
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("has_node");
+    auto o0 = rmanager->create_literal<int>(1);
+    this->rdf_session->insert(s0, p0, o0);
+    auto p1 = rmanager->create_resource("has_node");
+    auto o1 = rmanager->create_literal<int>(2);
+    this->rdf_session->insert(s0, p1, o1);
+  }
+  { // Rule 3
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("fnode");
+    auto o0 = rmanager->create_literal<int>(1);
+    this->rdf_session->insert(s0, p0, o0);
+    auto p1 = rmanager->create_resource("fnode");
+    auto o1 = rmanager->create_literal<int>(2);
+    this->rdf_session->insert(s0, p1, o1);
+  }
+  { // Rule 4 Rule 5
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("node1");
+    auto o0 = rmanager->create_resource("n1");
+    this->rdf_session->insert(s0, p0, o0);
+  }
+  { // Rule 6 Rule 7
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("node10");
+    auto o0 = rmanager->create_resource("n1");
+    this->rdf_session->insert(s0, p0, o0);
+  }
 
-//   this->rete_session->execute_rules();
+  this->rete_session->execute_rules();
 
-//   { // Rule1 Rule2
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("has_node");
-//     auto o0 = rmanager->create_literal<int>(1);
-//     this->rdf_session->insert(s0, p0, o0);
-//     auto p1 = rmanager->create_resource("has_node");
-//     auto o1 = rmanager->create_literal<int>(2);
-//     this->rdf_session->insert(s0, p1, o1);
-//     auto p0r = rmanager->create_resource("plus1_node");
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p0r, rmanager->create_literal<int>(2)));
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p0r, rmanager->create_literal<int>(3)));
+  { // Rule1 Rule2
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("has_node");
+    auto o0 = rmanager->create_literal<int>(1);
+    this->rdf_session->insert(s0, p0, o0);
+    auto p1 = rmanager->create_resource("has_node");
+    auto o1 = rmanager->create_literal<int>(2);
+    this->rdf_session->insert(s0, p1, o1);
+    auto p0r = rmanager->create_resource("plus1_node");
+    EXPECT_TRUE(this->rdf_session->contains(s0, p0r, rmanager->create_literal<int>(2)));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p0r, rmanager->create_literal<int>(3)));
 
-//     auto p1r = rmanager->create_resource("plus2_node");
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(2)));
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(3)));
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(4)));
-//   }
-//   { // Rule 3
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("fnode");
-//     auto o0 = rmanager->create_literal<int>(1);
-//     this->rdf_session->insert(s0, p0, o0);
-//     auto p1 = rmanager->create_resource("fnode");
-//     auto o1 = rmanager->create_literal<int>(2);
-//     this->rdf_session->insert(s0, p1, o1);
-//     auto p1r = rmanager->create_resource("f2node");
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(2)));
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(3)));
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(4)));
-//   }
-//   { // Rule 4 Rule 5
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("node1");
-//     auto o0 = rmanager->create_resource("n1");
-//     this->rdf_session->insert(s0, p0, o0);
-//     auto p1 = rmanager->create_resource("node2");
-//     auto p2 = rmanager->create_resource("node3");
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p0, o0));
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1, o0));
-//     EXPECT_FALSE(this->rdf_session->contains(s0, p2, o0));
-//   }
-//   { // Rule 6 Rule 7
-//     auto s0 = rmanager->create_resource("s0");
-//     auto p0 = rmanager->create_resource("node10");
-//     auto o0 = rmanager->create_resource("n1");
-//     this->rdf_session->insert(s0, p0, o0);
-//     auto p1 = rmanager->create_resource("node20");
-//     auto p2 = rmanager->create_resource("node30");
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p0, o0));
-//     EXPECT_TRUE(this->rdf_session->contains(s0, p1, o0));
-//     EXPECT_FALSE(this->rdf_session->contains(s0, p2, o0));
-//   }
+    auto p1r = rmanager->create_resource("plus2_node");
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(2)));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(3)));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(4)));
+  }
+  { // Rule 3
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("fnode");
+    auto o0 = rmanager->create_literal<int>(1);
+    this->rdf_session->insert(s0, p0, o0);
+    auto p1 = rmanager->create_resource("fnode");
+    auto o1 = rmanager->create_literal<int>(2);
+    this->rdf_session->insert(s0, p1, o1);
+    auto p1r = rmanager->create_resource("f2node");
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(2)));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(3)));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1r, rmanager->create_literal<int>(4)));
+  }
+  { // Rule 4 Rule 5
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("node1");
+    auto o0 = rmanager->create_resource("n1");
+    this->rdf_session->insert(s0, p0, o0);
+    auto p1 = rmanager->create_resource("node2");
+    auto p2 = rmanager->create_resource("node3");
+    EXPECT_TRUE(this->rdf_session->contains(s0, p0, o0));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1, o0));
+    EXPECT_FALSE(this->rdf_session->contains(s0, p2, o0));
+  }
+  { // Rule 6 Rule 7
+    auto s0 = rmanager->create_resource("s0");
+    auto p0 = rmanager->create_resource("node10");
+    auto o0 = rmanager->create_resource("n1");
+    this->rdf_session->insert(s0, p0, o0);
+    auto p1 = rmanager->create_resource("node20");
+    auto p2 = rmanager->create_resource("node30");
+    EXPECT_TRUE(this->rdf_session->contains(s0, p0, o0));
+    EXPECT_TRUE(this->rdf_session->contains(s0, p1, o0));
+    EXPECT_FALSE(this->rdf_session->contains(s0, p2, o0));
+  }
 
-//   std::cout<<"TestAllRules RdfSession Contains:"<<std::endl;
-//   std::cout<<"-------------------------------------"<<std::endl;
-//   std::cout<<this->rdf_session<<std::endl<<std::endl;
-//   std::cout<<"Done done!"<<std::endl;
-// }
+  std::cout<<"TestAllRules RdfSession Contains:"<<std::endl;
+  std::cout<<"-------------------------------------"<<std::endl;
+  std::cout<<this->rdf_session<<std::endl<<std::endl;
+  std::cout<<"Done done!"<<std::endl;
+}
 
 }   // namespace
 }   // namespace jets::rdf
