@@ -12,9 +12,10 @@ import queue
 from jet_listener import JetListener
 from jetrule_context import JetRuleContext
 from jetrule_validator import JetRuleValidator
-from jet_listener_postprocessing import JetRulesPostProcessor
+from jetrule_post_processor import JetRulesPostProcessor
 from jetrule_optimizer import JetRuleOptimizer
 from jetrule_rete import JetRuleRete
+from jetrule_rete_sqlite import JetRuleReteSQLite
 from JetRuleParser import JetRuleParser
 from JetRuleLexer import JetRuleLexer
 from antlr4.error.ErrorListener import *
@@ -22,18 +23,18 @@ from antlr4.error.ErrorListener import *
 FLAGS = flags.FLAGS
 # flags.DEFINE_string("jr", "default useful if required", "JetRule file", required=True)
 flags.DEFINE_string("in_file", None, "JetRule file")
-flags.DEFINE_string("base_path", None, "Base path for in_file, out_file ad all imported files")
-flags.DEFINE_bool("verbose", False, "Base path for in_file, out_file ad all imported files")
-flags.DEFINE_string("out_file", None, "JetRule Rete Configuration")
+flags.DEFINE_string("base_path", None, "Base path for in_file, out_file and all imported files")
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
 
-#TODO Remove this global variable and move it to JetRuleErrorListener class
-ERRORS = []
 class JetRuleErrorListener(ErrorListener):
 
+  def __init__(self):
+    self.ERRORS = []
+
   def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-      ERRORS.append("line {0}:{1} {2}".format(line, column, msg))
+    print("*** line " + str(line) + ":" + str(column) + " " + msg, file=sys.stderr)
+    self.ERRORS.append("line {0}:{1} {2}".format(line, column, msg))
 
 
 class InputProvider:
@@ -53,7 +54,6 @@ class JetRuleCompiler:
   def __init__(self):
     self.jetrule_ctx = None
     self.main_rule_fname = None     # will be used a rete config key within the workspace
-    self.verbose = FLAGS.verbose
     self.global_line_nbr = 0
     self.imported_file_info_list = None
     self.imported_file_name_set = None
@@ -97,6 +97,10 @@ class JetRuleCompiler:
             self.processing_rule_files_q.put(file_info)
             self._readInput(in_provider.getRuleFile(fname), in_provider, pat, fout)
 
+            # Add a directive to indicate to the parser listener that we're back to including file
+            fout.write('@JetCompilerDirective source_file = "{0}";\n'.format(current_file_name))
+            self.global_line_nbr += 1
+
             # Put another entry for the current file for the remaining statements
             file_info = {'fname': current_file_name, 'start_pos': self.global_line_nbr, 'file_offset': file_offset}
             self.imported_file_info_list.append(file_info)
@@ -119,31 +123,30 @@ class JetRuleCompiler:
   # Compile file fname and process import statement recursively
   # return the jetrule data structure
   # ---------------------------------------------------------------------------------------
-  def compileJetRuleFile(self, fname: str, in_provider: InputProvider) -> Dict[str, object]:
+  def compileJetRuleFile(self, fname: str, in_provider: InputProvider) -> JetRuleContext:
     self.processJetRuleFile(fname, in_provider)
     return self._compileReminderTasks()
 
   # compile the input jetrule buffer
   # return the jetrule data structure for convenience
   # ---------------------------------------------------------------------------------------
-  def compileJetRule(self, input: str) -> Dict[str, object]:
+  def compileJetRule(self, input: str) -> JetRuleContext:
     self.processJetRule(input)
     return self._compileReminderTasks()
 
   # Compile the JetRule beyond the initial processing
-  def _compileReminderTasks(self) -> Dict[str, object]:
+  def _compileReminderTasks(self) -> JetRuleContext:
     if not self.jetrule_ctx.ERROR:
       # print('***@@**')
       # print(json.dumps(self.jetrule_ctx.jetRules, indent=2))
       # print('***@@**')
       self.postprocessJetRule()
       self.validateJetRule()
+      if self.jetrule_ctx.ERROR:
+        return self.jetrule_ctx
       self.optimizeJetRule()
       self.compileJetRulesToReteNodes()
-      if self.verbose:
-        return self.jetrule_ctx.jetRules
-      return self.jetrule_ctx.jetReteNodes
-    return self.jetrule_ctx.jetRules
+    return self.jetrule_ctx
 
 
   # =====================================================================================
@@ -152,11 +155,11 @@ class JetRuleCompiler:
   # Read input jetrule file and returns the initial jetrule data structure
   # return the jetrule data structure for convenience
   # ---------------------------------------------------------------------------------------
-  def processJetRuleFile(self, fname: str, in_provider: InputProvider) -> Dict[str, object]:
+  def processJetRuleFile(self, fname: str, in_provider: InputProvider) -> JetRuleContext:
     pat = re.compile(r'import\s*"([a-zA-Z0-9_\/.-]*)"')
 
     # keep the fname as the main rule file of this knowledge base
-    self.main_rule_fname = fname
+    self.main_rule_fname = str(fname)
 
     fout = io.StringIO()
     self.global_line_nbr = 1
@@ -180,14 +183,15 @@ class JetRuleCompiler:
     data = fout.read()
     fout.close()
     self.processJetRule(data)
-    return self.jetrule_ctx.jetRules
+    return self.jetrule_ctx
 
   # process the input jetrule buffer
-  # return the jetrule data structure for convenience
+  # return the jetrule context
   # ---------------------------------------------------------------------------------------
-  def processJetRule(self, input: str) -> Dict[str, object]:
-    # reset
-    ERRORS.clear()
+  def processJetRule(self, input: str) -> JetRuleContext:
+    # set our error handler
+    errorListener = JetRuleErrorListener()
+    ConsoleErrorListener.INSTANCE = errorListener
 
     # input data
     input_data =  a4.InputStream(input)
@@ -198,10 +202,8 @@ class JetRuleCompiler:
     
     # parser
     parser = JetRuleParser(stream)
-    parser.removeErrorListeners() 
-
-    errorListener = JetRuleErrorListener()
-    parser.addErrorListener(errorListener)  
+    # parser.removeErrorListeners() 
+    # parser.addErrorListener(errorListener)  
 
     # build the tree
     tree = parser.jetrule()
@@ -212,7 +214,7 @@ class JetRuleCompiler:
     walker.walk(listener, tree)
 
     errors = []
-    for err in ERRORS:
+    for err in errorListener.ERRORS:
       # post process antlr4 errors to put reference to the included file
       # print('** got err:',err)
       if self.imported_file_info_list:
@@ -241,17 +243,18 @@ class JetRuleCompiler:
     if self.main_rule_fname:
       imported_file_names = []
       for item in self.imported_file_name_set:
+        item = str(item)                        # to make sure we don't have a Path obj
         if item != self.main_rule_fname:
           imported_file_names.append(item)
-    self.jetrule_ctx = JetRuleContext(listener.jetRules, self.verbose, errors, self.main_rule_fname, imported_file_names)
+    self.jetrule_ctx = JetRuleContext(listener.jetRules, errors, self.main_rule_fname, imported_file_names)
     self.jetrule_ctx.state = JetRuleContext.STATE_PROCESSED
-    return self.jetrule_ctx.jetRules
+    return self.jetrule_ctx
 
 
   # post-process the input jetrule buffer
   # return the jetrule data structure for convenience
   # ---------------------------------------------------------------------------------------
-  def postprocessJetRule(self) -> Dict[str, object]:
+  def postprocessJetRule(self) -> JetRuleContext:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
     assert self.jetrule_ctx.state==JetRuleContext.STATE_PROCESSED, 'Must call processJetRule() first'
@@ -263,10 +266,15 @@ class JetRuleCompiler:
     postProcessor = JetRulesPostProcessor(self.jetrule_ctx)
     postProcessor.createResourcesForLookupTables()
     postProcessor.mapVariables()
+    postProcessor.processRuleProperties()
     postProcessor.addNormalizedLabels()
     postProcessor.addLabels()
     self.jetrule_ctx.state = JetRuleContext.STATE_POSTPROCESSED
-    return self.jetrule_ctx.jetRules
+
+    # seal the defined resources in a frozen set, this is for validating rules
+    self.jetrule_ctx.defined_resources = frozenset(self.jetrule_ctx.resourceMap.keys())
+
+    return self.jetrule_ctx
 
 
   # validate the input jetrule buffer
@@ -284,27 +292,23 @@ class JetRuleCompiler:
 
   # Optimize the jetrules
   # ---------------------------------------------------------------------------------------
-  def optimizeJetRule(self) -> Dict[str, object]:
+  def optimizeJetRule(self) -> JetRuleContext:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
-    assert self.jetrule_ctx.state >= JetRuleContext.STATE_POSTPROCESSED, 'Must call at least postprocessJetRule() first'
+    assert self.jetrule_ctx.state == JetRuleContext.STATE_VALIDATED, 'Must call validateJetRule() first'
 
     optimizer = JetRuleOptimizer(self.jetrule_ctx)
     optimizer.optimizeJetRules()
     self.jetrule_ctx.state = JetRuleContext.STATE_OPTIMIZED
-    return self.jetrule_ctx.jetRules
+    return self.jetrule_ctx
 
 
   # Compile jetrules to a Rete Network
   # ---------------------------------------------------------------------------------------
-  def compileJetRulesToReteNodes(self) -> Dict[str, object]:
+  def compileJetRulesToReteNodes(self) -> JetRuleContext:
     assert self.jetrule_ctx, 'Must have a valid jetrule context, '
     'call processJetRule() or processJetRuleFile() first'
-    assert self.jetrule_ctx.state >= JetRuleContext.STATE_POSTPROCESSED, 'Must call at least postprocessJetRule() first'
-
-    # check if verbose mode, if so don't do the final compilation of the rules
-    if self.verbose:
-      return self.jetrule_ctx.jetRules
+    assert self.jetrule_ctx.state >= JetRuleContext.STATE_VALIDATED, 'Must call at least validateJetRule() first'
 
     # Perform the final compilation of the rules, create the JetRuleContext.jetReteNodes data structure
     # Leave the JetRuleContext.jetRules structure unchanged
@@ -314,7 +318,7 @@ class JetRuleCompiler:
     rete.normalizeReteNodes()
     self.jetrule_ctx.state = JetRuleContext.STATE_COMPILED_RETE_NODES
 
-    return self.jetrule_ctx.jetReteNodes
+    return self.jetrule_ctx
 
 
 # =======================================================================================
@@ -325,10 +329,8 @@ def main(argv):
 
   
   in_fname = Path(FLAGS.in_file)
-  base_path_name = Path(FLAGS.base_path)
-  out_fname = Path(FLAGS.out_file)
 
-  base_path = Path(base_path_name)
+  base_path = Path(FLAGS.base_path)
   path = os.path.join(base_path, in_fname)
   path = os.path.abspath(path)
   if not os.path.exists(path) or not os.path.isfile(path):
@@ -337,14 +339,34 @@ def main(argv):
 
   in_provider = InputProvider(base_path)
   compiler = JetRuleCompiler()
-  jetrules = compiler.compileJetRuleFile(in_fname, in_provider)
+  compiler.compileJetRuleFile(str(in_fname), in_provider)
+  if compiler.jetrule_ctx.ERROR:
+    print('ERROR while compiling JetRule file {0}:'.format(in_fname))
+    for err in compiler.jetrule_ctx.errors:
+      print('   ',err)
+    sys.exit('ERROR while compiling JetRule file {0}:'.format(in_fname))
 
   # Save the JetRule data structure
-  with open(str(path)+'.json', 'wt', encoding='utf-8') as f:
-    f.write(json.dumps(jetrules, indent=4))
+  # path = os.path.join(base_path, out_fname)
+  in_tup = os.path.splitext(in_fname)
+  jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')
+  jetrete_path = os.path.join(base_path, in_tup[0]+'.jrc.json')
+  
+  with open(jetrules_path, 'wt', encoding='utf-8') as f:
+    f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
+  print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
 
-  print('Result saved to {0}.json'.format(path))
+  # Save the JetRete data structure
+  with open(jetrete_path, 'wt', encoding='utf-8') as f:
+    f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+  print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
 
+  rete_db_helper = JetRuleReteSQLite(compiler.jetrule_ctx)
+  err = rete_db_helper.saveReteConfig()
+  if err:
+    print('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err)))
+    sys.exit('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err))) 
 
 if __name__ == '__main__':
+  flags.mark_flag_as_required('in_file')
   app.run(main)

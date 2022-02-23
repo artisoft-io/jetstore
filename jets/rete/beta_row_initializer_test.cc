@@ -67,8 +67,8 @@ class NodeVertexTest : public ::testing::Test {
   NodeVertexTest() : ri0(), ri1(), nv0(), nv1() {
       ri0 = create_row_initializer(3);
       ri1 = create_row_initializer(5);
-      nv0 = create_node_vertex(nullptr, 0, false, 10, {}, ri0);
-      nv1 = create_node_vertex(nv0.get(), 1, false, 20, {}, ri1);
+      nv0 = create_node_vertex(nullptr, 0, 0, false, 10, {}, "", ri0);
+      nv1 = create_node_vertex(nv0.get(), 0, 1, false, 20, {}, "", ri1);
   }
 
   BetaRowInitializerPtr ri0;

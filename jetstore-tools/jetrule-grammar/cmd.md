@@ -33,3 +33,9 @@ The java lexer and parser are generated in the `java/` directory.
  grun JetRule jetrule -tree 
  cd ..
  ```
+
+ ### Bazel Commands
+ Rule the compiler with bazel
+ ```
+bazel run //jetstore-tools/jetrule-grammar:jetrule_compiler -- --in_file jetrule_main_test.jr --base_path jetstore-tools/jetrule-grammar  --rete_db jetrule_rete.db
+```

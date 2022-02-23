@@ -17,12 +17,11 @@
 namespace jets::rete {
 
   int 
-  ReteSession::initialize(ReteMetaStorePtr rule_ms)
+  ReteSession::initialize()
   {
-    if(not rule_ms) {
+    if(not this->rule_ms_) {
       RETE_EXCEPTION("ReteSession::Initialize requires a valid ReteMetaStore as argument");
     }
-    this->rule_ms_ = rule_ms;
     std::cout<<"ReteSession::initialize init beta relations..."<<std::endl;
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
@@ -104,7 +103,7 @@ namespace jets::rete {
   int 
   ReteSession::visit_rete_graph(int from_vertex, bool is_inferring)
   {
-    std::cout<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring "<<is_inferring<<std::endl;
+    std::cout<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring? "<<is_inferring<<std::endl;
     std::vector<int> stack;
     stack.reserve(rule_ms_->nbr_vertices());
     
@@ -114,11 +113,9 @@ namespace jets::rete {
       int parent_vertex = stack.back();
       stack.pop_back();
 
-      std::cout<<"visit_rete_graph stack pop `parent_vertex` "<<parent_vertex<<std::endl;
-
       b_index parent_node = this->rule_ms_->get_node_vertex(parent_vertex);
       for(auto const* cmeta_node: parent_node->child_nodes) {
-        std::cout<<"  For child node: "<<cmeta_node->vertex<<std::endl;
+        std::cout<<"  @ parent node "<<parent_vertex<<" | child node "<<cmeta_node->vertex<<">"<<std::endl;
 
         // Compute beta relation between `parent_vertex` and `vertex`
         int current_vertex = cmeta_node->vertex;
@@ -293,7 +290,7 @@ namespace jets::rete {
   int
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
-    std::cout<<"ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted<<std::endl;
+    std::cout<<"        ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted<<std::endl;
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
@@ -308,9 +305,6 @@ namespace jets::rete {
         <<vertex<<": error parent_beta_relation or beta_relation is null!");
     }
 
-    // Clear the pending rows in current_relation, since they were for the last pass
-    current_relation->clear_pending_rows();
-
     // Get an iterator over all applicable rows from the parent beta node
     // which is provided by the alpha node adaptor
     auto const* alpha_node = this->rule_ms_->get_alpha_node(vertex);
@@ -322,11 +316,17 @@ namespace jets::rete {
     auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
     while(!parent_row_itor->is_end()) {
 
+      // Clear the pending rows in current_relation, we propagate for each parent row
+      current_relation->clear_pending_rows();
+
       // create the beta row to add/retract
-      auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+      auto beta_row = create_beta_row(cmeta_node, beta_row_initializer->get_size());
 
       // initialize the beta row with parent_row and t3
       auto const* parent_row = parent_row_itor->get_row();
+
+      std::cout<<"            Parent Row "<<parent_row<<"  +  "<<t3<<"  =>  Row ..."<</*beta_row<<*/std::endl;
+
       beta_row->initialize(beta_row_initializer, parent_row, &t3);
 
       // evaluate the current_relation filter if any
@@ -340,31 +340,44 @@ namespace jets::rete {
         // Add/Remove row to current beta relation (current_relation)
         if(is_inserted) {
           if(not cmeta_node->is_negation) {
-            std::cout<<"1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, true);
+              if(err) return err;
+            }
           } else {
-            std::cout<<"2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, false);
+              if(err) return err;
+            }
           }
         } else {
           if(not cmeta_node->is_negation) {
-            std::cout<<"3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->remove_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, false);
+              if(err) return err;
+            }
           } else {
-            std::cout<<"4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
+            std::cout<<"                4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex<<std::endl;
             current_relation->insert_beta_row(this, beta_row);
+            // Propagate down the rete network
+            if(current_relation->has_pending_rows()) {
+              auto err = this->visit_rete_graph(vertex, true);
+              if(err) return err;
+            }
           }
         }
       }
-    
       parent_row_itor->next();
     }
-    // Propagate down the rete network
-    if(current_relation->has_pending_rows()) {
-      auto err = this->visit_rete_graph(vertex, false);
-      if(err) return err;
-    }
-
     return 0;
   }
 

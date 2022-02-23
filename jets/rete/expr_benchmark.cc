@@ -11,12 +11,12 @@ using namespace jets::rete;
 static void BM_expr(benchmark::State& state) {
   ExprDisjunction::data_type data;
   data.push_back(
-    create_expr_binary_operator<EqVisitor>(
-      create_expr_binary_operator<RegexVisitor>(
+    create_expr_binary_operator<EqVisitor>(0, 
+      create_expr_binary_operator<RegexVisitor>(0, 
         create_expr_cst(RdfAstType(LString("(\\d)"))), 
-        create_expr_binary_operator<AddVisitor>(
+        create_expr_binary_operator<AddVisitor>(0, 
           create_expr_cst(RdfAstType(LString("Hello "))),
-          create_expr_binary_operator<AddVisitor>(
+          create_expr_binary_operator<AddVisitor>(0, 
             create_expr_cst(RdfAstType(LInt32(1))), 
             create_expr_cst(RdfAstType(LUInt64(2)))
           )
@@ -28,12 +28,12 @@ static void BM_expr(benchmark::State& state) {
   // The next would throw since Regex is used on an int argument
   // but this test return false at first term since it's a conjunction
   data.push_back(
-    create_expr_binary_operator<EqVisitor>(
-      create_expr_binary_operator<RegexVisitor>(
+    create_expr_binary_operator<EqVisitor>(0, 
+      create_expr_binary_operator<RegexVisitor>(0, 
         create_expr_cst(RdfAstType(LString("(\\d)"))), 
-        create_expr_binary_operator<AddVisitor>(
+        create_expr_binary_operator<AddVisitor>(0, 
           create_expr_cst(RdfAstType(LString("Hello "))),
-          create_expr_binary_operator<AddVisitor>(
+          create_expr_binary_operator<AddVisitor>(0, 
             create_expr_cst(RdfAstType(LInt32(1))), 
             create_expr_cst(RdfAstType(LUInt64(2)))
           )
@@ -42,12 +42,12 @@ static void BM_expr(benchmark::State& state) {
       create_expr_cst(RdfAstType(LString("2")))
   ));
   data.push_back(
-    create_expr_binary_operator<EqVisitor>(
-      create_expr_binary_operator<RegexVisitor>(
+    create_expr_binary_operator<EqVisitor>(0, 
+      create_expr_binary_operator<RegexVisitor>(0, 
         create_expr_cst(RdfAstType(LString("(\\d)"))), 
-        create_expr_binary_operator<AddVisitor>(
+        create_expr_binary_operator<AddVisitor>(0, 
           create_expr_cst(RdfAstType(LString("Hello "))),
-          create_expr_binary_operator<AddVisitor>(
+          create_expr_binary_operator<AddVisitor>(0, 
             create_expr_cst(RdfAstType(LInt32(1))), 
             create_expr_cst(RdfAstType(LUInt64(2)))
           )

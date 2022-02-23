@@ -17,8 +17,9 @@ py_binary(
   name = "jetrule_compiler",
   srcs = [
     "jetrule_compiler.py",
+    "jetrule_rete_sqlite.py",
     "jet_listener.py",                # this produce my-rules.jr.json from input file my-rule.jr
-    "jet_listener_postprocessing.py", # this augment  my-rules.jr.json
+    "jetrule_post_processor.py",      # this augment  my-rules.jr.json
     "jetrule_validator.py",
     "jetrule_optimizer.py",
     "jetrule_rete.py",
@@ -26,6 +27,13 @@ py_binary(
   ],
   imports = ["jetrule_g4_gen.py"],
   python_version = "PY3",
+  data = [
+    ":jetrule_main_test.jr",
+    ":jetrule_main_test2.jr",
+    ":jetrule_support_test.jr",
+    "//jets/rete/rete_test_db:ms_factory_test1.jr",
+    "//jets/rete/rete_test_db:ms_factory_test2.jr",
+  ],
   # data = [":transform"],  # a cc_binary which we invoke at run time
   deps = [
       ":jetrule_lang_lib",
@@ -57,17 +65,19 @@ py_test(
     requirement("absl-py"),
   ],
   data = [
-    ":jet_listerner_test_data.jr",
-    ":jet_listerner_test_data.jr.json",
-    ":jet_listerner_test_data2.jr",
-    ":jet_listerner_test_data2.jrc.json",
+    ":jetrule_main_test.jr",
+    ":jetrule_support_test.jr",
+    ":jetrule_main_test.jr.json",
+    ":jetrule_main_test.jrc.json",
+    "//jets/rete/rete_test_db:ms_factory_test2.jr",
+    "//jets/rete/rete_test_db:ms_factory_test2.jrc.json",
   ],
   imports = ["jetrule_g4_gen.py"],
 )
 
 py_test(
-  name = "jet_listener_postprocessing_test",
-  srcs = ["jet_listener_postprocessing_test.py"],
+  name = "jetrule_post_processor_test",
+  srcs = ["jetrule_post_processor_test.py"],
   python_version = "PY3",
   srcs_version = "PY3",
   deps = [
@@ -75,6 +85,7 @@ py_test(
     requirement("absl-py"),
   ],
   data = [
+    ":rule5_test.json",
     ":rule6_test.json",
     ":rule7_test.json",
   ],
@@ -184,7 +195,7 @@ py_test(
 #   srcs = [
 #     "jetrule_compiler.py",
 #     "jet_listener.py",                 # this produce my-rules.jr.json from input file my-rule.jr
-#     "jet_listener_postprocessing.py",  # this augment  my-rules.jr.json
+#     "jetrule_post_processor.py",  # this augment  my-rules.jr.json
 #     "JetRuleLexer.py",
 #     "JetRuleListener.py",
 #     "JetRuleParser.py",

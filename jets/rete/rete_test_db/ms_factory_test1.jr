@@ -1,0 +1,16 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Testing ReteMetaStoreFactory
+# ---------------------------------------------------------------------------------------
+# test 1: Minimal rule file
+# =======================================================================================
+# Defining Constants Resources and Literals
+# ---------------------------------------------------------------------------------------
+resource rdf:type = "rdf:type";
+resource hc:Claim = "hc:Claim";
+resource hc:BaseClaim = "hc:BaseClaim";
+
+[Rule1]:
+  (?clm01 rdf:type hc:Claim)
+  ->
+  (?clm01 rdf:type hc:BaseClaim)
+;

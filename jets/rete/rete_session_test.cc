@@ -48,7 +48,7 @@ class ReteSessionTest : public ::testing::Test {
     //        node 0        node 5            node 6
 
     //rule6> (head node0).(?s node10 ?n1) .(?s node2 ?n1) -> (?s node20 ?n1)                     :: s=10
-    //rule7> (head node0).(?s node10 ?n1) .(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1)  :: s=20
+    //rule7> (head node0).(?s node10 ?n1) .(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1)  :: s=5
     //        node 0        node 7            node 8         node 9           node 10
     // ----------------------------------------------------------------------------------
     // No need for AntecedentQuerySpec since the only vertex reads from the graph
@@ -89,128 +89,128 @@ class ReteSessionTest : public ::testing::Test {
     // node 4: [?n1 <= ?n2]
     auto lhs = create_expr_binded_var(1);
     auto rhs = create_expr_binded_var(2);
-    auto expr_filter4 = create_expr_binary_operator<LeVisitor>(lhs, rhs);
+    auto expr_filter4 = create_expr_binary_operator<LeVisitor>(0, lhs, rhs);
 
     // NodeVertex
     NodeVertexVector   node_vertexes;
     // node 0: (head node0)
-    node_vertexes.push_back(create_node_vertex(nullptr, 0, false, 10, {}, {}));
+    node_vertexes.push_back(create_node_vertex(nullptr, 0, 0, false, 10, {}, "", {}));
     // node 1: (?s has_node ?n1)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 1, false, 20, {}, ri1));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 1, false, 20, {}, "", ri1));
     // node 2: (?s has_node ?n2)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 2, false, 10, {}, ri2));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[1].get(), 0, 2, false, 10, {}, "", ri2));
     // node 3: (?s fnode ?n1)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 3, false, 20, {}, ri3));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 3, false, 20, {}, "", ri3));
     // node 4: (?s fnode ?n2).[?n1 <= ?n2]
-    node_vertexes.push_back(create_node_vertex(node_vertexes[3].get(), 4, false, 10, expr_filter4, ri4));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[3].get(), 0, 4, false, 10, expr_filter4, "", ri4));
     // node 5: (?s node1 ?n1)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 5, false, 10, {}, ri5));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 5, false, 10, {}, "", ri5));
     // node 6: not(?s node2 ?n2)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[5].get(), 6, true, 20, {}, ri6));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[5].get(), 0, 6, true, 20, {}, "", ri6));
     // node 7: (?s node10 ?n1)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 7, false, 10, {}, ri5));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[0].get(), 0, 7, false, 10, {}, "", ri5));
     // node 8: (?s node2 ?n1)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[7].get(), 8, false, 10, {}, ri6));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[7].get(), 0, 8, false, 10, {}, "", ri6));
     // node 9: not(?s node20 ?n1)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[8].get(), 9, true, 0, {}, ri6));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[8].get(), 0, 9, true, 0, {}, "", ri6));
     // node 10: (?s node1 ?n1)
-    node_vertexes.push_back(create_node_vertex(node_vertexes[9].get(), 10, false, 5, {}, ri6));
+    node_vertexes.push_back(create_node_vertex(node_vertexes[9].get(), 0, 10, false, 5, {}, "", ri6));
 
     // AlphaNodes
     ReteMetaStore::AlphaNodeVector alpha_nodes;
 
     // Add Antecedent term on vertex 0 -- head vertices
     // this AlphaNode is not used, it's a place holder since we need one AlphaNode for each NodeVertex
-    alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "",
       F_var("*"), F_var("*"), F_var("*") ));
 
     // Add Antecedent term on vertex 1: (?s has_node ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[1].get(), 0, true, "",
       F_var("?s"), F_cst(has_node), F_var("?n1") ));
 
     // Add Antecedent term on vertex 2: (?s has_node ?n2)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[2].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[2].get(), 0, true, "",
       F_binded(0), F_cst(has_node), F_var("?n2") ));
 
     // Add Antecedent term on vertex 3: (?s fnode ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[3].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[3].get(), 0, true, "",
       F_var("?s"), F_cst(fnode), F_var("?n1") ));
 
     // Add Antecedent term on vertex 4: (?s fnode ?n2)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[4].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_var>(node_vertexes[4].get(), 0, true, "",
       F_binded(0), F_cst(fnode), F_var("?n2") ));
 
     // Add Antecedent term on vertex 5: (?s node1 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[5].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[5].get(), 0, true, "",
       F_var("?s"), F_cst(node1), F_var("?n1") ));
 
     // Add Antecedent term on vertex 6: (?s node2 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[6].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[6].get(), 0, true, "",
       F_binded(0), F_cst(node2), F_binded(1) ));
 
     // Add Antecedent term on vertex 7: (?s node10 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[7].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_var, F_cst, F_var>(node_vertexes[7].get(), 0, true, "",
       F_var("?s"), F_cst(node10), F_var("?n1") ));
 
     // Add Antecedent term on vertex 8: (?s node2 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[8].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[8].get(), 0, true, "",
       F_binded(0), F_cst(node2), F_binded(1) ));
 
     // Add Antecedent term on vertex 9: not(?s node20 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[9].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[9].get(), 0, true, "",
       F_binded(0), F_cst(node20), F_binded(1) ));
 
     // Add Antecedent term on vertex 10: (?s node1 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[10].get(), true,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[10].get(), 0, true, "",
       F_binded(0), F_cst(node1), F_binded(1) ));
 
     {
       // Add Consequent term on vertex 1: (?s1 plus1_node expr(?n1 + 1))
       auto lhs = create_expr_binded_var(1);
       auto rhs = create_expr_cst(rdf::RdfAstType(rdf::LInt32(1)));
-      auto expr = create_expr_binary_operator<AddVisitor>(lhs, rhs);
-      alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[1].get(), false,
+      auto expr = create_expr_binary_operator<AddVisitor>(0, lhs, rhs);
+      alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[1].get(), 0, false, "",
         F_binded(0), F_cst(plus1_node), F_expr(expr) ));
     }
     {
       // Add Consequent term on vertex 2: (?s1 plus2_node expr(?n1 + ?n2))
       auto lhs = create_expr_binded_var(1);
       auto rhs = create_expr_binded_var(2);
-      auto expr = create_expr_binary_operator<AddVisitor>(lhs, rhs);
-      alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[2].get(), false,
+      auto expr = create_expr_binary_operator<AddVisitor>(0, lhs, rhs);
+      alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[2].get(), 0, false, "",
         F_binded(0), F_cst(plus2_node), F_expr(expr) ));
     }
     {
       // Add Consequent term on vertex 4: (?s f2node expr(?n1 + ?n2))
       auto lhs = create_expr_binded_var(1);
       auto rhs = create_expr_binded_var(2);
-      auto expr = create_expr_binary_operator<AddVisitor>(lhs, rhs);
-      alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[4].get(), false,
+      auto expr = create_expr_binary_operator<AddVisitor>(0, lhs, rhs);
+      alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_expr>(node_vertexes[4].get(), 0, false, "",
         F_binded(0), F_cst(f2node), F_expr(expr) ));
     }
     // Add Consequent term on vertex 5:(?s node2 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[5].get(), false,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[5].get(), 0, false, "",
       F_binded(0), F_cst(node2), F_binded(1) ));
     // Add Consequent term on vertex 6: (?s node3 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[6].get(), false,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[6].get(), 0, false, "",
       F_binded(0), F_cst(node3), F_binded(1) ));
     // Add Consequent term on vertex 8:(?s node20 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[8].get(), false,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[8].get(), 0, false, "",
       F_binded(0), F_cst(node20), F_binded(1) ));
     // Add Consequent term on vertex 10: (?s node30 ?n1)
-    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[10].get(), false,
+    alpha_nodes.push_back(create_alpha_node<F_binded, F_cst, F_binded>(node_vertexes[10].get(), 0, false, "",
       F_binded(0), F_cst(node30), F_binded(1) ));
 
     // ReteMetaStore
     // create & initalize the meta store -- TODO have an expression builder with meta store
-    rete_meta_store = create_rete_meta_store(alpha_nodes, node_vertexes);
+    rete_meta_store = create_rete_meta_store(meta_graph, alpha_nodes, node_vertexes);
     rete_meta_store->initialize();
 
     // Cretae the rdf_session and the rete_session and initialize them
     // Initialize the rete_session now that the rule base is ready
     this->rdf_session = rdf::create_rdf_session(meta_graph);
-    this->rete_session = create_rete_session(rdf_session.get());
-    this->rete_session->initialize(rete_meta_store);
+    this->rete_session = create_rete_session(rete_meta_store.get(), rdf_session.get());
+    this->rete_session->initialize();
   }
 
   ReteSessionPtr  rete_session;

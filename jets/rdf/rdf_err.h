@@ -49,7 +49,7 @@ inline std::string to_string(rdf_exception const &e) {
   {                                                                            \
     std::ostringstream streamOut;                                              \
     streamOut << message;                                                      \
-    throw jets::rdf_exception(streamOut.str());                                \
+    throw jets::rdf::rdf_exception(streamOut.str());                           \
   }
 
 #endif // JETS_RDF_ERRORS_H

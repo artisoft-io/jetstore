@@ -14,10 +14,9 @@ class JetRuleValidator:
   # Returns True when valid, False otherwise
   def validateJetRule(self) -> bool:
     ctx = ValidationContext(self.ctx)
-    rules = self.ctx.jetRules.get('jet_rules')
 
     # for each jetrule validate antecedents and consequents terms
-    for rule in rules:
+    for rule in self.ctx.jet_rules:
       name = rule.get('name')
       if not name: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
       ctx.setRuleName(name)

@@ -1,0 +1,64 @@
+{
+  "literals": [],
+  "resources": [],
+  "lookup_tables": [],
+  "jet_rules": [
+    {
+      "name": "Rule5",
+      "properties": {},
+      "antecedents": [
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "triple": [
+            {
+              "type": "var",
+              "value": "?clm01",
+              "id": "?x1",
+              "label": "?clm01"
+            },
+            {
+              "type": "identifier",
+              "value": "has_code"
+            },
+            {
+              "type": "var",
+              "value": "?code",
+              "id": "?x2",
+              "label": "?code"
+            }
+          ],
+          "normalizedLabel": "(?x1 has_code ?x2)",
+          "label": "(?clm01 has_code ?code)"
+        }
+      ],
+      "consequents": [
+        {
+          "type": "consequent",
+          "triple": [
+            {
+              "type": "var",
+              "value": "?clm01",
+              "id": "?x1",
+              "label": "?clm01"
+            },
+            {
+              "type": "identifier",
+              "value": "acme:lookup_table"
+            },
+            {
+              "type": "keyword",
+              "value": "true"
+            }
+          ],
+          "normalizedLabel": "(?x1 acme:\"lookup_table\" true)",
+          "label": "(?clm01 acme:\"lookup_table\" true)"
+        }
+      ],
+      "optimization": true,
+      "salience": 100,
+      "normalizedLabel": "[Rule5]:(?x1 has_code ?x2) -> (?x1 acme:\"lookup_table\" true);",
+      "label": "[Rule5]:(?clm01 has_code ?code) -> (?clm01 acme:\"lookup_table\" true);"
+    }
+  ]
+}

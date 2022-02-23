@@ -1,0 +1,22 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Testing JetRule Grammar
+# ---------------------------------------------------------------------------------------
+import "jetrule_support_test.jr"
+
+# =======================================================================================
+# Defining Jet Rules
+# ---------------------------------------------------------------------------------------
+[Rule2, s=100, o=true, tag="ACME"]: 
+  (?clm01 rdf:type acme:Claim).
+  (?clm01 has_code ?code).
+  (?clm02 rdf:type acme:Claim).
+  (?clm02 has_code ?code).
+  (?clm04 rdf:type acme:Claim).     # spurious term that can be erased out
+  (?clm01 related_to ?clm03)
+  (?clm03 rdf:type acme:Claim).
+  [(?clm01 or has_code) and int(1)].
+  ->
+  (?clm03 rdf:type acme:SpecialClaim)
+;
+
+# That's it for now!

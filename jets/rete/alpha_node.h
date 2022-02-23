@@ -111,8 +111,11 @@ class AlphaNode {
  public:
   using Iterator = rdf::RDFSession::Iterator;
 
-  AlphaNode(b_index node_vertex, bool is_antecedent) 
-    : node_vertex_(node_vertex), is_antecedent_(is_antecedent)
+  AlphaNode(b_index node_vertex, int key, bool is_antecedent, std::string_view normalized_label) 
+    : node_vertex_(node_vertex), 
+      key_(key), 
+      is_antecedent_(is_antecedent),
+      normalized_label_(normalized_label)
   {}
 
   virtual ~AlphaNode() 
@@ -124,10 +127,22 @@ class AlphaNode {
     return node_vertex_;
   }
 
+  inline int
+  get_key()const
+  {
+    return key_;
+  }
+
   inline bool
   is_antecedent()const
   {
     return is_antecedent_;
+  }
+
+  inline std::string const&
+  get_normalized_label()const
+  {
+    return normalized_label_;
   }
 
   /**
@@ -177,7 +192,7 @@ class AlphaNode {
    * @param beta_row  BetaRow to index
    */
   virtual void
-  index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const=0;
+  index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const=0;
 
   /**
    * @brief Remove index beta_row in beta_relation indexes according to the functors template arguments
@@ -186,7 +201,7 @@ class AlphaNode {
    * @param beta_row  BetaRow to index
    */
   virtual void
-  remove_index_beta_row(BetaRelation * beta_relation, BetaRow const* beta_row)const=0;
+  remove_index_beta_row(BetaRelation * parent_beta_relation, b_index child_node_vertex, BetaRow const* beta_row)const=0;
 
   /**
    * @brief Initialize BetaRelation indexes for this child AlphaNode
@@ -194,7 +209,7 @@ class AlphaNode {
    * @param beta_relation BetaRelation with the indexes
    */
   virtual void
-  initialize_indexes(BetaRelation * beta_relation)const=0;
+  initialize_indexes(BetaRelation * parent_beta_relation, b_index child_node_vertex)const=0;
 
   /**
    * @brief Called to query rows from parent beta node matching `triple`, case merging with new triples from inferred graph
@@ -208,7 +223,7 @@ class AlphaNode {
    * @return BetaRowIteratorPtr 
    */
   virtual BetaRowIteratorPtr
-  find_matching_rows(BetaRelation * beta_relation,  rdf::r_index s, rdf::r_index p, rdf::r_index o)const=0;
+  find_matching_rows(BetaRelation * parent_beta_relation,  rdf::r_index s, rdf::r_index p, rdf::r_index o)const=0;
 
   /**
    * @brief Return consequent `triple` for BetaRow
@@ -221,10 +236,23 @@ class AlphaNode {
   virtual rdf::Triple
   compute_consequent_triple(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
+  virtual std::ostream & describe(std::ostream & out)const=0;
+
  private:
-  b_index    node_vertex_;
-  bool       is_antecedent_;
+  b_index     node_vertex_;
+  int         key_;
+  bool        is_antecedent_;
+  std::string normalized_label_;
 };
+
+inline std::ostream & operator<<(std::ostream & out, AlphaNode const* node)
+{
+  if(not node) out << "NULL";
+  else {
+    node->describe(out);
+  }
+  return out;
+}
 
 } // namespace jets::rete
 #endif // JETS_RETE_ALPHA_NODE_H

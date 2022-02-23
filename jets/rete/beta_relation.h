@@ -127,16 +127,17 @@ class BetaRelation {
    * @return BetaRowIteratorPtr 
    */
   inline BetaRowIteratorPtr
-  get_idx1_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
+  get_idx1_rows_iterator(int key, rdf::r_index u)const
   {
+    std::cout<<"        BetaRelation::get_idx1_rows_iterator with key "<<key<<", index ("<<u<<")"<<std::endl;
     auto result = this->beta_row_idx1_[key].equal_range( u ); 
     return create_idx1_rows_iterator(result.first, result.second);
   }
 
   inline BetaRowIteratorPtr
-  get_idx2_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
+  get_idx2_rows_iterator(int key, rdf::r_index u, rdf::r_index v)const
   {
-    std::cout<<"BetaRelation::get_idx2_rows_iterator with key ("<<u<<", "<<v<<")"<<std::endl;
+    std::cout<<"        BetaRelation::get_idx2_rows_iterator with key "<<key<<", index ("<<u<<", "<<v<<")"<<std::endl;
     auto result = this->beta_row_idx2_[key].equal_range( {u, v} ); 
     return create_idx2_rows_iterator(result.first, result.second);
   }
@@ -144,6 +145,7 @@ class BetaRelation {
   inline BetaRowIteratorPtr
   get_idx3_rows_iterator(int key, rdf::r_index u, rdf::r_index v, rdf::r_index w)const
   {
+    std::cout<<"        BetaRelation::get_idx3_rows_iterator with key "<<key<<", index ("<<u<<", "<<v<<", "<<w<<")"<<std::endl;
     auto result = this->beta_row_idx3_[key].equal_range( {u, v, w} ); 
     return create_idx3_rows_iterator(result.first, result.second);
   }
@@ -164,6 +166,7 @@ class BetaRelation {
  protected:
 
  private:
+ friend std::ostream & operator<<(std::ostream &, BetaRelation const*);
   friend class AlphaNode;
   friend struct AQVIndexBetaRowsVisitor;
   friend struct AQVRemoveIndexBetaRowsVisitor;
@@ -177,6 +180,27 @@ class BetaRelation {
   BetaRowIndxVec2 beta_row_idx2_;
   BetaRowIndxVec3 beta_row_idx3_;
 };
+
+inline std::ostream & operator<<(std::ostream & out, BetaRelation const* node)
+{
+  if(not node) out << "NULL";
+  else {
+    out << "BetaRelation: vertex "<<node->get_node_vertex()->vertex <<
+      ", Q1 size "<< node->beta_row_idx1_.size()<<
+      ", Q2 size "<< node->beta_row_idx2_.size()<<
+      ", Q3 size "<< node->beta_row_idx3_.size();
+  }
+  return out;
+}
+
+inline std::ostream & operator<<(std::ostream & out, BetaRelationPtr node)
+{
+  if(not node) out << "NULL";
+  else {
+    out << node.get();
+  }
+  return out;
+}
 
 inline BetaRelationPtr 
 create_beta_node(b_index node_vertex)

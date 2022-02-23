@@ -1,5 +1,5 @@
 from jetrule_context import JetRuleContext
-from jet_listener_postprocessing import JetRulesPostProcessor
+from jetrule_post_processor import JetRulesPostProcessor
 from dataclasses import dataclass, field
 from typing import Any, Set
 from typing import Dict
@@ -21,8 +21,7 @@ class JetRuleOptimizer:
   # optimizeJetRules
   # -------------------------------------------------------------------------------------
   # Main method for the class
-  # First pass at reordering antecendent terms and identifying possible head terms
-  # Select the term occuring the most across all rules to be the head term.
+  # First pass at reordering antecendent terms.
   # Build the rete network and rearrange antecedents to maximize the number of
   # shared beta nodes among the rules
   # -
@@ -43,14 +42,26 @@ class JetRuleOptimizer:
       name = rule.get('name')
       if not name: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
 
-      # prepare the optimized rule
-      optimized_rule = {
-        'name':name, 
-        'properties': rule.get('properties'),
-      }
+      # Check if we optimize or not the rule
+      optimization = rule.get('optimization')
+      if not optimization:
+        optimized_rules.append(rule)
+        continue
 
       # The reordered antecedents
       optimized_antecedents = []
+
+      # prepare the optimized rule
+      optimized_rule = {
+        'name':name, 
+        'properties':       rule.get('properties'),
+        'optimization':     rule.get('optimization'),
+        'salience':         rule.get('salience'),
+        'antecedents':      optimized_antecedents,
+        'consequents':      rule.get('consequents'),
+        'authoredLabel':    rule.get('label'),
+        'source_file_name': rule.get('source_file_name')
+      }
 
       # The antecedent that need to be reordered, starting with the full list of antecedents
       # that will be pruned successively intil that are all placed in optimized_antecedents
@@ -151,21 +162,12 @@ class JetRuleOptimizer:
         for pos in matched_pos:
           del filters[pos]
 
-      # Put the optimized_antecedents into the rule
-      optimized_rule['antecedents'] = optimized_antecedents
-      optimized_rule['consequents'] = rule.get('consequents')
-      optimized_rule['authoredLabel'] = rule.get('label')
-
-      # Carry-over of @JetCompilerDirective
-      fname = rule.get('source_file_name')
-      if fname:
-        optimized_rule['source_file_name'] = fname
-
       # Add the rule to the new rule list
       optimized_rules.append(optimized_rule)
 
     # Update the context with updated rules
     self.ctx.jetRules['jet_rules'] = optimized_rules
+    self.ctx.jet_rules = optimized_rules
 
     # Re-normalize the variables and add updated labels
     postProcessor = JetRulesPostProcessor(self.ctx)

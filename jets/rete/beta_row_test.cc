@@ -17,7 +17,7 @@ TEST(BetaRowStatusTest, StatusTest) {
     ri0->put(0, 0, "a");
     ri0->put(1, 0, "b");
     ri0->put(2, 0, "c");
-    auto node_ptr = create_node_vertex(nullptr, 0, false, 10, {}, ri0);
+    auto node_ptr = create_node_vertex(nullptr, 0, 0, false, 10, {}, "", ri0);
     BetaRowPtr row = create_beta_row(node_ptr.get(), row_size);
     row->put(0, nullptr);
     row->put(1, nullptr);
@@ -42,7 +42,7 @@ class BetaRowTest : public ::testing::Test {
   BetaRowTest() : br0(), br1(), ri0(), nv0() {
       int row_size = 3;
       ri0 = create_row_initializer(row_size);
-      nv0 = create_node_vertex(nullptr, 0, false, 10, {}, ri0);
+      nv0 = create_node_vertex(nullptr, 0, 0, false, 10, {}, "", ri0);
       br0 = create_beta_row(nv0.get(), row_size);
       br1 = create_beta_row(nv0.get(), row_size);
   }

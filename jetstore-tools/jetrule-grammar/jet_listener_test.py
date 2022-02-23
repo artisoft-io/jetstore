@@ -14,7 +14,10 @@ class JetListenerTest(absltest.TestCase):
 
   def _get_listener_data(self, data: str) -> Dict[str, object]:
     compiler = JetRuleCompiler()
-    jetRules = compiler.processJetRule(data)
+    jetRules = compiler.processJetRule(data).jetRules
+    for err in compiler.jetrule_ctx.errors:
+      print('ERROR ::',err)
+    self.assertFalse(compiler.jetrule_ctx.ERROR, "Unexpected JetRuleCompiler Errors")
     return jetRules
 
   def test_directive1(self):
@@ -74,6 +77,24 @@ class JetListenerTest(absltest.TestCase):
     jetRules = self._get_listener_data(data)
     
     expected = """{"literals": [{"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE"}, {"type": "text", "id": "HH_AUTH", "value": "HH_AUTH"}, {"type": "text", "id": "EXCL_HH_AUTH", "value": "HH AUTH"}, {"type": "text", "id": "EXCLUDED_COUNTY", "value": "COUNTY"}, {"type": "text", "id": "EXCLUDED_TIN", "value": "TIN"}, {"type": "text", "id": "EXCLUDED_TIN_STATE", "value": "TIN/STATE"}, {"type": "text", "id": "EXCL_MER_COM", "value": "MERGED COMPONENTS"}, {"type": "text", "id": "EXCL_AMT_PAID", "value": "MERGED \\"MARKET\\" CHARGE BACK"}, {"type": "text", "id": "EXCLUDED_GROUPID", "value": "GROUPID"}, {"type": "text", "id": "EXCLUDED_MODALITY", "value": "MODALITY"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
+    # print('GOT:',json.dumps(jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
+  def test_literals3(self):
+    data = """
+      # =======================================================================================
+      # Defining Constants Resources and Literals
+      # ---------------------------------------------------------------------------------------
+      double DD = 10.9;
+      resource NullResource = null;
+      resource TrueResource = true;
+      resource FalseResource = false;
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [{"type": "double", "id": "DD", "value": "10.9"}], "resources": [{"type": "resource", "id": "NullResource", "symbol": "null", "value": null}, {"type": "resource", "id": "TrueResource", "symbol": "true", "value": null}, {"type": "resource", "id": "FalseResource", "symbol": "false", "value": null}], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
     # print('COMPACT:',json.dumps(jetRules))

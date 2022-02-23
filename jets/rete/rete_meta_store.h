@@ -51,17 +51,38 @@ class ReteMetaStore {
   using ExprVector = std::vector<ExprBasePtr>;
 
   ReteMetaStore()
-    : alpha_nodes_(),
+    : meta_graph_(),
+      alpha_nodes_(),
       node_vertexes_()
-  {}
-  ReteMetaStore(AlphaNodeVector const& alpha_nodes, NodeVertexVector const& node_vertexes)
-    : alpha_nodes_(alpha_nodes), 
+  {}  
+  ReteMetaStore(rdf::RDFGraphPtr meta_graph, AlphaNodeVector const& alpha_nodes, NodeVertexVector const& node_vertexes)
+    : meta_graph_(meta_graph),
+      alpha_nodes_(alpha_nodes), 
       node_vertexes_(node_vertexes)
   {}
-  ReteMetaStore(AlphaNodeVector && alpha_nodes, NodeVertexVector && node_vertexes)
-    : alpha_nodes_(std::forward<AlphaNodeVector>(alpha_nodes)), 
+  ReteMetaStore(rdf::RDFGraphPtr meta_graph, AlphaNodeVector && alpha_nodes, NodeVertexVector && node_vertexes)
+    : meta_graph_(meta_graph),
+      alpha_nodes_(std::forward<AlphaNodeVector>(alpha_nodes)), 
       node_vertexes_(std::forward<NodeVertexVector>(node_vertexes))
   {}
+
+  inline rdf::RDFGraph const*
+  get_meta_graph()const
+  {
+    return this->meta_graph_.get();
+  }
+
+  inline AlphaNodeVector const&
+  alpha_nodes()const
+  {
+    return this->alpha_nodes_;
+  }
+
+  inline NodeVertexVector const&
+  node_vertexes()const
+  {
+    return this->node_vertexes_;
+  }
 
   /**
    * @brief Get the alpha node object by key
@@ -99,7 +120,7 @@ class ReteMetaStore {
     // NodeVertex parent_node property
     for(auto const& nodeptr: this->node_vertexes_) {
       b_index node = nodeptr.get();
-      // remember the root node does not have a parent node!!
+      // remember the root node does not have a parent node!
       if(not node->parent_node_vertex) continue;
       auto & parent_node = this->node_vertexes_[node->parent_node_vertex->vertex];
       parent_node->child_nodes.insert(node);
@@ -126,24 +147,29 @@ class ReteMetaStore {
 
  private:
   friend class ReteSession;
+  rdf::RDFGraphPtr meta_graph_;
   AlphaNodeVector  alpha_nodes_;
   NodeVertexVector node_vertexes_;
 };
 
 inline ReteMetaStorePtr create_rete_meta_store(
-    ReteMetaStore::AlphaNodeVector const& alpha_nodes,
-    NodeVertexVector const& node_vertexes)
+  rdf::RDFGraphPtr meta_graph,
+  ReteMetaStore::AlphaNodeVector const& alpha_nodes,
+  NodeVertexVector const& node_vertexes)
 {
-  return std::make_shared<ReteMetaStore>(alpha_nodes, node_vertexes);
+  return std::make_shared<ReteMetaStore>(meta_graph, alpha_nodes, node_vertexes);
 }
 
 inline ReteMetaStorePtr create_rete_meta_store(
-    ReteMetaStore::AlphaNodeVector && alpha_nodes,
-    NodeVertexVector && node_vertexes)
+  rdf::RDFGraphPtr meta_graph,
+  ReteMetaStore::AlphaNodeVector && alpha_nodes,
+  NodeVertexVector && node_vertexes)
 {
   return std::make_shared<ReteMetaStore>(
+    meta_graph,
     std::forward<ReteMetaStore::AlphaNodeVector>(alpha_nodes),
-    std::forward<NodeVertexVector>(node_vertexes) );
+    std::forward<NodeVertexVector>(node_vertexes) 
+  );
 }
 
 } // namespace jets::rete

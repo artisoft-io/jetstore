@@ -6,6 +6,7 @@
 
 #include "jets/rdf/rdf_err.h"
 #include "jets/rdf/rdf_ast.h"
+#include "jets/rdf/uuid.h"
 #include "jets/rdf/w_node.h"
 #include "jets/rdf/containers_type.h"
 #include "jets/rdf/base_graph_iterator.h"

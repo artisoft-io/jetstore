@@ -15,41 +15,46 @@ class JetListenerTest2(absltest.TestCase):
   def test_rule_file1(self):
     provider = InputProvider("jetstore-tools/jetrule-grammar/")
     compiler = JetRuleCompiler()
-    compiler.verbose = True
-    jetRules = compiler.compileJetRuleFile("jet_listerner_test_data.jr", provider)
+    compiler.compileJetRuleFile("jetrule_main_test.jr", provider)
 
-    print('GOT')
     for k in compiler.jetrule_ctx.errors:
       print(k)
     print()
     self.assertEqual(compiler.jetrule_ctx.ERROR, False)
 
-    with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data.jr.json", 'rt', encoding='utf-8') as f:
+    with open("jetstore-tools/jetrule-grammar/jetrule_main_test.jr.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
 
-    # print('GOT:',json.dumps(jetRules, indent=4))
+    # TEST HERE
+    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetRules), json.dumps(expected))
 
-    self.assertEqual(json.dumps(jetRules), json.dumps(expected))
+    # print('GOT RULES:',json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
+    # print()
+    # print('GOT RETE:',json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+
+    with open("jetstore-tools/jetrule-grammar/jetrule_main_test.jrc.json", 'rt', encoding='utf-8') as f:
+      expected = json.loads(f.read())
+
+    # TEST HERE
+    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetReteNodes), json.dumps(expected))
 
   def test_rule_file2(self):
-    provider = InputProvider("jetstore-tools/jetrule-grammar/")
+    provider = InputProvider("jets/rete/rete_test_db/")
     compiler = JetRuleCompiler()
-    # compiler.verbose = True
-    jetRules = compiler.compileJetRuleFile("jet_listerner_test_data2.jr", provider)
+    jetRules = compiler.compileJetRuleFile("ms_factory_test2.jr", provider).jetRules
 
-    print('GOT')
+    # print('GOT')
     for k in compiler.jetrule_ctx.errors:
       print(k)
     print()
     self.assertEqual(compiler.jetrule_ctx.ERROR, False)
 
     expected = ''
-    with open("jetstore-tools/jetrule-grammar/jet_listerner_test_data2.jrc.json", 'rt', encoding='utf-8') as f:
+    with open("jets/rete/rete_test_db/ms_factory_test2.jrc.json", 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
 
-    # print('GOT:',json.dumps(jetRules, indent=4))
-
-    self.assertEqual(json.dumps(jetRules), json.dumps(expected))
+    # print('GOT RETE:',json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+    # self.assertEqual(json.dumps(jetRules), json.dumps(expected))
 
 
 if __name__ == '__main__':

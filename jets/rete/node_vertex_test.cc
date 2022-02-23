@@ -13,7 +13,7 @@ namespace {
 // Simple test
 
 TEST(BasicNodeVertexTest, SimpleTest1) {
-    auto node1 = jets::rete::create_node_vertex(nullptr, 1, true, 10, {}, {});
+    auto node1 = jets::rete::create_node_vertex(nullptr, 0, 1, true, 10, {}, "", {});
     b_index b1 = node1.get();
     EXPECT_EQ(b1->parent_node_vertex, nullptr);
     EXPECT_EQ(b1->vertex, 1);
@@ -23,8 +23,8 @@ TEST(BasicNodeVertexTest, SimpleTest1) {
 }
 
 TEST(BasicNodeVertexTest, SimpleTest2) {
-    auto node1 = jets::rete::create_node_vertex(nullptr, 1, false, 10, {}, {});
-    auto node2 = jets::rete::create_node_vertex(node1.get(), 2, false, 10, {}, {});
+    auto node1 = jets::rete::create_node_vertex(nullptr, 0, 1, false, 10, {}, "", {});
+    auto node2 = jets::rete::create_node_vertex(node1.get(), 0, 2, false, 10, {}, "", {});
     b_index b2 = node2.get();
     EXPECT_EQ(b2->parent_node_vertex, node1.get());
     EXPECT_EQ(b2->vertex, 2);

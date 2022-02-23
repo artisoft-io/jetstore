@@ -17,7 +17,6 @@ class JetRulesCompilerTest(absltest.TestCase):
   def _get_from_file(self, fname: str) -> JetRuleContext:
     in_provider = InputProvider('jetstore-tools/jetrule-grammar')
     compiler = JetRuleCompiler()
-    compiler.verbose = True
     compiler.compileJetRuleFile(fname, in_provider)
     # print('Compiler working memory for import files')
     # print(compiler.imported_file_info_list)
@@ -26,7 +25,6 @@ class JetRulesCompilerTest(absltest.TestCase):
 
   def _get_augmented_data(self, input_data: str) -> JetRuleContext:
     compiler = JetRuleCompiler()
-    compiler.verbose = True
     compiler.compileJetRule(input_data)
     jetrule_ctx = compiler.jetrule_ctx
     return jetrule_ctx
@@ -38,7 +36,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.ERROR, False)
 
     # validate the whole result
-    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "import_test11.jr"}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT", "source_file_name": "import_test11.jr"}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE", "source_file_name": "import_test11.jr"}], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup", "source_file_name": "import_test11.jr"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID", "source_file_name": "import_test11.jr"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID", "source_file_name": "import_test11.jr"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC", "source_file_name": "import_test11.jr"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "source_file_name": "import_test11.jr", "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": [], "imports": {"import_test1.jr": ["import_test11.jr"]}}"""
+    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "import_test1.jr", "key": 0}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT", "source_file_name": "import_test1.jr", "key": 1}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE", "source_file_name": "import_test1.jr", "key": 2}], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup", "source_file_name": "import_test11.jr", "key": 3}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID", "source_file_name": "import_test11.jr", "key": 4}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID", "source_file_name": "import_test11.jr", "key": 5}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC", "source_file_name": "import_test11.jr", "key": 6}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "source_file_name": "import_test11.jr", "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": [], "imports": {"import_test1.jr": ["import_test11.jr"]}}"""
     # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
@@ -112,7 +110,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(len(jetrule_ctx.errors), 0)
 
     optimized_data = jetrule_ctx.jetRules
-    optimized_expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleC4", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or true) and ?x1]", "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or true) and ?clm01]", "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, "op": "or", "rhs": {"type": "keyword", "value": "true"}}, "op": "and", "rhs": {"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}}}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "var", "value": "?good", "id": "?x2", "label": "?good"}], "normalizedLabel": "(?x1 is_good ?x2)", "label": "(?clm01 is_good ?good)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "authoredLabel": "[RuleC4]:(?clm01 rdf:type acme:Claim).[?clm01].(?clm01 is_good ?good).[?clm01 or true] -> (?clm01 is_good true);", "normalizedLabel": "[RuleC4]:(?x1 rdf:type acme:Claim).[(?x1 or true) and ?x1].(?x1 is_good ?x2) -> (?x1 is_good true);", "label": "[RuleC4]:(?clm01 rdf:type acme:Claim).[(?clm01 or true) and ?clm01].(?clm01 is_good ?good) -> (?clm01 is_good true);"}]}"""
+    optimized_expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type", "key": 0}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim", "key": 1}, {"type": "volatile_resource", "id": "is_good", "value": "is_good", "key": 2}], "lookup_tables": [], "jet_rules": [{"name": "RuleC4", "properties": {}, "optimization": true, "salience": 100, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "is_binded": false, "key": 3, "source_file_name": null}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or true) and ?x1]", "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or true) and ?clm01]", "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": 4, "op": "or", "rhs": 5}, "op": "and", "rhs": 6}, "vertex": 1, "parent_vertex": 0}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "is_binded": true, "key": 7, "source_file_name": null}, {"type": "identifier", "value": "is_good"}, {"type": "var", "id": "?x2", "is_binded": false, "key": 8, "source_file_name": null}], "normalizedLabel": "(?x1 is_good ?x2)", "label": "(?clm01 is_good ?good)", "vertex": 2, "parent_vertex": 1}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "is_binded": true, "key": 9, "source_file_name": null}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true", "inline": true, "key": 10, "source_file_name": null}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)", "vertex": 2}], "authoredLabel": "[RuleC4]:(?clm01 rdf:type acme:Claim).[?clm01].(?clm01 is_good ?good).[?clm01 or true] -> (?clm01 is_good true);", "source_file_name": null, "normalizedLabel": "[RuleC4]:(?x1 rdf:type acme:Claim).[(?x1 or true) and ?x1].(?x1 is_good ?x2) -> (?x1 is_good true);", "label": "[RuleC4]:(?clm01 rdf:type acme:Claim).[(?clm01 or true) and ?clm01].(?clm01 is_good ?good) -> (?clm01 is_good true);"}]}"""
     # print()
     # print('OPTIMIZED GOT:',json.dumps(optimized_data, indent=2))
     # print()
@@ -135,12 +133,6 @@ class JetRulesCompilerTest(absltest.TestCase):
         (?clm01 is_good true).
       ;
     """
-
-  # Result:
-  # "authoredLabel": "[RuleC5]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);",
-  # "normalizedLabel": "[RuleC5]:(?x1 rdf:type acme:Claim).(?x2 rdf:type acme:Claim).(?x2 reverse_of ?x3).(?x3 rdf:type acme:Claim) -> (?x2 is_good true);",
-  # "label": "[RuleC5]:(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm01 reverse_of ?clm02).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);"    
-
     jetrule_ctx = self._get_augmented_data(data)
 
     # if jetrule_ctx.ERROR:
@@ -151,16 +143,6 @@ class JetRulesCompilerTest(absltest.TestCase):
 
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], "Error rule RuleC5: Identifier 'reverse_of' is not defined in this context '(?clm01 reverse_of ?clm02)', it must be defined.")
-
-    optimized_data = jetrule_ctx.jetRules
-    optimized_expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleC5", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm03", "id": "?x1", "label": "?clm03"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm03 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x2", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x2 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x2", "label": "?clm01"}, {"type": "identifier", "value": "reverse_of"}, {"type": "var", "value": "?clm02", "id": "?x3", "label": "?clm02"}], "normalizedLabel": "(?x2 reverse_of ?x3)", "label": "(?clm01 reverse_of ?clm02)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm02", "id": "?x3", "label": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x3 rdf:type acme:Claim)", "label": "(?clm02 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x2", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x2 is_good true)", "label": "(?clm01 is_good true)"}], "authoredLabel": "[RuleC5]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);", "normalizedLabel": "[RuleC5]:(?x1 rdf:type acme:Claim).(?x2 rdf:type acme:Claim).(?x2 reverse_of ?x3).(?x3 rdf:type acme:Claim) -> (?x2 is_good true);", "label": "[RuleC5]:(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm01 reverse_of ?clm02).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);"}]}"""
-    # print()
-    # print('OPTIMIZED GOT:',json.dumps(optimized_data, indent=2))
-    # print()
-    # print('COMPACT:',json.dumps(optimized_data))
-    
-    self.assertEqual(json.dumps(optimized_data), optimized_expected)
-
 
 
 if __name__ == '__main__':
