@@ -67,9 +67,15 @@ class ReteMetaStore {
   {}
 
   inline rdf::RDFGraph const*
-  get_meta_graph()const
+  meta_graph()const
   {
     return this->meta_graph_.get();
+  }
+
+  inline rdf::RDFGraphPtr
+  get_meta_graph()const
+  {
+    return this->meta_graph_;
   }
 
   inline AlphaNodeVector const&

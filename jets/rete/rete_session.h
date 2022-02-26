@@ -50,13 +50,13 @@ class ReteSession {
   using Iterator = rdf::RDFSession::Iterator;
 
   ReteSession()
-    : rule_ms_(nullptr),
-      rdf_session_(nullptr),
+    : rule_ms_(),
+      rdf_session_(),
       beta_relations_(),
       pending_beta_rows_()
     {}
 
-  ReteSession(ReteMetaStore const* rule_ms, rdf::RDFSession * rdf_session) 
+  ReteSession(ReteMetaStorePtr rule_ms, rdf::RDFSessionPtr rdf_session) 
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
       beta_relations_(),
@@ -66,13 +66,13 @@ class ReteSession {
   inline rdf::RDFSession *
   rdf_session()
   {
-    return rdf_session_;
+    return rdf_session_.get();
   }
 
   inline ReteMetaStore const*
   rule_ms()const
   {
-    return rule_ms_;
+    return rule_ms_.get();
   }
 
   inline BetaRelation *
@@ -207,14 +207,14 @@ class ReteSession {
  private:
  friend class BetaRelation;
 
-  ReteMetaStore  const*   rule_ms_;
-  rdf::RDFSession  *      rdf_session_;
+  ReteMetaStorePtr        rule_ms_;
+  rdf::RDFSessionPtr      rdf_session_;
   BetaRelationVector      beta_relations_;
   BetaRowPriorityQueue    pending_beta_rows_;
 };
 
-inline ReteSessionPtr create_rete_session(ReteMetaStore const* rule_ms, 
-  rdf::RDFSession * rdf_session)
+inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms, 
+  rdf::RDFSessionPtr rdf_session)
 {
   return std::make_shared<ReteSession>(rule_ms, rdf_session);
 }
@@ -233,17 +233,17 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Flag row as new and pending to infer triples
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
-      std::cout<<"    BetaRelation::insert_beta_row at vertex "<<
+      VLOG(1)<<"    BetaRelation::insert_beta_row at vertex "<<
         this->get_node_vertex()->vertex<<", row "<<beta_row<<
         " added, status set to Inserted - scheduled consequent - "<<
-        (this->get_node_vertex()->child_nodes.empty()?"no children":"has children")<<std::endl;
+        (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
     } else {
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
-      std::cout<<"    BetaRelation::insert_beta_row at vertex "<<
+      VLOG(1)<<"    BetaRelation::insert_beta_row at vertex "<<
         this->get_node_vertex()->vertex<<", row "<<beta_row<<
         " added, status set to Processed - no consequents - "<<
-        (this->get_node_vertex()->child_nodes.empty()?"no children":"has children")<<std::endl;
+        (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
     }
 
     // Add row to pending queue to notify child nodes
@@ -266,18 +266,18 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   auto itor = this->all_beta_rows_.find(beta_row);
   if(itor==this->all_beta_rows_.end()) {
     // Already deleted!
-    std::cout<<"BetaRowPtr not found, must be already deleted.(D01)"<<std::endl;
+    VLOG(1)<<"BetaRowPtr not found, must be already deleted.(D01)";
     return 0;
   }
   // make sure we point to the right instance
   beta_row = *itor;
-  std::cout<<"    BetaRelation::remove_beta_row at vertex "<<
+  VLOG(1)<<"    BetaRelation::remove_beta_row at vertex "<<
     this->get_node_vertex()->vertex<<", row "<<beta_row<<
     ", status "<<beta_row->get_status()<<" - "<<
-    (this->get_node_vertex()->child_nodes.empty()?"no children":"has children")<<std::endl;
+    (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
   if(beta_row->is_deleted()) {
     // Marked deleted already
-    std::cout<<"    Marked as deleted already"<<std::endl;
+    VLOG(1)<<"    Marked as deleted already";
     return 0;
   }
 
@@ -287,7 +287,7 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     if(beta_row->is_inserted()) {
       // Row was marked kInserted, not inferred yet
       // Cancel row insertion **
-      std::cout<<"Row marked kInserted, not inferred yet ** Cancel row insertion **"<<std::endl;
+      VLOG(1)<<"Row marked kInserted, not inferred yet ** Cancel row insertion **";
       beta_row->set_status(BetaRowStatus::kProcessed);
       // Put the row in the pending queue to notify children
       this->pending_beta_rows_.push_back(beta_row);
@@ -301,7 +301,7 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       return 0;
     }
 
-    std::cout<<"Row marked kProcessed, need to put it for delete/retract"<<std::endl;
+    VLOG(1)<<"Row marked kProcessed, need to put it for delete/retract";
     // Row must be in kProcessed state -- need to put it for delete/retract
     beta_row->set_status(BetaRowStatus::kDeleted);
     // Put the row in the pending queue to notify children
@@ -356,8 +356,8 @@ ReteCallBackImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o
   if(this->s_filter_ and this->s_filter_!=s) return;
   if(this->p_filter_ and this->p_filter_!=p) return;
   if(this->o_filter_ and this->o_filter_!=o) return;
-  std::cout<<"        ReteCallBackImpl::triple_inserted t3: "<<rdf::Triple(s, p, o)<<
-    ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_<<std::endl;
+  // VLOG(1)<<"        ReteCallBackImpl::triple_inserted t3: "<<rdf::Triple(s, p, o)<<
+  //   ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_;
   this->rete_session_->triple_inserted(this->vertex_, s, p, o);
 }
 // Declaired in graph_callback_mgr_impl.h
@@ -367,8 +367,8 @@ ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)
   if(this->s_filter_ and this->s_filter_!=s) return;
   if(this->p_filter_ and this->p_filter_!=p) return;
   if(this->o_filter_ and this->o_filter_!=o) return;
-  std::cout<<"        ReteCallBackImpl::triple_deleted t3: "<<rdf::Triple(s, p, o)<<
-    ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_<<std::endl;
+  // VLOG(1)<<"        ReteCallBackImpl::triple_deleted t3: "<<rdf::Triple(s, p, o)<<
+  //   ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_;
   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
 }
 

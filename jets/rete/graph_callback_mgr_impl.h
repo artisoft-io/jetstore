@@ -32,11 +32,11 @@ class ReteCallBackImpl: public rdf::ReteCallBack {
 
   // Implementation moved to rete_session.h
   void
-  triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const;
+  triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const override;
 
   // Implementation moved to rete_session.h
   void
-  triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const;
+  triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const override;
 
  private:
   ReteSession * rete_session_;

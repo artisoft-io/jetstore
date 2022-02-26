@@ -1,6 +1,7 @@
 
 
 #include <iostream>
+#include <string>
 #include <string_view>
 
 #include "beta_row_initializer.h"
@@ -17,6 +18,7 @@ ReteMetaStoreFactory::ReteMetaStoreFactory()
   v_map_(),
   jr_map_(),
   ms_map_(),
+  rs_map_(),
   db_(nullptr),
   node_vertexes_stmt_(nullptr),
   alpha_nodes_stmt_(nullptr),
@@ -29,7 +31,7 @@ int
 ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
 {
   //*
-  std::cout << "Current path is " << std::filesystem::current_path() << std::endl;
+  VLOG(1) << "Current path is " << std::filesystem::current_path() << std::endl;
   // Open database -- check that db exists
   this->jetrule_rete_db_ = jetrule_rete_db;
   std::filesystem::path p(this->jetrule_rete_db_);
@@ -88,11 +90,11 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
 
   // Load each main rule file as a ReteMetaStore
   for(auto const& item: this->jr_map_) {
-    std::cout<< "Loading file key: "<<item.second<<std::endl;
+    VLOG(1)<< "Loading file key: "<<item.second;
     int file_key = item.second;
 
     //*
-    std::cout << "Loading vertexes for file_key "<< file_key << std::endl;
+    VLOG(1) << "Loading vertexes for file_key "<< file_key;
 
     // Load the node_vertexes
     NodeVertexVector node_vertexes;
@@ -102,7 +104,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
     }
 
     //*
-    std::cout << "Loading alpha nodes for file_key "<< file_key << std::endl;
+    VLOG(1) << "Loading alpha nodes for file_key "<< file_key;
 
     // Load the alpha nodes
     AlphaNodeVector alpha_nodes;
@@ -119,7 +121,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
   }
 
   // All good!, release the stmts and db connection
-  std::cout<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions"<<std::endl;
+  VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
   return this->reset();
 }
 
@@ -138,8 +140,7 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   // vertex           8  INTEGER,  -- for var type only, var for vertex
   // row_pos          9  INTEGER   -- for var type only, pos in beta row
   //
-  int key = pqxx::from_string<int>(argv[0]);
-  // int key = std::stoi(argv[0]);
+  int key = std::stoi(argv[0]);
   char * type     =  argv[1];
   char * id       =  argv[2];
   char * value    =  argv[3];
@@ -150,10 +151,10 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
 
   // Capture var as we'll need them for the rete_nodes
   if( strcmp(type, "var") == 0 ) {
-    bool is_binded = pqxx::from_string<int>(binded);
-    int vertex = pqxx::from_string<int>(vx);
+    bool is_binded = std::stoi(binded);
+    int vertex = std::stoi(vx);
     int row_pos = 0;
-    if(pos) row_pos = pqxx::from_string<int>(pos);
+    if(pos) row_pos = std::stoi(pos);
     this->v_map_.insert({key, var_info(id, is_binded, vertex, row_pos)});
     return SQLITE_OK;
   }
@@ -203,27 +204,33 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   }
   
   if( strcmp(type, "int") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<int_fast32_t>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoi(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "uint") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<uint_fast32_t>(value))});
+    auto v = std::stoul(value);
+    std::uint32_t u = v;
+    if(u != v) {
+      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: unsignd int overflow, use a unsigned long literal for resource with id: "<<(id?std::string(id):"NULL");
+      return SQLITE_ERROR;
+    }
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(u)});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "long") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<int_fast64_t>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stol(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "ulong") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<uint_fast64_t>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoul(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "double") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<double>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stod(value))});
     return SQLITE_OK;
   }
   
@@ -289,7 +296,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     int salience           = get_column_int_value( this->node_vertexes_stmt_, 12 );   //  INTEGER,
 
     //*
-    std::cout << "Loading vertex: "<< vertex <<", with key "<<key << std::endl;
+    VLOG(1) << "Loading vertex: "<< vertex <<", with key "<<key << std::endl;
     
     // validation
     if(vertex<0 or parent_vertex<0) {
@@ -314,7 +321,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     if(nlabel) normalized_label = nlabel;
 
     //*
-    if(filter_expr_key >= 0) std::cout << "Creating filter with key: "<< filter_expr_key << std::endl;
+    if(filter_expr_key >= 0) VLOG(1) << "Creating filter with key: "<< filter_expr_key << std::endl;
 
     // Create Filter
     ExprBasePtr filter{};
@@ -326,7 +333,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     }
 
     //*
-    std::cout << "Creating beta row initializer, vertex "<< vertex << std::endl;
+    VLOG(1) << "Creating beta row initializer, vertex "<< vertex << std::endl;
 
     // Create BetaRowInitializer
     // load all seq for (vertex, file_key)
@@ -340,7 +347,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     }
 
     //*
-    std::cout << "Creating NodeVertex @ "<<key<<", vertex "<< vertex << ", parent vertex "<< parent_vertex << std::endl;
+    VLOG(1) << "Creating NodeVertex @ "<<key<<", vertex "<< vertex << ", parent vertex "<< parent_vertex << std::endl;
     if(node_vertexes.size()<1) {
       LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: " <<
         "Error node_vertexes.size()<1 for vertex " << vertex << 
@@ -348,12 +355,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
       return -1;
     }
     auto parent = node_vertexes.at(parent_vertex);
-    // //*
-    // std::cout << "Parent ptr's vertex "<< parent->vertex << std::endl;
-    
     b_index parent_index = node_vertexes[parent_vertex].get();
-    // //*
-    // std::cout << "Parent vertex's vertex "<< parent_index->vertex << std::endl;
 
     // Create the NodeVertex
     node_vertexes.push_back(
@@ -361,7 +363,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
         is_negation, salience, filter, normalized_label, beta_row_initializer));
   }
   //*
-  std::cout << "Got "<<node_vertexes.size()<<" NodeVertexes " << std::endl;
+  VLOG(1) << "Got "<<node_vertexes.size()<<" NodeVertexes " << std::endl;
   return SQLITE_OK;
 }
 
@@ -437,7 +439,7 @@ ReteMetaStoreFactory::load_alpha_nodes(int file_key, NodeVertexVector const& nod
       return -1;
     }
 
-    std::cout<<"Creating AlphaNode: "<<type<<" is_antecedent?"<<is_antecedent<<" ("<<subject_key<<", "<<predicate_key<<", "<<object_key<<")"<<std::endl;
+    VLOG(1)<<"Creating AlphaNode: "<<type<<" is_antecedent?"<<is_antecedent<<" ("<<subject_key<<", "<<predicate_key<<", "<<object_key<<")";
 
     auto fu = this->create_func_factory(subject_key);
     auto fv = this->create_func_factory(predicate_key);

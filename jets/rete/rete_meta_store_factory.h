@@ -12,11 +12,11 @@
 #include <glog/logging.h>
 #include <unordered_map>
 
-#include <pqxx/pqxx>
 #include "alpha_functors.h"
 #include "alpha_node_impl.h"
 #include "beta_row_initializer.h"
 #include "expr.h"
+#include "rete_session.h"
 #include "sqlite3.h"
 
 #include "jets/rdf/rdf_types.h"
@@ -48,6 +48,7 @@ struct var_info {
 class ReteMetaStoreFactory {
  public:
   using ResourceLookup = std::unordered_map<int, rdf::r_index>;
+  using ReteSessionLookup = std::unordered_map<ReteSession *, ReteSessionPtr>;
   // key  ->  <var name, is_binded>
   using VariableLookup = std::unordered_map<int, var_info>;
   using MainRuleUriLookup = std::unordered_map<std::string, int>;
@@ -106,11 +107,38 @@ class ReteMetaStoreFactory {
     }
     auto mitor = this->ms_map_.find(itor->second);
     if(mitor == this->ms_map_.end()) {
-      LOG(WARNING) << "ReteMetaStoreFactory::create_rete_meta_store: WARNING ReteMetaStore not found for main_rule file "<<
-        main_rule<<" not found";
+      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR ReteMetaStore not found for main_rule file "<<
+        main_rule;
       return {};
     }
     return mitor->second;
+  }
+
+  ReteSessionPtr
+  create_rete_session(std::string const& main_rule)
+  {
+    auto ms = this->get_rete_meta_store(main_rule);
+    if(not ms) {
+      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_session: ERROR ReteMetaStore not found for main_rule file "<<
+        main_rule;
+      return {};
+    }
+    auto rdf_session = rdf::create_rdf_session(this->meta_graph_);
+    auto rete_session = rete::create_rete_session(ms, rdf_session);
+    rete_session->initialize();
+    this->rs_map_.insert({rete_session.get(), rete_session});
+    return rete_session;
+  }
+
+  int
+  delete_rete_session(ReteSession * rs)
+  {
+    if(not rs) {
+      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_session: ERROR ReteSession argument cannot be NULL";
+      return -1;
+    }
+    this->rs_map_.erase(rs);
+    return 0;
   }
 
   int
@@ -260,6 +288,7 @@ run_count_stmt(const char* sql )
   VariableLookup v_map_;
   MainRuleUriLookup jr_map_;
   MetaStoreLookup ms_map_;
+  ReteSessionLookup rs_map_;
 
   sqlite3 *     db_;
   sqlite3_stmt* node_vertexes_stmt_;

@@ -154,7 +154,7 @@ class BetaRow {
 inline bool 
 operator==(BetaRow const& rhs)const
 { 
-  std::cout<<"** operator BetaRow == BetaRow called"<<std::endl;
+  VLOG(1)<<"** operator BetaRow == BetaRow called";
   auto sz = this->get_size();
   if(sz != rhs.get_size()) return false;
 
@@ -229,7 +229,6 @@ inline std::ostream & operator<<(std::ostream & out, BetaRowPtr const& r)
 inline void
 BetaRow::set_status(BetaRowStatus status)
 {
-  // std::cout<<"BetaRow "<<this<<", vertex "<<this->node_vertex_->vertex<<", status from "<<this->status_ <<" to "<<status<<std::endl;
   status_ = status;
 }
 
@@ -237,7 +236,6 @@ BetaRow::set_status(BetaRowStatus status)
 template <typename H>
 H AbslHashValue(H h, BetaRow * s) {
   if(s->get_size() == 0) return h;
-  // std::cout<<"** Computing BetaRow* Hash "<<std::endl;
   auto itor = s->begin();
   auto end = s->end();
   for(; itor !=end; itor++) {
@@ -249,20 +247,16 @@ H AbslHashValue(H h, BetaRow * s) {
 inline bool 
 operator==(BetaRowPtr const& lhs, BetaRowPtr const& rhs) 
 { 
-  // std::cout<<"** operator BetaRowPtr == BetaRowPtr called with lhs "<<lhs<<", rhs "<<rhs<<std::endl;
   auto sz = lhs->get_size();
   if(sz != rhs->get_size()) {
-    // std::cout<<">> unequal size: "<<lhs->get_size()<<" != "<<rhs->get_size() <<std::endl;
     return false;
   }
 
   for(int i=0; i<sz; i++) {
     if(lhs->get(i) != rhs->get(i)) {
-      // std::cout<<">> unequal value at "<<i<<": "<<lhs->get(i)<<" != "<<rhs->get(i) <<std::endl;
       return false;
     }
   }
-  // std::cout<<"!! YES EQUAL "<<std::endl;
   return true; 
 }
 
