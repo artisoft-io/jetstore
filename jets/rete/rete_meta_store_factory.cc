@@ -1,6 +1,7 @@
 
 
 #include <iostream>
+#include <string>
 #include <string_view>
 
 #include "beta_row_initializer.h"
@@ -17,6 +18,7 @@ ReteMetaStoreFactory::ReteMetaStoreFactory()
   v_map_(),
   jr_map_(),
   ms_map_(),
+  rs_map_(),
   db_(nullptr),
   node_vertexes_stmt_(nullptr),
   alpha_nodes_stmt_(nullptr),
@@ -138,8 +140,7 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   // vertex           8  INTEGER,  -- for var type only, var for vertex
   // row_pos          9  INTEGER   -- for var type only, pos in beta row
   //
-  int key = pqxx::from_string<int>(argv[0]);
-  // int key = std::stoi(argv[0]);
+  int key = std::stoi(argv[0]);
   char * type     =  argv[1];
   char * id       =  argv[2];
   char * value    =  argv[3];
@@ -150,10 +151,10 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
 
   // Capture var as we'll need them for the rete_nodes
   if( strcmp(type, "var") == 0 ) {
-    bool is_binded = pqxx::from_string<int>(binded);
-    int vertex = pqxx::from_string<int>(vx);
+    bool is_binded = std::stoi(binded);
+    int vertex = std::stoi(vx);
     int row_pos = 0;
-    if(pos) row_pos = pqxx::from_string<int>(pos);
+    if(pos) row_pos = std::stoi(pos);
     this->v_map_.insert({key, var_info(id, is_binded, vertex, row_pos)});
     return SQLITE_OK;
   }
@@ -203,27 +204,33 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   }
   
   if( strcmp(type, "int") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<int_fast32_t>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoi(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "uint") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<uint_fast32_t>(value))});
+    auto v = std::stoul(value);
+    std::uint32_t u = v;
+    if(u != v) {
+      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: unsignd int overflow, use a unsigned long literal for resource with id: "<<(id?std::string(id):"NULL");
+      return SQLITE_ERROR;
+    }
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(u)});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "long") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<int_fast64_t>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stol(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "ulong") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<uint_fast64_t>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoul(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "double") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(pqxx::from_string<double>(value))});
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stod(value))});
     return SQLITE_OK;
   }
   

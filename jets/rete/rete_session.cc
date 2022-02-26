@@ -37,6 +37,7 @@ namespace jets::rete {
     }
     std::cout<<"ReteSession::initialize BetaRelations initalized -- now calbacks"<<std::endl;
     this->set_graph_callbacks();
+    std::cout<<"ReteSession::initialize: done"<<std::endl;
     return 0;
   }
 

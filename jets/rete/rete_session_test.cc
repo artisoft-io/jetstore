@@ -209,7 +209,7 @@ class ReteSessionTest : public ::testing::Test {
     // Cretae the rdf_session and the rete_session and initialize them
     // Initialize the rete_session now that the rule base is ready
     this->rdf_session = rdf::create_rdf_session(meta_graph);
-    this->rete_session = create_rete_session(rete_meta_store.get(), rdf_session.get());
+    this->rete_session = create_rete_session(rete_meta_store, rdf_session);
     this->rete_session->initialize();
   }
 

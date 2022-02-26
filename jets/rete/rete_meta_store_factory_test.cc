@@ -164,7 +164,7 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest1) {
   // Create the rdf_session and the rete_session and initialize them
   // Initialize the rete_session now that the rule base is ready
   auto rdf_session = rdf::create_rdf_session(factory.get_meta_graph());
-  auto rete_session = create_rete_session(meta_store.get(), rdf_session.get());
+  auto rete_session = create_rete_session(meta_store, rdf_session);
   rete_session->initialize();
   auto mgr = rdf_session->get_rmgr();
   rdf::r_index iclaim = mgr->create_resource("iclaim");
@@ -196,7 +196,7 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
   // Create the rdf_session and the rete_session and initialize them
   // Initialize the rete_session now that the rule base is ready
   auto rdf_session = rdf::create_rdf_session(factory.get_meta_graph());
-  auto rete_session = create_rete_session(meta_store.get(), rdf_session.get());
+  auto rete_session = create_rete_session(meta_store, rdf_session);
   rete_session->initialize();  
   auto mgr = rdf_session->get_rmgr();
 
