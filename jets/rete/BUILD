@@ -31,55 +31,8 @@ load("@jst_deps//:requirements.bzl", "requirement")
 # )
 # # USING FOREIGN_CC_DEPEDENCY
 
-# cc_library(
-#     name = "libjets_rete.so",
-#     srcs = [
-#         "antecedent_query_visitor.h",
-#         "alpha_functors.h",
-#         "alpha_node_impl.h",
-#         "alpha_node.h",
-#         "beta_relation.h",
-#         "beta_row_initializer.h",
-#         "beta_row_iterator.h",
-#         "beta_row.h",
-#         "expr_impl.h",
-#         "expr_operators.h",
-#         "expr_operator_factory.h",
-#         "expr.h",
-#         "graph_callback_mgr_impl.h",
-#         "node_vertex.h",
-#         "rete_err.h",
-#         "rete_meta_store.h",
-#         "rete_session.cc",
-#         "rete_session.h",
-#         "rete_meta_store_factory.h",
-#         "rete_meta_store_factory_helper.h",
-#         "rete_meta_store_factory.cc",
-#         "rete_types.h",
-#         "rete_types_impl.h",
-#         "@com_google_absl//absl/hash",
-#         # c bindings for python and go clients
-#         "jets_rete_cwrapper.h",
-#         "jets_rete_cwrapper.cpp",
-#     ],
-#     visibility = ["//visibility:public"],
-#     deps = [
-#         "//jets/rdf:jets_rdf",
-#         "@com_github_gflags_gflags//:gflags",
-#         "@com_github_google_glog//:glog",
-#         "@com_google_absl//absl/hash",
-#         "@com_google_absl//absl/container:flat_hash_set",
-#         "@com_github_rockwotj_sqlite_bazel//:sqlite3",
-#         # ":libpqxx"
-#     ],
-#     copts = [
-#         "-Iexternal/gtest/googletest-release-1.10.0/include",
-#         "-Iexternal/gtest/googletest-release-1.10.0"
-#     ],
-# )
-
-cc_binary(
-    name = "libjets_rete.so",
+cc_library(
+    name = "jets_rete",
     srcs = [
         "antecedent_query_visitor.h",
         "alpha_functors.h",
@@ -105,12 +58,8 @@ cc_binary(
         "rete_types.h",
         "rete_types_impl.h",
         "@com_google_absl//absl/hash",
-        # c bindings for python and go clients
-        "jets_rete_cwrapper.h",
-        "jets_rete_cwrapper.cpp",
     ],
-    linkshared = 1,  ## important
-    linkstatic = 1,
+    linkstatic = True,
     visibility = ["//visibility:public"],
     deps = [
         "//jets/rdf:jets_rdf",
@@ -119,7 +68,25 @@ cc_binary(
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_github_rockwotj_sqlite_bazel//:sqlite3",
-        # ":libpqxx"
+    ],
+    copts = [
+        "-Iexternal/gtest/googletest-release-1.10.0/include",
+        "-Iexternal/gtest/googletest-release-1.10.0"
+    ],
+)
+
+cc_binary(
+    name = "libjets_rete.so",
+    srcs = [
+        # c bindings for python and go clients
+        "jets_rete_cwrapper.h",
+        "jets_rete_cwrapper.cpp",
+    ],
+    linkshared = 1,  ## important
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":jets_rete",
     ],
     copts = [
         "-Iexternal/gtest/googletest-release-1.10.0/include",
@@ -143,7 +110,7 @@ cc_test(
     ],
     deps = [
         "//jets/rdf:jets_rdf",
-        ":libjets_rete.so",
+        ":jets_rete",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
@@ -157,7 +124,7 @@ cc_test(
     ],
     deps = [
         "//jets/rdf:jets_rdf",
-        ":libjets_rete.so",
+        ":jets_rete",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
@@ -172,7 +139,7 @@ cc_test(
     ],
     deps = [
         "//jets/rdf:jets_rdf",
-        ":libjets_rete.so",
+        ":jets_rete",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
@@ -186,7 +153,7 @@ cc_test(
     ],
     deps = [
         "//jets/rdf:jets_rdf",
-        ":libjets_rete.so",
+        ":jets_rete",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
@@ -204,7 +171,7 @@ cc_test(
     ],
     deps = [
         "//jets/rdf:jets_rdf",
-        ":libjets_rete.so",
+        ":jets_rete",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
@@ -219,7 +186,7 @@ cc_test(
     ],
     deps = [
         "//jets/rdf:jets_rdf",
-        ":libjets_rete.so",
+        ":jets_rete",
         "@com_github_google_benchmark//:benchmark_main",
     ],
 )

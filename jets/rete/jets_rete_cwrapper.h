@@ -16,34 +16,37 @@ using HJRETE = void*;
 int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * handle );
 int delete_rete_session( HJRETE rete_session_hdl );
 
-// struct HJR;
-// typedef struct HJR HJR;
+using HJR = void const*;
 
-// // Creating resources and literals
-// int create_resource(HJRETE * rete_hdl, char const * name, HJR ** handle);
-// int create_text(HJRETE * rete_hdl, char const * txt, HJR ** handle);
-// int create_int(HJRETE * rete_hdl, int v, HJR ** handle);
-// // Get the resource name and literal value
-// char const* get_resource_name(HJR * handle);
-// int get_int_literal(HJR * handle); // errors?
-// char const* get_text_literal(HJR * handle); // errors?
+// Creating resources and literals
+int create_resource(HJRETE rete_hdl, char const * name, HJR * handle);
+int create_text(HJRETE rete_hdl, char const * txt, HJR * handle);
+int create_int(HJRETE rete_hdl, int v, HJR * handle);
 
-// int insert(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o);
-// bool contains(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o);
-// int execute_rules(HJRETE * rete_hdl);
+using HSTR = void const*;
 
-// struct HJITERATOR;
-// typedef struct HJITERATOR HJITERATOR;
+// Get the resource name and literal value
+int get_resource_type(HJR handle);
+int get_resource_name(HJR handle, HSTR*);
+int get_int_literal(HJR handle, int*);
+int get_text_literal(HJR handle, HSTR*);
 
-// int find(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
+// main functions
+int insert(HJRETE rete_hdl, HJR s, HJR p, HJR o);
+int contains(HJRETE rete_hdl, HJR s, HJR p, HJR o);
+int execute_rules(HJRETE rete_hdl);
+
+using HJITERATOR = void*;
+
+int find_all(HJRETE rete_hdl, HJITERATOR * handle);
 // int find_asserted(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
 // int find_inferred(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
-// bool is_end(HJITERATOR * handle);
-// bool next(HJITERATOR * handle);
-// int get_subject(HJITERATOR * itor_hdl, HJR ** handle);
-// int get_predicate(HJITERATOR * itor_hdl, HJR ** handle);
-// int get_object(HJITERATOR * itor_hdl, HJR ** handle);
-// int dispose(HJITERATOR * itor_hdl);
+int is_end(HJITERATOR handle);
+int next(HJITERATOR handle);
+int get_subject(HJITERATOR itor_hdl, HJR * handle);
+int get_predicate(HJITERATOR itor_hdl, HJR * handle);
+int get_object(HJITERATOR itor_hdl, HJR * handle);
+int dispose(HJITERATOR itor_hdl);
 
 #ifdef __cplusplus
 }

@@ -155,6 +155,16 @@ class RDFSession {
     );
   }
 
+  inline Iterator *
+  new_find() const 
+  {
+    return new Iterator(
+      asserted_graph_->find(),
+      inferred_graph_->find(),
+      meta_graph_->find()
+    );
+  }
+
   inline Iterator 
   find(r_index s) const 
   {

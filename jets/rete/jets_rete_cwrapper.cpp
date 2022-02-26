@@ -9,6 +9,7 @@
 #include "rete_session.h"
 
 using namespace jets::rete;
+using namespace jets::rdf;
 
 int create_jetstore_hdl( char const * rete_db_path, HJETS * handle )
 {
@@ -40,16 +41,6 @@ int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * han
     return -1;
   }
 
-  // //TRY 1
-  // auto rete_session = factory->create_rete_session(jetrule_name);
-  // if(not rete_session) {
-  //   LOG(ERROR) << "create_rete_session: ERROR NULL rete_session for "<<jetrule_name;
-  //   return -1;
-  // }
-  // std::cout<<"RETE SESSION CREATED!"<<std::endl;
-  // *handle = rete_session.get();
-  // //TRY 1
-
   auto ms = factory->get_rete_meta_store(jetrule_name);
   if(not ms) {
     LOG(ERROR) << "::create_rete_session: ERROR ReteMetaStore not found for main_rule file ";
@@ -63,65 +54,197 @@ int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * han
     LOG(ERROR) << "create_rete_session: ERROR while initializing rete session "<<
       ", code "<<res;
   }
-  std::cout<<"RETE SESSION INIT DONE XX"<<std::endl;
   return res;
 }
 
 int delete_rete_session(  HJRETE rete_session_hdl )
 {
-  // //TRY 1
-  // if(not jets_hdl or not rete_session_hdl) return -1;
-  // auto * factory =  static_cast<ReteMetaStoreFactory*>(jets_hdl);
-  // if(not factory) {
-  //   LOG(ERROR) << "delete_rete_session: ERROR NULL factory";
-  //   return -1;
-  // }
-
-  // auto * rete_session =  static_cast<ReteSession*>(rete_session_hdl);
-  // return factory->delete_rete_session(rete_session);
-  // //TRY 1
-  std::cout<<"RETE SESSION INIT DONE YYY"<<std::endl;
   if(not rete_session_hdl) return -1;
-
   auto * rete_session =  static_cast<ReteSession*>(rete_session_hdl);
-  
-  std::cout<<"RETE SESSION INIT DONE ZZZ1"<<std::endl;
   delete rete_session;
-  std::cout<<"RETE SESSION INIT DONE ZZZ"<<std::endl;
   return 0;
 }
 
-// using HJRETE = void*;
+// Creating resources and literals
+int create_resource(HJRETE rete_hdl, char const * name, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_resource(name);
+  return 0;
+}
+int create_text(HJRETE rete_hdl, char const * txt, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(txt);
+  return 0;
+}
+int create_int(HJRETE rete_hdl, int v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  return 0;
+}
 
-// int create_rete_session( HJETS jets_hdl, char const * rete_db_path, HJRETE * handle );
-// int delete_rete_session( HJRETE * rete_hdl );
+// Get the resource name and literal value
+int get_resource_type(HJR handle)
+{
+  if(not handle) return -1;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_null_t             : return rdf_null_t;
+  case rdf_blank_node_t       : return rdf_blank_node_t;
+  case rdf_named_resource_t   : return rdf_named_resource_t;
+  case rdf_literal_int32_t    : return rdf_literal_int32_t;
+  case rdf_literal_uint32_t   : return rdf_literal_uint32_t;
+  case rdf_literal_int64_t    : return rdf_literal_int64_t;
+  case rdf_literal_uint64_t   : return rdf_literal_uint64_t;
+  case rdf_literal_double_t   : return rdf_literal_double_t;
+  case rdf_literal_string_t   : return rdf_literal_string_t;
+  default: return -1;
+  }
+}
 
-// struct HJR;
-// typedef struct HJR HJR;
+// Get the resource name and literal value
+int get_resource_name(HJR handle, HSTR*v)
+{
+  if(not handle) return -1;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_null_t             : return -1;
+  case rdf_blank_node_t       : return -1;
+  case rdf_named_resource_t   : *v = boost::get<NamedResource>(r)->name.data(); return 0;
+  case rdf_literal_int32_t    : return -1;
+  case rdf_literal_uint32_t   : return -1;
+  case rdf_literal_int64_t    : return -1;
+  case rdf_literal_uint64_t   : return -1;
+  case rdf_literal_double_t   : return -1;
+  case rdf_literal_string_t   : return -1;
+  default: return -1;
+  }
+}
 
-// // Creating resources and literals
-// int create_resource(HJRETE * rete_hdl, char const * name, HJR ** handle);
-// int create_text(HJRETE * rete_hdl, char const * txt, HJR ** handle);
-// int create_int(HJRETE * rete_hdl, int v, HJR ** handle);
-// // Get the resource name and literal value
-// char const* get_resource_name(HJR * handle);
-// int get_int_literal(HJR * handle); // errors?
-// char const* get_text_literal(HJR * handle); // errors?
+int get_int_literal(HJR handle, int*v)
+{
+  if(not handle) return -1;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_null_t             : return -1;
+  case rdf_blank_node_t       : return -1;
+  case rdf_named_resource_t   : return -1;
+  case rdf_literal_int32_t    : *v = boost::get<LInt32>(r)->data; return 0;
+  case rdf_literal_uint32_t   : return -1;
+  case rdf_literal_int64_t    : return -1;
+  case rdf_literal_uint64_t   : return -1;
+  case rdf_literal_double_t   : return -1;
+  case rdf_literal_string_t   : return -1;
+  default: return -1;
+  }
+}
 
-// int insert(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o);
-// bool contains(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o);
-// int execute_rules(HJRETE * rete_hdl);
+int get_text_literal(HJR handle, HSTR*v)
+{
+  if(not handle) return -1;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_null_t             : return -1;
+  case rdf_blank_node_t       : return -1;
+  case rdf_named_resource_t   : return -1;
+  case rdf_literal_int32_t    : return -1;
+  case rdf_literal_uint32_t   : return -1;
+  case rdf_literal_int64_t    : return -1;
+  case rdf_literal_uint64_t   : return -1;
+  case rdf_literal_double_t   : return -1;
+  case rdf_literal_string_t   : *v = boost::get<LString>(r)->data.data(); return 0;
+  default: return -1;
+  }
+}
 
-// struct HJITERATOR;
-// typedef struct HJITERATOR HJITERATOR;
+int insert(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+{
+  if(not rete_hdl) return -1;
+  if(not s_hdl or not p_hdl or not o_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto const* p =  static_cast<r_index>(p_hdl);
+  auto const* o =  static_cast<r_index>(o_hdl);
+  return rete_session->rdf_session()->insert(s, p, o);
+}
 
-// int find(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
+int contains(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+{
+  if(not rete_hdl) return -1;
+  if(not s_hdl or not p_hdl or not o_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto const* p =  static_cast<r_index>(p_hdl);
+  auto const* o =  static_cast<r_index>(o_hdl);
+  return rete_session->rdf_session()->contains(s, p, o);
+}
+
+int execute_rules(HJRETE rete_hdl)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  return rete_session->execute_rules();
+}
+
+int find_all(HJRETE rete_hdl, HJITERATOR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto * itor = rete_session->rdf_session()->new_find();
+  *handle = itor;
+  return 0;
+}
+
+int is_end(HJITERATOR handle)
+{
+  if(not handle) return -1;
+  auto * itor =  static_cast<ReteSession::Iterator*>(handle);
+  return itor->is_end();  
+}
+
+int next(HJITERATOR handle)
+{
+  if(not handle) return -1;
+  auto * itor =  static_cast<ReteSession::Iterator*>(handle);
+  return itor->next();  
+}
+
+int get_subject(HJITERATOR itor_hdl, HJR * handle)
+{
+  if(not handle) return -1;
+  auto * itor =  static_cast<ReteSession::Iterator*>(itor_hdl);
+  *handle = itor->get_subject();
+  return 0;
+}
+
+int get_predicate(HJITERATOR itor_hdl, HJR * handle)
+{
+  if(not handle) return -1;
+  auto * itor =  static_cast<ReteSession::Iterator*>(itor_hdl);
+  *handle = itor->get_predicate();
+  return 0;
+}
+
+int get_object(HJITERATOR itor_hdl, HJR * handle)
+{
+  if(not handle) return -1;
+  auto * itor =  static_cast<ReteSession::Iterator*>(itor_hdl);
+  *handle = itor->get_object();
+  return 0;
+}
+
+int dispose(HJITERATOR handle)
+{
+  if(not handle) return -1;
+  auto * itor =  static_cast<ReteSession::Iterator*>(handle);
+  delete itor;
+  return 0;
+}
+
 // int find_asserted(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
 // int find_inferred(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
-// bool is_end(HJITERATOR * handle);
-// bool next(HJITERATOR * handle);
-// int get_subject(HJITERATOR * itor_hdl, HJR ** handle);
-// int get_predicate(HJITERATOR * itor_hdl, HJR ** handle);
-// int get_object(HJITERATOR * itor_hdl, HJR ** handle);
-// int dispose(HJITERATOR * itor_hdl);
-

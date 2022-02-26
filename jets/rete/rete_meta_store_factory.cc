@@ -31,7 +31,7 @@ int
 ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
 {
   //*
-  std::cout << "Current path is " << std::filesystem::current_path() << std::endl;
+  VLOG(1) << "Current path is " << std::filesystem::current_path() << std::endl;
   // Open database -- check that db exists
   this->jetrule_rete_db_ = jetrule_rete_db;
   std::filesystem::path p(this->jetrule_rete_db_);
@@ -90,11 +90,11 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
 
   // Load each main rule file as a ReteMetaStore
   for(auto const& item: this->jr_map_) {
-    std::cout<< "Loading file key: "<<item.second<<std::endl;
+    VLOG(1)<< "Loading file key: "<<item.second;
     int file_key = item.second;
 
     //*
-    std::cout << "Loading vertexes for file_key "<< file_key << std::endl;
+    VLOG(1) << "Loading vertexes for file_key "<< file_key;
 
     // Load the node_vertexes
     NodeVertexVector node_vertexes;
@@ -104,7 +104,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
     }
 
     //*
-    std::cout << "Loading alpha nodes for file_key "<< file_key << std::endl;
+    VLOG(1) << "Loading alpha nodes for file_key "<< file_key;
 
     // Load the alpha nodes
     AlphaNodeVector alpha_nodes;
@@ -121,7 +121,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
   }
 
   // All good!, release the stmts and db connection
-  std::cout<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions"<<std::endl;
+  VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
   return this->reset();
 }
 
@@ -296,7 +296,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     int salience           = get_column_int_value( this->node_vertexes_stmt_, 12 );   //  INTEGER,
 
     //*
-    std::cout << "Loading vertex: "<< vertex <<", with key "<<key << std::endl;
+    VLOG(1) << "Loading vertex: "<< vertex <<", with key "<<key << std::endl;
     
     // validation
     if(vertex<0 or parent_vertex<0) {
@@ -321,7 +321,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     if(nlabel) normalized_label = nlabel;
 
     //*
-    if(filter_expr_key >= 0) std::cout << "Creating filter with key: "<< filter_expr_key << std::endl;
+    if(filter_expr_key >= 0) VLOG(1) << "Creating filter with key: "<< filter_expr_key << std::endl;
 
     // Create Filter
     ExprBasePtr filter{};
@@ -333,7 +333,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     }
 
     //*
-    std::cout << "Creating beta row initializer, vertex "<< vertex << std::endl;
+    VLOG(1) << "Creating beta row initializer, vertex "<< vertex << std::endl;
 
     // Create BetaRowInitializer
     // load all seq for (vertex, file_key)
@@ -347,7 +347,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     }
 
     //*
-    std::cout << "Creating NodeVertex @ "<<key<<", vertex "<< vertex << ", parent vertex "<< parent_vertex << std::endl;
+    VLOG(1) << "Creating NodeVertex @ "<<key<<", vertex "<< vertex << ", parent vertex "<< parent_vertex << std::endl;
     if(node_vertexes.size()<1) {
       LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: " <<
         "Error node_vertexes.size()<1 for vertex " << vertex << 
@@ -355,12 +355,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
       return -1;
     }
     auto parent = node_vertexes.at(parent_vertex);
-    // //*
-    // std::cout << "Parent ptr's vertex "<< parent->vertex << std::endl;
-    
     b_index parent_index = node_vertexes[parent_vertex].get();
-    // //*
-    // std::cout << "Parent vertex's vertex "<< parent_index->vertex << std::endl;
 
     // Create the NodeVertex
     node_vertexes.push_back(
@@ -368,7 +363,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
         is_negation, salience, filter, normalized_label, beta_row_initializer));
   }
   //*
-  std::cout << "Got "<<node_vertexes.size()<<" NodeVertexes " << std::endl;
+  VLOG(1) << "Got "<<node_vertexes.size()<<" NodeVertexes " << std::endl;
   return SQLITE_OK;
 }
 
@@ -444,7 +439,7 @@ ReteMetaStoreFactory::load_alpha_nodes(int file_key, NodeVertexVector const& nod
       return -1;
     }
 
-    std::cout<<"Creating AlphaNode: "<<type<<" is_antecedent?"<<is_antecedent<<" ("<<subject_key<<", "<<predicate_key<<", "<<object_key<<")"<<std::endl;
+    VLOG(1)<<"Creating AlphaNode: "<<type<<" is_antecedent?"<<is_antecedent<<" ("<<subject_key<<", "<<predicate_key<<", "<<object_key<<")";
 
     auto fu = this->create_func_factory(subject_key);
     auto fv = this->create_func_factory(predicate_key);
