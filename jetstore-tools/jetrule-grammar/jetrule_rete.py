@@ -409,7 +409,7 @@ class JetRuleRete:
       'resources': self.ctx.jetReteNodes['resources'],
       'lookup_tables': jetRules['lookup_tables'],
       'jet_rules': jetRules['jet_rules'],
-      'imports': jetRules['imports'],
+      'imports': jetRules.get('imports', {}),
     }
 
 

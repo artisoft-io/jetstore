@@ -129,9 +129,10 @@ objectAtom
   | Int64Type '(' intExpr ')'    
   | UInt64Type '(' uintExpr ')'  
   | DoubleType '(' doubleExpr ')'
-  | StringType '(' String ')'    
-  | String                       
-  | kws=keywords                 
+  | StringType '(' String ')'
+  | String
+  | kws=keywords
+  | doubleExpr
   ;
 
 keywords
