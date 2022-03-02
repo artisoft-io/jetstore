@@ -1,6 +1,7 @@
 from typing import Dict
 import antlr4 as a4
 import json
+import re
 from JetRuleParser import JetRuleParser
 from JetRuleLexer import JetRuleLexer
 from JetRuleListener import JetRuleListener
@@ -16,6 +17,7 @@ class JetListener(JetRuleListener):
     self.jetRules = None
     self.current_file_name = None
     self.compiler_directives = {}
+    self.implicit_number_re = re.compile(r'^\+?\-?\d+\.?\d*$')
 
     # Defining intermediate structure for Jet Rule
     self.ruleProps = {}
@@ -187,6 +189,8 @@ class JetListener(JetRuleListener):
     #   text("XYZ") -> {type: "text", value: "XYZ"}
     #   int(1)      -> {type: "int", value: "1"}
     #   true        -> {type: "keyword", value: "true"}
+    #   -123        -> {type: "int", value: "-123"}
+    #   +12.3       -> {type: "double", value: "+12.3"}
     if not txt: return None
     if txt[0] == '?': return {'type': 'var', 'value': txt}
     if txt[0] == '"': return {'type': 'text', 'value': self.escapeString(txt)}
@@ -198,6 +202,13 @@ class JetListener(JetRuleListener):
     # Check if it's a keyword
     if kws:
       return {'type': "keyword", 'value': txt}
+    # Check if it's an int or double as digits
+    if self.implicit_number_re.match(txt):
+      # got an int or double
+      if '.' in txt:
+        return {'type': "double", 'value': txt}
+      else:
+        return {'type': "int", 'value': txt}
 
     # default is an identifier
     return {'type': "identifier", 'value': txt}

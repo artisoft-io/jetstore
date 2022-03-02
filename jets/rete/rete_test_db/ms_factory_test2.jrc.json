@@ -94,12 +94,54 @@
           "key": 12
       },
       {
+          "type": "resource",
+          "id": "node1",
+          "value": "node1",
+          "source_file_name": "ms_factory_test2.jr",
+          "key": 13
+      },
+      {
+          "type": "resource",
+          "id": "node2",
+          "value": "node2",
+          "source_file_name": "ms_factory_test2.jr",
+          "key": 14
+      },
+      {
+          "type": "resource",
+          "id": "node3",
+          "value": "node3",
+          "source_file_name": "ms_factory_test2.jr",
+          "key": 15
+      },
+      {
+          "type": "resource",
+          "id": "node10",
+          "value": "node10",
+          "source_file_name": "ms_factory_test2.jr",
+          "key": 16
+      },
+      {
+          "type": "resource",
+          "id": "node20",
+          "value": "node20",
+          "source_file_name": "ms_factory_test2.jr",
+          "key": 17
+      },
+      {
+          "type": "resource",
+          "id": "node30",
+          "value": "node30",
+          "source_file_name": "ms_factory_test2.jr",
+          "key": 18
+      },
+      {
           "type": "var",
           "id": "?x1",
           "is_binded": false,
           "var_pos": 0,
           "vertex": 1,
-          "key": 13,
+          "key": 19,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -109,7 +151,7 @@
           "vertex": 2,
           "is_antecedent": true,
           "var_pos": 0,
-          "key": 14,
+          "key": 20,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -119,7 +161,7 @@
           "vertex": 3,
           "is_antecedent": true,
           "var_pos": 0,
-          "key": 15,
+          "key": 21,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -128,7 +170,7 @@
           "is_binded": false,
           "var_pos": 2,
           "vertex": 3,
-          "key": 16,
+          "key": 22,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -138,7 +180,7 @@
           "vertex": 4,
           "is_antecedent": true,
           "var_pos": 0,
-          "key": 17,
+          "key": 23,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -147,7 +189,7 @@
           "is_binded": false,
           "var_pos": 2,
           "vertex": 4,
-          "key": 18,
+          "key": 24,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -157,7 +199,7 @@
           "vertex": 4,
           "is_antecedent": false,
           "var_pos": 1,
-          "key": 19,
+          "key": 25,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -167,14 +209,14 @@
           "vertex": 4,
           "is_antecedent": false,
           "var_pos": 2,
-          "key": 20,
+          "key": 26,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
           "type": "int",
           "value": "5",
           "inline": true,
-          "key": 21,
+          "key": 27,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -183,7 +225,7 @@
           "is_binded": false,
           "var_pos": 0,
           "vertex": 5,
-          "key": 22,
+          "key": 28,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -193,15 +235,16 @@
           "vertex": 6,
           "is_antecedent": true,
           "var_pos": 0,
-          "key": 23,
+          "key": 29,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
           "type": "var",
           "id": "?x2",
           "is_binded": false,
+          "var_pos": 2,
           "vertex": 6,
-          "key": 24,
+          "key": 30,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -211,15 +254,16 @@
           "vertex": 7,
           "is_antecedent": true,
           "var_pos": 0,
-          "key": 25,
+          "key": 31,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
           "type": "var",
           "id": "?x3",
           "is_binded": false,
+          "var_pos": 2,
           "vertex": 7,
-          "key": 26,
+          "key": 32,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -228,7 +272,7 @@
           "is_binded": false,
           "var_pos": 0,
           "vertex": 8,
-          "key": 27,
+          "key": 33,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -237,8 +281,8 @@
           "is_binded": true,
           "vertex": 9,
           "is_antecedent": true,
-          "var_pos": 0,
-          "key": 28,
+          "var_pos": 2,
+          "key": 34,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -247,8 +291,8 @@
           "is_binded": true,
           "vertex": 10,
           "is_antecedent": true,
-          "var_pos": 0,
-          "key": 29,
+          "var_pos": 2,
+          "key": 35,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -257,7 +301,7 @@
           "is_binded": false,
           "var_pos": 2,
           "vertex": 10,
-          "key": 30,
+          "key": 36,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -267,7 +311,7 @@
           "vertex": 11,
           "is_antecedent": true,
           "var_pos": 0,
-          "key": 31,
+          "key": 37,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -276,7 +320,7 @@
           "is_binded": false,
           "var_pos": 2,
           "vertex": 11,
-          "key": 32,
+          "key": 38,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -286,7 +330,7 @@
           "vertex": 12,
           "is_antecedent": true,
           "var_pos": 0,
-          "key": 33,
+          "key": 39,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -295,7 +339,123 @@
           "is_binded": false,
           "var_pos": 2,
           "vertex": 12,
-          "key": 34,
+          "key": 40,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": false,
+          "var_pos": 0,
+          "vertex": 13,
+          "key": 41,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": false,
+          "var_pos": 2,
+          "vertex": 13,
+          "key": 42,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 14,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 43,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 14,
+          "is_antecedent": true,
+          "var_pos": 1,
+          "key": 44,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": false,
+          "var_pos": 0,
+          "vertex": 15,
+          "key": 45,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": false,
+          "var_pos": 2,
+          "vertex": 15,
+          "key": 46,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 16,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 47,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 16,
+          "is_antecedent": true,
+          "var_pos": 1,
+          "key": 48,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 17,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 49,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 17,
+          "is_antecedent": true,
+          "var_pos": 1,
+          "key": 50,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 18,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 51,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 18,
+          "is_antecedent": true,
+          "var_pos": 1,
+          "key": 52,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -305,7 +465,7 @@
           "vertex": 1,
           "is_antecedent": false,
           "var_pos": 0,
-          "key": 35,
+          "key": 53,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -315,7 +475,7 @@
           "vertex": 4,
           "is_antecedent": false,
           "var_pos": 0,
-          "key": 36,
+          "key": 54,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -325,7 +485,7 @@
           "vertex": 4,
           "is_antecedent": false,
           "var_pos": 1,
-          "key": 37,
+          "key": 55,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -335,7 +495,7 @@
           "vertex": 4,
           "is_antecedent": false,
           "var_pos": 2,
-          "key": 38,
+          "key": 56,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -344,8 +504,18 @@
           "is_binded": true,
           "vertex": 10,
           "is_antecedent": false,
+          "var_pos": 2,
+          "key": 57,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 10,
+          "is_antecedent": false,
           "var_pos": 0,
-          "key": 39,
+          "key": 58,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -354,8 +524,8 @@
           "is_binded": true,
           "vertex": 10,
           "is_antecedent": false,
-          "var_pos": 1,
-          "key": 40,
+          "var_pos": 3,
+          "key": 59,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -364,8 +534,18 @@
           "is_binded": true,
           "vertex": 10,
           "is_antecedent": false,
-          "var_pos": 0,
-          "key": 41,
+          "var_pos": 2,
+          "key": 60,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x3",
+          "is_binded": true,
+          "vertex": 10,
+          "is_antecedent": false,
+          "var_pos": 1,
+          "key": 61,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -374,8 +554,8 @@
           "is_binded": true,
           "vertex": 10,
           "is_antecedent": false,
-          "var_pos": 1,
-          "key": 42,
+          "var_pos": 3,
+          "key": 62,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -385,7 +565,7 @@
           "vertex": 12,
           "is_antecedent": false,
           "var_pos": 0,
-          "key": 43,
+          "key": 63,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -395,14 +575,14 @@
           "vertex": 12,
           "is_antecedent": false,
           "var_pos": 1,
-          "key": 44,
+          "key": 64,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
           "type": "text",
           "value": " ",
           "inline": true,
-          "key": 45,
+          "key": 65,
           "source_file_name": "ms_factory_test2.jr"
       },
       {
@@ -412,7 +592,87 @@
           "vertex": 12,
           "is_antecedent": false,
           "var_pos": 2,
-          "key": 46,
+          "key": 66,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 13,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 67,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 13,
+          "is_antecedent": false,
+          "var_pos": 1,
+          "key": 68,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 14,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 69,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 14,
+          "is_antecedent": false,
+          "var_pos": 1,
+          "key": 70,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 16,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 71,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 16,
+          "is_antecedent": false,
+          "var_pos": 1,
+          "key": 72,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 18,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 73,
+          "source_file_name": "ms_factory_test2.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 18,
+          "is_antecedent": false,
+          "var_pos": 1,
+          "key": 74,
           "source_file_name": "ms_factory_test2.jr"
       }
   ],
@@ -423,7 +683,9 @@
           "parent_vertex": 0,
           "children_vertexes": [
               1,
-              5
+              5,
+              13,
+              15
           ],
           "type": "head_node"
       },
@@ -444,7 +706,7 @@
                   "is_binded": false,
                   "var_pos": 0,
                   "vertex": 1,
-                  "key": 13,
+                  "key": 19,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
@@ -457,7 +719,7 @@
           "salience": [
               100
           ],
-          "subject_key": 13,
+          "subject_key": 19,
           "predicate_key": 1,
           "object_key": 2
       },
@@ -484,7 +746,7 @@
               3,
               11
           ],
-          "subject_key": 14,
+          "subject_key": 20,
           "predicate_key": 1,
           "object_key": 3
       },
@@ -513,16 +775,16 @@
                   "is_binded": false,
                   "var_pos": 2,
                   "vertex": 3,
-                  "key": 16,
+                  "key": 22,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
           "children_vertexes": [
               4
           ],
-          "subject_key": 15,
+          "subject_key": 21,
           "predicate_key": 8,
-          "object_key": 16
+          "object_key": 22
       },
       {
           "type": "antecedent",
@@ -532,12 +794,12 @@
               "type": "binary",
               "lhs": {
                   "type": "binary",
-                  "lhs": 19,
+                  "lhs": 25,
                   "op": "+",
-                  "rhs": 20
+                  "rhs": 26
               },
               "op": "==",
-              "rhs": 21
+              "rhs": 27
           },
           "vertex": 4,
           "parent_vertex": 3,
@@ -568,7 +830,7 @@
                   "is_binded": false,
                   "var_pos": 2,
                   "vertex": 4,
-                  "key": 18,
+                  "key": 24,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
@@ -579,9 +841,9 @@
           "salience": [
               100
           ],
-          "subject_key": 17,
+          "subject_key": 23,
           "predicate_key": 9,
-          "object_key": 18
+          "object_key": 24
       },
       {
           "type": "antecedent",
@@ -600,14 +862,14 @@
                   "is_binded": false,
                   "var_pos": 0,
                   "vertex": 5,
-                  "key": 22,
+                  "key": 28,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
           "children_vertexes": [
               6
           ],
-          "subject_key": 22,
+          "subject_key": 28,
           "predicate_key": 1,
           "object_key": 0
       },
@@ -618,11 +880,10 @@
           "vertex": 6,
           "parent_vertex": 5,
           "beta_relation_vars": [
-              "?x1"
-          ],
-          "pruned_var": [
+              "?x1",
               "?x2"
           ],
+          "pruned_var": [],
           "beta_var_nodes": [
               {
                   "type": "var",
@@ -630,14 +891,23 @@
                   "is_binded": true,
                   "var_pos": 0,
                   "vertex": 6
+              },
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": false,
+                  "var_pos": 2,
+                  "vertex": 6,
+                  "key": 30,
+                  "source_file_name": "ms_factory_test2.jr"
               }
           ],
           "children_vertexes": [
               7
           ],
-          "subject_key": 23,
+          "subject_key": 29,
           "predicate_key": 11,
-          "object_key": 24
+          "object_key": 30
       },
       {
           "type": "antecedent",
@@ -645,19 +915,37 @@
           "normalizedLabel": "(?x1 last_name_rx ?x3)",
           "vertex": 7,
           "parent_vertex": 6,
-          "beta_relation_vars": [],
-          "pruned_var": [
-              "?x1",
+          "beta_relation_vars": [
               "?x2",
               "?x3"
           ],
-          "beta_var_nodes": [],
+          "pruned_var": [
+              "?x1"
+          ],
+          "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 7
+              },
+              {
+                  "type": "var",
+                  "id": "?x3",
+                  "is_binded": false,
+                  "var_pos": 2,
+                  "vertex": 7,
+                  "key": 32,
+                  "source_file_name": "ms_factory_test2.jr"
+              }
+          ],
           "children_vertexes": [
               8
           ],
-          "subject_key": 25,
+          "subject_key": 31,
           "predicate_key": 12,
-          "object_key": 26
+          "object_key": 32
       },
       {
           "type": "antecedent",
@@ -666,28 +954,42 @@
           "vertex": 8,
           "parent_vertex": 7,
           "beta_relation_vars": [
+              "?x2",
+              "?x3",
               "?x4"
           ],
           "pruned_var": [
-              "?x1",
-              "?x2",
-              "?x3"
+              "?x1"
           ],
           "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": true,
+                  "var_pos": 0,
+                  "vertex": 8
+              },
+              {
+                  "type": "var",
+                  "id": "?x3",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 8
+              },
               {
                   "type": "var",
                   "id": "?x4",
                   "is_binded": false,
                   "var_pos": 0,
                   "vertex": 8,
-                  "key": 27,
+                  "key": 33,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
           "children_vertexes": [
               9
           ],
-          "subject_key": 27,
+          "subject_key": 33,
           "predicate_key": 1,
           "object_key": 2
       },
@@ -698,26 +1000,40 @@
           "vertex": 9,
           "parent_vertex": 8,
           "beta_relation_vars": [
+              "?x2",
+              "?x3",
               "?x4"
           ],
           "pruned_var": [
-              "?x1",
-              "?x2",
-              "?x3"
+              "?x1"
           ],
           "beta_var_nodes": [
               {
                   "type": "var",
-                  "id": "?x4",
+                  "id": "?x2",
                   "is_binded": true,
                   "var_pos": 0,
+                  "vertex": 9
+              },
+              {
+                  "type": "var",
+                  "id": "?x3",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 9
+              },
+              {
+                  "type": "var",
+                  "id": "?x4",
+                  "is_binded": true,
+                  "var_pos": 2,
                   "vertex": 9
               }
           ],
           "children_vertexes": [
               10
           ],
-          "subject_key": 28,
+          "subject_key": 34,
           "predicate_key": 1,
           "object_key": 3
       },
@@ -728,20 +1044,34 @@
           "vertex": 10,
           "parent_vertex": 9,
           "beta_relation_vars": [
+              "?x2",
+              "?x3",
               "?x4",
               "?x5"
           ],
           "pruned_var": [
-              "?x1",
-              "?x2",
-              "?x3"
+              "?x1"
           ],
           "beta_var_nodes": [
               {
                   "type": "var",
-                  "id": "?x4",
+                  "id": "?x2",
                   "is_binded": true,
                   "var_pos": 0,
+                  "vertex": 10
+              },
+              {
+                  "type": "var",
+                  "id": "?x3",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 10
+              },
+              {
+                  "type": "var",
+                  "id": "?x4",
+                  "is_binded": true,
+                  "var_pos": 2,
                   "vertex": 10
               },
               {
@@ -750,7 +1080,7 @@
                   "is_binded": false,
                   "var_pos": 2,
                   "vertex": 10,
-                  "key": 30,
+                  "key": 36,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
@@ -761,9 +1091,9 @@
           "salience": [
               100
           ],
-          "subject_key": 29,
+          "subject_key": 35,
           "predicate_key": 4,
-          "object_key": 30
+          "object_key": 36
       },
       {
           "type": "antecedent",
@@ -790,16 +1120,16 @@
                   "is_binded": false,
                   "var_pos": 2,
                   "vertex": 11,
-                  "key": 32,
+                  "key": 38,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
           "children_vertexes": [
               12
           ],
-          "subject_key": 31,
+          "subject_key": 37,
           "predicate_key": 6,
-          "object_key": 32
+          "object_key": 38
       },
       {
           "type": "antecedent",
@@ -834,7 +1164,7 @@
                   "is_binded": false,
                   "var_pos": 2,
                   "vertex": 12,
-                  "key": 34,
+                  "key": 40,
                   "source_file_name": "ms_factory_test2.jr"
               }
           ],
@@ -845,16 +1175,248 @@
           "salience": [
               100
           ],
-          "subject_key": 33,
+          "subject_key": 39,
           "predicate_key": 7,
-          "object_key": 34
+          "object_key": 40
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 node1 ?x2)",
+          "vertex": 13,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+              "?x1",
+              "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x1",
+                  "is_binded": false,
+                  "var_pos": 0,
+                  "vertex": 13,
+                  "key": 41,
+                  "source_file_name": "ms_factory_test2.jr"
+              },
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": false,
+                  "var_pos": 2,
+                  "vertex": 13,
+                  "key": 42,
+                  "source_file_name": "ms_factory_test2.jr"
+              }
+          ],
+          "children_vertexes": [
+              14
+          ],
+          "rules": [
+              "Rule5"
+          ],
+          "salience": [
+              10
+          ],
+          "subject_key": 41,
+          "predicate_key": 13,
+          "object_key": 42
+      },
+      {
+          "type": "antecedent",
+          "isNot": true,
+          "normalizedLabel": "not(?x1 node2 ?x2)",
+          "vertex": 14,
+          "parent_vertex": 13,
+          "beta_relation_vars": [
+              "?x1",
+              "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x1",
+                  "is_binded": true,
+                  "var_pos": 0,
+                  "vertex": 14
+              },
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 14
+              }
+          ],
+          "children_vertexes": [],
+          "rules": [
+              "Rule6"
+          ],
+          "salience": [
+              20
+          ],
+          "subject_key": 43,
+          "predicate_key": 14,
+          "object_key": 44
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 node10 ?x2)",
+          "vertex": 15,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+              "?x1",
+              "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x1",
+                  "is_binded": false,
+                  "var_pos": 0,
+                  "vertex": 15,
+                  "key": 45,
+                  "source_file_name": "ms_factory_test2.jr"
+              },
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": false,
+                  "var_pos": 2,
+                  "vertex": 15,
+                  "key": 46,
+                  "source_file_name": "ms_factory_test2.jr"
+              }
+          ],
+          "children_vertexes": [
+              16
+          ],
+          "subject_key": 45,
+          "predicate_key": 16,
+          "object_key": 46
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 node2 ?x2)",
+          "vertex": 16,
+          "parent_vertex": 15,
+          "beta_relation_vars": [
+              "?x1",
+              "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x1",
+                  "is_binded": true,
+                  "var_pos": 0,
+                  "vertex": 16
+              },
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 16
+              }
+          ],
+          "children_vertexes": [
+              17
+          ],
+          "rules": [
+              "Rule7"
+          ],
+          "salience": [
+              10
+          ],
+          "subject_key": 47,
+          "predicate_key": 14,
+          "object_key": 48
+      },
+      {
+          "type": "antecedent",
+          "isNot": true,
+          "normalizedLabel": "not(?x1 node20 ?x2)",
+          "vertex": 17,
+          "parent_vertex": 16,
+          "beta_relation_vars": [
+              "?x1",
+              "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x1",
+                  "is_binded": true,
+                  "var_pos": 0,
+                  "vertex": 17
+              },
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 17
+              }
+          ],
+          "children_vertexes": [
+              18
+          ],
+          "subject_key": 49,
+          "predicate_key": 17,
+          "object_key": 50
+      },
+      {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 node1 ?x2)",
+          "vertex": 18,
+          "parent_vertex": 17,
+          "beta_relation_vars": [
+              "?x1",
+              "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+              {
+                  "type": "var",
+                  "id": "?x1",
+                  "is_binded": true,
+                  "var_pos": 0,
+                  "vertex": 18
+              },
+              {
+                  "type": "var",
+                  "id": "?x2",
+                  "is_binded": true,
+                  "var_pos": 1,
+                  "vertex": 18
+              }
+          ],
+          "children_vertexes": [],
+          "rules": [
+              "Rule8"
+          ],
+          "salience": [
+              5
+          ],
+          "subject_key": 51,
+          "predicate_key": 13,
+          "object_key": 52
       },
       {
           "type": "consequent",
           "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
           "vertex": 1,
           "consequent_seq": 0,
-          "subject_key": 35,
+          "subject_key": 53,
           "predicate_key": 1,
           "object_key": 3
       },
@@ -863,41 +1425,41 @@
           "normalizedLabel": "(?x1 hc:code5 ?x2 + ?x3)",
           "vertex": 4,
           "consequent_seq": 0,
-          "subject_key": 36,
+          "subject_key": 54,
           "predicate_key": 10,
           "obj_expr": {
               "type": "binary",
-              "lhs": 37,
+              "lhs": 55,
               "op": "+",
-              "rhs": 38
+              "rhs": 56
           }
       },
       {
           "type": "consequent",
-          "normalizedLabel": "(?x4 hc:first_name first_name_rx r? ?x5)",
+          "normalizedLabel": "(?x4 hc:first_name ?x2 r? ?x5)",
           "vertex": 10,
           "consequent_seq": 0,
-          "subject_key": 39,
+          "subject_key": 57,
           "predicate_key": 6,
           "obj_expr": {
               "type": "binary",
-              "lhs": 11,
+              "lhs": 58,
               "op": "r?",
-              "rhs": 40
+              "rhs": 59
           }
       },
       {
           "type": "consequent",
-          "normalizedLabel": "(?x4 hc:last_name last_name_rx r? ?x5)",
+          "normalizedLabel": "(?x4 hc:last_name ?x3 r? ?x5)",
           "vertex": 10,
           "consequent_seq": 1,
-          "subject_key": 41,
+          "subject_key": 60,
           "predicate_key": 7,
           "obj_expr": {
               "type": "binary",
-              "lhs": 12,
+              "lhs": 61,
               "op": "r?",
-              "rhs": 42
+              "rhs": 62
           }
       },
       {
@@ -905,19 +1467,55 @@
           "normalizedLabel": "(?x1 hc:full_name (?x2 + \" \") + ?x3)",
           "vertex": 12,
           "consequent_seq": 0,
-          "subject_key": 43,
+          "subject_key": 63,
           "predicate_key": 5,
           "obj_expr": {
               "type": "binary",
               "lhs": {
                   "type": "binary",
-                  "lhs": 44,
+                  "lhs": 64,
                   "op": "+",
-                  "rhs": 45
+                  "rhs": 65
               },
               "op": "+",
-              "rhs": 46
+              "rhs": 66
           }
+      },
+      {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 node2 ?x2)",
+          "vertex": 13,
+          "consequent_seq": 0,
+          "subject_key": 67,
+          "predicate_key": 14,
+          "object_key": 68
+      },
+      {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 node3 ?x2)",
+          "vertex": 14,
+          "consequent_seq": 0,
+          "subject_key": 69,
+          "predicate_key": 15,
+          "object_key": 70
+      },
+      {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 node20 ?x2)",
+          "vertex": 16,
+          "consequent_seq": 0,
+          "subject_key": 71,
+          "predicate_key": 17,
+          "object_key": 72
+      },
+      {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 node30 ?x2)",
+          "vertex": 18,
+          "consequent_seq": 0,
+          "subject_key": 73,
+          "predicate_key": 18,
+          "object_key": 74
       }
   ]
 }

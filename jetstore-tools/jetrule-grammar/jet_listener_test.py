@@ -300,6 +300,26 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
+  def test_jetrule10(self):
+    data = """
+      # =======================================================================================
+      # Jet Rules with int and double
+      [Rule10]: 
+        (?clm01 rdf:type acme:Claim).
+        not(?clm01 acme:hasDRG ?drg).[(?clm01 + 1.0) - 10 ]
+        ->
+        (?clm01 rdf:type acme:SpecialClaim).
+        (?clm01 xyz (?drg and -5) or (+2.99 + +3.77))
+      ;
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [{"name": "Rule10", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}]}, {"type": "antecedent", "isNot": true, "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "acme:hasDRG"}, {"type": "var", "value": "?drg"}], "filter": {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?clm01"}, "op": "+", "rhs": {"type": "double", "value": "1.0"}}, "op": "-", "rhs": {"type": "int", "value": "10"}}}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:SpecialClaim"}]}, {"type": "consequent", "triple": [{"type": "var", "value": "?clm01"}, {"type": "identifier", "value": "xyz"}, {"type": "binary", "lhs": {"type": "binary", "lhs": {"type": "var", "value": "?drg"}, "op": "and", "rhs": {"type": "int", "value": "-5"}}, "op": "or", "rhs": {"type": "binary", "lhs": {"type": "double", "value": "+2.99"}, "op": "+", "rhs": {"type": "double", "value": "+3.77"}}}]}]}]}"""
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
 
 if __name__ == '__main__':
   absltest.main()
