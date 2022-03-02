@@ -159,11 +159,13 @@ binaryOp
   | DIV
   | OR
   | AND
+  | Identifier
   ;
 
 unaryOp
   : NOT
   | TOTEXT
+  | Identifier
   ;
 
 // ======================================================================================
