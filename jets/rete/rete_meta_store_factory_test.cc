@@ -4,11 +4,11 @@
 
 #include <gtest/gtest.h>
 
-#include "rete_meta_store_factory.h"
 #include "sqlite3.h"
 
 #include "jets/rdf/rdf_types.h"
 #include "jets/rete/rete_types.h"
+#include "jets/rete/rete_meta_store_factory.h"
 
 namespace fs = std::filesystem;
 namespace jets::rete {

@@ -11,11 +11,11 @@
 #include "absl/hash/hash.h"
 #include <glog/logging.h>
 
-#include "jets/rdf/rdf_err.h"
-#include "jets/rdf/rdf_ast.h"
-#include "jets/rdf/r_manager.h"
-#include "jets/rdf/rdf_graph.h"
-#include "jets/rdf/rdf_session_iterator.h"
+#include "../rdf/rdf_err.h"
+#include "../rdf/rdf_ast.h"
+#include "../rdf/r_manager.h"
+#include "../rdf/rdf_graph.h"
+#include "../rdf/rdf_session_iterator.h"
 
 namespace jets::rdf {
 /////////////////////////////////////////////////////////////////////////////////////////
