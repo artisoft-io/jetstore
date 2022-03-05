@@ -6,7 +6,7 @@
 
 #include "absl/hash/hash.h"
 
-#include "jets/rdf/rdf_ast.h"
+#include "../rdf/rdf_ast.h"
 
 namespace jets::rdf {
 

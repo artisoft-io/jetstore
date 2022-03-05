@@ -6,14 +6,14 @@
 
 #include <boost/variant/multivisitors.hpp>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row.h"
-#include "jets/rete/beta_row_iterator.h"
-#include "jets/rete/beta_relation.h"
-#include "jets/rete/graph_callback_mgr_impl.h"
-#include "jets/rete/alpha_node.h"
-#include "jets/rete/rete_session.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/beta_row.h"
+#include "../rete/beta_row_iterator.h"
+#include "../rete/beta_relation.h"
+#include "../rete/graph_callback_mgr_impl.h"
+#include "../rete/alpha_node.h"
+#include "../rete/rete_session.h"
 
 // This file contains the visitor used to index BetaRow and query them from BetaRelation
 namespace jets::rete {

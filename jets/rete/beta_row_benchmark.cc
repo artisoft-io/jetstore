@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/beta_row.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/beta_row.h"
 
 static void BM_SimpleBetaRow(benchmark::State& state) {
 

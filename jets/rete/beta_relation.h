@@ -9,11 +9,11 @@
 #include <unordered_map>
 #include <vector>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row_initializer.h"
-#include "jets/rete/beta_row.h"
-#include "jets/rete/beta_row_iterator.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/beta_row_initializer.h"
+#include "../rete/beta_row.h"
+#include "../rete/beta_row_iterator.h"
 
 // Component to manage all the rdf resources and literals of a graph
 namespace jets::rete {

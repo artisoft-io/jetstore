@@ -6,9 +6,9 @@
 
 #include "absl/hash/hash.h"
 
-#include "jets/rdf/rdf_err.h"
-#include "jets/rdf/rdf_ast.h"
-#include "jets/rdf/rdf_graph.h"
+#include "../rdf/rdf_err.h"
+#include "../rdf/rdf_ast.h"
+#include "../rdf/rdf_graph.h"
 
 namespace jets::rdf {
 

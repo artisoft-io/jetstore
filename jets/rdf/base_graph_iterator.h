@@ -5,10 +5,10 @@
 
 #include "absl/hash/hash.h"
 
-#include "jets/rdf/rdf_err.h"
-#include "jets/rdf/rdf_ast.h"
-#include "jets/rdf/w_node.h"
-#include "jets/rdf/containers_type.h"
+#include "../rdf/rdf_err.h"
+#include "../rdf/rdf_ast.h"
+#include "../rdf/w_node.h"
+#include "../rdf/containers_type.h"
 
 namespace jets::rdf {
 namespace bgi_internal {

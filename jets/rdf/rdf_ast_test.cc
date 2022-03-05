@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include "jets/rdf/rdf_types.h"
+#include "../rdf/rdf_types.h"
 #include "rdf_ast.h"
 
 namespace jets::rdf {

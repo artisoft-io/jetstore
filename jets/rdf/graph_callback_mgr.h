@@ -5,7 +5,7 @@
 #include <memory>
 #include <list>
 
-#include "jets/rdf/rdf_ast.h"
+#include "../rdf/rdf_ast.h"
 
 // Component to manage list of call backs to notify when triples are added or removed
 // from BaseGraph. This is an abstract base class, the implementation class is

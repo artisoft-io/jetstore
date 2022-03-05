@@ -1,8 +1,8 @@
 #ifndef JETS_RETE_EXPR_IMPL_H
 #define JETS_RETE_EXPR_IMPL_H
 
-#include "jets/rete/beta_row.h"
-#include "jets/rete/expr.h"
+#include "../rete/beta_row.h"
+#include "../rete/expr.h"
 
 // This file contains the implementation of the eval virtual method of the Expr
 // implementation classes.

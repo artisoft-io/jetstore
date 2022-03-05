@@ -5,12 +5,12 @@
 #include <memory>
 #include <list>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row.h"
-#include "jets/rete/beta_row_iterator.h"
-#include "jets/rete/beta_relation.h"
-#include "jets/rete/graph_callback_mgr_impl.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/beta_row.h"
+#include "../rete/beta_row_iterator.h"
+#include "../rete/beta_relation.h"
+#include "../rete/graph_callback_mgr_impl.h"
 
 // Component representing the Alpha Node of a Rete Network
 namespace jets::rete {

@@ -10,16 +10,16 @@
 #include "absl/hash/hash.h"
 #include "absl/container/flat_hash_set.h"
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row_initializer.h"
-#include "jets/rete/beta_row.h"
-#include "jets/rete/beta_row_iterator.h"
-#include "jets/rete/beta_relation.h"
-#include "jets/rete/graph_callback_mgr_impl.h"
-#include "jets/rete/alpha_node.h"
-#include "jets/rete/expr.h"
-#include "jets/rete/rete_meta_store.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/beta_row_initializer.h"
+#include "../rete/beta_row.h"
+#include "../rete/beta_row_iterator.h"
+#include "../rete/beta_relation.h"
+#include "../rete/graph_callback_mgr_impl.h"
+#include "../rete/alpha_node.h"
+#include "../rete/expr.h"
+#include "../rete/rete_meta_store.h"
 
 
 // Component to manage all the rdf resources and literals of a graph

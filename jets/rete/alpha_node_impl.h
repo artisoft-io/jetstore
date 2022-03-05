@@ -6,15 +6,15 @@
 
 #include <boost/variant/multivisitors.hpp>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row.h"
-#include "jets/rete/beta_row_iterator.h"
-#include "jets/rete/beta_relation.h"
-#include "jets/rete/graph_callback_mgr_impl.h"
-#include "jets/rete/alpha_node.h"
-#include "jets/rete/rete_session.h"
-#include "jets/rete/antecedent_query_visitor.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/beta_row.h"
+#include "../rete/beta_row_iterator.h"
+#include "../rete/beta_relation.h"
+#include "../rete/graph_callback_mgr_impl.h"
+#include "../rete/alpha_node.h"
+#include "../rete/rete_session.h"
+#include "../rete/antecedent_query_visitor.h"
 
 // This file contains the implementation classes for AlphaNode
 namespace jets::rete {

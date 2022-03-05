@@ -8,7 +8,7 @@
 
 #include "absl/container/flat_hash_set.h"
 
-#include "jets/rete/beta_row_initializer.h"
+#include "../rete/beta_row_initializer.h"
 
 // This file contains metadata data structure for BetaRelations
 namespace jets::rete {

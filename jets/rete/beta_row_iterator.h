@@ -12,7 +12,7 @@
 #include "absl/hash/hash.h"
 #include "absl/container/flat_hash_set.h"
 
-#include "jets/rete/beta_row.h"
+#include "../rete/beta_row.h"
 
 namespace jets::rete {
 // Declaration of Container Types for BetaRelation Class

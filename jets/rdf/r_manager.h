@@ -9,10 +9,10 @@
 
 #include "absl/hash/hash.h"
 
-#include "jets/rdf/rdf_err.h"
-#include "jets/rdf/rdf_ast.h"
-#include "jets/rdf/uuid.h"
-#include "jets/rdf/containers_type.h"
+#include "../rdf/rdf_err.h"
+#include "../rdf/rdf_ast.h"
+#include "../rdf/uuid.h"
+#include "../rdf/containers_type.h"
 
 // Component to manage all the rdf resources and literals of a graph
 namespace jets::rdf {

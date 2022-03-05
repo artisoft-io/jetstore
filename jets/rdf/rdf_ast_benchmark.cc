@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 #include "boost/variant.hpp"
 
-#include "jets/rdf/rdf_types.h"
+#include "../rdf/rdf_types.h"
 #include "rdf_ast.h"
 #include "rdf_graph.h"
 

@@ -6,9 +6,9 @@
 #include <glog/logging.h>
 // #include <gflags/gflags.h>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/rete_types.h"
-#include "jets/rete/rete_types_impl.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/rete_types.h"
+#include "../rete/rete_types_impl.h"
 
 // DEFINE_bool(big_menu, true, "Include 'advanced' options in the menu listing");
 // DEFINE_string(languages, "english,french,german",

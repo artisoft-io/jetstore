@@ -8,10 +8,10 @@
 
 #include "absl/hash/hash.h"
 
-#include "jets/rdf/rdf_ast.h"
-#include "jets/rdf/w_node.h"
-#include "jets/rdf/base_graph_iterator.h"
-#include "jets/rdf/graph_callback_mgr.h"
+#include "../rdf/rdf_ast.h"
+#include "../rdf/w_node.h"
+#include "../rdf/base_graph_iterator.h"
+#include "../rdf/graph_callback_mgr.h"
 
 namespace jets::rdf {
 // //////////////////////////////////////////////////////////////////////////////////////
