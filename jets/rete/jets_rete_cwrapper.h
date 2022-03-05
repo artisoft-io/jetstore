@@ -19,14 +19,14 @@ typedef void* HJRETE;
 int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * handle );
 int delete_rete_session( HJRETE rete_session_hdl );
 
-typedef void* HJR;
+typedef void const* HJR;
 
 // Creating resources and literals
 int create_resource(HJRETE rete_hdl, char const * name, HJR * handle);
 int create_text(HJRETE rete_hdl, char const * txt, HJR * handle);
 int create_int(HJRETE rete_hdl, int v, HJR * handle);
 
-typedef void* HSTR;
+typedef void const* HSTR;
 
 // Get the resource name and literal value
 int get_resource_type(HJR handle);
@@ -50,6 +50,9 @@ int get_subject(HJITERATOR itor_hdl, HJR * handle);
 int get_predicate(HJITERATOR itor_hdl, HJR * handle);
 int get_object(HJITERATOR itor_hdl, HJR * handle);
 int dispose(HJITERATOR itor_hdl);
+
+int say_hello();
+void say_hello0();
 
 #ifdef __cplusplus
 }

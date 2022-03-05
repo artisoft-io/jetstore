@@ -47,3 +47,5 @@ external
 temp.h
 build/
 vscode_build/
+bin
+pkg

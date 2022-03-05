@@ -1,6 +1,9 @@
 package bridge
 
-import "fmt"
+import (
+	"fmt"
+	"errors"
+)
 
 // #cgo CFLAGS: -I/home/michel/projects/repos/jetstore/jets
 // #cgo LDFLAGS: -L/home/michel/projects/repos/jetstore/build/jets -ljets_static 
@@ -16,6 +19,27 @@ type JetStore struct {
 
 func Delete(js JetStore) {
 	C.delete_jetstore_hdl(js.hdl)
+}
+
+func Say0Hello() {
+	_, err := C.say_hello0()
+	if err != nil {
+		fmt.Println("OOps got error from say_hello!!")
+	}
+	fmt.Println("OK get back")
+}
+
+func SayHello() (int, error) {
+	retc, err := C.say_hello()
+	if err != nil {
+		fmt.Println("OOps got error from say_hello!!")
+		return 0, errors.New("error calling SayHello() function: " + err.Error())
+	}
+	// Get the result as a go type
+	ret := int(retc)
+
+	fmt.Println("OK get got: ", ret)
+	return ret, nil
 }
 
 // func (js JetStore) Bar() {
