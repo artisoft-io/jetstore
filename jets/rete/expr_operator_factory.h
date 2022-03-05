@@ -6,9 +6,9 @@
 
 #include <glog/logging.h>
 
-#include "jets/rete/rete_err.h"
-#include "jets/rete/expr_operators.h"
-#include "jets/rete/expr.h"
+#include "../rete/rete_err.h"
+#include "../rete/expr_operators.h"
+#include "../rete/expr.h"
 
 // This file contains basic operator used in rule expression 
 // see ExprUnaryOp and ExprBinaryOp classes.

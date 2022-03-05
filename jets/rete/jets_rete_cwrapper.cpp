@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <utility>
 
-#include "jets/rete/rete_err.h"
-#include "jets/rete/rete_meta_store_factory.h"
-#include "jets/rete/jets_rete_cwrapper.h"
+#include "../rete/rete_err.h"
+#include "../rete/rete_meta_store_factory.h"
+#include "../rete/jets_rete_cwrapper.h"
 #include "rete_session.h"
 
 using namespace jets::rete;

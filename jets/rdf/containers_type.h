@@ -6,8 +6,8 @@
 
 #include "absl/hash/hash.h"
 
-#include "jets/rdf/rdf_ast.h"
-#include "jets/rdf/w_node.h"
+#include "../rdf/rdf_ast.h"
+#include "../rdf/w_node.h"
 
 namespace jets::rdf {
 /////////////////////////////////////////////////////////////////////////////////////////

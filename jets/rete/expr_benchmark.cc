@@ -1,9 +1,9 @@
 #include <benchmark/benchmark.h>
 #include "boost/variant.hpp"
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/rete_types.h"
-#include "jets/rete/rete_types_impl.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/rete_types.h"
+#include "../rete/rete_types_impl.h"
 
 using namespace jets::rdf;
 using namespace jets::rete;

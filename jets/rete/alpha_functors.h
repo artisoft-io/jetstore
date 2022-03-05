@@ -6,13 +6,13 @@
 #include <string>
 #include <utility>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/rete_err.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row.h"
-#include "jets/rete/expr.h"
-#include "jets/rete/rete_session.h"
-#include "jets/rete/antecedent_query_visitor.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/rete_err.h"
+#include "../rete/node_vertex.h"
+#include "../rete/beta_row.h"
+#include "../rete/expr.h"
+#include "../rete/rete_session.h"
+#include "../rete/antecedent_query_visitor.h"
 
 // This file contains the AlphaNode class parameters Fu, Fv, Fw classes
 // Methods usage:

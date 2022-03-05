@@ -14,9 +14,9 @@
 #include "absl/hash/hash.h"
 #include "absl/container/flat_hash_set.h"
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/alpha_node.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/alpha_node.h"
 
 
 // Component to manage all the rdf resources and literals of a graph

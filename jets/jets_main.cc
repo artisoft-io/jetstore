@@ -8,7 +8,7 @@
 
 #include "rdf/rdf_types.h"
 
-#include "jets/rete/beta_relation.h"
+#include "../rete/beta_relation.h"
 
 DEFINE_bool(big_menu, true, "Include 'advanced' options in the menu listing");
 DEFINE_string(languages, "english,french,german",

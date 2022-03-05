@@ -5,7 +5,7 @@
 #include <memory>
 #include <list>
 
-#include "jets/rdf/rdf_types.h"
+#include "../rdf/rdf_types.h"
 
 // This file contains implementation classes for rdf::GraphCallbackManager
 namespace jets::rete {

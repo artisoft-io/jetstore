@@ -8,10 +8,10 @@
 
 #include "absl/hash/hash.h"
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/rete_err.h"
-#include "jets/rete/beta_row_initializer.h"
-#include "jets/rete/node_vertex.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/rete_err.h"
+#include "../rete/beta_row_initializer.h"
+#include "../rete/node_vertex.h"
 
 
 // Component to manage all the rdf resources and literals of a graph

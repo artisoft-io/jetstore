@@ -12,10 +12,10 @@
 
 #include <boost/numeric/conversion/cast.hpp>
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/rete_err.h"
-#include "jets/rete/beta_row.h"
-#include "jets/rete/rete_session.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/rete_err.h"
+#include "../rete/beta_row.h"
+#include "../rete/rete_session.h"
 
 // This file contains basic operator used in rule expression 
 // see ExprUnaryOp and ExprBinaryOp classes.

@@ -10,9 +10,9 @@
 
 #include "boost/variant.hpp"
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/beta_row.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/beta_row.h"
 
 // This file contains the classes for rule expression.
 // Abstract class hierarchy for representing an expression.

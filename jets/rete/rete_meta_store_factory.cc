@@ -5,7 +5,7 @@
 #include <string_view>
 
 #include "beta_row_initializer.h"
-#include "jets/rete/rete_meta_store_factory.h"
+#include "../rete/rete_meta_store_factory.h"
 #include "node_vertex.h"
 
 namespace jets::rete {

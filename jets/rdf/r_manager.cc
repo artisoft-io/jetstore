@@ -4,7 +4,7 @@
 #include <glog/logging.h>
 // #include <gflags/gflags.h>
 
-#include "jets/rdf/rdf_types.h"
+#include "../rdf/rdf_types.h"
 
 // DEFINE_bool(big_menu, true, "Include 'advanced' options in the menu listing");
 // DEFINE_string(languages, "english,french,german",

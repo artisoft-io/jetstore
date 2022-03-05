@@ -19,13 +19,13 @@
 #include "rete_session.h"
 #include "sqlite3.h"
 
-#include "jets/rdf/rdf_types.h"
-#include "jets/rete/node_vertex.h"
-#include "jets/rete/alpha_node.h"
-#include "jets/rete/rete_meta_store.h"
-#include "jets/rete/expr_operator_factory.h"
-#include "jets/rete/rete_meta_store_factory_helper.h"
-#include "jets/rete/alpha_node_impl.h"
+#include "../rdf/rdf_types.h"
+#include "../rete/node_vertex.h"
+#include "../rete/alpha_node.h"
+#include "../rete/rete_meta_store.h"
+#include "../rete/expr_operator_factory.h"
+#include "../rete/rete_meta_store_factory_helper.h"
+#include "../rete/alpha_node_impl.h"
 
 // Factory class to create and configure ReteMetaStore objects
 static int read_resources_cb(void *data, int argc, char **argv, char **azColName);

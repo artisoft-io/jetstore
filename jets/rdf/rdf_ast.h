@@ -14,8 +14,8 @@
 #include "absl/hash/hash.h"
 #include "boost/variant.hpp"
 
-#include "jets/rdf/rdf_err.h"
-#include "jets/rdf/other/fcmp.h"
+#include "../rdf/rdf_err.h"
+#include "../rdf/other/fcmp.h"
 
 namespace jets::rdf {
 
