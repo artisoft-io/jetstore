@@ -133,7 +133,7 @@ ENV WORK_HOME /work
 # ENV PRE_PROCESS_SCRIPT group_by.py
 ENV JETSERVER_SCRIPT $APP_HOME/jetserver
 
-RUN mkdir -p ${JETS_SOURCE_DIR} &&  ln -s ${JETS_SOURCE_DIR} jetstore
+RUN mkdir -p ${JETS_SOURCE_DIR} &&  ln -s ${JETS_SOURCE_DIR} jetstore && chown 
 RUN mkdir -p ${WORKSPACES_HOME}
 RUN mkdir -p ${WORK_HOME}
 
