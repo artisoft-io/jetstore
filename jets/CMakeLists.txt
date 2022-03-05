@@ -20,6 +20,9 @@ configure_file (
   "./version.h"
 )
 
+set(C_INCLUDE_PATH ${PROJECT_SOURCE_DIR}/jets)
+
+
 # list of source files
 set(C_LIBRARY_SRC rdf/base_graph_iterator.h  rdf/base_graph.h  rdf/containers_type.h  
   rdf/graph_callback_mgr.h  rdf/other/fcmp.c  rdf/other/fcmp.h  rdf/r_manager.cc  
@@ -120,3 +123,32 @@ install(DIRECTORY
         DESTINATION include/jets
         FILES_MATCHING PATTERN "*.h"
 )
+
+# GO Language Section
+set(INFILE ${PROJECT_SOURCE_DIR}/jets/bridge/bridge.go.in)
+set(OUTFILE ${PROJECT_BINARY_DIR}/jets/bridge/bridge.go)
+set(C_LIBRARY_PATH ${PROJECT_BINARY_DIR}/jets)
+
+set(CFLAGS "-I${C_INCLUDE_PATH}")
+set(LDFLAGS "-L${C_LIBRARY_PATH} -l${C_LIBRARY_NAME}_static")
+
+# message(STATUS "Creating .go bridge file")
+# message(STATUS "Input template:${INFILE}" )
+# message(STATUS "Output file   :${OUTFILE}")
+# message(STATUS "Output file CFLAGS : ${CFLAGS}")
+# message(STATUS "Output file LDFLAGS: ${LDFLAGS}")
+
+# configure_file( ${INFILE} ${OUTFILE} )
+
+
+# Call 'go build' to generate executable file
+# GOPATH / GOBIN
+# see https://golang.org/doc/articles/go_command.html
+# note: order matters... binary must come first so bridge.go can be found.
+# set(GOPATH ${PROJECT_BINARY_DIR}:${PROJECT_SOURCE_DIR})
+set(GOPATH ${PROJECT_SOURCE_DIR})
+set(GOBIN "${PROJECT_BINARY_DIR}/jets")
+
+message(STATUS "GOPATH=${GOPATH}")
+message(STATUS "GOBIN=${GOBIN}")
+message(STATUS "executable file: ${GOBIN}/${CMAKE_PROJECT_NAME}")

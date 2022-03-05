@@ -204,6 +204,7 @@ ENV PRE_PROCESS_SCRIPT group_by.py
 ENV INSIGHT_SERVER_SCRIPT $JETS_SOURCE_DIR/build/insight_server/insight_server
 ENV JETSERVER_SCRIPT $APP_HOME/jetserver
 
+RUN mkdir -p /home/jsuser && chown jsuser /home/jsuser
 RUN mkdir -p ${JETS_SOURCE_DIR} &&  ln -s ${JETS_SOURCE_DIR} jetstore && chown jsuser ${JETS_SOURCE_DIR}
 RUN mkdir -p ${WORKSPACES_HOME} && chown jsuser ${WORKSPACES_HOME}
 RUN mkdir -p ${WORK_HOME}/work && chown jsuser ${WORK_HOME}/work
