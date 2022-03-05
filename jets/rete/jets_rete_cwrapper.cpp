@@ -259,5 +259,16 @@ int dispose(HJITERATOR handle)
   return 0;
 }
 
+int say_hello()
+{
+  std::cout << "Hello from c++!"<<std::endl;
+  return 5;
+}
+
+void say_hello0()
+{
+  std::cout << "Hello0 from c++!"<<std::endl;
+}
+
 // int find_asserted(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
 // int find_inferred(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);

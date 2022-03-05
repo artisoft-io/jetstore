@@ -20,3 +20,4 @@ endif()
 string(TIMESTAMP JETS_VERSION_DATE UTC)
 
 add_subdirectory(jets)
+add_subdirectory(test_cgo)

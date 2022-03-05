@@ -63,7 +63,7 @@ target_link_libraries(${C_LIBRARY_NAME}
   gflags
   glog
   absl_hash
-  gtest
+  # gtest
 )
 
 # TESTS
@@ -125,8 +125,8 @@ install(DIRECTORY
 )
 
 # GO Language Section
-set(INFILE ${PROJECT_SOURCE_DIR}/jets/bridge/bridge.go.in)
-set(OUTFILE ${PROJECT_BINARY_DIR}/jets/bridge/bridge.go)
+# set(INFILE ${PROJECT_SOURCE_DIR}/jets/bridge/bridge.go.in)
+# set(OUTFILE ${PROJECT_BINARY_DIR}/jets/bridge/bridge.go)
 set(C_LIBRARY_PATH ${PROJECT_BINARY_DIR}/jets)
 
 set(CFLAGS "-I${C_INCLUDE_PATH}")
