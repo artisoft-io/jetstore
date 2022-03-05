@@ -24,6 +24,19 @@ int create_jetstore_hdl( char const * rete_db_path, HJETS * handle )
   return res;
 }
 
+HJETS go_create_jetstore_hdl( char const * rete_db_path)
+{
+  if(not rete_db_path) return nullptr;
+  auto * factory = new ReteMetaStoreFactory();
+  int res = factory->load_database(rete_db_path);
+  if(res) {
+    LOG(ERROR) << "go_create_jetstore_hdl: ERROR while loading database "<<
+      rete_db_path<<", code "<<res;
+    return nullptr;
+  }
+  return factory;
+}
+
 int delete_jetstore_hdl( HJETS handle )
 {
   if(not handle) return -1;

@@ -44,6 +44,9 @@ class SQLiteTest : public ::testing::Test {
                 << std::filesystem::absolute(p) << '\n';
 
       std::cout << "Path exist? " << std::filesystem::exists(p)  << '\n';
+      if(std::filesystem::exists(p) and std::filesystem::is_regular_file(p)) {
+        std::filesystem::remove(p);
+      }
 
     //  rc = sqlite3_open(std::filesystem::absolute(p).c_str(), &db);
     rc = sqlite3_open(this->db_name.c_str(), &db);
@@ -148,7 +151,7 @@ TEST_F(SQLiteTest, FirstTest) {
 TEST(ReteMetaStoreFactoryTest, FactoryTest1) {
 
   ReteMetaStoreFactory factory;
-  int res = factory.load_database("jets/rete/rete_test_db/jetrule_rete_test.db");
+  int res = factory.load_database("jets/test_data/jetrule_rete_test.db");
   EXPECT_EQ(res, 0);
 
   auto const* meta_graph = factory.meta_graph();
@@ -180,7 +183,7 @@ TEST(ReteMetaStoreFactoryTest, FactoryTest1) {
 TEST(ReteMetaStoreFactoryTest, FactoryTest2) {
 
   ReteMetaStoreFactory factory;
-  int res = factory.load_database("jets/rete/rete_test_db/jetrule_rete_test.db");
+  int res = factory.load_database("jets/test_data/jetrule_rete_test.db");
   EXPECT_EQ(res, 0);
 
   auto const* meta_graph = factory.meta_graph();

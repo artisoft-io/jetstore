@@ -1,14 +1,13 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(jetstore)
 
-# For pg_extension
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
-find_package(PostgreSQL REQUIRED)
+# # For pg_extension
+# set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
+# find_package(PostgreSQL REQUIRED)
 
 set(BUILD_SHARED_LIBS ON)
 #set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_CXX_STANDARD 17)
-set(XERCES_DISABLE_DTD 1)
+set(CMAKE_CXX_STANDARD 20)
 
 set(JETS_VERSION $ENV{JETS_VERSION})
 if(JETS_VERSION)
@@ -20,5 +19,4 @@ endif()
 
 string(TIMESTAMP JETS_VERSION_DATE UTC)
 
-add_subdirectory(abseil-cpp)
 add_subdirectory(jets)

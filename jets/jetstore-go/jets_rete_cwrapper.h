@@ -6,25 +6,29 @@ extern "C"
 {
 #endif
 // Opaque types that we'll use as handles
-using HJETS = void*;
+// using HJETS = void*;
+typedef void* HJETS;
 
 int create_jetstore_hdl( char const * rete_db_path, HJETS * handle );
 HJETS go_create_jetstore_hdl( char const * rete_db_path);
 int delete_jetstore_hdl( HJETS handle );
 
-using HJRETE = void*;
+// using HJRETE = void*;
+typedef void* HJRETE;
 
 int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * handle );
 int delete_rete_session( HJRETE rete_session_hdl );
 
-using HJR = void const*;
+// using HJR = void const*;
+typedef void* HJR;
 
 // Creating resources and literals
 int create_resource(HJRETE rete_hdl, char const * name, HJR * handle);
 int create_text(HJRETE rete_hdl, char const * txt, HJR * handle);
 int create_int(HJRETE rete_hdl, int v, HJR * handle);
 
-using HSTR = void const*;
+// using HSTR = void const*;
+typedef void* HSTR;
 
 // Get the resource name and literal value
 int get_resource_type(HJR handle);
@@ -37,7 +41,8 @@ int insert(HJRETE rete_hdl, HJR s, HJR p, HJR o);
 int contains(HJRETE rete_hdl, HJR s, HJR p, HJR o);
 int execute_rules(HJRETE rete_hdl);
 
-using HJITERATOR = void*;
+// using HJITERATOR = void*;
+typedef void* HJITERATOR;
 
 int find_all(HJRETE rete_hdl, HJITERATOR * handle);
 // int find_asserted(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);

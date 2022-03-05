@@ -1,0 +1,13 @@
+#ifndef VERSION_H_IN
+#define VERSION_H_IN
+
+#define IS_VERSION "@IS_VERSION@"
+#define IS_VERSION_DATE "@IS_VERSION_DATE@"
+#ifdef JETS_DEBUG
+#define JETS_VERSION_TYPE "DEBUG"
+#else
+#define JETS_VERSION_TYPE "RELEASE"
+#endif
+
+#endif // VERSION_H_IN
+
