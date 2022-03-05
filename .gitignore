@@ -45,4 +45,4 @@ bazel-out
 bazel-testlogs
 external
 temp.h
-
+build/

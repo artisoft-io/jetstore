@@ -58,6 +58,9 @@ cc_library(
         "rete_types.h",
         "rete_types_impl.h",
         "@com_google_absl//absl/hash",
+        # c bindings for python and go clients
+        "jets_rete_cwrapper.h",
+        "jets_rete_cwrapper.cpp",
     ],
     linkstatic = True,
     visibility = ["//visibility:public"],

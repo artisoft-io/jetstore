@@ -1,12 +1,13 @@
 cc_library(
     name = "jets_rdf",
     srcs = [
+        "@com_google_absl//absl/hash",
         "base_graph_iterator.h",
         "base_graph.h",
         "containers_type.h",
         "graph_callback_mgr.h",
-        "other/fcmp.h",
         "other/fcmp.c",
+        "other/fcmp.h",
         "r_manager.cc",
         "r_manager.h",
         "rdf_ast.h",
@@ -15,10 +16,9 @@ cc_library(
         "rdf_session_iterator.h",
         "rdf_session.h",
         "rdf_types.h",
-        "w_node.h",
-        "@com_google_absl//absl/hash",
-        "uuid.h",
         "uuid.cc",
+        "uuid.h",
+        "w_node.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
