@@ -52,6 +52,7 @@ int get_object(HJITERATOR itor_hdl, HJR * handle);
 int dispose(HJITERATOR itor_hdl);
 
 int say_hello();
+int say_hello3(char const* name);
 void say_hello0();
 
 #ifdef __cplusplus

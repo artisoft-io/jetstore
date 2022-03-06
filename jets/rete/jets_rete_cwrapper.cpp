@@ -28,7 +28,9 @@ HJETS go_create_jetstore_hdl( char const * rete_db_path)
 {
   if(not rete_db_path) return nullptr;
   auto * factory = new ReteMetaStoreFactory();
-  int res = factory->load_database(rete_db_path);
+  std::string db_path(rete_db_path);
+  int res = factory->load_database(db_path);
+  std::cout<<"go_create_jetstore_hdl: load_database called "<<std::endl;
   if(res) {
     LOG(ERROR) << "go_create_jetstore_hdl: ERROR while loading database "<<
       rete_db_path<<", code "<<res;
@@ -263,6 +265,12 @@ int say_hello()
 {
   std::cout << "Hello from c++!"<<std::endl;
   return 5;
+}
+
+int say_hello3(char const* name)
+{
+  std::cout << "Hello "<<std::string(name)<<" from c++!"<<std::endl;
+  return 25;
 }
 
 void say_hello0()
