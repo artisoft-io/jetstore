@@ -152,6 +152,9 @@ class ReteMetaStoreFactory {
   load_resources()
   {
     if(not this->r_map_.empty()) return 0;  // already loaded
+    
+    std::cout<<"load_reseources: start"<<std::endl;
+
     int err = 0;
     char * err_msg = 0;
 
