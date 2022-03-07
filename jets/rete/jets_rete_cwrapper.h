@@ -11,7 +11,6 @@ extern "C"
 typedef void* HJETS;
 
 int create_jetstore_hdl( char const * rete_db_path, HJETS * handle );
-HJETS go_create_jetstore_hdl( char const * rete_db_path);
 int delete_jetstore_hdl( HJETS handle );
 
 typedef void* HJRETE;
@@ -31,8 +30,10 @@ typedef void const* HSTR;
 // Get the resource name and literal value
 int get_resource_type(HJR handle);
 int get_resource_name(HJR handle, HSTR*);
+char const* go_get_resource_name(HJR handle);
 int get_int_literal(HJR handle, int*);
 int get_text_literal(HJR handle, HSTR*);
+char const* go_get_text_literal(HJR handle);
 
 // main functions
 int insert(HJRETE rete_hdl, HJR s, HJR p, HJR o);

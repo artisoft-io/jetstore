@@ -24,21 +24,6 @@ int create_jetstore_hdl( char const * rete_db_path, HJETS * handle )
   return res;
 }
 
-HJETS go_create_jetstore_hdl( char const * rete_db_path)
-{
-  if(not rete_db_path) return nullptr;
-  auto * factory = new ReteMetaStoreFactory();
-  std::string db_path(rete_db_path);
-  int res = factory->load_database(db_path);
-  std::cout<<"go_create_jetstore_hdl: load_database called "<<std::endl;
-  if(res) {
-    LOG(ERROR) << "go_create_jetstore_hdl: ERROR while loading database "<<
-      rete_db_path<<", code "<<res;
-    return nullptr;
-  }
-  return factory;
-}
-
 int delete_jetstore_hdl( HJETS handle )
 {
   if(not handle) return -1;
@@ -140,6 +125,23 @@ int get_resource_name(HJR handle, HSTR*v)
   default: return -1;
   }
 }
+char const* go_get_resource_name(HJR handle)
+{
+  if(not handle) return nullptr;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_null_t             : return nullptr;
+  case rdf_blank_node_t       : return nullptr;
+  case rdf_named_resource_t   : return boost::get<NamedResource>(r)->name.data();
+  case rdf_literal_int32_t    : return nullptr;
+  case rdf_literal_uint32_t   : return nullptr;
+  case rdf_literal_int64_t    : return nullptr;
+  case rdf_literal_uint64_t   : return nullptr;
+  case rdf_literal_double_t   : return nullptr;
+  case rdf_literal_string_t   : return nullptr;
+  default: return nullptr;
+  }
+}
 
 int get_int_literal(HJR handle, int*v)
 {
@@ -174,6 +176,23 @@ int get_text_literal(HJR handle, HSTR*v)
   case rdf_literal_double_t   : return -1;
   case rdf_literal_string_t   : *v = boost::get<LString>(r)->data.data(); return 0;
   default: return -1;
+  }
+}
+char const* go_get_text_literal(HJR handle)
+{
+  if(not handle) return nullptr;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_null_t             : return nullptr;
+  case rdf_blank_node_t       : return nullptr;
+  case rdf_named_resource_t   : return nullptr;
+  case rdf_literal_int32_t    : return nullptr;
+  case rdf_literal_uint32_t   : return nullptr;
+  case rdf_literal_int64_t    : return nullptr;
+  case rdf_literal_uint64_t   : return nullptr;
+  case rdf_literal_double_t   : return nullptr;
+  case rdf_literal_string_t   : return boost::get<LString>(r)->data.data();
+  default: return nullptr;
   }
 }
 
@@ -259,23 +278,6 @@ int dispose(HJITERATOR handle)
   auto * itor =  static_cast<ReteSession::Iterator*>(handle);
   delete itor;
   return 0;
-}
-
-int say_hello()
-{
-  std::cout << "Hello from c++!"<<std::endl;
-  return 5;
-}
-
-int say_hello3(char const* name)
-{
-  std::cout << "Hello "<<std::string(name)<<" from c++!"<<std::endl;
-  return 25;
-}
-
-void say_hello0()
-{
-  std::cout << "Hello0 from c++!"<<std::endl;
 }
 
 // int find_asserted(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
