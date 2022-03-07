@@ -135,51 +135,25 @@ RUN wget -q "https://github.com/google/benchmark/archive/e33986a000987387c92ad29
     && make install \
     && ldconfig
 
-# # Install python packages that rc needs
-# # Install Anvil Uplink client (https://anvil.works/docs/uplink/quickstart)
-# RUN pip3 install --no-input \
-#     aiocsv \
-#     aiofiles \
-#     anvil-uplink \
-#     apsw \
-#     argo-workflows \
-#     bcrypt \
-#     boto3 \
-#     certifi \
-#     frozendict \
-#     openpyxl \
-#     pandas \
-#     prometheus_client \
-#     protobuf \
-#     psycopg[binary,pool] \
-#     PyYAML \
-#     yamlconf \
-#     && pip3 list
-
-
-# # # Install JaroWinkler package from source
-# # RUN wget -q "https://github.com/richmilne/JaroWinkler/archive/refs/heads/master.zip" -O  "JaroWinkler-master.zip" \
-# #     && unzip "JaroWinkler-master.zip"  \
-# #     && cd "JaroWinkler-master"  \
-# #     && python3 setup.py build    \
-# #     && python3 setup.py install
-
-# # Copy source and define the target (APP_HOME) where we will put the compiled artifacts
-# ENV JETS_SOURCE_DIR /home/michel/projects/repos/jetstore
-# ENV APP_HOME $JETS_SOURCE_DIR/build/jetserver
-# ENV PATH "$PATH:$JETS_SOURCE_DIR/scripts:$JETS_SOURCE_DIR/utils:$APP_HOME"
-# ENV PYTHONPATH "$PYTHONPATH:$JETS_SOURCE_DIR/pyjets/build/lib"
-# # ENV LD_LIBRARY_PATH "$LD_LIBRARY_PATH:$JETS_SOURCE_DIR/build/top_engine:$JETS_SOURCE_DIR/build/rc_engine:$JETS_SOURCE_DIR/build/rclog"
-# ENV WORKSPACES_HOME /workspaces
-# ENV WORK_HOME /work
-# # ENV PRE_PROCESS_SCRIPT group_by.py
-# ENV JETSERVER_SCRIPT $APP_HOME/jetserver
-
-# RUN mkdir -p ${JETS_SOURCE_DIR} &&  ln -s ${JETS_SOURCE_DIR} jetstore
-# RUN mkdir -p ${WORKSPACES_HOME}
-# RUN mkdir -p ${WORK_HOME}
-
-# WORKDIR ${WORK_HOME}
+RUN pip3 install --no-input \
+    absl-py \
+    aiocsv \
+    aiofiles \
+    antlr4-python3-runtime \
+    apsw \
+    argo-workflows \
+    bcrypt \
+    boto3 \
+    certifi \
+    frozendict \
+    openpyxl \
+    pandas \
+    prometheus_client \
+    protobuf \
+    psycopg[binary,pool] \
+    PyYAML \
+    yamlconf \
+    && pip3 list
 
 # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### 
 
@@ -197,7 +171,7 @@ ENV APP_HOME $JETS_SOURCE_DIR/build
 ENV PATH "$PATH:$JETS_SOURCE_DIR/app_home_scripts:$APP_HOME:$JETS_SOURCE_DIR/build"
 ENV PYTHONPATH "$PYTHONPATH:$JETS_SOURCE_DIR/jetstore-tools/jetrule-grammar:$JETS_SOURCE_DIR/jetstore-tools/jetstore-py"
 # May need subdirectory where libraries are...
-ENV LD_LIBRARY_PATH "$LD_LIBRARY_PATH:$JETS_SOURCE_DIR/build"
+ENV LD_LIBRARY_PATH "$LD_LIBRARY_PATH:$JETS_SOURCE_DIR/build/jets"
 ENV WORKSPACES_HOME /workspaces
 ENV WORK_HOME /go
 ENV PRE_PROCESS_SCRIPT group_by.py
