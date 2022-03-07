@@ -32,26 +32,19 @@ int
 ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
 {
   //*
-  // VLOG(1) << "Current path is " << std::filesystem::current_path() << std::endl;
-  std::cout << "load_database: Current path is " << std::filesystem::current_path() << std::endl;
+  VLOG(1) << "Current path is " << std::filesystem::current_path() << std::endl;
   // Open database -- check that db exists
   this->jetrule_rete_db_ = jetrule_rete_db;
   std::filesystem::path p(this->jetrule_rete_db_);
   if(not std::filesystem::exists(p)) {
     LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: Invalid argument jetrule_rete_db: '" <<
       this->jetrule_rete_db_<<"' database does not exists.";
-    std::cout << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: Invalid argument jetrule_rete_db: '" <<
-      this->jetrule_rete_db_<<"' database does not exists."<<std::endl;
     return -1;
   }
-  std::cout << "*** ReteMetaStoreFactory::create_rete_meta_store: calling open on sqlite3 for '" <<
-    this->jetrule_rete_db_<<"' ..."<<std::endl;
 
   int err = 0;
   err = sqlite3_open(this->jetrule_rete_db_.c_str(), &this->db_);
-  std::cout << "*** ReteMetaStoreFactory::create_rete_meta_store: sqlite3_open called, ret code "<<err<<std::endl;
   if( err ) {
-    std::cout << "***>>> ReteMetaStoreFactory::create_rete_meta_store: sqlite3_open called ERROR '" << sqlite3_errmsg(this->db_) <<std::endl;
     LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: Can't open database: '" <<
       this->jetrule_rete_db_<<"', error:" << sqlite3_errmsg(this->db_);
     return err;
@@ -129,8 +122,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
   }
 
   // All good!, release the stmts and db connection
-  // VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
-  std::cout<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions"<<std::endl;;
+  VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
   return this->reset();
 }
 
