@@ -58,12 +58,14 @@ target_link_libraries(${C_LIBRARY_NAME}
   # boost_filesystem
   # boost_regex
   # boost_system
-  # boost_program_options
-  # boost_log
   gflags
   glog
   absl_hash
-  # gtest
+  absl_city
+  absl_low_level_hash
+  absl_raw_hash_set
+  pthread
+  sqlite3
 )
 
 # TESTS

@@ -3,6 +3,9 @@
 # ----------------------------------------------------------------------------------------------
 docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t dev:latest -f Dockerfile.dev_go . 
 
+# Antlr4 image
+docker build --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t antlr4:latest -f Dockerfile.antlr4 . 
+
 # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### #
 # RUN DEV BUILDER
 # ----------------------------------------------------------------------------------------------
@@ -12,6 +15,9 @@ docker run -it --rm -u `id -u`:`id -g` \
     -v /home/michel/projects/work:/go/work \
     --name jets_dev \
     --entrypoint=/bin/bash dev:latest
+
+# Running antlr4 to generate the parser class
+docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) -v `pwd`:/work antlr4 -Dlanguage=Python3 JetRule.g4
 
 ${workspaceFolder}/**
 

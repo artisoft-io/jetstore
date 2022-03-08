@@ -208,7 +208,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    with open('jetstore-tools/jetrule-grammar/rule5_test.json', 'rt', encoding='utf-8') as f:
+    with open('test_data/rule5_test.json', 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print('GOT EXPECTED:',json.dumps(expected, indent=2))
@@ -236,7 +236,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    with open('jetstore-tools/jetrule-grammar/rule6_test.json', 'rt', encoding='utf-8') as f:
+    with open('test_data/rule6_test.json', 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
@@ -263,7 +263,7 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     self.assertEqual(rule_label, postprocessed_data['jet_rules'][0]['label'])
 
     # validate the whole result
-    with open('jetstore-tools/jetrule-grammar/rule7_test.json', 'rt', encoding='utf-8') as f:
+    with open('test_data/rule7_test.json', 'rt', encoding='utf-8') as f:
       expected = json.loads(f.read())
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
