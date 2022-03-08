@@ -15,7 +15,7 @@ FLAGS = flags.FLAGS
 class JetRulesCompilerTest(absltest.TestCase):
 
   def _get_from_file(self, fname: str) -> JetRuleContext:
-    in_provider = InputProvider('jetstore-tools/jetrule-grammar')
+    in_provider = InputProvider('test_data')
     compiler = JetRuleCompiler()
     compiler.compileJetRuleFile(fname, in_provider)
     # print('Compiler working memory for import files')

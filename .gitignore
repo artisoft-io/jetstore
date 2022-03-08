@@ -50,3 +50,5 @@ vscode_build/
 bin
 pkg
 jets/hello/hello
+jetstore.egg-info
+__pycache__

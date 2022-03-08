@@ -273,7 +273,7 @@ if __name__ == "__main__":
   walker.walk(listener, tree)
 
   # Save the JetRule data structure
-  with open('test.jr.json', 'wt', encoding='utf-8') as f:
+  with open('test_data/test.jr.json', 'wt', encoding='utf-8') as f:
     f.write(json.dumps(listener.jetRules, indent=4))
 
   print('Result saved to test.jr.json')

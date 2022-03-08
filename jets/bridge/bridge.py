@@ -1,11 +1,10 @@
 import ctypes
 import os
 from enum import Enum
-path = os.path.abspath(os.getcwd())
-print('CURRENT DIR:',path)
 
-# if not os.path.exists(path) or not os.path.isfile(path):
-#   print('ERROR: JetRule file {0} does not exist or is not a file'.format(path))
+# path = os.path.abspath(os.getcwd())
+# print('***BRIDGE.PY CURRENT DIR:',path)
+
 class ResourceType(Enum):
   RDF_NULL             = 0 
   RDF_BLANK_NODE       = 1 
@@ -18,7 +17,7 @@ class ResourceType(Enum):
   RDF_LITERAL_STRING   = 8 
 
 # Load the shared library into ctypes
-c_lib = ctypes.CDLL("jets/rete/libjets_rete.so")
+c_lib = ctypes.CDLL("libjets.so")
 
 # ---------------------------------------------------------------------------------------
 c_lib.create_jetstore_hdl.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
@@ -151,11 +150,11 @@ def createInt(rete_session_hdlr: ctypes.c_void_p, value: int) -> ctypes.c_void_p
 c_lib.get_resource_type.argtypes = [ctypes.c_void_p]
 c_lib.get_resource_type.restype = ctypes.c_int
 
-def getResourceType(r_hdlr: ctypes.c_void_p) -> None:
+def getResourceType(r_hdlr: ctypes.c_void_p) -> int:
   if not r_hdlr:
     raise Exception('getResourceType: Handle must not be null!')
 
-  res = c_lib.get_resource_type(r_hdlr)
+  res: int = c_lib.get_resource_type(r_hdlr)
   if res<0:
     raise Exception('getResourceType: ERROR: '+str(res))
   return res
@@ -261,11 +260,11 @@ def findAll(rs_hdlr: ctypes.c_void_p) -> ctypes.c_void_p:
 c_lib.is_end.argtypes = [ctypes.c_void_p]
 c_lib.is_end.restype = ctypes.c_int
 
-def isEnd(rs_hdlr: ctypes.c_void_p) -> bool:
-  if not rs_hdlr:
+def isEnd(itor_hdlr: ctypes.c_void_p) -> bool:
+  if not itor_hdlr:
     raise Exception('isEnd: Handle must not be null!')
 
-  res = c_lib.is_end(rs_hdlr)
+  res = c_lib.is_end(itor_hdlr)
   if res < 0:
     raise Exception('isEnd: ERROR: '+str(res))
   return res
@@ -274,11 +273,11 @@ def isEnd(rs_hdlr: ctypes.c_void_p) -> bool:
 c_lib.next.argtypes = [ctypes.c_void_p]
 c_lib.next.restype = ctypes.c_int
 
-def next(rs_hdlr: ctypes.c_void_p) -> bool:
-  if not rs_hdlr:
+def next(itor_hdlr: ctypes.c_void_p) -> bool:
+  if not itor_hdlr:
     raise Exception('next: Handle must not be null!')
 
-  res = c_lib.next(rs_hdlr)
+  res = c_lib.next(itor_hdlr)
   if res < 0:
     raise Exception('next: ERROR: '+str(res))
   return res
