@@ -80,7 +80,8 @@ class JetListener(JetRuleListener):
     self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
 
   def exitStringLiteralStmt(self, ctx:JetRuleParser.StringLiteralStmtContext):
-    self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  self.escapeString(ctx.declValue.text)})
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  self.escapeString(ctx.declValue.text)})
 
   # =====================================================================================
   # Resources
@@ -215,39 +216,60 @@ class JetListener(JetRuleListener):
 
   # Exit a parse tree produced by JetRuleParser#antecedent.
   def exitAntecedent(self, ctx:JetRuleParser.AntecedentContext):
-    subject = self.parseObjectAtom(self.escape(ctx.s.getText()), None)
-    predicate = self.parseObjectAtom(self.escape(ctx.p.getText()), None)
-    object = self.parseObjectAtom(ctx.o.getText(), ctx.o.kws)
-    antecedent = { 'type': 'antecedent', 'isNot': True if ctx.n else False, 'triple':[subject, predicate, object] }
-    if ctx.f and ctx.f.expr:
-      antecedent['filter'] = ctx.f.expr
-    self.ruleAntecedents.append(antecedent)
+    try:
+      subject = self.parseObjectAtom(self.escape(ctx.s.getText()), None)
+      predicate = self.parseObjectAtom(self.escape(ctx.p.getText()), None)
+      object = self.parseObjectAtom(ctx.o.getText(), ctx.o.kws)
+      antecedent = { 'type': 'antecedent', 'isNot': True if ctx.n else False, 'triple':[subject, predicate, object] }
+      if ctx.f and ctx.f.expr:
+        antecedent['filter'] = ctx.f.expr
+      self.ruleAntecedents.append(antecedent)
+    except:
+      pass
 
   # Exit a parse tree produced by JetRuleParser#consequent.
   def exitConsequent(self, ctx:JetRuleParser.ConsequentContext):
-    subject = self.parseObjectAtom(self.escape(ctx.s.getText()), None)
-    predicate = self.parseObjectAtom(self.escape(ctx.p.getText()), None)
-    self.ruleConsequents.append({ 'type': 'consequent', 'triple':[subject, predicate, ctx.o.expr] })
+    try:
+      subject = self.parseObjectAtom(self.escape(ctx.s.getText()), None)
+      predicate = self.parseObjectAtom(self.escape(ctx.p.getText()), None)
+      self.ruleConsequents.append({ 'type': 'consequent', 'triple':[subject, predicate, ctx.o.expr] })
+    except:
+      pass
 
   # Exit a parse tree produced by JetRuleParser#BinaryExprTerm.
   def exitBinaryExprTerm(self, ctx:JetRuleParser.BinaryExprTermContext):
-    ctx.expr = {'type': 'binary', 'lhs': ctx.lhs.expr, 'op': ctx.op.getText(), 'rhs': ctx.rhs.expr}
+    try:
+      ctx.expr = {'type': 'binary', 'lhs': ctx.lhs.expr, 'op': ctx.op.getText(), 'rhs': ctx.rhs.expr}
+    except:
+      pass
 
   # Exit a parse tree produced by JetRuleParser#BinaryExprTerm2.
   def exitBinaryExprTerm2(self, ctx:JetRuleParser.BinaryExprTerm2Context):
-    ctx.expr = {'type': 'binary', 'lhs': ctx.lhs.expr, 'op': ctx.op.getText(), 'rhs': ctx.rhs.expr}
+    try:
+      ctx.expr = {'type': 'binary', 'lhs': ctx.lhs.expr, 'op': ctx.op.getText(), 'rhs': ctx.rhs.expr}
+    except:
+      pass
 
   # Exit a parse tree produced by JetRuleParser#UnaryExprTerm.
   def exitUnaryExprTerm(self, ctx:JetRuleParser.UnaryExprTermContext):
-    ctx.expr = {'type': 'unary', 'op': ctx.op.getText(), 'arg': ctx.arg.expr}
+    try:
+      ctx.expr = {'type': 'unary', 'op': ctx.op.getText(), 'arg': ctx.arg.expr}
+    except:
+      pass
 
   # Exit a parse tree produced by JetRuleParser#UnaryExprTerm2.
   def exitUnaryExprTerm2(self, ctx:JetRuleParser.UnaryExprTerm2Context):
-    ctx.expr = {'type': 'unary', 'op': ctx.op.getText(), 'arg': ctx.arg.expr}
+    try:
+      ctx.expr = {'type': 'unary', 'op': ctx.op.getText(), 'arg': ctx.arg.expr}
+    except:
+      pass
 
   # Exit a parse tree produced by JetRuleParser#UnaryExprTerm3.
   def exitUnaryExprTerm3(self, ctx:JetRuleParser.UnaryExprTerm3Context):
-    ctx.expr = {'type': 'unary', 'op': ctx.op.getText(), 'arg': ctx.arg.expr}
+    try:
+      ctx.expr = {'type': 'unary', 'op': ctx.op.getText(), 'arg': ctx.arg.expr}
+    except:
+      pass
 
   # Exit a parse tree produced by JetRuleParser#ObjectAtomExprTerm.
   def exitObjectAtomExprTerm(self, ctx:JetRuleParser.ObjectAtomExprTermContext):

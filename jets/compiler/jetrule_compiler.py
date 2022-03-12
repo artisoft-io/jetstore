@@ -33,7 +33,7 @@ class JetRuleErrorListener(ErrorListener):
     self.ERRORS = []
 
   def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-    print("*** line " + str(line) + ":" + str(column) + " " + msg, file=sys.stderr)
+    # print("*** line " + str(line) + ":" + str(column) + " " + msg, file=sys.stderr)
     self.ERRORS.append("line {0}:{1} {2}".format(line, column, msg))
 
 
@@ -80,7 +80,7 @@ class JetRuleCompiler:
           file_offset = self.global_line_nbr - file_info['start_pos'] + file_info['file_offset']
 
           if fname in self.imported_file_name_set:
-            # print('File already imported:', fname, ', skipping it')
+            print('File already imported:', fname, ', skipping it')
 
             # Put another entry for the current file for the remaining statements
             file_info = {'fname': current_file_name, 'start_pos': self.global_line_nbr, 'file_offset': file_offset}
@@ -88,7 +88,7 @@ class JetRuleCompiler:
             self.processing_rule_files_q.put(file_info)
 
           else:
-            # print('Importing file: ', fname)
+            print('Importing file: ', fname)
 
             # Put a new entry to track new file to import
             file_info = {'fname': fname, 'start_pos': self.global_line_nbr, 'file_offset': 0}

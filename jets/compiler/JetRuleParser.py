@@ -228,7 +228,7 @@ class JetRuleParser ( Parser ):
                       "LookupTable", "TableName", "Key", "Columns", "TRUE", 
                       "FALSE", "NULL", "NOT", "TOTEXT", "EQ", "REGEX2", 
                       "PLUS", "MINUS", "MUL", "DIV", "OR", "AND", "SEMICOLON", 
-                      "ASSIGN", "Identifier", "DIGITS", "String", "COMMENT", 
+                      "ASSIGN", "Identifier", "DIGITS", "STRING", "COMMENT", 
                       "WS" ]
 
     RULE_jetrule = 0
@@ -317,7 +317,7 @@ class JetRuleParser ( Parser ):
     ASSIGN=40
     Identifier=41
     DIGITS=42
-    String=43
+    STRING=43
     COMMENT=44
     WS=45
 
@@ -505,8 +505,8 @@ class JetRuleParser ( Parser ):
             return self.getTypedRuleContext(JetRuleParser.DeclIdentifierContext,0)
 
 
-        def String(self):
-            return self.getToken(JetRuleParser.String, 0)
+        def STRING(self):
+            return self.getToken(JetRuleParser.STRING, 0)
 
         def getRuleIndex(self):
             return JetRuleParser.RULE_jetCompilerDirectiveStmt
@@ -535,7 +535,7 @@ class JetRuleParser ( Parser ):
             self.state = 82
             self.match(JetRuleParser.ASSIGN)
             self.state = 83
-            localctx.declValue = self.match(JetRuleParser.String)
+            localctx.declValue = self.match(JetRuleParser.STRING)
             self.state = 84
             self.match(JetRuleParser.SEMICOLON)
         except RecognitionException as re:
@@ -995,8 +995,8 @@ class JetRuleParser ( Parser ):
             return self.getTypedRuleContext(JetRuleParser.DeclIdentifierContext,0)
 
 
-        def String(self):
-            return self.getToken(JetRuleParser.String, 0)
+        def STRING(self):
+            return self.getToken(JetRuleParser.STRING, 0)
 
         def getRuleIndex(self):
             return JetRuleParser.RULE_stringLiteralStmt
@@ -1025,7 +1025,7 @@ class JetRuleParser ( Parser ):
             self.state = 126
             self.match(JetRuleParser.ASSIGN)
             self.state = 127
-            localctx.declValue = self.match(JetRuleParser.String)
+            localctx.declValue = self.match(JetRuleParser.STRING)
             self.state = 128
             self.match(JetRuleParser.SEMICOLON)
         except RecognitionException as re:
@@ -1272,8 +1272,8 @@ class JetRuleParser ( Parser ):
             else:
                 return self.getToken(JetRuleParser.Identifier, i)
 
-        def String(self):
-            return self.getToken(JetRuleParser.String, 0)
+        def STRING(self):
+            return self.getToken(JetRuleParser.STRING, 0)
 
         def getRuleIndex(self):
             return JetRuleParser.RULE_declIdentifier
@@ -1314,7 +1314,7 @@ class JetRuleParser ( Parser ):
                 self.state = 157
                 self.match(JetRuleParser.T__1)
                 self.state = 158
-                self.match(JetRuleParser.String)
+                self.match(JetRuleParser.STRING)
                 pass
 
             elif la_ == 3:
@@ -1480,8 +1480,8 @@ class JetRuleParser ( Parser ):
             return self.getTypedRuleContext(JetRuleParser.DeclIdentifierContext,0)
 
 
-        def String(self):
-            return self.getToken(JetRuleParser.String, 0)
+        def STRING(self):
+            return self.getToken(JetRuleParser.STRING, 0)
 
         def getRuleIndex(self):
             return JetRuleParser.RULE_volatileResourceStmt
@@ -1510,7 +1510,7 @@ class JetRuleParser ( Parser ):
             self.state = 174
             self.match(JetRuleParser.ASSIGN)
             self.state = 175
-            localctx.resVal = self.match(JetRuleParser.String)
+            localctx.resVal = self.match(JetRuleParser.STRING)
             self.state = 176
             self.match(JetRuleParser.SEMICOLON)
         except RecognitionException as re:
@@ -1538,8 +1538,8 @@ class JetRuleParser ( Parser ):
         def CreateUUIDResource(self):
             return self.getToken(JetRuleParser.CreateUUIDResource, 0)
 
-        def String(self):
-            return self.getToken(JetRuleParser.String, 0)
+        def STRING(self):
+            return self.getToken(JetRuleParser.STRING, 0)
 
         def getRuleIndex(self):
             return JetRuleParser.RULE_resourceValue
@@ -1573,10 +1573,10 @@ class JetRuleParser ( Parser ):
                 self.state = 179
                 localctx.resVal = self.match(JetRuleParser.CreateUUIDResource)
                 pass
-            elif token in [JetRuleParser.String]:
+            elif token in [JetRuleParser.STRING]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 180
-                localctx.resVal = self.match(JetRuleParser.String)
+                localctx.resVal = self.match(JetRuleParser.STRING)
                 pass
             else:
                 raise NoViableAltException(self)
@@ -1782,7 +1782,7 @@ class JetRuleParser ( Parser ):
             self.state = 226
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==JetRuleParser.String:
+            if _la==JetRuleParser.STRING:
                 self.state = 225
                 localctx.seqCtx = self.stringSeq()
 
@@ -1804,14 +1804,14 @@ class JetRuleParser ( Parser ):
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
             self.parser = parser
-            self._String = None # Token
+            self._STRING = None # Token
             self.slist = list() # of Tokens
 
-        def String(self, i:int=None):
+        def STRING(self, i:int=None):
             if i is None:
-                return self.getTokens(JetRuleParser.String)
+                return self.getTokens(JetRuleParser.STRING)
             else:
-                return self.getToken(JetRuleParser.String, i)
+                return self.getToken(JetRuleParser.STRING, i)
 
         def getRuleIndex(self):
             return JetRuleParser.RULE_stringSeq
@@ -1835,8 +1835,8 @@ class JetRuleParser ( Parser ):
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 230
-            localctx._String = self.match(JetRuleParser.String)
-            localctx.slist.append(localctx._String)
+            localctx._STRING = self.match(JetRuleParser.STRING)
+            localctx.slist.append(localctx._STRING)
             self.state = 235
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -1844,8 +1844,8 @@ class JetRuleParser ( Parser ):
                 self.state = 231
                 self.match(JetRuleParser.T__3)
                 self.state = 232
-                localctx._String = self.match(JetRuleParser.String)
-                localctx.slist.append(localctx._String)
+                localctx._STRING = self.match(JetRuleParser.STRING)
+                localctx.slist.append(localctx._STRING)
                 self.state = 237
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
@@ -2081,8 +2081,8 @@ class JetRuleParser ( Parser ):
             self.val = None # Token
             self.intval = None # IntExprContext
 
-        def String(self):
-            return self.getToken(JetRuleParser.String, 0)
+        def STRING(self):
+            return self.getToken(JetRuleParser.STRING, 0)
 
         def TRUE(self):
             return self.getToken(JetRuleParser.TRUE, 0)
@@ -2117,9 +2117,9 @@ class JetRuleParser ( Parser ):
             self.state = 294
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [JetRuleParser.String]:
+            if token in [JetRuleParser.STRING]:
                 self.state = 290
-                localctx.val = self.match(JetRuleParser.String)
+                localctx.val = self.match(JetRuleParser.STRING)
                 pass
             elif token in [JetRuleParser.TRUE]:
                 self.state = 291
@@ -2422,8 +2422,8 @@ class JetRuleParser ( Parser ):
         def StringType(self):
             return self.getToken(JetRuleParser.StringType, 0)
 
-        def String(self):
-            return self.getToken(JetRuleParser.String, 0)
+        def STRING(self):
+            return self.getToken(JetRuleParser.STRING, 0)
 
         def keywords(self):
             return self.getTypedRuleContext(JetRuleParser.KeywordsContext,0)
@@ -2518,14 +2518,14 @@ class JetRuleParser ( Parser ):
                 self.state = 355
                 self.match(JetRuleParser.T__8)
                 self.state = 356
-                self.match(JetRuleParser.String)
+                self.match(JetRuleParser.STRING)
                 self.state = 357
                 self.match(JetRuleParser.T__9)
                 pass
-            elif token in [JetRuleParser.String]:
+            elif token in [JetRuleParser.STRING]:
                 self.enterOuterAlt(localctx, 8)
                 self.state = 358
-                self.match(JetRuleParser.String)
+                self.match(JetRuleParser.STRING)
                 pass
             elif token in [JetRuleParser.TRUE, JetRuleParser.FALSE, JetRuleParser.NULL]:
                 self.enterOuterAlt(localctx, 9)
