@@ -21,7 +21,7 @@ statement
 jetCompilerDirectiveStmt:  
   JetCompilerDirective  
   varName=declIdentifier 
-  ASSIGN declValue=String 
+  ASSIGN declValue=STRING 
   SEMICOLON
 ;
 
@@ -34,7 +34,7 @@ defineLiteralStmt
   | int64LiteralStmt    
   | uInt64LiteralStmt   
   | doubleLiteralStmt   
-  | stringLiteralStmt   
+  | stringLiteralStmt
   ;
 
 int32LiteralStmt:  varType=Int32Type  varName=declIdentifier ASSIGN declValue=intExpr    SEMICOLON;
@@ -42,7 +42,7 @@ uInt32LiteralStmt: varType=UInt32Type varName=declIdentifier ASSIGN declValue=ui
 int64LiteralStmt:  varType=Int64Type  varName=declIdentifier ASSIGN declValue=intExpr    SEMICOLON;
 uInt64LiteralStmt: varType=UInt64Type varName=declIdentifier ASSIGN declValue=uintExpr   SEMICOLON;
 doubleLiteralStmt: varType=DoubleType varName=declIdentifier ASSIGN declValue=doubleExpr SEMICOLON;
-stringLiteralStmt: varType=StringType varName=declIdentifier ASSIGN declValue=String SEMICOLON;
+stringLiteralStmt: varType=StringType varName=declIdentifier ASSIGN declValue=STRING SEMICOLON;
 
 intExpr
   : '+' intExpr  
@@ -63,7 +63,7 @@ doubleExpr
 
 declIdentifier
   : Identifier ':' Identifier
-  | Identifier ':' String
+  | Identifier ':' STRING
   | Identifier
   ;
 
@@ -76,12 +76,12 @@ defineResourceStmt
   ;
 
 namedResourceStmt:    ResourceType         resName=declIdentifier ASSIGN resCtx=resourceValue SEMICOLON;
-volatileResourceStmt: resType=VolatileResourceType resName=declIdentifier ASSIGN resVal=String SEMICOLON;
+volatileResourceStmt: resType=VolatileResourceType resName=declIdentifier ASSIGN resVal=STRING SEMICOLON;
 
 resourceValue
   : kws=keywords
   | resVal=CreateUUIDResource
-  | resVal=String
+  | resVal=STRING
   ;
 
 // --------------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ lookupTableStmt: LookupTable lookupName=declIdentifier '{'
   '}' SEMICOLON;
 
 stringList: '[' seqCtx=stringSeq? ']';
-stringSeq: slist+=String (',' slist+=String)* ;
+stringSeq: slist+=STRING (',' slist+=STRING)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Jet Rule
@@ -112,7 +112,7 @@ jetRuleStmt: '[' ruleName=Identifier ruleProperties* ']' ':'
   SEMICOLON ;
 
 ruleProperties: ',' key=Identifier ASSIGN valCtx=propertyValue ;
-propertyValue: ( val=String | val=TRUE | val=FALSE | intval=intExpr ) ;
+propertyValue: ( val=STRING | val=TRUE | val=FALSE | intval=intExpr ) ;
 
 antecedent: n=NOT? '(' s=atom p=atom o=objectAtom ')' '.'? ( '[' f=exprTerm ']' '.'? )? ;
 consequent: '(' s=atom p=atom o=exprTerm ')' '.'? ;
@@ -129,8 +129,8 @@ objectAtom
   | Int64Type '(' intExpr ')'    
   | UInt64Type '(' uintExpr ')'  
   | DoubleType '(' doubleExpr ')'
-  | StringType '(' String ')'
-  | String
+  | StringType '(' STRING ')'
+  | STRING
   | kws=keywords
   | doubleExpr
   ;
@@ -220,8 +220,10 @@ Identifier:	NONDIGIT ( NONDIGIT | DIGITS)*;
 fragment NONDIGIT: [a-zA-Z_];
 DIGITS: [0-9]+;
 
-String: '"' Schar* '"';
-fragment Schar: ~ ["\\\r\n] | '\\"' ;
+STRING: '"' (ESC|.)*? '"' ;
+fragment ESC: '\\"'|'\\\\';
+// STRING: '"' Schar* '"';
+// fragment Schar: ~ ["\\\r\n] | '\\"' ;
 
 COMMENT: '#' Cchar*;
 fragment Cchar: ~ [\r\n];

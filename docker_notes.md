@@ -16,7 +16,16 @@ docker run -it --rm -u `id -u`:`id -g` \
     --name jets_dev \
     --entrypoint=/bin/bash dev:latest
 
+docker run -it --rm -u `id -u`:`id -g` \
+    -v /home/michel/projects/repos/jetstore:/home/michel/projects/repos/jetstore \
+    -v /home/michel/projects/repos/RC-Workspace:/workspaces \
+    -v /home/michel/projects/work:/go/work \
+    --name jets_dev \
+    --entrypoint=/bin/bash dev:latest
+
 # Running antlr4 to generate the parser class
+# Run from the compiler source directory (where JetRule.g4 is located)
+cd ~/projects/repos/jetstore/jets/compiler
 docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) -v `pwd`:/work antlr4 -Dlanguage=Python3 JetRule.g4
 
 ${workspaceFolder}/**

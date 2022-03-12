@@ -100,6 +100,51 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
+  def test_literalRegex1(self):
+    data = """
+      # =======================================================================================
+      # Defining Constants Literals with Regex expression
+      # ---------------------------------------------------------------------------------------
+      text regex1 = "(-?\\d*,?\\d+(\\.?\\d{1,2})?)";
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [{"type": "text", "id": "regex1", "value": "(-?\\\\d*,?\\\\d+(\\\\.?\\\\d{1,2})?)"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
+    # print('GOT:',json.dumps(jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
+  def test_literalEscape1(self):
+    data = """
+      # =======================================================================================
+      # Defining Constants Literals with escape character
+      # ---------------------------------------------------------------------------------------
+      text str1 = "some \\"escaped\\" string";
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [{"type": "text", "id": "str1", "value": "some \\"escaped\\" string"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
+    # print('GOT:',json.dumps(jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
+  def test_literalEscape2(self):
+    data = """
+      # =======================================================================================
+      # Defining Constants Literals with escape character
+      # ---------------------------------------------------------------------------------------
+      text str1 = "some string ending with a backslash \\\\";
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [{"type": "text", "id": "str1", "value": "some string ending with a backslash \\\\"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
+    # print('GOT:',json.dumps(jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
   def test_resource(self):
     data = """
       resource medicareRateObjTC1 = "_0:medicareRateObjTC1";  # Support RC legacy
