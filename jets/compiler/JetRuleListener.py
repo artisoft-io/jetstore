@@ -98,6 +98,24 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#dateLiteralStmt.
+    def enterDateLiteralStmt(self, ctx:JetRuleParser.DateLiteralStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#dateLiteralStmt.
+    def exitDateLiteralStmt(self, ctx:JetRuleParser.DateLiteralStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#datetimeLiteralStmt.
+    def enterDatetimeLiteralStmt(self, ctx:JetRuleParser.DatetimeLiteralStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#datetimeLiteralStmt.
+    def exitDatetimeLiteralStmt(self, ctx:JetRuleParser.DatetimeLiteralStmtContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#intExpr.
     def enterIntExpr(self, ctx:JetRuleParser.IntExprContext):
         pass
@@ -266,6 +284,15 @@ class JetRuleListener(ParseTreeListener):
 
     # Exit a parse tree produced by JetRuleParser#keywords.
     def exitKeywords(self, ctx:JetRuleParser.KeywordsContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#SelfExprTerm.
+    def enterSelfExprTerm(self, ctx:JetRuleParser.SelfExprTermContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#SelfExprTerm.
+    def exitSelfExprTerm(self, ctx:JetRuleParser.SelfExprTermContext):
         pass
 
 

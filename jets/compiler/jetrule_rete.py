@@ -81,6 +81,7 @@ class JetRuleRete:
 
     # now we have the tree in place, let's connect to the jetrule json
     # rule structure
+    consequent_seq_dict = {}
     for rule in self.ctx.jet_rules:
       # Attached a copy of the antecedent to the rete_node (to have access to triple elm)
       for antecedent in rule['antecedents']:
@@ -88,16 +89,20 @@ class JetRuleRete:
         self.ctx.rete_nodes[vertex]['antecedent_node'] = antecedent.copy()
 
       # Each node may have 0 or more consequents terms attached to them
-      consequent_seq = 0
+      consequent_seq = consequent_seq_dict.get(vertex, 0)
       for consequent in rule['consequents']:
         vertex = consequent['vertex']
         consequent_copy = consequent.copy()
         consequent_copy['consequent_seq'] = consequent_seq
         consequent_seq += 1
+        consequent_copy['consequent_for_rule'] = rule['name']
+        consequent_copy['consequent_salience'] = rule['salience']
         self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent_copy)
-      
-      # Carry rule's name and salience to rete_node associated with the last antecedent
-      # of the rule
+      consequent_seq_dict[vertex] = consequent_seq
+
+      # Carry rule's name and salience to rete_node:
+      #   - associated with the last antecedent of the rule
+      #   - associated with the consequent term of the rule (consequent_copy)
       rete_node = self.ctx.rete_nodes[rule['antecedents'][-1]['vertex']]
       rete_node['rules'].append(rule['name'])
       rete_node['salience'].append(rule['salience'])

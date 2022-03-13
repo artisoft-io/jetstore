@@ -1,0 +1,1803 @@
+{
+    "resources": [
+        {
+            "type": "resource",
+            "id": "jet:Context",
+            "value": "jet:Context",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 0
+        },
+        {
+            "type": "resource",
+            "id": "rdf:type",
+            "value": "rdf:type",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 1
+        },
+        {
+            "type": "resource",
+            "id": "hc:Claim",
+            "value": "hc:Claim",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 2
+        },
+        {
+            "type": "resource",
+            "id": "hc:BaseClaim",
+            "value": "hc:BaseClaim",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 3
+        },
+        {
+            "type": "resource",
+            "id": "hc:raw_name",
+            "value": "hc:raw_name",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 4
+        },
+        {
+            "type": "resource",
+            "id": "hc:full_name",
+            "value": "hc:full_name",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 5
+        },
+        {
+            "type": "resource",
+            "id": "hc:first_name",
+            "value": "hc:first_name",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 6
+        },
+        {
+            "type": "resource",
+            "id": "hc:last_name",
+            "value": "hc:last_name",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 7
+        },
+        {
+            "type": "resource",
+            "id": "hc:code1",
+            "value": "hc:code1",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 8
+        },
+        {
+            "type": "resource",
+            "id": "hc:code2",
+            "value": "hc:code2",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 9
+        },
+        {
+            "type": "resource",
+            "id": "hc:code5",
+            "value": "hc:code5",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 10
+        },
+        {
+            "type": "resource",
+            "id": "first_name_rx",
+            "value": "first_name_rx",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 11
+        },
+        {
+            "type": "resource",
+            "id": "last_name_rx",
+            "value": "last_name_rx",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 12
+        },
+        {
+            "type": "resource",
+            "id": "node1",
+            "value": "node1",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 13
+        },
+        {
+            "type": "resource",
+            "id": "node2",
+            "value": "node2",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 14
+        },
+        {
+            "type": "resource",
+            "id": "node3",
+            "value": "node3",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 15
+        },
+        {
+            "type": "resource",
+            "id": "node10",
+            "value": "node10",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 16
+        },
+        {
+            "type": "resource",
+            "id": "node20",
+            "value": "node20",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 17
+        },
+        {
+            "type": "resource",
+            "id": "node30",
+            "value": "node30",
+            "source_file_name": "ms_factory_test2.jr",
+            "key": 18
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 1,
+            "key": 19,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 2,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 20,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 3,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 21,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 3,
+            "key": 22,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 23,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 4,
+            "key": 24,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 25,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 26,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "int",
+            "value": "5",
+            "inline": true,
+            "key": 27,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 5,
+            "key": 28,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 6,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 29,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 6,
+            "key": 30,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 7,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 31,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 7,
+            "key": 32,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 8,
+            "key": 33,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 9,
+            "is_antecedent": true,
+            "var_pos": 2,
+            "key": 34,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": true,
+            "var_pos": 2,
+            "key": 35,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x5",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 10,
+            "key": 36,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 11,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 37,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 11,
+            "key": 38,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 39,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 12,
+            "key": 40,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 13,
+            "key": 41,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 13,
+            "key": 42,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 43,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 44,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 15,
+            "key": 45,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 15,
+            "key": 46,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 47,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 48,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 17,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 49,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 17,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 50,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 51,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 52,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 53,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 54,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 55,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 56,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 57,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 58,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x5",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 3,
+            "key": 59,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 60,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 61,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x5",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 3,
+            "key": 62,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 63,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 64,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "text",
+            "value": " ",
+            "inline": true,
+            "key": 65,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 66,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 13,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 67,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 13,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 68,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 69,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 70,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 71,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 72,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 73,
+            "source_file_name": "ms_factory_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 74,
+            "source_file_name": "ms_factory_test2.jr"
+        }
+    ],
+    "lookup_tables": [],
+    "jet_rules": [
+        {
+            "name": "Rule1",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 53,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 1
+                }
+            ],
+            "authoredLabel": "[Rule1]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule1]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type hc:BaseClaim);",
+            "label": "[Rule1]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);"
+        },
+        {
+            "name": "Rule2",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 2,
+                    "parent_vertex": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 3,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 21,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:code1"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 3,
+                            "key": 22,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:code1 ?x2)",
+                    "label": "(?clm01 hc:code1 ?code1)",
+                    "vertex": 3,
+                    "parent_vertex": 2
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 4,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 23,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:code2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 4,
+                            "key": 24,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:code2 ?x3).[(?x2 + ?x3) == int(5)]",
+                    "label": "(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)]",
+                    "filter": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "binary",
+                            "lhs": 25,
+                            "op": "+",
+                            "rhs": 26
+                        },
+                        "op": "==",
+                        "rhs": 27
+                    },
+                    "vertex": 4,
+                    "parent_vertex": 3
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 4,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 54,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:code5"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": 55,
+                            "op": "+",
+                            "rhs": 56
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:code5 ?x2 + ?x3)",
+                    "label": "(?clm01 hc:code5 ?code1 + ?code2)",
+                    "vertex": 4
+                }
+            ],
+            "authoredLabel": "[Rule2]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:code1 ?code1).(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)] -> (?clm01 hc:code5 ?code1 + ?code2);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule2]:(?x1 rdf:type hc:Claim).(?x1 rdf:type hc:BaseClaim).(?x1 hc:code1 ?x2).(?x1 hc:code2 ?x3).[(?x2 + ?x3) == int(5)] -> (?x1 hc:code5 ?x2 + ?x3);",
+            "label": "[Rule2]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:code1 ?code1).(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)] -> (?clm01 hc:code5 ?code1 + ?code2);"
+        },
+        {
+            "name": "Rule3",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 5,
+                            "key": 28,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "jet:Context"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type jet:Context)",
+                    "label": "(?ctx rdf:type jet:Context)",
+                    "vertex": 5,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 6,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 29,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "first_name_rx"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 6,
+                            "key": 30,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 first_name_rx ?x2)",
+                    "label": "(?ctx first_name_rx ?fname_rx)",
+                    "vertex": 6,
+                    "parent_vertex": 5
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 7,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 31,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "last_name_rx"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 7,
+                            "key": 32,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 last_name_rx ?x3)",
+                    "label": "(?ctx last_name_rx ?lname_rx)",
+                    "vertex": 7,
+                    "parent_vertex": 6
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 8,
+                            "key": 33,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 8,
+                    "parent_vertex": 7
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 9,
+                            "is_antecedent": true,
+                            "var_pos": 2,
+                            "key": 34,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 9,
+                    "parent_vertex": 8
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 10,
+                            "is_antecedent": true,
+                            "var_pos": 2,
+                            "key": 35,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:raw_name"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x5",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 10,
+                            "key": 36,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 hc:raw_name ?x5)",
+                    "label": "(?clm01 hc:raw_name ?name)",
+                    "vertex": 10,
+                    "parent_vertex": 9
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 10,
+                            "is_antecedent": false,
+                            "var_pos": 2,
+                            "key": 57,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:first_name"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": 58,
+                            "op": "r?",
+                            "rhs": 59
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 hc:first_name ?x2 r? ?x5)",
+                    "label": "(?clm01 hc:first_name ?fname_rx r? ?name)",
+                    "vertex": 10
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 10,
+                            "is_antecedent": false,
+                            "var_pos": 2,
+                            "key": 60,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:last_name"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": 61,
+                            "op": "r?",
+                            "rhs": 62
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 hc:last_name ?x3 r? ?x5)",
+                    "label": "(?clm01 hc:last_name ?lname_rx r? ?name)",
+                    "vertex": 10
+                }
+            ],
+            "authoredLabel": "[Rule3]:(?ctx rdf:type jet:Context).(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?ctx first_name_rx ?fname_rx).(?ctx last_name_rx ?lname_rx).(?clm01 hc:raw_name ?name) -> (?clm01 hc:first_name ?fname_rx r? ?name).(?clm01 hc:last_name ?lname_rx r? ?name);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule3]:(?x1 rdf:type jet:Context).(?x1 first_name_rx ?x2).(?x1 last_name_rx ?x3).(?x4 rdf:type hc:Claim).(?x4 rdf:type hc:BaseClaim).(?x4 hc:raw_name ?x5) -> (?x4 hc:first_name ?x2 r? ?x5).(?x4 hc:last_name ?x3 r? ?x5);",
+            "label": "[Rule3]:(?ctx rdf:type jet:Context).(?ctx first_name_rx ?fname_rx).(?ctx last_name_rx ?lname_rx).(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:raw_name ?name) -> (?clm01 hc:first_name ?fname_rx r? ?name).(?clm01 hc:last_name ?lname_rx r? ?name);"
+        },
+        {
+            "name": "Rule4",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 19,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 2,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 20,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 2,
+                    "parent_vertex": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 11,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 37,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:first_name"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 11,
+                            "key": 38,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:first_name ?x2)",
+                    "label": "(?clm01 hc:first_name ?first)",
+                    "vertex": 11,
+                    "parent_vertex": 2
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 12,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 39,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:last_name"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 12,
+                            "key": 40,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:last_name ?x3)",
+                    "label": "(?clm01 hc:last_name ?last)",
+                    "vertex": 12,
+                    "parent_vertex": 11
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 12,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 63,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:full_name"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "binary",
+                                "lhs": 64,
+                                "op": "+",
+                                "rhs": 65
+                            },
+                            "op": "+",
+                            "rhs": 66
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:full_name (?x2 + \" \") + ?x3)",
+                    "label": "(?clm01 hc:full_name (?first + \" \") + ?last)",
+                    "vertex": 12
+                }
+            ],
+            "authoredLabel": "[Rule4]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:first_name ?first).(?clm01 hc:last_name ?last) -> (?clm01 hc:full_name (?first + \" \") + ?last);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule4]:(?x1 rdf:type hc:Claim).(?x1 rdf:type hc:BaseClaim).(?x1 hc:first_name ?x2).(?x1 hc:last_name ?x3) -> (?x1 hc:full_name (?x2 + \" \") + ?x3);",
+            "label": "[Rule4]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:first_name ?first).(?clm01 hc:last_name ?last) -> (?clm01 hc:full_name (?first + \" \") + ?last);"
+        },
+        {
+            "name": "Rule5",
+            "properties": {
+                "s": "10"
+            },
+            "optimization": true,
+            "salience": 10,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?s",
+                            "id": "?x1",
+                            "label": "?s"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node1"
+                        },
+                        {
+                            "type": "var",
+                            "value": "?n1",
+                            "id": "?x2",
+                            "label": "?n1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "label": "(?s node1 ?n1)",
+                    "vertex": 13,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 13,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 67,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 13,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 68,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "label": "(?s node2 ?n1)",
+                    "vertex": 13
+                }
+            ],
+            "authoredLabel": "[Rule5, s=10]:(?s node1 ?n1) -> (?s node2 ?n1);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule5, s=10]:(?x1 node1 ?x2) -> (?x1 node2 ?x2);",
+            "label": "[Rule5, s=10]:(?s node1 ?n1) -> (?s node2 ?n1);"
+        },
+        {
+            "name": "Rule6",
+            "properties": {
+                "s": "20"
+            },
+            "optimization": true,
+            "salience": 20,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 13,
+                            "key": 41,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node1"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 13,
+                            "key": 42,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "label": "(?s node1 ?n1)",
+                    "vertex": 13,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 43,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 44,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "not(?x1 node2 ?x2)",
+                    "label": "not(?s node2 ?n1)",
+                    "vertex": 14,
+                    "parent_vertex": 13
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 69,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node3"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 70,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node3 ?x2)",
+                    "label": "(?s node3 ?n1)",
+                    "vertex": 14
+                }
+            ],
+            "authoredLabel": "[Rule6, s=20]:(?s node1 ?n1).not(?s node2 ?n1) -> (?s node3 ?n1);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule6, s=20]:(?x1 node1 ?x2).not(?x1 node2 ?x2) -> (?x1 node3 ?x2);",
+            "label": "[Rule6, s=20]:(?s node1 ?n1).not(?s node2 ?n1) -> (?s node3 ?n1);"
+        },
+        {
+            "name": "Rule7",
+            "properties": {
+                "s": "10"
+            },
+            "optimization": true,
+            "salience": 10,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?s",
+                            "id": "?x1",
+                            "label": "?s"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node10"
+                        },
+                        {
+                            "type": "var",
+                            "value": "?n1",
+                            "id": "?x2",
+                            "label": "?n1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node10 ?x2)",
+                    "label": "(?s node10 ?n1)",
+                    "vertex": 15,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?s",
+                            "id": "?x1",
+                            "label": "?s"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "value": "?n1",
+                            "id": "?x2",
+                            "label": "?n1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "label": "(?s node2 ?n1)",
+                    "vertex": 16,
+                    "parent_vertex": 15
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 71,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node20"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 72,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node20 ?x2)",
+                    "label": "(?s node20 ?n1)",
+                    "vertex": 16
+                }
+            ],
+            "authoredLabel": "[Rule7, s=10]:(?s node10 ?n1).(?s node2 ?n1) -> (?s node20 ?n1);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule7, s=10]:(?x1 node10 ?x2).(?x1 node2 ?x2) -> (?x1 node20 ?x2);",
+            "label": "[Rule7, s=10]:(?s node10 ?n1).(?s node2 ?n1) -> (?s node20 ?n1);"
+        },
+        {
+            "name": "Rule8",
+            "properties": {
+                "s": "5"
+            },
+            "optimization": true,
+            "salience": 5,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 15,
+                            "key": 45,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node10"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 15,
+                            "key": 46,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node10 ?x2)",
+                    "label": "(?s node10 ?n1)",
+                    "vertex": 15,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 47,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 48,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "label": "(?s node2 ?n1)",
+                    "vertex": 16,
+                    "parent_vertex": 15
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 17,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 49,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node20"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 17,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 50,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "not(?x1 node20 ?x2)",
+                    "label": "not(?s node20 ?n1)",
+                    "vertex": 17,
+                    "parent_vertex": 16
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 51,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node1"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 52,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "label": "(?s node1 ?n1)",
+                    "vertex": 18,
+                    "parent_vertex": 17
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 73,
+                            "source_file_name": "ms_factory_test2.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node30"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 74,
+                            "source_file_name": "ms_factory_test2.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node30 ?x2)",
+                    "label": "(?s node30 ?n1)",
+                    "vertex": 18
+                }
+            ],
+            "authoredLabel": "[Rule8, s=5]:(?s node10 ?n1).(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1);",
+            "source_file_name": "ms_factory_test2.jr",
+            "normalizedLabel": "[Rule8, s=5]:(?x1 node10 ?x2).(?x1 node2 ?x2).not(?x1 node20 ?x2).(?x1 node1 ?x2) -> (?x1 node30 ?x2);",
+            "label": "[Rule8, s=5]:(?s node10 ?n1).(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1);"
+        }
+    ],
+    "imports": {
+        "ms_factory_test2.jr": []
+    }
+}
