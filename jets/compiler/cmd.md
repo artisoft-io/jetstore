@@ -1,4 +1,5 @@
 # Useful commands for developing JetRule language
+See docker_notes.md at root of project.
 ## Generating Antlr4 Lexers and Parsers
 
 ### Generating the python base visitor

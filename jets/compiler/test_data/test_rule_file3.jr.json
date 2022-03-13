@@ -1,0 +1,371 @@
+{
+    "resources": [
+        {
+            "type": "resource",
+            "id": "rdf:type",
+            "value": "rdf:type",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 0
+        },
+        {
+            "type": "resource",
+            "id": "acme:Claim",
+            "value": "acme:Claim",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 1
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special10Claim1",
+            "value": "acme:Special10Claim1",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 2
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special20Claim1",
+            "value": "acme:Special20Claim1",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 3
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special20Claim2",
+            "value": "acme:Special20Claim2",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 4
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special30Claim1",
+            "value": "acme:Special30Claim1",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 5
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special30Claim2",
+            "value": "acme:Special30Claim2",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 6
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 1,
+            "key": 7,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 8,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 9,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 10,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 11,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 12,
+            "source_file_name": "test_rule_file3.jr"
+        }
+    ],
+    "lookup_tables": [],
+    "jet_rules": [
+        {
+            "name": "Rule1",
+            "properties": {
+                "s": "10"
+            },
+            "optimization": true,
+            "salience": 10,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                    "label": "(?clm01 rdf:type acme:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 8,
+                            "source_file_name": "test_rule_file3.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Special10Claim1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Special10Claim1)",
+                    "label": "(?clm01 rdf:type acme:Special10Claim1)",
+                    "vertex": 1
+                }
+            ],
+            "authoredLabel": "[Rule1, s=10]:(?clm01 rdf:type acme:Claim) -> (?clm01 rdf:type acme:Special10Claim1);",
+            "source_file_name": "test_rule_file3.jr",
+            "normalizedLabel": "[Rule1, s=10]:(?x1 rdf:type acme:Claim) -> (?x1 rdf:type acme:Special10Claim1);",
+            "label": "[Rule1, s=10]:(?clm01 rdf:type acme:Claim) -> (?clm01 rdf:type acme:Special10Claim1);"
+        },
+        {
+            "name": "Rule2",
+            "properties": {
+                "s": "20"
+            },
+            "optimization": true,
+            "salience": 20,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                    "label": "(?clm01 rdf:type acme:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 9,
+                            "source_file_name": "test_rule_file3.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Special20Claim1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Special20Claim1)",
+                    "label": "(?clm01 rdf:type acme:Special20Claim1)",
+                    "vertex": 1
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 10,
+                            "source_file_name": "test_rule_file3.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Special20Claim2"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Special20Claim2)",
+                    "label": "(?clm01 rdf:type acme:Special20Claim2)",
+                    "vertex": 1
+                }
+            ],
+            "authoredLabel": "[Rule2, s=20]:(?clm01 rdf:type acme:Claim) -> (?clm01 rdf:type acme:Special20Claim1).(?clm01 rdf:type acme:Special20Claim2);",
+            "source_file_name": "test_rule_file3.jr",
+            "normalizedLabel": "[Rule2, s=20]:(?x1 rdf:type acme:Claim) -> (?x1 rdf:type acme:Special20Claim1).(?x1 rdf:type acme:Special20Claim2);",
+            "label": "[Rule2, s=20]:(?clm01 rdf:type acme:Claim) -> (?clm01 rdf:type acme:Special20Claim1).(?clm01 rdf:type acme:Special20Claim2);"
+        },
+        {
+            "name": "Rule3",
+            "properties": {
+                "s": "30"
+            },
+            "optimization": true,
+            "salience": 30,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 7,
+                            "source_file_name": "test_rule_file3.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                    "label": "(?clm01 rdf:type acme:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 11,
+                            "source_file_name": "test_rule_file3.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Special30Claim1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Special30Claim1)",
+                    "label": "(?clm01 rdf:type acme:Special30Claim1)",
+                    "vertex": 1
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 12,
+                            "source_file_name": "test_rule_file3.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "acme:Special30Claim2"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type acme:Special30Claim2)",
+                    "label": "(?clm01 rdf:type acme:Special30Claim2)",
+                    "vertex": 1
+                }
+            ],
+            "authoredLabel": "[Rule3, s=30]:(?clm01 rdf:type acme:Claim) -> (?clm01 rdf:type acme:Special30Claim1).(?clm01 rdf:type acme:Special30Claim2);",
+            "source_file_name": "test_rule_file3.jr",
+            "normalizedLabel": "[Rule3, s=30]:(?x1 rdf:type acme:Claim) -> (?x1 rdf:type acme:Special30Claim1).(?x1 rdf:type acme:Special30Claim2);",
+            "label": "[Rule3, s=30]:(?clm01 rdf:type acme:Claim) -> (?clm01 rdf:type acme:Special30Claim1).(?clm01 rdf:type acme:Special30Claim2);"
+        }
+    ],
+    "imports": {
+        "test_rule_file3.jr": []
+    }
+}

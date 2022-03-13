@@ -930,6 +930,8 @@
           "normalizedLabel": "(?x1 related_to ?x3)",
           "vertex": 4,
           "consequent_seq": 0,
+          "consequent_for_rule": "Rule1",
+          "consequent_salience": 100,
           "subject_key": 55,
           "predicate_key": 17,
           "object_key": 56
@@ -939,6 +941,8 @@
           "normalizedLabel": "(?x3 related_to ?x1)",
           "vertex": 4,
           "consequent_seq": 1,
+          "consequent_for_rule": "Rule1",
+          "consequent_salience": 100,
           "subject_key": 57,
           "predicate_key": 17,
           "object_key": 58
@@ -948,6 +952,8 @@
           "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
           "vertex": 11,
           "consequent_seq": 0,
+          "consequent_for_rule": "Rule2",
+          "consequent_salience": 100,
           "subject_key": 59,
           "predicate_key": 19,
           "object_key": 21

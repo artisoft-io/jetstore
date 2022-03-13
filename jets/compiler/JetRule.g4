@@ -35,14 +35,18 @@ defineLiteralStmt
   | uInt64LiteralStmt   
   | doubleLiteralStmt   
   | stringLiteralStmt
+  | dateLiteralStmt
+  | datetimeLiteralStmt
   ;
 
-int32LiteralStmt:  varType=Int32Type  varName=declIdentifier ASSIGN declValue=intExpr    SEMICOLON;
-uInt32LiteralStmt: varType=UInt32Type varName=declIdentifier ASSIGN declValue=uintExpr   SEMICOLON;
-int64LiteralStmt:  varType=Int64Type  varName=declIdentifier ASSIGN declValue=intExpr    SEMICOLON;
-uInt64LiteralStmt: varType=UInt64Type varName=declIdentifier ASSIGN declValue=uintExpr   SEMICOLON;
-doubleLiteralStmt: varType=DoubleType varName=declIdentifier ASSIGN declValue=doubleExpr SEMICOLON;
-stringLiteralStmt: varType=StringType varName=declIdentifier ASSIGN declValue=STRING SEMICOLON;
+int32LiteralStmt:    varType=Int32Type    varName=declIdentifier ASSIGN declValue=intExpr    SEMICOLON;
+uInt32LiteralStmt:   varType=UInt32Type   varName=declIdentifier ASSIGN declValue=uintExpr   SEMICOLON;
+int64LiteralStmt:    varType=Int64Type    varName=declIdentifier ASSIGN declValue=intExpr    SEMICOLON;
+uInt64LiteralStmt:   varType=UInt64Type   varName=declIdentifier ASSIGN declValue=uintExpr   SEMICOLON;
+doubleLiteralStmt:   varType=DoubleType   varName=declIdentifier ASSIGN declValue=doubleExpr SEMICOLON;
+stringLiteralStmt:   varType=StringType   varName=declIdentifier ASSIGN declValue=STRING     SEMICOLON;
+dateLiteralStmt:     varType=DateType     varName=declIdentifier ASSIGN declValue=STRING     SEMICOLON;
+datetimeLiteralStmt: varType=DatetimeType varName=declIdentifier ASSIGN declValue=STRING     SEMICOLON;
 
 intExpr
   : '+' intExpr  
@@ -130,6 +134,8 @@ objectAtom
   | UInt64Type '(' uintExpr ')'  
   | DoubleType '(' doubleExpr ')'
   | StringType '(' STRING ')'
+  | DateType '(' STRING ')'
+  | DatetimeType '(' STRING ')'
   | STRING
   | kws=keywords
   | doubleExpr
@@ -146,6 +152,7 @@ exprTerm
   | '(' lhs=exprTerm op=binaryOp rhs=exprTerm ')'  # BinaryExprTerm2
   | op=unaryOp '(' arg=exprTerm ')'                # UnaryExprTerm
   | '(' op=unaryOp arg=exprTerm ')'                # UnaryExprTerm2
+  | '(' selfExpr=exprTerm ')'                      # SelfExprTerm
   | op=unaryOp arg=exprTerm                        # UnaryExprTerm3
   | ident=objectAtom                               # ObjectAtomExprTerm
   ;
@@ -153,6 +160,11 @@ exprTerm
 binaryOp
   : PLUS
   | EQ
+  | LT
+  | LE
+  | GT
+  | GE
+  | NE
   | REGEX2
   | MINUS
   | MUL
@@ -181,6 +193,8 @@ Int64Type: 'long';
 UInt64Type: 'ulong';
 DoubleType: 'double';
 StringType: 'text';
+DateType: 'date';
+DatetimeType: 'datetime';
 
 ResourceType: 'resource';
 VolatileResourceType: 'volatile_resource';
@@ -205,6 +219,11 @@ TOTEXT: 'toText';
 
 // Binary operator
 EQ: '==';
+LT: '<';
+LE: '<=';
+GT: '>';
+GE: '>=';
+NE: '!=';
 REGEX2: 'r?';
 PLUS: '+';
 MINUS: '-';

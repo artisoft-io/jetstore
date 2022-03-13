@@ -264,6 +264,13 @@ class JetListener(JetRuleListener):
     except:
       pass
 
+  # Exit a parse tree produced by JetRuleParser#SelfExprTerm.
+  def exitSelfExprTerm(self, ctx:JetRuleParser.SelfExprTermContext):
+    try:
+      ctx.expr = ctx.selfExpr.expr
+    except:
+      pass
+
   # Exit a parse tree produced by JetRuleParser#UnaryExprTerm3.
   def exitUnaryExprTerm3(self, ctx:JetRuleParser.UnaryExprTerm3Context):
     try:

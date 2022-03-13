@@ -1,0 +1,34 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Testing JetRule Grammar
+# ---------------------------------------------------------------------------------------
+# Testing Rules with same antecedents but with different consequent terms and salience
+# =======================================================================================
+# Defining Jet Rules
+# ---------------------------------------------------------------------------------------
+resource rdf:type = "rdf:type";
+resource acme:Claim = "acme:Claim";
+resource acme:Special10Claim1 = "acme:Special10Claim1";
+resource acme:Special20Claim1 = "acme:Special20Claim1";
+resource acme:Special20Claim2 = "acme:Special20Claim2";
+resource acme:Special30Claim1 = "acme:Special30Claim1";
+resource acme:Special30Claim2 = "acme:Special30Claim2";
+
+[Rule1, s=10]: 
+  (?clm01 rdf:type acme:Claim)
+  ->
+  (?clm01 rdf:type acme:Special10Claim1)
+;
+[Rule2, s=20]: 
+  (?clm01 rdf:type acme:Claim)
+  ->
+  (?clm01 rdf:type acme:Special20Claim1).
+  (?clm01 rdf:type acme:Special20Claim2)
+;
+[Rule3, s=30]: 
+  (?clm01 rdf:type acme:Claim)
+  ->
+  (?clm01 rdf:type acme:Special30Claim1).
+  (?clm01 rdf:type acme:Special30Claim2)
+;
+
+# That's it for now!

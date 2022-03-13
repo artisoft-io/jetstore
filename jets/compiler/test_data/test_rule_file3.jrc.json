@@ -1,0 +1,216 @@
+{
+    "main_rule_file_name": "test_rule_file3.jr",
+    "support_rule_file_names": [],
+    "resources": [
+        {
+            "type": "resource",
+            "id": "rdf:type",
+            "value": "rdf:type",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 0
+        },
+        {
+            "type": "resource",
+            "id": "acme:Claim",
+            "value": "acme:Claim",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 1
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special10Claim1",
+            "value": "acme:Special10Claim1",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 2
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special20Claim1",
+            "value": "acme:Special20Claim1",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 3
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special20Claim2",
+            "value": "acme:Special20Claim2",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 4
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special30Claim1",
+            "value": "acme:Special30Claim1",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 5
+        },
+        {
+            "type": "resource",
+            "id": "acme:Special30Claim2",
+            "value": "acme:Special30Claim2",
+            "source_file_name": "test_rule_file3.jr",
+            "key": 6
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 1,
+            "key": 7,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 8,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 9,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 10,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 11,
+            "source_file_name": "test_rule_file3.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 12,
+            "source_file_name": "test_rule_file3.jr"
+        }
+    ],
+    "lookup_tables": [],
+    "rete_nodes": [
+        {
+            "vertex": 0,
+            "parent_vertex": 0,
+            "children_vertexes": [
+                1
+            ],
+            "type": "head_node"
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+            "vertex": 1,
+            "parent_vertex": 0,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": false,
+                    "var_pos": 0,
+                    "vertex": 1,
+                    "key": 7,
+                    "source_file_name": "test_rule_file3.jr"
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "Rule1",
+                "Rule2",
+                "Rule3"
+            ],
+            "salience": [
+                10,
+                20,
+                30
+            ],
+            "subject_key": 7,
+            "predicate_key": 0,
+            "object_key": 1
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type acme:Special10Claim1)",
+            "vertex": 1,
+            "consequent_seq": 0,
+            "consequent_for_rule": "Rule1",
+            "consequent_salience": 10,
+            "subject_key": 8,
+            "predicate_key": 0,
+            "object_key": 2
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type acme:Special20Claim1)",
+            "vertex": 1,
+            "consequent_seq": 1,
+            "consequent_for_rule": "Rule2",
+            "consequent_salience": 20,
+            "subject_key": 9,
+            "predicate_key": 0,
+            "object_key": 3
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type acme:Special20Claim2)",
+            "vertex": 1,
+            "consequent_seq": 2,
+            "consequent_for_rule": "Rule2",
+            "consequent_salience": 20,
+            "subject_key": 10,
+            "predicate_key": 0,
+            "object_key": 4
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type acme:Special30Claim1)",
+            "vertex": 1,
+            "consequent_seq": 3,
+            "consequent_for_rule": "Rule3",
+            "consequent_salience": 30,
+            "subject_key": 11,
+            "predicate_key": 0,
+            "object_key": 5
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type acme:Special30Claim2)",
+            "vertex": 1,
+            "consequent_seq": 4,
+            "consequent_for_rule": "Rule3",
+            "consequent_salience": 30,
+            "subject_key": 12,
+            "predicate_key": 0,
+            "object_key": 6
+        }
+    ]
+}

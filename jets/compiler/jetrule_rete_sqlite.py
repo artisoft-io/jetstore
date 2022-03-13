@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Sequence, Set
 from typing import Dict
 import apsw
+import traceback
 import os
 import sys
 import json
@@ -74,7 +75,7 @@ class JetRuleReteSQLite:
       # open a read cursor for looking up ids
       self.read_cursor = self.workspace_connection.cursor()
 
-      # Check that main rule is not file already in workspace_control
+      # Check that main rule file is not already in workspace_control
       main_rule_file_name = self.ctx.jetReteNodes.get('main_rule_file_name')
       assert main_rule_file_name, 'Invalid json for jetReteNodes'
       if self._get_source_rule_file_key(main_rule_file_name) is not None:
@@ -266,6 +267,7 @@ class JetRuleReteSQLite:
 
     except (Exception) as error:
       print("Error while saving rete_db (2):", error)
+      print(traceback.format_exc())
       return str(error)
 
     finally:

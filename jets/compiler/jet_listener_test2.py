@@ -56,6 +56,24 @@ class JetListenerTest2(absltest.TestCase):
     # print('GOT RETE:',json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
     self.assertEqual(json.dumps(compiler.jetrule_ctx.jetReteNodes), json.dumps(expected))
 
+  def test_rule_file3(self):
+    provider = InputProvider("test_data/")
+    compiler = JetRuleCompiler()
+    jetRules = compiler.compileJetRuleFile("test_rule_file3.jr", provider).jetRules
+
+    # print('GOT')
+    for k in compiler.jetrule_ctx.errors:
+      print(k)
+    print()
+    self.assertEqual(compiler.jetrule_ctx.ERROR, False)
+
+    expected = 'xx'
+    with open("test_data/test_rule_file3.jrc.json", 'rt', encoding='utf-8') as f:
+      expected = json.loads(f.read())
+
+    # print('GOT RETE:',json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetReteNodes), json.dumps(expected))
+
 
 if __name__ == '__main__':
   absltest.main()
