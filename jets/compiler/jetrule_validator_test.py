@@ -211,7 +211,7 @@ class JetRulesValidatorTest(absltest.TestCase):
     # print()
 
     self.assertEqual(jetrule_ctx.errors[0], "line 7:9 extraneous input 'true' expecting {'?', Identifier}")
-    self.assertEqual(jetrule_ctx.errors[1], "line 7:31 mismatched input ')' expecting {'?', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'true', 'false', 'null', '+', '-', Identifier, DIGITS, String}")
+    self.assertEqual(jetrule_ctx.errors[1], "line 7:31 mismatched input ')' expecting {'?', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'true', 'false', 'null', '+', '-', Identifier, DIGITS, STRING}")
     self.assertEqual(jetrule_ctx.errors[2], "line 9:16 mismatched input 'false' expecting {'?', Identifier}")
     self.assertEqual(jetrule_ctx.errors[3], "line 9:22 extraneous input 'false' expecting ')'")
     self.assertEqual(len(jetrule_ctx.errors), 4)

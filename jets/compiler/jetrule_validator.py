@@ -98,7 +98,7 @@ class JetRuleValidator:
     if type == 'identifier':
       return ctx.validateIdentifier(elm['value'])
 
-    if type in ['text','int','uint','long','ulong','keyword']:
+    if type in ['text','int','uint','long','ulong','date','datetime','keyword']:
       pass
 
     return ctx.has_errors()
