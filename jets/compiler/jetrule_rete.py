@@ -176,7 +176,12 @@ class JetRuleRete:
       binded_vars = binded_vars.union(self._add_var(binded_vars, item, check_binded=True))
 
     # collect the downstream var (dependent var)
-    dependent_vars = self._add_child_var({'consequent_nodes': rete_node['consequent_nodes'], 'children_vertexes': rete_node['children_vertexes']})
+    # Collect var from filter of current rete_node
+    dependent_vars = set()
+    filter = antecedent.get('filter')
+    if filter:
+      dependent_vars = dependent_vars.union(self._add_var(set(), filter, check_binded=False))
+    dependent_vars = dependent_vars.union(self._add_child_var({'consequent_nodes': rete_node['consequent_nodes'], 'children_vertexes': rete_node['children_vertexes']}))
 
     # let's do it
     pruned_var = binded_vars.difference(dependent_vars)
@@ -475,7 +480,7 @@ class JetRuleRete:
     if type == 'identifier':
       return self.ctx.resourceMap[elm['value']]['key']
 
-    if type in ['int','uint','long','ulong','double','text', 'keyword']:
+    if type in ['int','uint','long','ulong','double','text','date','datetime', 'keyword']:
       elm['inline'] = True
       return self._add_key(state['resources'], elm)
 
