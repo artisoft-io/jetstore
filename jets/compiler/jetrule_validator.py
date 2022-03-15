@@ -51,21 +51,7 @@ class JetRuleValidator:
       # Validate the triple elm
       triple = elm['triple']
       self.validateElm(triple[0], ctx)
-      if type == 'keyword':
-        ctx.err(
-          "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
-          "it must be defined.".format(
-            ctx.rule_name, elm.get('value'), ctx.term_label)
-        )
-
       self.validateElm(triple[1], ctx)
-      if type == 'keyword':
-        ctx.err(
-          "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
-          "it must be defined.".format(
-            ctx.rule_name, elm.get('value'), ctx.term_label)
-        )
-
       self.validateElm(triple[2], ctx)
 
       # Validate the filter if any

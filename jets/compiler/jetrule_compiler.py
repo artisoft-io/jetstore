@@ -265,6 +265,7 @@ class JetRuleCompiler:
     # augment the output with post processor
     postProcessor = JetRulesPostProcessor(self.jetrule_ctx)
     postProcessor.createResourcesForLookupTables()
+    postProcessor.fixRCVariables()
     postProcessor.mapVariables()
     postProcessor.processRuleProperties()
     postProcessor.addNormalizedLabels()
