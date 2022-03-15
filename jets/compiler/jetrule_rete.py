@@ -202,6 +202,7 @@ class JetRuleRete:
       self._set_beta_var(binded_vars, self.ctx.rete_nodes[child])
 
 
+  # Collect variables from elm. If check_binded is True, set the var as binded if it is present
   def _add_var(self, parent_binded_var: Set[str], elm: object, check_binded) -> Set[str]:
     type = elm.get('type')
     if type is None: raise Exception("Invalid jetRules elm: ", elm)
@@ -214,8 +215,8 @@ class JetRuleRete:
       # filter shall have only binded var and var of current rete_node are considered binded for filter and consequent nodes
       # Also, since filter does not add new var, only check if check_binded is True
       filter = elm.get('filter')
-      if check_binded and filter:
-        self._add_var(parent_binded_var.union(binded_var), filter, check_binded=check_binded)
+      if filter:
+        binded_var = binded_var.union(self._add_var(parent_binded_var.union(binded_var), filter, check_binded=check_binded))
       return binded_var
 
     if type == 'binary':
