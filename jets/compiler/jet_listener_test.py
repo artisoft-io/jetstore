@@ -385,6 +385,27 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
+  def test_triples1(self):
+    data = """
+      # =======================================================================================
+      # Jet Rules with triples
+        @JetCompilerDirective extract_resources_from_rules = "true";
+        date d1 = "03/16/2022";
+        datetime dt1 = "03/16/2022 16:08:28.195865";
+
+        triple(s1,top:operator,"<");
+        triple(s2,_0:yearDistance, 22);
+        triple(s3, jet:"int", uint(2));
+        triple(s4, ?dos, date("01/22/2022"));
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [{"type": "date", "id": "d1", "value": "03/16/2022"}, {"type": "datetime", "id": "dt1", "value": "03/16/2022 16:08:28.195865"}], "resources": [], "lookup_tables": [], "jet_rules": [], "triples": [{"type": "triple", "subject": {"type": "identifier", "value": "s1"}, "predicate": {"type": "identifier", "value": "top:operator"}, "object": {"type": "text", "value": "<"}}, {"type": "triple", "subject": {"type": "identifier", "value": "s2"}, "predicate": {"type": "identifier", "value": "_0:yearDistance"}, "object": {"type": "int", "value": "22"}}, {"type": "triple", "subject": {"type": "identifier", "value": "s3"}, "predicate": {"type": "identifier", "value": "jet:int"}, "object": {"type": "uint", "value": "2"}}, {"type": "triple", "subject": {"type": "identifier", "value": "s4"}, "predicate": {"type": "var", "value": "?dos"}, "object": {"type": "date", "value": "01/22/2022"}}], "compiler_directives": {"extract_resources_from_rules": "true"}}"""
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
 
 if __name__ == '__main__':
   absltest.main()

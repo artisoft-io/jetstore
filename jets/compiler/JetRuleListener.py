@@ -368,5 +368,14 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#tripleStmt.
+    def enterTripleStmt(self, ctx:JetRuleParser.TripleStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#tripleStmt.
+    def exitTripleStmt(self, ctx:JetRuleParser.TripleStmtContext):
+        pass
+
+
 
 del JetRuleParser

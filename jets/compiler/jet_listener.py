@@ -14,6 +14,7 @@ class JetListener(JetRuleListener):
     self.resources = []
     self.lookups = []
     self.rules = []
+    self.triples = []
     self.jetRules = None
     self.current_file_name = None
     self.compiler_directives = {}
@@ -35,8 +36,12 @@ class JetListener(JetRuleListener):
       'literals': self.literals,
       'resources': self.resources,
       'lookup_tables': self.lookups,
-      'jet_rules': self.rules
+      'jet_rules': self.rules,
     }
+    if self.triples:
+      self.jetRules['triples'] = self.triples
+    if self.compiler_directives:
+      self.jetRules['compiler_directives'] = self.compiler_directives
 
   # =====================================================================================
   # Compiler Directives
@@ -45,9 +50,10 @@ class JetListener(JetRuleListener):
     name = self.escape(ctx.varName.getText()) if ctx.varName else None
     value = self.escapeString(ctx.declValue.text) if ctx.declValue else None
     if name and value:
-      self.compiler_directives[name] = value
       if name == 'source_file':
         self.current_file_name = value
+      else:
+        self.compiler_directives[name] = value
 
   # Exit a parse tree produced by JetRuleParser#defineLiteralStmt.
   def exitDefineLiteralStmt(self, ctx:JetRuleParser.DefineLiteralStmtContext):
@@ -81,7 +87,15 @@ class JetListener(JetRuleListener):
 
   def exitStringLiteralStmt(self, ctx:JetRuleParser.StringLiteralStmtContext):
     if ctx.varType and ctx.varName and ctx.declValue:
-      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  self.escapeString(ctx.declValue.text)})
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value': self.escapeString(ctx.declValue.text)})
+
+  def exitDateLiteralStmt(self, ctx:JetRuleParser.DateLiteralStmtContext):
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value': self.escapeString(ctx.declValue.text)})
+
+  def exitDatetimeLiteralStmt(self, ctx:JetRuleParser.DatetimeLiteralStmtContext):
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value': self.escapeString(ctx.declValue.text)})
 
   # =====================================================================================
   # Resources
@@ -157,7 +171,11 @@ class JetListener(JetRuleListener):
     key = ctx.key.text
     val = ctx.valCtx.val
     # val = self.escapeString(val.text) if val else ctx.valCtx.intval.getText()
-    val = val.text if val else ctx.valCtx.intval.getText()
+    if val:
+      val = val.text 
+    else: 
+      if ctx.valCtx.intval:
+        val = ctx.valCtx.intval.getText()
     self.ruleProps[key] = val
 
   # Function to remove the escape \" for resource with name clashing reserved keywords
@@ -197,9 +215,10 @@ class JetListener(JetRuleListener):
     if txt[0] == '"': return {'type': 'text', 'value': self.escapeString(txt)}
     v = txt.split('(')
     if len(v) > 1:
-      w = {'type': v[0], 'value': v[1][0:-1]}
-      if v[1][0] == '"': return {'type': 'text', 'value': self.escapeString(v[1])[:-1]}
-      return w
+      if v[0] in ['text', 'date', 'datetime']:
+        return {'type': v[0], 'value': self.escapeString(v[1])[:-1]}
+      else:
+        return {'type': v[0], 'value': v[1][0:-1]}
     # Check if it's a keyword
     if kws:
       return {'type': "keyword", 'value': txt}
@@ -224,6 +243,17 @@ class JetListener(JetRuleListener):
       if ctx.f and ctx.f.expr:
         antecedent['filter'] = ctx.f.expr
       self.ruleAntecedents.append(antecedent)
+    except:
+      pass
+
+  # Exit a parse tree produced by JetRuleParser#tripleStmt.
+  def exitTripleStmt(self, ctx:JetRuleParser.TripleStmtContext):
+    try:
+      subject = self.parseObjectAtom(self.escape(ctx.s.getText()), None)
+      predicate = self.parseObjectAtom(self.escape(ctx.p.getText()), None)
+      object = self.parseObjectAtom(ctx.o.getText(), ctx.o.kws)
+      triple = { 'type': 'triple', 'subject':subject, 'predicate':predicate, 'object':object }
+      self.triples.append(triple)
     except:
       pass
 

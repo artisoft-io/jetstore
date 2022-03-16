@@ -53,7 +53,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test21.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
-    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
   def test_import3(self):
@@ -68,8 +68,8 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test3.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test31.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test32.jr' line 5:8 mismatched input ':' expecting {',', ']'}")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
-    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 5)
 
@@ -86,7 +86,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test4.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test41.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test42.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 4)
 
@@ -174,6 +174,33 @@ class JetRulesCompilerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetrule_ctx.jetReteNodes))
     self.assertEqual(jetrule_ctx.ERROR, False)
     self.assertEqual(json.dumps(jetrule_ctx.jetReteNodes), expected)
+
+  def test_resource_from_rule1(self):
+    data = """
+      # =======================================================================================
+      # Defining resources from rules
+      @JetCompilerDirective extract_resources_from_rules = "true";
+      [RuleRFR1]: 
+        (?clm01 rdf:type acme:Claim).
+        (?clm01 _0:good ?good).[?good + _0:good].
+        (?clm01 related_to ?clm02)
+        ->
+        (?clm01 rdf:type acme:EClaim)
+      ;
+    """
+    jetrule_ctx = self._get_augmented_data(data)
+
+    if jetrule_ctx.ERROR:
+      print("GOT ERROR!")
+    for err in jetrule_ctx.errors:
+      print('***', err)
+
+    expected = """{"resources": [{"id": "rdf:type", "type": "resource", "value": "rdf:type", "key": 0}, {"id": "acme:Claim", "type": "resource", "value": "acme:Claim", "key": 1}, {"id": "good", "type": "volatile_resource", "value": "_0:good", "key": 2}, {"id": "related_to", "type": "resource", "value": "related_to", "key": 3}, {"id": "acme:EClaim", "type": "resource", "value": "acme:EClaim", "key": 4}, {"type": "var", "id": "?x1", "is_binded": false, "var_pos": 0, "vertex": 1, "key": 5, "source_file_name": null}, {"type": "var", "id": "?x1", "is_binded": true, "vertex": 2, "is_antecedent": true, "var_pos": 0, "key": 6, "source_file_name": null}, {"type": "var", "id": "?x2", "is_binded": false, "var_pos": 2, "vertex": 2, "key": 7, "source_file_name": null}, {"type": "var", "id": "?x2", "is_binded": true, "vertex": 2, "is_antecedent": false, "var_pos": 1, "key": 8, "source_file_name": null}, {"type": "var", "id": "?x1", "is_binded": true, "vertex": 3, "is_antecedent": true, "var_pos": 0, "key": 9, "source_file_name": null}, {"type": "var", "id": "?x3", "is_binded": false, "vertex": 3, "key": 10, "source_file_name": null}, {"type": "var", "id": "?x1", "is_binded": true, "vertex": 3, "is_antecedent": false, "var_pos": 0, "key": 11, "source_file_name": null}], "lookup_tables": [], "jet_rules": [{"name": "RuleRFR1", "properties": {}, "optimization": true, "salience": 100, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "is_binded": false, "var_pos": 0, "vertex": 1, "key": 5, "source_file_name": null}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)", "vertex": 1, "parent_vertex": 0}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "is_binded": true, "vertex": 2, "is_antecedent": true, "var_pos": 0, "key": 6, "source_file_name": null}, {"type": "identifier", "value": "good"}, {"type": "var", "id": "?x2", "is_binded": false, "var_pos": 2, "vertex": 2, "key": 7, "source_file_name": null}], "normalizedLabel": "(?x1 good ?x2).[?x2 + good]", "label": "(?clm01 good ?good).[?good + good]", "filter": {"type": "binary", "lhs": 8, "op": "+", "rhs": 2}, "vertex": 2, "parent_vertex": 1}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "id": "?x1", "is_binded": true, "vertex": 3, "is_antecedent": true, "var_pos": 0, "key": 9, "source_file_name": null}, {"type": "identifier", "value": "related_to"}, {"type": "var", "id": "?x3", "is_binded": false, "vertex": 3, "key": 10, "source_file_name": null}], "normalizedLabel": "(?x1 related_to ?x3)", "label": "(?clm01 related_to ?clm02)", "vertex": 3, "parent_vertex": 2}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "id": "?x1", "is_binded": true, "vertex": 3, "is_antecedent": false, "var_pos": 0, "key": 11, "source_file_name": null}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:EClaim"}], "normalizedLabel": "(?x1 rdf:type acme:EClaim)", "label": "(?clm01 rdf:type acme:EClaim)", "vertex": 3}], "authoredLabel": "[RuleRFR1]:(?clm01 rdf:type acme:Claim).(?clm01 _0:good ?good).[?good + _0:good].(?clm01 related_to ?clm02) -> (?clm01 rdf:type acme:EClaim);", "source_file_name": null, "normalizedLabel": "[RuleRFR1]:(?x1 rdf:type acme:Claim).(?x1 good ?x2).[?x2 + good].(?x1 related_to ?x3) -> (?x1 rdf:type acme:EClaim);", "label": "[RuleRFR1]:(?clm01 rdf:type acme:Claim).(?clm01 good ?good).[?good + good].(?clm01 related_to ?clm02) -> (?clm01 rdf:type acme:EClaim);"}], "imports": {}}"""
+    # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
+    self.assertEqual(jetrule_ctx.ERROR, False)
+    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
 
 
 if __name__ == '__main__':

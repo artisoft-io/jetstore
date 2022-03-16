@@ -49,7 +49,8 @@ class JetRuleContext:
     self.resources = None
     self.lookup_tables = None
     self.jet_rules = None
-    self.defined_resources = None # All defined resource, populated after post processing
+    self.defined_resources: set = None # All defined resource, populated after post processing
+    self.compiler_directives = None
 
     self.ERROR = False
     if self.errors:
@@ -67,6 +68,7 @@ class JetRuleContext:
     self.resources = self.jetRules.get('resources')
     self.lookup_tables = self.jetRules.get('lookup_tables')
     self.jet_rules = self.jetRules.get('jet_rules')
+    self.compiler_directives = self.jetRules.get('compiler_directives')
 
     if self.literals is None or self.resources is None or self.lookup_tables is None or self.jet_rules is None: 
       raise Exception("Invalid jetRules structure: ",self.jetRules)
@@ -113,6 +115,7 @@ class JetRuleContext:
     map[name] = item
     return item
 
+  # Used by post processor, do not use after post processing is done (use addResourceFromRule, see jetrule_validation_context.validateIdentifier)
   def addResource(self, name: str, value: str, source_fname: str):
     item = self._addRL(self.resourceMap, 'resource', name, 'resource', value, source_fname)
     self.resources.append(item)
@@ -125,3 +128,25 @@ class JetRuleContext:
   def err(self, msg: str) -> None:
     self.ERROR = True
     self.errors.append(msg)
+
+  def get_compiler_directive(self, name: str) -> bool:
+    if self.compiler_directives:
+      return self.compiler_directives.get(name)
+    return None
+
+  # Used by jetrule_validation_context.validateIdentifier to add resources defined implicitly in rules
+  def addResourceFromRule(self, name: str) -> str:
+    if name and self.get_compiler_directive('extract_resources_from_rules'):
+      value = name
+      type = 'resource'
+      if name.startswith('_0:'):
+        name = name[len('_0:'):]
+        type = 'volatile_resource'
+
+      if name in self.defined_resources:
+        return name
+      item = self._addRL(self.resourceMap, 'resource', name, type, value, self.main_rule_fname)
+      self.resources.append(item)
+      self.defined_resources.add(name)
+      return name
+    return None

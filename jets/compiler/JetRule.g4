@@ -12,6 +12,7 @@ statement
   | defineResourceStmt 
   | lookupTableStmt
   | jetRuleStmt
+  | tripleStmt
   | COMMENT            
   ;
 
@@ -180,11 +181,20 @@ unaryOp
   | Identifier
   ;
 
+
+// --------------------------------------------------------------------------------------
+// Define Triple
+// --------------------------------------------------------------------------------------
+tripleStmt: TRIPLE '(' s=atom ',' p=atom ',' o=objectAtom ')' SEMICOLON ; 
+
 // ======================================================================================
 // Lexer section
 // --------------------------------------------------------------------------------------
 // Jet Compiler directives and decorators
 JetCompilerDirective: '@JetCompilerDirective';
+
+// Triple statement
+TRIPLE: 'triple';
 
 // Literals and resources
 Int32Type: 'int';
