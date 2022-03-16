@@ -265,15 +265,15 @@ class JetRuleCompiler:
     # augment the output with post processor
     postProcessor = JetRulesPostProcessor(self.jetrule_ctx)
     postProcessor.createResourcesForLookupTables()
-    postProcessor.fixRCVariables()
+    # postProcessor.fixRCVariables()
     postProcessor.mapVariables()
     postProcessor.processRuleProperties()
     postProcessor.addNormalizedLabels()
     postProcessor.addLabels()
     self.jetrule_ctx.state = JetRuleContext.STATE_POSTPROCESSED
 
-    # seal the defined resources in a frozen set, this is for validating rules
-    self.jetrule_ctx.defined_resources = frozenset(self.jetrule_ctx.resourceMap.keys())
+    # seal the defined resources in a set, this is for validating rules
+    self.jetrule_ctx.defined_resources = set(self.jetrule_ctx.resourceMap.keys())
 
     return self.jetrule_ctx
 
@@ -341,11 +341,12 @@ def main(argv):
   in_provider = InputProvider(base_path)
   compiler = JetRuleCompiler()
   compiler.compileJetRuleFile(str(in_fname), in_provider)
+  error = None
   if compiler.jetrule_ctx.ERROR:
     print('ERROR while compiling JetRule file {0}:'.format(in_fname))
     for err in compiler.jetrule_ctx.errors:
       print('   ',err)
-    sys.exit('ERROR while compiling JetRule file {0}:'.format(in_fname))
+      error = 'ERROR while compiling JetRule file {0}:'.format(in_fname)
 
   # Save the JetRule data structure
   # path = os.path.join(base_path, out_fname)
@@ -361,6 +362,9 @@ def main(argv):
   with open(jetrete_path, 'wt', encoding='utf-8') as f:
     f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
   print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
+
+  if error:
+    sys.exit(error)
 
   rete_db_helper = JetRuleReteSQLite(compiler.jetrule_ctx)
   err = rete_db_helper.saveReteConfig()

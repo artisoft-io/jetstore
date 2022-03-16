@@ -42,16 +42,22 @@ class ValidationContext:
       return self.validateBinded(var)
     return self.addBinded(var)
   
-  def validateIdentifier(self, var: str) -> bool:
+  def validateIdentifier(self, elm: object) -> bool:
+    var = elm['value']
     # print('*** Validate Identifier for rule', self.rule_name, 'visiting elm type', self.elm_type, 'validating identifier', var)
     defined = var in self.jetrule_ctx.defined_resources
     if not defined:
-      self.err(
-        "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
-        "it must be defined.".format(
-          self.rule_name, var, self.term_label)
-      )
-    return defined
+      # Check if we extract the identifier from the rules
+      name = self.jetrule_ctx.addResourceFromRule(var)
+      if not name:
+        self.err(
+          "Error rule {0}: Identifier '{1}' is not defined in this context '{2}', "
+          "it must be defined.".format(
+            self.rule_name, var, self.term_label)
+        )
+        return False
+      elm['value'] = name
+    return True
 
   def has_errors(self):
     return self.jetrule_ctx.ERROR

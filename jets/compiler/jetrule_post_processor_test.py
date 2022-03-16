@@ -468,26 +468,26 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     #   print(k)
     # print()
 
-  def test_fixrcvar1(self):
-    data = """
-      resource rdf:type = "rdf:type";
-      resource acme:Claim = "acme:Claim";
-      [RuleRC1]: 
-        (?clm01 rdf:type _1)
-        ->
-        (?clm01 rdf:type acme:Claim)
-      ;
-    """
-    jetrule_ctx =  self._process_data(data)
-    # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
-    # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
-    expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleRC1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "var", "value": "?v1", "id": "?x2", "label": "?v1"}], "normalizedLabel": "(?x1 rdf:type ?x2)", "label": "(?clm01 rdf:type ?v1)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "optimization": true, "salience": 100, "normalizedLabel": "[RuleRC1]:(?x1 rdf:type ?x2) -> (?x1 rdf:type acme:Claim);", "label": "[RuleRC1]:(?clm01 rdf:type ?v1) -> (?clm01 rdf:type acme:Claim);"}]}"""
-    self.assertEqual(jetrule_ctx.ERROR, False)
-    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
-    # print('GOT')
-    # for k in jetrule_ctx.errors:
-    #   print(k)
-    # print()
+  # def test_fixrcvar1(self):
+  #   data = """
+  #     resource rdf:type = "rdf:type";
+  #     resource acme:Claim = "acme:Claim";
+  #     [RuleRC1]: 
+  #       (?clm01 rdf:type _1)
+  #       ->
+  #       (?clm01 rdf:type acme:Claim)
+  #     ;
+  #   """
+  #   jetrule_ctx =  self._process_data(data)
+  #   # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
+  #   # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
+  #   expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleRC1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "var", "value": "?v1", "id": "?x2", "label": "?v1"}], "normalizedLabel": "(?x1 rdf:type ?x2)", "label": "(?clm01 rdf:type ?v1)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "optimization": true, "salience": 100, "normalizedLabel": "[RuleRC1]:(?x1 rdf:type ?x2) -> (?x1 rdf:type acme:Claim);", "label": "[RuleRC1]:(?clm01 rdf:type ?v1) -> (?clm01 rdf:type acme:Claim);"}]}"""
+  #   self.assertEqual(jetrule_ctx.ERROR, False)
+  #   self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+  #   # print('GOT')
+  #   # for k in jetrule_ctx.errors:
+  #   #   print(k)
+  #   # print()
 
 if __name__ == '__main__':
   absltest.main()

@@ -29,54 +29,54 @@ class JetRulesPostProcessor:
         self.ctx.addResource(value, column, source_file_name)
         resources.append(value)
       item['resources'] = resources
-      
 
-  # =====================================================================================
-  # fixRCVariables
-  # -------------------------------------------------------------------------------------
-  # visit jetRules data structure to map variables
-  def fixRCVariables(self):
-    if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
-    for rule in self.ctx.jet_rules:
-      # for each antecedent and consequent, fix:
-      # - replace _1 notation to ?v1 variable name.
-      # Note that _1 is a valid identifier in jetrule grammar so need to change
-      # elm type from identifier to var
-      for item in rule.get('antecedents', []):
-        triple = item['triple']
-        for i in range(3):
-          self._fixRCVariable(triple[i])
 
-        filter = item.get('filter')
-        if filter:
-          self._fixRCVariable(filter)
+  # # =====================================================================================
+  # # fixRCVariables
+  # # -------------------------------------------------------------------------------------
+  # # visit jetRules data structure to map variables
+  # def fixRCVariables(self):
+  #   if not self.ctx.jetRules: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
+  #   for rule in self.ctx.jet_rules:
+  #     # for each antecedent and consequent, fix:
+  #     # - replace _1 notation to ?v1 variable name.
+  #     # Note that _1 is a valid identifier in jetrule grammar so need to change
+  #     # elm type from identifier to var
+  #     for item in rule.get('antecedents', []):
+  #       triple = item['triple']
+  #       for i in range(3):
+  #         self._fixRCVariable(triple[i])
 
-      for item in rule.get('consequents', []):
-        triple = item['triple']
-        for i in range(3):
-          self._fixRCVariable(triple[i])
+  #       filter = item.get('filter')
+  #       if filter:
+  #         self._fixRCVariable(filter)
 
-  # Process recursively elm according to it's type
-  def _fixRCVariable(self, elm: Dict[str, object]):
-    if not elm: return
-    type = elm.get('type')
-    if type is None: raise Exception("Invalid jetRules elm: ", elm)
+  #     for item in rule.get('consequents', []):
+  #       triple = item['triple']
+  #       for i in range(3):
+  #         self._fixRCVariable(triple[i])
 
-    if type == 'identifier':
-      if elm['value'][0] == '_':
-        elm['type'] = 'var'
-        elm['value'] = '?v'+elm['value'][1:]
-      return
+  # # Process recursively elm according to it's type
+  # def _fixRCVariable(self, elm: Dict[str, object]):
+  #   if not elm: return
+  #   type = elm.get('type')
+  #   if type is None: raise Exception("Invalid jetRules elm: ", elm)
 
-    if type == 'var':
-      return
+  #   if type == 'identifier':
+  #     if elm['value'][0] == '_':
+  #       elm['type'] = 'var'
+  #       elm['value'] = '?v'+elm['value'][1:]
+  #     return
 
-    if type == 'binary':
-      self._fixRCVariable(elm['lhs'])
-      self._fixRCVariable(elm['rhs'])
+  #   if type == 'var':
+  #     return
 
-    if type == 'unary':
-      self._fixRCVariable(elm['arg'])
+  #   if type == 'binary':
+  #     self._fixRCVariable(elm['lhs'])
+  #     self._fixRCVariable(elm['rhs'])
+
+  #   if type == 'unary':
+  #     self._fixRCVariable(elm['arg'])
       
 
   # =====================================================================================
