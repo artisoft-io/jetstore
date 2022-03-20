@@ -74,6 +74,7 @@ TEST_F(ExprOpTest, SizeOfVisitor2) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(0)));
 }
+
 TEST_F(ExprOpTest, CreateEntityVisitor1) {
   auto sess = this->rete_session->rdf_session();
   auto rmgr = sess->rmgr();
