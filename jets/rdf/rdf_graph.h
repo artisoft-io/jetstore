@@ -153,6 +153,8 @@ class RDFGraph {
     return r_mgr_p.get();
   }
 
+  // contains
+  // ------------------------------------------------------------------------------------
   inline bool 
   contains(r_index s, r_index p, r_index o) const 
   {
@@ -166,6 +168,7 @@ class RDFGraph {
   }
 
   // find methods
+  // ------------------------------------------------------------------------------------
   inline Iterator 
   find() const 
   {
@@ -239,6 +242,7 @@ class RDFGraph {
   }
 
   // insert methods
+  // ------------------------------------------------------------------------------------
   template<typename L>
   inline typename literal_restrictor<L, int>::result
   insert(r_index s, r_index p, L const& v)
@@ -269,9 +273,9 @@ class RDFGraph {
       "This is probably a meta graph and you want to mutate the asserted"
       " of inferred graph of the redf session.");
     if(!s or !p or !o) {
-      LOG(ERROR) << "rdf_graph::insert: trying to insert a triple with a null index (" 
-                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
-      return 0;
+      LOG(ERROR) << "rdf_graph::insert: trying to insert a triple with a NULL ptr index (" 
+                 << s << ", " << p << ", " << o <<")";
+      RDF_EXCEPTION("rdf_graph::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     bool inserted = spo_graph_.insert(s, p, o);
     if(inserted) {
@@ -285,6 +289,7 @@ class RDFGraph {
   }
 
   // erase triple (s, p, o) from graph, return 1 if erased
+  // ------------------------------------------------------------------------------------
   inline int
   erase(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
@@ -292,9 +297,9 @@ class RDFGraph {
       "This is probably a meta graph and you want to mutate the asserted"
       " of inferred graph of the redf session.");
     if(!s or !p or !o) {
-      LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a null index (" 
-                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
-      return 0;
+      LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a NULL ptr index (" 
+                 << s << ", " << p << ", " << o <<")";
+      RDF_EXCEPTION("rdf_graph::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     bool erased = spo_graph_.erase(s, p, o);
     if(erased) {
@@ -308,6 +313,7 @@ class RDFGraph {
   }
 
   // retract triple (s, p, o) from graph, return 1 if actually erased
+  // ------------------------------------------------------------------------------------
   inline int
   retract(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
@@ -315,9 +321,9 @@ class RDFGraph {
       "This is probably a meta graph and you want to mutate the asserted"
       " of inferred graph of the redf session.");
     if(!s or !p or !o) {
-      LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a null index (" 
-                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
-      return 0;
+      LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a NULL ptr index (" 
+                 << s << ", " << p << ", " << o <<")";
+      RDF_EXCEPTION("rdf_graph::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     bool erased = spo_graph_.retract(s, p, o);
     if(erased) {

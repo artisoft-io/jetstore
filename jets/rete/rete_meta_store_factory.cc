@@ -121,6 +121,10 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
     this->ms_map_.insert({file_key, rete_meta_store});
   }
 
+  // Lock the meta graph and it's associated RManager
+  this->meta_graph_->rmgr()->set_locked();
+  this->meta_graph_->set_locked();
+
   // All good!, release the stmts and db connection
   VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
   return this->reset();

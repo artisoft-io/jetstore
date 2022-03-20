@@ -15,6 +15,7 @@
 #include "boost/variant.hpp"
 
 #include "../rdf/rdf_err.h"
+#include "../rdf/rdf_date_time.h"
 #include "../rdf/other/fcmp.h"
 
 namespace jets::rdf {
@@ -26,10 +27,11 @@ namespace jets::rdf {
  * The rdf types are:
  *   - named_resource (resource)
  *   - unnamed_resource (blank_node)
- *   - literals (string, int32, uint32, int64, uint64, bool, double, date, date_time, duration)
+ *   - literals (string, int32, uint32, int64, uint64, bool, double, date, datetime)
  *   - null
  * 
  */
+
 struct RDFNull {
   using is_non_resource = std::true_type;
   using is_non_literal = std::true_type;
@@ -45,7 +47,7 @@ struct RDFNull {
 
 inline std::ostream & operator<<(std::ostream & out, RDFNull bn)
 {
-  out <<"NULL";
+  out <<"null";
   return out;
 }
 
@@ -130,13 +132,17 @@ inline std::ostream & operator<<(std::ostream & out, Literal<T> const& r)
 // sizeof(std::int32_t): 4
 // sizeof(std::int64_t): 8
 // sizeof(double): 8
+// sizeof(date): 4
+// sizeof(datetime): 8
 // --------------------------------------------------------------------------------------
-using LInt32  = Literal<std::int32_t>;
-using LUInt32 = Literal<std::uint32_t>;
-using LInt64  = Literal<std::int64_t>;
-using LUInt64 = Literal<std::uint64_t>;
-using LDouble = Literal<double>;
-using LString = Literal<std::string>;
+using LInt32    = Literal<std::int32_t>;
+using LUInt32   = Literal<std::uint32_t>;
+using LInt64    = Literal<std::int64_t>;
+using LUInt64   = Literal<std::uint64_t>;
+using LDouble   = Literal<double>;
+using LString   = Literal<std::string>;
+using LDate     = Literal<date>;
+using LDatetime = Literal<datetime>;
 
 // Functions to make double literals comparable
 // --------------------------------------------------------------------------------------
@@ -221,7 +227,9 @@ enum rdf_ast_which_order {
     rdf_literal_int64_t              = 5 ,
     rdf_literal_uint64_t             = 6 ,
     rdf_literal_double_t             = 7 ,
-    rdf_literal_string_t             = 8 
+    rdf_literal_string_t             = 8 ,
+    rdf_literal_date_t               = 9 ,
+    rdf_literal_datetime_t           = 10 
 };
 
 //* NOTE: If updated, MUST update ast_which_order and possibly ast_sort_order
@@ -235,7 +243,9 @@ using RdfAstType = boost::variant<
     LInt64,
     LUInt64,
     LDouble,
-    LString >;
+    LString ,
+    LDate ,
+    LDatetime >;
 
 // ======================================================================================
 // r_index
@@ -340,6 +350,13 @@ H AbslHashValue(H h, const Rptr& rptr)
   case rdf_literal_uint64_t   : return H::combine(std::move(h), boost::get<LUInt64      >(m).data);
   case rdf_literal_double_t   : return H::combine(std::move(h), boost::get<LDouble      >(m).data);
   case rdf_literal_string_t   : return H::combine(std::move(h), boost::get<LString      >(m).data);
+  case rdf_literal_date_t     : return H::combine(std::move(h), boost::get<LDate        >(m).data.julian_day());
+  case rdf_literal_datetime_t : 
+    {
+      auto & dt = boost::get<LDatetime    >(m);
+      auto duration = dt.data.time_of_day();
+      return H::combine(std::move(h), dt.data.date().julian_day(), duration.is_special() ? 0L:duration.ticks());
+    }
   default: return H::combine(std::move(h), 0);
   }
 }
@@ -363,6 +380,8 @@ struct get_key_visitor: public boost::static_visitor<int32_t>
   int32_t operator()(LUInt64       const& )const{return 0;}
   int32_t operator()(LDouble       const& )const{return 0;}
   int32_t operator()(LString       const& )const{return 0;}
+  int32_t operator()(LDate         const& )const{return 0;}
+  int32_t operator()(LDatetime     const& )const{return 0;}
 };
 inline int32_t 
 get_key(r_index r)
@@ -378,6 +397,13 @@ get_type(r_index r)
   return r->which();
 }
 
+inline bool
+is_literal(r_index r)
+{
+  if(not r) return false;
+  return r->which() > rdf_named_resource_t;
+}
+
 struct get_name_visitor: public boost::static_visitor<std::string>
 {
   std::string operator()(RDFNull       const& )const{return {};}
@@ -389,6 +415,8 @@ struct get_name_visitor: public boost::static_visitor<std::string>
   std::string operator()(LUInt64       const& )const{return {};}
   std::string operator()(LDouble       const& )const{return {};}
   std::string operator()(LString       const& )const{return {};}
+  std::string operator()(LDate         const& )const{return {};}
+  std::string operator()(LDatetime     const& )const{return {};}
 };
 inline std::string 
 get_name(r_index r)
@@ -413,6 +441,8 @@ struct to_bool_visitor: public boost::static_visitor<bool>
   bool operator()(RDFNull       const& )const{return false;}
   bool operator()(BlankNode     const&v)const{return true;}
   bool operator()(NamedResource const&v)const{return true;}
+  bool operator()(LDate         const&v)const{return true;}
+  bool operator()(LDatetime     const&v)const{return true;}
   bool operator()(LInt32        const&v)const{return v.data;}
   bool operator()(LUInt32       const&v)const{return v.data;}
   bool operator()(LInt64        const&v)const{return v.data;}
@@ -456,6 +486,18 @@ inline RdfAstType False() { return LInt32(0);}
 
 inline RdfAstType Null() { return RDFNull();}
 
+inline RdfAstType today() { 
+  LDate td;
+  td.data = boost::gregorian::day_clock::local_day();
+  return td;
+}
+
+inline RdfAstType now() { 
+  LDatetime td;
+  td.data = boost::posix_time::microsec_clock::universal_time();
+  return td;
+}
+
 // ==================================================================================
 // Resource and Literals Factory constructors
 // ----------------------------------------------------------------------------------
@@ -488,6 +530,8 @@ inline Rptr mkLiteral(std::uint32_t v)      { return std::make_shared<RdfAstType
 inline Rptr mkLiteral(std::int64_t v)       { return std::make_shared<RdfAstType>(LInt64(v)); }
 inline Rptr mkLiteral(std::uint64_t v)      { return std::make_shared<RdfAstType>(LUInt64(v)); }
 inline Rptr mkLiteral(double v)             { return std::make_shared<RdfAstType>(LDouble(v)); }
+inline Rptr mkLiteral(date   v)             { return std::make_shared<RdfAstType>(LDate(v)); }
+inline Rptr mkLiteral(datetime v)           { return std::make_shared<RdfAstType>(LDatetime(v)); }
 
 inline Rptr mkLiteral(std::string n)       
 { 
@@ -524,7 +568,9 @@ inline Rptr mkLiteral(const char * nptr)
 // template<typename R>           struct literal_restrictor<LInt64, R>         {typedef R result;};
 // template<typename R>           struct literal_restrictor<LUInt64, R>        {typedef R result;};
 // template<typename R>           struct literal_restrictor<LDouble, R>        {typedef R result;};
-// template<typename R>           struct literal_restrictor<LString, R>        {typedef 
+// template<typename R>           struct literal_restrictor<LString, R>        {typedef R result;};
+// template<typename R>           struct literal_restrictor<LDate, R>          {typedef R result;};
+// template<typename R>           struct literal_restrictor<LDatetime, R>      {typedef R result;};
 
 // ==================================================================================
 // Template to restrict arg to functions taking rdf data as argument
@@ -539,6 +585,8 @@ template<class R> struct literal_restrictor< int64_t, R>       {typedef R result
 template<class R> struct literal_restrictor< uint64_t, R>      {typedef R result;};
 template<class R> struct literal_restrictor< double, R>        {typedef R result;};
 template<class R> struct literal_restrictor< std::string, R>   {typedef R result;};
+template<class R> struct literal_restrictor< date, R>          {typedef R result;};
+template<class R> struct literal_restrictor< datetime, R>      {typedef R result;};
 // ----------------------------------------------------------------------------------
 template<class T, class R> struct resource_restrictor{};
 template<class R> struct resource_restrictor< void*, R>       {typedef R result;};

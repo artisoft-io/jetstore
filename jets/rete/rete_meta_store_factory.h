@@ -155,7 +155,10 @@ class ReteMetaStoreFactory {
     int err = 0;
     char * err_msg = 0;
 
-    if(not this->meta_graph_ ) this->meta_graph_ = rdf::create_rdf_graph();    
+    if(not this->meta_graph_ ) {
+      this->meta_graph_ = rdf::create_rdf_graph();
+      this->meta_graph_->rmgr()->initialize();
+    }
     auto const* sql = "SELECT * from resources";
     err = sqlite3_exec(this->db_, sql, ::read_resources_cb, (void*)this, &err_msg);    
     if( err != SQLITE_OK ) {

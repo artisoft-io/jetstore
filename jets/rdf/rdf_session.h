@@ -143,6 +143,16 @@ class RDFSession {
         meta_graph_->contains_sp(s, p) ;
   }
   // ------------------------------------------------------------------------------------
+  // get_object methods
+  // ------------------------------------------------------------------------------------
+  inline r_index
+  get_object(r_index s, r_index p) const 
+  {
+    auto itor = this->find(s, p);
+    if(!itor.is_end()) return itor.get_object();
+    return nullptr;
+  }
+  // ------------------------------------------------------------------------------------
   // find methods
   // ------------------------------------------------------------------------------------
   inline Iterator 
@@ -213,9 +223,9 @@ class RDFSession {
   insert(r_index s, r_index p, L const& v)
   {
     if(!s or !p) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null s or p index: (" 
-                 << get_name(s) << ", " << get_name(p) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr s or p index: (" 
+                 << s << ", " << p << ")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return asserted_graph_->insert(s, p, v);
   }
@@ -225,9 +235,9 @@ class RDFSession {
   insert(r_index s, r_index p, L && v)
   {
     if(!s or !p) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null s or p index: (" 
-                 << get_name(s) << ", " << get_name(p) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr s or p index: (" 
+                 << s << ", " << p << ")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return asserted_graph_->insert(s, p, std::forward<L>(v));
   }
@@ -237,9 +247,9 @@ class RDFSession {
   insert(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
     if(!s or !p or !o) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
+                 << s << ", " << p << ", " << o <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return asserted_graph_->insert(s, p, o, notify_listners);
   }
@@ -249,9 +259,9 @@ class RDFSession {
   insert(Triple t3)
   {
     if(!t3.subject or !t3.predicate or !t3.object) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-                 << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
+                 << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
@@ -261,9 +271,9 @@ class RDFSession {
   insert(Triple const& t3)
   {
     if(!t3.subject or !t3.predicate or !t3.object) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-                 << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
+                 << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
@@ -273,9 +283,9 @@ class RDFSession {
   insert(Triple && t3)
   {
     if(!t3.subject or !t3.predicate or !t3.object) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-                 << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
+                 << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
@@ -288,9 +298,9 @@ class RDFSession {
   insert_inferred(r_index s, r_index p, L const& v)
   {
     if(!s or !p) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null s or p index: (" 
-                 << get_name(s) << ", " << get_name(p) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr s or p index: (" 
+                 << s << ", " << p <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return inferred_graph_->insert(s, p, v);
   }
@@ -301,9 +311,9 @@ class RDFSession {
   insert_inferred(r_index s, r_index p, L && v)
   {
     if(!s or !p) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null s or p index: (" 
-                 << get_name(s) << ", " << get_name(p) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr s or p index: (" 
+                 << s << ", " << p <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return inferred_graph_->insert(s, p, std::forward<L>(v));
   }
@@ -313,9 +323,9 @@ class RDFSession {
   insert_inferred(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
     if(!s or !p or !o) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
+                 << s << ", " << p << ", " << o <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     return inferred_graph_->insert(s, p, o, notify_listners);
   }
@@ -325,9 +335,9 @@ class RDFSession {
   insert_inferred(Triple const& t3)
   {
     if(!t3.subject or !t3.predicate or !t3.object) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-                 << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
+                 << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     // std::cout<<"    RdfSession::insert_inferred "<<t3<<std::endl;
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
@@ -338,9 +348,9 @@ class RDFSession {
   insert_inferred(Triple && t3)
   {
     if(!t3.subject or !t3.predicate or !t3.object) {
-      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a null index (" 
-                 << get_name(t3.subject) << ", " << get_name(t3.predicate) << ", " << get_name(t3.object) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
+                 << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     // std::cout<<"    RdfSession::insert_inferred&& "<<t3<<std::endl;
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
@@ -353,9 +363,9 @@ class RDFSession {
   erase(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
     if(!s or !p or !o) {
-      LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a null index (" 
-                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a NULL ptr index (" 
+                 << s << ", " << p << ", " << o <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     bool erased = asserted_graph_->erase(s, p, o, notify_listners);
     erased = inferred_graph_->erase(s, p, o, notify_listners) or erased;
@@ -388,9 +398,9 @@ class RDFSession {
   retract(r_index s, r_index p, r_index o, bool notify_listners=true)
   {
     if(!s or !p or !o) {
-      LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a null index (" 
-                 << get_name(s) << ", " << get_name(p) << ", " << get_name(o) <<")";
-      return 0;
+      LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a NULL ptr index (" 
+                 << s << ", " << p << ", " << o <<")";
+      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     bool erased = asserted_graph_->retract(s, p, o, notify_listners);
     erased = inferred_graph_->retract(s, p, o, notify_listners) or erased;
