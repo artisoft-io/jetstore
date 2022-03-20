@@ -13,12 +13,10 @@
 #include "../rdf/rdf_ast.h"
 #include "../rdf/uuid.h"
 #include "../rdf/containers_type.h"
+#include "../rdf/r_resources.h"
 
 // Component to manage all the rdf resources and literals of a graph
 namespace jets::rdf {
-class RManager;
-using RManagerPtr = std::shared_ptr<RManager>;
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // RManager manage and allocate all resources and literals used in a RDFGraph
 class RManager {
@@ -31,7 +29,8 @@ class RManager {
       last_bnode_key_(0),
       r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
       lmap_(),
-      root_mgr_p_()
+      root_mgr_p_(),
+      jets_resources_()
   {}
 
   inline RManager(RManagerPtr root_mgr_p) 
@@ -39,8 +38,35 @@ class RManager {
       last_bnode_key_(0),
       r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
       lmap_(),
-      root_mgr_p_(root_mgr_p)
+      root_mgr_p_(root_mgr_p),
+      jets_resources_()
   {}
+
+  inline bool
+  is_initialized()const
+  {
+    if(this->root_mgr_p_) return this->root_mgr_p_->is_initialized();
+    return this->jets_resources_.is_initialized();
+  }
+
+  inline void
+  initialize()
+  {
+    if(this->root_mgr_p_) {
+      if(not this->root_mgr_p_->is_initialized()) {
+        RDF_EXCEPTION("ERROR RManager::root_mgr_p_ Resources are not initialized!")
+      }
+      return;
+    }
+    this->jets_resources_.initialize(this);
+  }
+
+  inline JetsResources const*
+  jets()const
+  {
+    if(this->root_mgr_p_) return this->root_mgr_p_->jets();
+    return &this->jets_resources_;
+  }
 
   /**
    * @return size_t the nbr of resources excluding nulls and resources in metamap.
@@ -174,11 +200,12 @@ class RManager {
   }
 
  private:
-  bool         is_locked_;
-  int          last_bnode_key_;
-  Rptr         r_null_ptr_;
-  DataMap      lmap_;
-  RManagerPtr  root_mgr_p_;
+  bool          is_locked_;
+  int           last_bnode_key_;
+  Rptr          r_null_ptr_;
+  DataMap       lmap_;
+  RManagerPtr   root_mgr_p_;
+  JetsResources jets_resources_;
 };
 
 inline RManagerPtr 

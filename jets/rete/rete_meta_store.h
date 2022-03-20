@@ -122,6 +122,9 @@ class ReteMetaStore {
   int
   initialize()
   {
+    if(not this->meta_graph_) {
+      RETE_EXCEPTION("ERROR: ReteMetaStore::initialize: meta graph cannot be null!");
+    }
     // Perform reverse lookup of children NodeVertex using
     // NodeVertex parent_node property
     for(auto const& nodeptr: this->node_vertexes_) {

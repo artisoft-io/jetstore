@@ -1436,7 +1436,7 @@
       },
       {
           "type": "consequent",
-          "normalizedLabel": "(?x4 hc:first_name ?x2 r? ?x5)",
+          "normalizedLabel": "(?x4 hc:first_name ?x5 literal_regex ?x2)",
           "vertex": 10,
           "consequent_seq": 0,
           "subject_key": 57,
@@ -1444,13 +1444,13 @@
           "obj_expr": {
               "type": "binary",
               "lhs": 58,
-              "op": "r?",
+              "op": "literal_regex",
               "rhs": 59
           }
       },
       {
           "type": "consequent",
-          "normalizedLabel": "(?x4 hc:last_name ?x3 r? ?x5)",
+          "normalizedLabel": "(?x4 hc:last_name ?x3 literal_regex ?x5)",
           "vertex": 10,
           "consequent_seq": 1,
           "subject_key": 60,
@@ -1458,7 +1458,7 @@
           "obj_expr": {
               "type": "binary",
               "lhs": 61,
-              "op": "r?",
+              "op": "literal_regex",
               "rhs": 62
           }
       },

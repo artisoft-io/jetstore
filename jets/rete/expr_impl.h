@@ -57,8 +57,9 @@ template<class Op>
 typename ExprBinaryOp<Op>::ExprDataType
 ExprBinaryOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
-  return boost::apply_visitor(Op(rete_session, beta_row), 
-    this->lhs_->eval(rete_session, beta_row), this->rhs_->eval(rete_session, beta_row));
+  typename ExprBinaryOp<Op>::ExprDataType lhs = this->lhs_->eval(rete_session, beta_row);
+  typename ExprBinaryOp<Op>::ExprDataType rhs = this->rhs_->eval(rete_session, beta_row);
+  return boost::apply_visitor(Op(rete_session, beta_row, &lhs, &rhs), lhs, rhs);
 }
 
 // ExprUnaryOp

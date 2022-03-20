@@ -399,70 +399,76 @@ TEST(ExprTest, EqVisitor5Test) {
 // RegexVisitor Test -----------------------------------------------------------------------
 TEST(ExprTest, RegexVisitor1Test) {
   EXPECT_THROW(create_expr_binary_operator<RegexVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
-    create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))),
+    create_expr_cst(rdf::RdfAstType(rdf::LInt32(1)))
+    )->eval(nullptr, nullptr), 
     rete_exception );
     
   EXPECT_THROW(create_expr_binary_operator<RegexVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::RDFNull())), 
-    create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))),
+    create_expr_cst(rdf::RdfAstType(rdf::RDFNull()))
+    )->eval(nullptr, nullptr), 
     rete_exception );
     
   EXPECT_EQ(create_expr_binary_operator<RegexVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("(Hello)"))), 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("Hello World"))))->eval(nullptr, nullptr), 
+      create_expr_cst(rdf::RdfAstType(rdf::LString("Hello World"))),
+      create_expr_cst(rdf::RdfAstType(rdf::LString("(Hello)")))
+    )->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("Hello")) );
     
   EXPECT_EQ(create_expr_binary_operator<RegexVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d\\d\\d)"))), 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("1 2 123 4"))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::LString("1 2 123 4"))),
+    create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d\\d\\d)")))
+    )->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("123")) );
     
   EXPECT_EQ(create_expr_binary_operator<RegexVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("\\s*(\\w*)\\s*"))), 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("John Smith"))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::LString("John Smith"))),
+    create_expr_cst(rdf::RdfAstType(rdf::LString("\\s*(\\w*)\\s*")))
+    )->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("John")) );
     
   EXPECT_EQ(create_expr_binary_operator<RegexVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("\\s*\\w*\\s*(\\w*)\\s*"))), 
-    create_expr_cst(rdf::RdfAstType(rdf::LString("John Smith"))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::LString("John Smith"))),
+    create_expr_cst(rdf::RdfAstType(rdf::LString("\\s*\\w*\\s*(\\w*)\\s*")))
+    )->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("Smith")) );
 }
 
-// ToUpperVisitor Test -----------------------------------------------------------------------
-TEST(ExprTest, ToUpperVisitor1Test) {
-  EXPECT_THROW(create_expr_unary_operator<ToUpperVisitor>(0, 
+// To_upperVisitor Test -----------------------------------------------------------------------
+TEST(ExprTest, to_upperVisitor1Test) {
+  EXPECT_THROW(create_expr_unary_operator<To_upperVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, nullptr), 
     rete_exception );
     
-  EXPECT_THROW(create_expr_unary_operator<ToUpperVisitor>(0, 
+  EXPECT_THROW(create_expr_unary_operator<To_upperVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, nullptr), 
     rete_exception );
     
-  EXPECT_EQ(create_expr_unary_operator<ToUpperVisitor>(0, 
+  EXPECT_EQ(create_expr_unary_operator<To_upperVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LString("Hello World"))))->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("HELLO WORLD")) );
     
-  EXPECT_EQ(create_expr_unary_operator<ToUpperVisitor>(0, 
+  EXPECT_EQ(create_expr_unary_operator<To_upperVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LString("1 2xWc 123 4"))))->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("1 2XWC 123 4")) );
 }
 
-// ToLowerVisitor Test -----------------------------------------------------------------------
+// To_lowerVisitor Test -----------------------------------------------------------------------
 TEST(ExprTest, ToLowerVisitor1Test) {
-  EXPECT_THROW(create_expr_unary_operator<ToLowerVisitor>(0, 
+  EXPECT_THROW(create_expr_unary_operator<To_lowerVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, nullptr), 
     rete_exception );
     
-  EXPECT_THROW(create_expr_unary_operator<ToLowerVisitor>(0, 
+  EXPECT_THROW(create_expr_unary_operator<To_lowerVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, nullptr), 
     rete_exception );
     
-  EXPECT_EQ(create_expr_unary_operator<ToLowerVisitor>(0, 
+  EXPECT_EQ(create_expr_unary_operator<To_lowerVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LString("Hello World"))))->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("hello world")) );
     
-  EXPECT_EQ(create_expr_unary_operator<ToLowerVisitor>(0, 
+  EXPECT_EQ(create_expr_unary_operator<To_lowerVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::LString("1 2xWc 123 4"))))->eval(nullptr, nullptr), 
     rdf::RdfAstType(rdf::LString("1 2xwc 123 4")) );
 }
@@ -610,14 +616,14 @@ TEST(ExprTest, Expression3Test) {
   data.push_back(
     create_expr_binary_operator<EqVisitor>(0, 
       create_expr_binary_operator<RegexVisitor>(0, 
-        create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d)"))), 
         create_expr_binary_operator<AddVisitor>(0, 
           create_expr_cst(rdf::RdfAstType(rdf::LString("Hello "))),
           create_expr_binary_operator<AddVisitor>(0, 
             create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
             create_expr_cst(rdf::RdfAstType(rdf::LUInt64(2)))
           )
-        )
+        ),
+        create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d)")))
       ), 
       create_expr_cst(rdf::RdfAstType(rdf::LString("1")))
     )
@@ -627,28 +633,28 @@ TEST(ExprTest, Expression3Test) {
   data.push_back(
     create_expr_binary_operator<EqVisitor>(0, 
       create_expr_binary_operator<RegexVisitor>(0, 
-        create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d)"))), 
         create_expr_binary_operator<AddVisitor>(0, 
           create_expr_cst(rdf::RdfAstType(rdf::LString("Hello "))),
           create_expr_binary_operator<AddVisitor>(0, 
             create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
             create_expr_cst(rdf::RdfAstType(rdf::LUInt64(2)))
           )
-        )
+        ),
+        create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d)")))
       ), 
       create_expr_cst(rdf::RdfAstType(rdf::LString("2")))
   ));
   data.push_back(
     create_expr_binary_operator<EqVisitor>(0, 
       create_expr_binary_operator<RegexVisitor>(0, 
-        create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d)"))), 
         create_expr_binary_operator<AddVisitor>(0, 
           create_expr_cst(rdf::RdfAstType(rdf::LString("Hello "))),
           create_expr_binary_operator<AddVisitor>(0, 
             create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
             create_expr_cst(rdf::RdfAstType(rdf::LUInt64(2)))
           )
-        )
+        ),
+        create_expr_cst(rdf::RdfAstType(rdf::LString("(\\d)")))
       ), 
       create_expr_cst(rdf::RdfAstType(rdf::LString("3")))
   ));
