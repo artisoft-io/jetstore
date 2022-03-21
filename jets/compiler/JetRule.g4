@@ -9,6 +9,7 @@ jetrule: statement* EOF;
 statement
   : jetCompilerDirectiveStmt
   | defineLiteralStmt  
+  | defineClassStmt  
   | defineResourceStmt 
   | lookupTableStmt
   | jetRuleStmt
@@ -25,6 +26,35 @@ jetCompilerDirectiveStmt:
   ASSIGN declValue=STRING 
   SEMICOLON
 ;
+
+// --------------------------------------------------------------------------------------
+// Define Class Statements
+// --------------------------------------------------------------------------------------
+defineClassStmt: CLASS className=declIdentifier '{' 
+    COMMENT*
+    (subClassOfStmt)+
+    COMMENT*
+    (dataPropertyStmt)+
+    COMMENT*
+    (asTableStmt)?
+    COMMENT*
+  '}' SEMICOLON;
+
+subClassOfStmt: SubClassOf ASSIGN baseClassName=declIdentifier ',';
+dataPropertyStmt: DataProperty ASSIGN dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType ',';
+asTableStmt: AsTable ASSIGN asTable=asTableFlag;
+
+asTableFlag: TRUE | FALSE;
+dataPropertyType
+  : Int32Type
+  | UInt32Type
+  | Int64Type
+  | UInt64Type
+  | DoubleType
+  | StringType
+  | DateType
+  | DatetimeType
+  ;
 
 // --------------------------------------------------------------------------------------
 // Define Literal Statements
@@ -192,6 +222,13 @@ tripleStmt: TRIPLE '(' s=atom ',' p=atom ',' o=objectAtom ')' SEMICOLON ;
 // --------------------------------------------------------------------------------------
 // Jet Compiler directives and decorators
 JetCompilerDirective: '@JetCompilerDirective';
+
+// Class statement for model definition
+CLASS: 'class';
+SubClassOf: '$sub_class_of';
+AsTable: '$as_table';
+DataProperty: '$data_property';
+ARRAY: 'array of';
 
 // Triple statement
 TRIPLE: 'triple';

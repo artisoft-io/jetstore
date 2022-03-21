@@ -35,6 +35,60 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#defineClassStmt.
+    def enterDefineClassStmt(self, ctx:JetRuleParser.DefineClassStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#defineClassStmt.
+    def exitDefineClassStmt(self, ctx:JetRuleParser.DefineClassStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#subClassOfStmt.
+    def enterSubClassOfStmt(self, ctx:JetRuleParser.SubClassOfStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#subClassOfStmt.
+    def exitSubClassOfStmt(self, ctx:JetRuleParser.SubClassOfStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#dataPropertyStmt.
+    def enterDataPropertyStmt(self, ctx:JetRuleParser.DataPropertyStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#dataPropertyStmt.
+    def exitDataPropertyStmt(self, ctx:JetRuleParser.DataPropertyStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#asTableStmt.
+    def enterAsTableStmt(self, ctx:JetRuleParser.AsTableStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#asTableStmt.
+    def exitAsTableStmt(self, ctx:JetRuleParser.AsTableStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#asTableFlag.
+    def enterAsTableFlag(self, ctx:JetRuleParser.AsTableFlagContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#asTableFlag.
+    def exitAsTableFlag(self, ctx:JetRuleParser.AsTableFlagContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#dataPropertyType.
+    def enterDataPropertyType(self, ctx:JetRuleParser.DataPropertyTypeContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#dataPropertyType.
+    def exitDataPropertyType(self, ctx:JetRuleParser.DataPropertyTypeContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#defineLiteralStmt.
     def enterDefineLiteralStmt(self, ctx:JetRuleParser.DefineLiteralStmtContext):
         pass
