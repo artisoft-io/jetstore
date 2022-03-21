@@ -406,6 +406,51 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
+  def test_classes1(self):
+    data = """
+      # =======================================================================================
+      # Jet Rules with class definition
+      class jets:Entity {
+        # This is an example of a domain class
+        $sub_class_of = owl:Thing,
+        $data_property = jets:key as int,
+        $data_property = diagnosis as array of text,
+        $as_table = true
+      };
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "is_array": "false"}, {"name": "diagnosis", "type": "text", "is_array": "true"}], "as_table": "true"}]}"""
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
+  def test_classes2(self):
+    data = """
+      # =======================================================================================
+      # Jet Rules with class definition
+      class jets:Entity {
+        $sub_class_of = owl:Thing,
+        $data_property = jets:key as int,
+        $as_table = false
+      };
+      class hc:MedicalClaim {
+        # This is an example of a domain class
+        $sub_class_of = jets:Entity,
+        $sub_class_of = hc:Claim,
+        $data_property = diagnosis as array of text,
+        $as_table = true
+      };
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "is_array": "false"}], "as_table": "false"}, {"name": "hc:MedicalClaim", "base_classes": ["jets:Entity", "hc:Claim"], "data_properties": [{"name": "diagnosis", "type": "text", "is_array": "true"}], "as_table": "true"}]}"""
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
 
 if __name__ == '__main__':
   absltest.main()

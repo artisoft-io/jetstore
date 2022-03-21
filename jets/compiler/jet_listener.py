@@ -10,6 +10,7 @@ class JetListener(JetRuleListener):
 
   def __init__(self):
     # Define our state model
+    self.classes = []
     self.literals = []
     self.resources = []
     self.lookups = []
@@ -38,6 +39,8 @@ class JetListener(JetRuleListener):
       'lookup_tables': self.lookups,
       'jet_rules': self.rules,
     }
+    if self.classes:
+      self.jetRules['classes'] = self.classes
     if self.triples:
       self.jetRules['triples'] = self.triples
     if self.compiler_directives:
@@ -64,6 +67,57 @@ class JetListener(JetRuleListener):
   def exitDefineResourceStmt(self, ctx:JetRuleParser.DefineResourceStmtContext):
     if self.current_file_name and len(self.resources) > 0:
       self.resources[-1]['source_file_name'] = self.current_file_name
+
+
+  # =====================================================================================
+  # Class Definition
+  # -------------------------------------------------------------------------------------
+  # Enter a parse tree produced by JetRuleParser#defineClassStmt.
+  def enterDefineClassStmt(self, ctx:JetRuleParser.DefineClassStmtContext):
+    # Entering a class definition
+    self.base_classes = []
+    self.data_properties = []
+    self.as_table = None
+
+  # Exit a parse tree produced by JetRuleParser#defineClassStmt.
+  def exitDefineClassStmt(self, ctx:JetRuleParser.DefineClassStmtContext):
+    # Putting the class definition together
+    if not ctx.className:
+      return
+
+    class_def = {
+      'name': self.escape(ctx.className.getText()), 
+      'base_classes': self.base_classes, 
+      'data_properties': self.data_properties, 
+    }
+    if self.current_file_name:
+      class_def['source_file_name'] = self.current_file_name
+    if self.as_table:
+      class_def['as_table'] = self.as_table
+    self.classes.append(class_def)
+
+  # Exit a parse tree produced by JetRuleParser#subClassOfStmt.
+  def exitSubClassOfStmt(self, ctx:JetRuleParser.SubClassOfStmtContext):
+    if ctx.baseClassName:
+      self.base_classes.append(self.escape(ctx.baseClassName.getText()))
+
+  # Exit a parse tree produced by JetRuleParser#asTableStmt.
+  def exitAsTableStmt(self, ctx:JetRuleParser.AsTableStmtContext):
+    self.as_table = ctx.asTable.getText()
+
+  # Exit a parse tree produced by JetRuleParser#dataPropertyStmt.
+  def exitDataPropertyStmt(self, ctx:JetRuleParser.DataPropertyStmtContext):
+    if not ctx.dataPName or not ctx.dataPType:
+      return
+    data_property = {
+      'name': self.escape(ctx.dataPName.getText()), 
+      'type': ctx.dataPType.getText(), 
+    }
+    if ctx.array:
+      data_property['is_array'] = 'true'
+    else:
+      data_property['is_array'] = 'false'
+    self.data_properties.append(data_property)
 
 
   # =====================================================================================
