@@ -262,6 +262,7 @@ TEST_F(ExprOpTest, DivVisitor2) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LDouble(2)));
 }
+
 TEST_F(ExprOpTest, SubsVisitor1) {
   SubsVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
   rdf::LInt32 lhs(1);
@@ -276,6 +277,41 @@ TEST_F(ExprOpTest, SubsVisitor2) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(0)));
 }
+TEST_F(ExprOpTest, SubsVisitor3) {
+  SubsVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
+  rdf::LInt32 lhs(1);
+  rdf::LDate  rhs(rdf::date(2020,3,20));
+  EXPECT_THROW(boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs)), rete_exception);
+}
+TEST_F(ExprOpTest, SubsVisitor4) {
+  SubsVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
+  rdf::LDate  lhs(rdf::date(2020,3,20));
+  rdf::LInt32 rhs(1);
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::date(2020, 3, 19))));
+}
+TEST_F(ExprOpTest, SubsVisitor5) {
+  SubsVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
+  rdf::LDate  lhs(rdf::date(2020,3,20));
+  rdf::LInt32 rhs(-1);
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::date(2020, 3, 21))));
+}
+TEST_F(ExprOpTest, SubsVisitor6) {
+  SubsVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
+  rdf::LDate  lhs(rdf::date(2020,3,20));
+  rdf::LDate  rhs(rdf::date(2020,3,19));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(1)));
+}
+TEST_F(ExprOpTest, SubsVisitor7) {
+  SubsVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
+  rdf::LDate  lhs(rdf::date(2020,3,19));
+  rdf::LDate  rhs(rdf::date(2020,3,20));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(-1)));
+}
+
 TEST_F(ExprOpTest, AddVisistorTest1) {
   AddVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
   rdf::LInt32 lhs(1);
@@ -324,6 +360,13 @@ TEST_F(ExprOpTest, AddVisistorTest7) {
   rdf::LDate rhs(rdf::date(2019, 3, 7));
   auto res = boost::apply_visitor(op, rdf::RdfAstType(rhs), rdf::RdfAstType(lhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::date(2019, 3, 8))));
+}
+TEST_F(ExprOpTest, AddVisistorTest8) {
+  AddVisitor op(this->rete_session.get(), nullptr, nullptr, nullptr);
+  rdf::LInt32 lhs(-1);
+  rdf::LDate rhs(rdf::date(2019, 3, 7));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::date(2019, 3, 6))));
 }
 
 }   // namespace
