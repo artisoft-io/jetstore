@@ -53,7 +53,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test21.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
-    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
   def test_import3(self):
@@ -68,8 +68,8 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test3.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test31.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test32.jr' line 5:8 mismatched input ':' expecting {',', ']'}")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
-    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 5)
 
@@ -86,7 +86,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test4.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test41.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test42.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 4)
 
@@ -201,6 +201,26 @@ class JetRulesCompilerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
     self.assertEqual(jetrule_ctx.ERROR, False)
     self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+
+  def test_class_def1(self):
+    fname = "classes_test.jr"
+    in_provider = InputProvider('test_data')
+
+    compiler = JetRuleCompiler()
+    # jetrule_ctx = compiler.processJetRuleFile(fname, in_provider)
+    jetrule_ctx = compiler.compileJetRuleFile(fname, in_provider)
+
+    for err in jetrule_ctx.errors:
+      print('ERROR ::',err)
+    self.assertFalse(jetrule_ctx.ERROR, "Unexpected JetRuleCompiler Errors")
+
+    data = jetrule_ctx.jetRules
+    expected = """{"resources": [{"type": "resource", "id": "owl:Thing", "value": "owl:Thing", "source_file_name": "classes_test.jr", "key": 0}, {"id": "jets:Entity", "type": "resource", "value": "jets:Entity", "source_file_name": "classes_test.jr", "key": 1}, {"id": "jets:key", "type": "resource", "value": "jets:key", "source_file_name": "classes_test.jr", "key": 2}, {"id": "hc:Claim", "type": "resource", "value": "hc:Claim", "source_file_name": "classes_test.jr", "key": 3}, {"id": "claim_number", "type": "resource", "value": "claim_number", "source_file_name": "classes_test.jr", "key": 4}, {"id": "date_of_service", "type": "resource", "value": "date_of_service", "source_file_name": "classes_test.jr", "key": 5}, {"id": "primary_diagnosis", "type": "resource", "value": "primary_diagnosis", "source_file_name": "classes_test.jr", "key": 6}, {"id": "secondary_diagnosis", "type": "resource", "value": "secondary_diagnosis", "source_file_name": "classes_test.jr", "key": 7}, {"id": "hc:MedicalClaim", "type": "resource", "value": "hc:MedicalClaim", "source_file_name": "classes_test.jr", "key": 8}, {"id": "procedure_code", "type": "resource", "value": "procedure_code", "source_file_name": "classes_test.jr", "key": 9}, {"id": "hc:PharmacyClaim", "type": "resource", "value": "hc:PharmacyClaim", "source_file_name": "classes_test.jr", "key": 10}, {"id": "ndc_code", "type": "resource", "value": "ndc_code", "source_file_name": "classes_test.jr", "key": 11}, {"id": "days_supply", "type": "resource", "value": "days_supply", "source_file_name": "classes_test.jr", "key": 12}, {"id": "dispensed_qty", "type": "resource", "value": "dispensed_qty", "source_file_name": "classes_test.jr", "key": 13}], "lookup_tables": [], "jet_rules": [], "imports": {"classes_test.jr": []}, "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "uint", "is_array": "false"}], "source_file_name": "classes_test.jr", "as_table": "false"}, {"type": "class", "name": "hc:Claim", "base_classes": ["jets:Entity"], "data_properties": [{"name": "claim_number", "type": "long", "is_array": "false"}, {"name": "date_of_service", "type": "date", "is_array": "false"}, {"name": "primary_diagnosis", "type": "text", "is_array": "false"}, {"name": "secondary_diagnosis", "type": "text", "is_array": "true"}], "source_file_name": "classes_test.jr", "as_table": "false"}, {"type": "class", "name": "hc:MedicalClaim", "base_classes": ["hc:Claim"], "data_properties": [{"name": "procedure_code", "type": "text", "is_array": "false"}], "source_file_name": "classes_test.jr", "as_table": "true"}, {"type": "class", "name": "hc:PharmacyClaim", "base_classes": ["hc:Claim"], "data_properties": [{"name": "ndc_code", "type": "text", "is_array": "false"}, {"name": "days_supply", "type": "int", "is_array": "false"}, {"name": "dispensed_qty", "type": "int", "is_array": "false"}], "source_file_name": "classes_test.jr", "as_table": "true"}], "tables": [{"type": "table", "table_name": "hc__medicalclaim", "class_name": "hc:MedicalClaim", "columns": [{"name": "claim_number", "type": "long", "is_array": "false"}, {"name": "date_of_service", "type": "date", "is_array": "false"}, {"name": "primary_diagnosis", "type": "text", "is_array": "false"}, {"name": "procedure_code", "type": "text", "is_array": "false"}, {"name": "secondary_diagnosis", "type": "text", "is_array": "true"}]}, {"type": "table", "table_name": "hc__pharmacyclaim", "class_name": "hc:PharmacyClaim", "columns": [{"name": "claim_number", "type": "long", "is_array": "false"}, {"name": "date_of_service", "type": "date", "is_array": "false"}, {"name": "days_supply", "type": "int", "is_array": "false"}, {"name": "dispensed_qty", "type": "int", "is_array": "false"}, {"name": "ndc_code", "type": "text", "is_array": "false"}, {"name": "primary_diagnosis", "type": "text", "is_array": "false"}, {"name": "secondary_diagnosis", "type": "text", "is_array": "true"}]}]}"""
+    # print()
+    # print('GOT:',json.dumps(data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(data))
+    self.assertEqual(json.dumps(data), expected)
 
 
 if __name__ == '__main__':

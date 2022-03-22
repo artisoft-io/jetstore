@@ -422,7 +422,10 @@ class JetRuleRete:
       'jet_rules': jetRules['jet_rules'],
       'imports': jetRules.get('imports', {}),
     }
-
+    if self.ctx.classes:
+      self.ctx.jetRules['classes'] = self.ctx.classes
+    if self.ctx.tables:
+      self.ctx.jetRules['tables'] = self.ctx.tables
 
   # add elm to resources, set key as pos in sequence, return key
   def _add_key(self, resources: Sequence[Dict[str, object]], elm: Dict[str, object]) -> int:

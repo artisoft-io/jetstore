@@ -51,6 +51,8 @@ class JetRuleContext:
     self.jet_rules = None
     self.defined_resources: set = None # All defined resource, populated after post processing
     self.compiler_directives = None
+    self.classes = None
+    self.tables = None
 
     self.ERROR = False
     if self.errors:
@@ -69,6 +71,8 @@ class JetRuleContext:
     self.lookup_tables = self.jetRules.get('lookup_tables')
     self.jet_rules = self.jetRules.get('jet_rules')
     self.compiler_directives = self.jetRules.get('compiler_directives')
+    self.classes = self.jetRules.get('classes')
+    self.tables = []
 
     if self.literals is None or self.resources is None or self.lookup_tables is None or self.jet_rules is None: 
       raise Exception("Invalid jetRules structure: ",self.jetRules)
@@ -104,7 +108,7 @@ class JetRuleContext:
     assert value is not None
     r = map.get(name)
     if r:
-      if source_fname:
+      if source_fname and source_fname != r.get('source_file_name'):
         self.err('Error: Creating {0} with id {1} in file {2} but it already exist in file {3}.'.format(tag, name, source_fname, r.get('source_file_name')))
       if r['value'] != value or type != r.get('type'):
         self.err('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
