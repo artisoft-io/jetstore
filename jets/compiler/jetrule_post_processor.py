@@ -1,3 +1,4 @@
+from pydoc import classname
 import sys
 from typing import Dict, Sequence
 from jetrule_context import JetRuleContext
@@ -7,6 +8,65 @@ class JetRulesPostProcessor:
 
   def __init__(self, ctx: JetRuleContext):
     self.ctx = ctx
+    self.classes_dict = {}
+
+
+  # =====================================================================================
+  # PROCESS CLASSES
+  # -------------------------------------------------------------------------------------
+  # Main Function
+  def process_classes(self):
+    if self.ctx.classes:
+      for cls in self.ctx.classes:
+        self.classes_dict[cls['name']] = cls
+      self.createResourcesForClasses()
+      self.createTablesForClasses()
+
+
+  # visit classes and create resources
+  def createResourcesForClasses(self):
+    for item in self.ctx.classes:
+      name = item.get('name')
+      source_file_name = item.get('source_file_name')
+      self.ctx.addResource(name, name, source_file_name)
+      for p in item['data_properties']:
+        name = p['name']
+        self.ctx.addResource(name, name, source_file_name)
+
+  # visit classes and create table for as_table is true
+  def createTablesForClasses(self):
+    for item in self.ctx.classes:
+      if item.get('as_table', 'false') == 'true':
+        self.ctx.tables.append({
+          'type': 'table',
+          'table_name': self.make_name(item['name']),
+          'class_name': item['name'],
+          'columns': self.make_columns(item)
+        })
+
+  def make_name(self, class_name: str) -> str:
+    return class_name.replace(':', '__').lower()
+
+  def make_columns(self, class_item: object) -> Sequence[object]:
+    columns = {}
+    for column in class_item['data_properties']:
+      columns[column['name']] = column
+
+    visited_classes = [class_item['name']]
+    for base_class_name in class_item['base_classes']:
+      if base_class_name not in visited_classes:
+        self.add_columns(columns, visited_classes, self.classes_dict[base_class_name])
+    # Flatten the columns into a list
+    return [v for k,v in sorted(columns.items())]
+
+  def add_columns(self, columns, visited_classes, class_item):
+    visited_classes.append(class_item['name'])
+    for column in class_item['data_properties']:
+      columns[column['name']] = column
+    
+
+
+
 
   # =====================================================================================
   # createResourcesForLookupTables

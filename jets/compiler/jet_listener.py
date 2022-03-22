@@ -86,6 +86,7 @@ class JetListener(JetRuleListener):
       return
 
     class_def = {
+      'type': 'class',
       'name': self.escape(ctx.className.getText()), 
       'base_classes': self.base_classes, 
       'data_properties': self.data_properties, 
