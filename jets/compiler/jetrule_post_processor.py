@@ -37,36 +37,43 @@ class JetRulesPostProcessor:
   def createTablesForClasses(self):
     for item in self.ctx.classes:
       if item.get('as_table', 'false') == 'true':
-        self.ctx.tables.append({
+        source_file_name = item.get('source_file_name')
+        table = {
           'type': 'table',
           'table_name': self.make_name(item['name']),
           'class_name': item['name'],
           'columns': self.make_columns(item)
-        })
+        }
+        if source_file_name:
+          table['source_file_name'] = source_file_name
+        self.ctx.tables.append(table)
+
 
   def make_name(self, class_name: str) -> str:
     return class_name.replace(':', '__').lower()
 
   def make_columns(self, class_item: object) -> Sequence[object]:
     columns = {}
-    for column in class_item['data_properties']:
-      columns[column['name']] = column
+    visited_classes = ['owl:Thing']
+    self.add_columns(columns, visited_classes, class_item)
 
-    visited_classes = [class_item['name']]
-    for base_class_name in class_item['base_classes']:
-      if base_class_name not in visited_classes:
-        self.add_columns(columns, visited_classes, self.classes_dict[base_class_name])
     # Flatten the columns into a list
-    return [v for k,v in sorted(columns.items())]
+    columns = [v for k,v in sorted(columns.items())]
+    # make column name vs property name
+    for column in columns:
+      column['property_name'] = column['name']
+      column['column_name'] = self.make_name(column['name'])
+      del column['name']
+    return columns
 
   def add_columns(self, columns, visited_classes, class_item):
     visited_classes.append(class_item['name'])
     for column in class_item['data_properties']:
-      columns[column['name']] = column
-    
-
-
-
+      columns[column['name']] = column.copy()
+    # do base classes recursivelly
+    for base_class_name in class_item['base_classes']:
+      if base_class_name not in visited_classes:
+        self.add_columns(columns, visited_classes, self.classes_dict[base_class_name])
 
   # =====================================================================================
   # createResourcesForLookupTables
