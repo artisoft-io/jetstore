@@ -115,9 +115,9 @@ class JetListener(JetRuleListener):
       'type': ctx.dataPType.getText(), 
     }
     if ctx.array:
-      data_property['is_array'] = 'true'
+      data_property['as_array'] = 'true'
     else:
-      data_property['is_array'] = 'false'
+      data_property['as_array'] = 'false'
     self.data_properties.append(data_property)
 
 

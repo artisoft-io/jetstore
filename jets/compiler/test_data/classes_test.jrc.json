@@ -1,0 +1,113 @@
+{
+    "main_rule_file_name": "classes_test.jr",
+    "support_rule_file_names": [],
+    "resources": [
+        {
+            "type": "resource",
+            "id": "owl:Thing",
+            "value": "owl:Thing",
+            "source_file_name": "classes_test.jr",
+            "key": 0
+        },
+        {
+            "id": "jets:Entity",
+            "type": "resource",
+            "value": "jets:Entity",
+            "source_file_name": "classes_test.jr",
+            "key": 1
+        },
+        {
+            "id": "jets:key",
+            "type": "resource",
+            "value": "jets:key",
+            "source_file_name": "classes_test.jr",
+            "key": 2
+        },
+        {
+            "id": "hc:Claim",
+            "type": "resource",
+            "value": "hc:Claim",
+            "source_file_name": "classes_test.jr",
+            "key": 3
+        },
+        {
+            "id": "claim_number",
+            "type": "resource",
+            "value": "claim_number",
+            "source_file_name": "classes_test.jr",
+            "key": 4
+        },
+        {
+            "id": "date_of_service",
+            "type": "resource",
+            "value": "date_of_service",
+            "source_file_name": "classes_test.jr",
+            "key": 5
+        },
+        {
+            "id": "primary_diagnosis",
+            "type": "resource",
+            "value": "primary_diagnosis",
+            "source_file_name": "classes_test.jr",
+            "key": 6
+        },
+        {
+            "id": "secondary_diagnosis",
+            "type": "resource",
+            "value": "secondary_diagnosis",
+            "source_file_name": "classes_test.jr",
+            "key": 7
+        },
+        {
+            "id": "hc:MedicalClaim",
+            "type": "resource",
+            "value": "hc:MedicalClaim",
+            "source_file_name": "classes_test.jr",
+            "key": 8
+        },
+        {
+            "id": "procedure_code",
+            "type": "resource",
+            "value": "procedure_code",
+            "source_file_name": "classes_test.jr",
+            "key": 9
+        },
+        {
+            "id": "hc:PharmacyClaim",
+            "type": "resource",
+            "value": "hc:PharmacyClaim",
+            "source_file_name": "classes_test.jr",
+            "key": 10
+        },
+        {
+            "id": "ndc_code",
+            "type": "resource",
+            "value": "ndc_code",
+            "source_file_name": "classes_test.jr",
+            "key": 11
+        },
+        {
+            "id": "days_supply",
+            "type": "resource",
+            "value": "days_supply",
+            "source_file_name": "classes_test.jr",
+            "key": 12
+        },
+        {
+            "id": "dispensed_qty",
+            "type": "resource",
+            "value": "dispensed_qty",
+            "source_file_name": "classes_test.jr",
+            "key": 13
+        }
+    ],
+    "lookup_tables": [],
+    "rete_nodes": [
+        {
+            "vertex": 0,
+            "parent_vertex": 0,
+            "children_vertexes": [],
+            "type": "head_node"
+        }
+    ]
+}

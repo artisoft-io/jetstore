@@ -420,7 +420,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "is_array": "false"}, {"name": "diagnosis", "type": "text", "is_array": "true"}], "as_table": "true"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "as_array": "false"}, {"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true"}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
@@ -445,7 +445,7 @@ class JetListenerTest(absltest.TestCase):
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "is_array": "false"}], "as_table": "false"}, {"type": "class", "name": "hc:MedicalClaim", "base_classes": ["jets:Entity", "hc:Claim"], "data_properties": [{"name": "diagnosis", "type": "text", "is_array": "true"}], "as_table": "true"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "as_array": "false"}], "as_table": "false"}, {"type": "class", "name": "hc:MedicalClaim", "base_classes": ["jets:Entity", "hc:Claim"], "data_properties": [{"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true"}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))

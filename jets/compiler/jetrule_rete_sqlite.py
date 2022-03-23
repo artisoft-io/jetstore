@@ -32,12 +32,15 @@ class JetRuleReteSQLite:
     self.expr_last_key = None
     self.rete_node_last_key = None
     self.beta_row_config_last_key = None
+    self.domain_classes_last_key = None
+    self.data_properties_last_key = None
+    self.domain_tables_last_key = None
     self.write_cursor = None
     self.main_rule_file_key = None
 
   # =====================================================================================
   # saveReteConfig
-  # -------------------------------------------------------------------------------------
+  # ------------------------------------------------------------------------------------- 
   def saveReteConfig(self, workspace_db: str=None) -> str:
     assert self.ctx, 'Must have a valid JetRuleContext'
     assert self.ctx.jetReteNodes, 'Must have a valid JetRuleContext.jetReteNodes'
@@ -82,54 +85,14 @@ class JetRuleReteSQLite:
         raise Exception("ERROR: main_rule_file_name '"+str(main_rule_file_name)+"' already exist in rete_db")
 
       # Get tables last key for insertion of new rows
-      self.wc_key = None
-      for k, in self.read_cursor.execute("SELECT max(key) FROM workspace_control"):
-        self.wc_key = k
-      if self.wc_key is None:
-        self.wc_key = 0
-      else:
-        self.wc_key += 1
-      # print('GOT max(self.wc_key)',self.wc_key)
-
-      # Get resources last key
-      self.resources_last_key = None
-      for k, in self.read_cursor.execute("SELECT max(key) FROM resources"):
-        self.resources_last_key = k
-      if self.resources_last_key is None:
-        self.resources_last_key = 0
-      else:
-        self.resources_last_key += 1
-      # print('GOT max(self.resources_last_key)',self.resources_last_key)
-
-      # Get expressions last key
-      self.expr_last_key = None
-      for k, in self.read_cursor.execute("SELECT max(key) FROM expressions"):
-        self.expr_last_key = k
-      if self.expr_last_key is None:
-        self.expr_last_key = 0
-      else:
-        self.expr_last_key += 1
-      # print('GOT max(self.expr_last_key)',self.expr_last_key)
-
-      # Get rete_nodes last key
-      self.rete_nodes_last_key = None
-      for k, in self.read_cursor.execute("SELECT max(key) FROM rete_nodes"):
-        self.rete_nodes_last_key = k
-      if self.rete_nodes_last_key is None:
-        self.rete_nodes_last_key = 0
-      else:
-        self.rete_nodes_last_key += 1
-      # print('GOT max(self.rete_nodes_last_key)',self.rete_nodes_last_key)
-
-      # Get beta_row_config last key
-      self.beta_row_config_last_key = None
-      for k, in self.read_cursor.execute("SELECT max(key) FROM beta_row_config"):
-        self.beta_row_config_last_key = k
-      if self.beta_row_config_last_key is None:
-        self.beta_row_config_last_key = 0
-      else:
-        self.beta_row_config_last_key += 1
-      # print('GOT max(self.beta_row_config_last_key)',self.beta_row_config_last_key)
+      self.wc_key                   = self._get_last_key('workspace_control', 'key')
+      self.resources_last_key       = self._get_last_key('resources', 'key')
+      self.expr_last_key            = self._get_last_key('expressions', 'key')
+      self.rete_nodes_last_key      = self._get_last_key('rete_nodes', 'key')
+      self.beta_row_config_last_key = self._get_last_key('beta_row_config', 'key')
+      self.domain_classes_last_key  = self._get_last_key('domain_classes', 'key')
+      self.data_properties_last_key = self._get_last_key('data_properties', 'key')
+      self.domain_tables_last_key   = self._get_last_key('domain_tables', 'key')
 
       # Open the self.write_cursor
       self.write_cursor = self.workspace_connection.cursor()
@@ -146,118 +109,24 @@ class JetRuleReteSQLite:
 
       # Add all resources to rete_db, will skip source file already in rete_db
       # -------------------------------------------------------------------------
-      resources = self.ctx.jetReteNodes['resources']
-      # print('Saving resources. . .')
-      for item in resources:
-        skey = self.rule_file_keys.get(item['source_file_name'])
-        if skey is not None:
-          key = self.resources_last_key
-          self.resources_last_key += 1
-          item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
-          row = [key, item['type'], item.get('id'), item.get('value'), item.get('symbol'),
-                item.get('is_binded'), item.get('inline'), skey, item.get('vertex'), item.get('var_pos')]
-          self.write_cursor.execute(
-            "INSERT INTO resources (key, type, id, value, symbol, is_binded, "
-              "inline, source_file_key, vertex, row_pos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-            row)
-        else:
-          # file with skey already in db, get the resource 'db_key' from the db; column key in resources table
-          key = self._get_resource_key(item['id'])
-          if key is None:
-            err = "Error while getting key for resource with id '{0}', resource not found!".format(item['id'])
-            print(err)
-            return err
-          item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+      self._save_resources()
 
+      # Add all domain classes and tables
+      # -------------------------------------------------------------------------
+      self._save_domain_classes()
+      self._save_domain_tables()
 
       # Add all lookup_table to rete_db, will skip source file already in rete_db
       # -------------------------------------------------------------------------
-      # print('Saving lookup_tables. . .')
-      for item in self.ctx.jetReteNodes['lookup_tables']:
-        skey = self.rule_file_keys.get(item['source_file_name'])
-        if skey is not None:
-          row = [item['name'], item['table'], ','.join(item['key']), ','.join(item['columns']), ','.join(item['resources']), skey]
-          self.write_cursor.execute(
-            "INSERT INTO lookup_tables (name, table_name, lookup_key, lookup_columns, lookup_resources, source_file_key) VALUES (?, ?, ?, ?, ?, ?)", 
-            row)
+      self._save_lookup_tables()
 
       # Add expressions based on filters and object expr
       # -------------------------------------------------------------------------
-      # print('Saving expressions. . .')
-      for item in self.ctx.jetReteNodes['rete_nodes']:
-        filter = item.get('filter')
-        if filter:
-          item['filter_expr_key'] = self._expr_2_key(filter)
-        obj_expr = item.get('obj_expr')
-        if obj_expr:
-          item['obj_expr_key'] = self._expr_2_key(obj_expr)
+      self._save_expressions()
 
       # Add rete_nodes to rete_nodes table
       # -------------------------------------------------------------------------
-      # print('Saving rete_nodes. . .')
-      for item in self.ctx.jetReteNodes['rete_nodes']:
-        # Get the db_key for all resources
-        subject_key = item.get('subject_key')
-        if subject_key is not None:
-          subject_key = resources[subject_key]['db_key']
-
-        predicate_key = item.get('predicate_key')
-        if predicate_key is not None:
-          predicate_key = resources[predicate_key]['db_key']
-
-        object_key = item.get('object_key')
-        if object_key is not None:
-          object_key = resources[object_key]['db_key']
-        
-        # Get the salience
-        salience = item.get('salience')
-        if salience is not None:
-          s = set(salience)
-          if len(s) > 1:
-            print('ERROR: Multiple rules have same antecedents but different salience:',item.get('rules'))
-            return 'ERROR: Multiple rules have same antecedents but different salience:'+str(item.get('rules'))
-          salience = salience[0]
-
-        # Check if multiple rules have same antecedents
-        rules = item.get('rules')
-        if rules and len(rules)>1:
-          print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
-
-        # Assign key to rete node
-        key = self.rete_nodes_last_key
-        self.rete_nodes_last_key += 1
-        
-        row = [
-          key, item['vertex'], item['type'], subject_key, predicate_key, object_key, 
-          item.get('obj_expr_key'), item.get('filter_expr_key'), 
-          item.get('normalizedLabel'), item.get('parent_vertex'), self.main_rule_file_key,
-          item.get('isNot'), salience, item.get('consequent_seq', 0)
-        ]
-        self.write_cursor.execute(
-          "INSERT INTO rete_nodes (key, vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, "
-          "normalizedLabel, parent_vertex, source_file_key, is_negation, salience, consequent_seq) "
-          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-          row)
-
-        # Add beta_row_config table
-        # -------------------------------------------------------------------------
-        # print('Saving beta_row_configs. . .')
-        beta_var_nodes = item.get('beta_var_nodes', [])
-        for seq in range(len(beta_var_nodes)):
-          bvnode = beta_var_nodes[seq]
-
-          # Assign key to beta_row_config
-          key = self.beta_row_config_last_key
-          self.beta_row_config_last_key += 1
-
-          beta_row_config = [
-            key, bvnode['vertex'], seq, self.main_rule_file_key,
-            bvnode['var_pos'], bvnode['is_binded'], bvnode['id'], 
-          ]
-          self.write_cursor.execute(
-            "INSERT INTO beta_row_config (key, vertex, seq, source_file_key, row_pos, is_binded, id)"
-            "VALUES (?, ?, ?, ?, ?, ?, ?)", 
-            beta_row_config)
+      self._save_rete_nodes()
 
       # All done, commiting the work
       # print('done')
@@ -277,6 +146,143 @@ class JetRuleReteSQLite:
     # All good here!
     return None
 
+
+  # -------------------------------------------------------------------------------------
+  # _get_last_key
+  # -------------------------------------------------------------------------------------
+  def _get_last_key(self, table_name: str, key_name: str) -> int:
+    last_key = None
+    for k, in self.read_cursor.execute(f"SELECT max({key_name}) FROM {table_name}"):
+      last_key = k
+    if last_key is None:
+      last_key = 0
+    else:
+      last_key += 1
+    # print('GOT max(self.resources_last_key)',self.resources_last_key)
+    return last_key
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_resources
+  # -------------------------------------------------------------------------------------
+  def _save_resources(self):
+    # print('Saving resources. . .')
+    for item in self.ctx.jetReteNodes['resources']:
+      skey = self.rule_file_keys.get(item['source_file_name'])
+      if skey is not None:
+        key = self.resources_last_key
+        self.resources_last_key += 1
+        item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+        row = [key, item['type'], item.get('id'), item.get('value'), item.get('symbol'),
+              item.get('is_binded'), item.get('inline'), skey, item.get('vertex'), item.get('var_pos')]
+        self.write_cursor.execute(
+          "INSERT INTO resources (key, type, id, value, symbol, is_binded, "
+            "inline, source_file_key, vertex, row_pos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+          row)
+      else:
+        # file with skey already in db, get the resource 'db_key' from the db; column key in resources table
+        key = self._get_resource_key(item['id'])
+        if key is None:
+          raise Exception("Error while getting key for resource with id '{0}', resource not found!".format(item['id']))
+        item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_domain_classes
+  # -------------------------------------------------------------------------------------
+  def _save_domain_classes(self):
+    # print('Saving resources. . .')
+    for cls in self.ctx.jetRules['classes']:
+      skey = self.rule_file_keys.get(cls['source_file_name'])
+      if skey is not None:
+        key = self.domain_classes_last_key
+        self.domain_classes_last_key += 1
+        cls['db_key'] = key                  # keep the globaly unique key for insertion in other tables
+        row = [key, cls['name'], cls.get('as_table', False), skey]
+        self.write_cursor.execute("INSERT INTO domain_classes (key, name, as_table, source_file_key) VALUES (?, ?, ?, ?)", row)
+
+        # save base classes
+        for base_cls in cls['base_classes']:
+          bckey = self._get_key('domain_classes', 'name', base_cls)
+          self.write_cursor.execute("INSERT INTO base_classes (domain_class_key, base_class_key) VALUES (?, ?)", [key, bckey])
+
+        # save domain properties
+        for property in cls['data_properties']:
+          pkey = self.data_properties_last_key
+          self.data_properties_last_key += 1
+          property['db_key'] = pkey                  # keep the globaly unique key for insertion in other tables
+          row = [pkey, key, property['name'], property['type'], property.get('as_array', False)]
+          self.write_cursor.execute("INSERT INTO data_properties (key, domain_class_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)", row)
+
+      else:
+        # file with skey already in db, get the resource 'db_key' from the db;
+        key = self._get_key('domain_classes', 'name', cls['name'])
+        if key is None:
+          raise Exception("Error while getting key for domain_classe with name '{0}', not found!".format(cls['name']))
+        cls['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+        # get the data_properties key as well
+        for property in cls['data_properties']:
+          key = self._get_key('data_properties', 'name', property['name'])
+          if key is None:
+            raise Exception("Error while getting key for data_property with name '{0}', not found!".format(property['name']))
+          property['db_key'] = key                  # keep the globaly unique key for insertion in other tables
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_domain_tables
+  # -------------------------------------------------------------------------------------
+  def _save_domain_tables(self):
+    # print('Saving domain_tables. . .')
+    for tbl in self.ctx.jetRules['tables']:
+      skey = self.rule_file_keys.get(tbl['source_file_name'])
+      if skey is not None:
+        key = self.domain_tables_last_key
+        self.domain_tables_last_key += 1
+        tbl['db_key'] = key                  # keep the globaly unique key for insertion in other tables
+        domain_class_key = self._get_key('domain_classes', 'name', tbl['class_name'])
+        row = [key, domain_class_key, tbl['table_name']]
+        self.write_cursor.execute("INSERT INTO domain_tables (key, domain_class_key, name) VALUES (?, ?, ?)", row)
+
+        # save domain columns
+        for column in tbl['columns']:
+          domain_table_key = key
+          data_property_key = self._get_key('data_properties', 'name', column['property_name'])
+          row = [domain_table_key, data_property_key, column['column_name'], column['type'], column.get('as_array', False)]
+          self.write_cursor.execute("INSERT INTO domain_columns (domain_table_key, data_property_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)", row)
+
+      else:
+        # file with skey already in db, get the resource 'db_key' from the db;
+        key = self._get_key('domain_tables', 'name', tbl['table_name'])
+        if key is None:
+          raise Exception("Error while getting key for domain_table with name '{0}', not found!".format(tbl['table_name']))
+        tbl['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+
+  # -------------------------------------------------------------------------------------
+  # _save_lookup_tables
+  # -------------------------------------------------------------------------------------
+  def _save_lookup_tables(self):
+    # print('Saving lookup tables. . .')
+    for item in self.ctx.jetReteNodes['lookup_tables']:
+      skey = self.rule_file_keys.get(item['source_file_name'])
+      if skey is not None:
+        row = [item['name'], item['table'], ','.join(item['key']), ','.join(item['columns']), ','.join(item['resources']), skey]
+        self.write_cursor.execute(
+          "INSERT INTO lookup_tables (name, table_name, lookup_key, lookup_columns, lookup_resources, source_file_key) VALUES (?, ?, ?, ?, ?, ?)", 
+          row)
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_expressions
+  # -------------------------------------------------------------------------------------
+  def _save_expressions(self):
+    # print('Saving expressions. . .')
+    for item in self.ctx.jetReteNodes['rete_nodes']:
+      filter = item.get('filter')
+      if filter:
+        item['filter_expr_key'] = self._expr_2_key(filter)
+      obj_expr = item.get('obj_expr')
+      if obj_expr:
+        item['obj_expr_key'] = self._expr_2_key(obj_expr)
 
   # -------------------------------------------------------------------------------------
   # _expr_2_key
@@ -301,7 +307,6 @@ class JetRuleReteSQLite:
       return self._persist_expr(expr)
     raise Exception('_expr_2_key: ERROR Expecting only binay or unary as type')
 
-
   # -------------------------------------------------------------------------------------
   # _persist_expr
   # -------------------------------------------------------------------------------------
@@ -323,6 +328,83 @@ class JetRuleReteSQLite:
     self.write_cursor.execute("INSERT INTO expressions (key, type, arg0_key, arg1_key, arg2_key, arg3_key, "
                               "arg4_key, arg5_key, op, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
     return key
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_rete_nodes
+  # -------------------------------------------------------------------------------------
+  def _save_rete_nodes(self):
+    # print('Saving rete_nodes. . .')
+    resources = self.ctx.jetReteNodes['resources']
+    for rete_node in self.ctx.jetReteNodes['rete_nodes']:
+      # Get the db_key for all resources
+      subject_key = rete_node.get('subject_key')
+      if subject_key is not None:
+        subject_key = resources[subject_key]['db_key']
+
+      predicate_key = rete_node.get('predicate_key')
+      if predicate_key is not None:
+        predicate_key = resources[predicate_key]['db_key']
+
+      object_key = rete_node.get('object_key')
+      if object_key is not None:
+        object_key = resources[object_key]['db_key']
+      
+      # Get the salience
+      salience = rete_node.get('salience')
+      if salience is not None:
+        s = set(salience)
+        if len(s) > 1:
+          raise Exception('ERROR: Multiple rules have same antecedents but different salience:'+str(rete_node.get('rules')))
+        salience = salience[0]
+
+      # Check if multiple rules have same antecedents
+      rules = rete_node.get('rules')
+      if rules and len(rules)>1:
+        print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
+
+      # Assign key to rete node
+      key = self.rete_nodes_last_key
+      self.rete_nodes_last_key += 1
+      
+      row = [
+        key, rete_node['vertex'], rete_node['type'], subject_key, predicate_key, object_key, 
+        rete_node.get('obj_expr_key'), rete_node.get('filter_expr_key'), 
+        rete_node.get('normalizedLabel'), rete_node.get('parent_vertex'), self.main_rule_file_key,
+        rete_node.get('isNot'), salience, rete_node.get('consequent_seq', 0)
+      ]
+      self.write_cursor.execute(
+        "INSERT INTO rete_nodes (key, vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, "
+        "normalizedLabel, parent_vertex, source_file_key, is_negation, salience, consequent_seq) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+        row)
+
+      # Add beta_row_config table
+      # -------------------------------------------------------------------------
+      self._save_beta_row_config(rete_node)
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_beta_row_config
+  # -------------------------------------------------------------------------------------
+  def _save_beta_row_config(self, rete_node: object):
+    # print('Saving beta_row_configs. . .')
+    beta_var_nodes = rete_node.get('beta_var_nodes', [])
+    for seq in range(len(beta_var_nodes)):
+      bvnode = beta_var_nodes[seq]
+
+      # Assign key to beta_row_config
+      key = self.beta_row_config_last_key
+      self.beta_row_config_last_key += 1
+
+      beta_row_config = [
+        key, bvnode['vertex'], seq, self.main_rule_file_key,
+        bvnode['var_pos'], bvnode['is_binded'], bvnode['id'], 
+      ]
+      self.write_cursor.execute(
+        "INSERT INTO beta_row_config (key, vertex, seq, source_file_key, row_pos, is_binded, id)"
+        "VALUES (?, ?, ?, ?, ?, ?, ?)", 
+        beta_row_config)
 
 
   # -------------------------------------------------------------------------------------
@@ -355,6 +437,15 @@ class JetRuleReteSQLite:
       # print('*** Got',source_file_name,'with key',k)
       return k
 
+
+  # -------------------------------------------------------------------------------------
+  # _get_key
+  # -------------------------------------------------------------------------------------
+  def _get_key(self, table_name: str, column_name: str, column_value: str) -> int:
+    # print('GET_KEY:',f"SELECT key FROM {table_name} WHERE {column_name} = '{column_value}'")
+    for k, in self.read_cursor.execute(f"SELECT key FROM {table_name} WHERE {column_name} = '{column_value}'"):
+      return k
+
   # -------------------------------------------------------------------------------------
   # _create_schema
   # -------------------------------------------------------------------------------------
@@ -370,6 +461,56 @@ class JetRuleReteSQLite:
         key                INTEGER PRIMARY KEY,
         source_file_name   STRING,
         is_main            BOOL
+      );
+
+      -- --------------------
+      -- domain_classes tables
+      -- --------------------
+      CREATE TABLE IF NOT EXISTS domain_classes (
+        key                INTEGER PRIMARY KEY,
+        name               STRING NOT NULL,
+        as_table           BOOL DEFAULT FALSE,
+        source_file_key    INTEGER NOT NULL,
+        -- domain class name must be unique in workspace
+        UNIQUE (name)
+      );
+      CREATE TABLE IF NOT EXISTS base_classes (
+        domain_class_key   INTEGER NOT NULL,
+        base_class_key     INTEGER NOT NULL,
+        UNIQUE (domain_class_key, base_class_key)
+      );
+      CREATE TABLE IF NOT EXISTS data_properties (
+        key                INTEGER PRIMARY KEY,
+        domain_class_key   INTEGER NOT NULL,
+        name               STRING NOT NULL,
+        type               STRING NOT NULL,
+        as_array           BOOL DEFAULT FALSE,
+        -- domain property name must be unique in workspace
+        UNIQUE (name)
+      );
+      INSERT INTO domain_classes (key, name, source_file_key) VALUES (0, 'owl:Thing', -1)
+        ON CONFLICT (key) DO NOTHING;
+
+      -- --------------------
+      -- domain_tables tables
+      -- --------------------
+      CREATE TABLE IF NOT EXISTS domain_tables (
+        key                INTEGER PRIMARY KEY,
+        domain_class_key   INTEGER NOT NULL,
+        name               STRING NOT NULL,
+        -- domain table name must be unique since domain_class are unique
+        UNIQUE (name)
+      );
+      CREATE TABLE IF NOT EXISTS domain_columns (
+        domain_table_key   INTEGER NOT NULL,
+        data_property_key  INTEGER NOT NULL,
+        name               STRING NOT NULL,
+        type               STRING NOT NULL,
+        as_array           BOOL DEFAULT FALSE,
+        -- a column must appear only once in a table
+        UNIQUE (domain_table_key, data_property_key),
+        -- a column name must be unique for a table
+        UNIQUE (domain_table_key, name)
       );
 
       -- --------------------
@@ -459,9 +600,10 @@ class JetRuleReteSQLite:
       -- --------------------
       CREATE TABLE IF NOT EXISTS schema_info (
         version_major      INTEGER NOT NULL,
-        version_minor      INTEGER NOT NULL
+        version_minor      INTEGER NOT NULL,
+        UNIQUE (version_major, version_minor)
       );
-      INSERT INTO schema_info (version_major, version_minor) 
-        VALUES (1, 0);
+      INSERT INTO schema_info (version_major, version_minor) VALUES (1, 0)
+        ON CONFLICT (version_major, version_minor) DO NOTHING;
     """)
     cursor = None
