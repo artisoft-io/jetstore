@@ -35,6 +35,7 @@ class JetRuleReteSQLite:
     self.domain_classes_last_key = None
     self.data_properties_last_key = None
     self.domain_tables_last_key = None
+    self.lookup_tables_last_key = None
     self.write_cursor = None
     self.main_rule_file_key = None
 
@@ -93,6 +94,7 @@ class JetRuleReteSQLite:
       self.domain_classes_last_key  = self._get_last_key('domain_classes', 'key')
       self.data_properties_last_key = self._get_last_key('data_properties', 'key')
       self.domain_tables_last_key   = self._get_last_key('domain_tables', 'key')
+      self.lookup_tables_last_key   = self._get_last_key('lookup_tables', 'key')
 
       # Open the self.write_cursor
       self.write_cursor = self.workspace_connection.cursor()
@@ -167,7 +169,7 @@ class JetRuleReteSQLite:
   # -------------------------------------------------------------------------------------
   def _save_resources(self):
     # print('Saving resources. . .')
-    for item in self.ctx.jetReteNodes['resources']:
+    for item in self.ctx.jetReteNodes.get('resources',[]):
       skey = self.rule_file_keys.get(item['source_file_name'])
       if skey is not None:
         key = self.resources_last_key
@@ -191,8 +193,7 @@ class JetRuleReteSQLite:
   # _save_domain_classes
   # -------------------------------------------------------------------------------------
   def _save_domain_classes(self):
-    # print('Saving resources. . .')
-    for cls in self.ctx.jetRules['classes']:
+    for cls in self.ctx.jetRules.get('classes', []):
       skey = self.rule_file_keys.get(cls['source_file_name'])
       if skey is not None:
         key = self.domain_classes_last_key
@@ -233,7 +234,7 @@ class JetRuleReteSQLite:
   # -------------------------------------------------------------------------------------
   def _save_domain_tables(self):
     # print('Saving domain_tables. . .')
-    for tbl in self.ctx.jetRules['tables']:
+    for tbl in self.ctx.jetRules.get('tables', []):
       skey = self.rule_file_keys.get(tbl['source_file_name'])
       if skey is not None:
         key = self.domain_tables_last_key
@@ -262,21 +263,29 @@ class JetRuleReteSQLite:
   # -------------------------------------------------------------------------------------
   def _save_lookup_tables(self):
     # print('Saving lookup tables. . .')
-    for item in self.ctx.jetReteNodes['lookup_tables']:
+    for item in self.ctx.jetReteNodes.get('lookup_tables', []):
       skey = self.rule_file_keys.get(item['source_file_name'])
       if skey is not None:
-        row = [item['name'], item['table'], ','.join(item['key']), ','.join(item['columns']), ','.join(item['resources']), skey]
+        key = self.lookup_tables_last_key
+        self.lookup_tables_last_key += 1
+        item['db_key'] = key                  # keep the globaly unique key for insertion in other tables
+        row = [key, item['name'], item.get('table'), item.get('csv_file'), ','.join(item['key']), ','.join(item['resources']), skey]
         self.write_cursor.execute(
-          "INSERT INTO lookup_tables (name, table_name, lookup_key, lookup_columns, lookup_resources, source_file_key) VALUES (?, ?, ?, ?, ?, ?)", 
+          "INSERT INTO lookup_tables (key, name, table_name, csv_file, lookup_key, lookup_resources, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?)", 
           row)
-
+        
+        for column in item['columns']:
+          row = [key, column['name'], column['type'], column.get('as_array', False)]
+          self.write_cursor.execute(
+            "INSERT INTO lookup_columns (lookup_table_key, name, type, as_array) VALUES (?, ?, ?, ?)", 
+            row)
 
   # -------------------------------------------------------------------------------------
   # _save_expressions
   # -------------------------------------------------------------------------------------
   def _save_expressions(self):
     # print('Saving expressions. . .')
-    for item in self.ctx.jetReteNodes['rete_nodes']:
+    for item in self.ctx.jetReteNodes.get('rete_nodes',[]):
       filter = item.get('filter')
       if filter:
         item['filter_expr_key'] = self._expr_2_key(filter)
@@ -335,8 +344,8 @@ class JetRuleReteSQLite:
   # -------------------------------------------------------------------------------------
   def _save_rete_nodes(self):
     # print('Saving rete_nodes. . .')
-    resources = self.ctx.jetReteNodes['resources']
-    for rete_node in self.ctx.jetReteNodes['rete_nodes']:
+    resources = self.ctx.jetReteNodes.get('resources')
+    for rete_node in self.ctx.jetReteNodes.get('rete_nodes',[]):
       # Get the db_key for all resources
       subject_key = rete_node.get('subject_key')
       if subject_key is not None:
@@ -533,13 +542,22 @@ class JetRuleReteSQLite:
       -- lookup_tables table
       -- --------------------
       CREATE TABLE IF NOT EXISTS lookup_tables (
+        key                INTEGER PRIMARY KEY,
         name               STRING NOT NULL,
         table_name         STRING,
+        csv_file           STRING,
         lookup_key         STRING,
-        lookup_columns     STRING,
         lookup_resources   STRING,
         source_file_key    INTEGER NOT NULL,
-        PRIMARY KEY (name, source_file_key)
+        UNIQUE (name, source_file_key)
+      );
+      CREATE TABLE IF NOT EXISTS lookup_columns (
+        lookup_table_key   INTEGER NOT NULL,
+        name               STRING NOT NULL,
+        type               STRING NOT NULL,
+        as_array           BOOL DEFAULT FALSE,
+        -- a column name must be unique for a table
+        UNIQUE (lookup_table_key, name)
       );
 
       -- --------------------

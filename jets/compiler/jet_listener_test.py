@@ -178,36 +178,48 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
     
-  def test_lookup_table(self):
+  def test_lookup_table1(self):
     data = """
       # =======================================================================================
       # Defining Lookup Tables
       # ---------------------------------------------------------------------------------------
-      # lookup example based on USI: *include-lookup* "CM/Procedure CM.trd"
       # Note: Legacy trd lookup table will have to be converted to csv
       # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
       lookup_table acme:ProcedureLookup {
         $table_name = acme__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
-        $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
-
+        $key = ["PROC_CODE"],
         # Value columns, corresponding resource automatically created
-        $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
-      };
-
-      # Another example that is already acmeng a csv file 
-      # based on USI: *include-lookup* "MSK/MSK_DRG_TRIGGER.lookup"
-      lookup_table MSK_DRG_TRIGGER {
-        $table_name = acme__msk_trigger_drg_codes,         # main table
-        $key = ["DRG"],                                   # Lookup key
-
-        # Value columns, corresponding resource automatically created
-        # Data type based on columns type
-        $columns = ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]
+        $columns = ["PROC_RID" as int, "PROC_MID" as text, "PROC_DESC" as text]
       };
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"]}, {"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]}], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [{"type": "lookup", "name": "acme:ProcedureLookup", "key": ["PROC_CODE"], "columns": [{"name": "PROC_RID", "type": "int", "as_array": "false"}, {"name": "PROC_MID", "type": "text", "as_array": "false"}, {"name": "PROC_DESC", "type": "text", "as_array": "false"}], "table": "acme__cm_proc_codes"}], "jet_rules": []}"""
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+    
+  def test_lookup_table2(self):
+    data = """
+      # =======================================================================================
+      # Defining Lookup Tables
+      # ---------------------------------------------------------------------------------------
+      # Using a csv file as source of lookup table
+      lookup_table LookupWithCSV {
+        $csv_file = "/work/csv/file1.csv",      # csv file location
+        $key = ["KEY1", "KEY2"],
+        # Value columns, corresponding resource automatically created if legal
+        $columns = [
+          "PROC_RID" as int,   
+          "PROC_MID" as text,  
+          "PROC_DESC" as text  
+        ],
+      };
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [{"type": "lookup", "name": "LookupWithCSV", "key": ["KEY1", "KEY2"], "columns": [{"name": "PROC_RID", "type": "int", "as_array": "false"}, {"name": "PROC_MID", "type": "text", "as_array": "false"}, {"name": "PROC_DESC", "type": "text", "as_array": "false"}], "csv_file": "/work/csv/file1.csv"}], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))

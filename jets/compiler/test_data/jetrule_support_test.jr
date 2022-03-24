@@ -54,11 +54,14 @@ volatile_resource medicareRateObj262     = "medicareRateObj262";
 # Note: Legacy trd lookup table will have to be converted to csv
 # Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
 lookup_table acme:ProcedureLookup {
-  $table_name = usi__cm_proc_codes,       # Table name where the data reside (loaded from trd file)
-  $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
-
-  # Value columns, corresponding resource automatically created
-  $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
+  $csv_file = "/work/buckets/mylookup.csv",    # csv file location
+  $key = ["EVENT_DURATION"],                   # Key columns, resource PROC_CODE automatically created
+  $columns = [
+    "EVENT_DURATION" as int,
+    "PROC_RID" as long,
+    "FROM_DATE" as date,
+    "EXCL" as array of text
+  ]
 };
 
 # Another example that is already using a csv file 
@@ -69,7 +72,7 @@ lookup_table MSK_DRG_TRIGGER {
 
   # Value columns, corresponding resource automatically created
   # Data type based on columns type
-  $columns = ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]
+  $columns = ["MSK_AREA_DRG_TRIGGER_ONLY" as text, "MSK_TAG" as text, "TRIGGER_TAG_DRG_ONLY" as text]
 };
 
 

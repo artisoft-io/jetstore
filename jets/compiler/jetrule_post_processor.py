@@ -79,6 +79,36 @@ class JetRulesPostProcessor:
   # createResourcesForLookupTables
   # -------------------------------------------------------------------------------------
   # visit lookup tables data structure to create resources corresponding to table names
+    # "lookup_tables": [
+    #     {
+    #         "type": "lookup",
+    #         "name": "acme:ProcedureLookup",
+    #         "key": [
+    #             "EVENT_DURATION"
+    #         ],
+    #         "columns": [
+    #             {
+    #                 "name": "EVENT_DURATION",
+    #                 "type": "int",
+    #                 "as_array": "false"
+    #             },
+    #             {
+    #                 "name": "EXCL",
+    #                 "type": "text",
+    #                 "as_array": "true"
+    #             }
+    #         ],
+  # also create resource for columns' name that is legal and does not exist as a resource
+  def is_legal_identifier(self, text: str)-> bool:
+    if not text: 
+      return False
+    if not text[0].isalpha():
+      return False
+    for c in text:
+      if not c.isalnum() and c != '_':
+        return False
+    return True
+  
   def createResourcesForLookupTables(self):
     for item in self.ctx.lookup_tables:
       name = item.get('name')
@@ -87,14 +117,11 @@ class JetRulesPostProcessor:
       columns = item['columns']
       resources = []
       for column in columns:
-        rname = ''        
-        for c in column:
-          if not c.isalnum():
-            c = '_'
-          rname += c
-        value = 'c' + rname.upper()
-        self.ctx.addResource(value, column, source_file_name)
-        resources.append(value)
+        column_name = column['name']
+        if self.is_legal_identifier(column_name):
+          if not self.ctx.getResource(column_name):
+            self.ctx.addResource(column_name, column_name, source_file_name)
+            resources.append(column_name)
       item['resources'] = resources
 
 

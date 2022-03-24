@@ -33,15 +33,17 @@ class JetRulesCompilerTest(absltest.TestCase):
   def test_import1(self):
     jetrule_ctx = self._get_from_file("import_test1.jr")
 
+    if jetrule_ctx.errors:
+      for err in jetrule_ctx.errors:
+        print('1***', err)
+      print('1***')
     self.assertEqual(jetrule_ctx.ERROR, False)
 
     # validate the whole result
-    expected = """{"resources": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "import_test1.jr", "key": 0}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT", "source_file_name": "import_test1.jr", "key": 1}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE", "source_file_name": "import_test1.jr", "key": 2}, {"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup", "source_file_name": "import_test11.jr", "key": 3}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID", "source_file_name": "import_test11.jr", "key": 4}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID", "source_file_name": "import_test11.jr", "key": 5}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC", "source_file_name": "import_test11.jr", "key": 6}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "source_file_name": "import_test11.jr", "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": [], "imports": {"import_test1.jr": ["import_test11.jr"]}}"""
+    expected = """{"resources": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "import_test1.jr", "key": 0}, {"type": "text", "id": "NOT_IN_CONTRACT", "value": "NOT COVERED IN CONTRACT", "source_file_name": "import_test1.jr", "key": 1}, {"type": "text", "id": "EXCLUDED_STATE", "value": "STATE", "source_file_name": "import_test1.jr", "key": 2}, {"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup", "source_file_name": "import_test11.jr", "key": 3}, {"id": "PROC_RID", "type": "resource", "value": "PROC_RID", "source_file_name": "import_test11.jr", "key": 4}, {"id": "PROC_MID", "type": "resource", "value": "PROC_MID", "source_file_name": "import_test11.jr", "key": 5}, {"id": "PROC_DESC", "type": "resource", "value": "PROC_DESC", "source_file_name": "import_test11.jr", "key": 6}], "lookup_tables": [{"type": "lookup", "name": "acme:ProcedureLookup", "key": ["PROC_CODE"], "columns": [{"name": "PROC_RID", "type": "text", "as_array": "false"}, {"name": "PROC_MID", "type": "text", "as_array": "false"}, {"name": "PROC_DESC", "type": "text", "as_array": "false"}], "table": "acme__cm_proc_codes", "source_file_name": "import_test11.jr", "resources": ["PROC_RID", "PROC_MID", "PROC_DESC"]}], "jet_rules": [], "imports": {"import_test1.jr": ["import_test11.jr"]}}"""
     # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
-
-    # validate the whole result
     self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
 
   def test_import2(self):
@@ -80,14 +82,13 @@ class JetRulesCompilerTest(absltest.TestCase):
     # for err in jetrule_ctx.errors:
     #   print('4***', err)
     # print('4***')
-
     self.assertEqual(jetrule_ctx.ERROR, True)
 
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test4.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test41.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test42.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
-
+ 
     self.assertEqual(len(jetrule_ctx.errors), 4)
 
 

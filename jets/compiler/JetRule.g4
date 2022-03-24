@@ -124,16 +124,24 @@ resourceValue
 // --------------------------------------------------------------------------------------
 lookupTableStmt: LookupTable lookupName=declIdentifier '{' 
     COMMENT*
-    TableName ASSIGN tblStorageName=Identifier ',' 
+    csvLocation
     COMMENT*
     Key ASSIGN tblKeys=stringList ',' 
     COMMENT*
-    Columns ASSIGN tblColumns=stringList 
+    Columns ASSIGN '[' columnDefinitions ']' ','?
     COMMENT*
   '}' SEMICOLON;
 
+csvLocation
+  : TableName ASSIGN tblStorageName=Identifier ',' 
+  | CSVFileName ASSIGN csvFileName=STRING ','
+  ;
+
 stringList: '[' seqCtx=stringSeq? ']';
 stringSeq: slist+=STRING (',' slist+=STRING)* ;
+
+columnDefinitions: 
+  columnName=STRING 'as' array=ARRAY? columnType=dataPropertyType (',' columnDefinitions)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Jet Rule
@@ -252,6 +260,7 @@ CreateUUIDResource: 'create_uuid_resource()';
 // Properties for lookup tables
 LookupTable: 'lookup_table';
 TableName: '$table_name';
+CSVFileName: '$csv_file';
 Key: '$key';
 Columns: '$columns';
 

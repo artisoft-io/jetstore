@@ -183,16 +183,49 @@ class JetListener(JetRuleListener):
   # =====================================================================================
   # Lookup Tables
   # -------------------------------------------------------------------------------------
+  # Enter a parse tree produced by JetRuleParser#lookupTableStmt.
+  def enterLookupTableStmt(self, ctx:JetRuleParser.LookupTableStmtContext):
+      self.columnsDefs = []
+
+  # Exit a parse tree produced by JetRuleParser#columnDefinitions.
+  def exitColumnDefinitions(self, ctx:JetRuleParser.ColumnDefinitionsContext):
+    if not ctx.columnName or not ctx.columnType: return
+    columnsDef = {
+      'name': self.escapeString(ctx.columnName.text),
+      'type': ctx.columnType.getText(), 
+    }
+    if ctx.array:
+      columnsDef['as_array'] = 'true'
+    else:
+      columnsDef['as_array'] = 'false'
+    self.columnsDefs.append(columnsDef)
+
   def exitLookupTableStmt(self, ctx:JetRuleParser.LookupTableStmtContext):
-    if not ctx.tblStorageName: return
+    csvLocationCtx: JetRuleParser.CsvLocationContext = ctx.csvLocation()
+    if not csvLocationCtx: return
+    if not csvLocationCtx.tblStorageName and not csvLocationCtx.csvFileName: return
     if not ctx.tblKeys: return
+    
     keys = []
     for v in ctx.tblKeys.seqCtx.slist:
       keys.append(self.escapeString(v.text))
-    columns = []
-    for v in ctx.tblColumns.seqCtx.slist:
-      columns.append(self.escapeString(v.text))
-    lookupTbl = {'name': ctx.lookupName.getText(), 'table': ctx.tblStorageName.text, 'key': keys, 'columns': columns}
+
+    self.columnsDefs.reverse()
+    lookupTbl = {
+      'type': 'lookup',
+      'name': ctx.lookupName.getText(), 
+      'key': keys, 
+      'columns': self.columnsDefs
+    }
+
+    # case it's from a table
+    if csvLocationCtx.tblStorageName:
+      lookupTbl['table'] = csvLocationCtx.tblStorageName.text
+
+    # case it's from a csv file
+    if csvLocationCtx.csvFileName:
+      lookupTbl['csv_file'] = self.escapeString(csvLocationCtx.csvFileName.text)
+    
     if self.current_file_name:
       lookupTbl['source_file_name'] = self.current_file_name
     self.lookups.append(lookupTbl)

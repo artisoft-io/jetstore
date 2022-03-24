@@ -154,3 +154,6 @@ class JetRuleContext:
       self.defined_resources.add(name)
       return name
     return None
+
+  def getResource(self, name: str) -> (object or None):
+    return self.resourceMap.get(name)
