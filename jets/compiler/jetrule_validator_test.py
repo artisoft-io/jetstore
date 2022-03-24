@@ -161,33 +161,22 @@ class JetRulesValidatorTest(absltest.TestCase):
         $key = ["DRG", "DRG2"],                            # composite Lookup key
 
         # Using column names that need fixing to become resource name
-        $columns = ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%", "#%#"]
+        $columns = ["MSK (9)" as text, "$TAG(3)" as text, "TRIGGER+" as text, "DRG" as text, "123" as text, "#%%" as text, "#%#" as text]
       };
     """
     jetrule_ctx = self._get_augmented_data(data)
     postprocessed_data = jetrule_ctx.jetRules
 
     # Error on generate resources
-    self.assertEqual(jetrule_ctx.ERROR, True)
-    self.assertEqual(jetrule_ctx.errors[0], 'Error: Creating resource with id c___ that already exist with a different definition.')
-    self.assertEqual(len(jetrule_ctx.errors), 1)
+    self.assertEqual(jetrule_ctx.ERROR, False)
 
     # Validate the output
-    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK__9_", "type": "resource", "value": "MSK (9)"}, {"id": "c_TAG_3_", "type": "resource", "value": "$TAG(3)"}, {"id": "cTRIGGER_", "type": "resource", "value": "TRIGGER+"}, {"id": "cDRG", "type": "resource", "value": "DRG"}, {"id": "c123", "type": "resource", "value": "123"}, {"id": "c___", "type": "resource", "value": "#%%"}, {"id": "c___", "type": "resource", "value": "#%#"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG", "DRG2"], "columns": ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%", "#%#"], "resources": ["cMSK__9_", "c_TAG_3_", "cTRIGGER_", "cDRG", "c123", "c___", "c___"]}], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "DRG", "type": "resource", "value": "DRG"}], "lookup_tables": [{"type": "lookup", "name": "MSK_DRG_TRIGGER", "key": ["DRG", "DRG2"], "columns": [{"name": "MSK (9)", "type": "text", "as_array": "false"}, {"name": "$TAG(3)", "type": "text", "as_array": "false"}, {"name": "TRIGGER+", "type": "text", "as_array": "false"}, {"name": "DRG", "type": "text", "as_array": "false"}, {"name": "123", "type": "text", "as_array": "false"}, {"name": "#%%", "type": "text", "as_array": "false"}, {"name": "#%#", "type": "text", "as_array": "false"}], "table": "acme__msk_trigger_drg_codes", "resources": ["DRG"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
-
-    # validate the output
     self.assertEqual(json.dumps(postprocessed_data), expected)
 
-    # Validate the error is still reported via the rule validation even if there are no rules
-    validator = JetRuleValidator(jetrule_ctx)
-    is_valid = validator.validateJetRule()
-    # print('*** VALIDATE LOOKUP1: is_valid?',is_valid,'jetrule_ctx.ERROR?',jetrule_ctx.ERROR)
-    self.assertEqual(is_valid, False)
-    self.assertEqual(jetrule_ctx.ERROR, True)
-    # print('*** Errors?',jetrule_ctx.errors)
 
   def test_validate_keyword1(self):
     data = """

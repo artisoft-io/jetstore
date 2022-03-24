@@ -10,5 +10,5 @@ lookup_table acme:lookup_table {      # no good
   $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
 
   # Value columns, corresponding resource automatically created
-  $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
+  $columns = ["PROC_RID" as text, "PROC_MID" as text, "PROC_DESC" as text]
 };

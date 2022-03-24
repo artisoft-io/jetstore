@@ -251,6 +251,15 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#csvLocation.
+    def enterCsvLocation(self, ctx:JetRuleParser.CsvLocationContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#csvLocation.
+    def exitCsvLocation(self, ctx:JetRuleParser.CsvLocationContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#stringList.
     def enterStringList(self, ctx:JetRuleParser.StringListContext):
         pass
@@ -266,6 +275,15 @@ class JetRuleListener(ParseTreeListener):
 
     # Exit a parse tree produced by JetRuleParser#stringSeq.
     def exitStringSeq(self, ctx:JetRuleParser.StringSeqContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#columnDefinitions.
+    def enterColumnDefinitions(self, ctx:JetRuleParser.ColumnDefinitionsContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#columnDefinitions.
+    def exitColumnDefinitions(self, ctx:JetRuleParser.ColumnDefinitionsContext):
         pass
 
 

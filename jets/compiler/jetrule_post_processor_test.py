@@ -40,13 +40,13 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         $key = ["PROC_CODE"],                   # Key columns, resource PROC_CODE automatically created
 
         # Value columns, corresponding resource automatically created
-        $columns = ["PROC_RID", "PROC_MID", "PROC_DESC"]
+        $columns = ["PROC_RID" as text, "PROC_MID" as text, "PROC_DESC" as text]
       };
     """
     postprocessed_data = self._get_augmented_data(data)
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "cPROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "cPROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "cPROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"name": "acme:ProcedureLookup", "table": "acme__cm_proc_codes", "key": ["PROC_CODE"], "columns": ["PROC_RID", "PROC_MID", "PROC_DESC"], "resources": ["cPROC_RID", "cPROC_MID", "cPROC_DESC"]}], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [{"id": "acme:ProcedureLookup", "type": "resource", "value": "acme:ProcedureLookup"}, {"id": "PROC_RID", "type": "resource", "value": "PROC_RID"}, {"id": "PROC_MID", "type": "resource", "value": "PROC_MID"}, {"id": "PROC_DESC", "type": "resource", "value": "PROC_DESC"}], "lookup_tables": [{"type": "lookup", "name": "acme:ProcedureLookup", "key": ["PROC_CODE"], "columns": [{"name": "PROC_RID", "type": "text", "as_array": "false"}, {"name": "PROC_MID", "type": "text", "as_array": "false"}, {"name": "PROC_DESC", "type": "text", "as_array": "false"}], "table": "acme__cm_proc_codes", "resources": ["PROC_RID", "PROC_MID", "PROC_DESC"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -60,13 +60,13 @@ class JetRulesPostProcessorTest(absltest.TestCase):
 
         # Value columns, corresponding resource automatically created
         # Data type based on columns type
-        $columns = ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]
+        $columns = ["MSK_AREA_DRG_TRIGGER_ONLY" as text, "MSK_TAG" as text, "TRIGGER_TAG_DRG_ONLY" as text, "DRG" as text, "OVERLAP" as text, "USE_ANESTHESIA" as text]
       };
     """
     postprocessed_data = self._get_augmented_data(data)
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK_AREA_DRG_TRIGGER_ONLY", "type": "resource", "value": "MSK_AREA_DRG_TRIGGER_ONLY"}, {"id": "cMSK_TAG", "type": "resource", "value": "MSK_TAG"}, {"id": "cTRIGGER_TAG_DRG_ONLY", "type": "resource", "value": "TRIGGER_TAG_DRG_ONLY"}, {"id": "cDRG", "type": "resource", "value": "DRG"}, {"id": "cOVERLAP", "type": "resource", "value": "OVERLAP"}, {"id": "cUSE_ANESTHESIA", "type": "resource", "value": "USE_ANESTHESIA"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG"], "columns": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"], "resources": ["cMSK_AREA_DRG_TRIGGER_ONLY", "cMSK_TAG", "cTRIGGER_TAG_DRG_ONLY", "cDRG", "cOVERLAP", "cUSE_ANESTHESIA"]}], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "MSK_AREA_DRG_TRIGGER_ONLY", "type": "resource", "value": "MSK_AREA_DRG_TRIGGER_ONLY"}, {"id": "MSK_TAG", "type": "resource", "value": "MSK_TAG"}, {"id": "TRIGGER_TAG_DRG_ONLY", "type": "resource", "value": "TRIGGER_TAG_DRG_ONLY"}, {"id": "DRG", "type": "resource", "value": "DRG"}, {"id": "OVERLAP", "type": "resource", "value": "OVERLAP"}, {"id": "USE_ANESTHESIA", "type": "resource", "value": "USE_ANESTHESIA"}], "lookup_tables": [{"type": "lookup", "name": "MSK_DRG_TRIGGER", "key": ["DRG"], "columns": [{"name": "MSK_AREA_DRG_TRIGGER_ONLY", "type": "text", "as_array": "false"}, {"name": "MSK_TAG", "type": "text", "as_array": "false"}, {"name": "TRIGGER_TAG_DRG_ONLY", "type": "text", "as_array": "false"}, {"name": "DRG", "type": "text", "as_array": "false"}, {"name": "OVERLAP", "type": "text", "as_array": "false"}, {"name": "USE_ANESTHESIA", "type": "text", "as_array": "false"}], "table": "acme__msk_trigger_drg_codes", "resources": ["MSK_AREA_DRG_TRIGGER_ONLY", "MSK_TAG", "TRIGGER_TAG_DRG_ONLY", "DRG", "OVERLAP", "USE_ANESTHESIA"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
@@ -80,13 +80,13 @@ class JetRulesPostProcessorTest(absltest.TestCase):
         $key = ["DRG", "DRG2"],                               # composite Lookup key
 
         # Using column names that need fixing to become resource name
-        $columns = ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%"]
+        $columns = ["MSK (9)" as text, "$TAG(3)" as text, "TRIGGER+" as text, "DRG" as text, "123" as text, "#%%" as text]
       };
     """
     postprocessed_data = self._get_augmented_data(data)
 
     # validate the whole result
-    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "cMSK__9_", "type": "resource", "value": "MSK (9)"}, {"id": "c_TAG_3_", "type": "resource", "value": "$TAG(3)"}, {"id": "cTRIGGER_", "type": "resource", "value": "TRIGGER+"}, {"id": "cDRG", "type": "resource", "value": "DRG"}, {"id": "c123", "type": "resource", "value": "123"}, {"id": "c___", "type": "resource", "value": "#%%"}], "lookup_tables": [{"name": "MSK_DRG_TRIGGER", "table": "acme__msk_trigger_drg_codes", "key": ["DRG", "DRG2"], "columns": ["MSK (9)", "$TAG(3)", "TRIGGER+", "DRG", "123", "#%%"], "resources": ["cMSK__9_", "c_TAG_3_", "cTRIGGER_", "cDRG", "c123", "c___"]}], "jet_rules": []}"""
+    expected = """{"literals": [], "resources": [{"id": "MSK_DRG_TRIGGER", "type": "resource", "value": "MSK_DRG_TRIGGER"}, {"id": "DRG", "type": "resource", "value": "DRG"}], "lookup_tables": [{"type": "lookup", "name": "MSK_DRG_TRIGGER", "key": ["DRG", "DRG2"], "columns": [{"name": "MSK (9)", "type": "text", "as_array": "false"}, {"name": "$TAG(3)", "type": "text", "as_array": "false"}, {"name": "TRIGGER+", "type": "text", "as_array": "false"}, {"name": "DRG", "type": "text", "as_array": "false"}, {"name": "123", "type": "text", "as_array": "false"}, {"name": "#%%", "type": "text", "as_array": "false"}], "table": "acme__msk_trigger_drg_codes", "resources": ["DRG"]}], "jet_rules": []}"""
     # print('GOT:',json.dumps(postprocessed_data, indent=2))
     # print()
     # print('COMPACT:',json.dumps(postprocessed_data))
