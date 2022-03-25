@@ -5,31 +5,35 @@
 resource owl:Thing = "owl:Thing";
 
 class jets:Entity {
-  $sub_class_of = owl:Thing,
-  $data_property = jets:key as uint,
+  $base_classes = [owl:Thing],
+  $data_properties = [jets:key as uint],
   $as_table = false
 };
 
 class hc:Claim {
   # This is an example of a domain class
-  $sub_class_of = jets:Entity,
-  $data_property = claim_number as long,
-  $data_property = date_of_service as date,
-  $data_property = primary_diagnosis as text,
-  $data_property = secondary_diagnosis as array of text,
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    claim_number as long,
+    date_of_service as date,
+     primary_diagnosis as text,
+     secondary_diagnosis as array of text
+  ],
   $as_table = false
 };
 
 class hc:MedicalClaim {
-  $sub_class_of = hc:Claim,
-  $data_property = procedure_code as text,
+  $base_classes = [hc:Claim],
+  $data_properties = [procedure_code as text],
   $as_table = true
 };
 
 class hc:PharmacyClaim {
-  $sub_class_of = hc:Claim,
-  $data_property = ndc_code as text,
-  $data_property = days_supply as int,
-  $data_property = dispensed_qty as int,
+  $base_classes = [hc:Claim],
+  $data_properties = [
+    ndc_code as text,
+    days_supply as int,
+    dispensed_qty as int
+  ],
   $as_table = true
 };

@@ -85,6 +85,8 @@ class JetListener(JetRuleListener):
     if not ctx.className:
       return
 
+    self.base_classes.reverse()
+    self.data_properties.reverse()
     class_def = {
       'type': 'class',
       'name': self.escape(ctx.className.getText()), 
@@ -106,8 +108,8 @@ class JetListener(JetRuleListener):
   def exitAsTableStmt(self, ctx:JetRuleParser.AsTableStmtContext):
     self.as_table = ctx.asTable.getText()
 
-  # Exit a parse tree produced by JetRuleParser#dataPropertyStmt.
-  def exitDataPropertyStmt(self, ctx:JetRuleParser.DataPropertyStmtContext):
+  # Exit a parse tree produced by JetRuleParser#dataPropertyDefinitions.
+  def exitDataPropertyDefinitions(self, ctx:JetRuleParser.DataPropertyDefinitionsContext):
     if not ctx.dataPName or not ctx.dataPType:
       return
     data_property = {
@@ -126,19 +128,24 @@ class JetListener(JetRuleListener):
   # -------------------------------------------------------------------------------------
   def exitInt32LiteralStmt(self, ctx:JetRuleParser.Int32LiteralStmtContext):
     # print('@@@ exitInt32LiteralStmt ::',ctx.Int32Type(),'::',ctx.declIdentifier(),'::',ctx.ASSIGN(),'::',ctx.intExpr(),'||+',ctx.declValue.PLUS(),'||-',ctx.declValue.MINUS(),'||D',ctx.declValue.DIGITS())
-    self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
 
   def exitUInt32LiteralStmt(self, ctx:JetRuleParser.UInt32LiteralStmtContext):
-    self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
 
   def exitInt64LiteralStmt(self, ctx:JetRuleParser.Int64LiteralStmtContext):
-    self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
 
   def exitUInt64LiteralStmt(self, ctx:JetRuleParser.UInt64LiteralStmtContext):
-    self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
 
   def exitDoubleLiteralStmt(self, ctx:JetRuleParser.DoubleLiteralStmtContext):
-    self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value':  ctx.declValue.getText()})
 
   def exitStringLiteralStmt(self, ctx:JetRuleParser.StringLiteralStmtContext):
     if ctx.varType and ctx.varName and ctx.declValue:
