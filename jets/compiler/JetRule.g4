@@ -32,18 +32,16 @@ jetCompilerDirectiveStmt:
 // --------------------------------------------------------------------------------------
 defineClassStmt: CLASS className=declIdentifier '{' 
     COMMENT*
-    (subClassOfStmt)+
+    BaseClasses ASSIGN '[' COMMENT* subClassOfStmt COMMENT* ']' ','
     COMMENT*
-    (dataPropertyStmt)+
-    COMMENT*
+    DataProperties ASSIGN '[' COMMENT* dataPropertyDefinitions COMMENT* ']'
     (asTableStmt)?
     COMMENT*
   '}' SEMICOLON;
 
-subClassOfStmt: SubClassOf ASSIGN baseClassName=declIdentifier ',';
-dataPropertyStmt: DataProperty ASSIGN dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType ',';
-asTableStmt: AsTable ASSIGN asTable=asTableFlag;
-
+subClassOfStmt: baseClassName=declIdentifier (',' COMMENT* subClassOfStmt)* ;
+dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType (',' COMMENT* dataPropertyDefinitions)* ;
+asTableStmt: ',' COMMENT* AsTable ASSIGN asTable=asTableFlag;
 asTableFlag: TRUE | FALSE;
 dataPropertyType
   : Int32Type
@@ -128,7 +126,7 @@ lookupTableStmt: LookupTable lookupName=declIdentifier '{'
     COMMENT*
     Key ASSIGN tblKeys=stringList ',' 
     COMMENT*
-    Columns ASSIGN '[' columnDefinitions ']' ','?
+    Columns ASSIGN '[' COMMENT* columnDefinitions COMMENT* ']' ','?
     COMMENT*
   '}' SEMICOLON;
 
@@ -141,7 +139,7 @@ stringList: '[' seqCtx=stringSeq? ']';
 stringSeq: slist+=STRING (',' slist+=STRING)* ;
 
 columnDefinitions: 
-  columnName=STRING 'as' array=ARRAY? columnType=dataPropertyType (',' columnDefinitions)* ;
+  columnName=STRING 'as' array=ARRAY? columnType=dataPropertyType (',' COMMENT* columnDefinitions)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Jet Rule
@@ -233,9 +231,9 @@ JetCompilerDirective: '@JetCompilerDirective';
 
 // Class statement for model definition
 CLASS: 'class';
-SubClassOf: '$sub_class_of';
+BaseClasses: '$base_classes';
 AsTable: '$as_table';
-DataProperty: '$data_property';
+DataProperties: '$data_properties';
 ARRAY: 'array of';
 
 // Triple statement

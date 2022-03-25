@@ -210,11 +210,11 @@ class JetListenerTest(absltest.TestCase):
         $csv_file = "/work/csv/file1.csv",      # csv file location
         $key = ["KEY1", "KEY2"],
         # Value columns, corresponding resource automatically created if legal
-        $columns = [
-          "PROC_RID" as int,   
-          "PROC_MID" as text,  
-          "PROC_DESC" as text  
-        ],
+        $columns = [           # comment 1
+          "PROC_RID" as int,   # comment 2
+          "PROC_MID" as text,  # comment 3
+          "PROC_DESC" as text  # comment 4
+        ],                     # comment 5
       };
     """
     jetRules = self._get_listener_data(data)
@@ -424,10 +424,13 @@ class JetListenerTest(absltest.TestCase):
       # Jet Rules with class definition
       class jets:Entity {
         # This is an example of a domain class
-        $sub_class_of = owl:Thing,
-        $data_property = jets:key as int,
-        $data_property = diagnosis as array of text,
-        $as_table = true
+        $base_classes = [owl:Thing],  # comment 1
+        $data_properties = [          # comment 2
+          jets:key as int,            # comment 3
+          diagnosis as array of text  # comment 4
+        ],                            # comment 5
+        # comment here                # comment 6
+        $as_table = true              # comment 7
       };
     """
     jetRules = self._get_listener_data(data)
@@ -443,21 +446,24 @@ class JetListenerTest(absltest.TestCase):
       # =======================================================================================
       # Jet Rules with class definition
       class jets:Entity {
-        $sub_class_of = owl:Thing,
-        $data_property = jets:key as int,
-        $as_table = false
+        $base_classes = [owl:Thing],
+        $data_properties = [jets:key as int]
       };
       class hc:MedicalClaim {
         # This is an example of a domain class
-        $sub_class_of = jets:Entity,
-        $sub_class_of = hc:Claim,
-        $data_property = diagnosis as array of text,
+        $base_classes = [
+          jets:Entity,
+          hc:Claim
+        ],
+        $data_properties = [
+          diagnosis as array of text
+        ],
         $as_table = true
       };
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "as_array": "false"}], "as_table": "false"}, {"type": "class", "name": "hc:MedicalClaim", "base_classes": ["jets:Entity", "hc:Claim"], "data_properties": [{"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "as_array": "false"}]}, {"type": "class", "name": "hc:MedicalClaim", "base_classes": ["jets:Entity", "hc:Claim"], "data_properties": [{"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true"}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
