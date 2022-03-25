@@ -1,300 +1,661 @@
 {
-    "resources": [
-        {
-            "type": "resource",
-            "id": "owl:Thing",
-            "value": "owl:Thing",
-            "source_file_name": "classes_test.jr",
-            "key": 0
-        },
-        {
-            "id": "jets:Entity",
-            "type": "resource",
-            "value": "jets:Entity",
-            "source_file_name": "classes_test.jr",
-            "key": 1
-        },
-        {
-            "id": "jets:key",
-            "type": "resource",
-            "value": "jets:key",
-            "source_file_name": "classes_test.jr",
-            "key": 2
-        },
-        {
-            "id": "hc:Claim",
-            "type": "resource",
-            "value": "hc:Claim",
-            "source_file_name": "classes_test.jr",
-            "key": 3
-        },
-        {
-            "id": "claim_number",
-            "type": "resource",
-            "value": "claim_number",
-            "source_file_name": "classes_test.jr",
-            "key": 4
-        },
-        {
-            "id": "date_of_service",
-            "type": "resource",
-            "value": "date_of_service",
-            "source_file_name": "classes_test.jr",
-            "key": 5
-        },
-        {
-            "id": "primary_diagnosis",
-            "type": "resource",
-            "value": "primary_diagnosis",
-            "source_file_name": "classes_test.jr",
-            "key": 6
-        },
-        {
-            "id": "secondary_diagnosis",
-            "type": "resource",
-            "value": "secondary_diagnosis",
-            "source_file_name": "classes_test.jr",
-            "key": 7
-        },
-        {
-            "id": "hc:MedicalClaim",
-            "type": "resource",
-            "value": "hc:MedicalClaim",
-            "source_file_name": "classes_test.jr",
-            "key": 8
-        },
-        {
-            "id": "procedure_code",
-            "type": "resource",
-            "value": "procedure_code",
-            "source_file_name": "classes_test.jr",
-            "key": 9
-        },
-        {
-            "id": "hc:PharmacyClaim",
-            "type": "resource",
-            "value": "hc:PharmacyClaim",
-            "source_file_name": "classes_test.jr",
-            "key": 10
-        },
-        {
-            "id": "ndc_code",
-            "type": "resource",
-            "value": "ndc_code",
-            "source_file_name": "classes_test.jr",
-            "key": 11
-        },
-        {
-            "id": "days_supply",
-            "type": "resource",
-            "value": "days_supply",
-            "source_file_name": "classes_test.jr",
-            "key": 12
-        },
-        {
-            "id": "dispensed_qty",
-            "type": "resource",
-            "value": "dispensed_qty",
-            "source_file_name": "classes_test.jr",
-            "key": 13
-        }
-    ],
-    "lookup_tables": [],
-    "jet_rules": [],
-    "imports": {
-        "classes_test.jr": []
+  "resources": [
+    {
+      "type": "resource",
+      "id": "owl:Thing",
+      "value": "owl:Thing",
+      "source_file_name": "classes_test.jr",
+      "source_fname": "predefined",
+      "key": 0
     },
-    "classes": [
+    {
+      "id": "jets:Entity",
+      "type": "resource",
+      "value": "jets:Entity",
+      "source_file_name": "classes_test.jr",
+      "key": 1
+    },
+    {
+      "id": "jets:key",
+      "type": "resource",
+      "value": "jets:key",
+      "source_file_name": "classes_test.jr",
+      "key": 2
+    },
+    {
+      "id": "hc:Claim",
+      "type": "resource",
+      "value": "hc:Claim",
+      "source_file_name": "classes_test.jr",
+      "key": 3
+    },
+    {
+      "id": "claim_number",
+      "type": "resource",
+      "value": "claim_number",
+      "source_file_name": "classes_test.jr",
+      "key": 4
+    },
+    {
+      "id": "date_of_service",
+      "type": "resource",
+      "value": "date_of_service",
+      "source_file_name": "classes_test.jr",
+      "key": 5
+    },
+    {
+      "id": "primary_diagnosis",
+      "type": "resource",
+      "value": "primary_diagnosis",
+      "source_file_name": "classes_test.jr",
+      "key": 6
+    },
+    {
+      "id": "secondary_diagnosis",
+      "type": "resource",
+      "value": "secondary_diagnosis",
+      "source_file_name": "classes_test.jr",
+      "key": 7
+    },
+    {
+      "id": "hc:MedicalClaim",
+      "type": "resource",
+      "value": "hc:MedicalClaim",
+      "source_file_name": "classes_test.jr",
+      "key": 8
+    },
+    {
+      "id": "procedure_code",
+      "type": "resource",
+      "value": "procedure_code",
+      "source_file_name": "classes_test.jr",
+      "key": 9
+    },
+    {
+      "id": "hc:PharmacyClaim",
+      "type": "resource",
+      "value": "hc:PharmacyClaim",
+      "source_file_name": "classes_test.jr",
+      "key": 10
+    },
+    {
+      "id": "ndc_code",
+      "type": "resource",
+      "value": "ndc_code",
+      "source_file_name": "classes_test.jr",
+      "key": 11
+    },
+    {
+      "id": "days_supply",
+      "type": "resource",
+      "value": "days_supply",
+      "source_file_name": "classes_test.jr",
+      "key": 12
+    },
+    {
+      "id": "dispensed_qty",
+      "type": "resource",
+      "value": "dispensed_qty",
+      "source_file_name": "classes_test.jr",
+      "key": 13
+    },
+    {
+      "id": "rdf:type",
+      "type": "resource",
+      "value": "rdf:type",
+      "source_file_name": "predefined",
+      "key": 14
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": false,
+      "var_pos": 0,
+      "vertex": 1,
+      "key": 15,
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": false,
+      "var_pos": 0,
+      "vertex": 2,
+      "key": 16,
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": false,
+      "var_pos": 0,
+      "vertex": 3,
+      "key": 17,
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": false,
+      "var_pos": 0,
+      "vertex": 4,
+      "key": 18,
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": true,
+      "vertex": 1,
+      "is_antecedent": false,
+      "var_pos": 0,
+      "key": 19,
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": true,
+      "vertex": 2,
+      "is_antecedent": false,
+      "var_pos": 0,
+      "key": 20,
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": true,
+      "vertex": 3,
+      "is_antecedent": false,
+      "var_pos": 0,
+      "key": 21,
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": true,
+      "vertex": 4,
+      "is_antecedent": false,
+      "var_pos": 0,
+      "key": 22,
+      "source_file_name": "classes_test.jr"
+    }
+  ],
+  "lookup_tables": [],
+  "jet_rules": [
+    {
+      "name": "jets__entity__1",
+      "properties": {
+        "i": true
+      },
+      "optimization": true,
+      "salience": 100,
+      "antecedents": [
         {
-            "type": "class",
-            "name": "jets:Entity",
-            "base_classes": [
-                "owl:Thing"
-            ],
-            "data_properties": [
-                {
-                    "name": "jets:key",
-                    "type": "uint",
-                    "as_array": "false"
-                }
-            ],
-            "source_file_name": "classes_test.jr",
-            "as_table": "false"
-        },
-        {
-            "type": "class",
-            "name": "hc:Claim",
-            "base_classes": [
-                "jets:Entity"
-            ],
-            "data_properties": [
-                {
-                    "name": "claim_number",
-                    "type": "long",
-                    "as_array": "false"
-                },
-                {
-                    "name": "date_of_service",
-                    "type": "date",
-                    "as_array": "false"
-                },
-                {
-                    "name": "primary_diagnosis",
-                    "type": "text",
-                    "as_array": "false"
-                },
-                {
-                    "name": "secondary_diagnosis",
-                    "type": "text",
-                    "as_array": "true"
-                }
-            ],
-            "source_file_name": "classes_test.jr",
-            "as_table": "false"
-        },
-        {
-            "type": "class",
-            "name": "hc:MedicalClaim",
-            "base_classes": [
-                "hc:Claim"
-            ],
-            "data_properties": [
-                {
-                    "name": "procedure_code",
-                    "type": "text",
-                    "as_array": "false"
-                }
-            ],
-            "source_file_name": "classes_test.jr",
-            "as_table": "true"
-        },
-        {
-            "type": "class",
-            "name": "hc:PharmacyClaim",
-            "base_classes": [
-                "hc:Claim"
-            ],
-            "data_properties": [
-                {
-                    "name": "ndc_code",
-                    "type": "text",
-                    "as_array": "false"
-                },
-                {
-                    "name": "days_supply",
-                    "type": "int",
-                    "as_array": "false"
-                },
-                {
-                    "name": "dispensed_qty",
-                    "type": "int",
-                    "as_array": "false"
-                }
-            ],
-            "source_file_name": "classes_test.jr",
-            "as_table": "true"
+          "type": "antecedent",
+          "isNot": false,
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": false,
+              "var_pos": 0,
+              "vertex": 1,
+              "key": 15,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "jets:Entity"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+          "label": "(?s1 rdf:type jets:Entity)",
+          "vertex": 1,
+          "parent_vertex": 0
         }
-    ],
-    "tables": [
+      ],
+      "consequents": [
         {
-            "type": "table",
-            "table_name": "hc__medicalclaim",
-            "class_name": "hc:MedicalClaim",
-            "columns": [
-                {
-                    "type": "long",
-                    "as_array": "false",
-                    "property_name": "claim_number",
-                    "column_name": "claim_number"
-                },
-                {
-                    "type": "date",
-                    "as_array": "false",
-                    "property_name": "date_of_service",
-                    "column_name": "date_of_service"
-                },
-                {
-                    "type": "uint",
-                    "as_array": "false",
-                    "property_name": "jets:key",
-                    "column_name": "jets__key"
-                },
-                {
-                    "type": "text",
-                    "as_array": "false",
-                    "property_name": "primary_diagnosis",
-                    "column_name": "primary_diagnosis"
-                },
-                {
-                    "type": "text",
-                    "as_array": "false",
-                    "property_name": "procedure_code",
-                    "column_name": "procedure_code"
-                },
-                {
-                    "type": "text",
-                    "as_array": "true",
-                    "property_name": "secondary_diagnosis",
-                    "column_name": "secondary_diagnosis"
-                }
-            ],
-            "source_file_name": "classes_test.jr"
+          "type": "consequent",
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "vertex": 1,
+              "is_antecedent": false,
+              "var_pos": 0,
+              "key": 19,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "owl:Thing"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+          "label": "(?s1 rdf:type owl:Thing)",
+          "vertex": 1
+        }
+      ],
+      "authoredLabel": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
+      "source_file_name": "classes_test.jr",
+      "normalizedLabel": "[jets__entity__1, i=True]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
+      "label": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
+    },
+    {
+      "name": "hc__claim__2",
+      "properties": {
+        "i": true
+      },
+      "optimization": true,
+      "salience": 100,
+      "antecedents": [
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": false,
+              "var_pos": 0,
+              "vertex": 2,
+              "key": 16,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "hc:Claim"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+          "label": "(?s1 rdf:type hc:Claim)",
+          "vertex": 2,
+          "parent_vertex": 0
+        }
+      ],
+      "consequents": [
+        {
+          "type": "consequent",
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "vertex": 2,
+              "is_antecedent": false,
+              "var_pos": 0,
+              "key": 20,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "jets:Entity"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+          "label": "(?s1 rdf:type jets:Entity)",
+          "vertex": 2
+        }
+      ],
+      "authoredLabel": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
+      "source_file_name": "classes_test.jr",
+      "normalizedLabel": "[hc__claim__2, i=True]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
+      "label": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
+    },
+    {
+      "name": "hc__medicalclaim__3",
+      "properties": {
+        "i": true
+      },
+      "optimization": true,
+      "salience": 100,
+      "antecedents": [
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": false,
+              "var_pos": 0,
+              "vertex": 3,
+              "key": 17,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "hc:MedicalClaim"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)",
+          "label": "(?s1 rdf:type hc:MedicalClaim)",
+          "vertex": 3,
+          "parent_vertex": 0
+        }
+      ],
+      "consequents": [
+        {
+          "type": "consequent",
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "vertex": 3,
+              "is_antecedent": false,
+              "var_pos": 0,
+              "key": 21,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "hc:Claim"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+          "label": "(?s1 rdf:type hc:Claim)",
+          "vertex": 3
+        }
+      ],
+      "authoredLabel": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);",
+      "source_file_name": "classes_test.jr",
+      "normalizedLabel": "[hc__medicalclaim__3, i=True]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);",
+      "label": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"
+    },
+    {
+      "name": "hc__pharmacyclaim__4",
+      "properties": {
+        "i": true
+      },
+      "optimization": true,
+      "salience": 100,
+      "antecedents": [
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": false,
+              "var_pos": 0,
+              "vertex": 4,
+              "key": 18,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "hc:PharmacyClaim"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type hc:PharmacyClaim)",
+          "label": "(?s1 rdf:type hc:PharmacyClaim)",
+          "vertex": 4,
+          "parent_vertex": 0
+        }
+      ],
+      "consequents": [
+        {
+          "type": "consequent",
+          "triple": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "vertex": 4,
+              "is_antecedent": false,
+              "var_pos": 0,
+              "key": 22,
+              "source_file_name": "classes_test.jr"
+            },
+            {
+              "type": "identifier",
+              "value": "rdf:type"
+            },
+            {
+              "type": "identifier",
+              "value": "hc:Claim"
+            }
+          ],
+          "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+          "label": "(?s1 rdf:type hc:Claim)",
+          "vertex": 4
+        }
+      ],
+      "authoredLabel": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);",
+      "source_file_name": "classes_test.jr",
+      "normalizedLabel": "[hc__pharmacyclaim__4, i=True]:(?x1 rdf:type hc:PharmacyClaim) -> (?x1 rdf:type hc:Claim);",
+      "label": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);"
+    }
+  ],
+  "imports": {
+    "classes_test.jr": []
+  },
+  "classes": [
+    {
+      "type": "class",
+      "name": "jets:Entity",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "jets:key",
+          "type": "uint",
+          "as_array": "false"
+        }
+      ],
+      "source_file_name": "classes_test.jr",
+      "as_table": "false"
+    },
+    {
+      "type": "class",
+      "name": "hc:Claim",
+      "base_classes": [
+        "jets:Entity"
+      ],
+      "data_properties": [
+        {
+          "name": "claim_number",
+          "type": "long",
+          "as_array": "false"
         },
         {
-            "type": "table",
-            "table_name": "hc__pharmacyclaim",
-            "class_name": "hc:PharmacyClaim",
-            "columns": [
-                {
-                    "type": "long",
-                    "as_array": "false",
-                    "property_name": "claim_number",
-                    "column_name": "claim_number"
-                },
-                {
-                    "type": "date",
-                    "as_array": "false",
-                    "property_name": "date_of_service",
-                    "column_name": "date_of_service"
-                },
-                {
-                    "type": "int",
-                    "as_array": "false",
-                    "property_name": "days_supply",
-                    "column_name": "days_supply"
-                },
-                {
-                    "type": "int",
-                    "as_array": "false",
-                    "property_name": "dispensed_qty",
-                    "column_name": "dispensed_qty"
-                },
-                {
-                    "type": "uint",
-                    "as_array": "false",
-                    "property_name": "jets:key",
-                    "column_name": "jets__key"
-                },
-                {
-                    "type": "text",
-                    "as_array": "false",
-                    "property_name": "ndc_code",
-                    "column_name": "ndc_code"
-                },
-                {
-                    "type": "text",
-                    "as_array": "false",
-                    "property_name": "primary_diagnosis",
-                    "column_name": "primary_diagnosis"
-                },
-                {
-                    "type": "text",
-                    "as_array": "true",
-                    "property_name": "secondary_diagnosis",
-                    "column_name": "secondary_diagnosis"
-                }
-            ],
-            "source_file_name": "classes_test.jr"
+          "name": "date_of_service",
+          "type": "date",
+          "as_array": "false"
+        },
+        {
+          "name": "primary_diagnosis",
+          "type": "text",
+          "as_array": "false"
+        },
+        {
+          "name": "secondary_diagnosis",
+          "type": "text",
+          "as_array": "true"
         }
-    ]
+      ],
+      "source_file_name": "classes_test.jr",
+      "as_table": "false"
+    },
+    {
+      "type": "class",
+      "name": "hc:MedicalClaim",
+      "base_classes": [
+        "hc:Claim"
+      ],
+      "data_properties": [
+        {
+          "name": "procedure_code",
+          "type": "text",
+          "as_array": "false"
+        }
+      ],
+      "source_file_name": "classes_test.jr",
+      "as_table": "true"
+    },
+    {
+      "type": "class",
+      "name": "hc:PharmacyClaim",
+      "base_classes": [
+        "hc:Claim"
+      ],
+      "data_properties": [
+        {
+          "name": "ndc_code",
+          "type": "text",
+          "as_array": "false"
+        },
+        {
+          "name": "days_supply",
+          "type": "int",
+          "as_array": "false"
+        },
+        {
+          "name": "dispensed_qty",
+          "type": "int",
+          "as_array": "false"
+        }
+      ],
+      "source_file_name": "classes_test.jr",
+      "as_table": "true"
+    }
+  ],
+  "tables": [
+    {
+      "type": "table",
+      "table_name": "hc__medicalclaim",
+      "class_name": "hc:MedicalClaim",
+      "columns": [
+        {
+          "type": "long",
+          "as_array": "false",
+          "property_name": "claim_number",
+          "column_name": "claim_number"
+        },
+        {
+          "type": "date",
+          "as_array": "false",
+          "property_name": "date_of_service",
+          "column_name": "date_of_service"
+        },
+        {
+          "type": "uint",
+          "as_array": "false",
+          "property_name": "jets:key",
+          "column_name": "jets__key"
+        },
+        {
+          "type": "text",
+          "as_array": "false",
+          "property_name": "primary_diagnosis",
+          "column_name": "primary_diagnosis"
+        },
+        {
+          "type": "text",
+          "as_array": "false",
+          "property_name": "procedure_code",
+          "column_name": "procedure_code"
+        },
+        {
+          "type": "text",
+          "as_array": "true",
+          "property_name": "secondary_diagnosis",
+          "column_name": "secondary_diagnosis"
+        }
+      ],
+      "source_file_name": "classes_test.jr"
+    },
+    {
+      "type": "table",
+      "table_name": "hc__pharmacyclaim",
+      "class_name": "hc:PharmacyClaim",
+      "columns": [
+        {
+          "type": "long",
+          "as_array": "false",
+          "property_name": "claim_number",
+          "column_name": "claim_number"
+        },
+        {
+          "type": "date",
+          "as_array": "false",
+          "property_name": "date_of_service",
+          "column_name": "date_of_service"
+        },
+        {
+          "type": "int",
+          "as_array": "false",
+          "property_name": "days_supply",
+          "column_name": "days_supply"
+        },
+        {
+          "type": "int",
+          "as_array": "false",
+          "property_name": "dispensed_qty",
+          "column_name": "dispensed_qty"
+        },
+        {
+          "type": "uint",
+          "as_array": "false",
+          "property_name": "jets:key",
+          "column_name": "jets__key"
+        },
+        {
+          "type": "text",
+          "as_array": "false",
+          "property_name": "ndc_code",
+          "column_name": "ndc_code"
+        },
+        {
+          "type": "text",
+          "as_array": "false",
+          "property_name": "primary_diagnosis",
+          "column_name": "primary_diagnosis"
+        },
+        {
+          "type": "text",
+          "as_array": "true",
+          "property_name": "secondary_diagnosis",
+          "column_name": "secondary_diagnosis"
+        }
+      ],
+      "source_file_name": "classes_test.jr"
+    }
+  ]
 }
