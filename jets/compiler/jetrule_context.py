@@ -34,6 +34,7 @@ class JetRuleContext:
     # resourceMap contains literals and resources
     self.resourceMap = {}
     self.errors = errors
+    self.predefined_resources = set()
 
     # For rete network
     # main data structure - json with rule compiled into a rete network
@@ -77,6 +78,11 @@ class JetRuleContext:
     if self.literals is None or self.resources is None or self.lookup_tables is None or self.jet_rules is None: 
       raise Exception("Invalid jetRules structure: ",self.jetRules)
 
+    # initialize resourceMap with pre-defined resources
+    # These are standard resources with prefix rdf, rdfs, and owl
+    self._initPredefinedResources()
+
+    # Add literal and resources defined in the input rule file
     self._initMap(self.resourceMap, self.literals, 'Literal')
     self._initMap(self.resourceMap, self.resources, 'Resource')
 
@@ -89,6 +95,15 @@ class JetRuleContext:
       type = item['type']
       value = item['value']
       symbol = item.get('symbol')
+      # check if it's a predefined resource
+      cpd = self.isValidPredefinedResources(id, value)
+      if cpd is not None:
+        if type != 'resource':
+          self.err('Error: {0} with id {1} is a predefined resource, it must be of type resource.'.format(tag, id))
+        if not cpd:
+          self.err('Error: {0} with id {1} is a predefined resource, value must be same as id, value is {2}.'.format(tag, id, value))
+        if cpd is True:
+          item['source_fname'] = 'predefined'
       c = map.get(id)
       if c:
         if symbol:    # special case, symbol used to initialize a resource
@@ -106,6 +121,12 @@ class JetRuleContext:
   def _addRL(self, map, tag, name: str, type: str, value, source_fname: str) -> object:
     assert type is not None
     assert value is not None
+    cpd = self.isValidPredefinedResources(name, value)
+    if cpd is True:
+      source_fname = 'predefined'
+    if cpd is False:
+      self.err('Error: Resource with id {1} is a predefined resource, value must be same as id, value is {2}.'.format(name, value))
+
     r = map.get(name)
     if r:
       if source_fname and source_fname != r.get('source_file_name'):
@@ -157,3 +178,86 @@ class JetRuleContext:
 
   def getResource(self, name: str) -> (object or None):
     return self.resourceMap.get(name)
+
+  # returns None if argument is not predefined
+  # returns True if argument is predefined and valid
+  # return False if argument is predefined and NOT valid (id != value)
+  def isValidPredefinedResources(self, id: str, value: str) -> bool:
+    if id in self.predefined_resources:
+      if id != value:
+        return False
+      return True
+    return None
+
+  def _initPredefinedResources(self):
+    self.predefined_resources.add('owl:AllDifferent')
+    self.predefined_resources.add('owl:AllDisjointClasses')
+    self.predefined_resources.add('owl:AllDisjointProperties')
+    self.predefined_resources.add('owl:AnnotationProperty')
+    self.predefined_resources.add('owl:AsymmetricProperty')
+    self.predefined_resources.add('owl:Class')
+    self.predefined_resources.add('owl:DataRange')
+    self.predefined_resources.add('owl:DeprecatedClass')
+    self.predefined_resources.add('owl:DeprecatedProperty')
+    self.predefined_resources.add('owl:DatatypeProperty')
+    self.predefined_resources.add('owl:FunctionalProperty')
+    self.predefined_resources.add('owl:InverseFunctionalProperty')
+    self.predefined_resources.add('owl:IrreflexiveProperty')
+    self.predefined_resources.add('owl:NamedIndividual')
+    self.predefined_resources.add('owl:Nothing')
+    self.predefined_resources.add('owl:ObjectProperty')
+    self.predefined_resources.add('owl:Ontology')
+    self.predefined_resources.add('owl:OntologyProperty')
+    self.predefined_resources.add('owl:ReflexiveProperty')
+    self.predefined_resources.add('owl:Restriction')
+    self.predefined_resources.add('owl:SymmetricProperty')
+    self.predefined_resources.add('owl:Thing')
+    self.predefined_resources.add('owl:TransitiveProperty')
+    self.predefined_resources.add('owl:allValuesFrom')
+    self.predefined_resources.add('owl:backwardCompatibleWith')
+    self.predefined_resources.add('owl:cardinality')
+    self.predefined_resources.add('owl:complementOf')
+    self.predefined_resources.add('owl:deprecated')
+    self.predefined_resources.add('owl:differentFrom')
+    self.predefined_resources.add('owl:disjointWith')
+    self.predefined_resources.add('owl:disjointUnionOf')
+    self.predefined_resources.add('owl:distinctMembers')
+    self.predefined_resources.add('owl:equivalentClass')
+    self.predefined_resources.add('owl:equivalentProperty')
+    self.predefined_resources.add('owl:hasSelf')
+    self.predefined_resources.add('owl:hasValue')
+    self.predefined_resources.add('owl:imports')
+    self.predefined_resources.add('owl:incompatibleWith')
+    self.predefined_resources.add('owl:intersectionOf')
+    self.predefined_resources.add('owl:inverseOf')
+    self.predefined_resources.add('owl:maxCardinality')
+    self.predefined_resources.add('owl:maxQualifiedCardinality')
+    self.predefined_resources.add('owl:minCardinality')
+    self.predefined_resources.add('owl:minQualifiedCardinality')
+    self.predefined_resources.add('owl:members')
+    self.predefined_resources.add('owl:onClass')
+    self.predefined_resources.add('owl:onDataRange')
+    self.predefined_resources.add('owl:onProperty')
+    self.predefined_resources.add('owl:oneOf')
+    self.predefined_resources.add('owl:priorVersion')
+    self.predefined_resources.add('owl:propertyChainAxiom')
+    self.predefined_resources.add('owl:propertyDisjointWith')
+    self.predefined_resources.add('owl:qualifiedCardinality')
+    self.predefined_resources.add('owl:sameAs')
+    self.predefined_resources.add('owl:someValuesFrom')
+    self.predefined_resources.add('owl:unionOf')
+    self.predefined_resources.add('owl:versionInfo')
+    self.predefined_resources.add('owl:versionIRI')
+    self.predefined_resources.add('owl:topObjectProperty')
+    self.predefined_resources.add('owl:topDataProperty')
+    self.predefined_resources.add('rdf:Description')
+    self.predefined_resources.add('rdf:Property')
+    self.predefined_resources.add('rdf:type')
+    self.predefined_resources.add('rdfs:Class')
+    self.predefined_resources.add('rdfs:Datatype')
+    self.predefined_resources.add('rdfs:comment')
+    self.predefined_resources.add('rdfs:domain')
+    self.predefined_resources.add('rdfs:label')
+    self.predefined_resources.add('rdfs:range')
+    self.predefined_resources.add('rdfs:subClassOf')
+    self.predefined_resources.add('rdfs:subPropertyOf')

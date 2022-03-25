@@ -7,6 +7,7 @@
           "id": "rdf:type",
           "value": "rdf:type",
           "source_file_name": "test_rule_file3.jr",
+          "source_fname": "predefined",
           "key": 0
       },
       {

@@ -104,6 +104,11 @@ class ValidationContext:
     # print('*** Validate Identifier for rule', self.rule_name, 'visiting elm type', self.elm_type, 'validating identifier', var)
     defined = var in self.jetrule_ctx.defined_resources
     if not defined:
+      is_predefined = self.jetrule_ctx.isValidPredefinedResources(var, var)
+      if is_predefined is True:
+        self.jetrule_ctx.addResource(var, var, 'predefined')
+        return True
+        
       # Check if we extract the identifier from the rules
       name = self.jetrule_ctx.addResourceFromRule(var)
       if not name:

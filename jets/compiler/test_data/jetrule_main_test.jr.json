@@ -1,1011 +1,1012 @@
 {
-    "resources": [
-        {
-            "type": "int",
-            "id": "isTrue",
-            "value": "1",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 0
-        },
-        {
-            "type": "int",
-            "id": "isFalse",
-            "value": "0",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 1
-        },
-        {
-            "type": "text",
-            "id": "NOT_IN_CONTRACT",
-            "value": "NOT COVERED IN CONTRACT",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 2
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_STATE",
-            "value": "STATE",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 3
-        },
-        {
-            "type": "text",
-            "id": "HH_AUTH",
-            "value": "HH_AUTH",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 4
-        },
-        {
-            "type": "text",
-            "id": "EXCL_HH_AUTH",
-            "value": "HH AUTH",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 5
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_COUNTY",
-            "value": "COUNTY",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 6
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_TIN",
-            "value": "TIN",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 7
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_TIN_STATE",
-            "value": "TIN/STATE",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 8
-        },
-        {
-            "type": "text",
-            "id": "EXCL_MER_COM",
-            "value": "MERGED COMPONENTS",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 9
-        },
-        {
-            "type": "text",
-            "id": "EXCL_AMT_PAID",
-            "value": "MERGED \"MARKET\" CHARGE BACK",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 10
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_GROUPID",
-            "value": "GROUPID",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 11
-        },
-        {
-            "type": "text",
-            "id": "EXCLUDED_MODALITY",
-            "value": "MODALITY",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 12
-        },
-        {
-            "type": "resource",
-            "id": "medicareRateObjTC1",
-            "value": "_0:medicareRateObjTC1",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 13
-        },
-        {
-            "type": "resource",
-            "id": "medicareRateObjTC2",
-            "value": "_0:medicareRateObjTC2",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 14
-        },
-        {
-            "type": "resource",
-            "id": "None",
-            "symbol": "null",
-            "value": null,
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 15
-        },
-        {
-            "type": "resource",
-            "id": "uuid",
-            "symbol": "create_uuid_resource()",
-            "value": null,
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 16
-        },
-        {
-            "type": "resource",
-            "id": "related_to",
-            "value": "related_to",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 17
-        },
-        {
-            "type": "resource",
-            "id": "has_code",
-            "value": "has_code",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 18
-        },
-        {
-            "type": "resource",
-            "id": "rdf:type",
-            "value": "rdf:type",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 19
-        },
-        {
-            "type": "resource",
-            "id": "acme:Claim",
-            "value": "acme:Claim",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 20
-        },
-        {
-            "type": "resource",
-            "id": "acme:SpecialClaim",
-            "value": "acme:SpecialClaim",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 21
-        },
-        {
-            "type": "resource",
-            "id": "acme:key",
-            "value": "acme:key",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 22
-        },
-        {
-            "type": "resource",
-            "id": "acme:lookup_table",
-            "value": "acme:key",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 23
-        },
-        {
-            "type": "volatile_resource",
-            "id": "medicareRateObj261",
-            "value": "medicareRateObj261",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 24
-        },
-        {
-            "type": "volatile_resource",
-            "id": "medicareRateObj262",
-            "value": "medicareRateObj262",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 25
-        },
-        {
-            "id": "acme:ProcedureLookup",
-            "type": "resource",
-            "value": "acme:ProcedureLookup",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 26
-        },
-        {
-            "id": "EVENT_DURATION",
-            "type": "resource",
-            "value": "EVENT_DURATION",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 27
-        },
-        {
-            "id": "PROC_RID",
-            "type": "resource",
-            "value": "PROC_RID",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 28
-        },
-        {
-            "id": "FROM_DATE",
-            "type": "resource",
-            "value": "FROM_DATE",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 29
-        },
-        {
-            "id": "EXCL",
-            "type": "resource",
-            "value": "EXCL",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 30
-        },
-        {
-            "id": "MSK_DRG_TRIGGER",
-            "type": "resource",
-            "value": "MSK_DRG_TRIGGER",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 31
-        },
-        {
-            "id": "MSK_AREA_DRG_TRIGGER_ONLY",
-            "type": "resource",
-            "value": "MSK_AREA_DRG_TRIGGER_ONLY",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 32
-        },
-        {
-            "id": "MSK_TAG",
-            "type": "resource",
-            "value": "MSK_TAG",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 33
-        },
-        {
-            "id": "TRIGGER_TAG_DRG_ONLY",
-            "type": "resource",
-            "value": "TRIGGER_TAG_DRG_ONLY",
-            "source_file_name": "jetrule_support_test.jr",
-            "key": 34
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": false,
-            "var_pos": 0,
-            "vertex": 1,
-            "key": 35,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": true,
-            "vertex": 2,
-            "is_antecedent": true,
-            "var_pos": 0,
-            "key": 36,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x2",
-            "is_binded": false,
-            "var_pos": 2,
-            "vertex": 2,
-            "key": 37,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x3",
-            "is_binded": false,
-            "var_pos": 0,
-            "vertex": 3,
-            "key": 38,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x3",
-            "is_binded": true,
-            "vertex": 4,
-            "is_antecedent": true,
-            "var_pos": 2,
-            "key": 39,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x2",
-            "is_binded": true,
-            "vertex": 4,
-            "is_antecedent": true,
-            "var_pos": 1,
-            "key": 40,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": false,
-            "var_pos": 0,
-            "vertex": 5,
-            "key": 41,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": true,
-            "vertex": 5,
-            "is_antecedent": false,
-            "var_pos": 0,
-            "key": 42,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "int",
-            "value": "1",
-            "inline": true,
-            "key": 43,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": true,
-            "vertex": 6,
-            "is_antecedent": true,
-            "var_pos": 0,
-            "key": 44,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x2",
-            "is_binded": false,
-            "var_pos": 2,
-            "vertex": 6,
-            "key": 45,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x3",
-            "is_binded": false,
-            "var_pos": 0,
-            "vertex": 7,
-            "key": 46,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x2",
-            "is_binded": true,
-            "vertex": 7,
-            "is_antecedent": true,
-            "var_pos": 1,
-            "key": 47,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x3",
-            "is_binded": true,
-            "vertex": 8,
-            "is_antecedent": true,
-            "var_pos": 1,
-            "key": 48,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": true,
-            "vertex": 9,
-            "is_antecedent": true,
-            "var_pos": 0,
-            "key": 49,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x4",
-            "is_binded": false,
-            "var_pos": 2,
-            "vertex": 9,
-            "key": 50,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x4",
-            "is_binded": true,
-            "vertex": 10,
-            "is_antecedent": true,
-            "var_pos": 0,
-            "key": 51,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x5",
-            "is_binded": false,
-            "vertex": 11,
-            "key": 52,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": true,
-            "vertex": 4,
-            "is_antecedent": false,
-            "var_pos": 0,
-            "key": 53,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x3",
-            "is_binded": true,
-            "vertex": 4,
-            "is_antecedent": false,
-            "var_pos": 1,
-            "key": 54,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x3",
-            "is_binded": true,
-            "vertex": 4,
-            "is_antecedent": false,
-            "var_pos": 1,
-            "key": 55,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": true,
-            "vertex": 4,
-            "is_antecedent": false,
-            "var_pos": 0,
-            "key": 56,
-            "source_file_name": "jetrule_main_test.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x4",
-            "is_binded": true,
-            "vertex": 11,
-            "is_antecedent": false,
-            "var_pos": 0,
-            "key": 57,
-            "source_file_name": "jetrule_main_test.jr"
-        }
-    ],
-    "lookup_tables": [
-        {
-            "type": "lookup",
-            "name": "acme:ProcedureLookup",
-            "key": [
-                "EVENT_DURATION"
-            ],
-            "columns": [
-                {
-                    "name": "EVENT_DURATION",
-                    "type": "int",
-                    "as_array": "false"
-                },
-                {
-                    "name": "PROC_RID",
-                    "type": "long",
-                    "as_array": "false"
-                },
-                {
-                    "name": "FROM_DATE",
-                    "type": "date",
-                    "as_array": "false"
-                },
-                {
-                    "name": "EXCL",
-                    "type": "text",
-                    "as_array": "true"
-                }
-            ],
-            "csv_file": "/work/buckets/mylookup.csv",
-            "source_file_name": "jetrule_support_test.jr",
-            "resources": [
-                "EVENT_DURATION",
-                "PROC_RID",
-                "FROM_DATE",
-                "EXCL"
-            ]
-        },
-        {
-            "type": "lookup",
-            "name": "MSK_DRG_TRIGGER",
-            "key": [
-                "DRG"
-            ],
-            "columns": [
-                {
-                    "name": "MSK_AREA_DRG_TRIGGER_ONLY",
-                    "type": "text",
-                    "as_array": "false"
-                },
-                {
-                    "name": "MSK_TAG",
-                    "type": "text",
-                    "as_array": "false"
-                },
-                {
-                    "name": "TRIGGER_TAG_DRG_ONLY",
-                    "type": "text",
-                    "as_array": "false"
-                }
-            ],
-            "table": "usi__msk_trigger_drg_codes",
-            "source_file_name": "jetrule_support_test.jr",
-            "resources": [
-                "MSK_AREA_DRG_TRIGGER_ONLY",
-                "MSK_TAG",
-                "TRIGGER_TAG_DRG_ONLY"
-            ]
-        }
-    ],
-    "jet_rules": [
-        {
-            "name": "Rule1",
-            "properties": {
-                "s": "+100",
-                "o": "false",
-                "tag": "\"ACME\""
-            },
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 1,
-                            "key": 35,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:Claim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x1 rdf:type acme:Claim)",
-                    "label": "(?clm01 rdf:type acme:Claim)",
-                    "vertex": 1,
-                    "parent_vertex": 0
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 2,
-                            "is_antecedent": true,
-                            "var_pos": 0,
-                            "key": 36,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "has_code"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": false,
-                            "var_pos": 2,
-                            "vertex": 2,
-                            "key": 37,
-                            "source_file_name": "jetrule_main_test.jr"
-                        }
-                    ],
-                    "normalizedLabel": "(?x1 has_code ?x2)",
-                    "label": "(?clm01 has_code ?code)",
-                    "vertex": 2,
-                    "parent_vertex": 1
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 3,
-                            "key": 38,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:Claim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-                    "label": "(?clm02 rdf:type acme:Claim)",
-                    "vertex": 3,
-                    "parent_vertex": 2
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": true,
-                            "var_pos": 2,
-                            "key": 39,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "has_code"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": true,
-                            "var_pos": 1,
-                            "key": 40,
-                            "source_file_name": "jetrule_main_test.jr"
-                        }
-                    ],
-                    "normalizedLabel": "(?x3 has_code ?x2)",
-                    "label": "(?clm02 has_code ?code)",
-                    "vertex": 4,
-                    "parent_vertex": 3
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 53,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "related_to"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": false,
-                            "var_pos": 1,
-                            "key": 54,
-                            "source_file_name": "jetrule_main_test.jr"
-                        }
-                    ],
-                    "normalizedLabel": "(?x1 related_to ?x3)",
-                    "label": "(?clm01 related_to ?clm02)",
-                    "vertex": 4
-                },
-                {
-                    "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": false,
-                            "var_pos": 1,
-                            "key": 55,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "related_to"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 56,
-                            "source_file_name": "jetrule_main_test.jr"
-                        }
-                    ],
-                    "normalizedLabel": "(?x3 related_to ?x1)",
-                    "label": "(?clm02 related_to ?clm01)",
-                    "vertex": 4
-                }
-            ],
-            "source_file_name": "jetrule_support_test.jr",
-            "optimization": false,
-            "salience": 100,
-            "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 rdf:type acme:Claim).(?x3 has_code ?x2) -> (?x1 related_to ?x3).(?x3 related_to ?x1);",
-            "label": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code) -> (?clm01 related_to ?clm02).(?clm02 related_to ?clm01);"
-        },
-        {
-            "name": "Rule2",
-            "properties": {
-                "s": "100",
-                "o": "true",
-                "tag": "\"ACME\""
-            },
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 5,
-                            "key": 41,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:Claim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or has_code) and int(1)]",
-                    "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)]",
-                    "filter": {
-                        "type": "binary",
-                        "lhs": {
-                            "type": "binary",
-                            "lhs": 42,
-                            "op": "or",
-                            "rhs": 18
-                        },
-                        "op": "and",
-                        "rhs": 43
-                    },
-                    "vertex": 5,
-                    "parent_vertex": 0
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 6,
-                            "is_antecedent": true,
-                            "var_pos": 0,
-                            "key": 44,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "has_code"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": false,
-                            "var_pos": 2,
-                            "vertex": 6,
-                            "key": 45,
-                            "source_file_name": "jetrule_main_test.jr"
-                        }
-                    ],
-                    "normalizedLabel": "(?x1 has_code ?x2)",
-                    "label": "(?clm01 has_code ?code)",
-                    "vertex": 6,
-                    "parent_vertex": 5
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 7,
-                            "key": 46,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "has_code"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": true,
-                            "vertex": 7,
-                            "is_antecedent": true,
-                            "var_pos": 1,
-                            "key": 47,
-                            "source_file_name": "jetrule_main_test.jr"
-                        }
-                    ],
-                    "normalizedLabel": "(?x3 has_code ?x2)",
-                    "label": "(?clm02 has_code ?code)",
-                    "vertex": 7,
-                    "parent_vertex": 6
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": true,
-                            "vertex": 8,
-                            "is_antecedent": true,
-                            "var_pos": 1,
-                            "key": 48,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:Claim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-                    "label": "(?clm02 rdf:type acme:Claim)",
-                    "vertex": 8,
-                    "parent_vertex": 7
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 9,
-                            "is_antecedent": true,
-                            "var_pos": 0,
-                            "key": 49,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "related_to"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x4",
-                            "is_binded": false,
-                            "var_pos": 2,
-                            "vertex": 9,
-                            "key": 50,
-                            "source_file_name": "jetrule_main_test.jr"
-                        }
-                    ],
-                    "normalizedLabel": "(?x1 related_to ?x4)",
-                    "label": "(?clm01 related_to ?clm03)",
-                    "vertex": 9,
-                    "parent_vertex": 8
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x4",
-                            "is_binded": true,
-                            "vertex": 10,
-                            "is_antecedent": true,
-                            "var_pos": 0,
-                            "key": 51,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:Claim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x4 rdf:type acme:Claim)",
-                    "label": "(?clm03 rdf:type acme:Claim)",
-                    "vertex": 10,
-                    "parent_vertex": 9
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x5",
-                            "is_binded": false,
-                            "vertex": 11,
-                            "key": 52,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:Claim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x5 rdf:type acme:Claim)",
-                    "label": "(?clm04 rdf:type acme:Claim)",
-                    "vertex": 11,
-                    "parent_vertex": 10
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x4",
-                            "is_binded": true,
-                            "vertex": 11,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 57,
-                            "source_file_name": "jetrule_main_test.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "acme:SpecialClaim"
-                        }
-                    ],
-                    "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
-                    "label": "(?clm03 rdf:type acme:SpecialClaim)",
-                    "vertex": 11
-                }
-            ],
-            "authoredLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code).(?clm04 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)] -> (?clm03 rdf:type acme:SpecialClaim);",
-            "source_file_name": "jetrule_main_test.jr",
-            "normalizedLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).[(?x1 or has_code) and int(1)].(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim).(?x1 related_to ?x4).(?x4 rdf:type acme:Claim).(?x5 rdf:type acme:Claim) -> (?x4 rdf:type acme:SpecialClaim);",
-            "label": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)].(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim).(?clm04 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);"
-        }
-    ],
-    "imports": {
-        "jetrule_main_test.jr": [
-            "jetrule_support_test.jr"
-        ]
-    }
+  "resources": [
+      {
+          "type": "int",
+          "id": "isTrue",
+          "value": "1",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 0
+      },
+      {
+          "type": "int",
+          "id": "isFalse",
+          "value": "0",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 1
+      },
+      {
+          "type": "text",
+          "id": "NOT_IN_CONTRACT",
+          "value": "NOT COVERED IN CONTRACT",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 2
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_STATE",
+          "value": "STATE",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 3
+      },
+      {
+          "type": "text",
+          "id": "HH_AUTH",
+          "value": "HH_AUTH",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 4
+      },
+      {
+          "type": "text",
+          "id": "EXCL_HH_AUTH",
+          "value": "HH AUTH",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 5
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_COUNTY",
+          "value": "COUNTY",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 6
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_TIN",
+          "value": "TIN",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 7
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_TIN_STATE",
+          "value": "TIN/STATE",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 8
+      },
+      {
+          "type": "text",
+          "id": "EXCL_MER_COM",
+          "value": "MERGED COMPONENTS",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 9
+      },
+      {
+          "type": "text",
+          "id": "EXCL_AMT_PAID",
+          "value": "MERGED \"MARKET\" CHARGE BACK",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 10
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_GROUPID",
+          "value": "GROUPID",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 11
+      },
+      {
+          "type": "text",
+          "id": "EXCLUDED_MODALITY",
+          "value": "MODALITY",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 12
+      },
+      {
+          "type": "resource",
+          "id": "medicareRateObjTC1",
+          "value": "_0:medicareRateObjTC1",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 13
+      },
+      {
+          "type": "resource",
+          "id": "medicareRateObjTC2",
+          "value": "_0:medicareRateObjTC2",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 14
+      },
+      {
+          "type": "resource",
+          "id": "None",
+          "symbol": "null",
+          "value": null,
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 15
+      },
+      {
+          "type": "resource",
+          "id": "uuid",
+          "symbol": "create_uuid_resource()",
+          "value": null,
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 16
+      },
+      {
+          "type": "resource",
+          "id": "related_to",
+          "value": "related_to",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 17
+      },
+      {
+          "type": "resource",
+          "id": "has_code",
+          "value": "has_code",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 18
+      },
+      {
+          "type": "resource",
+          "id": "rdf:type",
+          "value": "rdf:type",
+          "source_file_name": "jetrule_support_test.jr",
+          "source_fname": "predefined",
+          "key": 19
+      },
+      {
+          "type": "resource",
+          "id": "acme:Claim",
+          "value": "acme:Claim",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 20
+      },
+      {
+          "type": "resource",
+          "id": "acme:SpecialClaim",
+          "value": "acme:SpecialClaim",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 21
+      },
+      {
+          "type": "resource",
+          "id": "acme:key",
+          "value": "acme:key",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 22
+      },
+      {
+          "type": "resource",
+          "id": "acme:lookup_table",
+          "value": "acme:key",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 23
+      },
+      {
+          "type": "volatile_resource",
+          "id": "medicareRateObj261",
+          "value": "medicareRateObj261",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 24
+      },
+      {
+          "type": "volatile_resource",
+          "id": "medicareRateObj262",
+          "value": "medicareRateObj262",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 25
+      },
+      {
+          "id": "acme:ProcedureLookup",
+          "type": "resource",
+          "value": "acme:ProcedureLookup",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 26
+      },
+      {
+          "id": "EVENT_DURATION",
+          "type": "resource",
+          "value": "EVENT_DURATION",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 27
+      },
+      {
+          "id": "PROC_RID",
+          "type": "resource",
+          "value": "PROC_RID",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 28
+      },
+      {
+          "id": "FROM_DATE",
+          "type": "resource",
+          "value": "FROM_DATE",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 29
+      },
+      {
+          "id": "EXCL",
+          "type": "resource",
+          "value": "EXCL",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 30
+      },
+      {
+          "id": "MSK_DRG_TRIGGER",
+          "type": "resource",
+          "value": "MSK_DRG_TRIGGER",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 31
+      },
+      {
+          "id": "MSK_AREA_DRG_TRIGGER_ONLY",
+          "type": "resource",
+          "value": "MSK_AREA_DRG_TRIGGER_ONLY",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 32
+      },
+      {
+          "id": "MSK_TAG",
+          "type": "resource",
+          "value": "MSK_TAG",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 33
+      },
+      {
+          "id": "TRIGGER_TAG_DRG_ONLY",
+          "type": "resource",
+          "value": "TRIGGER_TAG_DRG_ONLY",
+          "source_file_name": "jetrule_support_test.jr",
+          "key": 34
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": false,
+          "var_pos": 0,
+          "vertex": 1,
+          "key": 35,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 2,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 36,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": false,
+          "var_pos": 2,
+          "vertex": 2,
+          "key": 37,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x3",
+          "is_binded": false,
+          "var_pos": 0,
+          "vertex": 3,
+          "key": 38,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x3",
+          "is_binded": true,
+          "vertex": 4,
+          "is_antecedent": true,
+          "var_pos": 2,
+          "key": 39,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 4,
+          "is_antecedent": true,
+          "var_pos": 1,
+          "key": 40,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": false,
+          "var_pos": 0,
+          "vertex": 5,
+          "key": 41,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 5,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 42,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "int",
+          "value": "1",
+          "inline": true,
+          "key": 43,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 6,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 44,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": false,
+          "var_pos": 2,
+          "vertex": 6,
+          "key": 45,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x3",
+          "is_binded": false,
+          "var_pos": 0,
+          "vertex": 7,
+          "key": 46,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": true,
+          "vertex": 7,
+          "is_antecedent": true,
+          "var_pos": 1,
+          "key": 47,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x3",
+          "is_binded": true,
+          "vertex": 8,
+          "is_antecedent": true,
+          "var_pos": 1,
+          "key": 48,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 9,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 49,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x4",
+          "is_binded": false,
+          "var_pos": 2,
+          "vertex": 9,
+          "key": 50,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x4",
+          "is_binded": true,
+          "vertex": 10,
+          "is_antecedent": true,
+          "var_pos": 0,
+          "key": 51,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x5",
+          "is_binded": false,
+          "vertex": 11,
+          "key": 52,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 4,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 53,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x3",
+          "is_binded": true,
+          "vertex": 4,
+          "is_antecedent": false,
+          "var_pos": 1,
+          "key": 54,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x3",
+          "is_binded": true,
+          "vertex": 4,
+          "is_antecedent": false,
+          "var_pos": 1,
+          "key": 55,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "vertex": 4,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 56,
+          "source_file_name": "jetrule_main_test.jr"
+      },
+      {
+          "type": "var",
+          "id": "?x4",
+          "is_binded": true,
+          "vertex": 11,
+          "is_antecedent": false,
+          "var_pos": 0,
+          "key": 57,
+          "source_file_name": "jetrule_main_test.jr"
+      }
+  ],
+  "lookup_tables": [
+      {
+          "type": "lookup",
+          "name": "acme:ProcedureLookup",
+          "key": [
+              "EVENT_DURATION"
+          ],
+          "columns": [
+              {
+                  "name": "EVENT_DURATION",
+                  "type": "int",
+                  "as_array": "false"
+              },
+              {
+                  "name": "PROC_RID",
+                  "type": "long",
+                  "as_array": "false"
+              },
+              {
+                  "name": "FROM_DATE",
+                  "type": "date",
+                  "as_array": "false"
+              },
+              {
+                  "name": "EXCL",
+                  "type": "text",
+                  "as_array": "true"
+              }
+          ],
+          "csv_file": "/work/buckets/mylookup.csv",
+          "source_file_name": "jetrule_support_test.jr",
+          "resources": [
+              "EVENT_DURATION",
+              "PROC_RID",
+              "FROM_DATE",
+              "EXCL"
+          ]
+      },
+      {
+          "type": "lookup",
+          "name": "MSK_DRG_TRIGGER",
+          "key": [
+              "DRG"
+          ],
+          "columns": [
+              {
+                  "name": "MSK_AREA_DRG_TRIGGER_ONLY",
+                  "type": "text",
+                  "as_array": "false"
+              },
+              {
+                  "name": "MSK_TAG",
+                  "type": "text",
+                  "as_array": "false"
+              },
+              {
+                  "name": "TRIGGER_TAG_DRG_ONLY",
+                  "type": "text",
+                  "as_array": "false"
+              }
+          ],
+          "table": "usi__msk_trigger_drg_codes",
+          "source_file_name": "jetrule_support_test.jr",
+          "resources": [
+              "MSK_AREA_DRG_TRIGGER_ONLY",
+              "MSK_TAG",
+              "TRIGGER_TAG_DRG_ONLY"
+          ]
+      }
+  ],
+  "jet_rules": [
+      {
+          "name": "Rule1",
+          "properties": {
+              "s": "+100",
+              "o": "false",
+              "tag": "\"ACME\""
+          },
+          "antecedents": [
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": false,
+                          "var_pos": 0,
+                          "vertex": 1,
+                          "key": 35,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:Claim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                  "label": "(?clm01 rdf:type acme:Claim)",
+                  "vertex": 1,
+                  "parent_vertex": 0
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "vertex": 2,
+                          "is_antecedent": true,
+                          "var_pos": 0,
+                          "key": 36,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "has_code"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x2",
+                          "is_binded": false,
+                          "var_pos": 2,
+                          "vertex": 2,
+                          "key": 37,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "normalizedLabel": "(?x1 has_code ?x2)",
+                  "label": "(?clm01 has_code ?code)",
+                  "vertex": 2,
+                  "parent_vertex": 1
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x3",
+                          "is_binded": false,
+                          "var_pos": 0,
+                          "vertex": 3,
+                          "key": 38,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:Claim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x3 rdf:type acme:Claim)",
+                  "label": "(?clm02 rdf:type acme:Claim)",
+                  "vertex": 3,
+                  "parent_vertex": 2
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x3",
+                          "is_binded": true,
+                          "vertex": 4,
+                          "is_antecedent": true,
+                          "var_pos": 2,
+                          "key": 39,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "has_code"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x2",
+                          "is_binded": true,
+                          "vertex": 4,
+                          "is_antecedent": true,
+                          "var_pos": 1,
+                          "key": 40,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "normalizedLabel": "(?x3 has_code ?x2)",
+                  "label": "(?clm02 has_code ?code)",
+                  "vertex": 4,
+                  "parent_vertex": 3
+              }
+          ],
+          "consequents": [
+              {
+                  "type": "consequent",
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "vertex": 4,
+                          "is_antecedent": false,
+                          "var_pos": 0,
+                          "key": 53,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "related_to"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x3",
+                          "is_binded": true,
+                          "vertex": 4,
+                          "is_antecedent": false,
+                          "var_pos": 1,
+                          "key": 54,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "normalizedLabel": "(?x1 related_to ?x3)",
+                  "label": "(?clm01 related_to ?clm02)",
+                  "vertex": 4
+              },
+              {
+                  "type": "consequent",
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x3",
+                          "is_binded": true,
+                          "vertex": 4,
+                          "is_antecedent": false,
+                          "var_pos": 1,
+                          "key": 55,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "related_to"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "vertex": 4,
+                          "is_antecedent": false,
+                          "var_pos": 0,
+                          "key": 56,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "normalizedLabel": "(?x3 related_to ?x1)",
+                  "label": "(?clm02 related_to ?clm01)",
+                  "vertex": 4
+              }
+          ],
+          "source_file_name": "jetrule_support_test.jr",
+          "optimization": false,
+          "salience": 100,
+          "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 rdf:type acme:Claim).(?x3 has_code ?x2) -> (?x1 related_to ?x3).(?x3 related_to ?x1);",
+          "label": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code) -> (?clm01 related_to ?clm02).(?clm02 related_to ?clm01);"
+      },
+      {
+          "name": "Rule2",
+          "properties": {
+              "s": "100",
+              "o": "true",
+              "tag": "\"ACME\""
+          },
+          "optimization": true,
+          "salience": 100,
+          "antecedents": [
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": false,
+                          "var_pos": 0,
+                          "vertex": 5,
+                          "key": 41,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:Claim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or has_code) and int(1)]",
+                  "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)]",
+                  "filter": {
+                      "type": "binary",
+                      "lhs": {
+                          "type": "binary",
+                          "lhs": 42,
+                          "op": "or",
+                          "rhs": 18
+                      },
+                      "op": "and",
+                      "rhs": 43
+                  },
+                  "vertex": 5,
+                  "parent_vertex": 0
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "vertex": 6,
+                          "is_antecedent": true,
+                          "var_pos": 0,
+                          "key": 44,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "has_code"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x2",
+                          "is_binded": false,
+                          "var_pos": 2,
+                          "vertex": 6,
+                          "key": 45,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "normalizedLabel": "(?x1 has_code ?x2)",
+                  "label": "(?clm01 has_code ?code)",
+                  "vertex": 6,
+                  "parent_vertex": 5
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x3",
+                          "is_binded": false,
+                          "var_pos": 0,
+                          "vertex": 7,
+                          "key": 46,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "has_code"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x2",
+                          "is_binded": true,
+                          "vertex": 7,
+                          "is_antecedent": true,
+                          "var_pos": 1,
+                          "key": 47,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "normalizedLabel": "(?x3 has_code ?x2)",
+                  "label": "(?clm02 has_code ?code)",
+                  "vertex": 7,
+                  "parent_vertex": 6
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x3",
+                          "is_binded": true,
+                          "vertex": 8,
+                          "is_antecedent": true,
+                          "var_pos": 1,
+                          "key": 48,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:Claim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x3 rdf:type acme:Claim)",
+                  "label": "(?clm02 rdf:type acme:Claim)",
+                  "vertex": 8,
+                  "parent_vertex": 7
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "vertex": 9,
+                          "is_antecedent": true,
+                          "var_pos": 0,
+                          "key": 49,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "related_to"
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x4",
+                          "is_binded": false,
+                          "var_pos": 2,
+                          "vertex": 9,
+                          "key": 50,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "normalizedLabel": "(?x1 related_to ?x4)",
+                  "label": "(?clm01 related_to ?clm03)",
+                  "vertex": 9,
+                  "parent_vertex": 8
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x4",
+                          "is_binded": true,
+                          "vertex": 10,
+                          "is_antecedent": true,
+                          "var_pos": 0,
+                          "key": 51,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:Claim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x4 rdf:type acme:Claim)",
+                  "label": "(?clm03 rdf:type acme:Claim)",
+                  "vertex": 10,
+                  "parent_vertex": 9
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x5",
+                          "is_binded": false,
+                          "vertex": 11,
+                          "key": 52,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:Claim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x5 rdf:type acme:Claim)",
+                  "label": "(?clm04 rdf:type acme:Claim)",
+                  "vertex": 11,
+                  "parent_vertex": 10
+              }
+          ],
+          "consequents": [
+              {
+                  "type": "consequent",
+                  "triple": [
+                      {
+                          "type": "var",
+                          "id": "?x4",
+                          "is_binded": true,
+                          "vertex": 11,
+                          "is_antecedent": false,
+                          "var_pos": 0,
+                          "key": 57,
+                          "source_file_name": "jetrule_main_test.jr"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "rdf:type"
+                      },
+                      {
+                          "type": "identifier",
+                          "value": "acme:SpecialClaim"
+                      }
+                  ],
+                  "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
+                  "label": "(?clm03 rdf:type acme:SpecialClaim)",
+                  "vertex": 11
+              }
+          ],
+          "authoredLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code).(?clm04 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)] -> (?clm03 rdf:type acme:SpecialClaim);",
+          "source_file_name": "jetrule_main_test.jr",
+          "normalizedLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).[(?x1 or has_code) and int(1)].(?x1 has_code ?x2).(?x3 has_code ?x2).(?x3 rdf:type acme:Claim).(?x1 related_to ?x4).(?x4 rdf:type acme:Claim).(?x5 rdf:type acme:Claim) -> (?x4 rdf:type acme:SpecialClaim);",
+          "label": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)].(?clm01 has_code ?code).(?clm02 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim).(?clm04 rdf:type acme:Claim) -> (?clm03 rdf:type acme:SpecialClaim);"
+      }
+  ],
+  "imports": {
+      "jetrule_main_test.jr": [
+          "jetrule_support_test.jr"
+      ]
+  }
 }
