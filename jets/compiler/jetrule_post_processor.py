@@ -20,8 +20,8 @@ class JetRulesPostProcessor:
       for cls in self.ctx.classes:
         self.classes_dict[cls['name']] = cls
       self.createResourcesForClasses()
+      self.createInherithanceRulesForClasses()
       self.createTablesForClasses()
-
 
   # visit classes and create resources
   def createResourcesForClasses(self):
@@ -32,6 +32,55 @@ class JetRulesPostProcessor:
       for p in item['data_properties']:
         name = p['name']
         self.ctx.addResource(name, name, source_file_name)
+
+  # visit classes and create rules for class inheritance axioms
+  def createInherithanceRulesForClasses(self):
+    rid = 0
+    for item in self.ctx.classes:
+      if not item.get('base_classes'):
+        continue
+      name = item.get('name')
+      rid += 1
+      rule = {
+        'name': self.make_name(name+':'+str(rid)),
+        'properties': {
+          'i': True
+        },
+        'source_file_name': item.get('source_file_name'),
+        'antecedents': [{
+          'type': 'antecedent',
+          'isNot': False,
+          'triple': [
+            {
+              'type': 'var',
+              'value': '?s1'
+            },{
+              'type': 'identifier',
+              'value': 'rdf:type'
+            },{
+              'type': 'identifier',
+              'value': name
+            }
+          ]
+        }],
+        'consequents': [{
+          'type':'consequent', 
+          'triple':[
+            {
+              'type':'var',
+              'value':'?s1'
+            },{
+              'type':'identifier',
+              'value':'rdf:type'
+            },{
+              'type':'identifier',
+              'value':bc
+            }
+          ]
+        } for bc in item['base_classes'] ]
+      }
+      self.ctx.jet_rules.append(rule)
+
 
   # visit classes and create table for as_table is true
   def createTablesForClasses(self):
