@@ -1,0 +1,56 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Full Test JetStore Rule Language
+# =======================================================================================
+# Defining Constants Resources and Literals
+# ---------------------------------------------------------------------------------------
+resource jet:Context = "jet:Context";
+resource rdf:type = "rdf:type";
+resource hc:Claim = "hc:Claim";
+resource hc:BaseClaim = "hc:BaseClaim";
+
+resource hc:raw_name = "hc:raw_name";
+resource hc:full_name = "hc:full_name";
+resource hc:first_name = "hc:first_name";
+resource hc:last_name = "hc:last_name";
+resource hc:code1 = "hc:code1";
+resource hc:code2 = "hc:code2";
+resource hc:code5 = "hc:code5";
+resource first_name_rx = "first_name_rx";
+resource last_name_rx = "last_name_rx";
+
+[Rule1]:
+  (?clm01 rdf:type hc:Claim)
+  ->
+  (?clm01 rdf:type hc:BaseClaim)
+;
+
+[Rule2]:
+  (?clm01 rdf:type hc:Claim).
+  (?clm01 rdf:type hc:BaseClaim).
+  (?clm01 hc:code1 ?code1).
+  (?clm01 hc:code2 ?code2).
+  [(?code1 + ?code2) == int(5)].
+  ->
+  (?clm01 hc:code5 ?code1+?code2)
+;
+
+[Rule3]:
+  (?ctx rdf:type jet:Context).
+  (?clm01 rdf:type hc:Claim).
+  (?clm01 rdf:type hc:BaseClaim).
+  (?ctx first_name_rx ?fname_rx).
+  (?ctx last_name_rx ?lname_rx).
+  (?clm01 hc:raw_name ?name)
+  ->
+  (?clm01 hc:first_name ?fname_rx r? ?name).
+  (?clm01 hc:last_name ?lname_rx r? ?name)
+;
+
+[Rule4]:
+  (?clm01 rdf:type hc:Claim).
+  (?clm01 rdf:type hc:BaseClaim).
+  (?clm01 hc:first_name ?first).
+  (?clm01 hc:last_name ?last)
+  ->
+  (?clm01 hc:full_name ((?first + " ") + ?last))
+;

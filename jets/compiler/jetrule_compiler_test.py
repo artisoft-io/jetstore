@@ -225,5 +225,33 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(json.dumps(data), json.dumps(expected))
 
 
+  def test_triples1(self):
+    data = """
+      # =======================================================================================
+      # Testing triple statement
+      @JetCompilerDirective extract_resources_from_rules = "true";
+
+      triple(iState, rdf:type, jets:State);
+      triple(iDistConfigTC,top:entity_property,_0:distObjTC);
+      triple(iDistConfigTC,top:operator,"<");
+      triple(iDistConfigTC,top:value_property,_0:yearDistance);
+      triple(iExZ0,STATE,"NY");
+      triple(iExZ0,ZIPCODE,"06390");
+    """
+    jetrule_ctx = self._get_augmented_data(data)
+
+    if jetrule_ctx.ERROR:
+      print("GOT ERROR!")
+    for err in jetrule_ctx.errors:
+      print('***', err)
+
+    expected = """{"resources": [{"id": "iState", "type": "resource", "value": "iState", "key": 0}, {"id": "rdf:type", "type": "resource", "value": "rdf:type", "source_file_name": "predefined", "key": 1}, {"id": "jets:State", "type": "resource", "value": "jets:State", "key": 2}, {"id": "iDistConfigTC", "type": "resource", "value": "iDistConfigTC", "key": 3}, {"id": "top:entity_property", "type": "resource", "value": "top:entity_property", "key": 4}, {"id": "distObjTC", "type": "volatile_resource", "value": "_0:distObjTC", "key": 5}, {"id": "top:operator", "type": "resource", "value": "top:operator", "key": 6}, {"id": "top:value_property", "type": "resource", "value": "top:value_property", "key": 7}, {"id": "yearDistance", "type": "volatile_resource", "value": "_0:yearDistance", "key": 8}, {"id": "iExZ0", "type": "resource", "value": "iExZ0", "key": 9}, {"id": "STATE", "type": "resource", "value": "STATE", "key": 10}, {"id": "ZIPCODE", "type": "resource", "value": "ZIPCODE", "key": 11}, {"type": "text", "value": "<", "inline": true, "key": 12, "source_file_name": null}, {"type": "text", "value": "NY", "inline": true, "key": 13, "source_file_name": null}, {"type": "text", "value": "06390", "inline": true, "key": 14, "source_file_name": null}], "lookup_tables": [], "jet_rules": [], "imports": {}, "triples": [{"type": "triple", "subject_key": 0, "predicate_key": 1, "object_key": 2}, {"type": "triple", "subject_key": 3, "predicate_key": 4, "object_key": 5}, {"type": "triple", "subject_key": 3, "predicate_key": 6, "object_key": 12}, {"type": "triple", "subject_key": 3, "predicate_key": 7, "object_key": 8}, {"type": "triple", "subject_key": 9, "predicate_key": 10, "object_key": 13}, {"type": "triple", "subject_key": 9, "predicate_key": 11, "object_key": 14}]}"""
+    # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
+    self.assertEqual(jetrule_ctx.ERROR, False)
+    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+
+
 if __name__ == '__main__':
   absltest.main()

@@ -54,6 +54,7 @@ class JetRuleContext:
     self.compiler_directives = None
     self.classes = None
     self.tables = None
+    self.triples = None
 
     self.ERROR = False
     if self.errors:
@@ -74,6 +75,7 @@ class JetRuleContext:
     self.compiler_directives = self.jetRules.get('compiler_directives')
     self.classes = self.jetRules.get('classes')
     self.tables = []
+    self.triples = self.jetRules.get('triples', [])
 
     if self.literals is None or self.resources is None or self.lookup_tables is None or self.jet_rules is None: 
       raise Exception("Invalid jetRules structure: ",self.jetRules)
@@ -130,7 +132,10 @@ class JetRuleContext:
     r = map.get(name)
     if r:
       if source_fname and source_fname != r.get('source_file_name'):
-        self.err('Error: Creating {0} with id {1} in file {2} but it already exist in file {3}.'.format(tag, name, source_fname, r.get('source_file_name')))
+        if r['value'] != value or type != r.get('type'):
+          self.err('Error: Creating {0} with id {1} in file {2} but it already exist in file {3} with a different definition.'.format(tag, name, source_fname, r.get('source_file_name')))
+        else:
+          print('Warning: Creating {0} with id {1} in file {2} but it already exist in file {3}'.format(tag, name, source_fname, r.get('source_file_name')))
       if r['value'] != value or type != r.get('type'):
         self.err('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
 

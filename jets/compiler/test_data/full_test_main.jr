@@ -1,0 +1,79 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Full Test JetStore Rule Language
+# ---------------------------------------------------------------------------------------
+import "full_test_model.jr"
+import "full_test_support.jr"
+# ---------------------------------------------------------------------------------------
+
+# Preferred way to define volative resources
+# ---------------------------------------------------------------------------------------
+volatile_resource medicareRateObj261     = "medicareRateObj261";
+volatile_resource medicareRateObj262     = "medicareRateObj262";
+
+# =======================================================================================
+# Defining Lookup Tables
+# ---------------------------------------------------------------------------------------
+# lookup example based on ACME: *include-lookup* "CM/Procedure CM.trd"
+# Note: Legacy trd lookup table will have to be converted to csv
+# Assuming here the csv would have these columns: "PROC_CODE, PROC_RID, PROC_MID, PROC_DESC"
+lookup_table acme:ProcedureLookup {
+  $csv_file = "/work/buckets/mylookup.csv",    # csv file location
+  $key = ["EVENT_DURATION"],                   # Key columns, resource PROC_CODE automatically created
+  $columns = [
+    "EVENT_DURATION" as int,
+    "PROC_RID" as long,
+    "FROM_DATE" as date,
+    "EXCL" as text
+  ]
+};
+
+resource node1 = "node1";
+resource node2 = "node2";
+resource node3 = "node3";
+
+# The 2 rules below are the same as rule 4 and 5 in rete_session_test
+[Rule5,s=10]:
+  (?s node1 ?n1)
+  ->
+  (?s node2 ?n1)
+;
+
+[Rule6,s=20]:
+  (?s node1 ?n1).
+  not(?s node2 ?n1)
+  ->
+  (?s node3 ?n1)
+;
+
+resource node10 = "node10";
+resource node20 = "node20";
+resource node30 = "node30";
+
+# The 2 rules below are the same as rule 6 and 7 in rete_session_test
+[Rule7,s=10]:
+  (?s node10 ?n1).
+  (?s node2 ?n1)
+  ->
+  (?s node20 ?n1)
+;
+
+[Rule8,s=5]:
+  (?s node10 ?n1).
+  (?s node2 ?n1).
+  not(?s node20 ?n1).
+  (?s node1 ?n1).
+  ->
+  (?s node30 ?n1)
+;
+
+# =======================================================================================
+# Metadata Triples
+# ---------------------------------------------------------------------------------------
+@JetCompilerDirective extract_resources_from_rules = "true";
+
+triple(iState, rdf:type, jets:State);
+triple(iDistConfigTC,top:entity_property,_0:distObjTC);
+triple(iDistConfigTC,top:operator,"<");
+triple(iDistConfigTC,top:value_property,_0:yearDistance);
+triple(iExZ0,STATE,"NY");
+triple(iExZ0,ZIPCODE,"06390");

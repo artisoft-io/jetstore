@@ -4,6 +4,7 @@ from absl import flags
 from pathlib import Path
 from typing import Any, Sequence, Set
 from typing import Dict
+import itertools
 import apsw
 import traceback
 import os
@@ -36,8 +37,13 @@ class JetRuleReteSQLite:
     self.data_properties_last_key = None
     self.domain_tables_last_key = None
     self.lookup_tables_last_key = None
+    self.jet_rules_last_key = None
     self.write_cursor = None
     self.main_rule_file_key = None
+
+    # mapping of vertex to db_key, needed to insert in rule_terms table
+    self.vertex_db_keys = {}
+
 
   # =====================================================================================
   # saveReteConfig
@@ -71,10 +77,10 @@ class JetRuleReteSQLite:
       pass
 
     # Saving the ctx.jetReteNodes
+    # Saving the ctx.jetRules
     try:
       # Create the workspace schema if new db
       self._create_schema()
-      self.rule_file_keys = {}
 
       # open a read cursor for looking up ids
       self.read_cursor = self.workspace_connection.cursor()
@@ -87,7 +93,6 @@ class JetRuleReteSQLite:
 
       # Get tables last key for insertion of new rows
       self.wc_key                   = self._get_last_key('workspace_control', 'key')
-      self.resources_last_key       = self._get_last_key('resources', 'key')
       self.expr_last_key            = self._get_last_key('expressions', 'key')
       self.rete_nodes_last_key      = self._get_last_key('rete_nodes', 'key')
       self.beta_row_config_last_key = self._get_last_key('beta_row_config', 'key')
@@ -95,6 +100,12 @@ class JetRuleReteSQLite:
       self.data_properties_last_key = self._get_last_key('data_properties', 'key')
       self.domain_tables_last_key   = self._get_last_key('domain_tables', 'key')
       self.lookup_tables_last_key   = self._get_last_key('lookup_tables', 'key')
+      self.jet_rules_last_key       = self._get_last_key('jet_rules', 'key')
+
+      # Save predefined resource, before openning the main transaction
+      self._save_predefined_resources()
+      self.resources_last_key       = self._get_last_key('resources', 'key')
+      self.rule_file_keys = {}
 
       # Open the self.write_cursor
       self.write_cursor = self.workspace_connection.cursor()
@@ -106,8 +117,12 @@ class JetRuleReteSQLite:
 
       # Add support files to workspace_control if not there already
       for support_file in self.ctx.jetReteNodes['support_rule_file_names']:
-        if self._get_source_rule_file_key(support_file) is None:
-          self._add_source_rule_file(support_file, False)
+        support_file_key = self._get_source_rule_file_key(support_file)
+        if support_file_key is None:
+          support_file_key = self._add_source_rule_file(support_file, False)
+        self.write_cursor.execute(
+          "INSERT INTO main_support_files (main_file_key, support_file_key) VALUES (?, ?)", 
+          [self.main_rule_file_key, support_file_key])
 
       # Add all resources to rete_db, will skip source file already in rete_db
       # -------------------------------------------------------------------------
@@ -129,6 +144,14 @@ class JetRuleReteSQLite:
       # Add rete_nodes to rete_nodes table
       # -------------------------------------------------------------------------
       self._save_rete_nodes()
+
+      # save jet rules
+      # -------------------------------------------------------------------------
+      self._save_jet_rules()
+
+      # save metadata triples
+      # -------------------------------------------------------------------------
+      self._save_triples()
 
       # All done, commiting the work
       # print('done')
@@ -162,6 +185,36 @@ class JetRuleReteSQLite:
       last_key += 1
     # print('GOT max(self.resources_last_key)',self.resources_last_key)
     return last_key
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_predefined_resources
+  # -------------------------------------------------------------------------------------
+  def _save_predefined_resources(self):
+    if self._get_source_rule_file_key('predefined') is None:
+      self.write_cursor = None
+      last_key = self._get_last_key('resources', 'key')
+      try:
+        self.write_cursor = self.workspace_connection.cursor()
+        self.write_cursor.execute('BEGIN')
+        source_file_key = self._add_source_rule_file('predefined', False)
+        for r in self.ctx.predefined_resources:
+          key = last_key
+          last_key += 1
+          self.write_cursor.execute(
+            "INSERT INTO resources (key, type, id, value, source_file_key) VALUES (?, ?, ?, ?, ?)", 
+            [key, 'resource', r, r, source_file_key])
+
+        self.write_cursor.execute('COMMIT')
+      except (Exception) as error:
+        print("Error while saving predefined resources:", error)
+        print(traceback.format_exc())
+        raise error
+
+      finally:
+        if self.write_cursor:
+          self.write_cursor.close()
+          self.write_cursor = None
 
 
   # -------------------------------------------------------------------------------------
@@ -281,6 +334,40 @@ class JetRuleReteSQLite:
             row)
 
   # -------------------------------------------------------------------------------------
+  # _save_jet_rules
+  # -------------------------------------------------------------------------------------
+  def _save_jet_rules(self):
+    # print('Saving _save_jet_rules. . .')
+    for jrule in self.ctx.jetRules.get('jet_rules', []):
+      skey = self.rule_file_keys.get(jrule['source_file_name'])
+      if skey is not None:
+        key = self.jet_rules_last_key
+        self.jet_rules_last_key += 1
+        jrule['db_key'] = key                  # keep the globaly unique key for insertion in other tables
+        row = [
+          key, 
+          jrule['name'], 
+          jrule['optimization'], 
+          jrule['salience'], 
+          jrule['authoredLabel'], 
+          jrule['normalizedLabel'], 
+          jrule['label'], 
+          skey]
+        self.write_cursor.execute(
+          "INSERT INTO jet_rules (key, name, optimization, salience, authored_label, normalized_label, label, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
+          row)
+        
+        for ruleterm in itertools.chain(jrule['antecedents'], jrule['consequents']):
+          row = [
+            key, 
+            self.vertex_db_keys[ruleterm['vertex']], 
+            ruleterm['type']=='antecedent'
+          ]
+          self.write_cursor.execute(
+            "INSERT INTO rule_terms (rule_key, rete_node_key, is_antecedent) VALUES (?, ?, ?)", 
+            row)
+
+  # -------------------------------------------------------------------------------------
   # _save_expressions
   # -------------------------------------------------------------------------------------
   def _save_expressions(self):
@@ -374,10 +461,12 @@ class JetRuleReteSQLite:
 
       # Assign key to rete node
       key = self.rete_nodes_last_key
+      vertex = rete_node['vertex']
       self.rete_nodes_last_key += 1
+      self.vertex_db_keys[vertex] = key
       
       row = [
-        key, rete_node['vertex'], rete_node['type'], subject_key, predicate_key, object_key, 
+        key, vertex, rete_node['type'], subject_key, predicate_key, object_key, 
         rete_node.get('obj_expr_key'), rete_node.get('filter_expr_key'), 
         rete_node.get('normalizedLabel'), rete_node.get('parent_vertex'), self.main_rule_file_key,
         rete_node.get('isNot'), salience, rete_node.get('consequent_seq', 0)
@@ -414,6 +503,23 @@ class JetRuleReteSQLite:
         "INSERT INTO beta_row_config (key, vertex, seq, source_file_key, row_pos, is_binded, id)"
         "VALUES (?, ?, ?, ?, ?, ?, ?)", 
         beta_row_config)
+
+  # -------------------------------------------------------------------------------------
+  # _save_triples
+  # -------------------------------------------------------------------------------------
+  def _save_triples(self):
+    # print('Saving triples. . .')
+    key_map = self.ctx.jetReteNodes['resources']
+    for t3 in self.ctx.jetRules.get('triples', []):
+      row = [
+        key_map[t3['subject_key']]['db_key'],
+        key_map[t3['predicate_key']]['db_key'],
+        key_map[t3['object_key']]['db_key'],
+        self.main_rule_file_key
+      ]
+      self.write_cursor.execute(
+        "INSERT INTO triples (subject_key, predicate_key, object_key, source_file_key) VALUES (?, ?, ?, ?)", 
+        row)
 
 
   # -------------------------------------------------------------------------------------
@@ -470,6 +576,12 @@ class JetRuleReteSQLite:
         key                INTEGER PRIMARY KEY,
         source_file_name   STRING,
         is_main            BOOL
+      );
+      CREATE TABLE IF NOT EXISTS main_support_files (
+        main_file_key      INTEGER NOT NULL,
+        support_file_key   INTEGER NOT NULL,
+        UNIQUE (main_file_key, support_file_key)
+          ON CONFLICT IGNORE
       );
 
       -- --------------------
@@ -561,6 +673,33 @@ class JetRuleReteSQLite:
       );
 
       -- --------------------
+      -- jet_rules table
+      -- --------------------
+      CREATE TABLE IF NOT EXISTS jet_rules (
+        key                INTEGER PRIMARY KEY,
+        name               STRING NOT NULL,
+        optimization       BOOL,
+        salience           INTEGER,
+        authored_label     STRING,
+        normalized_label   STRING,
+        label              STRING,
+        source_file_key    INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS rule_terms (
+        rule_key           INTEGER NOT NULL,
+        rete_node_key      INTEGER NOT NULL,
+        is_antecedent      BOOL,
+        PRIMARY KEY (rule_key, rete_node_key)
+          ON CONFLICT IGNORE
+      );
+      CREATE TABLE IF NOT EXISTS rule_properties (
+        rule_key           INTEGER NOT NULL,
+        name               STRING NOT NULL,
+        value              STRING
+      );
+      CREATE INDEX IF NOT EXISTS rule_properties_idx ON rule_properties (rule_key);
+
+      -- --------------------
       -- expressions table
       -- --------------------
       -- type = {'binary', 'unary', 'resource', 'function'}
@@ -611,6 +750,18 @@ class JetRuleReteSQLite:
         is_binded          INTEGER,
         id                 STRING,
         UNIQUE (vertex, seq, source_file_key)
+      );
+
+      -- --------------------
+      -- triples table
+      -- --------------------
+      CREATE TABLE IF NOT EXISTS triples (
+        subject_key        INTEGER NOT NULL,
+        predicate_key      INTEGER NOT NULL,
+        object_key         INTEGER NOT NULL,
+        source_file_key    INTEGER NOT NULL,
+        PRIMARY KEY (subject_key, predicate_key, object_key, source_file_key)
+          ON CONFLICT IGNORE
       );
 
       -- --------------------

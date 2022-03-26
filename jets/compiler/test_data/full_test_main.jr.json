@@ -1,0 +1,2654 @@
+{
+    "resources": [
+        {
+            "type": "resource",
+            "id": "jet:Context",
+            "value": "jet:Context",
+            "source_file_name": "full_test_support.jr",
+            "key": 0
+        },
+        {
+            "type": "resource",
+            "id": "rdf:type",
+            "value": "rdf:type",
+            "source_file_name": "full_test_support.jr",
+            "source_fname": "predefined",
+            "key": 1
+        },
+        {
+            "id": "hc:Claim",
+            "type": "resource",
+            "value": "hc:Claim",
+            "source_file_name": "full_test_model.jr",
+            "key": 2
+        },
+        {
+            "type": "resource",
+            "id": "hc:BaseClaim",
+            "value": "hc:BaseClaim",
+            "source_file_name": "full_test_support.jr",
+            "key": 3
+        },
+        {
+            "type": "resource",
+            "id": "hc:raw_name",
+            "value": "hc:raw_name",
+            "source_file_name": "full_test_support.jr",
+            "key": 4
+        },
+        {
+            "type": "resource",
+            "id": "hc:full_name",
+            "value": "hc:full_name",
+            "source_file_name": "full_test_support.jr",
+            "key": 5
+        },
+        {
+            "type": "resource",
+            "id": "hc:first_name",
+            "value": "hc:first_name",
+            "source_file_name": "full_test_support.jr",
+            "key": 6
+        },
+        {
+            "type": "resource",
+            "id": "hc:last_name",
+            "value": "hc:last_name",
+            "source_file_name": "full_test_support.jr",
+            "key": 7
+        },
+        {
+            "type": "resource",
+            "id": "hc:code1",
+            "value": "hc:code1",
+            "source_file_name": "full_test_support.jr",
+            "key": 8
+        },
+        {
+            "type": "resource",
+            "id": "hc:code2",
+            "value": "hc:code2",
+            "source_file_name": "full_test_support.jr",
+            "key": 9
+        },
+        {
+            "type": "resource",
+            "id": "hc:code5",
+            "value": "hc:code5",
+            "source_file_name": "full_test_support.jr",
+            "key": 10
+        },
+        {
+            "type": "resource",
+            "id": "first_name_rx",
+            "value": "first_name_rx",
+            "source_file_name": "full_test_support.jr",
+            "key": 11
+        },
+        {
+            "type": "resource",
+            "id": "last_name_rx",
+            "value": "last_name_rx",
+            "source_file_name": "full_test_support.jr",
+            "key": 12
+        },
+        {
+            "type": "volatile_resource",
+            "id": "medicareRateObj261",
+            "value": "medicareRateObj261",
+            "source_file_name": "full_test_main.jr",
+            "key": 13
+        },
+        {
+            "type": "volatile_resource",
+            "id": "medicareRateObj262",
+            "value": "medicareRateObj262",
+            "source_file_name": "full_test_main.jr",
+            "key": 14
+        },
+        {
+            "type": "resource",
+            "id": "node1",
+            "value": "node1",
+            "source_file_name": "full_test_main.jr",
+            "key": 15
+        },
+        {
+            "type": "resource",
+            "id": "node2",
+            "value": "node2",
+            "source_file_name": "full_test_main.jr",
+            "key": 16
+        },
+        {
+            "type": "resource",
+            "id": "node3",
+            "value": "node3",
+            "source_file_name": "full_test_main.jr",
+            "key": 17
+        },
+        {
+            "type": "resource",
+            "id": "node10",
+            "value": "node10",
+            "source_file_name": "full_test_main.jr",
+            "key": 18
+        },
+        {
+            "type": "resource",
+            "id": "node20",
+            "value": "node20",
+            "source_file_name": "full_test_main.jr",
+            "key": 19
+        },
+        {
+            "type": "resource",
+            "id": "node30",
+            "value": "node30",
+            "source_file_name": "full_test_main.jr",
+            "key": 20
+        },
+        {
+            "id": "jets:Entity",
+            "type": "resource",
+            "value": "jets:Entity",
+            "source_file_name": "full_test_model.jr",
+            "key": 21
+        },
+        {
+            "id": "owl:Thing",
+            "type": "resource",
+            "value": "owl:Thing",
+            "source_file_name": "predefined",
+            "key": 22
+        },
+        {
+            "id": "jets:key",
+            "type": "resource",
+            "value": "jets:key",
+            "source_file_name": "full_test_model.jr",
+            "key": 23
+        },
+        {
+            "id": "claim_number",
+            "type": "resource",
+            "value": "claim_number",
+            "source_file_name": "full_test_model.jr",
+            "key": 24
+        },
+        {
+            "id": "date_of_service",
+            "type": "resource",
+            "value": "date_of_service",
+            "source_file_name": "full_test_model.jr",
+            "key": 25
+        },
+        {
+            "id": "primary_diagnosis",
+            "type": "resource",
+            "value": "primary_diagnosis",
+            "source_file_name": "full_test_model.jr",
+            "key": 26
+        },
+        {
+            "id": "secondary_diagnosis",
+            "type": "resource",
+            "value": "secondary_diagnosis",
+            "source_file_name": "full_test_model.jr",
+            "key": 27
+        },
+        {
+            "id": "hc:MedicalClaim",
+            "type": "resource",
+            "value": "hc:MedicalClaim",
+            "source_file_name": "full_test_model.jr",
+            "key": 28
+        },
+        {
+            "id": "procedure_code",
+            "type": "resource",
+            "value": "procedure_code",
+            "source_file_name": "full_test_model.jr",
+            "key": 29
+        },
+        {
+            "id": "hc:PharmacyClaim",
+            "type": "resource",
+            "value": "hc:PharmacyClaim",
+            "source_file_name": "full_test_model.jr",
+            "key": 30
+        },
+        {
+            "id": "ndc_code",
+            "type": "resource",
+            "value": "ndc_code",
+            "source_file_name": "full_test_model.jr",
+            "key": 31
+        },
+        {
+            "id": "days_supply",
+            "type": "resource",
+            "value": "days_supply",
+            "source_file_name": "full_test_model.jr",
+            "key": 32
+        },
+        {
+            "id": "dispensed_qty",
+            "type": "resource",
+            "value": "dispensed_qty",
+            "source_file_name": "full_test_model.jr",
+            "key": 33
+        },
+        {
+            "id": "acme:ProcedureLookup",
+            "type": "resource",
+            "value": "acme:ProcedureLookup",
+            "source_file_name": "full_test_main.jr",
+            "key": 34
+        },
+        {
+            "id": "EVENT_DURATION",
+            "type": "resource",
+            "value": "EVENT_DURATION",
+            "source_file_name": "full_test_main.jr",
+            "key": 35
+        },
+        {
+            "id": "PROC_RID",
+            "type": "resource",
+            "value": "PROC_RID",
+            "source_file_name": "full_test_main.jr",
+            "key": 36
+        },
+        {
+            "id": "FROM_DATE",
+            "type": "resource",
+            "value": "FROM_DATE",
+            "source_file_name": "full_test_main.jr",
+            "key": 37
+        },
+        {
+            "id": "EXCL",
+            "type": "resource",
+            "value": "EXCL",
+            "source_file_name": "full_test_main.jr",
+            "key": 38
+        },
+        {
+            "id": "iState",
+            "type": "resource",
+            "value": "iState",
+            "source_file_name": "full_test_main.jr",
+            "key": 39
+        },
+        {
+            "id": "jets:State",
+            "type": "resource",
+            "value": "jets:State",
+            "source_file_name": "full_test_main.jr",
+            "key": 40
+        },
+        {
+            "id": "iDistConfigTC",
+            "type": "resource",
+            "value": "iDistConfigTC",
+            "source_file_name": "full_test_main.jr",
+            "key": 41
+        },
+        {
+            "id": "top:entity_property",
+            "type": "resource",
+            "value": "top:entity_property",
+            "source_file_name": "full_test_main.jr",
+            "key": 42
+        },
+        {
+            "id": "distObjTC",
+            "type": "volatile_resource",
+            "value": "_0:distObjTC",
+            "source_file_name": "full_test_main.jr",
+            "key": 43
+        },
+        {
+            "id": "top:operator",
+            "type": "resource",
+            "value": "top:operator",
+            "source_file_name": "full_test_main.jr",
+            "key": 44
+        },
+        {
+            "id": "top:value_property",
+            "type": "resource",
+            "value": "top:value_property",
+            "source_file_name": "full_test_main.jr",
+            "key": 45
+        },
+        {
+            "id": "yearDistance",
+            "type": "volatile_resource",
+            "value": "_0:yearDistance",
+            "source_file_name": "full_test_main.jr",
+            "key": 46
+        },
+        {
+            "id": "iExZ0",
+            "type": "resource",
+            "value": "iExZ0",
+            "source_file_name": "full_test_main.jr",
+            "key": 47
+        },
+        {
+            "id": "STATE",
+            "type": "resource",
+            "value": "STATE",
+            "source_file_name": "full_test_main.jr",
+            "key": 48
+        },
+        {
+            "id": "ZIPCODE",
+            "type": "resource",
+            "value": "ZIPCODE",
+            "source_file_name": "full_test_main.jr",
+            "key": 49
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 1,
+            "key": 50,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 2,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 51,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 3,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 52,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 3,
+            "key": 53,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 54,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 4,
+            "key": 55,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 56,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 57,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "int",
+            "value": "5",
+            "inline": true,
+            "key": 58,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 5,
+            "key": 59,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 6,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 60,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 6,
+            "key": 61,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 7,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 62,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 7,
+            "key": 63,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 8,
+            "key": 64,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 9,
+            "is_antecedent": true,
+            "var_pos": 2,
+            "key": 65,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": true,
+            "var_pos": 2,
+            "key": 66,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x5",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 10,
+            "key": 67,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 11,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 68,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 11,
+            "key": 69,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 70,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 12,
+            "key": 71,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 13,
+            "key": 72,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 13,
+            "key": 73,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 74,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 75,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 15,
+            "key": 76,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 15,
+            "key": 77,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 78,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 79,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 17,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 80,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 17,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 81,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 82,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 83,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 19,
+            "key": 84,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 20,
+            "key": 85,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 21,
+            "key": 86,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 87,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 88,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 89,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 90,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 91,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 92,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 93,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x5",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 3,
+            "key": 94,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 95,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 96,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x5",
+            "is_binded": true,
+            "vertex": 10,
+            "is_antecedent": false,
+            "var_pos": 3,
+            "key": 97,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 98,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 99,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "text",
+            "value": " ",
+            "inline": true,
+            "key": 100,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 12,
+            "is_antecedent": false,
+            "var_pos": 2,
+            "key": 101,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 13,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 102,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 13,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 103,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 104,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 14,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 105,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 106,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 16,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 107,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 108,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 18,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 109,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 19,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 110,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 20,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 111,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 21,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 112,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "text",
+            "value": "<",
+            "inline": true,
+            "key": 113,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "text",
+            "value": "NY",
+            "inline": true,
+            "key": 114,
+            "source_file_name": "full_test_main.jr"
+        },
+        {
+            "type": "text",
+            "value": "06390",
+            "inline": true,
+            "key": 115,
+            "source_file_name": "full_test_main.jr"
+        }
+    ],
+    "lookup_tables": [
+        {
+            "type": "lookup",
+            "name": "acme:ProcedureLookup",
+            "key": [
+                "EVENT_DURATION"
+            ],
+            "columns": [
+                {
+                    "name": "EVENT_DURATION",
+                    "type": "int",
+                    "as_array": "false"
+                },
+                {
+                    "name": "PROC_RID",
+                    "type": "long",
+                    "as_array": "false"
+                },
+                {
+                    "name": "FROM_DATE",
+                    "type": "date",
+                    "as_array": "false"
+                },
+                {
+                    "name": "EXCL",
+                    "type": "text",
+                    "as_array": "false"
+                }
+            ],
+            "csv_file": "/work/buckets/mylookup.csv",
+            "source_file_name": "full_test_main.jr",
+            "resources": [
+                "EVENT_DURATION",
+                "PROC_RID",
+                "FROM_DATE",
+                "EXCL"
+            ]
+        }
+    ],
+    "jet_rules": [
+        {
+            "name": "Rule1",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 87,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 1
+                }
+            ],
+            "authoredLabel": "[Rule1]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);",
+            "source_file_name": "full_test_support.jr",
+            "normalizedLabel": "[Rule1]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type hc:BaseClaim);",
+            "label": "[Rule1]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);"
+        },
+        {
+            "name": "Rule2",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 2,
+                    "parent_vertex": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 3,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 52,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:code1"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 3,
+                            "key": 53,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:code1 ?x2)",
+                    "label": "(?clm01 hc:code1 ?code1)",
+                    "vertex": 3,
+                    "parent_vertex": 2
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 4,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 54,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:code2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 4,
+                            "key": 55,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:code2 ?x3).[(?x2 + ?x3) == int(5)]",
+                    "label": "(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)]",
+                    "filter": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "binary",
+                            "lhs": 56,
+                            "op": "+",
+                            "rhs": 57
+                        },
+                        "op": "==",
+                        "rhs": 58
+                    },
+                    "vertex": 4,
+                    "parent_vertex": 3
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 4,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 89,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:code5"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": 90,
+                            "op": "+",
+                            "rhs": 91
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:code5 ?x2 + ?x3)",
+                    "label": "(?clm01 hc:code5 ?code1 + ?code2)",
+                    "vertex": 4
+                }
+            ],
+            "authoredLabel": "[Rule2]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:code1 ?code1).(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)] -> (?clm01 hc:code5 ?code1 + ?code2);",
+            "source_file_name": "full_test_support.jr",
+            "normalizedLabel": "[Rule2]:(?x1 rdf:type hc:Claim).(?x1 rdf:type hc:BaseClaim).(?x1 hc:code1 ?x2).(?x1 hc:code2 ?x3).[(?x2 + ?x3) == int(5)] -> (?x1 hc:code5 ?x2 + ?x3);",
+            "label": "[Rule2]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:code1 ?code1).(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)] -> (?clm01 hc:code5 ?code1 + ?code2);"
+        },
+        {
+            "name": "Rule3",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 5,
+                            "key": 59,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "jet:Context"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type jet:Context)",
+                    "label": "(?ctx rdf:type jet:Context)",
+                    "vertex": 5,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 6,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 60,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "first_name_rx"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 6,
+                            "key": 61,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 first_name_rx ?x2)",
+                    "label": "(?ctx first_name_rx ?fname_rx)",
+                    "vertex": 6,
+                    "parent_vertex": 5
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 7,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 62,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "last_name_rx"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 7,
+                            "key": 63,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 last_name_rx ?x3)",
+                    "label": "(?ctx last_name_rx ?lname_rx)",
+                    "vertex": 7,
+                    "parent_vertex": 6
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 8,
+                            "key": 64,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 8,
+                    "parent_vertex": 7
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 9,
+                            "is_antecedent": true,
+                            "var_pos": 2,
+                            "key": 65,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 9,
+                    "parent_vertex": 8
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 10,
+                            "is_antecedent": true,
+                            "var_pos": 2,
+                            "key": 66,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:raw_name"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x5",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 10,
+                            "key": 67,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 hc:raw_name ?x5)",
+                    "label": "(?clm01 hc:raw_name ?name)",
+                    "vertex": 10,
+                    "parent_vertex": 9
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 10,
+                            "is_antecedent": false,
+                            "var_pos": 2,
+                            "key": 92,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:first_name"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": 93,
+                            "op": "r?",
+                            "rhs": 94
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 hc:first_name ?x2 r? ?x5)",
+                    "label": "(?clm01 hc:first_name ?fname_rx r? ?name)",
+                    "vertex": 10
+                },
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "vertex": 10,
+                            "is_antecedent": false,
+                            "var_pos": 2,
+                            "key": 95,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:last_name"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": 96,
+                            "op": "r?",
+                            "rhs": 97
+                        }
+                    ],
+                    "normalizedLabel": "(?x4 hc:last_name ?x3 r? ?x5)",
+                    "label": "(?clm01 hc:last_name ?lname_rx r? ?name)",
+                    "vertex": 10
+                }
+            ],
+            "authoredLabel": "[Rule3]:(?ctx rdf:type jet:Context).(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?ctx first_name_rx ?fname_rx).(?ctx last_name_rx ?lname_rx).(?clm01 hc:raw_name ?name) -> (?clm01 hc:first_name ?fname_rx r? ?name).(?clm01 hc:last_name ?lname_rx r? ?name);",
+            "source_file_name": "full_test_support.jr",
+            "normalizedLabel": "[Rule3]:(?x1 rdf:type jet:Context).(?x1 first_name_rx ?x2).(?x1 last_name_rx ?x3).(?x4 rdf:type hc:Claim).(?x4 rdf:type hc:BaseClaim).(?x4 hc:raw_name ?x5) -> (?x4 hc:first_name ?x2 r? ?x5).(?x4 hc:last_name ?x3 r? ?x5);",
+            "label": "[Rule3]:(?ctx rdf:type jet:Context).(?ctx first_name_rx ?fname_rx).(?ctx last_name_rx ?lname_rx).(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:raw_name ?name) -> (?clm01 hc:first_name ?fname_rx r? ?name).(?clm01 hc:last_name ?lname_rx r? ?name);"
+        },
+        {
+            "name": "Rule4",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?clm01",
+                            "id": "?x1",
+                            "label": "?clm01"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?clm01 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 2,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 51,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:BaseClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "label": "(?clm01 rdf:type hc:BaseClaim)",
+                    "vertex": 2,
+                    "parent_vertex": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 11,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 68,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:first_name"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 11,
+                            "key": 69,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:first_name ?x2)",
+                    "label": "(?clm01 hc:first_name ?first)",
+                    "vertex": 11,
+                    "parent_vertex": 2
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 12,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 70,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:last_name"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 12,
+                            "key": 71,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:last_name ?x3)",
+                    "label": "(?clm01 hc:last_name ?last)",
+                    "vertex": 12,
+                    "parent_vertex": 11
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 12,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 98,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:full_name"
+                        },
+                        {
+                            "type": "binary",
+                            "lhs": {
+                                "type": "binary",
+                                "lhs": 99,
+                                "op": "+",
+                                "rhs": 100
+                            },
+                            "op": "+",
+                            "rhs": 101
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 hc:full_name (?x2 + \" \") + ?x3)",
+                    "label": "(?clm01 hc:full_name (?first + \" \") + ?last)",
+                    "vertex": 12
+                }
+            ],
+            "authoredLabel": "[Rule4]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:first_name ?first).(?clm01 hc:last_name ?last) -> (?clm01 hc:full_name (?first + \" \") + ?last);",
+            "source_file_name": "full_test_support.jr",
+            "normalizedLabel": "[Rule4]:(?x1 rdf:type hc:Claim).(?x1 rdf:type hc:BaseClaim).(?x1 hc:first_name ?x2).(?x1 hc:last_name ?x3) -> (?x1 hc:full_name (?x2 + \" \") + ?x3);",
+            "label": "[Rule4]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:first_name ?first).(?clm01 hc:last_name ?last) -> (?clm01 hc:full_name (?first + \" \") + ?last);"
+        },
+        {
+            "name": "Rule5",
+            "properties": {
+                "s": "10"
+            },
+            "optimization": true,
+            "salience": 10,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?s",
+                            "id": "?x1",
+                            "label": "?s"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node1"
+                        },
+                        {
+                            "type": "var",
+                            "value": "?n1",
+                            "id": "?x2",
+                            "label": "?n1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "label": "(?s node1 ?n1)",
+                    "vertex": 13,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 13,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 102,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 13,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 103,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "label": "(?s node2 ?n1)",
+                    "vertex": 13
+                }
+            ],
+            "authoredLabel": "[Rule5, s=10]:(?s node1 ?n1) -> (?s node2 ?n1);",
+            "source_file_name": "full_test_main.jr",
+            "normalizedLabel": "[Rule5, s=10]:(?x1 node1 ?x2) -> (?x1 node2 ?x2);",
+            "label": "[Rule5, s=10]:(?s node1 ?n1) -> (?s node2 ?n1);"
+        },
+        {
+            "name": "Rule6",
+            "properties": {
+                "s": "20"
+            },
+            "optimization": true,
+            "salience": 20,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 13,
+                            "key": 72,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node1"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 13,
+                            "key": 73,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "label": "(?s node1 ?n1)",
+                    "vertex": 13,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 74,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 75,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "not(?x1 node2 ?x2)",
+                    "label": "not(?s node2 ?n1)",
+                    "vertex": 14,
+                    "parent_vertex": 13
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 104,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node3"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 14,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 105,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node3 ?x2)",
+                    "label": "(?s node3 ?n1)",
+                    "vertex": 14
+                }
+            ],
+            "authoredLabel": "[Rule6, s=20]:(?s node1 ?n1).not(?s node2 ?n1) -> (?s node3 ?n1);",
+            "source_file_name": "full_test_main.jr",
+            "normalizedLabel": "[Rule6, s=20]:(?x1 node1 ?x2).not(?x1 node2 ?x2) -> (?x1 node3 ?x2);",
+            "label": "[Rule6, s=20]:(?s node1 ?n1).not(?s node2 ?n1) -> (?s node3 ?n1);"
+        },
+        {
+            "name": "Rule7",
+            "properties": {
+                "s": "10"
+            },
+            "optimization": true,
+            "salience": 10,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?s",
+                            "id": "?x1",
+                            "label": "?s"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node10"
+                        },
+                        {
+                            "type": "var",
+                            "value": "?n1",
+                            "id": "?x2",
+                            "label": "?n1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node10 ?x2)",
+                    "label": "(?s node10 ?n1)",
+                    "vertex": 15,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "value": "?s",
+                            "id": "?x1",
+                            "label": "?s"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "value": "?n1",
+                            "id": "?x2",
+                            "label": "?n1"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "label": "(?s node2 ?n1)",
+                    "vertex": 16,
+                    "parent_vertex": 15
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 106,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node20"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 107,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node20 ?x2)",
+                    "label": "(?s node20 ?n1)",
+                    "vertex": 16
+                }
+            ],
+            "authoredLabel": "[Rule7, s=10]:(?s node10 ?n1).(?s node2 ?n1) -> (?s node20 ?n1);",
+            "source_file_name": "full_test_main.jr",
+            "normalizedLabel": "[Rule7, s=10]:(?x1 node10 ?x2).(?x1 node2 ?x2) -> (?x1 node20 ?x2);",
+            "label": "[Rule7, s=10]:(?s node10 ?n1).(?s node2 ?n1) -> (?s node20 ?n1);"
+        },
+        {
+            "name": "Rule8",
+            "properties": {
+                "s": "5"
+            },
+            "optimization": true,
+            "salience": 5,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 15,
+                            "key": 76,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node10"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 15,
+                            "key": 77,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node10 ?x2)",
+                    "label": "(?s node10 ?n1)",
+                    "vertex": 15,
+                    "parent_vertex": 0
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 78,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node2"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 16,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 79,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "label": "(?s node2 ?n1)",
+                    "vertex": 16,
+                    "parent_vertex": 15
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 17,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 80,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node20"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 17,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 81,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "not(?x1 node20 ?x2)",
+                    "label": "not(?s node20 ?n1)",
+                    "vertex": 17,
+                    "parent_vertex": 16
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": true,
+                            "var_pos": 0,
+                            "key": 82,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node1"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": true,
+                            "var_pos": 1,
+                            "key": 83,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "label": "(?s node1 ?n1)",
+                    "vertex": 18,
+                    "parent_vertex": 17
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 108,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "node30"
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "vertex": 18,
+                            "is_antecedent": false,
+                            "var_pos": 1,
+                            "key": 109,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 node30 ?x2)",
+                    "label": "(?s node30 ?n1)",
+                    "vertex": 18
+                }
+            ],
+            "authoredLabel": "[Rule8, s=5]:(?s node10 ?n1).(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1);",
+            "source_file_name": "full_test_main.jr",
+            "normalizedLabel": "[Rule8, s=5]:(?x1 node10 ?x2).(?x1 node2 ?x2).not(?x1 node20 ?x2).(?x1 node1 ?x2) -> (?x1 node30 ?x2);",
+            "label": "[Rule8, s=5]:(?s node10 ?n1).(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1);"
+        },
+        {
+            "name": "jets__entity__1",
+            "properties": {
+                "i": true
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 19,
+                            "key": 84,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "jets:Entity"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "label": "(?s1 rdf:type jets:Entity)",
+                    "vertex": 19,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 19,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 110,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "owl:Thing"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+                    "label": "(?s1 rdf:type owl:Thing)",
+                    "vertex": 19
+                }
+            ],
+            "authoredLabel": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
+            "source_file_name": "full_test_model.jr",
+            "normalizedLabel": "[jets__entity__1, i=True]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
+        },
+        {
+            "name": "hc__claim__2",
+            "properties": {
+                "i": true
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 50,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?s1 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 1,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 88,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "jets:Entity"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "label": "(?s1 rdf:type jets:Entity)",
+                    "vertex": 1
+                }
+            ],
+            "authoredLabel": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
+            "source_file_name": "full_test_model.jr",
+            "normalizedLabel": "[hc__claim__2, i=True]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
+            "label": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
+        },
+        {
+            "name": "hc__medicalclaim__3",
+            "properties": {
+                "i": true
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 20,
+                            "key": 85,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:MedicalClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)",
+                    "label": "(?s1 rdf:type hc:MedicalClaim)",
+                    "vertex": 20,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 20,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 111,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?s1 rdf:type hc:Claim)",
+                    "vertex": 20
+                }
+            ],
+            "authoredLabel": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);",
+            "source_file_name": "full_test_model.jr",
+            "normalizedLabel": "[hc__medicalclaim__3, i=True]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);",
+            "label": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"
+        },
+        {
+            "name": "hc__pharmacyclaim__4",
+            "properties": {
+                "i": true
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 21,
+                            "key": 86,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:PharmacyClaim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:PharmacyClaim)",
+                    "label": "(?s1 rdf:type hc:PharmacyClaim)",
+                    "vertex": 21,
+                    "parent_vertex": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "triple": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "vertex": 21,
+                            "is_antecedent": false,
+                            "var_pos": 0,
+                            "key": 112,
+                            "source_file_name": "full_test_main.jr"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "rdf:type"
+                        },
+                        {
+                            "type": "identifier",
+                            "value": "hc:Claim"
+                        }
+                    ],
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "label": "(?s1 rdf:type hc:Claim)",
+                    "vertex": 21
+                }
+            ],
+            "authoredLabel": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);",
+            "source_file_name": "full_test_model.jr",
+            "normalizedLabel": "[hc__pharmacyclaim__4, i=True]:(?x1 rdf:type hc:PharmacyClaim) -> (?x1 rdf:type hc:Claim);",
+            "label": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);"
+        }
+    ],
+    "imports": {
+        "full_test_main.jr": [
+            "full_test_support.jr",
+            "full_test_model.jr"
+        ]
+    },
+    "classes": [
+        {
+            "type": "class",
+            "name": "jets:Entity",
+            "base_classes": [
+                "owl:Thing"
+            ],
+            "data_properties": [
+                {
+                    "name": "jets:key",
+                    "type": "uint",
+                    "as_array": "false"
+                }
+            ],
+            "source_file_name": "full_test_model.jr",
+            "as_table": "false"
+        },
+        {
+            "type": "class",
+            "name": "hc:Claim",
+            "base_classes": [
+                "jets:Entity"
+            ],
+            "data_properties": [
+                {
+                    "name": "claim_number",
+                    "type": "long",
+                    "as_array": "false"
+                },
+                {
+                    "name": "date_of_service",
+                    "type": "date",
+                    "as_array": "false"
+                },
+                {
+                    "name": "primary_diagnosis",
+                    "type": "text",
+                    "as_array": "false"
+                },
+                {
+                    "name": "secondary_diagnosis",
+                    "type": "text",
+                    "as_array": "true"
+                }
+            ],
+            "source_file_name": "full_test_model.jr",
+            "as_table": "false"
+        },
+        {
+            "type": "class",
+            "name": "hc:MedicalClaim",
+            "base_classes": [
+                "hc:Claim"
+            ],
+            "data_properties": [
+                {
+                    "name": "procedure_code",
+                    "type": "text",
+                    "as_array": "false"
+                }
+            ],
+            "source_file_name": "full_test_model.jr",
+            "as_table": "true"
+        },
+        {
+            "type": "class",
+            "name": "hc:PharmacyClaim",
+            "base_classes": [
+                "hc:Claim"
+            ],
+            "data_properties": [
+                {
+                    "name": "ndc_code",
+                    "type": "text",
+                    "as_array": "false"
+                },
+                {
+                    "name": "days_supply",
+                    "type": "int",
+                    "as_array": "false"
+                },
+                {
+                    "name": "dispensed_qty",
+                    "type": "int",
+                    "as_array": "false"
+                }
+            ],
+            "source_file_name": "full_test_model.jr",
+            "as_table": "true"
+        }
+    ],
+    "tables": [
+        {
+            "type": "table",
+            "table_name": "hc__medicalclaim",
+            "class_name": "hc:MedicalClaim",
+            "columns": [
+                {
+                    "type": "long",
+                    "as_array": "false",
+                    "property_name": "claim_number",
+                    "column_name": "claim_number"
+                },
+                {
+                    "type": "date",
+                    "as_array": "false",
+                    "property_name": "date_of_service",
+                    "column_name": "date_of_service"
+                },
+                {
+                    "type": "uint",
+                    "as_array": "false",
+                    "property_name": "jets:key",
+                    "column_name": "jets__key"
+                },
+                {
+                    "type": "text",
+                    "as_array": "false",
+                    "property_name": "primary_diagnosis",
+                    "column_name": "primary_diagnosis"
+                },
+                {
+                    "type": "text",
+                    "as_array": "false",
+                    "property_name": "procedure_code",
+                    "column_name": "procedure_code"
+                },
+                {
+                    "type": "text",
+                    "as_array": "true",
+                    "property_name": "secondary_diagnosis",
+                    "column_name": "secondary_diagnosis"
+                }
+            ],
+            "source_file_name": "full_test_model.jr"
+        },
+        {
+            "type": "table",
+            "table_name": "hc__pharmacyclaim",
+            "class_name": "hc:PharmacyClaim",
+            "columns": [
+                {
+                    "type": "long",
+                    "as_array": "false",
+                    "property_name": "claim_number",
+                    "column_name": "claim_number"
+                },
+                {
+                    "type": "date",
+                    "as_array": "false",
+                    "property_name": "date_of_service",
+                    "column_name": "date_of_service"
+                },
+                {
+                    "type": "int",
+                    "as_array": "false",
+                    "property_name": "days_supply",
+                    "column_name": "days_supply"
+                },
+                {
+                    "type": "int",
+                    "as_array": "false",
+                    "property_name": "dispensed_qty",
+                    "column_name": "dispensed_qty"
+                },
+                {
+                    "type": "uint",
+                    "as_array": "false",
+                    "property_name": "jets:key",
+                    "column_name": "jets__key"
+                },
+                {
+                    "type": "text",
+                    "as_array": "false",
+                    "property_name": "ndc_code",
+                    "column_name": "ndc_code"
+                },
+                {
+                    "type": "text",
+                    "as_array": "false",
+                    "property_name": "primary_diagnosis",
+                    "column_name": "primary_diagnosis"
+                },
+                {
+                    "type": "text",
+                    "as_array": "true",
+                    "property_name": "secondary_diagnosis",
+                    "column_name": "secondary_diagnosis"
+                }
+            ],
+            "source_file_name": "full_test_model.jr"
+        }
+    ],
+    "triples": [
+        {
+            "type": "triple",
+            "subject_key": 39,
+            "predicate_key": 1,
+            "object_key": 40
+        },
+        {
+            "type": "triple",
+            "subject_key": 41,
+            "predicate_key": 42,
+            "object_key": 43
+        },
+        {
+            "type": "triple",
+            "subject_key": 41,
+            "predicate_key": 44,
+            "object_key": 113
+        },
+        {
+            "type": "triple",
+            "subject_key": 41,
+            "predicate_key": 45,
+            "object_key": 46
+        },
+        {
+            "type": "triple",
+            "subject_key": 47,
+            "predicate_key": 48,
+            "object_key": 114
+        },
+        {
+            "type": "triple",
+            "subject_key": 47,
+            "predicate_key": 49,
+            "object_key": 115
+        }
+    ]
+}

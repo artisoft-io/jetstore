@@ -358,7 +358,7 @@ class JetRuleRete:
     # Add resources and literals to rete config
     resources = self.ctx.jetReteNodes['resources']
     key = 0
-    for k, v in self.ctx.resourceMap.items():
+    for _, v in self.ctx.resourceMap.items():
       v['key'] = key
       key += 1
       resources.append(v)
@@ -386,10 +386,8 @@ class JetRuleRete:
       rete_node = self.ctx.rete_nodes[i]
       vertex = rete_node['vertex']    # this is the antecedent vertex for consequent
       type = rete_node['type']
-      is_antecedent = False
       parent_vertex = 0
       if type == 'antecedent':
-        is_antecedent = True
         parent_vertex = rete_node['parent_vertex']
 
       triple = rete_node['triple']
@@ -401,13 +399,13 @@ class JetRuleRete:
         'parent_beta_relation_vars': self.ctx.rete_nodes[parent_vertex].get('beta_relation_vars', []),
       }
 
-      rete_node['subject_key'] = self._map_elm(state, triple[0], is_antecedent=is_antecedent)
-      rete_node['predicate_key'] = self._map_elm(state, triple[1], is_antecedent=is_antecedent)
+      rete_node['subject_key'] = self._map_elm(state, triple[0], type)
+      rete_node['predicate_key'] = self._map_elm(state, triple[1], type)
       obj_elm = triple[2]
       if obj_elm['type'] in ['binary', 'unary']:
         rete_node['obj_expr'] = self._map_expr(state, obj_elm)
       else:
-        rete_node['object_key'] = self._map_elm(state, triple[2], is_antecedent=is_antecedent)
+        rete_node['object_key'] = self._map_elm(state, triple[2], type)
       filter = rete_node.get('filter')
       if filter:
         rete_node['filter'] = self._map_expr(state, filter)
@@ -426,6 +424,7 @@ class JetRuleRete:
       self.ctx.jetRules['classes'] = self.ctx.classes
     if self.ctx.tables:
       self.ctx.jetRules['tables'] = self.ctx.tables
+
 
   # add elm to resources, set key as pos in sequence, return key
   def _add_key(self, resources: Sequence[Dict[str, object]], elm: Dict[str, object]) -> int:
@@ -449,21 +448,23 @@ class JetRuleRete:
     
     # type must be literal, meaning we can use _map_elm
     # that returns the key
-    return self._map_elm(state, elm, is_antecedent=False)
+    return self._map_elm(state, elm, type)
 
 
   # map elm to an entry in resources based on type
   # May add elm to resources
   # return key,
-  def _map_elm(self, state, elm, is_antecedent: bool) -> int:
+  def _map_elm(self, state, elm, parent_type) -> int:
     type = elm['type']
     
     if type == 'var':
+      if parent_type == 'triple':
+        return 0
       # add vertex to var elm to track which vertex this var belongs to
       elm['vertex'] = state['vertex']
       if elm['is_binded']:
-        elm['is_antecedent'] = is_antecedent
-        if is_antecedent:
+        elm['is_antecedent'] = parent_type == 'antecedent'
+        if parent_type == 'antecedent':
           # var_pos is pos in parent beta relation's var
           if elm['id'] in state['parent_beta_relation_vars']:
             elm['var_pos'] = state['parent_beta_relation_vars'].index(elm['id'])
@@ -489,3 +490,25 @@ class JetRuleRete:
       return self._add_key(state['resources'], elm)
 
     raise Exception('ERROR JetRuleRete._add_elm: unknown type: '+str(type))
+
+
+  # =====================================================================================
+  # normalizeTriples
+  # -------------------------------------------------------------------------------------
+  # Perform manipulation on self.ctx.triples data structure to normalize the elements 
+  # and be ready to persist using a sql model using sqlite
+  # -------------------------------------------------------------------------------------
+  def normalizeTriples(self) -> None:
+    if not self.ctx.triples:
+      return
+    # this is done to reuse _map_elm function
+    state = {
+      'resources': self.ctx.jetReteNodes['resources']
+    }
+    self.ctx.jetRules['triples'] = [{
+      'type': 'triple',
+      'subject_key': self._map_elm(state, t3['subject'], 'triple'),
+      'predicate_key': self._map_elm(state, t3['predicate'], 'triple'),
+      'object_key': self._map_elm(state, t3['object'], 'triple')
+    } for t3 in self.ctx.triples ]
+
