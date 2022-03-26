@@ -18,7 +18,7 @@ resource hc:code5 = "hc:code5";
 resource first_name_rx = "first_name_rx";
 resource last_name_rx = "last_name_rx";
 
-[Rule1]:
+[Rule1, tag="ac01"]:
   (?clm01 rdf:type hc:Claim)
   ->
   (?clm01 rdf:type hc:BaseClaim)

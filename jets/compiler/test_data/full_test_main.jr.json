@@ -1022,67 +1022,66 @@
     "jet_rules": [
         {
             "name": "Rule1",
-            "properties": {},
+            "properties": {
+                "tag": "\"ac01\""
+            },
             "optimization": true,
             "salience": 100,
             "antecedents": [
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
-                            "value": "?clm01",
                             "id": "?x1",
-                            "label": "?clm01"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:Claim"
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 50,
+                            "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-                    "label": "(?clm01 rdf:type hc:Claim)",
-                    "vertex": 1,
-                    "parent_vertex": 0
+                    "children_vertexes": [
+                        2
+                    ],
+                    "rules": [
+                        "Rule1",
+                        "hc__claim__2"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 50,
+                    "predicate_key": 1,
+                    "object_key": 2
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 1,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 87,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:BaseClaim"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
-                    "label": "(?clm01 rdf:type hc:BaseClaim)",
-                    "vertex": 1
+                    "vertex": 1,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule1",
+                    "consequent_salience": 100,
+                    "subject_key": 87,
+                    "predicate_key": 1,
+                    "object_key": 3
                 }
             ],
-            "authoredLabel": "[Rule1]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);",
+            "authoredLabel": "[Rule1, tag=\"ac01\"]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);",
             "source_file_name": "full_test_support.jr",
-            "normalizedLabel": "[Rule1]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type hc:BaseClaim);",
-            "label": "[Rule1]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);"
+            "normalizedLabel": "[Rule1, tag=\"ac01\"]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type hc:BaseClaim);",
+            "label": "[Rule1, tag=\"ac01\"]:(?clm01 rdf:type hc:Claim) -> (?clm01 rdf:type hc:BaseClaim);"
         },
         {
             "name": "Rule2",
@@ -1093,68 +1092,84 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "value": "?clm01",
-                            "id": "?x1",
-                            "label": "?clm01"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:Claim"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-                    "label": "(?clm01 rdf:type hc:Claim)",
                     "vertex": 1,
-                    "parent_vertex": 0
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
-                            "value": "?clm01",
                             "id": "?x1",
-                            "label": "?clm01"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:BaseClaim"
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 50,
+                            "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
-                    "label": "(?clm01 rdf:type hc:BaseClaim)",
-                    "vertex": 2,
-                    "parent_vertex": 1
+                    "children_vertexes": [
+                        2
+                    ],
+                    "rules": [
+                        "Rule1",
+                        "hc__claim__2"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 50,
+                    "predicate_key": 1,
+                    "object_key": 2
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "vertex": 2,
+                    "parent_vertex": 1,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 3,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 52,
-                            "source_file_name": "full_test_main.jr"
-                        },
+                            "vertex": 2
+                        }
+                    ],
+                    "children_vertexes": [
+                        3,
+                        11
+                    ],
+                    "subject_key": 51,
+                    "predicate_key": 1,
+                    "object_key": 3
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 hc:code1 ?x2)",
+                    "vertex": 3,
+                    "parent_vertex": 2,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
-                            "type": "identifier",
-                            "value": "hc:code1"
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 3
                         },
                         {
                             "type": "var",
@@ -1166,41 +1181,17 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 hc:code1 ?x2)",
-                    "label": "(?clm01 hc:code1 ?code1)",
-                    "vertex": 3,
-                    "parent_vertex": 2
+                    "children_vertexes": [
+                        4
+                    ],
+                    "subject_key": 52,
+                    "predicate_key": 8,
+                    "object_key": 53
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": true,
-                            "var_pos": 0,
-                            "key": 54,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:code2"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": false,
-                            "var_pos": 2,
-                            "vertex": 4,
-                            "key": 55,
-                            "source_file_name": "full_test_main.jr"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 hc:code2 ?x3).[(?x2 + ?x3) == int(5)]",
-                    "label": "(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)]",
                     "filter": {
                         "type": "binary",
                         "lhs": {
@@ -1213,37 +1204,66 @@
                         "rhs": 58
                     },
                     "vertex": 4,
-                    "parent_vertex": 3
+                    "parent_vertex": 3,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2",
+                        "?x3"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 4
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "var_pos": 1,
+                            "vertex": 4
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 4,
+                            "key": 55,
+                            "source_file_name": "full_test_main.jr"
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "Rule2"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 54,
+                    "predicate_key": 9,
+                    "object_key": 55
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 4,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 89,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:code5"
-                        },
-                        {
-                            "type": "binary",
-                            "lhs": 90,
-                            "op": "+",
-                            "rhs": 91
-                        }
-                    ],
                     "normalizedLabel": "(?x1 hc:code5 ?x2 + ?x3)",
-                    "label": "(?clm01 hc:code5 ?code1 + ?code2)",
-                    "vertex": 4
+                    "vertex": 4,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule2",
+                    "consequent_salience": 100,
+                    "subject_key": 89,
+                    "predicate_key": 10,
+                    "obj_expr": {
+                        "type": "binary",
+                        "lhs": 90,
+                        "op": "+",
+                        "rhs": 91
+                    }
                 }
             ],
             "authoredLabel": "[Rule2]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:code1 ?code1).(?clm01 hc:code2 ?code2).[(?code1 + ?code2) == int(5)] -> (?clm01 hc:code5 ?code1 + ?code2);",
@@ -1260,7 +1280,14 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type jet:Context)",
+                    "vertex": 5,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
@@ -1269,38 +1296,33 @@
                             "vertex": 5,
                             "key": 59,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "jet:Context"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type jet:Context)",
-                    "label": "(?ctx rdf:type jet:Context)",
-                    "vertex": 5,
-                    "parent_vertex": 0
+                    "children_vertexes": [
+                        6
+                    ],
+                    "subject_key": 59,
+                    "predicate_key": 1,
+                    "object_key": 0
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 first_name_rx ?x2)",
+                    "vertex": 6,
+                    "parent_vertex": 5,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 6,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 60,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "first_name_rx"
+                            "vertex": 6
                         },
                         {
                             "type": "var",
@@ -1312,28 +1334,33 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 first_name_rx ?x2)",
-                    "label": "(?ctx first_name_rx ?fname_rx)",
-                    "vertex": 6,
-                    "parent_vertex": 5
+                    "children_vertexes": [
+                        7
+                    ],
+                    "subject_key": 60,
+                    "predicate_key": 11,
+                    "object_key": 61
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 last_name_rx ?x3)",
+                    "vertex": 7,
+                    "parent_vertex": 6,
+                    "beta_relation_vars": [
+                        "?x2",
+                        "?x3"
+                    ],
+                    "pruned_var": [
+                        "?x1"
+                    ],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
-                            "id": "?x1",
+                            "id": "?x2",
                             "is_binded": true,
-                            "vertex": 7,
-                            "is_antecedent": true,
-                            "var_pos": 0,
-                            "key": 62,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "last_name_rx"
+                            "var_pos": 1,
+                            "vertex": 7
                         },
                         {
                             "type": "var",
@@ -1345,15 +1372,42 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 last_name_rx ?x3)",
-                    "label": "(?ctx last_name_rx ?lname_rx)",
-                    "vertex": 7,
-                    "parent_vertex": 6
+                    "children_vertexes": [
+                        8
+                    ],
+                    "subject_key": 62,
+                    "predicate_key": 12,
+                    "object_key": 63
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x4 rdf:type hc:Claim)",
+                    "vertex": 8,
+                    "parent_vertex": 7,
+                    "beta_relation_vars": [
+                        "?x2",
+                        "?x3",
+                        "?x4"
+                    ],
+                    "pruned_var": [
+                        "?x1"
+                    ],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 8
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": true,
+                            "var_pos": 1,
+                            "vertex": 8
+                        },
                         {
                             "type": "var",
                             "id": "?x4",
@@ -1362,66 +1416,95 @@
                             "vertex": 8,
                             "key": 64,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:Claim"
                         }
                     ],
-                    "normalizedLabel": "(?x4 rdf:type hc:Claim)",
-                    "label": "(?clm01 rdf:type hc:Claim)",
-                    "vertex": 8,
-                    "parent_vertex": 7
+                    "children_vertexes": [
+                        9
+                    ],
+                    "subject_key": 64,
+                    "predicate_key": 1,
+                    "object_key": 2
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x4",
-                            "is_binded": true,
-                            "vertex": 9,
-                            "is_antecedent": true,
-                            "var_pos": 2,
-                            "key": 65,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:BaseClaim"
-                        }
-                    ],
                     "normalizedLabel": "(?x4 rdf:type hc:BaseClaim)",
-                    "label": "(?clm01 rdf:type hc:BaseClaim)",
                     "vertex": 9,
-                    "parent_vertex": 8
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
+                    "parent_vertex": 8,
+                    "beta_relation_vars": [
+                        "?x2",
+                        "?x3",
+                        "?x4"
+                    ],
+                    "pruned_var": [
+                        "?x1"
+                    ],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 9
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": true,
+                            "var_pos": 1,
+                            "vertex": 9
+                        },
                         {
                             "type": "var",
                             "id": "?x4",
                             "is_binded": true,
-                            "vertex": 10,
-                            "is_antecedent": true,
                             "var_pos": 2,
-                            "key": 66,
-                            "source_file_name": "full_test_main.jr"
+                            "vertex": 9
+                        }
+                    ],
+                    "children_vertexes": [
+                        10
+                    ],
+                    "subject_key": 65,
+                    "predicate_key": 1,
+                    "object_key": 3
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x4 hc:raw_name ?x5)",
+                    "vertex": 10,
+                    "parent_vertex": 9,
+                    "beta_relation_vars": [
+                        "?x2",
+                        "?x3",
+                        "?x4",
+                        "?x5"
+                    ],
+                    "pruned_var": [
+                        "?x1"
+                    ],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 10
                         },
                         {
-                            "type": "identifier",
-                            "value": "hc:raw_name"
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": true,
+                            "var_pos": 1,
+                            "vertex": 10
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x4",
+                            "is_binded": true,
+                            "var_pos": 2,
+                            "vertex": 10
                         },
                         {
                             "type": "var",
@@ -1433,68 +1516,50 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x4 hc:raw_name ?x5)",
-                    "label": "(?clm01 hc:raw_name ?name)",
-                    "vertex": 10,
-                    "parent_vertex": 9
+                    "children_vertexes": [],
+                    "rules": [
+                        "Rule3"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 66,
+                    "predicate_key": 4,
+                    "object_key": 67
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x4",
-                            "is_binded": true,
-                            "vertex": 10,
-                            "is_antecedent": false,
-                            "var_pos": 2,
-                            "key": 92,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:first_name"
-                        },
-                        {
-                            "type": "binary",
-                            "lhs": 93,
-                            "op": "r?",
-                            "rhs": 94
-                        }
-                    ],
                     "normalizedLabel": "(?x4 hc:first_name ?x2 r? ?x5)",
-                    "label": "(?clm01 hc:first_name ?fname_rx r? ?name)",
-                    "vertex": 10
+                    "vertex": 10,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule3",
+                    "consequent_salience": 100,
+                    "subject_key": 92,
+                    "predicate_key": 6,
+                    "obj_expr": {
+                        "type": "binary",
+                        "lhs": 93,
+                        "op": "r?",
+                        "rhs": 94
+                    }
                 },
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x4",
-                            "is_binded": true,
-                            "vertex": 10,
-                            "is_antecedent": false,
-                            "var_pos": 2,
-                            "key": 95,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:last_name"
-                        },
-                        {
-                            "type": "binary",
-                            "lhs": 96,
-                            "op": "r?",
-                            "rhs": 97
-                        }
-                    ],
                     "normalizedLabel": "(?x4 hc:last_name ?x3 r? ?x5)",
-                    "label": "(?clm01 hc:last_name ?lname_rx r? ?name)",
-                    "vertex": 10
+                    "vertex": 10,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "Rule3",
+                    "consequent_salience": 100,
+                    "subject_key": 95,
+                    "predicate_key": 7,
+                    "obj_expr": {
+                        "type": "binary",
+                        "lhs": 96,
+                        "op": "r?",
+                        "rhs": 97
+                    }
                 }
             ],
             "authoredLabel": "[Rule3]:(?ctx rdf:type jet:Context).(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?ctx first_name_rx ?fname_rx).(?ctx last_name_rx ?lname_rx).(?clm01 hc:raw_name ?name) -> (?clm01 hc:first_name ?fname_rx r? ?name).(?clm01 hc:last_name ?lname_rx r? ?name);",
@@ -1511,72 +1576,84 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
-                        {
-                            "type": "var",
-                            "value": "?clm01",
-                            "id": "?x1",
-                            "label": "?clm01"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:Claim"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-                    "label": "(?clm01 rdf:type hc:Claim)",
                     "vertex": 1,
-                    "parent_vertex": 0
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "triple": [
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 2,
-                            "is_antecedent": true,
+                            "is_binded": false,
                             "var_pos": 0,
-                            "key": 51,
+                            "vertex": 1,
+                            "key": 50,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:BaseClaim"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
-                    "label": "(?clm01 rdf:type hc:BaseClaim)",
-                    "vertex": 2,
-                    "parent_vertex": 1
+                    "children_vertexes": [
+                        2
+                    ],
+                    "rules": [
+                        "Rule1",
+                        "hc__claim__2"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 50,
+                    "predicate_key": 1,
+                    "object_key": 2
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type hc:BaseClaim)",
+                    "vertex": 2,
+                    "parent_vertex": 1,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 11,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 68,
-                            "source_file_name": "full_test_main.jr"
-                        },
+                            "vertex": 2
+                        }
+                    ],
+                    "children_vertexes": [
+                        3,
+                        11
+                    ],
+                    "subject_key": 51,
+                    "predicate_key": 1,
+                    "object_key": 3
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 hc:first_name ?x2)",
+                    "vertex": 11,
+                    "parent_vertex": 2,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
-                            "type": "identifier",
-                            "value": "hc:first_name"
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 11
                         },
                         {
                             "type": "var",
@@ -1588,28 +1665,39 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 hc:first_name ?x2)",
-                    "label": "(?clm01 hc:first_name ?first)",
-                    "vertex": 11,
-                    "parent_vertex": 2
+                    "children_vertexes": [
+                        12
+                    ],
+                    "subject_key": 68,
+                    "predicate_key": 6,
+                    "object_key": 69
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 hc:last_name ?x3)",
+                    "vertex": 12,
+                    "parent_vertex": 11,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2",
+                        "?x3"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 12,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 70,
-                            "source_file_name": "full_test_main.jr"
+                            "vertex": 12
                         },
                         {
-                            "type": "identifier",
-                            "value": "hc:last_name"
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "var_pos": 1,
+                            "vertex": 12
                         },
                         {
                             "type": "var",
@@ -1621,45 +1709,39 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 hc:last_name ?x3)",
-                    "label": "(?clm01 hc:last_name ?last)",
-                    "vertex": 12,
-                    "parent_vertex": 11
+                    "children_vertexes": [],
+                    "rules": [
+                        "Rule4"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 70,
+                    "predicate_key": 7,
+                    "object_key": 71
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 12,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 98,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:full_name"
-                        },
-                        {
-                            "type": "binary",
-                            "lhs": {
-                                "type": "binary",
-                                "lhs": 99,
-                                "op": "+",
-                                "rhs": 100
-                            },
-                            "op": "+",
-                            "rhs": 101
-                        }
-                    ],
                     "normalizedLabel": "(?x1 hc:full_name (?x2 + \" \") + ?x3)",
-                    "label": "(?clm01 hc:full_name (?first + \" \") + ?last)",
-                    "vertex": 12
+                    "vertex": 12,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule4",
+                    "consequent_salience": 100,
+                    "subject_key": 98,
+                    "predicate_key": 5,
+                    "obj_expr": {
+                        "type": "binary",
+                        "lhs": {
+                            "type": "binary",
+                            "lhs": 99,
+                            "op": "+",
+                            "rhs": 100
+                        },
+                        "op": "+",
+                        "rhs": 101
+                    }
                 }
             ],
             "authoredLabel": "[Rule4]:(?clm01 rdf:type hc:Claim).(?clm01 rdf:type hc:BaseClaim).(?clm01 hc:first_name ?first).(?clm01 hc:last_name ?last) -> (?clm01 hc:full_name (?first + \" \") + ?last);",
@@ -1678,62 +1760,59 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "vertex": 13,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
-                            "value": "?s",
                             "id": "?x1",
-                            "label": "?s"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node1"
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 13,
+                            "key": 72,
+                            "source_file_name": "full_test_main.jr"
                         },
                         {
                             "type": "var",
-                            "value": "?n1",
                             "id": "?x2",
-                            "label": "?n1"
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 13,
+                            "key": 73,
+                            "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 node1 ?x2)",
-                    "label": "(?s node1 ?n1)",
-                    "vertex": 13,
-                    "parent_vertex": 0
+                    "children_vertexes": [
+                        14
+                    ],
+                    "rules": [
+                        "Rule5"
+                    ],
+                    "salience": [
+                        10
+                    ],
+                    "subject_key": 72,
+                    "predicate_key": 15,
+                    "object_key": 73
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 13,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 102,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node2"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": true,
-                            "vertex": 13,
-                            "is_antecedent": false,
-                            "var_pos": 1,
-                            "key": 103,
-                            "source_file_name": "full_test_main.jr"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 node2 ?x2)",
-                    "label": "(?s node2 ?n1)",
-                    "vertex": 13
+                    "vertex": 13,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule5",
+                    "consequent_salience": 10,
+                    "subject_key": 102,
+                    "predicate_key": 16,
+                    "object_key": 103
                 }
             ],
             "authoredLabel": "[Rule5, s=10]:(?s node1 ?n1) -> (?s node2 ?n1);",
@@ -1752,7 +1831,15 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "vertex": 13,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
@@ -1761,10 +1848,6 @@
                             "vertex": 13,
                             "key": 72,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node1"
                         },
                         {
                             "type": "var",
@@ -1776,78 +1859,69 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 node1 ?x2)",
-                    "label": "(?s node1 ?n1)",
-                    "vertex": 13,
-                    "parent_vertex": 0
+                    "children_vertexes": [
+                        14
+                    ],
+                    "rules": [
+                        "Rule5"
+                    ],
+                    "salience": [
+                        10
+                    ],
+                    "subject_key": 72,
+                    "predicate_key": 15,
+                    "object_key": 73
                 },
                 {
                     "type": "antecedent",
                     "isNot": true,
-                    "triple": [
+                    "normalizedLabel": "not(?x1 node2 ?x2)",
+                    "vertex": 14,
+                    "parent_vertex": 13,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 14,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 74,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node2"
+                            "vertex": 14
                         },
                         {
                             "type": "var",
                             "id": "?x2",
                             "is_binded": true,
-                            "vertex": 14,
-                            "is_antecedent": true,
                             "var_pos": 1,
-                            "key": 75,
-                            "source_file_name": "full_test_main.jr"
+                            "vertex": 14
                         }
                     ],
-                    "normalizedLabel": "not(?x1 node2 ?x2)",
-                    "label": "not(?s node2 ?n1)",
-                    "vertex": 14,
-                    "parent_vertex": 13
+                    "children_vertexes": [],
+                    "rules": [
+                        "Rule6"
+                    ],
+                    "salience": [
+                        20
+                    ],
+                    "subject_key": 74,
+                    "predicate_key": 16,
+                    "object_key": 75
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 14,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 104,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node3"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": true,
-                            "vertex": 14,
-                            "is_antecedent": false,
-                            "var_pos": 1,
-                            "key": 105,
-                            "source_file_name": "full_test_main.jr"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 node3 ?x2)",
-                    "label": "(?s node3 ?n1)",
-                    "vertex": 14
+                    "vertex": 14,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule6",
+                    "consequent_salience": 20,
+                    "subject_key": 104,
+                    "predicate_key": 17,
+                    "object_key": 105
                 }
             ],
             "authoredLabel": "[Rule6, s=20]:(?s node1 ?n1).not(?s node2 ?n1) -> (?s node3 ?n1);",
@@ -1866,88 +1940,93 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 node10 ?x2)",
+                    "vertex": 15,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
-                            "value": "?s",
                             "id": "?x1",
-                            "label": "?s"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node10"
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 15,
+                            "key": 76,
+                            "source_file_name": "full_test_main.jr"
                         },
                         {
                             "type": "var",
-                            "value": "?n1",
                             "id": "?x2",
-                            "label": "?n1"
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 15,
+                            "key": 77,
+                            "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 node10 ?x2)",
-                    "label": "(?s node10 ?n1)",
-                    "vertex": 15,
-                    "parent_vertex": 0
+                    "children_vertexes": [
+                        16
+                    ],
+                    "subject_key": 76,
+                    "predicate_key": 18,
+                    "object_key": 77
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "vertex": 16,
+                    "parent_vertex": 15,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
-                            "value": "?s",
                             "id": "?x1",
-                            "label": "?s"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node2"
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 16
                         },
                         {
                             "type": "var",
-                            "value": "?n1",
                             "id": "?x2",
-                            "label": "?n1"
+                            "is_binded": true,
+                            "var_pos": 1,
+                            "vertex": 16
                         }
                     ],
-                    "normalizedLabel": "(?x1 node2 ?x2)",
-                    "label": "(?s node2 ?n1)",
-                    "vertex": 16,
-                    "parent_vertex": 15
+                    "children_vertexes": [
+                        17
+                    ],
+                    "rules": [
+                        "Rule7"
+                    ],
+                    "salience": [
+                        10
+                    ],
+                    "subject_key": 78,
+                    "predicate_key": 16,
+                    "object_key": 79
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 16,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 106,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node20"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": true,
-                            "vertex": 16,
-                            "is_antecedent": false,
-                            "var_pos": 1,
-                            "key": 107,
-                            "source_file_name": "full_test_main.jr"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 node20 ?x2)",
-                    "label": "(?s node20 ?n1)",
-                    "vertex": 16
+                    "vertex": 16,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule7",
+                    "consequent_salience": 10,
+                    "subject_key": 106,
+                    "predicate_key": 19,
+                    "object_key": 107
                 }
             ],
             "authoredLabel": "[Rule7, s=10]:(?s node10 ?n1).(?s node2 ?n1) -> (?s node20 ?n1);",
@@ -1966,7 +2045,15 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 node10 ?x2)",
+                    "vertex": 15,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
@@ -1975,10 +2062,6 @@
                             "vertex": 15,
                             "key": 76,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node10"
                         },
                         {
                             "type": "var",
@@ -1990,146 +2073,137 @@
                             "source_file_name": "full_test_main.jr"
                         }
                     ],
-                    "normalizedLabel": "(?x1 node10 ?x2)",
-                    "label": "(?s node10 ?n1)",
-                    "vertex": 15,
-                    "parent_vertex": 0
+                    "children_vertexes": [
+                        16
+                    ],
+                    "subject_key": 76,
+                    "predicate_key": 18,
+                    "object_key": 77
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 node2 ?x2)",
+                    "vertex": 16,
+                    "parent_vertex": 15,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 16,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 78,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node2"
+                            "vertex": 16
                         },
                         {
                             "type": "var",
                             "id": "?x2",
                             "is_binded": true,
-                            "vertex": 16,
-                            "is_antecedent": true,
                             "var_pos": 1,
-                            "key": 79,
-                            "source_file_name": "full_test_main.jr"
+                            "vertex": 16
                         }
                     ],
-                    "normalizedLabel": "(?x1 node2 ?x2)",
-                    "label": "(?s node2 ?n1)",
-                    "vertex": 16,
-                    "parent_vertex": 15
+                    "children_vertexes": [
+                        17
+                    ],
+                    "rules": [
+                        "Rule7"
+                    ],
+                    "salience": [
+                        10
+                    ],
+                    "subject_key": 78,
+                    "predicate_key": 16,
+                    "object_key": 79
                 },
                 {
                     "type": "antecedent",
                     "isNot": true,
-                    "triple": [
+                    "normalizedLabel": "not(?x1 node20 ?x2)",
+                    "vertex": 17,
+                    "parent_vertex": 16,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 17,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 80,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node20"
+                            "vertex": 17
                         },
                         {
                             "type": "var",
                             "id": "?x2",
                             "is_binded": true,
-                            "vertex": 17,
-                            "is_antecedent": true,
                             "var_pos": 1,
-                            "key": 81,
-                            "source_file_name": "full_test_main.jr"
+                            "vertex": 17
                         }
                     ],
-                    "normalizedLabel": "not(?x1 node20 ?x2)",
-                    "label": "not(?s node20 ?n1)",
-                    "vertex": 17,
-                    "parent_vertex": 16
+                    "children_vertexes": [
+                        18
+                    ],
+                    "subject_key": 80,
+                    "predicate_key": 19,
+                    "object_key": 81
                 },
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 node1 ?x2)",
+                    "vertex": 18,
+                    "parent_vertex": 17,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
                             "is_binded": true,
-                            "vertex": 18,
-                            "is_antecedent": true,
                             "var_pos": 0,
-                            "key": 82,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node1"
+                            "vertex": 18
                         },
                         {
                             "type": "var",
                             "id": "?x2",
                             "is_binded": true,
-                            "vertex": 18,
-                            "is_antecedent": true,
                             "var_pos": 1,
-                            "key": 83,
-                            "source_file_name": "full_test_main.jr"
+                            "vertex": 18
                         }
                     ],
-                    "normalizedLabel": "(?x1 node1 ?x2)",
-                    "label": "(?s node1 ?n1)",
-                    "vertex": 18,
-                    "parent_vertex": 17
+                    "children_vertexes": [],
+                    "rules": [
+                        "Rule8"
+                    ],
+                    "salience": [
+                        5
+                    ],
+                    "subject_key": 82,
+                    "predicate_key": 15,
+                    "object_key": 83
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 18,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 108,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "node30"
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": true,
-                            "vertex": 18,
-                            "is_antecedent": false,
-                            "var_pos": 1,
-                            "key": 109,
-                            "source_file_name": "full_test_main.jr"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 node30 ?x2)",
-                    "label": "(?s node30 ?n1)",
-                    "vertex": 18
+                    "vertex": 18,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule8",
+                    "consequent_salience": 5,
+                    "subject_key": 108,
+                    "predicate_key": 20,
+                    "object_key": 109
                 }
             ],
             "authoredLabel": "[Rule8, s=5]:(?s node10 ?n1).(?s node2 ?n1).not(?s node20 ?n1).(?s node1 ?n1) -> (?s node30 ?n1);",
@@ -2140,7 +2214,7 @@
         {
             "name": "jets__entity__1",
             "properties": {
-                "i": true
+                "i": "true"
             },
             "optimization": true,
             "salience": 100,
@@ -2148,7 +2222,14 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "vertex": 19,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
@@ -2157,59 +2238,42 @@
                             "vertex": 19,
                             "key": 84,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "jets:Entity"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-                    "label": "(?s1 rdf:type jets:Entity)",
-                    "vertex": 19,
-                    "parent_vertex": 0
+                    "children_vertexes": [],
+                    "rules": [
+                        "jets__entity__1"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 84,
+                    "predicate_key": 1,
+                    "object_key": 21
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 19,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 110,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "owl:Thing"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
-                    "label": "(?s1 rdf:type owl:Thing)",
-                    "vertex": 19
+                    "vertex": 19,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "jets__entity__1",
+                    "consequent_salience": 100,
+                    "subject_key": 110,
+                    "predicate_key": 1,
+                    "object_key": 22
                 }
             ],
-            "authoredLabel": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
+            "authoredLabel": "[jets__entity__1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
             "source_file_name": "full_test_model.jr",
-            "normalizedLabel": "[jets__entity__1, i=True]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
-            "label": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
+            "normalizedLabel": "[jets__entity__1, i=true]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets__entity__1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
         },
         {
             "name": "hc__claim__2",
             "properties": {
-                "i": true
+                "i": "true"
             },
             "optimization": true,
             "salience": 100,
@@ -2217,7 +2281,14 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
@@ -2226,59 +2297,46 @@
                             "vertex": 1,
                             "key": 50,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:Claim"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-                    "label": "(?s1 rdf:type hc:Claim)",
-                    "vertex": 1,
-                    "parent_vertex": 0
+                    "children_vertexes": [
+                        2
+                    ],
+                    "rules": [
+                        "Rule1",
+                        "hc__claim__2"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 50,
+                    "predicate_key": 1,
+                    "object_key": 2
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 1,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 88,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "jets:Entity"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-                    "label": "(?s1 rdf:type jets:Entity)",
-                    "vertex": 1
+                    "vertex": 1,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "hc__claim__2",
+                    "consequent_salience": 100,
+                    "subject_key": 88,
+                    "predicate_key": 1,
+                    "object_key": 21
                 }
             ],
-            "authoredLabel": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
+            "authoredLabel": "[hc__claim__2, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
             "source_file_name": "full_test_model.jr",
-            "normalizedLabel": "[hc__claim__2, i=True]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
-            "label": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
+            "normalizedLabel": "[hc__claim__2, i=true]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
+            "label": "[hc__claim__2, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
         },
         {
             "name": "hc__medicalclaim__3",
             "properties": {
-                "i": true
+                "i": "true"
             },
             "optimization": true,
             "salience": 100,
@@ -2286,7 +2344,14 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)",
+                    "vertex": 20,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
@@ -2295,59 +2360,42 @@
                             "vertex": 20,
                             "key": 85,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:MedicalClaim"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)",
-                    "label": "(?s1 rdf:type hc:MedicalClaim)",
-                    "vertex": 20,
-                    "parent_vertex": 0
+                    "children_vertexes": [],
+                    "rules": [
+                        "hc__medicalclaim__3"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 85,
+                    "predicate_key": 1,
+                    "object_key": 28
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 20,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 111,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:Claim"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-                    "label": "(?s1 rdf:type hc:Claim)",
-                    "vertex": 20
+                    "vertex": 20,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "hc__medicalclaim__3",
+                    "consequent_salience": 100,
+                    "subject_key": 111,
+                    "predicate_key": 1,
+                    "object_key": 2
                 }
             ],
-            "authoredLabel": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);",
+            "authoredLabel": "[hc__medicalclaim__3, i=true]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);",
             "source_file_name": "full_test_model.jr",
-            "normalizedLabel": "[hc__medicalclaim__3, i=True]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);",
-            "label": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"
+            "normalizedLabel": "[hc__medicalclaim__3, i=true]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);",
+            "label": "[hc__medicalclaim__3, i=true]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"
         },
         {
             "name": "hc__pharmacyclaim__4",
             "properties": {
-                "i": true
+                "i": "true"
             },
             "optimization": true,
             "salience": 100,
@@ -2355,7 +2403,14 @@
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "triple": [
+                    "normalizedLabel": "(?x1 rdf:type hc:PharmacyClaim)",
+                    "vertex": 21,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
                         {
                             "type": "var",
                             "id": "?x1",
@@ -2364,60 +2419,43 @@
                             "vertex": 21,
                             "key": 86,
                             "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:PharmacyClaim"
                         }
                     ],
-                    "normalizedLabel": "(?x1 rdf:type hc:PharmacyClaim)",
-                    "label": "(?s1 rdf:type hc:PharmacyClaim)",
-                    "vertex": 21,
-                    "parent_vertex": 0
+                    "children_vertexes": [],
+                    "rules": [
+                        "hc__pharmacyclaim__4"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 86,
+                    "predicate_key": 1,
+                    "object_key": 30
                 }
             ],
             "consequents": [
                 {
                     "type": "consequent",
-                    "triple": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "vertex": 21,
-                            "is_antecedent": false,
-                            "var_pos": 0,
-                            "key": 112,
-                            "source_file_name": "full_test_main.jr"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "rdf:type"
-                        },
-                        {
-                            "type": "identifier",
-                            "value": "hc:Claim"
-                        }
-                    ],
                     "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-                    "label": "(?s1 rdf:type hc:Claim)",
-                    "vertex": 21
+                    "vertex": 21,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "hc__pharmacyclaim__4",
+                    "consequent_salience": 100,
+                    "subject_key": 112,
+                    "predicate_key": 1,
+                    "object_key": 2
                 }
             ],
-            "authoredLabel": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);",
+            "authoredLabel": "[hc__pharmacyclaim__4, i=true]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);",
             "source_file_name": "full_test_model.jr",
-            "normalizedLabel": "[hc__pharmacyclaim__4, i=True]:(?x1 rdf:type hc:PharmacyClaim) -> (?x1 rdf:type hc:Claim);",
-            "label": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);"
+            "normalizedLabel": "[hc__pharmacyclaim__4, i=true]:(?x1 rdf:type hc:PharmacyClaim) -> (?x1 rdf:type hc:Claim);",
+            "label": "[hc__pharmacyclaim__4, i=true]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);"
         }
     ],
     "imports": {
         "full_test_main.jr": [
-            "full_test_support.jr",
-            "full_test_model.jr"
+            "full_test_model.jr",
+            "full_test_support.jr"
         ]
     },
     "classes": [
