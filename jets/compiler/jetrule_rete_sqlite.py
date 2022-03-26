@@ -41,9 +41,6 @@ class JetRuleReteSQLite:
     self.write_cursor = None
     self.main_rule_file_key = None
 
-    # mapping of vertex to db_key, needed to insert in rule_terms table
-    self.vertex_db_keys = {}
-
 
   # =====================================================================================
   # saveReteConfig
@@ -356,11 +353,16 @@ class JetRuleReteSQLite:
         self.write_cursor.execute(
           "INSERT INTO jet_rules (key, name, optimization, salience, authored_label, normalized_label, label, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
           row)
+        for k,v in jrule['properties'].items():
+          self.write_cursor.execute(
+            "INSERT INTO rule_properties (rule_key, name, value) VALUES (?, ?, ?)", 
+            [key, k, v])
+
         
         for ruleterm in itertools.chain(jrule['antecedents'], jrule['consequents']):
           row = [
             key, 
-            self.vertex_db_keys[ruleterm['vertex']], 
+            ruleterm['db_key'], 
             ruleterm['type']=='antecedent'
           ]
           self.write_cursor.execute(
@@ -463,7 +465,7 @@ class JetRuleReteSQLite:
       key = self.rete_nodes_last_key
       vertex = rete_node['vertex']
       self.rete_nodes_last_key += 1
-      self.vertex_db_keys[vertex] = key
+      rete_node['db_key'] = key
       
       row = [
         key, vertex, rete_node['type'], subject_key, predicate_key, object_key, 

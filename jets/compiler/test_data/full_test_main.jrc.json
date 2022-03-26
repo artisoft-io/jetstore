@@ -1,8 +1,8 @@
 {
     "main_rule_file_name": "full_test_main.jr",
     "support_rule_file_names": [
-        "full_test_support.jr",
-        "full_test_model.jr"
+        "full_test_model.jr",
+        "full_test_support.jr"
     ],
     "resources": [
         {

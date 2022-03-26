@@ -84,12 +84,16 @@ class JetRuleRete:
     consequent_seq_dict = {}
     for rule in self.ctx.jet_rules:
       # Attached a copy of the antecedent to the rete_node (to have access to triple elm)
+      # The problem we have here is that the antecedent_node copy will be set to the last copy
+      # made for the same vertex
       for antecedent in rule['antecedents']:
         vertex = antecedent['vertex']
         self.ctx.rete_nodes[vertex]['antecedent_node'] = antecedent.copy()
 
       # Each node may have 0 or more consequents terms attached to them
       consequent_seq = consequent_seq_dict.get(vertex, 0)
+      # A fresh list for this rule's consequent with the new copy of the consequents
+      new_consequents = []
       for consequent in rule['consequents']:
         vertex = consequent['vertex']
         consequent_copy = consequent.copy()
@@ -98,7 +102,9 @@ class JetRuleRete:
         consequent_copy['consequent_for_rule'] = rule['name']
         consequent_copy['consequent_salience'] = rule['salience']
         self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent_copy)
+        new_consequents.append(consequent_copy)
       consequent_seq_dict[vertex] = consequent_seq
+      rule['consequents'] = new_consequents
 
       # Carry rule's name and salience to rete_node:
       #   - associated with the last antecedent of the rule
@@ -106,6 +112,12 @@ class JetRuleRete:
       rete_node = self.ctx.rete_nodes[rule['antecedents'][-1]['vertex']]
       rete_node['rules'].append(rule['name'])
       rete_node['salience'].append(rule['salience'])
+
+    # Now that we have copied the antecedent and consequence, use the same copies in jetRules
+    for rule in self.ctx.jet_rules:
+      rule['antecedents'] = [
+        self.ctx.rete_nodes[node['vertex']]['antecedent_node'] for node in rule['antecedents']
+      ]
 
 
     # Now we have the nodes connected to the rules

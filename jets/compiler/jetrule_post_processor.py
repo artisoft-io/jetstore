@@ -46,7 +46,7 @@ class JetRulesPostProcessor:
       rule = {
         'name': self.make_name(name+':'+str(rid)),
         'properties': {
-          'i': True
+          'i': 'true'
         },
         'source_file_name': item.get('source_file_name'),
         'antecedents': [{

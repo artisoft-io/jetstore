@@ -549,7 +549,14 @@
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
+                  "vertex": 1,
+                  "parent_vertex": 0,
+                  "beta_relation_vars": [
+                      "?x1"
+                  ],
+                  "pruned_var": [],
+                  "beta_var_nodes": [
                       {
                           "type": "var",
                           "id": "?x1",
@@ -558,38 +565,33 @@
                           "vertex": 1,
                           "key": 35,
                           "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "rdf:type"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "acme:Claim"
                       }
                   ],
-                  "normalizedLabel": "(?x1 rdf:type acme:Claim)",
-                  "label": "(?clm01 rdf:type acme:Claim)",
-                  "vertex": 1,
-                  "parent_vertex": 0
+                  "children_vertexes": [
+                      2
+                  ],
+                  "subject_key": 35,
+                  "predicate_key": 19,
+                  "object_key": 20
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x1 has_code ?x2)",
+                  "vertex": 2,
+                  "parent_vertex": 1,
+                  "beta_relation_vars": [
+                      "?x1",
+                      "?x2"
+                  ],
+                  "pruned_var": [],
+                  "beta_var_nodes": [
                       {
                           "type": "var",
                           "id": "?x1",
                           "is_binded": true,
-                          "vertex": 2,
-                          "is_antecedent": true,
                           "var_pos": 0,
-                          "key": 36,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "has_code"
+                          "vertex": 2
                       },
                       {
                           "type": "var",
@@ -601,15 +603,40 @@
                           "source_file_name": "jetrule_main_test.jr"
                       }
                   ],
-                  "normalizedLabel": "(?x1 has_code ?x2)",
-                  "label": "(?clm01 has_code ?code)",
-                  "vertex": 2,
-                  "parent_vertex": 1
+                  "children_vertexes": [
+                      3
+                  ],
+                  "subject_key": 36,
+                  "predicate_key": 18,
+                  "object_key": 37
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x3 rdf:type acme:Claim)",
+                  "vertex": 3,
+                  "parent_vertex": 2,
+                  "beta_relation_vars": [
+                      "?x1",
+                      "?x2",
+                      "?x3"
+                  ],
+                  "pruned_var": [],
+                  "beta_var_nodes": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "var_pos": 0,
+                          "vertex": 3
+                      },
+                      {
+                          "type": "var",
+                          "id": "?x2",
+                          "is_binded": true,
+                          "var_pos": 1,
+                          "vertex": 3
+                      },
                       {
                           "type": "var",
                           "id": "?x3",
@@ -618,120 +645,78 @@
                           "vertex": 3,
                           "key": 38,
                           "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "rdf:type"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "acme:Claim"
                       }
                   ],
-                  "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-                  "label": "(?clm02 rdf:type acme:Claim)",
-                  "vertex": 3,
-                  "parent_vertex": 2
+                  "children_vertexes": [
+                      4
+                  ],
+                  "subject_key": 38,
+                  "predicate_key": 19,
+                  "object_key": 20
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x3 has_code ?x2)",
+                  "vertex": 4,
+                  "parent_vertex": 3,
+                  "beta_relation_vars": [
+                      "?x1",
+                      "?x3"
+                  ],
+                  "pruned_var": [
+                      "?x2"
+                  ],
+                  "beta_var_nodes": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "var_pos": 0,
+                          "vertex": 4
+                      },
                       {
                           "type": "var",
                           "id": "?x3",
                           "is_binded": true,
-                          "vertex": 4,
-                          "is_antecedent": true,
                           "var_pos": 2,
-                          "key": 39,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "has_code"
-                      },
-                      {
-                          "type": "var",
-                          "id": "?x2",
-                          "is_binded": true,
-                          "vertex": 4,
-                          "is_antecedent": true,
-                          "var_pos": 1,
-                          "key": 40,
-                          "source_file_name": "jetrule_main_test.jr"
+                          "vertex": 4
                       }
                   ],
-                  "normalizedLabel": "(?x3 has_code ?x2)",
-                  "label": "(?clm02 has_code ?code)",
-                  "vertex": 4,
-                  "parent_vertex": 3
+                  "children_vertexes": [],
+                  "rules": [
+                      "Rule1"
+                  ],
+                  "salience": [
+                      100
+                  ],
+                  "subject_key": 39,
+                  "predicate_key": 18,
+                  "object_key": 40
               }
           ],
           "consequents": [
               {
                   "type": "consequent",
-                  "triple": [
-                      {
-                          "type": "var",
-                          "id": "?x1",
-                          "is_binded": true,
-                          "vertex": 4,
-                          "is_antecedent": false,
-                          "var_pos": 0,
-                          "key": 53,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "related_to"
-                      },
-                      {
-                          "type": "var",
-                          "id": "?x3",
-                          "is_binded": true,
-                          "vertex": 4,
-                          "is_antecedent": false,
-                          "var_pos": 1,
-                          "key": 54,
-                          "source_file_name": "jetrule_main_test.jr"
-                      }
-                  ],
                   "normalizedLabel": "(?x1 related_to ?x3)",
-                  "label": "(?clm01 related_to ?clm02)",
-                  "vertex": 4
+                  "vertex": 4,
+                  "consequent_seq": 0,
+                  "consequent_for_rule": "Rule1",
+                  "consequent_salience": 100,
+                  "subject_key": 53,
+                  "predicate_key": 17,
+                  "object_key": 54
               },
               {
                   "type": "consequent",
-                  "triple": [
-                      {
-                          "type": "var",
-                          "id": "?x3",
-                          "is_binded": true,
-                          "vertex": 4,
-                          "is_antecedent": false,
-                          "var_pos": 1,
-                          "key": 55,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "related_to"
-                      },
-                      {
-                          "type": "var",
-                          "id": "?x1",
-                          "is_binded": true,
-                          "vertex": 4,
-                          "is_antecedent": false,
-                          "var_pos": 0,
-                          "key": 56,
-                          "source_file_name": "jetrule_main_test.jr"
-                      }
-                  ],
                   "normalizedLabel": "(?x3 related_to ?x1)",
-                  "label": "(?clm02 related_to ?clm01)",
-                  "vertex": 4
+                  "vertex": 4,
+                  "consequent_seq": 1,
+                  "consequent_for_rule": "Rule1",
+                  "consequent_salience": 100,
+                  "subject_key": 55,
+                  "predicate_key": 17,
+                  "object_key": 56
               }
           ],
           "source_file_name": "jetrule_support_test.jr",
@@ -753,27 +738,7 @@
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
-                      {
-                          "type": "var",
-                          "id": "?x1",
-                          "is_binded": false,
-                          "var_pos": 0,
-                          "vertex": 5,
-                          "key": 41,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "rdf:type"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "acme:Claim"
-                      }
-                  ],
                   "normalizedLabel": "(?x1 rdf:type acme:Claim).[(?x1 or has_code) and int(1)]",
-                  "label": "(?clm01 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)]",
                   "filter": {
                       "type": "binary",
                       "lhs": {
@@ -786,25 +751,47 @@
                       "rhs": 43
                   },
                   "vertex": 5,
-                  "parent_vertex": 0
+                  "parent_vertex": 0,
+                  "beta_relation_vars": [
+                      "?x1"
+                  ],
+                  "pruned_var": [],
+                  "beta_var_nodes": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": false,
+                          "var_pos": 0,
+                          "vertex": 5,
+                          "key": 41,
+                          "source_file_name": "jetrule_main_test.jr"
+                      }
+                  ],
+                  "children_vertexes": [
+                      6
+                  ],
+                  "subject_key": 41,
+                  "predicate_key": 19,
+                  "object_key": 20
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x1 has_code ?x2)",
+                  "vertex": 6,
+                  "parent_vertex": 5,
+                  "beta_relation_vars": [
+                      "?x1",
+                      "?x2"
+                  ],
+                  "pruned_var": [],
+                  "beta_var_nodes": [
                       {
                           "type": "var",
                           "id": "?x1",
                           "is_binded": true,
-                          "vertex": 6,
-                          "is_antecedent": true,
                           "var_pos": 0,
-                          "key": 44,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "has_code"
+                          "vertex": 6
                       },
                       {
                           "type": "var",
@@ -816,15 +803,34 @@
                           "source_file_name": "jetrule_main_test.jr"
                       }
                   ],
-                  "normalizedLabel": "(?x1 has_code ?x2)",
-                  "label": "(?clm01 has_code ?code)",
-                  "vertex": 6,
-                  "parent_vertex": 5
+                  "children_vertexes": [
+                      7
+                  ],
+                  "subject_key": 44,
+                  "predicate_key": 18,
+                  "object_key": 45
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x3 has_code ?x2)",
+                  "vertex": 7,
+                  "parent_vertex": 6,
+                  "beta_relation_vars": [
+                      "?x1",
+                      "?x3"
+                  ],
+                  "pruned_var": [
+                      "?x2"
+                  ],
+                  "beta_var_nodes": [
+                      {
+                          "type": "var",
+                          "id": "?x1",
+                          "is_binded": true,
+                          "var_pos": 0,
+                          "vertex": 7
+                      },
                       {
                           "type": "var",
                           "id": "?x3",
@@ -833,73 +839,59 @@
                           "vertex": 7,
                           "key": 46,
                           "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "has_code"
-                      },
-                      {
-                          "type": "var",
-                          "id": "?x2",
-                          "is_binded": true,
-                          "vertex": 7,
-                          "is_antecedent": true,
-                          "var_pos": 1,
-                          "key": 47,
-                          "source_file_name": "jetrule_main_test.jr"
                       }
                   ],
-                  "normalizedLabel": "(?x3 has_code ?x2)",
-                  "label": "(?clm02 has_code ?code)",
-                  "vertex": 7,
-                  "parent_vertex": 6
+                  "children_vertexes": [
+                      8
+                  ],
+                  "subject_key": 46,
+                  "predicate_key": 18,
+                  "object_key": 47
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
-                      {
-                          "type": "var",
-                          "id": "?x3",
-                          "is_binded": true,
-                          "vertex": 8,
-                          "is_antecedent": true,
-                          "var_pos": 1,
-                          "key": 48,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "rdf:type"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "acme:Claim"
-                      }
-                  ],
                   "normalizedLabel": "(?x3 rdf:type acme:Claim)",
-                  "label": "(?clm02 rdf:type acme:Claim)",
                   "vertex": 8,
-                  "parent_vertex": 7
-              },
-              {
-                  "type": "antecedent",
-                  "isNot": false,
-                  "triple": [
+                  "parent_vertex": 7,
+                  "beta_relation_vars": [
+                      "?x1"
+                  ],
+                  "pruned_var": [
+                      "?x2",
+                      "?x3"
+                  ],
+                  "beta_var_nodes": [
                       {
                           "type": "var",
                           "id": "?x1",
                           "is_binded": true,
-                          "vertex": 9,
-                          "is_antecedent": true,
                           "var_pos": 0,
-                          "key": 49,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "related_to"
-                      },
+                          "vertex": 8
+                      }
+                  ],
+                  "children_vertexes": [
+                      9
+                  ],
+                  "subject_key": 48,
+                  "predicate_key": 19,
+                  "object_key": 20
+              },
+              {
+                  "type": "antecedent",
+                  "isNot": false,
+                  "normalizedLabel": "(?x1 related_to ?x4)",
+                  "vertex": 9,
+                  "parent_vertex": 8,
+                  "beta_relation_vars": [
+                      "?x4"
+                  ],
+                  "pruned_var": [
+                      "?x1",
+                      "?x2",
+                      "?x3"
+                  ],
+                  "beta_var_nodes": [
                       {
                           "type": "var",
                           "id": "?x4",
@@ -910,92 +902,90 @@
                           "source_file_name": "jetrule_main_test.jr"
                       }
                   ],
-                  "normalizedLabel": "(?x1 related_to ?x4)",
-                  "label": "(?clm01 related_to ?clm03)",
-                  "vertex": 9,
-                  "parent_vertex": 8
+                  "children_vertexes": [
+                      10
+                  ],
+                  "subject_key": 49,
+                  "predicate_key": 17,
+                  "object_key": 50
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x4 rdf:type acme:Claim)",
+                  "vertex": 10,
+                  "parent_vertex": 9,
+                  "beta_relation_vars": [
+                      "?x4"
+                  ],
+                  "pruned_var": [
+                      "?x1",
+                      "?x2",
+                      "?x3"
+                  ],
+                  "beta_var_nodes": [
                       {
                           "type": "var",
                           "id": "?x4",
                           "is_binded": true,
-                          "vertex": 10,
-                          "is_antecedent": true,
                           "var_pos": 0,
-                          "key": 51,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "rdf:type"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "acme:Claim"
+                          "vertex": 10
                       }
                   ],
-                  "normalizedLabel": "(?x4 rdf:type acme:Claim)",
-                  "label": "(?clm03 rdf:type acme:Claim)",
-                  "vertex": 10,
-                  "parent_vertex": 9
+                  "children_vertexes": [
+                      11
+                  ],
+                  "subject_key": 51,
+                  "predicate_key": 19,
+                  "object_key": 20
               },
               {
                   "type": "antecedent",
                   "isNot": false,
-                  "triple": [
+                  "normalizedLabel": "(?x5 rdf:type acme:Claim)",
+                  "vertex": 11,
+                  "parent_vertex": 10,
+                  "beta_relation_vars": [
+                      "?x4"
+                  ],
+                  "pruned_var": [
+                      "?x1",
+                      "?x2",
+                      "?x3",
+                      "?x5"
+                  ],
+                  "beta_var_nodes": [
                       {
                           "type": "var",
-                          "id": "?x5",
-                          "is_binded": false,
-                          "vertex": 11,
-                          "key": 52,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "rdf:type"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "acme:Claim"
+                          "id": "?x4",
+                          "is_binded": true,
+                          "var_pos": 0,
+                          "vertex": 11
                       }
                   ],
-                  "normalizedLabel": "(?x5 rdf:type acme:Claim)",
-                  "label": "(?clm04 rdf:type acme:Claim)",
-                  "vertex": 11,
-                  "parent_vertex": 10
+                  "children_vertexes": [],
+                  "rules": [
+                      "Rule2"
+                  ],
+                  "salience": [
+                      100
+                  ],
+                  "subject_key": 52,
+                  "predicate_key": 19,
+                  "object_key": 20
               }
           ],
           "consequents": [
               {
                   "type": "consequent",
-                  "triple": [
-                      {
-                          "type": "var",
-                          "id": "?x4",
-                          "is_binded": true,
-                          "vertex": 11,
-                          "is_antecedent": false,
-                          "var_pos": 0,
-                          "key": 57,
-                          "source_file_name": "jetrule_main_test.jr"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "rdf:type"
-                      },
-                      {
-                          "type": "identifier",
-                          "value": "acme:SpecialClaim"
-                      }
-                  ],
                   "normalizedLabel": "(?x4 rdf:type acme:SpecialClaim)",
-                  "label": "(?clm03 rdf:type acme:SpecialClaim)",
-                  "vertex": 11
+                  "vertex": 11,
+                  "consequent_seq": 0,
+                  "consequent_for_rule": "Rule2",
+                  "consequent_salience": 100,
+                  "subject_key": 57,
+                  "predicate_key": 19,
+                  "object_key": 21
               }
           ],
           "authoredLabel": "[Rule2, s=100, o=true, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code).(?clm04 rdf:type acme:Claim).(?clm01 related_to ?clm03).(?clm03 rdf:type acme:Claim).[(?clm01 or has_code) and int(1)] -> (?clm03 rdf:type acme:SpecialClaim);",

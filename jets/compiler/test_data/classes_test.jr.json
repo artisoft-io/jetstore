@@ -1,11 +1,10 @@
 {
   "resources": [
     {
-      "type": "resource",
       "id": "owl:Thing",
+      "type": "resource",
       "value": "owl:Thing",
-      "source_file_name": "classes_test.jr",
-      "source_fname": "predefined",
+      "source_file_name": "predefined",
       "key": 0
     },
     {
@@ -188,7 +187,7 @@
     {
       "name": "jets__entity__1",
       "properties": {
-        "i": true
+        "i": "true"
       },
       "optimization": true,
       "salience": 100,
@@ -196,7 +195,14 @@
         {
           "type": "antecedent",
           "isNot": false,
-          "triple": [
+          "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+          "vertex": 1,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+            "?x1"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
             {
               "type": "var",
               "id": "?x1",
@@ -205,59 +211,42 @@
               "vertex": 1,
               "key": 15,
               "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "jets:Entity"
             }
           ],
-          "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-          "label": "(?s1 rdf:type jets:Entity)",
-          "vertex": 1,
-          "parent_vertex": 0
+          "children_vertexes": [],
+          "rules": [
+            "jets__entity__1"
+          ],
+          "salience": [
+            100
+          ],
+          "subject_key": 15,
+          "predicate_key": 14,
+          "object_key": 1
         }
       ],
       "consequents": [
         {
           "type": "consequent",
-          "triple": [
-            {
-              "type": "var",
-              "id": "?x1",
-              "is_binded": true,
-              "vertex": 1,
-              "is_antecedent": false,
-              "var_pos": 0,
-              "key": 19,
-              "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "owl:Thing"
-            }
-          ],
           "normalizedLabel": "(?x1 rdf:type owl:Thing)",
-          "label": "(?s1 rdf:type owl:Thing)",
-          "vertex": 1
+          "vertex": 1,
+          "consequent_seq": 0,
+          "consequent_for_rule": "jets__entity__1",
+          "consequent_salience": 100,
+          "subject_key": 19,
+          "predicate_key": 14,
+          "object_key": 0
         }
       ],
-      "authoredLabel": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
+      "authoredLabel": "[jets__entity__1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
       "source_file_name": "classes_test.jr",
-      "normalizedLabel": "[jets__entity__1, i=True]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
-      "label": "[jets__entity__1, i=True]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
+      "normalizedLabel": "[jets__entity__1, i=true]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
+      "label": "[jets__entity__1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
     },
     {
       "name": "hc__claim__2",
       "properties": {
-        "i": true
+        "i": "true"
       },
       "optimization": true,
       "salience": 100,
@@ -265,7 +254,14 @@
         {
           "type": "antecedent",
           "isNot": false,
-          "triple": [
+          "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+          "vertex": 2,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+            "?x1"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
             {
               "type": "var",
               "id": "?x1",
@@ -274,59 +270,42 @@
               "vertex": 2,
               "key": 16,
               "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "hc:Claim"
             }
           ],
-          "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-          "label": "(?s1 rdf:type hc:Claim)",
-          "vertex": 2,
-          "parent_vertex": 0
+          "children_vertexes": [],
+          "rules": [
+            "hc__claim__2"
+          ],
+          "salience": [
+            100
+          ],
+          "subject_key": 16,
+          "predicate_key": 14,
+          "object_key": 3
         }
       ],
       "consequents": [
         {
           "type": "consequent",
-          "triple": [
-            {
-              "type": "var",
-              "id": "?x1",
-              "is_binded": true,
-              "vertex": 2,
-              "is_antecedent": false,
-              "var_pos": 0,
-              "key": 20,
-              "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "jets:Entity"
-            }
-          ],
           "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-          "label": "(?s1 rdf:type jets:Entity)",
-          "vertex": 2
+          "vertex": 2,
+          "consequent_seq": 0,
+          "consequent_for_rule": "hc__claim__2",
+          "consequent_salience": 100,
+          "subject_key": 20,
+          "predicate_key": 14,
+          "object_key": 1
         }
       ],
-      "authoredLabel": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
+      "authoredLabel": "[hc__claim__2, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
       "source_file_name": "classes_test.jr",
-      "normalizedLabel": "[hc__claim__2, i=True]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
-      "label": "[hc__claim__2, i=True]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
+      "normalizedLabel": "[hc__claim__2, i=true]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
+      "label": "[hc__claim__2, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
     },
     {
       "name": "hc__medicalclaim__3",
       "properties": {
-        "i": true
+        "i": "true"
       },
       "optimization": true,
       "salience": 100,
@@ -334,7 +313,14 @@
         {
           "type": "antecedent",
           "isNot": false,
-          "triple": [
+          "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)",
+          "vertex": 3,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+            "?x1"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
             {
               "type": "var",
               "id": "?x1",
@@ -343,59 +329,42 @@
               "vertex": 3,
               "key": 17,
               "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "hc:MedicalClaim"
             }
           ],
-          "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)",
-          "label": "(?s1 rdf:type hc:MedicalClaim)",
-          "vertex": 3,
-          "parent_vertex": 0
+          "children_vertexes": [],
+          "rules": [
+            "hc__medicalclaim__3"
+          ],
+          "salience": [
+            100
+          ],
+          "subject_key": 17,
+          "predicate_key": 14,
+          "object_key": 8
         }
       ],
       "consequents": [
         {
           "type": "consequent",
-          "triple": [
-            {
-              "type": "var",
-              "id": "?x1",
-              "is_binded": true,
-              "vertex": 3,
-              "is_antecedent": false,
-              "var_pos": 0,
-              "key": 21,
-              "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "hc:Claim"
-            }
-          ],
           "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-          "label": "(?s1 rdf:type hc:Claim)",
-          "vertex": 3
+          "vertex": 3,
+          "consequent_seq": 0,
+          "consequent_for_rule": "hc__medicalclaim__3",
+          "consequent_salience": 100,
+          "subject_key": 21,
+          "predicate_key": 14,
+          "object_key": 3
         }
       ],
-      "authoredLabel": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);",
+      "authoredLabel": "[hc__medicalclaim__3, i=true]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);",
       "source_file_name": "classes_test.jr",
-      "normalizedLabel": "[hc__medicalclaim__3, i=True]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);",
-      "label": "[hc__medicalclaim__3, i=True]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"
+      "normalizedLabel": "[hc__medicalclaim__3, i=true]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);",
+      "label": "[hc__medicalclaim__3, i=true]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"
     },
     {
       "name": "hc__pharmacyclaim__4",
       "properties": {
-        "i": true
+        "i": "true"
       },
       "optimization": true,
       "salience": 100,
@@ -403,7 +372,14 @@
         {
           "type": "antecedent",
           "isNot": false,
-          "triple": [
+          "normalizedLabel": "(?x1 rdf:type hc:PharmacyClaim)",
+          "vertex": 4,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+            "?x1"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
             {
               "type": "var",
               "id": "?x1",
@@ -412,54 +388,37 @@
               "vertex": 4,
               "key": 18,
               "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "hc:PharmacyClaim"
             }
           ],
-          "normalizedLabel": "(?x1 rdf:type hc:PharmacyClaim)",
-          "label": "(?s1 rdf:type hc:PharmacyClaim)",
-          "vertex": 4,
-          "parent_vertex": 0
+          "children_vertexes": [],
+          "rules": [
+            "hc__pharmacyclaim__4"
+          ],
+          "salience": [
+            100
+          ],
+          "subject_key": 18,
+          "predicate_key": 14,
+          "object_key": 10
         }
       ],
       "consequents": [
         {
           "type": "consequent",
-          "triple": [
-            {
-              "type": "var",
-              "id": "?x1",
-              "is_binded": true,
-              "vertex": 4,
-              "is_antecedent": false,
-              "var_pos": 0,
-              "key": 22,
-              "source_file_name": "classes_test.jr"
-            },
-            {
-              "type": "identifier",
-              "value": "rdf:type"
-            },
-            {
-              "type": "identifier",
-              "value": "hc:Claim"
-            }
-          ],
           "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-          "label": "(?s1 rdf:type hc:Claim)",
-          "vertex": 4
+          "vertex": 4,
+          "consequent_seq": 0,
+          "consequent_for_rule": "hc__pharmacyclaim__4",
+          "consequent_salience": 100,
+          "subject_key": 22,
+          "predicate_key": 14,
+          "object_key": 3
         }
       ],
-      "authoredLabel": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);",
+      "authoredLabel": "[hc__pharmacyclaim__4, i=true]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);",
       "source_file_name": "classes_test.jr",
-      "normalizedLabel": "[hc__pharmacyclaim__4, i=True]:(?x1 rdf:type hc:PharmacyClaim) -> (?x1 rdf:type hc:Claim);",
-      "label": "[hc__pharmacyclaim__4, i=True]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);"
+      "normalizedLabel": "[hc__pharmacyclaim__4, i=true]:(?x1 rdf:type hc:PharmacyClaim) -> (?x1 rdf:type hc:Claim);",
+      "label": "[hc__pharmacyclaim__4, i=true]:(?s1 rdf:type hc:PharmacyClaim) -> (?s1 rdf:type hc:Claim);"
     }
   ],
   "imports": {
