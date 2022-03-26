@@ -14,12 +14,13 @@ class JetRuleValidator:
   # Returns True when valid, False otherwise
   def validateJetRule(self) -> bool:
     ctx = ValidationContext(self.ctx)
+    ctx.setEntityType('rule')
 
     # for each jetrule validate antecedents and consequents terms
     for rule in self.ctx.jet_rules:
       name = rule.get('name')
       if not name: raise Exception("Invalid jetRules structure: ",self.ctx.jetRules)
-      ctx.setRuleName(name)
+      ctx.setEntityName(name)
 
       for item in rule.get('antecedents', []):
         ctx.setTermLabel(item['label'])
@@ -79,7 +80,8 @@ class JetRuleValidator:
       return self.validateElm(elm['arg'], ctx)
 
     if type == 'var':
-      return ctx.validateVar(elm['label'])
+      label = elm.get('label', elm['value'])
+      return ctx.validateVar(label)
 
     if type == 'identifier':
       return ctx.validateIdentifier(elm)
@@ -88,3 +90,38 @@ class JetRuleValidator:
       pass
 
     return ctx.has_errors()
+
+
+  # =====================================================================================
+  # validateTriples
+  # -------------------------------------------------------------------------------------
+    # "triples": [
+    #   {
+    #     "type": "triple",
+    #     "subject": {
+    #       "type": "identifier",
+    #       "value": "s1"
+    #     },
+    #     "predicate": {
+    #       "type": "identifier",
+    #       "value": "top:operator"
+    #     },
+    #     "object": {
+    #       "type": "text",
+    #       "value": "<"
+    #     }
+    #   }
+    # ]
+  # Validate triple statements, ensure they use existing resources
+  # Returns True when valid, False otherwise
+  def validateTriples(self) -> bool:
+    ctx = ValidationContext(self.ctx)
+    ctx.setEntityType('triple')
+
+    # for each triple validate resources used
+    for triple in self.ctx.triples:
+      self.validateElm(triple['subject'], ctx)
+      self.validateElm(triple['predicate'], ctx)
+      self.validateElm(triple['object'], ctx)
+    
+    return not ctx.has_errors()

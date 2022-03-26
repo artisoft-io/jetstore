@@ -289,7 +289,9 @@ class JetRuleCompiler:
     # augment the output with post processor
     validator = JetRuleValidator(self.jetrule_ctx)
     self.jetrule_ctx.state = JetRuleContext.STATE_VALIDATED
-    return validator.validateJetRule()
+    res = validator.validateJetRule()
+    res = res and validator.validateTriples()
+    return res
 
 
   # Optimize the jetrules
@@ -318,6 +320,7 @@ class JetRuleCompiler:
     rete.addReteMarkup()
     rete.addBetaRelationMarkup()
     rete.normalizeReteNodes()
+    rete.normalizeTriples()
     self.jetrule_ctx.state = JetRuleContext.STATE_COMPILED_RETE_NODES
 
     return self.jetrule_ctx

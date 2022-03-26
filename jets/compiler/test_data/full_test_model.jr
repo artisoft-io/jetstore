@@ -1,0 +1,39 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Full Test JetStore Rule Language
+# ---------------------------------------------------------------------------------------
+# Data Model
+# ---------------------------------------------------------------------------------------
+
+class jets:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [jets:key as uint],
+  $as_table = false
+};
+
+class hc:Claim {
+  # This is an example of a domain class
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    claim_number as long,
+    date_of_service as date,
+     primary_diagnosis as text,
+     secondary_diagnosis as array of text
+  ],
+  $as_table = false
+};
+
+class hc:MedicalClaim {
+  $base_classes = [hc:Claim],
+  $data_properties = [procedure_code as text],
+  $as_table = true
+};
+
+class hc:PharmacyClaim {
+  $base_classes = [hc:Claim],
+  $data_properties = [
+    ndc_code as text,
+    days_supply as int,
+    dispensed_qty as int
+  ],
+  $as_table = true
+};
