@@ -389,6 +389,7 @@ class JetRulesPostProcessor:
     if type == 'ulong': return 'ulong({0})'.format(elm['value'])
     if type == 'date': return 'date("{0}")'.format(elm['value'])
     if type == 'datetime': return 'datetime("{0}")'.format(elm['value'])
+    if type == 'bool': return 'bool("{0}")'.format(elm['value'])
 
     if type == 'identifier':
       parts = elm['value'].split(':')

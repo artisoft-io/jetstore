@@ -22,6 +22,7 @@ lookup_table acme:ProcedureLookup {
   $columns = [
     "EVENT_DURATION" as int,
     "PROC_RID" as long,
+    "IS_FAC" as bool,
     "FROM_DATE" as date,
     "EXCL" as text
   ]

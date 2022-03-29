@@ -497,7 +497,7 @@ class JetRuleRete:
     if type == 'identifier':
       return self.ctx.resourceMap[elm['value']]['key']
 
-    if type in ['int','uint','long','ulong','double','text','date','datetime', 'keyword']:
+    if type in ['int','uint','long','ulong','double','text','date','datetime','bool', 'keyword']:
       elm['inline'] = True
       return self._add_key(state['resources'], elm)
 

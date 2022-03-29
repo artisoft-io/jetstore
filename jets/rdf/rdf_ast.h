@@ -434,10 +434,37 @@ get_text(r_index r)
   return boost::get<LString>(*r).data;
 }
 
-struct to_bool_visitor: public boost::static_visitor<bool>
+inline bool
+to_bool(std::string_view str)
 {
   static constexpr char kFalse[] = "false";
+  static constexpr char kNo[] = "no";
+  if(not str.empty()) {
+    if(str.size() == 1) {
+      if(str[0] == '0') return false;
+      if(std::tolower(str[0]) == 'f') return false;
+      return true;
+    } else {
+      if(str.size() == sizeof(kFalse)-1) {
+        return not std::equal(
+          str.begin(), str.end(), &kFalse[0], 
+          [](char const& c1, char const& c2) {return std::tolower(c1) == std::tolower(c2); } 
+        );
+      }
+      if(str.size() == sizeof(kNo)-1) {
+        return not std::equal(
+          str.begin(), str.end(), &kNo[0], 
+          [](char const& c1, char const& c2) {return std::tolower(c1) == std::tolower(c2); } 
+        );
+      }
+      return true;
+    }
+  }
+  return false;
+}
 
+struct to_bool_visitor: public boost::static_visitor<bool>
+{
   bool operator()(RDFNull       const& )const{return false;}
   bool operator()(BlankNode     const&v)const{return true;}
   bool operator()(NamedResource const&v)const{return true;}
@@ -450,22 +477,7 @@ struct to_bool_visitor: public boost::static_visitor<bool>
   bool operator()(LDouble       const&v)const{return v.data;}
   bool operator()(LString       const&v)const
   {
-    if(not v.data.empty()) {
-      if(v.data.size() == 1) {
-        if(v.data[0] == '0') return false;
-        if(std::tolower(v.data[0]) == 'f') return false;
-        return true;
-      } else {
-        if(v.data.size() == sizeof(kFalse)-1) {
-          return not std::equal(
-            v.data.begin(), v.data.end(), &kFalse[0], 
-            [](char const& c1, char const& c2) {return std::tolower(c1) == std::tolower(c2); } 
-          );
-        }
-        return true;
-      }
-    }
-    return false;
+    return to_bool(std::string_view(v.data));
   }
 };
 inline bool

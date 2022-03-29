@@ -59,6 +59,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
 
   // load RetaMetaStores configurations
   this->ms_map_.clear();
+ 
   // Prepared statement
   // --------------------------------------------------------------
   // Prepared statement for MetaStore node vertexes
@@ -208,8 +209,38 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
     return SQLITE_ERROR;
   }
   
+  if( strcmp(type, "text") == 0) {
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(value)});
+    return SQLITE_OK;
+  }
+  
   if( strcmp(type, "int") == 0) {
     this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoi(value))});
+    return SQLITE_OK;
+  }
+  
+  if( strcmp(type, "date") == 0) {
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(rdf::parse_date(value))});
+    return SQLITE_OK;
+  }
+  
+  if( strcmp(type, "double") == 0) {
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stod(value))});
+    return SQLITE_OK;
+  }
+  
+  if( strcmp(type, "bool") == 0) {
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(rdf::to_bool(std::string_view(value)))});
+    return SQLITE_OK;
+  }
+  
+  if( strcmp(type, "datetime") == 0) {
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(rdf::parse_datetime(value))});
+    return SQLITE_OK;
+  }
+  
+  if( strcmp(type, "long") == 0) {
+    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stol(value))});
     return SQLITE_OK;
   }
   
@@ -224,23 +255,8 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
     return SQLITE_OK;
   }
   
-  if( strcmp(type, "long") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stol(value))});
-    return SQLITE_OK;
-  }
-  
   if( strcmp(type, "ulong") == 0) {
     this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoul(value))});
-    return SQLITE_OK;
-  }
-  
-  if( strcmp(type, "double") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stod(value))});
-    return SQLITE_OK;
-  }
-  
-  if( strcmp(type, "text") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(value)});
     return SQLITE_OK;
   }
 

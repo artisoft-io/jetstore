@@ -16,8 +16,9 @@ class hc:Claim {
   $data_properties = [
     claim_number as long,
     date_of_service as date,
-     primary_diagnosis as text,
-     secondary_diagnosis as array of text
+    is_medicare as bool,
+    primary_diagnosis as text,
+    secondary_diagnosis as array of text
   ],
   $as_table = false
 };

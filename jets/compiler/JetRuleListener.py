@@ -170,6 +170,15 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#booleanLiteralStmt.
+    def enterBooleanLiteralStmt(self, ctx:JetRuleParser.BooleanLiteralStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#booleanLiteralStmt.
+    def exitBooleanLiteralStmt(self, ctx:JetRuleParser.BooleanLiteralStmtContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#intExpr.
     def enterIntExpr(self, ctx:JetRuleParser.IntExprContext):
         pass
