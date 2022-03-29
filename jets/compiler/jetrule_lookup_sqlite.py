@@ -54,13 +54,16 @@ class JetRuleLookupSQLite:
           key_columns = lk_tbl['lookup_key'].split(',')
 
           # retrieve column information for lookup from rete_db
-          lk_columns        = self._get_lookup_table_columns(lk_tbl['key'])
+          lk_columns_dict        = self._get_lookup_table_columns(lk_tbl['key'])
+
+          return_columns = ['__key__','jets__key']
+          return_columns.extend([x['name'] for x in  lk_columns_dict])
 
           # Create the lookup table schema in the lookup_db
-          self._create_lookup_schema(table_name, lk_columns)
+          self._create_lookup_schema(table_name, lk_columns_dict)
 
           # Load Lookup CSV to Lookup Table in lookup_db 
-          self._load_csv_lookup(table_name, csv_file, key_columns)
+          self._load_csv_lookup(table_name, csv_file, key_columns, return_columns)
 
     except (Exception) as error:
       print("Error while saving lookup_db (2):", error)
@@ -174,17 +177,26 @@ class JetRuleLookupSQLite:
   # _load_csv_lookup
   # -------------------------------------------------------------------------------------
   # Load Lookup CSV file to Lookup Table in lookup_db
-  def _load_csv_lookup(self,table_name,csv_file,key_columns) -> None:
+  def _load_csv_lookup(self,table_name,csv_file,key_columns, return_columns) -> None:
     csv_path = os.path.join(Path(flags.FLAGS.base_path), csv_file)
     csv_path = os.path.abspath(csv_path)
     if not os.path.exists(csv_path):
         print('Could note locate: ' + str(csv_path))
     else:    
         lookup_df = pd.read_csv(csv_path, dtype=str, skipinitialspace = True)
-        lookup_df.insert(0,'jets__key', lookup_df[key_columns].agg(''.join, axis=1))
+
+        if set(key_columns).issubset(set(lookup_df.columns)): 
+            lookup_df.insert(0,'jets__key', lookup_df[key_columns].agg(''.join, axis=1))
+        else:
+            raise Exception(f'Key Columns missing in provided CSV. Expected {str(key_columns)} in header {str(lookup_df.columns)}')    
+
         # lookup_df['jets__key'] = lookup_df.apply (lambda row: self._create_jets_key(row,key_columns), axis=1)
         lookup_df.insert(0, '__key__', range(0, 0 + len(lookup_df)))
-        lookup_df.to_sql(table_name, self.sqlite3Connection, if_exists='append', index=False)
+
+        if set(return_columns).issubset(set(lookup_df.columns)): 
+            lookup_df[return_columns].to_sql(table_name, self.sqlite3Connection, if_exists='append', index=False)
+        else:
+            raise Exception(f'Return Columns missing in provided CSV. Expected {str(return_columns)} in header {str(lookup_df.columns)}')    
 
  
   # -------------------------------------------------------------------------------------
