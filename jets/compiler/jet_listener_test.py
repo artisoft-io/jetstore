@@ -31,10 +31,11 @@ class JetListenerTest(absltest.TestCase):
 
       int isTrue = 1;     # this is a comment.
       int isFalse = 0;
+      bool doIt = "false";
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "literal.jr"}, {"type": "int", "id": "isFalse", "value": "0", "source_file_name": "literal.jr"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
+    expected = """{"literals": [{"type": "int", "id": "isTrue", "value": "1", "source_file_name": "literal.jr"}, {"type": "int", "id": "isFalse", "value": "0", "source_file_name": "literal.jr"}, {"type": "bool", "id": "doIt", "value": "false", "source_file_name": "literal.jr"}], "resources": [], "lookup_tables": [], "jet_rules": []}"""
     # print('GOT:',json.dumps(jetRules, indent=4))
     # print()
     # print('COMPACT:',json.dumps(jetRules))

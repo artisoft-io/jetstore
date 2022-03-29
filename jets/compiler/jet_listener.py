@@ -159,6 +159,11 @@ class JetListener(JetRuleListener):
     if ctx.varType and ctx.varName and ctx.declValue:
       self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value': self.escapeString(ctx.declValue.text)})
 
+  # Exit a parse tree produced by JetRuleParser#booleanLiteralStmt.
+  def exitBooleanLiteralStmt(self, ctx:JetRuleParser.BooleanLiteralStmtContext):
+    if ctx.varType and ctx.varName and ctx.declValue:
+      self.literals.append({ 'type': ctx.varType.text, 'id': ctx.varName.getText(), 'value': self.escapeString(ctx.declValue.text)})
+
   # =====================================================================================
   # Resources
   # -------------------------------------------------------------------------------------
@@ -302,6 +307,7 @@ class JetListener(JetRuleListener):
     #   "XYZ"       -> {type: "text", value: "XYZ"}
     #   text("XYZ") -> {type: "text", value: "XYZ"}
     #   int(1)      -> {type: "int", value: "1"}
+    #   bool("1")   -> {type: "bool", value: "1"}
     #   true        -> {type: "keyword", value: "true"}
     #   -123        -> {type: "int", value: "-123"}
     #   +12.3       -> {type: "double", value: "+12.3"}
@@ -310,7 +316,7 @@ class JetListener(JetRuleListener):
     if txt[0] == '"': return {'type': 'text', 'value': self.escapeString(txt)}
     v = txt.split('(')
     if len(v) > 1:
-      if v[0] in ['text', 'date', 'datetime']:
+      if v[0] in ['text', 'date', 'datetime', 'bool']:
         return {'type': v[0], 'value': self.escapeString(v[1])[:-1]}
       else:
         return {'type': v[0], 'value': v[1][0:-1]}

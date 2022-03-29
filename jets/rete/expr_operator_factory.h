@@ -53,6 +53,9 @@ create_binary_expr(int key, ExprBasePtr lhs, std::string const& op, ExprBasePtr 
   if(op == "size_of")           return create_expr_binary_operator<SizeOfVisitor>(key, lhs, rhs);
   if(op == "exist")             return create_expr_binary_operator<ExistVisitor>(key, lhs, rhs);
   if(op == "exist_not")         return create_expr_binary_operator<ExistNotVisitor>(key, lhs, rhs);
+
+  // Lookup operators (in expr_op_others.h)
+  if(op == "lookup")            return create_expr_binary_operator<LookupVisitor>(key, lhs, rhs);
   
   LOG(ERROR) << "create_binary_expr: ERROR unknown binary operator: "<<
     op<<", called with key "<<key;

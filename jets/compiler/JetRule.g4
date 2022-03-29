@@ -52,6 +52,7 @@ dataPropertyType
   | StringType
   | DateType
   | DatetimeType
+  | BoolType
   ;
 
 // --------------------------------------------------------------------------------------
@@ -66,6 +67,7 @@ defineLiteralStmt
   | stringLiteralStmt
   | dateLiteralStmt
   | datetimeLiteralStmt
+  | booleanLiteralStmt
   ;
 
 int32LiteralStmt:    varType=Int32Type    varName=declIdentifier ASSIGN declValue=intExpr    SEMICOLON;
@@ -76,6 +78,7 @@ doubleLiteralStmt:   varType=DoubleType   varName=declIdentifier ASSIGN declValu
 stringLiteralStmt:   varType=StringType   varName=declIdentifier ASSIGN declValue=STRING     SEMICOLON;
 dateLiteralStmt:     varType=DateType     varName=declIdentifier ASSIGN declValue=STRING     SEMICOLON;
 datetimeLiteralStmt: varType=DatetimeType varName=declIdentifier ASSIGN declValue=STRING     SEMICOLON;
+booleanLiteralStmt:  varType=BoolType     varName=declIdentifier ASSIGN declValue=STRING     SEMICOLON;
 
 intExpr
   : '+' intExpr  
@@ -173,6 +176,7 @@ objectAtom
   | StringType '(' STRING ')'
   | DateType '(' STRING ')'
   | DatetimeType '(' STRING ')'
+  | BoolType '(' STRING ')'
   | STRING
   | kws=keywords
   | doubleExpr
@@ -248,6 +252,7 @@ DoubleType: 'double';
 StringType: 'text';
 DateType: 'date';
 DatetimeType: 'datetime';
+BoolType: 'bool';
 
 ResourceType: 'resource';
 VolatileResourceType: 'volatile_resource';
