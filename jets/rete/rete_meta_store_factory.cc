@@ -8,6 +8,7 @@
 #include "beta_row_initializer.h"
 #include "../rete/rete_meta_store_factory.h"
 #include "node_vertex.h"
+#include "../rete/expr_operator_factory.h"
 
 namespace jets::rete {
 

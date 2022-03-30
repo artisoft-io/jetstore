@@ -23,7 +23,6 @@
 #include "../rete/node_vertex.h"
 #include "../rete/alpha_node.h"
 #include "../rete/rete_meta_store.h"
-#include "../rete/expr_operator_factory.h"
 #include "../rete/rete_meta_store_factory_helper.h"
 #include "../rete/alpha_node_impl.h"
 
@@ -249,6 +248,12 @@ class ReteMetaStoreFactory {
   int
   create_beta_row_initializer(int vertex, int file_key, BetaRowInitializerPtr & bri);
 
+  ExprBasePtr
+  create_binary_expr(int key, ExprBasePtr lhs, std::string const& op, ExprBasePtr rhs);
+
+  ExprBasePtr
+  create_unary_expr(int key, std::string const& op, ExprBasePtr arg);
+
  private:
 
  inline int
@@ -265,24 +270,24 @@ class ReteMetaStoreFactory {
    return sqlite3_column_int( stmt, col);
  }
 
-int 
-run_count_stmt(const char* sql )
-{
-  sqlite3_stmt* stmt;
-  int res = sqlite3_prepare_v2( this->db_, sql, -1, &stmt, 0 );
-  if ( res != SQLITE_OK ) {
-    return -1;
-  }
+  int 
+  run_count_stmt(const char* sql )
+  {
+    sqlite3_stmt* stmt;
+    int res = sqlite3_prepare_v2( this->db_, sql, -1, &stmt, 0 );
+    if ( res != SQLITE_OK ) {
+      return -1;
+    }
 
-  res = sqlite3_step( stmt );
-  if ( res != SQLITE_ROW ) {
-    return -1;
-  }
+    res = sqlite3_step( stmt );
+    if ( res != SQLITE_ROW ) {
+      return -1;
+    }
 
-  int count = sqlite3_column_int( stmt, 0 );
-  sqlite3_finalize( stmt );
-  return count;
-}
+    int count = sqlite3_column_int( stmt, 0 );
+    sqlite3_finalize( stmt );
+    return count;
+  }
 
   std::string jetrule_rete_db_;
   rdf::RDFGraphPtr meta_graph_;

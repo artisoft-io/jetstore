@@ -18,8 +18,8 @@
 // see ExprUnaryOp and ExprBinaryOp classes.
 namespace jets::rete {
 
-inline ExprBasePtr
-create_binary_expr(int key, ExprBasePtr lhs, std::string const& op, ExprBasePtr rhs)
+ExprBasePtr
+ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string const& op, ExprBasePtr rhs)
 {
   // BINARY OPERATORS
   // ------------------------------------------------------------------------------------
@@ -63,8 +63,8 @@ create_binary_expr(int key, ExprBasePtr lhs, std::string const& op, ExprBasePtr 
     op<<", called with key "<<key);
 }
 
-inline ExprBasePtr
-create_unary_expr(int key, std::string const& op, ExprBasePtr arg)
+ExprBasePtr
+ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBasePtr arg)
 {
   // UNARY OPERATORS
   // ------------------------------------------------------------------------------------

@@ -203,8 +203,8 @@ is_le(LDouble const& lhs, LDouble const& rhs)
 // ======================================================================================
 // Utility Functions
 // -----------------------------------------------------------------------------
-inline std::string 
-trim(std::string const& str)
+inline std::string_view
+trim_view(std::string_view str)
 {
   static constexpr char kWhitespaces[] = " \t\n\r";
   if(str.empty()) return {};
@@ -213,6 +213,12 @@ trim(std::string const& str)
   auto p2 = str.find_last_not_of(&kWhitespaces[0], std::string::npos, sizeof(kWhitespaces));
   if(p2 == std::string::npos) return {};
   return str.substr(p1, p2-p1+1);
+}
+
+inline std::string 
+trim(std::string_view str)
+{
+  return std::string(trim_view(str));
 }
 
 // ======================================================================================
@@ -435,14 +441,16 @@ get_text(r_index r)
 }
 
 inline bool
-to_bool(std::string_view str)
+to_bool(std::string_view str_)
 {
   static constexpr char kFalse[] = "false";
   static constexpr char kNo[] = "no";
+  auto str = trim_view(str_);
   if(not str.empty()) {
     if(str.size() == 1) {
       if(str[0] == '0') return false;
-      if(std::tolower(str[0]) == 'f') return false;
+      int c = std::tolower(str[0]); 
+      if( c == 'f' or c == 'n') return false;
       return true;
     } else {
       if(str.size() == sizeof(kFalse)-1) {
