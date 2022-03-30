@@ -33,7 +33,7 @@ set(C_LIBRARY_SRC rdf/base_graph_iterator.h  rdf/base_graph.h  rdf/containers_ty
   rete/beta_row_iterator.h  rete/beta_row.h  rete/expr_impl.h  rete/expr_operator_factory.h  
   rete/expr_op_arithmetics.h rete/expr_op_logics.h  rete/expr_op_others.h rete/expr_op_resources.h rete/expr_op_strings.h 
   rete/expr.h  rete/graph_callback_mgr_impl.h  rete/jets_rete_cwrapper.cpp  
-  rete/jets_rete_cwrapper.h  rete/node_vertex.h  rete/rete_err.h  rete/rete_meta_store_factory_helper.h  
+  rete/jets_rete_cwrapper.h  rete/lookup_sql_helper.h  rete/node_vertex.h  rete/rete_err.h  rete/rete_meta_store_factory_helper.h  
   rete/rete_meta_store_factory.cc  rete/rete_meta_store_factory.h  rete/rete_meta_store.h  
   rete/rete_session.cc  rete/rete_session.h  rete/rete_types_impl.h  rete/rete_types.h)
 
@@ -79,6 +79,7 @@ add_executable(jets_test
   rdf/rdf_graph_test.cc
   rdf/rdf_session_test.cc
   rete/expr_test.cc
+  rete/lookup_sql_helper_test.cc
   rete/node_vertex_test.cc
   rete/rete_meta_store_test.cc
   rete/rete_session_test.cc
