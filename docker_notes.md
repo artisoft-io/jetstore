@@ -55,7 +55,7 @@ docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:go-bullseye -f D
 ```
 
 ### Putting together the jetstore runtime image frm the builder and the runtime base images
-Using docker gile Dockerfile.rt_go_bullseye
+Using docker file Dockerfile.rt_go_bullseye
 ```
 docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:go-bullseye -f Dockerfile.rt_go_bullseye .
 ```
@@ -79,3 +79,19 @@ docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:py-bullseye -f Docker
 ```
 Try the image
 docker run -it --rm --entrypoint /bin/bash jetstore:py-bullseye
+
+## Testing from debian:bullseye as base runtime image
+```
+docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+```
+Building the runtime image
+```
+docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:bullseye -f Dockerfile.rt_bullseye .
+```
+Testing the c++ library:
+docker run --rm -w=/usr/local/bin --entrypoint=jets_test jetstore:bullseye
+
+Testing the python lib:
+docker run --rm -w=/go/lib/jets/compiler --entrypoint=python3 jetstore:bullseye jetrule_compiler_test.py
+
+Testing the go lib:
