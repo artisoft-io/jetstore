@@ -2,40 +2,33 @@ from absl import flags
 from pathlib import Path
 from typing import Any, Sequence, Set
 from typing import Dict
-import apsw
 import sqlite3
 import traceback
 import os
 import pandas as pd
 
-print ("      Using APSW file",apsw.__file__)                # from the extension module
-print ("         APSW version",apsw.apswversion())           # from the extension module
-print ("   SQLite lib version",apsw.sqlitelibversion())      # from the sqlite library code
-print ("SQLite header version",apsw.SQLITE_VERSION_NUMBER)   # from the sqlite header file at compile time
-print()
-print ("   Using SQLITE3 file",sqlite3.__file__)                # from the extension module
-print ("      SQLITE3 version",sqlite3.version)           # from the extension module
-print ("       SQLite version",sqlite3.sqlite_version)      # from the sqlite library code
+print ("   Using SQLITE3 file",sqlite3.__file__)              
+print ("      SQLITE3 version",sqlite3.version)          
+print ("       SQLite version",sqlite3.sqlite_version)    
 print()
 
 flags.DEFINE_string("lookup_db", 'jetrule_lookup.db', "JetRule lookup")
-flags.DEFINE_bool("clear_lookup_db", False, "Clear JetRule lookup if already exists", short_name='d')
+flags.DEFINE_bool("clear_lookup_db", True, "Clear JetRule lookup if already exists", short_name='d')
 flags.DEFINE_string("rete_db", 'jetrule_rete.db', "JetRule rete config")
 
 
 class JetRuleLookupSQLite:
   def __init__(self): 
-     # state required during the execution of the function saveReteConfig
-    self.sqlite3Connection = None 
+    # state required during the execution of the function saveReteConfig
     self.workspace_connection = None 
-    self.lookup_connection = None
+    self.lookup_connection    = None 
 
   # =====================================================================================
   # saveLookup
   # ------------------------------------------------------------------------------------- 
   def saveLookups(self, lookup_db: str=None,rete_db: str=None) -> None:
-    self.workspace_connection = None   
-    self.lookup_connection = None   
+    self.workspace_connection = None 
+    self.lookup_connection    = None 
 
     # Opening Rete database
     self._open_rete_db(rete_db)
@@ -51,19 +44,22 @@ class JetRuleLookupSQLite:
       for lk_tbl in lookup_tables:
           table_name  = lk_tbl['name']
           csv_file    = lk_tbl['csv_file']
-          key_columns = lk_tbl['lookup_key'].split(',')
+          key_columns = [x.strip() for x in lk_tbl['lookup_key'].split(',')] 
+          
+          print('Processing: ' + csv_file)
 
           # retrieve column information for lookup from rete_db
-          lk_columns_dict        = self._get_lookup_table_columns(lk_tbl['key'])
-
-          return_columns = ['__key__','jets__key']
-          return_columns.extend([x['name'] for x in  lk_columns_dict])
+          lk_columns_dicts        = self._get_lookup_table_columns(lk_tbl['key'])
 
           # Create the lookup table schema in the lookup_db
-          self._create_lookup_schema(table_name, lk_columns_dict)
+          self._create_lookup_schema(table_name, lk_columns_dicts)
+
+          return_columns = ['__key__','jets__key']
+          return_columns.extend([x['name'] for x in  lk_columns_dicts])
+          converters_and_dtypes = self._get_converters_and_dtypes(lk_columns_dicts, key_columns) # {} # converters={'date':pd.to_datetime})
 
           # Load Lookup CSV to Lookup Table in lookup_db 
-          self._load_csv_lookup(table_name, csv_file, key_columns, return_columns)
+          self._load_csv_lookup(table_name, csv_file, key_columns, return_columns, converters_and_dtypes)
 
     except (Exception) as error:
       print("Error while saving lookup_db (2):", error)
@@ -72,11 +68,9 @@ class JetRuleLookupSQLite:
 
     finally:
       if self.lookup_connection:
-        self.lookup_connection.close(True)
+        self.lookup_connection.close()  
       if self.workspace_connection:
-        self.workspace_connection.close(True)
-      if self.sqlite3Connection:
-        self.sqlite3Connection.close()  
+        self.workspace_connection.close()          
     # All good here!
     return None
 
@@ -86,7 +80,7 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # _get_lookup_tables
   # -------------------------------------------------------------------------------------
-  def _get_lookup_tables(self): 
+  def _get_lookup_tables(self) -> list: 
     lookup_tbl_cursor = self.workspace_connection.cursor()  
 
     select_lookups = '''
@@ -101,11 +95,10 @@ class JetRuleLookupSQLite:
     FROM 
       lookup_tables
     '''
-    lookup_tables = []
 
-    for row in lookup_tbl_cursor.execute(select_lookups):
-        columns = [t[0] for t in lookup_tbl_cursor.getdescription()]
-        lookup_tables.append(dict(zip(columns, row)))
+    lookup_tbl_cursor.execute(select_lookups)    
+    lookup_tables = lookup_tbl_cursor.fetchall()
+
 
     lookup_tbl_cursor = None
     return lookup_tables
@@ -114,7 +107,7 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # _get_lookup_table_columns
   # -------------------------------------------------------------------------------------
-  def _get_lookup_table_columns(self, lookup_table_key):
+  def _get_lookup_table_columns(self, lookup_table_key: str) -> list:
     lookup_tbl_column_cursor = self.workspace_connection.cursor()  
 
     select_lookups = f'''
@@ -128,22 +121,32 @@ class JetRuleLookupSQLite:
     WHERE
         lookup_table_key = {lookup_table_key}
     '''
-    lookup_tables_columns = []
 
-    for row in lookup_tbl_column_cursor.execute(select_lookups):
-        columns = [t[0] for t in lookup_tbl_column_cursor.getdescription()]
-        lookup_tables_columns.append(dict(zip(columns, row)))
+    lookup_tbl_column_cursor.execute(select_lookups)    
+    lookup_tables_columns = lookup_tbl_column_cursor.fetchall()
 
     lookup_tbl_column_cursor = None
     return lookup_tables_columns       
 
 
+  def _convert_jetrule_type(self, jr_type: str) -> str:
+
+    if jr_type in  ['text', 'date', 'datetime'] :
+        sqlite_type = 'TEXT'
+    elif jr_type in ['int','bool','uint', 'long', 'ulong']:
+         sqlite_type = 'INTEGER'         
+    elif jr_type == 'double':
+         sqlite_type = 'REAL'
+    else:
+        raise Exception('_convert_jetrule_type: Type not supported: ' + jr_type)    
+    return sqlite_type
+
   # -------------------------------------------------------------------------------------
   # get_lookup_column_schema
   # -------------------------------------------------------------------------------------
   # Get column names and types for schema creation
-  def _get_lookup_column_schema(self, lookup_table_columns): 
-        column_schema = ',\n'.join([x['name'] + '  STRING' for x in  lookup_table_columns])
+  def _get_lookup_column_schema(self, lookup_table_columns: list[dict]) -> str: 
+        column_schema = ',\n'.join([x['name'] + '  ' +  self._convert_jetrule_type(x['type']) for x in  lookup_table_columns])
         return column_schema
 
 
@@ -151,50 +154,115 @@ class JetRuleLookupSQLite:
   # _create_schema
   # -------------------------------------------------------------------------------------
   # Create lookup_db schema if not already existing
-  def _create_lookup_schema(self, table_name, lk_columns) -> None:
+  def _create_lookup_schema(self, table_name: str, lk_columns: list[dict]) -> None:
     # create part of the CREATE TABLE STATEMENT
     column_schema = self._get_lookup_column_schema(lk_columns)  
 
     cursor = self.lookup_connection.cursor()
-    cursor.execute(f"""
-      -- --------------------
-      -- workspace_control table
-      -- --------------------
-      CREATE TABLE IF NOT  EXISTS {table_name} (
+
+    
+    drop_table_statement = f"""
+      DROP TABLE IF EXISTS {table_name}; 
+   """
+
+    create_table__strict_statement = f"""
+      CREATE TABLE {table_name} (
         __key__            INTEGER PRIMARY KEY, 
-        jets__key          STRING NOT NULL,
+        jets__key          TEXT NOT NULL,
+        {column_schema}
+      ) STRICT;
+   """ # currently not supported by apsw and sqlite browser
+
+    create_table_statement = f"""
+      CREATE TABLE {table_name} (
+        __key__            INTEGER PRIMARY KEY, 
+        jets__key          TEXT NOT NULL,
         {column_schema}
       );
-
+   """
+    create_index_statement = f"""
       CREATE INDEX IF NOT EXISTS {table_name}_idx 
       ON {table_name} (jets__key);
-
-   """)
+   """
+    cursor.execute(drop_table_statement)
+    cursor.execute(create_table_statement)
+    cursor.execute(create_index_statement)
     cursor = None      
+
+
+
+  # -------------------------------------------------------------------------------------
+  # _get_converters_and_dtypes
+  # -------------------------------------------------------------------------------------
+  def _get_converters_and_dtypes(self,lk_columns_dicts: list[dict], key_columns: list) -> tuple[dict,dict]:
+      converters =  {}
+      dtype_dict = {}
+      for col in lk_columns_dicts:
+          if col['type'] == 'bool':
+              converters[col['name']] = self._convert_to_bool
+          else:
+              dtype_dict[col['name']] = str    
+      for key_col in key_columns:
+          dtype_dict[key_col] = str
+      return (converters, dtype_dict)
+
+
+  # -------------------------------------------------------------------------------------
+  # _convert_to_bool
+  # -------------------------------------------------------------------------------------
+  def _convert_to_bool(self, val: str) -> int:
+      if val:
+          val = str(val)
+          value_length = len(val)
+
+          if value_length == 1:
+              if val == '0':
+                  return 0
+              lower_val = val.lower()
+              if lower_val == 'f' or lower_val == 'n':
+                 return 0 
+              return 1
+          elif value_length == 5:
+              lower_val = val.lower()
+              if lower_val == 'false':
+                  return 0
+              else:
+                  return 1
+          elif value_length == 2:
+              lower_val = val.lower()
+              if lower_val == 'no':
+                  return 0
+              else:
+                  return 1
+          else:
+              return 1
+      else:
+        return 0    
 
 
   # -------------------------------------------------------------------------------------
   # _load_csv_lookup
   # -------------------------------------------------------------------------------------
   # Load Lookup CSV file to Lookup Table in lookup_db
-  def _load_csv_lookup(self,table_name,csv_file,key_columns, return_columns) -> None:
+  def _load_csv_lookup(self,table_name: str,csv_file: str,key_columns: list[str],return_columns: list[str],converters_and_dtypes: tuple[dict,dict]) -> None:
     csv_path = os.path.join(Path(flags.FLAGS.base_path), csv_file)
     csv_path = os.path.abspath(csv_path)
+
     if not os.path.exists(csv_path):
-        print('Could note locate: ' + str(csv_path))
+        raise Exception('_load_csv_lookup: Could note locate: ' + str(csv_path))
     else:    
-        lookup_df = pd.read_csv(csv_path, dtype=str, skipinitialspace = True)
+        lookup_df = pd.read_csv(csv_path, dtype=converters_and_dtypes[1], skipinitialspace = True, converters = converters_and_dtypes[0])
+
 
         if set(key_columns).issubset(set(lookup_df.columns)): 
             lookup_df.insert(0,'jets__key', lookup_df[key_columns].agg(''.join, axis=1))
         else:
             raise Exception(f'Key Columns missing in provided CSV. Expected {str(key_columns)} in header {str(lookup_df.columns)}')    
 
-        # lookup_df['jets__key'] = lookup_df.apply (lambda row: self._create_jets_key(row,key_columns), axis=1)
-        lookup_df.insert(0, '__key__', range(0, 0 + len(lookup_df)))
+        lookup_df.insert(0, '__key__', range(0, len(lookup_df)))
 
         if set(return_columns).issubset(set(lookup_df.columns)): 
-            lookup_df[return_columns].to_sql(table_name, self.sqlite3Connection, if_exists='append', index=False)
+            lookup_df[return_columns].to_sql(table_name, self.lookup_connection, if_exists='replace', index=False)
         else:
             raise Exception(f'Return Columns missing in provided CSV. Expected {str(return_columns)} in header {str(lookup_df.columns)}')    
 
@@ -202,7 +270,7 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # _create_jets_key
   # -------------------------------------------------------------------------------------
-  def _create_jets_key(self,row,key_columns):
+  def _create_jets_key(self,row,key_columns: list[str]):
      composite_key = ''.join([row[x] for x in key_columns])
      return composite_key       
 
@@ -210,10 +278,11 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # _open_rete_db
   # -------------------------------------------------------------------------------------
-  def _open_rete_db(self,rete_db) -> None:
+  def _open_rete_db(self,rete_db: str) -> None:
     try:
         if rete_db:
-            self.workspace_connection = apsw.Connection(rete_db)
+            self.workspace_connection = sqlite3.Connection(rete_db)
+            self.workspace_connection.row_factory = sqlite3.Row
         else:
             rete_db_path = flags.FLAGS.rete_db
             if not rete_db_path:
@@ -221,7 +290,9 @@ class JetRuleLookupSQLite:
             path = os.path.join(Path(flags.FLAGS.base_path), rete_db_path)
             path = os.path.abspath(path)
             print('*** RETE_DB PATH',path)
-            self.workspace_connection = apsw.Connection(path)
+            self.workspace_connection = sqlite3.Connection(path)
+            print('seeting connection *****')
+            self.workspace_connection.row_factory = sqlite3.Row
     except (Exception) as error:
         print("Error while opening rete_db (1):", error)
         return str(error)
@@ -229,15 +300,15 @@ class JetRuleLookupSQLite:
         pass       
 
 
- # -------------------------------------------------------------------------------------
+  # -------------------------------------------------------------------------------------
   # _open_lookup_db
   # -------------------------------------------------------------------------------------
-  def _open_lookup_db(self,lookup_db) -> None:
+  def _open_lookup_db(self,lookup_db:str) -> None:
         # Opening/creating Lookup database
         try:
             if lookup_db:
-                self.lookup_connection = apsw.Connection(lookup_db)
-                self.sqlite3Connection = sqlite3.Connection(lookup_db)
+                self.lookup_connection = sqlite3.Connection(lookup_db)
+                self.lookup_connection.row_factory = sqlite3.Row
             else:
                 lookup_db_path = flags.FLAGS.lookup_db
                 if not lookup_db_path:
@@ -250,8 +321,8 @@ class JetRuleLookupSQLite:
                 if flags.FLAGS.clear_lookup_db and os.path.exists(path):
                     print('*** Clearing DB, creating new lookup_db at ',path)
                     os.remove(path)
-                self.lookup_connection = apsw.Connection(path)
-                self.sqlite3Connection = sqlite3.Connection(path)
+                self.lookup_connection = sqlite3.Connection(path)
+                self.lookup_connection.row_factory = sqlite3.Row
         except (Exception) as error:
             print("Error while opening lookup_db (1):", error)
             return str(error)
