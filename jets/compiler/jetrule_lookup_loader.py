@@ -17,7 +17,7 @@ def main(argv):
 
   base_path = Path(FLAGS.base_path)
 
-  lookup_db_helper = JetRuleLookupSQLite()
+  lookup_db_helper = JetRuleLookupSQLite(base_path=base_path)
   err = lookup_db_helper.saveLookups()
   if err:
     print('ERROR while saving Lookup file to lookup_db: {0}.'.format(str(err)))

@@ -1,0 +1,29 @@
+# =======================================================================================
+# Defining Lookup Tables
+# ---------------------------------------------------------------------------------------
+
+lookup_table BASIC {
+  $csv_file = "test_lookups/basic.csv",    # csv file location
+  $key = ["BASIC_TEST_KEY"],                   # Key columns, resource PROC_CODE automatically created
+  $columns = [
+    "BASIC_TEST_INT" as int,
+    "BASIC_TEST_LONG" as long,
+    "BASIC_TEST_DATE" as date,
+    "BASIC_TEST_TEXT" as text,
+    "BASIC_TEST_BOOL" as bool
+  ]
+};
+
+
+lookup_table COMPOSITE {
+  $csv_file = "test_lookups/composite.csv",    # csv file location
+  $key = ["COMPOSITE_TEST_KEY_1", "COMPOSITE_TEST_KEY_2"  , "COMPOSITE_TEST_KEY_3"],                   # Key columns, resource PROC_CODE automatically created
+  $columns = [
+    "COMPOSITE_TEST_KEY_2" as text,  
+    "COMPOSITE_TEST_INT" as int,
+    "COMPOSITE_TEST_LONG" as long,
+    "COMPOSITE_TEST_DATE" as date,
+    "COMPOSITE_TEST_TEXT" as text,
+    "COMPOSITE_TEST_BOOL" as bool
+  ]
+};

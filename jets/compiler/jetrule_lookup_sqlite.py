@@ -18,17 +18,19 @@ flags.DEFINE_string("rete_db", 'jetrule_rete.db', "JetRule rete config")
 
 
 class JetRuleLookupSQLite:
-  def __init__(self): 
+  def __init__(self, base_path: str=''): 
     # state required during the execution of the function saveReteConfig
     self.workspace_connection = None 
     self.lookup_connection    = None 
-
+    self.base_path            = base_path
   # =====================================================================================
   # saveLookup
   # ------------------------------------------------------------------------------------- 
   def saveLookups(self, lookup_db: str=None,rete_db: str=None) -> None:
     self.workspace_connection = None 
     self.lookup_connection    = None 
+
+
 
     # Opening Rete database
     self._open_rete_db(rete_db)
@@ -75,7 +77,30 @@ class JetRuleLookupSQLite:
     return None
 
 
- 
+  def getLookup(self, table_name: str, lookup_db: str=None) -> list[dict]:
+    
+    self.lookup_connection    = None 
+
+    self._open_lookup_db(lookup_db)
+
+    lookup_tbl_cursor = self.lookup_connection.cursor()  
+
+    try:
+        select_lookup = f'SELECT * FROM {table_name}'
+
+        lookup_tbl_cursor.execute(select_lookup)    
+        lookup_table = lookup_tbl_cursor.fetchall()
+
+    except (Exception) as error:
+      print("Error while saving lookup_db (2):", error)
+      print(traceback.format_exc())
+      return str(error)
+
+    finally:
+      if self.lookup_connection:
+        self.lookup_connection.close()  
+
+    return lookup_table    
 
   # -------------------------------------------------------------------------------------
   # _get_lookup_tables
@@ -210,34 +235,34 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # _convert_to_bool
   # -------------------------------------------------------------------------------------
-  def _convert_to_bool(self, val: str) -> int:
+  def _convert_to_bool(self, val: str) -> str:
       if val:
           val = str(val)
           value_length = len(val)
 
           if value_length == 1:
               if val == '0':
-                  return 0
+                  return '0'
               lower_val = val.lower()
               if lower_val == 'f' or lower_val == 'n':
-                 return 0 
-              return 1
+                 return '0' 
+              return '1'
           elif value_length == 5:
               lower_val = val.lower()
               if lower_val == 'false':
-                  return 0
+                  return '0'
               else:
-                  return 1
+                  return '1'
           elif value_length == 2:
               lower_val = val.lower()
               if lower_val == 'no':
-                  return 0
+                  return '0'
               else:
-                  return 1
+                  return '1'
           else:
-              return 1
+              return '1'
       else:
-        return 0    
+        return '0'   
 
 
   # -------------------------------------------------------------------------------------
@@ -245,7 +270,7 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # Load Lookup CSV file to Lookup Table in lookup_db
   def _load_csv_lookup(self,table_name: str,csv_file: str,key_columns: list[str],return_columns: list[str],converters_and_dtypes: tuple[dict,dict]) -> None:
-    csv_path = os.path.join(Path(flags.FLAGS.base_path), csv_file)
+    csv_path = os.path.join(Path(self.base_path), csv_file)
     csv_path = os.path.abspath(csv_path)
 
     if not os.path.exists(csv_path):
@@ -281,13 +306,14 @@ class JetRuleLookupSQLite:
   def _open_rete_db(self,rete_db: str) -> None:
     try:
         if rete_db:
+            print("trying to opendb : " + rete_db)
             self.workspace_connection = sqlite3.Connection(rete_db)
             self.workspace_connection.row_factory = sqlite3.Row
         else:
             rete_db_path = flags.FLAGS.rete_db
             if not rete_db_path:
                 rete_db_path = 'jetrule_rete.db'
-            path = os.path.join(Path(flags.FLAGS.base_path), rete_db_path)
+            path = os.path.join(Path(self.base_path), rete_db_path)
             path = os.path.abspath(path)
             print('*** RETE_DB PATH',path)
             self.workspace_connection = sqlite3.Connection(path)
@@ -313,7 +339,7 @@ class JetRuleLookupSQLite:
                 lookup_db_path = flags.FLAGS.lookup_db
                 if not lookup_db_path:
                     lookup_db_path = 'jetrule_lookup.db'
-                path = os.path.join(Path(flags.FLAGS.base_path), lookup_db_path)
+                path = os.path.join(Path(self.base_path), lookup_db_path)
                 path = os.path.abspath(path)
                 print('*** LOOKUP_DB PATH',path)
                 if not os.path.exists(path):
