@@ -6,6 +6,7 @@ import sqlite3
 import traceback
 import os
 import pandas as pd
+import re
 
 print ("   Using SQLITE3 file",sqlite3.__file__)              
 print ("      SQLITE3 version",sqlite3.version)          
@@ -135,6 +136,8 @@ class JetRuleLookupSQLite:
   def _get_lookup_table_columns(self, lookup_table_key: str) -> list:
     lookup_tbl_column_cursor = self.workspace_connection.cursor()  
 
+    sanatized_lookup_table_key = self._sanitize(str(lookup_table_key))
+    
     select_lookups = f'''
     SELECT 
         lookup_table_key,
@@ -144,7 +147,7 @@ class JetRuleLookupSQLite:
     FROM 
         lookup_columns
     WHERE
-        lookup_table_key = {lookup_table_key}
+        lookup_table_key = {sanatized_lookup_table_key}
     '''
 
     lookup_tbl_column_cursor.execute(select_lookups)    
@@ -171,8 +174,21 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # Get column names and types for schema creation
   def _get_lookup_column_schema(self, lookup_table_columns: list[dict]) -> str: 
-        column_schema = ',\n'.join([x['name'] + '  ' +  self._convert_jetrule_type(x['type']) for x in  lookup_table_columns])
+        column_schema = ',\n'.join([self._sanitize(x['name']) + '  ' +  self._convert_jetrule_type(x['type']) for x in  lookup_table_columns])
         return column_schema
+
+  # -------------------------------------------------------------------------------------
+  # _sanitize
+  # -------------------------------------------------------------------------------------
+  # Used to sanitize strings before execution in SQL, if strict is set to True (default) will raise exception if sanitized string differs from input
+  def _sanitize(self,to_sanatize:str, strict:bool=True) -> str:
+      sanitized = re.sub('[^0-9a-zA-Z]+', '_', to_sanatize)
+      if sanitized != to_sanatize:
+        if strict:
+            raise Exception(f'_sanitize: sanitized string: {sanitized} did not match original string: {to_sanatize} and _sanitize in strict mode')
+        else:
+            print(f'_sanitize: WARNING sanitized string: {sanitized} did not match original string: {to_sanatize}. Proceeding with {sanitized}')
+      return sanitized
 
 
   # -------------------------------------------------------------------------------------
@@ -185,13 +201,14 @@ class JetRuleLookupSQLite:
 
     cursor = self.lookup_connection.cursor()
 
-    
+    sanitized_table_name  = self._sanitize(table_name)
+
     drop_table_statement = f"""
-      DROP TABLE IF EXISTS {table_name}; 
+      DROP TABLE IF EXISTS {sanitized_table_name}; 
    """
 
     create_table__strict_statement = f"""
-      CREATE TABLE {table_name} (
+      CREATE TABLE {sanitized_table_name} (
         __key__            INTEGER PRIMARY KEY, 
         jets__key          TEXT NOT NULL,
         {column_schema}
@@ -199,15 +216,15 @@ class JetRuleLookupSQLite:
    """ # currently not supported by apsw and sqlite browser
 
     create_table_statement = f"""
-      CREATE TABLE {table_name} (
+      CREATE TABLE {sanitized_table_name} (
         __key__            INTEGER PRIMARY KEY, 
         jets__key          TEXT NOT NULL,
         {column_schema}
       );
    """
     create_index_statement = f"""
-      CREATE INDEX IF NOT EXISTS {table_name}_idx 
-      ON {table_name} (jets__key);
+      CREATE INDEX IF NOT EXISTS {sanitized_table_name}_idx 
+      ON {sanitized_table_name} (jets__key);
    """
     cursor.execute(drop_table_statement)
     cursor.execute(create_table_statement)
