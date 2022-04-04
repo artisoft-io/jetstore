@@ -61,6 +61,7 @@ jobs:
       uses: anchore/scan-action@v3
       with:
         image: image_to_scan:latest
+        fail-build: false
         
     - name: Build, tag, and push image to Amazon ECR
       id: push-image
