@@ -1,0 +1,75 @@
+# This workflow will build and push a the jetstore container image to Amazon ECR,
+#
+
+name: Store in Amazon ECR
+
+
+on: 
+  workflow_dispatch:
+
+# on:
+#  push:
+#    branches:
+#      - main
+
+env:
+  AWS_REGION: us-east-2                   # set this to your preferred AWS region, e.g. us-west-1
+  ECR_REPOSITORY: jetstore                # set this to your Amazon ECR repository name
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build a docker container and
+        # push it to ECR so that it can
+        # be deployed.
+        docker build --build-arg JETS_VERSION=$IMAGE_TAG -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
+        docker build --build-arg JETS_VERSION=$IMAGE_TAG -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+        docker build --build-arg JETS_VERSION=$IMAGE_TAG -t jetstore:bullseye -f Dockerfile.rt_bullseye .  
+        docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker image tag jetstore:bullseye image_to_scan:latest
+        docker run --rm -w=/usr/local/bin --entrypoint=jets_test $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker run --rm -w=/go/lib/jets/compiler --entrypoint=python3 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG jetrule_compiler_test.py
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+
+    - name: Scan image
+ 
+      uses: anchore/scan-action@v3
+      with:
+        image: image_to_scan:latest
+        
+    - name: Build, tag, and push image to Amazon ECR
+      id: push-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build a docker container and
+        # push it to ECR so that it can
+        # be deployed.
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"        
