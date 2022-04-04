@@ -57,11 +57,16 @@ jobs:
 
 
     - name: Scan image
- 
       uses: anchore/scan-action@v3
+      id: scan
       with:
         image: image_to_scan:latest
         fail-build: false
+        acs-report-enable: true
+    - name: upload Anchore scan SARIF report
+      uses: github/codeql-action/upload-sarif@v1
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif }}
         
     - name: Build, tag, and push image to Amazon ECR
       id: push-image
