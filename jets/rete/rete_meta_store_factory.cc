@@ -9,12 +9,14 @@
 #include "../rete/rete_meta_store_factory.h"
 #include "node_vertex.h"
 #include "../rete/expr_operator_factory.h"
+#include "../rete/lookup_sql_helper.h"
 
 namespace jets::rete {
 
 
 ReteMetaStoreFactory::ReteMetaStoreFactory()
   : jetrule_rete_db_(), 
+  lookup_data_db_(), 
   meta_graph_(), 
   r_map_(),
   v_map_(),
@@ -30,12 +32,13 @@ ReteMetaStoreFactory::ReteMetaStoreFactory()
 
 
 int
-ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
+ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db)
 {
   //*
   VLOG(1) << "Current path is " << std::filesystem::current_path() << std::endl;
   // Open database -- check that db exists
   this->jetrule_rete_db_ = jetrule_rete_db;
+  this->lookup_data_db_ = lookup_data_db;
   std::filesystem::path p(this->jetrule_rete_db_);
   if(not std::filesystem::exists(p)) {
     LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: Invalid argument jetrule_rete_db: '" <<
@@ -91,6 +94,10 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
     return res;
   }
 
+  // Load LookupSqlHelper
+  auto lookup_sql_helper = create_lookup_sql_helper(this->jetrule_rete_db_, this->lookup_data_db_);
+  lookup_sql_helper->initialize(this->meta_graph_.get());
+
   // Load each main rule file as a ReteMetaStore
   for(auto const& item: this->jr_map_) {
     VLOG(1)<< "Loading file key: "<<item.second;
@@ -118,14 +125,16 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db)
 
     // Create the ReteMetaStore
     // create & initalize the meta store
-    auto rete_meta_store = rete::create_rete_meta_store(this->meta_graph_, alpha_nodes, node_vertexes);
+    auto rete_meta_store = rete::create_rete_meta_store(this->meta_graph_, lookup_sql_helper, alpha_nodes, node_vertexes);
     rete_meta_store->initialize();
     this->ms_map_.insert({file_key, rete_meta_store});
   }
 
+  //*
+  // Waiting on locking meta_graph until all operators are integrated
   // Lock the meta graph and it's associated RManager
-  this->meta_graph_->rmgr()->set_locked();
-  this->meta_graph_->set_locked();
+  // this->meta_graph_->rmgr()->set_locked();
+  // this->meta_graph_->set_locked();
 
   // All good!, release the stmts and db connection
   VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";

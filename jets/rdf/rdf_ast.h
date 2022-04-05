@@ -237,6 +237,41 @@ enum rdf_ast_which_order {
     rdf_literal_date_t               = 9 ,
     rdf_literal_datetime_t           = 10 
 };
+inline char const* which2type_name(int which)
+{
+  switch (which) {
+  case rdf_null_t             : return "null";
+  case rdf_blank_node_t       : return "bn";
+  case rdf_named_resource_t   : return "resource";
+  case rdf_literal_int32_t    : return "int";
+  case rdf_literal_uint32_t   : return "uint";
+  case rdf_literal_int64_t    : return "long";
+  case rdf_literal_uint64_t   : return "ulong";
+  case rdf_literal_double_t   : return "double";
+  case rdf_literal_string_t   : return "text";
+  case rdf_literal_date_t     : return "date";
+  case rdf_literal_datetime_t : return "datetime";
+  default: {
+    RDF_EXCEPTION("which2type_name: BUG: which type is out of range: "<<which);
+  }
+  }
+}
+inline int type_name2which(std::string_view type_name)
+{
+  if(type_name == "null") return rdf_null_t;
+  if(type_name == "bn") return rdf_blank_node_t;
+  if(type_name == "resource") return rdf_named_resource_t;
+  if(type_name == "int") return rdf_literal_int32_t;
+  if(type_name == "bool") return rdf_literal_int32_t;
+  if(type_name == "uint") return rdf_literal_uint32_t;
+  if(type_name == "long") return rdf_literal_int64_t;
+  if(type_name == "ulong") return rdf_literal_uint64_t;
+  if(type_name == "double") return rdf_literal_double_t;
+  if(type_name == "text") return rdf_literal_string_t;
+  if(type_name == "date") return rdf_literal_date_t;
+  if(type_name == "datetime") return rdf_literal_datetime_t;
+  RDF_EXCEPTION("type_name2which: BUG: unknown type name: "<<type_name);
+}
 
 //* NOTE: If updated, MUST update ast_which_order and possibly ast_sort_order
 // ======================================================================================
@@ -401,6 +436,13 @@ get_type(r_index r)
 {
   if(not r) return -1;
   return r->which();
+}
+
+inline char const*
+get_type_name(r_index r)
+{
+  if(not r) return nullptr;
+  return which2type_name(r->which());
 }
 
 inline bool

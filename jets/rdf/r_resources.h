@@ -28,6 +28,8 @@ struct JetsResources {
   r_index jets__entity_property{nullptr};
   r_index jets__value_property{nullptr};
   r_index jets__key{nullptr};
+  r_index jets__lookup_multi_rows{nullptr};
+  r_index jets__lookup_row{nullptr};
 
 };
 

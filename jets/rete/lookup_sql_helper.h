@@ -20,13 +20,13 @@
 #include "../rdf/rdf_types.h"
 #include "../rete/rete_err.h"
 #include "../rete/beta_row.h"
-#include "../rete/rete_session.h"
 
 // This file contains helper class to lookup multi_lookup operators
 // SQLite callback for lookup column info
 static int lookup_column_cb(void *data, int argc, char **argv, char **azColName);
 
 namespace jets::rete {
+class ReteSession;
 
 using RDFTTYPE = rdf::RdfAstType;
 
@@ -49,8 +49,8 @@ class LookupTable;
 using LookupTablePtr = std::shared_ptr<LookupTable>;
 
 struct LookupConnection {
-  sqlite3 *     db;
-  sqlite3_stmt* stmt;
+  sqlite3 *     db{nullptr};
+  sqlite3_stmt* stmt{nullptr};
 };
 using LCPool = std::list<LookupConnection>;
 
@@ -58,17 +58,23 @@ using LCPool = std::list<LookupConnection>;
 // ------------------------------------------------------------------------------------
 class LookupTable {
  public:
-  using ColumnInfo = std::pair<rdf::r_index, std::string>; // column name as resource, range type
+  using ColumnInfo = std::pair<rdf::r_index, int>; // column name as resource, range type (which code)
   using LookupInfoV = std::vector<ColumnInfo>;
   LookupTable(rdf::RDFGraph * meta_graph, int lookup_key, std::string_view lookup_name, std::string_view lookup_db_path)
     : meta_graph_(meta_graph),
     lookup_key_(lookup_key),
     lookup_name_(lookup_name),
     lookup_db_path_(lookup_db_path),
+    lookup_sql_(),
     mutex_(),
+    cache_uri_(nullptr),
+    subject_prefix_("jets:"),
     pool_(),
     columns_()
-  {}
+  {
+    this->cache_uri_ = this->meta_graph_->rmgr()->create_resource(this->lookup_name_);
+    this->subject_prefix_.append(this->lookup_name_).push_back(':');
+  }
 
   int initialize(sqlite3 * workspace_db)
   {
@@ -97,33 +103,14 @@ class LookupTable {
     }
     sqlb << " FROM " << to_table_name(this->lookup_name_);
     sqlb << " WHERE jets__key = ?";
-    sql = sqlb.str();
+    this->lookup_sql_ = sqlb.str();
     //*
-    std::cout <<"LOOKUP SQL: " << sql << std::endl;
-    // setup the first connection
-    sqlite3 *   db;
-    sqlite3_stmt* stmt;
-    err = sqlite3_open(this->lookup_db_path_.c_str(), &db);
-    if( err ) {
-      LOG(ERROR) << "LookupTable::initialize: ERROR: Can't open database: '" <<
-        this->lookup_db_path_<<"' as lookup_db_path, error:" << sqlite3_errmsg(db);
-      return err;
-    }
-    err = sqlite3_prepare_v2( db, sql.c_str(), -1, &stmt, 0 );
-    if ( err != SQLITE_OK ) {
-      return err;
-    }
-    this->pool_.push_back({db, stmt});
-    return 0;
-  }
+    std::cout <<"LOOKUP SQL: " << this->lookup_sql_ << std::endl;
 
-  int lookup_column_cb(int argc, char **argv, char **colnm)
-  {
-    // name             0  STRING NOT NULL,
-    // type             1  STRING NOT NULL,
-    // as_array         2  BOOL, (not implemented)
-    auto rmgr = this->meta_graph_->rmgr();
-    this->columns_.push_back({rmgr->create_resource(argv[0]), argv[1]});
+    // setup the first connection to make sure we can open it
+    auto lc = this->get_connection();
+    if(not lc.db) return -1;
+    this->put_connection(lc);
     return 0;
   }
 
@@ -131,7 +118,7 @@ class LookupTable {
   int terminate()
   {
     //*
-    std::cout <<"LOOKUP TERMINATE CALLED" << std::endl;
+    std::cout <<"LOOKUP TERMINATE CALLED, pool size: "<<this->pool_.size() << std::endl;
     int err = 0;
     for(auto info: this->pool_) {
       sqlite3_finalize( info.stmt );
@@ -144,17 +131,69 @@ class LookupTable {
     return err;
   }
 
-  RDFTTYPE lookup(std::string_view key)
+  int lookup(ReteSession * rete_session, std::string const& key, RDFTTYPE * out)
   {
-    return {};
+    return this->lookup_internal(rete_session, false, key, out);
+  }
+
+  int multi_lookup(ReteSession * rete_session, std::string const& key, RDFTTYPE * out)
+  {
+    return this->lookup_internal(rete_session, true, key, out);
+  }
+
+  int lookup_column_cb(int argc, char **argv, char **colnm)
+  {
+    // name             0  STRING NOT NULL,
+    // type             1  STRING NOT NULL,
+    // as_array         2  BOOL, (not implemented)
+    auto rmgr = this->meta_graph_->rmgr();
+    this->columns_.push_back({rmgr->create_resource(argv[0]), rdf::type_name2which(argv[1])});
+    return 0;
+  }
+
+ protected:
+
+  int lookup_internal(ReteSession * rete_session, bool is_multi, std::string const& key, RDFTTYPE * out);
+
+  LookupConnection get_connection()
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if(this->pool_.empty()) {
+      // setup a new connection
+      LookupConnection lc;
+      int err = sqlite3_open(this->lookup_db_path_.c_str(), &lc.db);
+      if( err ) {
+        LOG(ERROR) << "LookupTable::get_connection: ERROR: Can't open database: '" <<
+          this->lookup_db_path_<<"' as lookup_db_path, error:" << sqlite3_errmsg(lc.db);
+        return {};
+      }
+      err = sqlite3_prepare_v2( lc.db, this->lookup_sql_.c_str(), -1, &lc.stmt, 0 );
+      if ( err != SQLITE_OK ) {
+        return {};
+      }
+      return lc;
+    }
+    auto lc = this->pool_.front();
+    this->pool_.pop_front();
+    return lc;
+  }
+
+  void put_connection(LookupConnection lc)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    this->pool_.push_back(std::move(lc));
   }
 
  private:
+
   rdf::RDFGraph *     meta_graph_;
   int                 lookup_key_;
   std::string         lookup_name_;
   std::string         lookup_db_path_;
+  std::string         lookup_sql_;
   mutable std::mutex  mutex_;
+  rdf::r_index        cache_uri_;
+  std::string         subject_prefix_;
   LCPool              pool_;
   LookupInfoV         columns_;
 };
@@ -175,7 +214,7 @@ class LookupSqlHelper {
  public:
   using LookupInfo = std::pair<int, std::string>; // lookup key, lookup name
   using LookupInfoList = std::list<LookupInfo>;
-  using LookupTableMap = std::unordered_map<rdf::r_index, LookupTablePtr>;
+  using LookupTableMap = std::unordered_map<std::string, LookupTablePtr>;
 
   LookupSqlHelper() = delete;
 
@@ -208,17 +247,36 @@ class LookupSqlHelper {
     err = 0;
     auto rmgr = meta_graph->rmgr();
     for(auto const& info: this->lookup_tbl_info_) {
-      auto r = rmgr->create_resource(info.second);
       auto l = create_lookup_table(meta_graph, info.first, info.second, this->lookup_db_path_);
-      this->lookup_tbl_map_.insert({r, l});
+      this->lookup_tbl_map_.insert({info.second, l});
       int xerr = l->initialize(this->workspace_db_);
       if(xerr) {
         err = xerr;
-        LOG(ERROR) << "LookupSqlHelper::initialize: ERROR while initializing LookupTable: " << r;
+        LOG(ERROR) << "LookupSqlHelper::initialize: ERROR while initializing LookupTable: " << info.second;
       }
     }
     // All good!
     return err;
+  }
+
+  int lookup(ReteSession * rete_session, std::string const& lookup_tbl, std::string const& key, RDFTTYPE * out) const
+  {
+    auto itor = this->lookup_tbl_map_.find(lookup_tbl);
+    if(itor == this->lookup_tbl_map_.end()) {
+      LOG(ERROR) << "LookupSqlHelper::lookup: ERROR LookupTable not found: " << lookup_tbl;
+      return -1;
+    }
+    return itor->second->lookup(rete_session, key, out);
+  }
+
+  int multi_lookup(ReteSession * rete_session, std::string const& lookup_tbl, std::string const& key, RDFTTYPE * out) const
+  {
+    auto itor = this->lookup_tbl_map_.find(lookup_tbl);
+    if(itor == this->lookup_tbl_map_.end()) {
+      LOG(ERROR) << "LookupSqlHelper::lookup: ERROR LookupTable not found: " << lookup_tbl;
+      return -1;
+    }
+    return itor->second->multi_lookup(rete_session, key, out);
   }
 
   // close connection pools
@@ -243,21 +301,21 @@ class LookupSqlHelper {
     this->lookup_tbl_info_.clear();
     auto const* sql = "SELECT key, name from lookup_tables";
     sqlite3_stmt* stmt;
-    int res = sqlite3_prepare_v2( this->workspace_db_, sql, -1, &stmt, 0 );
-    if ( res != SQLITE_OK ) {
-      return res;
+    int err = sqlite3_prepare_v2( this->workspace_db_, sql, -1, &stmt, 0 );
+    if ( err != SQLITE_OK ) {
+      return err;
     }
 
     bool is_done = false;
     while(not is_done) {
-      res = sqlite3_step( stmt );
-      if ( res == SQLITE_DONE ) {
+      err = sqlite3_step( stmt );
+      if ( err == SQLITE_DONE ) {
         is_done = true;
         continue;
       }
-      if(res != SQLITE_ROW) {
-        LOG(ERROR) << "ReteMetaStoreFactory::load_lookup_table_info: SQL error while load_workspace_control: " << res;
-        return res;
+      if(err != SQLITE_ROW) {
+        LOG(ERROR) << "ReteMetaStoreFactory::load_lookup_table_info: SQL error while load_workspace_control: " << err;
+        return err;
       }
       // Get the data out of the row and in the lookup map
       int key = sqlite3_column_int( stmt, 0 );

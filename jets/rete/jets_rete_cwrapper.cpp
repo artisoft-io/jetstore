@@ -11,12 +11,12 @@
 using namespace jets::rete;
 using namespace jets::rdf;
 
-int create_jetstore_hdl( char const * rete_db_path, HJETS * handle )
+int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_path, HJETS * handle )
 {
   if(not rete_db_path) return -1;
   auto * factory = new ReteMetaStoreFactory();
   *handle = factory;
-  int res = factory->load_database(rete_db_path);
+  int res = factory->load_database(rete_db_path, lookup_data_db_path);
   if(res) {
     LOG(ERROR) << "create_jetstore_hdl: ERROR while loading database "<<
       rete_db_path<<", code "<<res;

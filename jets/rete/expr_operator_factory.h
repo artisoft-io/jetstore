@@ -56,6 +56,7 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
 
   // Lookup operators (in expr_op_others.h)
   if(op == "lookup")            return create_expr_binary_operator<LookupVisitor>(key, lhs, rhs);
+  if(op == "multi_lookup")      return create_expr_binary_operator<MultiLookupVisitor>(key, lhs, rhs);
   
   LOG(ERROR) << "create_binary_expr: ERROR unknown binary operator: "<<
     op<<", called with key "<<key;

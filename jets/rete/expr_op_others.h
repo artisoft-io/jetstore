@@ -16,6 +16,7 @@
 #include "../rete/rete_err.h"
 #include "../rete/beta_row.h"
 #include "../rete/rete_session.h"
+#include "../rete/lookup_sql_helper.h"
 
 // This file contains basic operator used in rule expression 
 // see ExprUnaryOp and ExprBinaryOp classes.
@@ -27,144 +28,76 @@ using RDFTTYPE = rdf::RdfAstType;
 // --------------------------------------------------------------------------------------
 struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  // Fully expanded example to serve as template
+  // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   LookupVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  LookupVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::True();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LInt32        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LUInt32       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LInt64        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LUInt64       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LDouble       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LString       rhs)const{return rdf::False();}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->lookup(lhs.name, rhs.name);}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt64        rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt64       rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LString       rhs)const{return this->lookup(lhs.name, rhs.data);}
 
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::BlankNode     rhs)const{return rdf::LInt32{lhs.key == rhs.key};}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LInt32        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LUInt32       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LInt64        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LUInt64       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LDouble       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LString       rhs)const{return rdf::False();}
-
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return rdf::LInt32{lhs.name == rhs.name};}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt64        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt64       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LDouble       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LString       rhs)const{return rdf::False();}
-
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LString       rhs)const{return rdf::False();}
-
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LString       rhs)const{return rdf::False();}
-
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LString       rhs)const{return rdf::False();}
-
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_equal(lhs.data, rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LString       rhs)const{return rdf::False();}
-
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{lhs.data == boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{is_eq(lhs, rhs)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LString       rhs)const{return rdf::False();}
-
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt32        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LUInt32       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt64        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LUInt64       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LDouble       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const{return rdf::LInt32{lhs.data == rhs.data};}
-
-  // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDate       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LDate       rhs)const{return rdf::False();}
-  // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LString       lhs, rdf::LDatetime   rhs)const{return rdf::False();}
-  // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt32        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt32       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt64        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt64       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDouble       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LString       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data == rhs.data};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_time(std::move(lhs.data)) == rhs.data};}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::NamedResource rhs)const{return this->lookup(lhs.data, rhs.name);}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt32        rhs)const{return this->lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LUInt32       rhs)const{return this->lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt64        rhs)const{return this->lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LUInt64       rhs)const{return this->lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const{return this->lookup(lhs.data, rhs.data);}
   
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::RDFNull       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::BlankNode     rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::NamedResource rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt32        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt32       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt64        rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDouble       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LString       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data == rdf::to_time(std::move(rhs.data))};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{lhs.data == rhs.data};}
+  RDFTTYPE lookup(std::string const& lookup_tbl, std::string const& key)const
+  {
+    RDFTTYPE out;
+    auto helper = this->rs->rule_ms()->get_lookup_sql_helper();
+    if(not helper) {
+      RETE_EXCEPTION("Invalid lookup helper! Arguments: ("<<lookup_tbl<<", "<<key<<")");
+    }
+    if(helper->lookup(this->rs, lookup_tbl, key, &out)) {
+      return {};
+    }
+    return out;
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
+  rdf::r_index rhs_;  //       transitory resource
+};
+
+// MultiLookupVisitor
+// --------------------------------------------------------------------------------------
+struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
+  MultiLookupVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->multi_lookup(lhs.name, rhs.name);}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt64        rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt64       rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LString       rhs)const{return this->multi_lookup(lhs.name, rhs.data);}
+
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::NamedResource rhs)const{return this->multi_lookup(lhs.data, rhs.name);}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt32        rhs)const{return this->multi_lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LUInt32       rhs)const{return this->multi_lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt64        rhs)const{return this->multi_lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LUInt64       rhs)const{return this->multi_lookup(lhs.data, std::to_string(rhs.data));}
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const{return this->multi_lookup(lhs.data, rhs.data);}
   
+  RDFTTYPE multi_lookup(std::string const& lookup_tbl, std::string const& key)const
+  {
+    RDFTTYPE out;
+    auto helper = this->rs->rule_ms()->get_lookup_sql_helper();
+    if(not helper) {
+      RETE_EXCEPTION("Invalid (multi)lookup helper! Arguments: ("<<lookup_tbl<<", "<<key<<")");
+    }
+    if(helper->multi_lookup(this->rs, lookup_tbl, key, &out)) {
+      return {};
+    }
+    return out;
+  }
+
   ReteSession * rs;
   BetaRow const* br;
   rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is

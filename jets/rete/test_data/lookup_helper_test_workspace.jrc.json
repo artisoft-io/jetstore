@@ -1,0 +1,88 @@
+{
+    "main_rule_file_name": "lookup_helper_test_workspace.jr",
+    "support_rule_file_names": [],
+    "resources": [
+        {
+            "id": "acme:ProcedureLookup",
+            "type": "resource",
+            "value": "acme:ProcedureLookup",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 0
+        },
+        {
+            "id": "EVENT_DURATION",
+            "type": "resource",
+            "value": "EVENT_DURATION",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 1
+        },
+        {
+            "id": "PROC_RID",
+            "type": "resource",
+            "value": "PROC_RID",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 2
+        },
+        {
+            "id": "FROM_DATE",
+            "type": "resource",
+            "value": "FROM_DATE",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 3
+        },
+        {
+            "id": "EXCL",
+            "type": "resource",
+            "value": "EXCL",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 4
+        }
+    ],
+    "lookup_tables": [
+        {
+            "type": "lookup",
+            "name": "acme:ProcedureLookup",
+            "key": [
+                "EVENT_DURATION"
+            ],
+            "columns": [
+                {
+                    "name": "EVENT_DURATION",
+                    "type": "int",
+                    "as_array": "false"
+                },
+                {
+                    "name": "PROC_RID",
+                    "type": "long",
+                    "as_array": "false"
+                },
+                {
+                    "name": "FROM_DATE",
+                    "type": "date",
+                    "as_array": "false"
+                },
+                {
+                    "name": "EXCL",
+                    "type": "bool",
+                    "as_array": "false"
+                }
+            ],
+            "csv_file": "/work/buckets/mylookup.csv",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "resources": [
+                "EVENT_DURATION",
+                "PROC_RID",
+                "FROM_DATE",
+                "EXCL"
+            ]
+        }
+    ],
+    "rete_nodes": [
+        {
+            "vertex": 0,
+            "parent_vertex": 0,
+            "children_vertexes": [],
+            "type": "head_node"
+        }
+    ]
+}
