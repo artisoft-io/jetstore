@@ -48,7 +48,7 @@ inline std::string to_string(rete_exception const &e) {
   {                                                                            \
     std::ostringstream streamOut;                                              \
     streamOut << message;                                                      \
-    throw jets::rete_exception(streamOut.str());                               \
+    throw ::jets::rete_exception(streamOut.str());                             \
   }
 
 #endif // JETS_RETE_ERRORS_H

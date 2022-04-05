@@ -10,21 +10,19 @@
 #include <unordered_map>
 
 #include <glog/logging.h>
-#include <unordered_map>
-
-#include "alpha_functors.h"
-#include "alpha_node_impl.h"
-#include "beta_row_initializer.h"
-#include "expr.h"
-#include "rete_session.h"
 #include "sqlite3.h"
 
 #include "../rdf/rdf_types.h"
+#include "beta_row_initializer.h"
 #include "../rete/node_vertex.h"
 #include "../rete/alpha_node.h"
+#include "alpha_functors.h"
+#include "alpha_node_impl.h"
+#include "expr.h"
+#include "rete_session.h"
+
 #include "../rete/rete_meta_store.h"
 #include "../rete/rete_meta_store_factory_helper.h"
-#include "../rete/alpha_node_impl.h"
 
 // Factory class to create and configure ReteMetaStore objects
 static int read_resources_cb(void *data, int argc, char **argv, char **azColName);
@@ -141,7 +139,7 @@ class ReteMetaStoreFactory {
   }
 
   int
-  load_database(std::string const& jetrule_rete_db);
+  load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db);
 
   int 
   read_resources_cb(int argc, char **argv, char **colnm);
@@ -290,6 +288,7 @@ class ReteMetaStoreFactory {
   }
 
   std::string jetrule_rete_db_;
+  std::string lookup_data_db_;
   rdf::RDFGraphPtr meta_graph_;
 
   ResourceLookup r_map_;

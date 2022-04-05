@@ -131,7 +131,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest0) {
     b_index b1 = node_vertexes[1].get();
     b_index b2 = node_vertexes[2].get();
     b_index b3 = node_vertexes[3].get();
-    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, good_alpha_nodes, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, {},good_alpha_nodes, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b0->has_consequent_terms(), false);
     EXPECT_EQ(b0->child_nodes.size(), 2);
@@ -142,7 +142,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest0) {
 
 TEST_F(ReteMetaStoreTest, GoodMetaStoreTest1) {
     b_index b1 = node_vertexes[1].get();
-    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, good_alpha_nodes, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, {}, good_alpha_nodes, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b1->has_consequent_terms(), true);
     EXPECT_EQ(b1->child_nodes.size(), 0);
@@ -153,7 +153,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest1) {
 TEST_F(ReteMetaStoreTest, GoodMetaStoreTest2) {
     b_index b2 = node_vertexes[2].get();
     b_index b3 = node_vertexes[3].get();
-    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, good_alpha_nodes, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, {}, good_alpha_nodes, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b2->has_consequent_terms(), false);
     EXPECT_EQ(b2->child_nodes.size(), 1);
@@ -162,7 +162,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest2) {
 
 TEST_F(ReteMetaStoreTest, GoodMetaStoreTest3) {
     b_index b3 = node_vertexes[3].get();
-    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, good_alpha_nodes, node_vertexes);
+    ReteMetaStorePtr good_meta = create_rete_meta_store(meta_graph, {}, good_alpha_nodes, node_vertexes);
     EXPECT_EQ(good_meta->initialize(), 0);
     EXPECT_EQ(b3->has_consequent_terms(), true);
     EXPECT_EQ(b3->child_nodes.size(), 0);
@@ -172,7 +172,7 @@ TEST_F(ReteMetaStoreTest, GoodMetaStoreTest3) {
 }
 
 TEST_F(ReteMetaStoreTest, BadMetaStoreTest0) {
-    ReteMetaStorePtr meta = create_rete_meta_store(meta_graph, bad_alpha_nodes, node_vertexes);
+    ReteMetaStorePtr meta = create_rete_meta_store(meta_graph, {}, bad_alpha_nodes, node_vertexes);
     EXPECT_EQ(meta->initialize(), -1);
 }
 

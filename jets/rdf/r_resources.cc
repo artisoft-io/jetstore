@@ -9,9 +9,11 @@ void
 JetsResources::initialize(RManager * rmgr)
 {
   if(this->is_initialized()) return;
-  this->jets__entity_property = rmgr->create_resource("jets:entity_property");
-  this->jets__value_property  = rmgr->create_resource("jets:value_property");
-  this->jets__key             = rmgr->create_resource("jets:key");
+  this->jets__entity_property       = rmgr->create_resource("jets:entity_property");
+  this->jets__value_property        = rmgr->create_resource("jets:value_property");
+  this->jets__key                   = rmgr->create_resource("jets:key");
+  this->jets__lookup_multi_rows     = rmgr->create_resource("jets:lookup_multi_rows");
+  this->jets__lookup_row            = rmgr->create_resource("jets:lookup_row");
 }
 
 } // namespace jets::rdf

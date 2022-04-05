@@ -1,0 +1,24 @@
+# =======================================================================================
+# Defining Lookup Tables
+# ---------------------------------------------------------------------------------------
+lookup_table acme:ProcedureLookup {
+  $csv_file = "/work/buckets/mylookup.csv",    # csv file location
+  $key = ["EVENT_DURATION"],
+  $columns = [
+    "EVENT_DURATION" as int,
+    "PROC_RID" as long,
+    "FROM_DATE" as date,
+    "EXCL" as bool
+  ]
+};
+
+# # Corresponding lookup table for lookup data
+# CREATE TABLE "acme__procedurelookup" (
+# 	"__key__"	INTEGER,
+# 	"jets__key"	TEXT,
+# 	"EVENT_DURATION"	INTEGER,
+# 	"PROC_RID"	NUMERIC,
+# 	"FROM_DATE"	TEXT,
+# 	"EXCL"	INTEGER,
+# 	PRIMARY KEY("__key__")
+# );
