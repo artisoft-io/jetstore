@@ -46,7 +46,7 @@ class JetRuleLookupSQLite:
 
       # For each lookup table definition  
       for lk_tbl in lookup_tables:
-          table_name  = lk_tbl['name']
+          table_name  = self._to_table_name(lk_tbl['name'])
           csv_file    = lk_tbl['csv_file']
           key_columns = [x.strip() for x in lk_tbl['lookup_key'].split(',')] 
           table_key   = lk_tbl['key']
@@ -184,11 +184,30 @@ class JetRuleLookupSQLite:
         return column_schema
 
   # -------------------------------------------------------------------------------------
+  # _to_table_name
+  # -------------------------------------------------------------------------------------
+  def _to_table_name(self,to_table_name:str) -> str:
+    new_table_name = []
+    for i in to_table_name:
+      if not i.isalnum():
+        if i == ':':
+          new_table_name.append('__')
+        else:
+          new_table_name.append('_')
+      else:
+        new_table_name.append(i.lower())
+    return ''.join(new_table_name)
+
+      # pre_table_name = re.sub(':', '__', to_table_name).lower()
+      # table_name = re.sub('[^0-9a-z]{1}', '_', pre_table_name)
+      # return table_name
+
+  # -------------------------------------------------------------------------------------
   # _sanitize
   # -------------------------------------------------------------------------------------
   # Used to sanitize strings before execution in SQL, if strict is set to True (default) will raise exception if sanitized string differs from input
   def _sanitize(self,to_sanitize:str, strict:bool=True) -> str:
-      sanitized = re.sub('[^0-9a-zA-Z./, :]+', '_', to_sanitize)
+      sanitized = re.sub('[^0-9a-zA-Z./, :]{1}', '_', to_sanitize)
       if sanitized != to_sanitize:
         if strict:
             raise Exception(f'_sanitize: sanitized string: {sanitized} did not match original string and _sanitize in strict mode')
