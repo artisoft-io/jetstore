@@ -1,39 +1,142 @@
 {
     "resources": [
         {
+            "id": "hc:Claim",
+            "type": "resource",
+            "value": "hc:Claim",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 0
+        },
+        {
+            "id": "owl:Thing",
+            "type": "resource",
+            "value": "owl:Thing",
+            "source_file_name": "predefined",
+            "key": 1
+        },
+        {
+            "id": "claim_number",
+            "type": "resource",
+            "value": "claim_number",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 2
+        },
+        {
+            "id": "date_of_service",
+            "type": "resource",
+            "value": "date_of_service",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 3
+        },
+        {
+            "id": "point_in_time",
+            "type": "resource",
+            "value": "point_in_time",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 4
+        },
+        {
+            "id": "primary_diagnosis",
+            "type": "resource",
+            "value": "primary_diagnosis",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 5
+        },
+        {
+            "id": "secondary_diagnosis",
+            "type": "resource",
+            "value": "secondary_diagnosis",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 6
+        },
+        {
+            "id": "count",
+            "type": "resource",
+            "value": "count",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 7
+        },
+        {
+            "id": "size",
+            "type": "resource",
+            "value": "size",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 8
+        },
+        {
+            "id": "amount",
+            "type": "resource",
+            "value": "amount",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 9
+        },
+        {
+            "id": "timestamp",
+            "type": "resource",
+            "value": "timestamp",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "key": 10
+        },
+        {
             "id": "acme:ProcedureLookup",
             "type": "resource",
             "value": "acme:ProcedureLookup",
             "source_file_name": "lookup_helper_test_workspace.jr",
-            "key": 0
+            "key": 11
         },
         {
             "id": "EVENT_DURATION",
             "type": "resource",
             "value": "EVENT_DURATION",
             "source_file_name": "lookup_helper_test_workspace.jr",
-            "key": 1
+            "key": 12
         },
         {
             "id": "PROC_RID",
             "type": "resource",
             "value": "PROC_RID",
             "source_file_name": "lookup_helper_test_workspace.jr",
-            "key": 2
+            "key": 13
         },
         {
             "id": "FROM_DATE",
             "type": "resource",
             "value": "FROM_DATE",
             "source_file_name": "lookup_helper_test_workspace.jr",
-            "key": 3
+            "key": 14
         },
         {
             "id": "EXCL",
             "type": "resource",
             "value": "EXCL",
             "source_file_name": "lookup_helper_test_workspace.jr",
-            "key": 4
+            "key": 15
+        },
+        {
+            "id": "rdf:type",
+            "type": "resource",
+            "value": "rdf:type",
+            "source_file_name": "predefined",
+            "key": 16
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 1,
+            "key": 17,
+            "source_file_name": "lookup_helper_test_workspace.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 18,
+            "source_file_name": "lookup_helper_test_workspace.jr"
         }
     ],
     "lookup_tables": [
@@ -75,8 +178,126 @@
             ]
         }
     ],
-    "jet_rules": [],
+    "jet_rules": [
+        {
+            "name": "hc__claim__1",
+            "properties": {
+                "i": "true"
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 17,
+                            "source_file_name": "lookup_helper_test_workspace.jr"
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "hc__claim__1"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 17,
+                    "predicate_key": 16,
+                    "object_key": 0
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+                    "vertex": 1,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "hc__claim__1",
+                    "consequent_salience": 100,
+                    "subject_key": 18,
+                    "predicate_key": 16,
+                    "object_key": 1
+                }
+            ],
+            "authoredLabel": "[hc__claim__1, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type owl:Thing);",
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "normalizedLabel": "[hc__claim__1, i=true]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type owl:Thing);",
+            "label": "[hc__claim__1, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type owl:Thing);"
+        }
+    ],
     "imports": {
         "lookup_helper_test_workspace.jr": []
-    }
+    },
+    "classes": [
+        {
+            "type": "class",
+            "name": "hc:Claim",
+            "base_classes": [
+                "owl:Thing"
+            ],
+            "data_properties": [
+                {
+                    "name": "claim_number",
+                    "type": "long",
+                    "as_array": "false"
+                },
+                {
+                    "name": "date_of_service",
+                    "type": "date",
+                    "as_array": "false"
+                },
+                {
+                    "name": "point_in_time",
+                    "type": "datetime",
+                    "as_array": "false"
+                },
+                {
+                    "name": "primary_diagnosis",
+                    "type": "text",
+                    "as_array": "false"
+                },
+                {
+                    "name": "secondary_diagnosis",
+                    "type": "text",
+                    "as_array": "true"
+                },
+                {
+                    "name": "count",
+                    "type": "int",
+                    "as_array": "false"
+                },
+                {
+                    "name": "size",
+                    "type": "uint",
+                    "as_array": "false"
+                },
+                {
+                    "name": "amount",
+                    "type": "double",
+                    "as_array": "false"
+                },
+                {
+                    "name": "timestamp",
+                    "type": "ulong",
+                    "as_array": "false"
+                }
+            ],
+            "source_file_name": "lookup_helper_test_workspace.jr",
+            "as_table": "false"
+        }
+    ]
 }

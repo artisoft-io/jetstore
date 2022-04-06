@@ -246,6 +246,44 @@ create_expr_binary_operator(int key, ExprBasePtr lhs, ExprBasePtr rhs)
   return std::make_shared<ExprBinaryOp<Op>>(key, lhs, rhs);
 }
 
+// ExprBinaryStructOp
+// --------------------------------------------------------------------------------------
+/**
+ * @brief Binary operator
+ * This class use a functor rather than a visitor for the operator
+ * @tparam Op is a functor for the binary operator
+ */
+template<class Op>
+class ExprBinaryStructOp: public ExprBase {
+ public:
+ using ExprBase::ExprDataType;
+
+  ExprBinaryStructOp(int key, ExprBasePtr lhs, ExprBasePtr rhs)
+    : ExprBase(key), lhs_(lhs), rhs_(rhs) {}
+  virtual ~ExprBinaryStructOp() {}
+
+  // defined in expr_impl.h
+  ExprDataType
+  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
+
+  std::ostream & 
+  describe(std::ostream & out)const override
+  {
+    out << "binary_struct("<< this->key << ")";
+    return out;
+  }
+
+ private:
+  ExprBasePtr lhs_;
+  ExprBasePtr rhs_;
+};
+template<class Op>
+ExprBasePtr 
+create_expr_binary_struct_operator(int key, ExprBasePtr lhs, ExprBasePtr rhs)
+{
+  return std::make_shared<ExprBinaryStructOp<Op>>(key, lhs, rhs);
+}
+
 // ExprUnaryOp
 // --------------------------------------------------------------------------------------
 /**

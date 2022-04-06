@@ -55,13 +55,13 @@ inline date add_days(date t0, int days) {
 }
 
 /**
- * Function to convert a date to time (at midnight).
+ * Function to convert a date to datetime (at midnight).
  *
  * Delegates to Boost.
  * @param t date from which to convert
- * @return time at midnight of t.
+ * @return datetime at midnight of t.
  */
-inline datetime to_time(date t) {
+inline datetime to_datetime(date t) {
   return boost::posix_time::ptime(t, boost::posix_time::time_duration(0, 0, 0, 0));
 }
 

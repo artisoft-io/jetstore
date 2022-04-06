@@ -208,9 +208,9 @@ trim_view(std::string_view str)
 {
   static constexpr char kWhitespaces[] = " \t\n\r";
   if(str.empty()) return {};
-  auto p1 = str.find_first_not_of(&kWhitespaces[0], 0, sizeof(kWhitespaces));
+  auto p1 = str.find_first_not_of(&kWhitespaces[0], 0, sizeof(kWhitespaces)-1);
   if(p1 == std::string::npos) return {};
-  auto p2 = str.find_last_not_of(&kWhitespaces[0], std::string::npos, sizeof(kWhitespaces));
+  auto p2 = str.find_last_not_of(&kWhitespaces[0], std::string::npos, sizeof(kWhitespaces)-1);
   if(p2 == std::string::npos) return {};
   return str.substr(p1, p2-p1+1);
 }
@@ -251,9 +251,8 @@ inline char const* which2type_name(int which)
   case rdf_literal_string_t   : return "text";
   case rdf_literal_date_t     : return "date";
   case rdf_literal_datetime_t : return "datetime";
-  default: {
-    RDF_EXCEPTION("which2type_name: BUG: which type is out of range: "<<which);
-  }
+  default                     : return nullptr;
+    // RDF_EXCEPTION("which2type_name: BUG: which type is out of range: "<<which);
   }
 }
 inline int type_name2which(std::string_view type_name)
@@ -270,7 +269,8 @@ inline int type_name2which(std::string_view type_name)
   if(type_name == "text") return rdf_literal_string_t;
   if(type_name == "date") return rdf_literal_date_t;
   if(type_name == "datetime") return rdf_literal_datetime_t;
-  RDF_EXCEPTION("type_name2which: BUG: unknown type name: "<<type_name);
+  // RDF_EXCEPTION("type_name2which: BUG: unknown type name: "<<type_name);
+  return -1;
 }
 
 //* NOTE: If updated, MUST update ast_which_order and possibly ast_sort_order
