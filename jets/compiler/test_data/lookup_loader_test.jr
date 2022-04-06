@@ -22,7 +22,7 @@ lookup_table COMPOSITE {
   $csv_file = "test_lookups/composite.csv",    # csv file location
   $key = ["COMPOSITE_TEST_KEY_1", "COMPOSITE_TEST_KEY_2"  , "COMPOSITE_TEST_KEY_3"],                   # Key columns, resource PROC_CODE automatically created
   $columns = [
-    "COMPOSITE_TEST_KEY_2" as text,  
+    "COMPOSITE_TEST_KEY_2" as int,  
     "COMPOSITE_TEST_INT" as int,
     "COMPOSITE_TEST_LONG" as long,
     "COMPOSITE_TEST_DATE" as date,

@@ -144,7 +144,7 @@ class JetRuleLookupSQLite:
   def _get_lookup_table_columns(self, lookup_table_key: str) -> list:
     lookup_tbl_column_cursor = self.workspace_connection.cursor()  
     
-    select_lookups = f'''
+    select_lookups = '''
     SELECT 
         lookup_table_key,
         name,
@@ -336,7 +336,7 @@ class JetRuleLookupSQLite:
     if not os.path.exists(csv_path):
         raise Exception('_load_csv_lookup: Could note locate: ' + str(csv_path))
     else:    
-        lookup_df = pd.read_csv(csv_path, dtype=converters_and_dtypes[1], skipinitialspace = True, converters = converters_and_dtypes[0])
+        lookup_df = pd.read_csv(csv_path, dtype=converters_and_dtypes[1], skipinitialspace = True, converters = converters_and_dtypes[0], escapechar='\\')
 
 
         if set(key_columns).issubset(set(lookup_df.columns)): 
