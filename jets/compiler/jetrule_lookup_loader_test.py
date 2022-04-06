@@ -26,29 +26,36 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
     basic_table = lookup_loader.getLookup(table_name='BASIC', lookup_db = "test_data/lookup_loader_test_lookup.db")
 
     self.assertEqual(len(basic_table), 11)  
-    self.assertEqual(len(basic_table[0].keys()), 7)  
+    self.assertEqual(len(basic_table[0].keys()), 10)  
     self.assertEqual(
-      {'BASIC_TEST_LONG','BASIC_TEST_DATE','jets__key','BASIC_TEST_BOOL','BASIC_TEST_INT','__key__','BASIC_TEST_TEXT'},
+      {'BASIC_TEST_LONG','BASIC_TEST_DATE','jets__key','BASIC_TEST_BOOL','BASIC_TEST_INT','__key__','BASIC_TEST_TEXT','BASIC_TEST_UINT','BASIC_TEST_DOUBLE','BASIC_TEST_ULONG'},
       set(basic_table[0].keys())
     )  
 
     bool_list  = []  
-    exected_bool_list  = ['0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '1']  
+    expected_bool_list  = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]  
     key_list = [] 
     expected_key_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] 
+    double_list = [] 
+    expected_double_list = [0.5, 0.5, 1.0, 1.1, None, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1]   
     for row in basic_table:
       self.assertEqual(row['jets__key'],'0')
       self.assertEqual(row['BASIC_TEST_DATE'],'1-1-2022')
-      self.assertEqual(row['BASIC_TEST_INT'],'42')
-      self.assertEqual(row['BASIC_TEST_TEXT'],'BASIC, TEST, TEXT, VALUE')
+      self.assertEqual(abs(int(row['BASIC_TEST_INT'])),42)
+      self.assertEqual(abs(int(row['BASIC_TEST_LONG'])),1549251913000)      
+      self.assertEqual(int(row['BASIC_TEST_UINT']),42)
+      self.assertEqual(int(row['BASIC_TEST_ULONG']),1549251913000)
+      self.assertEqual(row['BASIC_TEST_TEXT'],'BASIC, TEST, "TEXT", VALUE')
       bool_list.append(row['BASIC_TEST_BOOL']) 
+      double_list.append(row['BASIC_TEST_DOUBLE']) 
       key_list.append(row['__key__']) 
 
-    self.assertEqual(exected_bool_list, bool_list)
+    self.assertEqual(expected_bool_list, bool_list)
+    self.assertEqual(expected_double_list, double_list)
     self.assertEqual(expected_key_list, key_list)
 
-  def test_composite_lookup_load(self):
 
+  def test_composite_lookup_load(self):
     
     composite_table = lookup_loader.getLookup(table_name='COMPOSITE', lookup_db = "test_data/lookup_loader_test_lookup.db")
 
@@ -60,15 +67,16 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
     )  
 
     bool_list  = []  
-    exected_bool_list  = ['0', '0']  
+    exected_bool_list  = [0, 0]  
     key_list = [] 
     expected_key_list = [0, 1]     
     jets_key_list = [] 
     expected_jets_key_list = ['123', '124'] 
     for row in composite_table:
       self.assertEqual(row['COMPOSITE_TEST_DATE'],'1-1-2022')
-      self.assertEqual(row['COMPOSITE_TEST_INT'],'42')
+      self.assertEqual(row['COMPOSITE_TEST_INT'],42)
       self.assertEqual(row['COMPOSITE_TEST_TEXT'],'COMPOSITE, TEST, TEXT, VALUE')
+      self.assertEqual(row['COMPOSITE_TEST_KEY_2'],2)
       bool_list.append(row['COMPOSITE_TEST_BOOL']) 
       key_list.append(row['__key__']) 
       jets_key_list.append(row['jets__key']) 
