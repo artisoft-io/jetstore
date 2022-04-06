@@ -17,9 +17,6 @@ lookup_loader.saveLookups(lookup_db = "test_data/lookup_loader_test_lookup.db", 
 
 class JetRulesLookupLoaderTest(absltest.TestCase):
 
-  def _get_lookup(self,fname:str)-> str:
-    return 'test'
-
   def test_basic_lookup_load(self):
 
     
