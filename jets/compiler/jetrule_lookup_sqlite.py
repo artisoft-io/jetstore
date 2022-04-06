@@ -223,11 +223,11 @@ class JetRuleLookupSQLite:
     cursor = self.lookup_connection.cursor()
 
     drop_table_statement = f"""
-      DROP TABLE IF EXISTS {sanitized_table_name}; 
+      DROP TABLE IF EXISTS {table_name}; 
    """
 
     create_table__strict_statement = f"""
-      CREATE TABLE {sanitized_table_name} (
+      CREATE TABLE {table_name} (
         __key__            INTEGER PRIMARY KEY, 
         jets__key          TEXT NOT NULL,
         {column_schema}
@@ -235,15 +235,15 @@ class JetRuleLookupSQLite:
    """ # currently not supported by apsw and sqlite browser
 
     create_table_statement = f"""
-      CREATE TABLE {sanitized_table_name} (
+      CREATE TABLE {table_name} (
         __key__            INTEGER PRIMARY KEY, 
         jets__key          TEXT NOT NULL,
         {column_schema}
       );
    """
     create_index_statement = f"""
-      CREATE INDEX IF NOT EXISTS {sanitized_table_name}_idx 
-      ON {sanitized_table_name} (jets__key);
+      CREATE INDEX IF NOT EXISTS {table_name}_idx 
+      ON {table_name} (jets__key);
    """
     cursor.execute(drop_table_statement)
     cursor.execute(create_table_statement)
@@ -280,7 +280,7 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   def _validate_num(self, val: str) -> str:
     if val and  pd.isnull(val) == False:
-      string_val = str(val)
+      string_val = str(val).strip()
       if string_val.isdigit():
         return string_val
 
