@@ -2,7 +2,7 @@
 # Defining Lookup Tables
 # ---------------------------------------------------------------------------------------
 
-lookup_table BASIC {
+lookup_table acme:BA__SIC {
   $csv_file = "test_lookups/basic.csv",    # csv file location
   $key = ["BASIC_TEST_KEY"],                   # Key columns, resource PROC_CODE automatically created
   $columns = [
@@ -18,7 +18,7 @@ lookup_table BASIC {
 };
 
 
-lookup_table COMPOSITE {
+lookup_table acme:COMPOSITE {
   $csv_file = "test_lookups/composite.csv",    # csv file location
   $key = ["COMPOSITE_TEST_KEY_1", "COMPOSITE_TEST_KEY_2"  , "COMPOSITE_TEST_KEY_3"],                   # Key columns, resource PROC_CODE automatically created
   $columns = [
