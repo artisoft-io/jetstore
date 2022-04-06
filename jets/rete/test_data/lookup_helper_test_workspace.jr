@@ -1,3 +1,35 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Testing to_type_of and cast_to operators
+# ---------------------------------------------------------------------------------------
+class hc:Claim {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    claim_number        as long,
+    date_of_service     as date,
+    point_in_time       as datetime,
+    primary_diagnosis   as text,
+    secondary_diagnosis as array of text,
+    count               as int,
+    size                as uint,
+    amount              as double,
+    timestamp           as ulong
+  ],
+  $as_table = false
+};
+# --------------------------------------------------------------------------------------
+# Data type code reminder (rdf_ast.h):
+#  enum rdf_ast_which_order {
+#      rdf_null_t                       = 0 ,
+#      rdf_blank_node_t                 = 1 ,
+#      rdf_named_resource_t             = 2 ,
+#      rdf_literal_int32_t              = 3 ,
+#      rdf_literal_uint32_t             = 4 ,
+#      rdf_literal_int64_t              = 5 ,
+#      rdf_literal_uint64_t             = 6 ,
+#      rdf_literal_double_t             = 7 ,
+#      rdf_literal_string_t             = 8 ,
+#      rdf_literal_date_t               = 9 ,
+#      rdf_literal_datetime_t           = 10 
 # =======================================================================================
 # Defining Lookup Tables
 # ---------------------------------------------------------------------------------------
@@ -17,7 +49,7 @@ lookup_table acme:ProcedureLookup {
 # 	"__key__"	INTEGER,
 # 	"jets__key"	TEXT,
 # 	"EVENT_DURATION"	INTEGER,
-# 	"PROC_RID"	NUMERIC,
+# 	"PROC_RID"	INTEGER,
 # 	"FROM_DATE"	TEXT,
 # 	"EXCL"	INTEGER,
 # 	PRIMARY KEY("__key__")

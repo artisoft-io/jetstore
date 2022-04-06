@@ -104,5 +104,162 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
   rdf::r_index rhs_;  //       transitory resource
 };
 
+// ToTypeOfOperator
+// --------------------------------------------------------------------------------------
+// Visitor used by ToTypeOfOperator to determine the rhs data type (return -1 if not valid type)
+struct DataTypeVisitor: public boost::static_visitor<int>
+{
+  explicit
+  DataTypeVisitor(ReteSession * rs): rs(rs){}
+  int operator()(rdf::RDFNull       const& )const{return rdf::rdf_null_t;}
+  int operator()(rdf::BlankNode     const&v)const{return rdf::rdf_blank_node_t;}
+  int operator()(rdf::NamedResource const&v)const{return this->rs->rule_ms()->get_lookup_sql_helper()->type_of(this->rs, v.name);}
+  int operator()(rdf::LInt32        const&v)const{return v.data;}
+  int operator()(rdf::LUInt32       const&v)const{return v.data;}
+  int operator()(rdf::LInt64        const&v)const{return v.data;}
+  int operator()(rdf::LUInt64       const&v)const{return v.data;}
+  int operator()(rdf::LDouble       const& )const{return rdf::rdf_literal_double_t;}
+  int operator()(rdf::LString       const&v)const{return rdf::type_name2which(v.data);}
+  int operator()(rdf::LDate         const& )const{return rdf::rdf_literal_date_t;}
+  int operator()(rdf::LDatetime     const& )const{return rdf::rdf_literal_datetime_t;}
+  ReteSession * rs;
+};
+struct CastVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  CastVisitor(ReteSession * rs, int type): rs(rs), type(type){}
+  RDFTTYPE operator()(rdf::RDFNull       const&v)const{return v;}
+  RDFTTYPE operator()(rdf::BlankNode     const&v)const{return type==rdf::rdf_blank_node_t ? v : RDFTTYPE();}
+  RDFTTYPE operator()(rdf::NamedResource const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_named_resource_t   : return v;
+    case rdf::rdf_literal_string_t   : return rdf::LString(v.name);
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LInt32        const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return rdf::LString(std::to_string(v.data));
+    case rdf::rdf_literal_int32_t    : return v;
+    case rdf::rdf_literal_uint32_t   : return rdf::LUInt32(boost::numeric_cast<uint32_t>(v.data));
+    case rdf::rdf_literal_int64_t    : return rdf::LInt64(v.data);
+    case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
+    case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LUInt32       const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return rdf::LString(std::to_string(v.data));
+    case rdf::rdf_literal_int32_t    : return rdf::LInt32(boost::numeric_cast<int32_t>(v.data));
+    case rdf::rdf_literal_uint32_t   : return v;
+    case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));
+    case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
+    case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LInt64        const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return rdf::LString(std::to_string(v.data));
+    case rdf::rdf_literal_int32_t    : return rdf::LInt32(boost::numeric_cast<int32_t>(v.data));
+    case rdf::rdf_literal_uint32_t   : return rdf::LUInt32(boost::numeric_cast<uint32_t>(v.data));
+    case rdf::rdf_literal_int64_t    : return v;
+    case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
+    case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LUInt64       const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return rdf::LString(std::to_string(v.data));
+    case rdf::rdf_literal_int32_t    : return rdf::LInt32(boost::numeric_cast<int32_t>(v.data));
+    case rdf::rdf_literal_uint32_t   : return rdf::LUInt32(boost::numeric_cast<uint32_t>(v.data));
+    case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));
+    case rdf::rdf_literal_uint64_t   : return v;
+    case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LDouble       const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return rdf::LString(std::to_string(v.data));
+    case rdf::rdf_literal_int32_t    : return rdf::LInt32(boost::numeric_cast<int32_t>(v.data));
+    case rdf::rdf_literal_uint32_t   : return rdf::LUInt32(boost::numeric_cast<uint32_t>(v.data));
+    case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));
+    case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
+    case rdf::rdf_literal_double_t   : return v;
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LString       const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return v;
+    case rdf::rdf_literal_date_t     : return rdf::LDate(rdf::parse_date(v.data));
+    case rdf::rdf_literal_datetime_t : return rdf::LDatetime(rdf::parse_datetime(v.data));
+    }
+
+    auto view = rdf::trim_view(v.data);
+    if(view.empty()) return rdf::RDFNull();
+
+    switch (this->type) {
+    case rdf::rdf_literal_int32_t    : return rdf::LInt32(boost::lexical_cast<int32_t>(view));
+    case rdf::rdf_literal_uint32_t   : return rdf::LUInt32(boost::lexical_cast<int32_t>(view));
+    case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::lexical_cast<int64_t>(view));
+    case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::lexical_cast<uint64_t>(view));
+    case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::lexical_cast<double>(view));
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LDate         const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return rdf::LString(rdf::to_string(v.data));
+    case rdf::rdf_literal_date_t     : return v;
+    case rdf::rdf_literal_datetime_t : return rdf::LDatetime(rdf::to_datetime(v.data));
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  RDFTTYPE operator()(rdf::LDatetime     const&v)const
+  {
+    switch (this->type) {
+    case rdf::rdf_literal_string_t   : return rdf::LString(rdf::to_string(v.data));
+    case rdf::rdf_literal_date_t     : return rdf::LDate(v.data.date());
+    case rdf::rdf_literal_datetime_t : return v;
+    default: return RDFTTYPE(); // return null by default
+    }
+  }
+  ReteSession * rs;
+  int type;
+};
+struct ToTypeOfOperator
+{
+  // This operator is used as: value to_type_of predicate where predicate is a data_property as a resource
+  // This operator is used as: value cast_to type where type is a rdf data type as a text or int literal corresponding to the data type
+  ToTypeOfOperator(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) 
+  {
+    DataTypeVisitor visitor(this->rs);
+    this->type_ = boost::apply_visitor(visitor, *rhs);
+  }
+
+  RDFTTYPE operator()()
+  {
+    CastVisitor visitor(this->rs, this->type_);
+    return boost::apply_visitor(visitor, *this->lhs_);
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
+  rdf::r_index rhs_;  //       transitory resource
+  int type_;
+};
+
 } // namespace jets::rete
 #endif // JETS_RETE_EXPR_OP_OTHERS_H

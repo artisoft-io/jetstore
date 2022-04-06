@@ -16,7 +16,7 @@ namespace jets::rete {
     auto * rmgr = rdf_session->rmgr();
 
     // Get the db connection and bind it to the key
-    auto lc = this->get_connection();
+    auto lc = this->db_pool_.get_connection();
     int err = sqlite3_reset(lc.stmt);
     if( err != SQLITE_OK ) return err;
 
@@ -88,20 +88,20 @@ namespace jets::rete {
       if(not count) {
         // got no row, return null
         *out = {};
-        this->put_connection(lc);
+        this->db_pool_.put_connection(lc);
         return 0;
       }
       rdf_session->insert_inferred(this->cache_uri_, lookup_row, subject);
     } catch(rete_exception ex) {
       LOG(ERROR)<<"lookup_sql_helper::lookup: ERROR Got Exception: "<<ex;
-      this->put_connection(lc);
+      this->db_pool_.put_connection(lc);
       return -1;
     } catch(...) {
       LOG(ERROR)<<"lookup_sql_helper::lookup: ERROR Got Unknown Exception!";
-      this->put_connection(lc);
+      this->db_pool_.put_connection(lc);
       return -1;
     }
-    this->put_connection(lc);
+    this->db_pool_.put_connection(lc);
     return 0;
   }
 

@@ -151,7 +151,7 @@ struct EqVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDouble       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LString       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data == rhs.data};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_time(std::move(lhs.data)) == rhs.data};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_datetime(std::move(lhs.data)) == rhs.data};}
   
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::RDFNull       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::BlankNode     rhs)const{return rdf::False();}
@@ -162,7 +162,7 @@ struct EqVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDouble       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LString       rhs)const{return rdf::False();}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data == rdf::to_time(std::move(rhs.data))};}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data == rdf::to_datetime(std::move(rhs.data))};}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{lhs.data == rhs.data};}
   
   ReteSession * rs;
@@ -216,8 +216,8 @@ struct NeVisitor: public boost::static_visitor<RDFTTYPE>
 
   // -------------------------------------------------------------------------------------------
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data != rhs.data};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_time(std::move(lhs.data)) != rhs.data};}  
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data != rdf::to_time(std::move(rhs.data))};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_datetime(std::move(lhs.data)) != rhs.data};}  
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data != rdf::to_datetime(std::move(rhs.data))};}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{lhs.data != rhs.data};}
   
   ReteSession * rs;
@@ -271,8 +271,8 @@ struct LeVisitor: public boost::static_visitor<RDFTTYPE>
 
   // -------------------------------------------------------------------------------------------
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data <= rhs.data};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_time(std::move(lhs.data)) <= rhs.data};}  
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data <= rdf::to_time(std::move(rhs.data))};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_datetime(std::move(lhs.data)) <= rhs.data};}  
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data <= rdf::to_datetime(std::move(rhs.data))};}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{lhs.data <= rhs.data};}
 
   ReteSession * rs;
@@ -326,8 +326,8 @@ struct LtVisitor: public boost::static_visitor<RDFTTYPE>
 
   // -------------------------------------------------------------------------------------------
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data < rhs.data};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_time(std::move(lhs.data)) < rhs.data};}  
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data < rdf::to_time(std::move(rhs.data))};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_datetime(std::move(lhs.data)) < rhs.data};}  
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data < rdf::to_datetime(std::move(rhs.data))};}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{lhs.data < rhs.data};}
 
   ReteSession * rs;
@@ -381,8 +381,8 @@ struct GeVisitor: public boost::static_visitor<RDFTTYPE>
 
   // -------------------------------------------------------------------------------------------
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data >= rhs.data};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_time(std::move(lhs.data)) >= rhs.data};}  
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data >= rdf::to_time(std::move(rhs.data))};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_datetime(std::move(lhs.data)) >= rhs.data};}  
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data >= rdf::to_datetime(std::move(rhs.data))};}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{lhs.data >= rhs.data};}
 
   ReteSession * rs;
@@ -436,8 +436,8 @@ struct GtVisitor: public boost::static_visitor<RDFTTYPE>
 
   // -------------------------------------------------------------------------------------------
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data > rhs.data};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_time(std::move(lhs.data)) > rhs.data};}  
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data > rdf::to_time(std::move(rhs.data))};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{rdf::to_datetime(std::move(lhs.data)) > rhs.data};}  
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDate         rhs)const{return rdf::LInt32{lhs.data > rdf::to_datetime(std::move(rhs.data))};}
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDatetime     rhs)const{return rdf::LInt32{lhs.data > rhs.data};}
 
   ReteSession * rs;

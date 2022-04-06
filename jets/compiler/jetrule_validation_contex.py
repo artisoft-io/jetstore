@@ -30,7 +30,7 @@ RC_OP_MAPPING = frozendict({
 
   # String operators
   'apply_format':          'apply_format',         # done
-  'cast_to_range_of':      'to_type_of',           # 
+  'cast_to_range_of':      'to_type_of',           # done
   'contains':              'contains',             # done
   'length_of':             'length_of',            # done
   'literal_regex':         'literal_regex',        # done
@@ -53,8 +53,8 @@ RC_OP_MAPPING = frozendict({
   'is_no_value':           'is_null',              # done
 
   # Other operators
-  'lookup':                'lookup',               # 
-  'multi_lookup':          'multi_lookup',         # 
+  'lookup':                'lookup',               # done
+  'multi_lookup':          'multi_lookup',         # done
 
 
 

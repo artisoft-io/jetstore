@@ -53,14 +53,14 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
 
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LUInt32 rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt64  rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LUInt64 rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble lhs, rdf::LDouble rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble lhs, rdf::LDouble rhs)const{return rdf::LDouble{lhs.data+rhs.data};}
 
   RDFTTYPE operator()(rdf::LString lhs, rdf::LInt32  rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs, rdf::LUInt32 rhs)const{return rdf::LString{lhs.data+std::to_string(rhs.data)};}
@@ -438,11 +438,8 @@ struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LDouble lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
   RDFTTYPE operator()(rdf::LString lhs)const
   {
-    if(lhs.data.empty()) return rdf::RDFNull();
-    auto p1 = lhs.data.find_first_not_of(" \n\r", 0, 3);
-    if(p1 == std::string::npos) return rdf::RDFNull();
-    auto p2 = lhs.data.find_last_not_of(" \n\r", std::string::npos, 3);
-    std::string_view view(lhs.data.data()+p1, p2-p1+1);
+    auto view = rdf::trim_view(lhs.data);
+    if(view.empty()) return rdf::RDFNull();
     return rdf::LInt32(boost::lexical_cast<int32_t>(view));
   }
 
@@ -464,11 +461,8 @@ struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LDouble lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LString lhs)const
   {
-    if(lhs.data.empty()) return rdf::RDFNull();
-    auto p1 = lhs.data.find_first_not_of(" \n\r", 0, 3);
-    if(p1 == std::string::npos) return rdf::RDFNull();
-    auto p2 = lhs.data.find_last_not_of(" \n\r", std::string::npos, 3);
-    std::string_view view(lhs.data.data()+p1, p2-p1+1);
+    auto view = rdf::trim_view(lhs.data);
+    if(view.empty()) return rdf::RDFNull();
     return rdf::LDouble(boost::lexical_cast<double_t>(view));
   }
 
