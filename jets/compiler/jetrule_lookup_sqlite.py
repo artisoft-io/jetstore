@@ -6,6 +6,7 @@ import sqlite3
 import traceback
 import os
 import pandas as pd
+import numpy as np
 import re
 
 print ("   Using SQLITE3 file",sqlite3.__file__)              
@@ -48,11 +49,11 @@ class JetRuleLookupSQLite:
           table_name  = lk_tbl['name']
           csv_file    = lk_tbl['csv_file']
           key_columns = [x.strip() for x in lk_tbl['lookup_key'].split(',')] 
-          
+          table_key   = lk_tbl['key']
           print('Processing: ' + csv_file)
 
           # retrieve column information for lookup from rete_db
-          lk_columns_dicts        = self._get_lookup_table_columns(lk_tbl['key'])
+          lk_columns_dicts        = self._get_lookup_table_columns(table_key)
 
           # Create the lookup table schema in the lookup_db
           self._create_lookup_schema(table_name, lk_columns_dicts)
@@ -61,8 +62,15 @@ class JetRuleLookupSQLite:
           return_columns.extend([x['name'] for x in  lk_columns_dicts])
           converters_and_dtypes = self._get_converters_and_dtypes(lk_columns_dicts, key_columns) # {} # converters={'date':pd.to_datetime})
 
+
+          lookup_df = self._create_lookup_df(csv_file,key_columns,converters_and_dtypes)
+
+          self._validate_df(lookup_df,lk_columns_dicts,key_columns)
+
           # Load Lookup CSV to Lookup Table in lookup_db 
-          self._load_csv_lookup(table_name, csv_file, key_columns, return_columns, converters_and_dtypes)
+          self._load_df_lookup(lookup_df, table_name,return_columns)
+
+          
 
     except (Exception) as error:
       print("Error while saving lookup_db (2):", error)
@@ -127,7 +135,7 @@ class JetRuleLookupSQLite:
 
 
     lookup_tbl_cursor = None
-    return lookup_tables
+    return self._sanitize_rows(lookup_tables)
    
 
   # -------------------------------------------------------------------------------------
@@ -135,8 +143,6 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   def _get_lookup_table_columns(self, lookup_table_key: str) -> list:
     lookup_tbl_column_cursor = self.workspace_connection.cursor()  
-
-    sanatized_lookup_table_key = self._sanitize(str(lookup_table_key))
     
     select_lookups = f'''
     SELECT 
@@ -147,14 +153,14 @@ class JetRuleLookupSQLite:
     FROM 
         lookup_columns
     WHERE
-        lookup_table_key = {sanatized_lookup_table_key}
+        lookup_table_key =:table_key
     '''
 
-    lookup_tbl_column_cursor.execute(select_lookups)    
+    lookup_tbl_column_cursor.execute(select_lookups,{"table_key" : lookup_table_key})    
     lookup_tables_columns = lookup_tbl_column_cursor.fetchall()
 
     lookup_tbl_column_cursor = None
-    return lookup_tables_columns       
+    return self._sanitize_rows(lookup_tables_columns)       
 
 
   def _convert_jetrule_type(self, jr_type: str) -> str:
@@ -174,21 +180,36 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # Get column names and types for schema creation
   def _get_lookup_column_schema(self, lookup_table_columns: list[dict]) -> str: 
-        column_schema = ',\n'.join([self._sanitize(x['name']) + '  ' +  self._convert_jetrule_type(x['type']) for x in  lookup_table_columns])
+        column_schema = ',\n'.join([x['name'] + '  ' +  self._convert_jetrule_type(x['type']) for x in  lookup_table_columns])
         return column_schema
 
   # -------------------------------------------------------------------------------------
   # _sanitize
   # -------------------------------------------------------------------------------------
   # Used to sanitize strings before execution in SQL, if strict is set to True (default) will raise exception if sanitized string differs from input
-  def _sanitize(self,to_sanatize:str, strict:bool=True) -> str:
-      sanitized = re.sub('[^0-9a-zA-Z]+', '_', to_sanatize)
-      if sanitized != to_sanatize:
+  def _sanitize(self,to_sanitize:str, strict:bool=True) -> str:
+      sanitized = re.sub('[^0-9a-zA-Z./, :]+', '_', to_sanitize)
+      if sanitized != to_sanitize:
         if strict:
-            raise Exception(f'_sanitize: sanitized string: {sanitized} did not match original string: {to_sanatize} and _sanitize in strict mode')
+            raise Exception(f'_sanitize: sanitized string: {sanitized} did not match original string and _sanitize in strict mode')
         else:
-            print(f'_sanitize: WARNING sanitized string: {sanitized} did not match original string: {to_sanatize}. Proceeding with {sanitized}')
+            print(f'_sanitize: WARNING sanitized string: {sanitized} did not match original string. Proceeding with {sanitized}')
       return sanitized
+
+
+# -------------------------------------------------------------------------------------
+  # _sanitize_rows
+  # -------------------------------------------------------------------------------------
+  # Used to sanitize rows before execution in SQL, if strict is set to True (default) will raise exception if sanitized string differs from input
+  def _sanitize_rows(self,rows_to_sanitize:list[dict], strict:bool=True) -> str:
+    sanitized_rows = []
+    for row in rows_to_sanitize:
+      sanitized_row = {}
+      for key in row.keys():
+        sanitized_row[key] = self._sanitize(str(row[key]), strict)
+      sanitized_rows.append(sanitized_row)  
+
+    return sanitized_rows
 
 
   # -------------------------------------------------------------------------------------
@@ -201,14 +222,12 @@ class JetRuleLookupSQLite:
 
     cursor = self.lookup_connection.cursor()
 
-    sanitized_table_name  = self._sanitize(table_name)
-
     drop_table_statement = f"""
-      DROP TABLE IF EXISTS {sanitized_table_name}; 
+      DROP TABLE IF EXISTS {table_name}; 
    """
 
     create_table__strict_statement = f"""
-      CREATE TABLE {sanitized_table_name} (
+      CREATE TABLE {table_name} (
         __key__            INTEGER PRIMARY KEY, 
         jets__key          TEXT NOT NULL,
         {column_schema}
@@ -216,15 +235,15 @@ class JetRuleLookupSQLite:
    """ # currently not supported by apsw and sqlite browser
 
     create_table_statement = f"""
-      CREATE TABLE {sanitized_table_name} (
+      CREATE TABLE {table_name} (
         __key__            INTEGER PRIMARY KEY, 
         jets__key          TEXT NOT NULL,
         {column_schema}
       );
    """
     create_index_statement = f"""
-      CREATE INDEX IF NOT EXISTS {sanitized_table_name}_idx 
-      ON {sanitized_table_name} (jets__key);
+      CREATE INDEX IF NOT EXISTS {table_name}_idx 
+      ON {table_name} (jets__key);
    """
     cursor.execute(drop_table_statement)
     cursor.execute(create_table_statement)
@@ -241,13 +260,37 @@ class JetRuleLookupSQLite:
       dtype_dict = {}
       for col in lk_columns_dicts:
           if col['type'] == 'bool':
-              converters[col['name']] = self._convert_to_bool
+              converters[col['name']] = self._convert_to_bool           
           else:
               dtype_dict[col['name']] = str    
       for key_col in key_columns:
           dtype_dict[key_col] = str
       return (converters, dtype_dict)
 
+  # -------------------------------------------------------------------------------------
+  # _validate_df
+  # -------------------------------------------------------------------------------------
+  def _validate_df(self,df,lk_columns_dicts: list[dict], key_columns: list):
+        for col in lk_columns_dicts:
+          if col['type'] in ['int','double','uint','long','ulong']:
+            df[col['name']].apply(self._validate_num)   
+
+  # -------------------------------------------------------------------------------------
+  # _validate_num
+  # -------------------------------------------------------------------------------------
+  def _validate_num(self, val: str) -> str:
+    if val and  pd.isnull(val) == False:
+      string_val = str(val)
+      if string_val.isdigit():
+        return string_val
+
+      m = re.match(r"^(-?|\+?)\d*\.?\d+$",string_val)
+      if m:
+        return string_val 
+      else:
+        raise Exception(f'_validate_num: {string_val} is not a valid num')
+    else:
+      return np.nan    
 
   # -------------------------------------------------------------------------------------
   # _convert_to_bool
@@ -283,10 +326,10 @@ class JetRuleLookupSQLite:
 
 
   # -------------------------------------------------------------------------------------
-  # _load_csv_lookup
+  # _create_lookup_df
   # -------------------------------------------------------------------------------------
-  # Load Lookup CSV file to Lookup Table in lookup_db
-  def _load_csv_lookup(self,table_name: str,csv_file: str,key_columns: list[str],return_columns: list[str],converters_and_dtypes: tuple[dict,dict]) -> None:
+  # Load Lookup CSV file to dataframe
+  def _create_lookup_df(self,csv_file: str,key_columns: list[str],converters_and_dtypes: tuple[dict,dict]) -> None:
     csv_path = os.path.join(Path(self.base_path), csv_file)
     csv_path = os.path.abspath(csv_path)
 
@@ -302,9 +345,17 @@ class JetRuleLookupSQLite:
             raise Exception(f'Key Columns missing in provided CSV. Expected {str(key_columns)} in header {str(lookup_df.columns)}')    
 
         lookup_df.insert(0, '__key__', range(0, len(lookup_df)))
+        return lookup_df
+
+
+  # -------------------------------------------------------------------------------------
+  # _load_lookup
+  # -------------------------------------------------------------------------------------
+  # Load Lookup Dataframe to Lookup Table in lookup_db
+  def _load_df_lookup(self,lookup_df, table_name: str,return_columns: list[str]) -> None:
 
         if set(return_columns).issubset(set(lookup_df.columns)): 
-            lookup_df[return_columns].to_sql(table_name, self.lookup_connection, if_exists='replace', index=False)
+            lookup_df[return_columns].to_sql(table_name, self.lookup_connection, if_exists='append', index=False)
         else:
             raise Exception(f'Return Columns missing in provided CSV. Expected {str(return_columns)} in header {str(lookup_df.columns)}')    
 

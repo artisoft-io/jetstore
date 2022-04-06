@@ -10,7 +10,10 @@ lookup_table BASIC {
     "BASIC_TEST_LONG" as long,
     "BASIC_TEST_DATE" as date,
     "BASIC_TEST_TEXT" as text,
-    "BASIC_TEST_BOOL" as bool
+    "BASIC_TEST_BOOL" as bool,
+    "BASIC_TEST_DOUBLE" as double,
+    "BASIC_TEST_UINT" as uint,
+    "BASIC_TEST_ULONG" as ulong
   ]
 };
 
