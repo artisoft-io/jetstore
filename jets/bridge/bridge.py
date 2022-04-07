@@ -20,20 +20,25 @@ class ResourceType(Enum):
 c_lib = ctypes.CDLL("libjets.so")
 
 # ---------------------------------------------------------------------------------------
-c_lib.create_jetstore_hdl.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
+c_lib.create_jetstore_hdl.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p]
 c_lib.create_jetstore_hdl.restype = ctypes.c_int
 
-def createJetStoreHandle(txt: str) -> ctypes.c_void_p:
-  if not txt:
+def createJetStoreHandle(rete_db_fname: str, lookup_data_db_fname: str) -> ctypes.c_void_p:
+  if not rete_db_fname or not lookup_data_db_fname:
     return None
 
-  if isinstance(txt, str):
-      txt = txt.encode('utf-8')
-  elif not isinstance(txt, bytes):
-      raise Exception('createJetStoreHandle: Argument must be str or bytes')
+  if isinstance(rete_db_fname, str):
+      rete_db_fname = rete_db_fname.encode('utf-8')
+  elif not isinstance(rete_db_fname, bytes):
+      raise Exception('createJetStoreHandle: Arguments must be str or bytes')
+
+  if isinstance(lookup_data_db_fname, str):
+      lookup_data_db_fname = lookup_data_db_fname.encode('utf-8')
+  elif not isinstance(lookup_data_db_fname, bytes):
+      raise Exception('createJetStoreHandle: Arguments must be str or bytes')
 
   js_hdlr = ctypes.c_void_p()
-  res = c_lib.create_jetstore_hdl(txt, ctypes.byref(js_hdlr))
+  res = c_lib.create_jetstore_hdl(rete_db_fname, lookup_data_db_fname, ctypes.byref(js_hdlr))
   if res:
     raise Exception('createJetStoreHandle: ERROR: '+str(res))
   return js_hdlr

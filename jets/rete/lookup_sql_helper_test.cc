@@ -17,6 +17,7 @@ class LookupSqlHelperTest : public ::testing::Test {
  protected:
   LookupSqlHelperTest() : factory(), rdf_session(), rete_session() 
   {
+    // int res = factory.load_database("test_data/lookup_helper_test_workspace.db", "test_data/lookup_helper_test_data_by_hand.db");
     int res = factory.load_database("test_data/lookup_helper_test_workspace.db", "test_data/lookup_helper_test_data.db");
     EXPECT_EQ(res, 0);
 
@@ -71,6 +72,41 @@ TEST_F(LookupSqlHelperTest, LookupTest1) {
   EXPECT_EQ(helper->terminate(), 0);
 }
 
+TEST_F(LookupSqlHelperTest, LookupTest2) {
+
+  rdf::RdfAstType out;
+  auto helper = meta_store->get_lookup_sql_helper();
+
+  // Lookup
+  EXPECT_EQ(helper->lookup(rete_session.get(), "acme:ProcedureLookup", "100", &out), 0);
+
+  std::cout<<"Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
+
+  // Verifying we pull stuff correctly from lookup table
+  rdf::r_index s = rdf_session->rmgr()->create_resource("jets:acme:ProcedureLookup:100");
+  auto itor = rdf_session->find(s, rdf::make_any(), rdf::make_any());
+  while(not itor.is_end()) {
+    auto predicate = rdf::get_name(itor.get_predicate());
+    if(predicate == "PROC_RID") {
+      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("long"));
+      EXPECT_EQ(boost::get<rdf::LInt64>(*itor.get_object()).data, 12345678901L);
+    } else if(predicate == "FROM_DATE") {
+      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("date"));
+      EXPECT_EQ(boost::get<rdf::LDate>(*itor.get_object()).data, rdf::parse_date("01-04-2022"));
+    } else if(predicate == "EXCL") {
+      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("int"));
+      EXPECT_EQ(rdf::to_bool(*itor.get_object()), true);
+    } else if(predicate == "EVENT_DURATION") {
+      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("int"));
+      EXPECT_EQ(boost::get<rdf::LInt32>(*itor.get_object()).data, 100);
+    } else {
+      FAIL();
+    }
+    itor.next();
+  }
+  EXPECT_EQ(helper->terminate(), 0);
+}
+
 TEST_F(LookupSqlHelperTest, MultiLookupTest1) {
 
   auto helper = meta_store->get_lookup_sql_helper();
@@ -78,32 +114,41 @@ TEST_F(LookupSqlHelperTest, MultiLookupTest1) {
   rdf::RdfAstType out;
 
   // Multi Lookup
-  EXPECT_EQ(helper->multi_lookup(rete_session.get(), "acme:ProcedureLookup", "100", &out), 0);
+  EXPECT_EQ(helper->multi_lookup(rete_session.get(), "acme:ProcedureLookup", "200", &out), 0);
 
   std::cout<<"MULTI Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
 
   // Verifying we pull stuff correctly from lookup table
-  rdf::r_index s = rdf_session->rmgr()->create_resource("jets:acme:ProcedureLookup:100");
+  rdf::r_index s = rdf_session->rmgr()->create_resource("jets:acme:ProcedureLookup:200");
   rdf::r_index p = rdf_session->rmgr()->create_resource("jets:lookup_multi_rows");
-  auto itor = rdf_session->find(rdf_session->get_object(s, p), rdf::make_any(), rdf::make_any());  
+  int row_count = 0;
+  auto itor = rdf_session->find(s, p, rdf::make_any());  
   while(not itor.is_end()) {
-    std::cout<<"   "<<itor.as_triple()<<std::endl;
-    auto predicate = rdf::get_name(itor.get_predicate());
-    if(predicate == "PROC_RID") {
-      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("long"));
-      EXPECT_EQ(boost::get<rdf::LInt64>(*itor.get_object()).data, 12345678901L);
-    } else if(predicate == "FROM_DATE") {
-      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("date"));
-    } else if(predicate == "EXCL") {
-      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("int"));
-    } else if(predicate == "EVENT_DURATION") {
-      EXPECT_EQ(std::string(rdf::get_type_name(itor.get_object())), std::string("int"));
-    } else {
-      FAIL();
+    auto jtor = rdf_session->find(itor.get_object(), rdf::make_any(), rdf::make_any());  
+    while(not jtor.is_end()) {
+      std::cout<<"   "<<jtor.as_triple()<<std::endl;
+      auto predicate = rdf::get_name(jtor.get_predicate());
+      if(predicate == "PROC_RID") {
+        EXPECT_EQ(std::string(rdf::get_type_name(jtor.get_object())), std::string("long"));
+        EXPECT_EQ(boost::get<rdf::LInt64>(*jtor.get_object()).data, 12345678901L);
+      } else if(predicate == "FROM_DATE") {
+        EXPECT_EQ(std::string(rdf::get_type_name(jtor.get_object())), std::string("date"));
+        EXPECT_EQ(boost::get<rdf::LDate>(*jtor.get_object()).data, rdf::parse_date("01-04-2022"));
+      } else if(predicate == "EXCL") {
+        EXPECT_EQ(std::string(rdf::get_type_name(jtor.get_object())), std::string("int"));
+      } else if(predicate == "EVENT_DURATION") {
+        EXPECT_EQ(std::string(rdf::get_type_name(jtor.get_object())), std::string("int"));
+        EXPECT_EQ(boost::get<rdf::LInt32>(*jtor.get_object()).data, 200);
+      } else {
+        FAIL();
+      }
+      ++row_count;
+      jtor.next();
     }
     itor.next();
   }
 
+  EXPECT_EQ(row_count, 4*2);
   EXPECT_EQ(helper->terminate(), 0);
 }
 

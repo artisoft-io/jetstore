@@ -95,3 +95,13 @@ Testing the python lib:
 docker run --rm -w=/go/lib/jets/compiler --entrypoint=python3 jetstore:bullseye jetrule_compiler_test.py
 
 Testing the go lib:
+
+# Generating lookup test cases
+## Generate rete.db from rule file
+```
+python3 jetrule_compiler.py --base_path=/go/jetstore/jets/rete/test_data --in_file=lookup_helper_test_workspace.jr --rete_db=lookup_helper_test_workspace.db -d
+```
+## Generate lookup data db from workspace rete.db
+```
+python3 jetrule_lookup_loader.py --base_path=/go/jetstore/jets/rete/test_data --lookup_db=lookup_helper_test_data.db --rete_db=lookup_helper_test_workspace.db
+```
