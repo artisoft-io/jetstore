@@ -10,7 +10,7 @@ extern "C"
 // Opaque types that we'll use as handles
 typedef void* HJETS;
 
-int create_jetstore_hdl( char const * rete_db_path, HJETS * handle );
+int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_path, HJETS * handle );
 int delete_jetstore_hdl( HJETS handle );
 
 typedef void* HJRETE;

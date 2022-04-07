@@ -170,7 +170,7 @@
                     "as_array": "false"
                 }
             ],
-            "csv_file": "/work/buckets/mylookup.csv",
+            "csv_file": "lookup_helper_test_data.csv",
             "source_file_name": "lookup_helper_test_workspace.jr",
             "resources": [
                 "EVENT_DURATION",

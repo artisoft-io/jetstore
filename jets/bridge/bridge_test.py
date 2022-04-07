@@ -13,7 +13,7 @@ class BridgeTest(absltest.TestCase):
 
   def test_load_jetstore(self):
 
-    jetstore_hdlr = api.createJetStoreHandle("jetrule_rete_test.db")
+    jetstore_hdlr = api.createJetStoreHandle("jetrule_rete_test.db", "jetrule_rete_test.db")
     self.assertIsNotNone(jetstore_hdlr)
 
     print('Starting ReteSession')

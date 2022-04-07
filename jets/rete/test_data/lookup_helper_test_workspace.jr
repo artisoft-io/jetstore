@@ -34,7 +34,7 @@ class hc:Claim {
 # Defining Lookup Tables
 # ---------------------------------------------------------------------------------------
 lookup_table acme:ProcedureLookup {
-  $csv_file = "/work/buckets/mylookup.csv",    # csv file location
+  $csv_file = "lookup_helper_test_data.csv",    # csv file location
   $key = ["EVENT_DURATION"],
   $columns = [
     "EVENT_DURATION" as int,
