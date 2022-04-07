@@ -8,7 +8,7 @@ class JetsTest(absltest.TestCase):
   def test_load_jetstore(self):
 
     print('Create and load JetStore Factory')
-    jets_factory = jets.create_jetstore_factory('jetrule_rete_test.db')
+    jets_factory = jets.create_jetstore_factory('jetrule_rete_test.db', 'jetrule_rete_test.db')
 
     print('Create ReteSession')
     rete_session = jets_factory.create_rete_session("ms_factory_test1.jr")
