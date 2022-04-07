@@ -95,9 +95,10 @@ class ReteSession:
 
 
 class JetStoreFactory:
-  def __init__(self, js_hdl: ctypes.c_void_p, rete_db_fname: str) -> None:
+  def __init__(self, js_hdl: ctypes.c_void_p, rete_db_fname: str, lookup_data_db_fname: str) -> None:
     self.js_hdl = js_hdl
     self.rete_db_fname = rete_db_fname
+    self.lookup_data_db_fname = lookup_data_db_fname
 
   # Start a rete session
   def create_rete_session(self, jetrules_name: str) -> ReteSession:
@@ -106,7 +107,7 @@ class JetStoreFactory:
 
 
 # Create and Load JetStore Factory
-def create_jetstore_factory(rete_db_fname: str) -> JetStoreFactory:
-  js_hdl = api.createJetStoreHandle(rete_db_fname)
-  return JetStoreFactory(js_hdl, rete_db_fname)
+def create_jetstore_factory(rete_db_fname: str, lookup_data_db_fname: str) -> JetStoreFactory:
+  js_hdl = api.createJetStoreHandle(rete_db_fname, lookup_data_db_fname)
+  return JetStoreFactory(js_hdl, rete_db_fname, lookup_data_db_fname)
 
