@@ -11,7 +11,7 @@ FLAGS = flags.FLAGS
 base_path = Path("test_data")
 
 lookup_loader = JetRuleLookupSQLite(base_path='/go/jetstore/jets/compiler/test_data')
-lookup_loader.saveLookups(lookup_db = "test_data/lookup_loader_test_lookup.db", rete_db = "test_data/lookup_loader_test_rete.db")
+lookup_loader.saveLookups(lookup_db = "lookup_loader_test_lookup.db", rete_db = "lookup_loader_test_rete.db")
 
 
 
@@ -20,7 +20,7 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
   def test_basic_lookup_load(self):
 
     
-    basic_table = lookup_loader.getLookup(table_name='acme__ba__sic', lookup_db = "test_data/lookup_loader_test_lookup.db")
+    basic_table = lookup_loader.get_lookup(table_name='acme__ba__sic', lookup_db = "lookup_loader_test_lookup.db")
 
     self.assertEqual(len(basic_table), 11)  
     self.assertEqual(len(basic_table[0].keys()), 10)  
@@ -54,7 +54,7 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
 
   def test_composite_lookup_load(self):
     
-    composite_table = lookup_loader.getLookup(table_name='acme__composite', lookup_db = "test_data/lookup_loader_test_lookup.db")
+    composite_table = lookup_loader.get_lookup(table_name='acme__composite', lookup_db = "lookup_loader_test_lookup.db")
 
     self.assertEqual(len(composite_table), 2)  
     self.assertEqual(len(composite_table[0].keys()), 8)  
