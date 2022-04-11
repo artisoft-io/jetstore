@@ -105,3 +105,41 @@ python3 jetrule_compiler.py --base_path=/go/jetstore/jets/rete/test_data --in_fi
 ```
 python3 jetrule_lookup_loader.py --base_path=/go/jetstore/jets/rete/test_data --lookup_db=lookup_helper_test_data.db --rete_db=lookup_helper_test_workspace.db
 ```
+
+# Running Postgresql Locally
+## Running Postgres DB docker container locally
+Pull the postgres image from docker hub and run it locally:
+```
+docker pull postgres
+docker run --rm --name postgres -p 5432:5432 -v /home/michel/projects/pg_work:/work -e 'POSTGRES_PASSWORD=XXXPWDXXX' -e 'POSTGRES_USER=postgres' postgres
+```
+Get into the container:
+```
+docker exec -it postgres /bin/bash
+```
+Note that the dir /work is mapped to pg_work on our local workstation. To execute psql:
+```
+cd /work
+psql -U postgres
+\i copy_test.sql
+\q
+```
+You can execute the script directly without going into the psql prompt:
+```
+cd /work
+psql -U postgres -a -f copy_test.sql
+```
+Now to connect to this container from another container (e.g. PgAdmin) you need to know it's IP address that docker gave it (setting up docker compose would be better, will do that later).
+Get the IP of postgres:
+```
+docker network inspect bridge
+```
+The connection string is now (with the correct IP of postgres) is
+```postgresql://postgres:XXXPWDXXX@172.17.0.2:5432/postgres```
+
+## Running PgAdmin docker locally
+Pull the image from docker hub and run it locally:
+```
+docker pull dpage/pgadmin4
+docker run --rm --name pgadmin -p 80:80 -e 'PGADMIN_DEFAULT_EMAIL=michel@artisoft.io' -e 'PGADMIN_DEFAULT_PASSWORD=XXXPWDXXX' dpage/pgadmin4
+
