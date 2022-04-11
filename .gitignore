@@ -52,3 +52,6 @@ jets/compiler/test_data/lookup_loader_test_lookup.db
 jets/compiler/test_data/lookup_loader_test.jr.json
 .gitignore
 jets/compiler/test_data/lookup_loader_test.jrc.json
+jets/copytest/copytest
+jets/loader/loader
+jets/server/server
