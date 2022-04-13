@@ -1,33 +1,30 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"database/sql"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
+	"os"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
+// dsn := "postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres?sslmode=disable"
 
 func main() {
-	ctx := context.Background()
-	dsn := "postgresql://postgres:ArtiSoft%40001@172.17.0.2:5432/postgres?sslmode=disable"
-	fmt.Println("Connecting using ",dsn)
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New())
-	conn, err := db.Conn(ctx)
+	dsn := "postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres?sslmode=disable"
+	dbpool, err := pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
 	}
-	defer conn.Close()
+	defer dbpool.Close()
 
-	var buf bytes.Buffer
-
-	_, err = pgdriver.CopyTo(ctx, conn, &buf, "COPY hc__pharmacyclaim  TO STDOUT WITH (DELIMITER '|')")
+	var greeting bool
+	tblName := "hc__pharmacyclaim"
+	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = 'public' and tablename = $1)", tblName).Scan(&greeting)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
+		os.Exit(1)
 	}
 
-	fmt.Println(buf.String())
+	fmt.Println("The result is:", greeting)
 }
