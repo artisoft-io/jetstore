@@ -10,24 +10,24 @@ CREATE TABLE IF NOT EXISTS process_config (
     key SERIAL PRIMARY KEY  ,
     client text  ,
     description text  ,
-    main_entity_rdf_type text ,
+    main_entity_rdf_type text NOT NULL,
     last_update timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS process_input (
     key SERIAL PRIMARY KEY  ,
-    process_key integer REFERENCES process_config ON DELETE CASCADE ,
-    input_table text  ,
-    entity_rdf_type text ,
+    process_key integer REFERENCES process_config ON DELETE CASCADE NOT NULL,
+    input_table text  NOT NULL,
+    entity_rdf_type text NOT NULL,
     UNIQUE (process_key, input_table)
 );
 CREATE INDEX IF NOT EXISTS process_input_process_key_idx ON process_input (process_key);
 
 CREATE TABLE IF NOT EXISTS process_mapping (
-    process_input_key integer REFERENCES process_input ON DELETE CASCADE ,
-    input_column text  ,
-    data_property text  ,
-    function text  ,
+    process_input_key integer REFERENCES process_input ON DELETE CASCADE NOT NULL,
+    input_column text  NOT NULL,
+    data_property text  NOT NULL,
+    function_name text  ,
     argument text  ,
     default_value text ,
     PRIMARY KEY (process_input_key, input_column, data_property)
@@ -35,15 +35,15 @@ CREATE TABLE IF NOT EXISTS process_mapping (
 CREATE INDEX IF NOT EXISTS process_mapping_process_input_key_idx ON process_mapping (process_input_key);
 
 CREATE TABLE IF NOT EXISTS rule_config (
-    process_key integer REFERENCES process_config ON DELETE CASCADE ,
-    subject text  ,
-    predicate text  ,
-    object text  ,
-    rdf_type text  ,
-    default_value text 
+    process_key integer REFERENCES process_config ON DELETE CASCADE NOT NULL,
+    subject text  NOT NULL,
+    predicate text  NOT NULL,
+    object text  NOT NULL,
+    rdf_type text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS rule_config_process_key_idx ON rule_config (process_key);
 
+-- not implemented yet
 CREATE TABLE IF NOT EXISTS process_merge (
     process_key integer REFERENCES process_config ON DELETE CASCADE ,
     entity_rdf_type text  ,
