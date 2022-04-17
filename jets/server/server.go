@@ -2,9 +2,9 @@ package main
 
 import (
 	// "bufio"
-	// "context"
+	"context"
+	"database/sql"
 	// "encoding/csv"
-	"errors"
 	"flag"
 	"fmt"
 	// "io"
@@ -14,40 +14,180 @@ import (
 	// "strings"
 
 	// "github.com/jackc/pgx/v4"
-	// "github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
-// Single character type for csv options
-type chartype rune
+var dsn = flag.String("dsn", "", "database connection string (required)")
+var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
+var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
+var sessionId = flag.String("sessId", "", "Process session ID used to link entitied processed together.")
 
-func (s *chartype) String() string {
-	return fmt.Sprintf("%#U", *s)
+type ProcessConfig struct {
+	Key int
+	Client sql.NullString
+	Description sql.NullString
+	// righ now MainEntityRdfType must be in processInputs
+	// and we're supporting a single processInputs at the moment!
+	MainEntityRdfType string
+	processInputs []ProcessInput
+	ruleConfigs []RuleConfig
 }
 
-func (s *chartype) Set(value string) error {
-	r := []rune(value)
-	if len(r) > 1 || r[0] == '\n' {
-		return errors.New("sep must be a single char not '\\n'")
+type ProcessInput struct {
+	key int
+	processKey int
+	inputTable string
+	entityRdfType string
+	processInputMapping []ProcessMap
+}
+
+type ProcessMap struct {
+	processInputKey int
+	inputColumn string
+	dataProperty string
+	functionName sql.NullString
+	argument sql.NullString
+	defaultValue sql.NullString
+}
+
+type RuleConfig struct {
+	processKey int
+	subject string
+	predicate string
+	object string
+	rdfType string
+}
+// Support Functions
+// --------------------------------------------------------------------------------------
+func readRuleConfig(dbpool *pgxpool.Pool, processInputKey int, ruleConfigs *[]RuleConfig) error {
+	rows, err := dbpool.Query(context.Background(), "SELECT process_key, subject, predicate, object, rdf_type FROM rule_config WHERE process_key = $1", processInputKey)
+	if err != nil {
+			return err
 	}
-	*s = chartype(r[0])
+	defer rows.Close()
+
+	// Loop through rows, using Scan to assign column data to struct fields.
+	for rows.Next() {
+			var rc RuleConfig
+			if err := rows.Scan(&rc.processKey, &rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
+					return err
+			}
+			*ruleConfigs = append(*ruleConfigs, rc)
+	}
+	if err = rows.Err(); err != nil {
+			return err
+	}
 	return nil
 }
 
-// var inFile = flag.String("in_file", "/work/input.csv", "the input csv file name")
-var dsn = flag.String("dsn", "", "database connection string (required)")
-var tblName = flag.String("table", "", "table name to load the data into, must not exist unless -a or -d is provided (required)")
-var appendTable = flag.Bool("a", false, "append file to existing table, default is false")
-var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
-var sep_flag chartype = '|'
-func init() {
-	flag.Var(&sep_flag, "sep", "Field separator, default is pipe ('|')")
+func readProcessMap(dbpool *pgxpool.Pool, processInputKey int, processMapping *[]ProcessMap) error {
+	rows, err := dbpool.Query(context.Background(), "SELECT process_input_key, input_column, data_property, function_name, argument, default_value FROM process_mapping WHERE process_input_key = $1", processInputKey)
+	if err != nil {
+			return err
+	}
+	defer rows.Close()
+
+	// Loop through rows, using Scan to assign column data to struct fields.
+	for rows.Next() {
+			var pm ProcessMap
+			if err := rows.Scan(&pm.processInputKey, &pm.inputColumn, &pm.dataProperty, &pm.functionName, &pm.argument, &pm.defaultValue); err != nil {
+					return err
+			}
+
+			*processMapping = append(*processMapping, pm)
+	}
+	if err = rows.Err(); err != nil {
+			return err
+	}
+	return nil
 }
 
-// Support Functions
-// --------------------------------------------------------------------------------------
-func processFile() error {
+func readProcessInput(dbpool *pgxpool.Pool, processInputs *[]ProcessInput) error {
+	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_table, entity_rdf_type FROM process_input WHERE process_key = $1", *procConfigKey)
+	if err != nil {
+			return err
+	}
+	defer rows.Close()
+
+	// Loop through rows, using Scan to assign column data to struct fields.
+	for rows.Next() {
+			var pi ProcessInput
+			if err := rows.Scan(&pi.key, &pi.processKey, &pi.inputTable, &pi.entityRdfType); err != nil {
+					return err
+			}
+			*processInputs = append(*processInputs, pi)
+	}
+	if err = rows.Err(); err != nil {
+			return err
+	}
+	return nil
+}
+
+func readProcessConfig(dbpool *pgxpool.Pool, procConfig *ProcessConfig) error {
+	// err = dbpool.QueryRow(context.Background(), "SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    FROM {{table_name}}    WHERE rdv_core__sessionid = '{{input_session_id}}' AND shard_id = {{shard_id}}    ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}})", *tblName).Scan(&exists)
+	err := dbpool.QueryRow(context.Background(), "SELECT key , client , description , main_entity_rdf_type   FROM process_config   WHERE key = $1", *procConfigKey).Scan(&procConfig.Key, &procConfig.Client, &procConfig.Description, &procConfig.MainEntityRdfType)
+	if err != nil {
+		err = fmt.Errorf("QueryRow failed: %v", err)
+	}
+	return err
+}
+
+// doJob --------------------------------------------------------------------------------
+func doJob() error {
+
+	// open db connection
+	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	if err != nil {
+		return fmt.Errorf("while opening db connection: %v", err)
+	}
+	defer dbpool.Close()
+
+	var procConfig ProcessConfig
+	
+	err = readProcessConfig(dbpool, &procConfig)
+	if err != nil {
+		return fmt.Errorf("while reading process_config table: %v", err)
+	}
+	//*
+	fmt.Println("Got ProcessConfig row:")
+	fmt.Println("  key:",procConfig.Key, "Client",procConfig.Client, "Description",procConfig.Description, "Main Type",procConfig.MainEntityRdfType)
+	
+	err = readProcessInput(dbpool, &procConfig.processInputs)
+	if err != nil {
+		return fmt.Errorf("while reading process_input table: %v", err)
+	}
+	//*
+	fmt.Println("Got ProcessInput row:")
+	for _, pi := range procConfig.processInputs {
+		//*
+		fmt.Println("  key:",pi.key, ", processKey",pi.processKey, ", InputTable",pi.inputTable, ", rdf Type",pi.entityRdfType)
+		err = readProcessMap(dbpool, pi.key, &pi.processInputMapping)
+		if err != nil {
+			return fmt.Errorf("while reading process_mapping table: %v", err)
+		}
+		for _, pm := range pi.processInputMapping {
+			fmt.Println("    InputMapping - key",pm.processInputKey,", inputColumn",pm.inputColumn)
+		}
+	}
+	if len(procConfig.processInputs) != 1 {
+		return fmt.Errorf("while reading ProcessInput table, currently we're supporting a single input table")
+	}
+	if procConfig.MainEntityRdfType != procConfig.processInputs[0].entityRdfType {
+		return fmt.Errorf("while reading ProcessInput table, MainEntityRdfType must match the ProcessInput entityRdfType")
+	}
+
+	//*
+	fmt.Println("Got RuleConfig rows:")
+	err = readRuleConfig(dbpool, procConfig.Key, &procConfig.ruleConfigs)
+	if err != nil {
+		return fmt.Errorf("while reading rule_config table: %v", err)
+	}
+	for _,rc := range procConfig.ruleConfigs {
+		fmt.Println("    procKey:",rc.processKey,", subject",rc.subject,", predicate",rc.predicate,", object",rc.object)
+	}
+
 	return nil
 }
 
@@ -56,17 +196,13 @@ func main() {
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
-	if *tblName == "" {
+	if *procConfigKey == 0 {
 		hasErr = true
-		errMsg = append(errMsg, "Table name must be provided.")
+		errMsg = append(errMsg, "Process config key value (-procConfigKey) must be provided.")
 	}
 	if *dsn == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Connection string must be provided.")
-	}
-	if *appendTable && *dropTable {
-		hasErr = true
-		errMsg = append(errMsg, "Cannot specify both -a and -d options.")
 	}
 	if hasErr {
 		flag.Usage()
@@ -75,13 +211,11 @@ func main() {
 		}
 		os.Exit((1))
 	}
-	// fmt.Printf("Got sep: %#U\n",sep_flag)
-	// fmt.Println("Got input file name:", *inFile)
-	// fmt.Println("Got table name:", *tblName)
-	// fmt.Println("Got append file to table:", *appendTable)
-	// fmt.Println("Got drop table:", *dropTable)
+	fmt.Printf("Got procConfigKey: %d\n",*procConfigKey)
+	fmt.Printf("Got poolSize: %d\n",*poolSize)
+	fmt.Printf("Got sessionId: %s\n",*sessionId)
 
-	err := processFile()
+	err := doJob()
 	if err != nil {
 		flag.Usage()
 		log.Fatal(err)

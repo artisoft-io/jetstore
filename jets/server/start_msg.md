@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS process_mapping (
     process_input_key integer REFERENCES process_input ON DELETE CASCADE ,
     input_column text  ,
     data_property text  ,
-    function text  ,
+    function_name text  ,
     argument text  ,
     default text ,
     PRIMARY KEY (process_input_key, input_column, data_property)
