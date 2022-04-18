@@ -20,6 +20,8 @@ import (
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
 var dsn = flag.String("dsn", "", "database connection string (required)")
+var workspaceDb = flag.String("workspace_db", "", "workspace db path (required)")
+var lookupDb = flag.String("lookup_db", "", "lookup data path")
 var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
 var sessionId = flag.String("sessId", "", "Process session ID used to link entitied processed together.")
@@ -34,6 +36,14 @@ type ProcessConfig struct {
 	processInputs []ProcessInput
 	ruleConfigs []RuleConfig
 }
+
+// type ProcessRun struct {
+// 	key int
+// 	processConfigKey int
+// 	workspaceDb string
+// 	lookupDb sql.NullString
+// 	note sql.NullString
+// }
 
 type ProcessInput struct {
 	key int
@@ -204,6 +214,10 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Connection string must be provided.")
 	}
+	if *workspaceDb == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Workspace db path must be provided.")
+	}
 	if hasErr {
 		flag.Usage()
 		for _, msg := range errMsg {
@@ -214,6 +228,8 @@ func main() {
 	fmt.Printf("Got procConfigKey: %d\n",*procConfigKey)
 	fmt.Printf("Got poolSize: %d\n",*poolSize)
 	fmt.Printf("Got sessionId: %s\n",*sessionId)
+	fmt.Printf("Got workspaceDb: %s\n",*workspaceDb)
+	fmt.Printf("Got lookupDb: %s\n",*lookupDb)
 
 	err := doJob()
 	if err != nil {
