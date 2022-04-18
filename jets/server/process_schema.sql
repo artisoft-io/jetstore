@@ -14,6 +14,16 @@ CREATE TABLE IF NOT EXISTS process_config (
     last_update timestamp without time zone DEFAULT now() NOT NULL
 );
 
+DROP TABLE IF EXISTS process_run;
+CREATE TABLE IF NOT EXISTS process_run (
+    key SERIAL PRIMARY KEY  ,
+    process_config_key int NOT NULL ,
+    workspace_db string NOT NULL ,
+    lookup_db string ,
+    note text  ,
+    last_update timestamp without time zone DEFAULT now() NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS process_input (
     key SERIAL PRIMARY KEY  ,
     process_key integer REFERENCES process_config ON DELETE CASCADE NOT NULL,
