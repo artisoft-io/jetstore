@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS process_input (
     process_key integer REFERENCES process_config ON DELETE CASCADE NOT NULL,
     input_table text  NOT NULL,
     entity_rdf_type text NOT NULL,
+    grouping_column text NOT NULL,
     UNIQUE (process_key, input_table)
 );
 CREATE INDEX IF NOT EXISTS process_input_process_key_idx ON process_input (process_key);
@@ -56,8 +57,8 @@ CREATE INDEX IF NOT EXISTS rule_config_process_key_idx ON rule_config (process_k
 -- not implemented yet
 CREATE TABLE IF NOT EXISTS process_merge (
     process_key integer REFERENCES process_config ON DELETE CASCADE ,
-    entity_rdf_type text  ,
-    query_rdf_property_list text ,
-    grouping_rdf_property text
+    entity_rdf_type text  NOT NULL,
+    query_rdf_property_list text NOT NULL,
+    grouping_rdf_property text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS process_merge_process_key_idx ON process_merge (process_key);
