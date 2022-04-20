@@ -19,7 +19,6 @@ import (
 )
 
 // Command Line Arguments
-// --------------------------------------------------------------------------------------
 var dsn = flag.String("dsn", "", "database connection string (required)")
 var workspaceDb = flag.String("workspace_db", "", "workspace db path (required)")
 var lookupDb = flag.String("lookup_db", "", "lookup data path")
@@ -27,7 +26,7 @@ var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
 var sessionId = flag.String("sessId", "", "Process session ID used to link entitied processed together.")
 
-// doJob --------------------------------------------------------------------------------
+// doJob main function
 func doJob() error {
 
 	// open db connection
@@ -43,6 +42,7 @@ func doJob() error {
 	if err != nil {
 		return fmt.Errorf("while reading process_config table: %v", err)
 	}
+	
 	//*
 	fmt.Println("Got ProcessConfig row:")
 	fmt.Println("  key:", procConfig.key, "client", procConfig.client, "description", procConfig.description, "Main Type", procConfig.mainEntityRdfType)
