@@ -45,7 +45,6 @@ build/
 vscode_build/
 bin
 pkg
-jets/hello/hello
 jetstore.egg-info
 __pycache__
 jets/compiler/test_data/lookup_loader_test_lookup.db
@@ -55,3 +54,6 @@ jets/compiler/test_data/lookup_loader_test.jrc.json
 jets/copytest/copytest
 jets/loader/loader
 jets/server/server
+jets/loader/loader
+jets/hello/hello
+jets/copytest/copytest
