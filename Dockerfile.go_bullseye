@@ -139,7 +139,7 @@ RUN wget -q "https://github.com/google/benchmark/archive/e33986a000987387c92ad29
     && ldconfig
 
 # JetStore Build
-ENV JETS_SOURCE_DIR /go/jetstore
+ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
 RUN mkdir -p ${JETS_SOURCE_DIR}
 WORKDIR ${JETS_SOURCE_DIR}
 
@@ -148,20 +148,31 @@ COPY go.mod              ${JETS_SOURCE_DIR}/
 COPY setup.py            ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
 
+ENV JETS_BUILD_DIR /usr/local/go/build
+ENV JETS_BIN_DIR /usr/local/go/bin
+
 RUN \
-  mkdir -p ${JETS_SOURCE_DIR}/build                                   \
-  && cd ${JETS_SOURCE_DIR}/build                                      \
-  && cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION .. \
+  mkdir -p ${JETS_BUILD_DIR}                                   \
+  && cd ${JETS_BUILD_DIR}                                      \
+  && cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR} \
   && make clean                                                       \
   && make -j8                                                         \
-  && cd ${JETS_SOURCE_DIR}
+  && cd ${JETS_SOURCE_DIR}  \
+  && ldconfig 
 
+# python puts it in ${JETS_SOURCE_DIR}/build
 RUN python3 setup.py build
   
 ENV GOOS linux
-ENV CGO_ENABLED 0
+ENV CGO_ENABLED 1
+RUN go mod tidy
+RUN go get all
 RUN go mod download
-# RUN go build -o build
+
+RUN go install jetstore/jets/loader
+RUN go install jetstore/jets/server
+RUN go install jetstore/jets/bridge
+RUN go install jetstore/jets/hello
 
 
 # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### 
