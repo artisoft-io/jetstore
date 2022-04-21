@@ -11,8 +11,9 @@ func main() {
 	fmt.Println("Hello Jets!")
 	
 	jr_name := "jetrule_rete_test.db"
+	lk_name := ""
 	fmt.Println("Loading with LoadJetRules...")
-	js, err := bridge.LoadJetRules(jr_name)
+	js, err := bridge.LoadJetRules(jr_name, lk_name)
 	if err != nil {
 		fmt.Println("We got a Problem:", err)
 	}

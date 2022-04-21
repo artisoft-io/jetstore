@@ -16,13 +16,19 @@ RUN echo "----------------jetserver-------------------------" >> /VERSION.txt &&
 USER root
 
 # Copy libraries and apps from builder
-ENV JETS_BUILD_DIR /go/jetstore/build
-COPY --from=builder ${JETS_BUILD_DIR}/lib /go/lib
+ENV JETS_BUILD_DIR /usr/local/go/build
+ENV JETS_BIN_DIR /usr/local/go/bin
+ENV JETS_PY_BUILD_DIR /usr/local/go/src/jetstore/build
+COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
 COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
+# Go commands
+COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
+
 
 RUN \
     cd /usr/local/lib/ \

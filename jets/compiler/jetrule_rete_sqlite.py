@@ -583,7 +583,6 @@ class JetRuleReteSQLite:
         main_file_key      INTEGER NOT NULL,
         support_file_key   INTEGER NOT NULL,
         UNIQUE (main_file_key, support_file_key)
-          ON CONFLICT IGNORE
       );
 
       -- --------------------
@@ -692,7 +691,6 @@ class JetRuleReteSQLite:
         rete_node_key      INTEGER NOT NULL,
         is_antecedent      BOOL,
         PRIMARY KEY (rule_key, rete_node_key)
-          ON CONFLICT IGNORE
       );
       CREATE TABLE IF NOT EXISTS rule_properties (
         rule_key           INTEGER NOT NULL,
@@ -761,10 +759,9 @@ class JetRuleReteSQLite:
         subject_key        INTEGER NOT NULL,
         predicate_key      INTEGER NOT NULL,
         object_key         INTEGER NOT NULL,
-        source_file_key    INTEGER NOT NULL,
-        PRIMARY KEY (subject_key, predicate_key, object_key, source_file_key)
-          ON CONFLICT IGNORE
+        source_file_key    INTEGER NOT NULL
       );
+      CREATE INDEX IF NOT EXISTS triples_source_file_key_idx ON triples (source_file_key);
 
       -- --------------------
       -- schema_info table

@@ -1,6 +1,6 @@
 # DEV BUILDER
-# ----------------------------------------------------------------------------------------------
 ```
+docker pull golang:1.18-bullseye
 docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t dev:latest -f Dockerfile.dev_go . 
 ```
 
@@ -9,8 +9,7 @@ docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --bui
 docker build --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t antlr4:latest -f Dockerfile.antlr4 . 
 ```
 
-## Building the image
-# ----------------------------------------------------------------------------------------------
+## Building the dev image
 docker run -it --rm -u `id -u`:`id -g` \
     -v /home/michel/projects/repos/jetstore:/home/michel/projects/repos/jetstore \
     -v /home/michel/projects/repos/RC-Workspace:/workspaces \
@@ -41,47 +40,21 @@ cmake ..
 ## Using golang as the base for the builder
 Using Dockerfile.go_bullseye as the builder image:
 ```
+docker pull golang:1.18-bullseye
 docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
 ```
 
-## Using golang runtime base image
-First attempt is using golang:1.18-bullseye as base image and copy the compiled
-library to it.
-
-The base runtime image is Dockerfile.go_base, it install python 3.9 with required packages
-To build the image:
+To inspect the builder image
 ```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:go-bullseye -f Dockerfile.go_base .
+docker run -it --rm --entrypoint=/bin/bash jetstore_builder:go-bullseye
 ```
 
-### Putting together the jetstore runtime image frm the builder and the runtime base images
-Using docker file Dockerfile.rt_go_bullseye
-```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:go-bullseye -f Dockerfile.rt_go_bullseye .
-```
-Try the image
-docker run -it --rm --entrypoint /bin/bash jetstore:go-bullseye
 
-## Using python runtime base image
-Second attempt is using python:3.9-bullseye as base image and copy the compiled
-library to it.
-
-The base runtime image is Dockerfile.py_base, it installs python required packages
-To build the image:
+## Using debian:bullseye as base runtime image (retained approach)
+This is what we use.
+Build the runtime base image
 ```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:py-bullseye -f Dockerfile.py_base .
-```
-
-### Putting together the jetstore runtime image frm the builder and the runtime base images
-Using docker gile Dockerfile.rt_py_bullseye
-```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:py-bullseye -f Dockerfile.rt_py_bullseye .
-```
-Try the image
-docker run -it --rm --entrypoint /bin/bash jetstore:py-bullseye
-
-## Testing from debian:bullseye as base runtime image
-```
+docker pull debian:bullseye
 docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
 ```
 Building the runtime image
@@ -92,9 +65,47 @@ Testing the c++ library:
 docker run --rm -w=/usr/local/bin --entrypoint=jets_test jetstore:bullseye
 
 Testing the python lib:
-docker run --rm -w=/go/lib/jets/compiler --entrypoint=python3 jetstore:bullseye jetrule_compiler_test.py
+docker run --rm -w=/usr/local/lib/jets/compiler --entrypoint=python3 jetstore:bullseye jetrule_compiler_test.py
 
 Testing the go lib:
+docker run --rm -w=/usr/local/bin --entrypoint=hello jetstore:bullseye 
+
+# Previous Attempts for Runtime Image
+## Using golang runtime base image (did not retain)
+First attempt is using golang:1.18-bullseye as base image and copy the compiled
+library to it.
+
+The base runtime image is Dockerfile.go_base, it install python 3.9 with required packages
+To build the image:
+```
+docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:go-bullseye -f Dockerfile.go_base .
+```
+
+### Putting together the jetstore runtime image from the builder and the runtime base images
+Using docker file Dockerfile.rt_go_bullseye
+```
+docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:go-bullseye -f Dockerfile.rt_go_bullseye .
+```
+Try the image
+docker run -it --rm --entrypoint /bin/bash jetstore:go-bullseye
+
+## Using python runtime base image (did not retain)
+Second attempt is using python:3.9-bullseye as base image and copy the compiled
+library to it.
+
+The base runtime image is Dockerfile.py_base, it installs python required packages
+To build the image:
+```
+docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:py-bullseye -f Dockerfile.py_base .
+```
+
+### Putting together the jetstore runtime image from the builder and the runtime base images
+Using docker file Dockerfile.rt_py_bullseye
+```
+docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:py-bullseye -f Dockerfile.rt_py_bullseye .
+```
+Try the image
+docker run -it --rm --entrypoint /bin/bash jetstore:py-bullseye
 
 # Generating lookup test cases
 ## Generate rete.db from rule file

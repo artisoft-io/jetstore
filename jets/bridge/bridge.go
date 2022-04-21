@@ -7,8 +7,8 @@ import (
 	"unsafe"
 )
 
-// #cgo CFLAGS: -I/home/michel/projects/repos/jetstore/jets
-// #cgo LDFLAGS: -L/home/michel/projects/repos/jetstore/build/jets -ljets -lsqlite3
+// #cgo CFLAGS: -I/home/michel/projects/repos/jetstore/jets -I/usr/local/go/src/jetstore/jets
+// #cgo LDFLAGS: -L/home/michel/projects/repos/jetstore/build/jets -L/usr/local/go/build/jets -ljets -lsqlite3
 // #cgo LDFLAGS: -labsl_city -labsl_low_level_hash -labsl_raw_hash_set
 // #include "rete/jets_rete_cwrapper.h"
 import "C"
@@ -40,15 +40,17 @@ type Resource struct {
 //   case rdf_literal_double_t   :7 return rdf_literal_double_t;
 //   case rdf_literal_string_t   :8 return rdf_literal_string_t;
 
-func LoadJetRules(rete_db_path string) (JetStore, error) {
+func LoadJetRules(rete_db_path string, lookup_db_path string) (JetStore, error) {
 	var js JetStore
 	cstr := C.CString(rete_db_path)
-	ret := int(C.create_jetstore_hdl(cstr, &js.hdl))
+	lk_cstr := C.CString(lookup_db_path)
+	ret := int(C.create_jetstore_hdl(cstr, lk_cstr, &js.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in LoadJetRules, ret code", ret)
 		return js, errors.New("ERROR calling LoadJetRules()! ")
 	}
 	C.free(unsafe.Pointer(cstr)) 
+	C.free(unsafe.Pointer(lk_cstr)) 
 	return js, nil
 }
 
