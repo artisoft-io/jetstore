@@ -16,4 +16,5 @@ require (
 	github.com/lib/pq v1.10.5 // indirect
 	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064 // indirect
 	golang.org/x/text v0.3.6 // indirect
+  gopkg.in/yaml.v2 v2.2.8
 )
