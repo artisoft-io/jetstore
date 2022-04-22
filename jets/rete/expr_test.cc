@@ -24,7 +24,8 @@ TEST(ExprTest, ExprCstTest) {
 
 TEST(ExprTest, ExprBindedVar1Test) {
   // rdf resource manager
-  rdf::RManager rmanager;
+  auto rmanager_p = rdf::RManager::create();
+  auto rmanager = *rmanager_p;
   auto r0 = rmanager.create_resource("r0");
   auto beta_row = create_beta_row(nullptr, 1);
   EXPECT_EQ(beta_row->put(0, r0), 0);
@@ -35,7 +36,8 @@ TEST(ExprTest, ExprBindedVar1Test) {
 
 TEST(ExprTest, ExprBindedVar2Test) {
   // rdf resource manager
-  rdf::RManager rmanager;
+  auto rmanager_p = rdf::RManager::create();
+  auto rmanager = *rmanager_p;
   auto r0 = rmanager.create_resource("r0");
   auto r1 = rmanager.create_resource("r1");
   auto beta_row = create_beta_row(nullptr, 2);

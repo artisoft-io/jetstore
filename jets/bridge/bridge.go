@@ -58,7 +58,7 @@ func ReleaseJetRules(jr JetStore) error {
 	ret := int(C.delete_jetstore_hdl(jr.hdl))
 	if ret != 0 {
 		fmt.Println("OOps got error in c++ ReleaseJetRules!!")
-		return errors.New("error calling ReleaseJetRules(), ret code: " + string(ret))
+		return errors.New("error calling ReleaseJetRules(), ret code: " + fmt.Sprint(ret))
 	}
 	return nil
 }
@@ -69,7 +69,7 @@ func NewReteSession(jr JetStore, jetrules_name string) (ReteSession, error) {
 	ret := int(C.create_rete_session(jr.hdl, cstr, &rs.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewReteSession ret code", ret)
-		return rs, errors.New("ERROR calling NewReteSession(), ret code: "+string(ret))
+		return rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
 	}
 	C.free(unsafe.Pointer(cstr)) 
 	return rs, nil
@@ -79,10 +79,130 @@ func ReleaseReteSession(rs ReteSession) error {
 	ret := int(C.delete_rete_session(rs.hdl))
 	if ret != 0 {
 		fmt.Println("OOps got error in c++ ReleaseReteSession!! ret code", ret)
-		return errors.New("error calling ReleaseReteSession(), ret code: " + string(ret))
+		return errors.New("error calling ReleaseReteSession(), ret code: " + fmt.Sprint(ret))
 	}
 	return nil
 }
+
+// create resources and literals from meta_graph
+func (js JetStore) CreateNull() (Resource, error) {
+	var r Resource
+	ret := int(C.create_null(js.hdl, &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in mete_graph.createResource ret code", ret)
+		return r, errors.New("ERROR calling meta createResource(), ret code: "+fmt.Sprint(ret))
+	}
+	return r, nil
+}
+func (js JetStore) CreateBlankNode(v int) (Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_blanknode(js.hdl, C.int(v), &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in mete_graph.createResource ret code", ret)
+		return r, errors.New("ERROR calling meta createResource(), ret code: "+fmt.Sprint(ret))
+	}
+	return r, nil
+}
+func (js JetStore) CreateResource(resource_name string) (Resource, error) {
+	var r Resource
+	cstr := C.CString(resource_name)
+	ret := int(C.create_meta_resource(js.hdl, cstr, &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in mete_graph.createResource ret code", ret)
+		return r, errors.New("ERROR calling meta createResource(), ret code: "+fmt.Sprint(ret))
+	}
+	C.free(unsafe.Pointer(cstr)) 
+	return r, nil
+}
+func (js JetStore) CreateTextLiteral(txt string) (Resource, error) {
+	var r Resource
+	cstr := C.CString(txt)
+	ret := int(C.create_meta_text(js.hdl, cstr, &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewTextLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewTextLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	C.free(unsafe.Pointer(cstr)) 
+	return r, nil
+}
+func (js JetStore) CreateIntLiteral(value int) (Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_int(js.hdl, C.int(value), &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	return r, nil
+}
+func (js JetStore) CreateUIntLiteral(value uint) (Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_uint(js.hdl, C.uint(value), &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	return r, nil
+}
+func (js JetStore) CreateLongLiteral(value int) (Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_long(js.hdl, C.long(value), &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	return r, nil
+}
+func (js JetStore) CreateULongLiteral(value uint) (Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_ulong(js.hdl, C.ulong(value), &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	return r, nil
+}
+func (js JetStore) CreateDoubleLiteral(value float64) (Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_double(js.hdl, C.double(value), &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	return r, nil
+}
+func (js JetStore) CreateDateLiteral(value string) (Resource, error) {
+	var r Resource
+	cstr := C.CString(value)
+	ret := int(C.create_meta_date(js.hdl, cstr, &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	C.free(unsafe.Pointer(cstr)) 
+	return r, nil
+}
+func (js JetStore) CreateDatetimeLiteral(value string) (Resource, error) {
+	var r Resource
+	cstr := C.CString(value)
+	ret := int(C.create_meta_datetime(js.hdl, cstr, &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
+	}
+	C.free(unsafe.Pointer(cstr)) 
+	return r, nil
+}
+
+// assert triple in meta graph
+func (js JetStore) InsertRuleConfig(s Resource, p Resource, o Resource) (int, error) {
+	ret := int(C.insert_meta_graph(js.hdl, s.hdl, p.hdl, o.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in Insert ret code", ret)
+		return ret, errors.New("ERROR calling Insert(), ret code: "+fmt.Sprint(ret))
+	}
+	return ret, nil
+}
+
 
 // New Resource & Literals
 func NewResource(rs ReteSession, resource_name string) (Resource, error) {
@@ -91,7 +211,7 @@ func NewResource(rs ReteSession, resource_name string) (Resource, error) {
 	ret := int(C.create_resource(rs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewResource ret code", ret)
-		return r, errors.New("ERROR calling NewResource(), ret code: "+string(ret))
+		return r, errors.New("ERROR calling NewResource(), ret code: "+fmt.Sprint(ret))
 	}
 	C.free(unsafe.Pointer(cstr)) 
 	return r, nil
@@ -102,7 +222,7 @@ func NewTextLiteral(rs ReteSession, txt string) (Resource, error) {
 	ret := int(C.create_text(rs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewTextLiteral ret code", ret)
-		return r, errors.New("ERROR calling NewTextLiteral(), ret code: "+string(ret))
+		return r, errors.New("ERROR calling NewTextLiteral(), ret code: "+fmt.Sprint(ret))
 	}
 	C.free(unsafe.Pointer(cstr)) 
 	return r, nil
@@ -112,7 +232,7 @@ func NewIntLiteral(rs ReteSession, value int) (Resource, error) {
 	ret := int(C.create_int(rs.hdl, C.int(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
-		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+string(ret))
+		return r, errors.New("ERROR calling NewIntLiteral(), ret code: "+fmt.Sprint(ret))
 	}
 	return r, nil
 }
@@ -145,7 +265,7 @@ func (r Resource) GetInt() (int, error) {
 	ret := int(C.get_int_literal(r.hdl, ptr))
 	if ret != 0 {
 		fmt.Println("ERROR in GetInt ret code", ret)
-		return 0, errors.New("ERROR calling GetInt(), ret code: "+string(ret))
+		return 0, errors.New("ERROR calling GetInt(), ret code: "+fmt.Sprint(ret))
 	}
 	return int(*ptr), nil
 }
@@ -192,7 +312,7 @@ func (rs ReteSession) Insert(s Resource, p Resource, o Resource) (int, error) {
 	ret := int(C.insert(rs.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in Insert ret code", ret)
-		return ret, errors.New("ERROR calling Insert(), ret code: "+string(ret))
+		return ret, errors.New("ERROR calling Insert(), ret code: "+fmt.Sprint(ret))
 	}
 	return ret, nil
 }
@@ -201,7 +321,7 @@ func (rs ReteSession) Contains(s Resource, p Resource, o Resource) (int, error) 
 	ret := int(C.contains(rs.hdl, s.hdl,p.hdl, o.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in Contains ret code", ret)
-		return ret, errors.New("ERROR calling Contains(), ret code: "+string(ret))
+		return ret, errors.New("ERROR calling Contains(), ret code: "+fmt.Sprint(ret))
 	}
 	return ret, nil
 }
@@ -210,7 +330,7 @@ func (rs ReteSession) ExecuteRules() error {
 	ret := int(C.execute_rules(rs.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in ExecuteRules ret code", ret)
-		return errors.New("ERROR calling ExecuteRules(), ret code: "+string(ret))
+		return errors.New("ERROR calling ExecuteRules(), ret code: "+fmt.Sprint(ret))
 	}
 	return nil
 }
@@ -277,7 +397,7 @@ func ReleaseIterator(itor RSIterator) error {
 	ret := int(C.dispose(itor.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in ReleaseIterator ret code", ret)
-		return errors.New("ERROR calling ReleaseIterator(), ret code: "+string(ret))
+		return errors.New("ERROR calling ReleaseIterator(), ret code: "+fmt.Sprint(ret))
 	}
 	return nil
 }

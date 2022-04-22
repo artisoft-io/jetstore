@@ -12,7 +12,8 @@ namespace {
 TEST(RManagerTest, CreateLiteral) 
 {
   // rdf resource manager
-  RManager rmanager;
+  auto rmanager_p = RManager::create();
+  auto rmanager = *rmanager_p;
 
   // literals
   auto five = rmanager.create_literal<int32_t>(5);
@@ -43,7 +44,8 @@ TEST(RManagerTest, CreateLiteral)
 TEST(RManagerTest, CreateBNodes) 
 {
   // rdf resource manager
-  RManager rmanager;
+  auto rmanager_p = RManager::create();
+  auto rmanager = *rmanager_p;
 
   // subjects
   auto bn1 = rmanager.create_bnode();
@@ -77,7 +79,8 @@ TEST(RManagerTest, CreateBNodes)
 TEST(RManagerTest, CreateResources) 
 {
   // rdf resource manager
-  RManager rmanager;
+  auto rmanager_p = RManager::create();
+  auto rmanager = *rmanager_p;
 
   // subjects
   std::string s1("r1");
@@ -95,7 +98,8 @@ TEST(RManagerTest, CreateResources)
 TEST(RManagerTest, CreateNulls) 
 {
   // rdf resource manager
-  RManager rmanager;
+  auto rmanager_p = RManager::create();
+  auto rmanager = *rmanager_p;
 
   // subjects
   auto n1 = rmanager.get_null();

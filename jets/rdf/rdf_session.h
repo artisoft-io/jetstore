@@ -32,7 +32,7 @@ class RDFSession {
   using Iterator = RDFSessionIterator;
 
   RDFSession() = delete;
-
+ protected:
   /**
    * @brief Construct a new RDFSession object
    * Create asserted graph using the `RManager` of the meta graph as root mgr.
@@ -53,6 +53,21 @@ class RDFSession {
       inferred_graph_ = create_rdf_graph();
       inferred_graph_->set_rmgr(r_mgr_p);
     }
+
+ public:
+  static RDFSessionPtr create(RDFGraphPtr meta_graph)
+  {
+    if(meta_graph) {
+      meta_graph->set_locked();
+    } else {
+      LOG(ERROR) << "create_rdf_session: meta_graph argument is required and cannot be null";
+      RDF_EXCEPTION("create_rdf_session: meta_graph argument is required and cannot be null");
+    }
+    struct make_shared_enabler: public RDFSession {
+      make_shared_enabler(RDFGraphPtr meta_graph): RDFSession(meta_graph){}
+    };
+    return std::make_shared<make_shared_enabler>(meta_graph);
+  }
 
   /**
    * @brief the number of triples in all graphs
@@ -456,7 +471,7 @@ class RDFSession {
 inline RDFSessionPtr 
 create_rdf_session(RDFGraphPtr g)
 {
-  return std::make_shared<RDFSession>(g);
+  return RDFSession::create(g);
 }
 
 inline std::ostream & operator<<(std::ostream & out, RDFSession const* g)

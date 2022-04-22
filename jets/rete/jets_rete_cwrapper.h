@@ -20,10 +20,32 @@ int delete_rete_session( HJRETE rete_session_hdl );
 
 typedef void const* HJR;
 
+// Creating meta resources and literals
+int create_null(HJETS js_hdl, HJR * handle);
+int create_meta_blanknode(HJETS js_hdl, int v, HJR * handle);
+int create_meta_resource(HJETS js_hdl, char const * name, HJR * handle);
+int create_meta_text(HJETS js_hdl, char const * name, HJR * handle);
+int create_meta_int(HJETS js_hdl, int v, HJR * handle);
+int create_meta_uint(HJETS js_hdl, uint v, HJR * handle);
+int create_meta_long(HJETS js_hdl, long v, HJR * handle);
+int create_meta_ulong(HJETS js_hdl, ulong v, HJR * handle);
+int create_meta_double(HJETS js_hdl, double v, HJR * handle);
+int create_meta_date(HJETS js_hdl, char const * v, HJR * handle);
+int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle);
+
+int insert_meta_graph(HJETS js_hdl, HJR s, HJR p, HJR o);
+
 // Creating resources and literals
+int create_blanknode(HJRETE rete_hdl, int v, HJR * handle);
 int create_resource(HJRETE rete_hdl, char const * name, HJR * handle);
-int create_text(HJRETE rete_hdl, char const * txt, HJR * handle);
+int create_text(HJRETE rete_hdl, char const * name, HJR * handle);
 int create_int(HJRETE rete_hdl, int v, HJR * handle);
+int create_uint(HJRETE rete_hdl, uint v, HJR * handle);
+int create_long(HJRETE rete_hdl, long v, HJR * handle);
+int create_ulong(HJRETE rete_hdl, ulong v, HJR * handle);
+int create_double(HJRETE rete_hdl, double v, HJR * handle);
+int create_date(HJRETE rete_hdl, char const * v, HJR * handle);
+int create_datetime(HJRETE rete_hdl, char const * v, HJR * handle);
 
 typedef void const* HSTR;
 

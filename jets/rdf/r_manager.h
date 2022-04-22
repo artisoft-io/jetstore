@@ -24,6 +24,9 @@ class RManager {
   using ResourceList = std::list<Rptr>;
   using DataMap = LiteralDataMap;
 
+ protected:
+  // constructors are private to ensure using create_rmanager()
+  // is used so that the root_mgr is locked
   inline RManager() 
     : is_locked_(false),
       last_bnode_key_(0),
@@ -41,6 +44,24 @@ class RManager {
       root_mgr_p_(root_mgr_p),
       jets_resources_()
   {}
+
+ public:
+  static RManagerPtr create()
+  {
+    struct make_shared_enabler: public RManager {};
+    return std::make_shared<make_shared_enabler>();
+  }
+
+  static RManagerPtr create(RManagerPtr root_mgr_p)
+  {
+    if(root_mgr_p) {
+      root_mgr_p->set_locked();
+    }
+    struct make_shared_enabler: public RManager {
+      make_shared_enabler(RManagerPtr rm): RManager(rm){}
+    };
+    return std::make_shared<make_shared_enabler>(root_mgr_p);
+  }
 
   inline bool
   is_initialized()const
@@ -211,7 +232,7 @@ class RManager {
 inline RManagerPtr 
 create_rmanager(RManagerPtr meta_mgr = nullptr)
 {
-  return std::make_shared<RManager>(meta_mgr);
+  return RManager::create(meta_mgr);
 }
 
 } // namespace jets::rdf
