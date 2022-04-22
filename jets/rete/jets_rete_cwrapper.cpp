@@ -65,7 +65,147 @@ int delete_rete_session(  HJRETE rete_session_hdl )
   return 0;
 }
 
+// Creating meta resources and literals
+int create_null(HJETS js_hdl, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  * handle = factory->meta_graph()->get_rmgr()->get_null();
+  return 0;
+}
+int create_meta_blanknode(HJETS js_hdl, int v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  * handle = factory->meta_graph()->get_rmgr()->create_bnode(v);
+  return 0;
+}
+
+int create_meta_resource(HJETS js_hdl, char const * name, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_resource: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->create_resource(name);
+  return 0;
+}
+int create_meta_text(HJETS js_hdl, char const * name, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_text: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(name);
+  return 0;
+}
+int create_meta_int(HJETS js_hdl, int v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_int: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_meta_uint(HJETS js_hdl, uint v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_uint: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_meta_long(HJETS js_hdl, long v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_long: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_meta_ulong(HJETS js_hdl, ulong v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_ulong: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_meta_double(HJETS js_hdl, double v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_double: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_meta_date(HJETS js_hdl, char const * v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_date: ERROR NULL factory";
+    return -1;
+  }
+
+  auto d = parse_date(v);
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
+  return 0;
+}
+int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  auto d = parse_datetime(v);
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
+  return 0;
+}
+
+int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+{
+  if(not js_hdl) return -1;
+  if(not s_hdl or not p_hdl or not o_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto const* p =  static_cast<r_index>(p_hdl);
+  auto const* o =  static_cast<r_index>(o_hdl);
+  return factory->get_meta_graph()->insert(s, p, o);
+}
+
 // Creating resources and literals
+int create_blanknode(HJRETE rete_hdl, int v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_bnode(v);
+  return 0;
+}
 int create_resource(HJRETE rete_hdl, char const * name, HJR * handle)
 {
   if(not rete_hdl) return -1;
@@ -87,6 +227,50 @@ int create_int(HJRETE rete_hdl, int v, HJR * handle)
   * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
   return 0;
 }
+int create_uint(HJRETE rete_hdl, uint v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_long(HJRETE rete_hdl, long v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_ulong(HJRETE rete_hdl, ulong v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_double(HJRETE rete_hdl, double v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  return 0;
+}
+int create_date(HJRETE rete_hdl, char const * v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto d = parse_date(v);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(d);
+  return 0;
+}
+int create_datetime(HJRETE rete_hdl, char const * v, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto d = parse_datetime(v);
+  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(d);
+  return 0;
+}
 
 // Get the resource name and literal value
 int get_resource_type(HJR handle)
@@ -103,6 +287,8 @@ int get_resource_type(HJR handle)
   case rdf_literal_uint64_t   : return rdf_literal_uint64_t;
   case rdf_literal_double_t   : return rdf_literal_double_t;
   case rdf_literal_string_t   : return rdf_literal_string_t;
+  case rdf_literal_date_t     : return rdf_literal_date_t;
+  case rdf_literal_datetime_t : return rdf_literal_datetime_t;
   default: return -1;
   }
 }
@@ -113,15 +299,7 @@ int get_resource_name(HJR handle, HSTR*v)
   if(not handle) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_null_t             : return -1;
-  case rdf_blank_node_t       : return -1;
   case rdf_named_resource_t   : *v = boost::get<NamedResource>(r)->name.data(); return 0;
-  case rdf_literal_int32_t    : return -1;
-  case rdf_literal_uint32_t   : return -1;
-  case rdf_literal_int64_t    : return -1;
-  case rdf_literal_uint64_t   : return -1;
-  case rdf_literal_double_t   : return -1;
-  case rdf_literal_string_t   : return -1;
   default: return -1;
   }
 }
@@ -130,15 +308,7 @@ char const* go_get_resource_name(HJR handle)
   if(not handle) return nullptr;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_null_t             : return nullptr;
-  case rdf_blank_node_t       : return nullptr;
   case rdf_named_resource_t   : return boost::get<NamedResource>(r)->name.data();
-  case rdf_literal_int32_t    : return nullptr;
-  case rdf_literal_uint32_t   : return nullptr;
-  case rdf_literal_int64_t    : return nullptr;
-  case rdf_literal_uint64_t   : return nullptr;
-  case rdf_literal_double_t   : return nullptr;
-  case rdf_literal_string_t   : return nullptr;
   default: return nullptr;
   }
 }
@@ -148,15 +318,7 @@ int get_int_literal(HJR handle, int*v)
   if(not handle) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_null_t             : return -1;
-  case rdf_blank_node_t       : return -1;
-  case rdf_named_resource_t   : return -1;
   case rdf_literal_int32_t    : *v = boost::get<LInt32>(r)->data; return 0;
-  case rdf_literal_uint32_t   : return -1;
-  case rdf_literal_int64_t    : return -1;
-  case rdf_literal_uint64_t   : return -1;
-  case rdf_literal_double_t   : return -1;
-  case rdf_literal_string_t   : return -1;
   default: return -1;
   }
 }
@@ -166,14 +328,6 @@ int get_text_literal(HJR handle, HSTR*v)
   if(not handle) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_null_t             : return -1;
-  case rdf_blank_node_t       : return -1;
-  case rdf_named_resource_t   : return -1;
-  case rdf_literal_int32_t    : return -1;
-  case rdf_literal_uint32_t   : return -1;
-  case rdf_literal_int64_t    : return -1;
-  case rdf_literal_uint64_t   : return -1;
-  case rdf_literal_double_t   : return -1;
   case rdf_literal_string_t   : *v = boost::get<LString>(r)->data.data(); return 0;
   default: return -1;
   }
@@ -183,14 +337,6 @@ char const* go_get_text_literal(HJR handle)
   if(not handle) return nullptr;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_null_t             : return nullptr;
-  case rdf_blank_node_t       : return nullptr;
-  case rdf_named_resource_t   : return nullptr;
-  case rdf_literal_int32_t    : return nullptr;
-  case rdf_literal_uint32_t   : return nullptr;
-  case rdf_literal_int64_t    : return nullptr;
-  case rdf_literal_uint64_t   : return nullptr;
-  case rdf_literal_double_t   : return nullptr;
   case rdf_literal_string_t   : return boost::get<LString>(r)->data.data();
   default: return nullptr;
   }

@@ -20,8 +20,9 @@ import (
 
 // Command Line Arguments
 var dsn = flag.String("dsn", "", "database connection string (required)")
-var workspaceDb = flag.String("workspace_db", "", "workspace db path (required)")
-var lookupDb = flag.String("lookup_db", "", "lookup data path")
+var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required)")
+var lookupDb = flag.String("lookupDb", "", "lookup data path")
+var ruleset = flag.String("ruleset", "", "main rule set name (required)")
 var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
 var sessionId = flag.String("sessId", "", "Process session ID used to link entitied processed together.")
@@ -81,11 +82,15 @@ func main() {
 	}
 	if *dsn == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Connection string must be provided.")
+		errMsg = append(errMsg, "Connection string (-dsn) must be provided.")
 	}
 	if *workspaceDb == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Workspace db path must be provided.")
+		errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")
+	}
+	if *ruleset == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Main ruleset name (-ruleset)  must be provided.")
 	}
 	if hasErr {
 		flag.Usage()
@@ -99,6 +104,7 @@ func main() {
 	fmt.Printf("Got sessionId: %s\n", *sessionId)
 	fmt.Printf("Got workspaceDb: %s\n", *workspaceDb)
 	fmt.Printf("Got lookupDb: %s\n", *lookupDb)
+	fmt.Printf("Got ruleset: %s\n", *ruleset)
 
 	err := doJob()
 	if err != nil {
