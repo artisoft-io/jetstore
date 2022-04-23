@@ -57,7 +57,7 @@ func doJob() error {
 	}
 	fmt.Println("Got RuleConfig rows:")
 	for _, rc := range procConfig.ruleConfigs {
-		fmt.Println("    procKey:", rc.processKey, ", subject", rc.subject, ", predicate", rc.predicate, ", object", rc.object)
+		fmt.Println("    procKey:", rc.processKey, ", subject", rc.subject, ", predicate", rc.predicate, ", object", rc.object, ", type", rc.rdfType)
 	}
 	//*
 
@@ -68,6 +68,18 @@ func doJob() error {
 	if procConfig.mainEntityRdfType != procConfig.processInputs[0].entityRdfType {
 		return fmt.Errorf("while reading ProcessInput table, mainEntityRdfType must match the ProcessInput entityRdfType")
 	}
+
+	// let's do it!
+	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, &procConfig)
+	if err != nil {
+		return fmt.Errorf("while loading workspace: %v", err)
+	}
+	pipelineResult, err := ProcessData(dbpool, reteWorkspace)
+	if err != nil {
+		return fmt.Errorf("while processing pipeline: %v", err)
+	}
+
+	fmt.Println("The result is:",pipelineResult.inputRecordsCount)
 
 	return nil
 }

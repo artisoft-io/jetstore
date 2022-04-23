@@ -122,7 +122,7 @@ python3 jetrule_lookup_loader.py --base_path=/go/jetstore/jets/rete/test_data --
 Pull the postgres image from docker hub and run it locally:
 ```
 docker pull postgres
-docker run --rm --name postgres -p 5432:5432 -v /home/michel/projects/pg_work:/work -e 'POSTGRES_PASSWORD=XXXPWDXXX' -e 'POSTGRES_USER=postgres' postgres
+docker run --rm --name postgres -p 5438:5432 -v /home/michel/projects/pg_work:/work -e 'POSTGRES_PASSWORD=XXXPWDXXX' -e 'POSTGRES_USER=postgres' postgres:14-bullseye
 ```
 Get into the container:
 ```

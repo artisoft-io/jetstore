@@ -50,35 +50,35 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 			object, err = rw.js.CreateResource(t3.object)
 		case "int":
 			var v int
-			_, err := fmt.Sscan(t3.object, &v)
+			_, err = fmt.Sscan(t3.object, &v)
 			if err != nil {
 				return fmt.Errorf("while asserting rule config: %v", err)
 			}
 			object, err = rw.js.CreateIntLiteral(v)
 		case "uint":
 			var v uint
-			_, err := fmt.Sscan(t3.object, &v)
+			_, err = fmt.Sscan(t3.object, &v)
 			if err != nil {
 				return fmt.Errorf("while asserting rule config: %v", err)
 			}
 			object, err = rw.js.CreateUIntLiteral(v)
 		case "long":
 			var v int
-			_, err := fmt.Sscan(t3.object, &v)
+			_, err = fmt.Sscan(t3.object, &v)
 			if err != nil {
 				return fmt.Errorf("while asserting rule config: %v", err)
 			}
 			object, err = rw.js.CreateLongLiteral(v)
 		case "ulong":
 			var v uint
-			_, err := fmt.Sscan(t3.object, &v)
+			_, err = fmt.Sscan(t3.object, &v)
 			if err != nil {
 				return fmt.Errorf("while asserting rule config: %v", err)
 			}
 			object, err = rw.js.CreateULongLiteral(v)
 		case "double":
 			var v float64
-			_, err := fmt.Sscan(t3.object, &v)
+			_, err = fmt.Sscan(t3.object, &v)
 			if err != nil {
 				return fmt.Errorf("while asserting rule config: %v", err)
 			}
@@ -90,7 +90,10 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		case "datetime":
 			object, err = rw.js.CreateDatetimeLiteral(t3.object)
 		}
-		rw.js.InsertRuleConfig(subject, predicate, object)
+		if err != nil {
+			return fmt.Errorf("while asserting rule config: %v", err)
+		}
+	rw.js.InsertRuleConfig(subject, predicate, object)
 	}
 	return nil
 }
