@@ -18,8 +18,8 @@ DROP TABLE IF EXISTS process_run;
 CREATE TABLE IF NOT EXISTS process_run (
     key SERIAL PRIMARY KEY  ,
     process_config_key int NOT NULL ,
-    workspace_db string NOT NULL ,
-    lookup_db string ,
+    workspace_db text NOT NULL ,
+    lookup_db text ,
     note text  ,
     last_update timestamp without time zone DEFAULT now() NOT NULL
 );
