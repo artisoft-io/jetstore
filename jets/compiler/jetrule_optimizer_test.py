@@ -208,6 +208,44 @@ class JetRulesOptimizerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(optimized_data))
     self.assertEqual(json.dumps(optimized_data), optimized_expected)
 
+  def test_optimize6(self):
+    data = """
+      # =======================================================================================
+      resource rdf:type = "rdf:type";
+      resource acme:Claim = "acme:Claim";
+      volatile_resource is_good = "is_good";
+      [RuleO5,o=false]: 
+        (?clm01 reverse_of ?clm02).
+        (?clm03 rdf:type acme:Claim).
+        (?clm01 rdf:type acme:Claim).
+        (?clm02 rdf:type acme:Claim)
+        ->
+        (?clm01 is_good true).
+      ;
+    """
+
+  # Result:
+  # "authoredLabel": "[RuleO5]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);",
+  # "normalizedLabel": "[RuleO5]:(?x1 rdf:type acme:Claim).(?x2 rdf:type acme:Claim).(?x2 reverse_of ?x3).(?x3 rdf:type acme:Claim) -> (?x2 is_good true);",
+  # "label": "[RuleO5]:(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm01 reverse_of ?clm02).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);"    
+
+    jetrule_ctx = self._get_augmented_data(data)
+    for k in jetrule_ctx.errors:
+      print(k)
+
+    # Optimize the rules
+    optimizer = JetRuleOptimizer(jetrule_ctx)
+    optimizer.optimizeJetRules()
+
+    optimized_data = jetrule_ctx.jetRules
+    optimized_expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type", "source_fname": "predefined"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}, {"type": "volatile_resource", "id": "is_good", "value": "is_good"}], "lookup_tables": [], "jet_rules": [{"name": "RuleO5", "properties": {"o": "false"}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "reverse_of"}, {"type": "var", "value": "?clm02", "id": "?x2", "label": "?clm02"}], "normalizedLabel": "(?x1 reverse_of ?x2)", "label": "(?clm01 reverse_of ?clm02)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm03", "id": "?x3", "label": "?clm03"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x3 rdf:type acme:Claim)", "label": "(?clm03 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}, {"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm02", "id": "?x2", "label": "?clm02"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x2 rdf:type acme:Claim)", "label": "(?clm02 rdf:type acme:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "is_good"}, {"type": "keyword", "value": "true"}], "normalizedLabel": "(?x1 is_good true)", "label": "(?clm01 is_good true)"}], "optimization": false, "salience": 100, "normalizedLabel": "[RuleO5, o=false]:(?x1 reverse_of ?x2).(?x3 rdf:type acme:Claim).(?x1 rdf:type acme:Claim).(?x2 rdf:type acme:Claim) -> (?x1 is_good true);", "label": "[RuleO5, o=false]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);", "authoredLabel": "[RuleO5, o=false]:(?clm01 reverse_of ?clm02).(?clm03 rdf:type acme:Claim).(?clm01 rdf:type acme:Claim).(?clm02 rdf:type acme:Claim) -> (?clm01 is_good true);"}]}"""
+    self.assertEqual(jetrule_ctx.ERROR, False)
+    # print()
+    # print('OPTIMIZED GOT:',json.dumps(optimized_data, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(optimized_data))
+    self.assertEqual(json.dumps(optimized_data), optimized_expected)
+
 
 
 if __name__ == '__main__':

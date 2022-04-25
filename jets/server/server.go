@@ -3,6 +3,7 @@ package main
 import (
 	// "bufio"
 	"context"
+	"strings"
 	// "encoding/csv"
 	"flag"
 	"fmt"
@@ -26,6 +27,8 @@ var ruleset = flag.String("ruleset", "", "main rule set name (required)")
 var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
 var sessionId = flag.String("sessId", "", "Process session ID used to link entitied processed together.")
+var outTables = flag.String("outTables", "", "Comma-separed list of output tables (required).")
+var outTableSlice []string
 
 // doJob main function
 func doJob() error {
@@ -70,7 +73,7 @@ func doJob() error {
 	}
 
 	// let's do it!
-	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, &procConfig)
+	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, &procConfig, outTableSlice)
 	if err != nil {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
@@ -103,6 +106,15 @@ func main() {
 	if *ruleset == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Main ruleset name (-ruleset)  must be provided.")
+	}
+	if *outTables == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Output type must be specified using comma-separated list of table names (-outTables)  must be provided.")
+	}
+	outTableSlice = strings.Split(*outTables, ",")
+	if len(outTableSlice) == 0 {
+		hasErr = true
+		errMsg = append(errMsg, "Invalid list of comma-separated table names (-outTables)")
 	}
 	if hasErr {
 		flag.Usage()

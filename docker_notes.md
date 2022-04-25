@@ -146,7 +146,7 @@ Get the IP of postgres:
 docker network inspect bridge
 ```
 The connection string is now (with the correct IP of postgres) is
-```postgresql://postgres:XXXPWDXXX@172.17.0.2:5432/postgres```
+`postgresql://postgres:XXXPWDXXX@172.17.0.2:5432/postgres`
 
 ## Running PgAdmin docker locally
 Pull the image from docker hub and run it locally:

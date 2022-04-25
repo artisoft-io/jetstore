@@ -85,20 +85,20 @@ func makeValid(name string) (string, error) {
 }
 
 func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
-	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", *tblName)
+	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{*tblName}.Sanitize())
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while droping table: %v", err)
 	}
 	var buf strings.Builder
 	buf.WriteString("CREATE TABLE IF NOT EXISTS ")
-	buf.WriteString(*tblName)
+	buf.WriteString(pgx.Identifier{*tblName}.Sanitize())
 	buf.WriteString("(")
 	for i, header := range headers {
 		if i > 0 {
-		buf.WriteString(", ")
+			buf.WriteString(", ")
 		}
-		buf.WriteString(header)
+		buf.WriteString(pgx.Identifier{header}.Sanitize())
 		buf.WriteString(" TEXT")
 	}
 	buf.WriteString(");")

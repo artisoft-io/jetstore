@@ -45,6 +45,7 @@ class JetRuleOptimizer:
       # Check if we optimize or not the rule
       optimization = rule.get('optimization')
       if not optimization:
+        rule['authoredLabel'] = rule.get('label')
         optimized_rules.append(rule)
         continue
 
