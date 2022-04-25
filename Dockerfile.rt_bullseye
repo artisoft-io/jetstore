@@ -44,7 +44,8 @@ ARG GROUP_ID="1000"
 RUN groupadd -g ${GROUP_ID} jsuser \
     && useradd -r -u ${USER_ID} -g jsuser jsuser
 
-ENV PYTHONPATH "$PYTHONPATH:/go/lib"
+ENV PYTHONPATH "$PYTHONPATH:/go/lib:/usr/local/lib"
+ENV CLASSPATH ".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
 
 # put the argo scripts in /go/lib ?
 
@@ -82,4 +83,5 @@ RUN chown -Rc jsuser /go
 # RUN mkdir -p ${WORKSPACES_HOME} && chown jsuser ${WORKSPACES_HOME}
 # RUN mkdir -p ${WORK_HOME}/work && chown jsuser ${WORK_HOME}/work
 
+ENTRYPOINT ["python3"]
 WORKDIR ${WORK_HOME}

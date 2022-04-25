@@ -2,20 +2,29 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/artisoft-io/jetstore/jets/bridge"
 )
 
 type ReteWorkspace struct {
-	js          bridge.JetStore
-	workspaceDb string
-	lookupDb    string
-	ruleset     string
-	procConfig  *ProcessConfig
+	js            bridge.JetStore
+	workspaceDb   string
+	lookupDb      string
+	ruleset       string
+	outTables     []string
+	procConfig    *ProcessConfig
 }
 
-func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, procConfig *ProcessConfig) (*ReteWorkspace, error) {
+// Load the rete workspace database via cgo
+func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, procConfig *ProcessConfig, outTables []string) (*ReteWorkspace, error) {
 	// load the workspace db
-	reteWorkspace := ReteWorkspace{workspaceDb: workspaceDb, lookupDb: lookupDb, ruleset: ruleset, procConfig: procConfig}
+	reteWorkspace := ReteWorkspace{
+		workspaceDb:   workspaceDb,
+		lookupDb:      lookupDb,
+		ruleset:       ruleset,
+		procConfig:    procConfig,
+		outTables:     outTables,
+	}
 	js, err := bridge.LoadJetRules(workspaceDb, lookupDb)
 	if err != nil {
 		return &reteWorkspace, fmt.Errorf("while loading workspace db: %v", err)
@@ -27,6 +36,17 @@ func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, proc
 	return &reteWorkspace, err
 }
 
+func (rw *ReteWorkspace) addPredicate(domainColumns *[]DomainColumn) error {
+	for i:=0; i<len(*domainColumns); i++ {
+		domainColumn := &(*domainColumns)[i]
+		var err error
+		domainColumn.Predicate, err = rw.js.CreateResource(domainColumn.PropertyName)
+		if err != nil {
+			return fmt.Errorf("while creating predicate for DomainColumn: %v", err)
+		}
+	}
+	return nil
+}
 func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")
@@ -93,7 +113,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		if err != nil {
 			return fmt.Errorf("while asserting rule config: %v", err)
 		}
-	rw.js.InsertRuleConfig(subject, predicate, object)
+		rw.js.InsertRuleConfig(subject, predicate, object)
 	}
 	return nil
 }
