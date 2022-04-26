@@ -92,7 +92,7 @@ func (workspaceDb *WorkspaceDb)loadDomainColumnMapping() (*DomainColumnMapping, 
 		domainTablesRow.Scan(&tableKey, &tableName)
 		// read the domain table column info
 		log.Println("Reading table",tableName,"info...")
-		domainColumnsRow, err := workspaceDb.db.Query("SELECT dc.name, dp.name, dc.type, as_array FROM domain_columns dc OUTER LEFT JOIN data_property dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
+		domainColumnsRow, err := workspaceDb.db.Query("SELECT dc.name, dp.name, dc.type, dc.as_array FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
 		if err != nil {
 			return &columnMap, fmt.Errorf("while loading domain table columns info from workspace db: %v",err)
 		}
@@ -101,8 +101,10 @@ func (workspaceDb *WorkspaceDb)loadDomainColumnMapping() (*DomainColumnMapping, 
 		for domainColumnsRow.Next() { // Iterate and fetch the records from result cursor
 			var domainColumn DomainColumn
 			domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray)
+			log.Println("  - Column:",domainColumn.ColumnName,", (property",domainColumn.PropertyName,"), is_array?",domainColumn.IsArray)
 			domainColumns.Columns = append(domainColumns.Columns, domainColumn)
 		}
+		log.Println("Got",len(domainColumns.Columns),"columns")
 		columnMap[tableName] = &domainColumns
 	}
 	return &columnMap, nil

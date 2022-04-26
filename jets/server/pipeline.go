@@ -94,10 +94,6 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		}
 	}
 
-	//*
-	fmt.Println("inputDataProperties:",inputDataProperties)
-	fmt.Println("domainColumnMapping:",domainColumnMapping)
-
 	// done with the workspace db
 	workspaceMgr.Close()
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")

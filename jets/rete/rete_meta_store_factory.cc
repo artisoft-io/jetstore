@@ -269,6 +269,21 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
     this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoul(value))});
     return SQLITE_OK;
   }
+  
+  if( strcmp(type, "keyword") == 0) {
+    if( strcmp(value, "true") == 0) {
+      this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(1)});
+      return SQLITE_OK;
+    }
+    if( strcmp(value, "false") == 0) {
+      this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(0)});
+      return SQLITE_OK;
+    }
+    if( strcmp(value, "null") == 0) {
+      this->r_map_.insert({key, this->meta_graph_->rmgr()->get_null()});
+      return SQLITE_OK;
+    }
+  }
 
   LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: unknown type: "<<std::string(type);
   return SQLITE_ERROR;
