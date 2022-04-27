@@ -82,7 +82,11 @@ func doJob() error {
 		return fmt.Errorf("while processing pipeline: %v", err)
 	}
 
-	fmt.Println("The result is:",pipelineResult.inputRecordsCount)
+	fmt.Println("Input records count is:",pipelineResult.inputRecordsCount)
+	fmt.Println("Rete sessions count is:",pipelineResult.executeRulesCount)
+	for rdfType, count := range pipelineResult.outputRecordsCount {
+		fmt.Printf("Output records count for type '%s' is: %d\n",rdfType, count)
+	}
 
 	return nil
 }

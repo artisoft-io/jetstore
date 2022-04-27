@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS process_input (
     input_table text  NOT NULL,
     entity_rdf_type text NOT NULL,
     grouping_column text NOT NULL,
+    key_column text ,
     UNIQUE (process_key, input_table)
 );
 CREATE INDEX IF NOT EXISTS process_input_process_key_idx ON process_input (process_key);

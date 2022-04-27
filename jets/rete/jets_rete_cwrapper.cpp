@@ -93,6 +93,19 @@ int create_meta_resource(HJETS js_hdl, char const * name, HJR * handle)
   * handle = factory->meta_graph()->get_rmgr()->create_resource(name);
   return 0;
 }
+
+int get_meta_resource(HJETS js_hdl, char const * name, HJR * handle)
+{
+  if(not js_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  if(not factory) {
+    LOG(ERROR) << "create_meta_resource: ERROR NULL factory";
+    return -1;
+  }
+
+  * handle = factory->meta_graph()->get_rmgr()->get_resource(name);
+  return 0;
+}
 int create_meta_text(HJETS js_hdl, char const * name, HJR * handle)
 {
   if(not js_hdl) return -1;
@@ -189,8 +202,14 @@ int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle)
 
 int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
 {
-  if(not js_hdl) return -1;
-  if(not s_hdl or not p_hdl or not o_hdl) return -1;
+  if(not js_hdl) {
+    LOG(ERROR) << "ERROR: js_hdl is NULL in cwrapper";
+    return -1;
+  }
+  if(not s_hdl or not p_hdl or not o_hdl) {
+    LOG(ERROR) << "ERROR: r_hdl is NULL in cwrapper";
+    return -1;
+  }
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
@@ -211,6 +230,13 @@ int create_resource(HJRETE rete_hdl, char const * name, HJR * handle)
   if(not rete_hdl) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
   * handle = rete_session->rdf_session()->get_rmgr()->create_resource(name);
+  return 0;
+}
+int get_resource(HJRETE rete_hdl, char const * name, HJR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  * handle = rete_session->rdf_session()->get_rmgr()->get_resource(name);
   return 0;
 }
 int create_text(HJRETE rete_hdl, char const * txt, HJR * handle)

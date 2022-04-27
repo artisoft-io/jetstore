@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
-	// "sync"
+	"sync"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 // This file contains the components for coordinating
@@ -34,13 +32,18 @@ import (
 
 type pipelineResult struct {
 	inputRecordsCount  int
+	executeRulesCount  int
 	outputRecordsCount map[string]int
 }
 type readResult struct {
 	inputRecordsCount int
 	err               error
 }
-
+type execResult struct {
+	result ExecuteRulesResult
+	err error
+}
+// Main pipeline processing function
 func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	var result pipelineResult
 	done := make(chan struct{})
@@ -57,13 +60,28 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	if processInput == nil {
 		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the ProcessConfig")
 	}
+	// some bookeeping
+	err := processInput.setGroupingPos()
+	if err != nil {
+		return &result, err
+	}
+	err = processInput.setKeyPos()
+	if err != nil {
+		return &result, err
+	}
+	err = reteWorkspace.addRdfType(processInput)
+	if err != nil {
+		return &result, err
+	}
+
+	// start the read input goroutine
 	dataInputc, readResultc := readInput(dbpool, done, processInput)
 
 	// create the writeOutput channels
 	fmt.Println("Creating writeOutput channels for classes:", reteWorkspace.outTables)
-	writeOutputc := make(map[string]chan [][]string)
+	writeOutputc := make(map[string]chan []string)
 	for _, tbl := range reteWorkspace.outTables {
-		writeOutputc[tbl] = make(chan [][]string)
+		writeOutputc[tbl] = make(chan []string)
 	}
 	workspaceMgr, err := OpenWorkspaceDb(reteWorkspace.workspaceDb)
 	if err != nil {
@@ -75,20 +93,30 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	if err != nil {
 		return &result, fmt.Errorf("while loading input class data property definition from workspace db: %v",err)
 	}
-	// Add predicate to DomainColumn to inputDataProperties
+	// Add predicate to DomainColumn of inputDataProperties
 	err = reteWorkspace.addPredicate(inputDataProperties)
 	if err != nil {
 		return &result, fmt.Errorf("while adding Predicate to input data DomainColumn: %v", err)
 	}
+	// Add mapping spec to DomainColumn of inputDataProperties
+	for _, dc := range inputDataProperties {
+		for _, processMap := range processInput.processInputMapping {
+			if dc.PropertyName == processMap.dataProperty {
+				dc.mappingSpec = &processMap
+				break
+			}
+		}
+	}
 
 	// Output domain table's columns specs (map[table name]columns' spec)
-	domainColumnMapping, err := workspaceMgr.loadDomainColumnMapping()
+	// from DomainColumnMapping
+	outputMapping, err := workspaceMgr.loadDomainColumnMapping()
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v",err)
 	}
 	// add predicate to DomainColumn for each table
-	for _, domainTable := range *domainColumnMapping {
-		err = reteWorkspace.addPredicate(&domainTable.Columns)
+	for _, domainTable := range outputMapping {
+		err = reteWorkspace.addPredicate(domainTable.Columns)
 		if err != nil {
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
@@ -98,41 +126,70 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	workspaceMgr.Close()
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
 
-	// // Setup the executeRules pipeline with concurrent workers
-	// // setup a WaitGroup with the number of workers
-	// var wg sync.WaitGroup
-	// wg.Add(*poolSize)
-	// for i := 0; i < *poolSize; i++ {
-	// 	go func() {
-	// 		// rete worker:
-	// 		// need: dataInputc, processInput, domainColumnMapping, reteWorkspace, writeOutputc
-	// 		// 	- Read from dataInputc, assert into rdf graph using processInput spec, need inputTable column spec
-	// 		wg.Done()
-	// 	}()
-	// }
-	// go func() {
-	// 	wg.Wait()
-	// 	close(c) // HLc
-	// }()
-	// 	// end
-
-	// Read the results
-	//* reading the input directly for now
-	for di := range dataInputc {
-		fmt.Println("Got group of rows:")
-		for _, r := range di {
-			for _, s := range r {
-				fmt.Print(s)
-				fmt.Print(" ")
-			}
-			fmt.Println()
-		}
+	// start execute rules pipeline with concurrent workers
+	// setup a WaitGroup with the number of workers
+	// create a chanel for executor's result
+	var wg sync.WaitGroup
+	// errc: Execute Rule Result Chanel, worker's result status
+	errc := make(chan execResult)
+	ps := 1
+	if *poolSize > ps {
+		ps = *poolSize
 	}
+	wg.Add(ps)
+	for i := 0; i < ps; i++ {
+		go func() {
+			// rete worker:
+			// need: dataInputc, processInput, outputMapping, reteWorkspace, writeOutputc, errc
+			// 	- Read from dataInputc, assert into rdf graph using processInput spec, need inputTable column spec
+			//*
+			result, err := reteWorkspace.ExecuteRules(dbpool, processInput, inputDataProperties, dataInputc, outputMapping, writeOutputc)
+			errc <- execResult{result: *result, err: err}
+			wg.Done()
+		}()
+	}
+	go func() {
+		wg.Wait()
+		// Close all writeOutputc channels
+		close(errc)
+		for _,c := range writeOutputc {
+			close(c)
+		}
+	}()
+	// end execute rules pipeline
+
+	// start write2tables pipeline
+	// end write2tables pipeline
+
+	// // Read the results
+	// //* reading the input directly for now
+	// for di := range dataInputc {
+	// 	fmt.Println("Got group of rows:")
+	// 	for _, r := range di {
+	// 		for _, s := range r {
+	// 			fmt.Print(s)
+	// 			fmt.Print(" ")
+	// 		}
+	// 		fmt.Println()
+	// 	}
+	// }
+
 	// check if the data load failed
 	readResult := <-readResultc
 	result.inputRecordsCount = readResult.inputRecordsCount
+
+	// check the result of the execute rules
+	result.executeRulesCount  = 0
+	for execResult := range errc {
+		if execResult.err != nil {
+			return &result, fmt.Errorf("while execute rules: %v", execResult.err)
+		}
+		result.executeRulesCount += execResult.result.executeRulesCount
+	}
+
+	// check the result of write2tables
 	//*
-	_ = result.outputRecordsCount
+ _ = result.outputRecordsCount
 
 	if readResult.err != nil {
 		return &result, readResult.err
@@ -149,20 +206,13 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 	go func() {
 		defer close(dataInputc)
 		// prepare the sql stmt
-		stmt, nCol := makeStmt(processInput)
-		gpos := 0
-		// get the index of the grouping column
-		for i, v := range processInput.processInputMapping {
-			if v.inputColumn == processInput.groupingColumn {
-				gpos = i
-			}
-		}
+		stmt, nCol := processInput.makeSqlStmt()
 		//*
 		fmt.Println("SQL:", stmt)
-		fmt.Println("Grouping key at pos", gpos)
+		fmt.Println("Grouping key at pos", processInput.groupingPosition)
 		rows, err := dbpool.Query(context.Background(), stmt)
 		if err != nil {
-			result <- readResult{err: err}
+			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
 			return
 		}
 		defer rows.Close()
@@ -185,9 +235,9 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 				return
 			}
 			// check if grouping change
-			if rowCount == 0 || groupingValue != dataGrp[gpos] {
+			if rowCount == 0 || groupingValue != dataGrp[processInput.groupingPosition] {
 				previousGrpValue = groupingValue
-				groupingValue = dataGrp[gpos]
+				groupingValue = dataGrp[processInput.groupingPosition]
 				//*
 				fmt.Println("Grouping:", groupingValue, "start")
 				if rowCount > 0 {
@@ -222,26 +272,4 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 		result <- readResult{rowCount, nil}
 	}()
 	return dataInputc, result
-}
-
-// prepare the sql statement for readin from input table (csv)
-func makeStmt(processInput *ProcessInput) (string, int) {
-	var buf strings.Builder
-	buf.WriteString("SELECT ")
-	for i, spec := range processInput.processInputMapping {
-		if i > 0 {
-			buf.WriteString(", ")
-		}
-		col := pgx.Identifier{spec.inputColumn}
-		buf.WriteString(col.Sanitize())
-	}
-	buf.WriteString(" FROM ")
-	tbl := pgx.Identifier{processInput.inputTable}
-	buf.WriteString(tbl.Sanitize())
-	buf.WriteString(" ORDER BY ")
-	col := pgx.Identifier{processInput.groupingColumn}
-	buf.WriteString(col.Sanitize())
-	buf.WriteString(" ASC ")
-
-	return buf.String(), len(processInput.processInputMapping)
 }

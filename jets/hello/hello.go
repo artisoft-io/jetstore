@@ -18,21 +18,21 @@ func main() {
 		fmt.Println("We got a Problem:", err)
 	}
 	fmt.Println("LOADED:", jr_name)
-	rs, err := bridge.NewReteSession(js, "ms_factory_test1.jr")
+	rs, err := js.NewReteSession("ms_factory_test1.jr")
 	if err != nil {
 		fmt.Println("We got a Problem starting ReteSession:", err)
 	}
 	fmt.Println("ReteSession Started")
 
-	iClaim, err := bridge.NewResource(rs, "iclaim")
+	iClaim, err := rs.NewResource("iclaim")
 	if err != nil {
 		fmt.Println("Error NewResource:", err)
 	}
-	rdf_type, err := bridge.NewResource(rs, "rdf:type")
+	rdf_type, err := rs.NewResource("rdf:type")
 	if err != nil {
 		fmt.Println("Error NewResource:", err)
 	}
-	Claim, err := bridge.NewResource(rs, "hc:Claim")
+	Claim, err := rs.NewResource("hc:Claim")
 	if err != nil {
 		fmt.Println("Error NewResource:", err)
 	}
@@ -68,9 +68,9 @@ func main() {
 		itor.Next()
 	}
 	fmt.Println("Done, releasing iterator")
-	bridge.ReleaseIterator(itor)
+	itor.ReleaseIterator()
 
-	BaseClaim, err := bridge.NewResource(rs, "hc:BaseClaim")
+	BaseClaim, err := rs.NewResource("hc:BaseClaim")
 	if err != nil {
 		fmt.Println("Error NewResource:", err)
 	}
@@ -83,13 +83,13 @@ func main() {
 		fmt.Println("YES it's there as expected!!")
 	}
 	fmt.Println("Done for now! Releasing ReteSession")
-	err = bridge.ReleaseReteSession(rs)
+	err = rs.ReleaseReteSession()
 	if err != nil {
 		fmt.Println("Error ReleaseReteSession:", err)
 	}
 
 	fmt.Println("Releasing MetaStore")
-	err = bridge.ReleaseJetRules(js)
+	err = js.ReleaseJetRules()
 	if err != nil {
 		fmt.Println("We got a Problem while releasing jetrules:", err)
 	}
