@@ -5,7 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -39,7 +42,11 @@ type ProcessInput struct {
 	processKey          int
 	inputTable          string
 	entityRdfType       string
+	entityRdfTypeResource *bridge.Resource
 	groupingColumn      string
+	groupingPosition    int
+	keyColumn           string
+	keyPosition         int
 	processInputMapping ProcessMapSlice
 }
 
@@ -58,6 +65,49 @@ type RuleConfig struct {
 	predicate  string
 	object     string
 	rdfType    string
+}
+
+// utility methods
+// prepare the sql statement for readin from input table (csv)
+func (processInput *ProcessInput) makeSqlStmt() (string, int) {
+	var buf strings.Builder
+	buf.WriteString("SELECT ")
+	for i, spec := range processInput.processInputMapping {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		col := pgx.Identifier{spec.inputColumn}
+		buf.WriteString(col.Sanitize())
+	}
+	buf.WriteString(" FROM ")
+	tbl := pgx.Identifier{processInput.inputTable}
+	buf.WriteString(tbl.Sanitize())
+	buf.WriteString(" ORDER BY ")
+	col := pgx.Identifier{processInput.groupingColumn}
+	buf.WriteString(col.Sanitize())
+	buf.WriteString(" ASC ")
+
+	return buf.String(), len(processInput.processInputMapping)
+}
+// sets the grouping position
+func (processInput *ProcessInput) setGroupingPos() error {
+	for i, v := range processInput.processInputMapping {
+		if v.inputColumn == processInput.groupingColumn {
+			processInput.groupingPosition = i
+			return nil
+		}
+	}
+	return fmt.Errorf("ERROR ProcessInput grouping column: %s is not found among the input columns", processInput.groupingColumn)
+}
+// sets the record key position
+func (processInput *ProcessInput) setKeyPos() error {
+	for i, v := range processInput.processInputMapping {
+		if v.inputColumn == processInput.keyColumn {
+			processInput.keyPosition = i
+			return nil
+		}
+	}
+	return fmt.Errorf("ERROR ProcessInput key column: %s is not found among the input columns", processInput.keyColumn)
 }
 
 // main read function
@@ -86,7 +136,7 @@ func (pc *ProcessConfig) read(dbpool *pgxpool.Pool, pcKey int) error {
 
 // read input table definitions
 func (processInputs *ProcessInputSlice) read(dbpool *pgxpool.Pool, pcKey int) error {
-	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_table, entity_rdf_type, grouping_column FROM process_input WHERE process_key = $1", *procConfigKey)
+	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_table, entity_rdf_type, grouping_column, key_column FROM process_input WHERE process_key = $1", *procConfigKey)
 	if err != nil {
 		return err
 	}
@@ -95,7 +145,7 @@ func (processInputs *ProcessInputSlice) read(dbpool *pgxpool.Pool, pcKey int) er
 	// Loop through rows, using Scan to assign column data to struct fields.
 	for rows.Next() {
 		var pi ProcessInput
-		if err := rows.Scan(&pi.key, &pi.processKey, &pi.inputTable, &pi.entityRdfType, &pi.groupingColumn); err != nil {
+		if err := rows.Scan(&pi.key, &pi.processKey, &pi.inputTable, &pi.entityRdfType, &pi.groupingColumn, &pi.keyColumn); err != nil {
 			return err
 		}
 

@@ -24,6 +24,7 @@ typedef void const* HJR;
 int create_null(HJETS js_hdl, HJR * handle);
 int create_meta_blanknode(HJETS js_hdl, int v, HJR * handle);
 int create_meta_resource(HJETS js_hdl, char const * name, HJR * handle);
+int get_meta_resource(HJETS js_hdl, char const * name, HJR * handle);
 int create_meta_text(HJETS js_hdl, char const * name, HJR * handle);
 int create_meta_int(HJETS js_hdl, int v, HJR * handle);
 int create_meta_uint(HJETS js_hdl, uint v, HJR * handle);
@@ -38,6 +39,7 @@ int insert_meta_graph(HJETS js_hdl, HJR s, HJR p, HJR o);
 // Creating resources and literals
 int create_blanknode(HJRETE rete_hdl, int v, HJR * handle);
 int create_resource(HJRETE rete_hdl, char const * name, HJR * handle);
+int get_resource(HJRETE rete_hdl, char const * name, HJR * handle);
 int create_text(HJRETE rete_hdl, char const * name, HJR * handle);
 int create_int(HJRETE rete_hdl, int v, HJR * handle);
 int create_uint(HJRETE rete_hdl, uint v, HJR * handle);

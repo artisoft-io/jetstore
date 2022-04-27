@@ -5,9 +5,9 @@ INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALU
   (2, 'M2C', 'Test M2C file', 'm2c:Claim')
 RETURNING key;
 
-INSERT INTO process_input (key, process_key, input_table, entity_rdf_type, grouping_column) VALUES
-  (1, 1, 'test1', 'hc:Claim', 'MEMBER_NUMBER'),
-  (2, 2, 'm2c__input1', 'm2c:Claim', 'COL2')
+INSERT INTO process_input (key, process_key, input_table, entity_rdf_type, grouping_column, key_column) VALUES
+  (1, 1, 'test1', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER'),
+  (2, 2, 'm2c__input1', 'm2c:Claim', 'COL2', NULL)
 ;
 
 INSERT INTO process_mapping (process_input_key, input_column, data_property, function_name, argument, default_value) VALUES
