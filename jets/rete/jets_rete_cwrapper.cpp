@@ -406,6 +406,39 @@ int find_all(HJRETE rete_hdl, HJITERATOR * handle)
   return 0;
 }
 
+int find(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl, HJITERATOR * handle)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto const* p =  static_cast<r_index>(p_hdl);
+  auto const* o =  static_cast<r_index>(o_hdl);
+  auto * itor = rete_session->rdf_session()->new_find(s, p, o);
+  *handle = itor;
+  return 0;
+}
+
+int find_sp(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJITERATOR * handle)
+{
+  if(not rete_hdl or not s_hdl or not p_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto const* p =  static_cast<r_index>(p_hdl);
+  auto * itor = rete_session->rdf_session()->new_find(s, p);
+  *handle = itor;
+  return 0;
+}
+
+int find_s(HJRETE rete_hdl, HJR s_hdl, HJITERATOR * handle)
+{
+  if(not rete_hdl or not s_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto * itor = rete_session->rdf_session()->new_find(s);
+  *handle = itor;
+  return 0;
+}
+
 int is_end(HJITERATOR handle)
 {
   if(not handle) return -1;
