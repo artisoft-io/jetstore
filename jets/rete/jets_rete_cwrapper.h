@@ -67,6 +67,9 @@ int execute_rules(HJRETE rete_hdl);
 typedef void* HJITERATOR;
 
 int find_all(HJRETE rete_hdl, HJITERATOR * handle);
+int find(HJRETE rete_hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
+int find_s(HJRETE rete_hdl, HJR s, HJITERATOR * handle);
+int find_sp(HJRETE rete_hdl, HJR s, HJR p, HJITERATOR * handle);
 // int find_asserted(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
 // int find_inferred(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
 int is_end(HJITERATOR handle);

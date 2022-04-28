@@ -39,6 +39,8 @@ type Resource struct {
 //   case rdf_literal_uint64_t   :6 return rdf_literal_uint64_t;
 //   case rdf_literal_double_t   :7 return rdf_literal_double_t;
 //   case rdf_literal_string_t   :8 return rdf_literal_string_t;
+//   case rdf_literal_date_t     :9 return rdf_literal_date_t;
+//   case rdf_literal_datetime_t :10 return rdf_literal_datetime_t;
 
 func LoadJetRules(rete_db_path string, lookup_db_path string) (*JetStore, error) {
 	var js JetStore
@@ -206,6 +208,9 @@ func (js *JetStore) NewDatetimeLiteral(value string) (*Resource, error) {
 
 // assert triple in meta graph
 func (js *JetStore) InsertRuleConfig(s *Resource, p *Resource, o *Resource) (int, error) {
+	if s==nil || p==nil || o==nil {
+		return 0, fmt.Errorf("ERROR cannot have null args when calling InsertRuleConfig")
+	}
 	ret := int(C.insert_meta_graph(js.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in JetStore.InsertRuleConfig ret code", ret)
@@ -353,7 +358,7 @@ func (r *Resource) GetInt() (int, error) {
 func (r *Resource) GetText() (string, error) {
 	// rdf_literal_string_t
 	if r.GetType() != 8 {
-		return "", errors.New("ERROR GetText applies to resources only")
+		return "", errors.New("ERROR GetText applies to text literal only")
 	}
 	return C.GoString(C.go_get_text_literal(r.hdl)), nil
 }
@@ -382,13 +387,16 @@ func (r *Resource) AsText() string {
 		}
 		return v
 	default:
-		fmt.Printf("ERROR, Unexpected Resource type: %d.\n", rtype)
+		fmt.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
 		return "ERROR!"
 	}
 }
 
 // ReteSession Insert
 func (rs *ReteSession) Insert(s *Resource, p *Resource, o *Resource) (int, error) {
+	if s==nil || p==nil || o==nil {
+		return 0, fmt.Errorf("ERROR cannot have null args when calling Insert")
+	}
 	ret := int(C.insert(rs.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in ReteSession.Insert ret code", ret)
@@ -398,7 +406,10 @@ func (rs *ReteSession) Insert(s *Resource, p *Resource, o *Resource) (int, error
 }
 // ReteSession Contains
 func (rs *ReteSession) Contains(s *Resource, p *Resource, o *Resource) (int, error) {
-	ret := int(C.contains(rs.hdl, s.hdl,p.hdl, o.hdl))
+	if s==nil || p==nil || o==nil {
+		return 0, fmt.Errorf("ERROR cannot have null args when calling Contains")
+	}
+	ret := int(C.contains(rs.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in ReteSession.Contains ret code", ret)
 		return ret, errors.New("ERROR calling Contains(), ret code: "+fmt.Sprint(ret))
@@ -421,6 +432,47 @@ func (rs *ReteSession) FindAll() (*RSIterator, error) {
 	if ret < 0 {
 		fmt.Println("ERROR in ReteSession.FindAll ret code", ret)
 		return &itor, errors.New("ERROR calling FindAll(), ret code: "+string(rune(ret)))
+	}
+	return &itor, nil
+}
+// ReteSession Find
+func (rs *ReteSession) Find(s *Resource, p *Resource, o *Resource) (*RSIterator, error) {
+	var itor RSIterator
+	var cs, cp, co C.HJR
+	if s != nil {cs = s.hdl}
+	if p != nil {cp = p.hdl}
+	if o != nil {co = o.hdl}
+
+	ret := int(C.find(rs.hdl, cs, cp, co, &itor.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in ReteSession.Find ret code", ret)
+		return &itor, errors.New("ERROR calling Find(), ret code: "+string(rune(ret)))
+	}
+	return &itor, nil
+}
+func (rs *ReteSession) Find_s(s *Resource) (*RSIterator, error) {
+	var itor RSIterator
+	if s == nil {
+		return &itor, fmt.Errorf("ERROR cannot have null args when calling Find_s")
+	}
+
+	ret := int(C.find_s(rs.hdl, s.hdl, &itor.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in ReteSession.Find ret code", ret)
+		return &itor, errors.New("ERROR calling Find(), ret code: "+string(rune(ret)))
+	}
+	return &itor, nil
+}
+func (rs *ReteSession) Find_sp(s *Resource, p *Resource) (*RSIterator, error) {
+	var itor RSIterator
+	if s == nil || p == nil {
+		return &itor, fmt.Errorf("ERROR cannot have null args when calling Find_sp")
+	}
+
+	ret := int(C.find_sp(rs.hdl, s.hdl, p.hdl, &itor.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in ReteSession.Find_sp ret code", ret)
+		return &itor, errors.New("ERROR calling Find_sp(), ret code: "+string(rune(ret)))
 	}
 	return &itor, nil
 }

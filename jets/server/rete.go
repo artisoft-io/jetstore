@@ -32,11 +32,11 @@ func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, proc
 		procConfig:  procConfig,
 		outTables:   outTables,
 	}
-	js, err := bridge.LoadJetRules(workspaceDb, lookupDb)
+	var err error
+	reteWorkspace.js, err = bridge.LoadJetRules(workspaceDb, lookupDb)
 	if err != nil {
 		return &reteWorkspace, fmt.Errorf("while loading workspace db: %v", err)
 	}
-	reteWorkspace.js = js
 
 	// assert the rule config triples to meta graph
 	err = reteWorkspace.assertRuleConfig()
@@ -47,9 +47,8 @@ func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, proc
 func (rw *ReteWorkspace) ExecuteRules(
 	dbpool *pgxpool.Pool,
 	processInput *ProcessInput,
-	inputDataProperties []DomainColumn,
 	dataInputc <-chan [][]string,
-	outputMapping DomainColumnMapping,
+	outputSpecs OutputTableSpecs,
 	writeOutputc map[string]chan []string) (*ExecuteRulesResult, error) {
 	var result ExecuteRulesResult
 	// for each msg in dataInput:
@@ -62,7 +61,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	// ---------------------------
 	// get the grouping column position
 	log.Println("Execute Rule Started")
-	ncol := len(inputDataProperties)
+	ncol := len(processInput.processInputMapping)
 	rdfType, err := rw.js.GetResource("rdf:type")
 	if err != nil {
 		return &result, fmt.Errorf("while creating rdf:type resource: %v", err)
@@ -78,7 +77,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if len(row) == 0 {
 				continue
 			}
-			log.Println("Asserting Row")
 			jets__key := row[processInput.keyPosition]
 			subject, err := reteSession.NewResource(jets__key)
 			if err != nil {
@@ -87,23 +85,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if subject == nil || rdfType == nil || processInput.entityRdfTypeResource == nil {
 				return &result, fmt.Errorf("while asserting row rdf type")
 			}
-			ret, err := reteSession.Insert(subject, rdfType, processInput.entityRdfTypeResource)
+			_, err = reteSession.Insert(subject, rdfType, processInput.entityRdfTypeResource)
 			if err != nil {
 				return &result, fmt.Errorf("while asserting row rdf type: %v", err)
 			}
-			if ret > 0 {
-				log.Println("Row rdf:type asserted!")
-			}
 			for icol := 0; icol < ncol; icol++ {
 				// asserting input row with mapping spec (make it conditional via func)
-				inputColumn := &inputDataProperties[icol]
-				if inputColumn.mappingSpec == nil {
-					log.Println("ERROR MappingSpec is null")
-					return &result, fmt.Errorf("ERROR mappingSpec is null")
-				}
+				inputColumnSpec := &processInput.processInputMapping[icol]
 				var obj string
-				if inputColumn.mappingSpec.functionName.Valid {
-					switch inputColumn.mappingSpec.functionName.String {
+				if inputColumnSpec.functionName.Valid {
+					switch inputColumnSpec.functionName.String {
 					case "to_upper":
 						obj = strings.ToUpper(row[icol])
 					case "to_zip5":
@@ -112,7 +103,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					case "scale_units":
 					case "parse_amount":
 					default:
-						return &result, fmt.Errorf("ERROR unknown mapping function: %s", inputColumn.mappingSpec.functionName.String)
+						return &result, fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
 					}
 
 				} else {
@@ -122,7 +113,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// switch inputColumn.DataType {
 				var object *bridge.Resource
 				var err error
-				switch inputColumn.DataType {
+				switch inputColumnSpec.rdfType {
 				// case "null":
 				// 	object, err = rw.js.NewNull()
 				case "resource":
@@ -183,53 +174,108 @@ func (rw *ReteWorkspace) ExecuteRules(
 				case "datetime":
 					object, err = reteSession.NewDatetimeLiteral(obj)
 				default:
-					err = fmt.Errorf("ERROR assertRuleConfig: unknown rdf type for object: %s", inputColumn.DataType)
+					err = fmt.Errorf("ERROR assertRuleConfig: unknown rdf type for object: %s", inputColumnSpec.rdfType)
 				}
-				if err != nil || len(obj)==0 {
+				if err != nil || len(obj) == 0 {
 					//* try the default value
 					return &result, fmt.Errorf("while mapping input value: %v", err)
 				}
 				if subject == nil {
 					return &result, fmt.Errorf("ERROR subject is null")
 				}
-				if inputColumn.Predicate == nil {
+				if inputColumnSpec.predicate == nil {
 					return &result, fmt.Errorf("ERROR predicate is null")
 				}
 				if object == nil {
 					return &result, fmt.Errorf("ERROR object is null")
 				}
-				reteSession.Insert(subject, inputColumn.Predicate, object)
+				_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
+				if err != nil {
+					return &result, fmt.Errorf("while asserting triple to rete sesson: %v", err)
+				}
 			}
-			// done asserting
-			err = reteSession.ExecuteRules()
+		}
+		// done asserting
+		err = reteSession.ExecuteRules()
+		if err != nil {
+			return &result, fmt.Errorf("while reteSession.ExecuteRules: %v", err)
+		}
+		log.Println("ExecuteRule() Completed sucessfully")
+		// pulling the data out of the rete session
+		for tableName, tableSpec := range outputSpecs {
+			// extract entities by rdf type
+			ctor, err := reteSession.Find(nil, rdfType, tableSpec.ClassResource)
 			if err != nil {
-				return &result, fmt.Errorf("while reteSession.ExecuteRules: %v", err)
+				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.ClassName, err)
 			}
-			log.Println("ExecuteRule() Completed sucessfully")
-			result.executeRulesCount += 1
+			defer ctor.ReleaseIterator()
+			for !ctor.IsEnd() {
+				subject := ctor.GetSubject()
+				log.Println("Found entity with subject:",subject.AsText())
+				itor, err := reteSession.Find_s(subject)
+				if err != nil {
+					return &result, fmt.Errorf("while finding all triples of an entity of type %s: %v", tableSpec.ClassName, err)
+				}
+				for !itor.IsEnd() {
+					log.Printf("  %s: (%s, %s, %s)\n", tableName, 
+						itor.GetSubject().AsText(),
+						itor.GetPredicate().AsText(),
+						itor.GetObject().AsText())
+					itor.Next()
+				}
+				itor.ReleaseIterator()
+	
+				ctor.Next()
+			}
+
 		}
 
+		result.executeRulesCount += 1
 	}
 	return &result, nil
 }
 
-// helper function to add meta graph resource corresponding to column names
-func (rw *ReteWorkspace) addPredicate(domainColumns []DomainColumn) error {
-	for _, dc := range domainColumns {
+// addOutputClassResource: Add the rdf resource to DomainTable for output table
+func (rw *ReteWorkspace) addOutputClassResource(domainTable *DomainTable) error {
+	var err error
+	domainTable.ClassResource, err = rw.js.NewResource(domainTable.ClassName)
+	if err != nil {
+		return fmt.Errorf("while adding class resource to DomainTable: %v", err)
+	}
+	return nil
+}
+// addOutputPredicate: add meta graph resource corresponding to output column names
+func (rw *ReteWorkspace) addOutputPredicate(domainColumns []DomainColumn) error {
+	for ipos := range domainColumns {
 		var err error
-		dc.Predicate, err = rw.js.NewResource(dc.PropertyName)
+		domainColumns[ipos].Predicate, err = rw.js.NewResource(domainColumns[ipos].PropertyName)
 		if err != nil {
-			return fmt.Errorf("while creating predicate for DomainColumn: %v", err)
+			return fmt.Errorf("while adding predicate to DomainColumn: %v", err)
 		}
 	}
 	return nil
 }
+
+// addInputPredicate: add meta graph resource corresponding to input column names
+func (rw *ReteWorkspace) addInputPredicate(inputColumns []ProcessMap) error {
+	for ipos := range inputColumns {
+		var err error
+		inputColumns[ipos].predicate, err = rw.js.NewResource(inputColumns[ipos].dataProperty)
+		if err != nil {
+			return fmt.Errorf("while adding predicate to ProcessMap: %v", err)
+		}
+	}
+	return nil
+}
+
+// addRdfType: Add rdf type resource to input entity metadata
 func (rw *ReteWorkspace) addRdfType(processInput *ProcessInput) error {
 	var err error
 	processInput.entityRdfTypeResource, err = rw.js.NewResource(processInput.entityRdfType)
 	return err
 }
 
+// assertRuleConfig: assert rule config triples to metadata graph
 func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")

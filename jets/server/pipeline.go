@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
 // This file contains the components for coordinating
 // the server processing as a continuous pipeline.
 // This is based on https://github.com/lotusirous/go-concurrency-patterns
@@ -22,7 +23,7 @@ import (
 //	- Setup the executeRules:
 //		- Start a pool of goroutines, reading from dataInputc channel
 //		- done channel is closed when the pipeline is stopped prematurely
-//		- map[string]chan channels, one for each output table, are populated with []string; output records for table
+//		- map[string]chan channels, one for each output table, key is table name, are populated with []string; output records for table
 //		- execResult channel capture the result of execute_rules on the input data (struct with counts and err flag)
 //	- Setup the writeOutputc channels:
 //		- Start a pool of goroutines, each reading from a map[string]chan, where the key is the table name
@@ -41,8 +42,9 @@ type readResult struct {
 }
 type execResult struct {
 	result ExecuteRulesResult
-	err error
+	err    error
 }
+
 // Main pipeline processing function
 func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	var result pipelineResult
@@ -60,8 +62,14 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	if processInput == nil {
 		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the ProcessConfig")
 	}
+	workspaceMgr, err := OpenWorkspaceDb(reteWorkspace.workspaceDb)
+	if err != nil {
+		return &result, fmt.Errorf("while opening workspace db: %v", err)
+	}
+	defer workspaceMgr.Close()
+
 	// some bookeeping
-	err := processInput.setGroupingPos()
+	err = processInput.setGroupingPos()
 	if err != nil {
 		return &result, err
 	}
@@ -73,57 +81,74 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	if err != nil {
 		return &result, err
 	}
+	err = reteWorkspace.addInputPredicate(processInput.processInputMapping)
+	if err != nil {
+		return &result, err
+	}
+	err = workspaceMgr.addRdfType(processInput.processInputMapping)
+	if err != nil {
+		return &result, err
+	}
 
 	// start the read input goroutine
 	dataInputc, readResultc := readInput(dbpool, done, processInput)
 
 	// create the writeOutput channels
-	fmt.Println("Creating writeOutput channels for classes:", reteWorkspace.outTables)
+	fmt.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
 	writeOutputc := make(map[string]chan []string)
 	for _, tbl := range reteWorkspace.outTables {
+		log.Println("Creating output channel for out table:", tbl)
 		writeOutputc[tbl] = make(chan []string)
 	}
-	workspaceMgr, err := OpenWorkspaceDb(reteWorkspace.workspaceDb)
-	if err != nil {
-		return &result, fmt.Errorf("while opening workspace db: %v", err)
-	}
 
-	// Input table's columns' spec for asserting input rows into graph
-	inputDataProperties, err := workspaceMgr.loadDataProperties(processInput.entityRdfType)
-	if err != nil {
-		return &result, fmt.Errorf("while loading input class data property definition from workspace db: %v",err)
+	//*
+	fmt.Println("processInputMapping is complete, len is", len(processInput.processInputMapping))
+	for icol := range processInput.processInputMapping {
+		fmt.Println(
+			"inputColumn:", processInput.processInputMapping[icol].inputColumn,
+			"dataProperty:", processInput.processInputMapping[icol].dataProperty,
+			"predicate:", processInput.processInputMapping[icol].predicate,
+			"rdfType:", processInput.processInputMapping[icol].rdfType,
+			"functionName:", processInput.processInputMapping[icol].functionName.String,
+			"argument:", processInput.processInputMapping[icol].argument.String,
+			"defaultValue:", processInput.processInputMapping[icol].defaultValue.String)
 	}
-	// Add predicate to DomainColumn of inputDataProperties
-	err = reteWorkspace.addPredicate(inputDataProperties)
-	if err != nil {
-		return &result, fmt.Errorf("while adding Predicate to input data DomainColumn: %v", err)
-	}
-	// Add mapping spec to DomainColumn of inputDataProperties
-	for _, dc := range inputDataProperties {
-		for _, processMap := range processInput.processInputMapping {
-			if dc.PropertyName == processMap.dataProperty {
-				dc.mappingSpec = &processMap
-				break
-			}
-		}
-	}
+	//*
 
 	// Output domain table's columns specs (map[table name]columns' spec)
-	// from DomainColumnMapping
+	// from OutputTableSpecs
 	outputMapping, err := workspaceMgr.loadDomainColumnMapping()
 	if err != nil {
-		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v",err)
-	}
-	// add predicate to DomainColumn for each table
+		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
+	}	
+	// add class rdf type to output table (to select triples from graph)
+	// add predicate to DomainColumn for each output table
 	for _, domainTable := range outputMapping {
-		err = reteWorkspace.addPredicate(domainTable.Columns)
+		err = reteWorkspace.addOutputClassResource(domainTable)
+		if err != nil {
+			return &result, fmt.Errorf("while adding class resourse to output DomainTable: %v", err)
+		}
+		err = reteWorkspace.addOutputPredicate(domainTable.Columns)
 		if err != nil {
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
 	}
 
-	// done with the workspace db
-	workspaceMgr.Close()
+	//*
+	fmt.Println("outputMapping is complete, len is", len(outputMapping))
+	for cname, domainTbl := range outputMapping {
+		fmt.Println("  Output table:", cname)
+		for icol := range domainTbl.Columns {
+			fmt.Println(
+				"PropertyName:", domainTbl.Columns[icol].PropertyName,
+				"ColumnName:", domainTbl.Columns[icol].ColumnName,
+				"Predicate:", domainTbl.Columns[icol].Predicate,
+				"DataType:", domainTbl.Columns[icol].DataType,
+				"IsArray:", domainTbl.Columns[icol].IsArray)
+		}
+	}
+	//*
+
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
 
 	// start execute rules pipeline with concurrent workers
@@ -139,47 +164,38 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	wg.Add(ps)
 	for i := 0; i < ps; i++ {
 		go func() {
-			// rete worker:
-			// need: dataInputc, processInput, outputMapping, reteWorkspace, writeOutputc, errc
-			// 	- Read from dataInputc, assert into rdf graph using processInput spec, need inputTable column spec
-			//*
-			result, err := reteWorkspace.ExecuteRules(dbpool, processInput, inputDataProperties, dataInputc, outputMapping, writeOutputc)
+			// Start the execute rules workers
+			result, err := reteWorkspace.ExecuteRules(dbpool, processInput, dataInputc, outputMapping, writeOutputc)
+			if err != nil {
+				err = fmt.Errorf("while execute rules: %v", err)
+				log.Println(err)
+			}
 			errc <- execResult{result: *result, err: err}
 			wg.Done()
 		}()
 	}
 	go func() {
 		wg.Wait()
-		// Close all writeOutputc channels
+		log.Println("Close all writeOutputc channels...")
 		close(errc)
-		for _,c := range writeOutputc {
+		for _, c := range writeOutputc {
 			close(c)
 		}
+		log.Println("...done closing writeOutputc")
 	}()
 	// end execute rules pipeline
 
 	// start write2tables pipeline
 	// end write2tables pipeline
 
-	// // Read the results
-	// //* reading the input directly for now
-	// for di := range dataInputc {
-	// 	fmt.Println("Got group of rows:")
-	// 	for _, r := range di {
-	// 		for _, s := range r {
-	// 			fmt.Print(s)
-	// 			fmt.Print(" ")
-	// 		}
-	// 		fmt.Println()
-	// 	}
-	// }
-
 	// check if the data load failed
+	log.Println("Checking if data load failed...")
 	readResult := <-readResultc
 	result.inputRecordsCount = readResult.inputRecordsCount
 
 	// check the result of the execute rules
-	result.executeRulesCount  = 0
+	log.Println("Checking results of execute rules...")
+	result.executeRulesCount = 0
 	for execResult := range errc {
 		if execResult.err != nil {
 			return &result, fmt.Errorf("while execute rules: %v", execResult.err)
@@ -188,10 +204,12 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}
 
 	// check the result of write2tables
+	log.Println("Checking results of write2tables...")
 	//*
- _ = result.outputRecordsCount
+	_ = result.outputRecordsCount
 
 	if readResult.err != nil {
+		log.Println(fmt.Errorf("data load failed: %v", readResult.err))
 		return &result, readResult.err
 	}
 
@@ -246,7 +264,7 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 					// send previous grouping
 					select {
 					case dataInputc <- dataGrps:
-						dataGrps = make([][]string, 1)
+						dataGrps = make([][]string, 0)
 					case <-done:
 						result <- readResult{rowCount, errors.New("data load from input table canceled")}
 						return

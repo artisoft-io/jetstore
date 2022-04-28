@@ -190,6 +190,40 @@ class RDFSession {
     );
   }
 
+  inline Iterator *
+  new_find(r_index s, r_index p, r_index o) const 
+  {
+    AllOrRIndex s_, p_, o_;
+    if(s) s_ = s;
+    if(p) p_ = p;
+    if(o) o_ = o;
+    return new Iterator(
+      asserted_graph_->find(s_, p_, o_),
+      inferred_graph_->find(s_, p_, o_),
+      meta_graph_->find(s_, p_, o_)
+    );
+  }
+
+  inline Iterator *
+  new_find(r_index s) const 
+  {
+    return new Iterator(
+      asserted_graph_->find(s),
+      inferred_graph_->find(s),
+      meta_graph_->find(s)
+    );
+  }
+
+  inline Iterator *
+  new_find(r_index s, r_index p) const 
+  {
+    return new Iterator(
+      asserted_graph_->find(s, p),
+      inferred_graph_->find(s, p),
+      meta_graph_->find(s, p)
+    );
+  }
+
   inline Iterator 
   find(r_index s) const 
   {

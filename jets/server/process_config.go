@@ -54,6 +54,8 @@ type ProcessMap struct {
 	processInputKey int
 	inputColumn     string
 	dataProperty    string
+	predicate       *bridge.Resource
+	rdfType  				string // populated from workspace.db
 	functionName    sql.NullString
 	argument        sql.NullString
 	defaultValue    sql.NullString
