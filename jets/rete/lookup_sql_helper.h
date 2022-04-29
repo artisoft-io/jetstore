@@ -187,6 +187,7 @@ class LookupTable {
       return -1;
     }
     this->db_pool_.put_connection(lc);
+    VLOG(1) << "LookupTable '" << this->lookup_name_ <<"' initialized";
     return 0;
   }
 

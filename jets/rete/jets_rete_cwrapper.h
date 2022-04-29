@@ -58,20 +58,25 @@ char const* go_get_resource_name(HJR handle);
 int get_int_literal(HJR handle, int*);
 int get_text_literal(HJR handle, HSTR*);
 char const* go_get_text_literal(HJR handle);
+int get_date_details(HJR hdl, int* year, int* month, int* day);
+char const* go_date_iso_string(HJR handle);
+char const* go_datetime_iso_string(HJR handle);
+
 
 // main functions
 int insert(HJRETE rete_hdl, HJR s, HJR p, HJR o);
 int contains(HJRETE rete_hdl, HJR s, HJR p, HJR o);
 int execute_rules(HJRETE rete_hdl);
-
+int dump_rdf_graph(HJRETE rete_hdl);
 typedef void* HJITERATOR;
 
 int find_all(HJRETE rete_hdl, HJITERATOR * handle);
 int find(HJRETE rete_hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
 int find_s(HJRETE rete_hdl, HJR s, HJITERATOR * handle);
 int find_sp(HJRETE rete_hdl, HJR s, HJR p, HJITERATOR * handle);
-// int find_asserted(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
-// int find_inferred(HJRETE * rete_hdl, HJR * s, HJR * p, HJR * o, HJITERATOR ** handle);
+int find_object(HJRETE rete_hdl, HJR s, HJR p, HJR * handle);
+// int find_asserted(HJRETE rete_hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
+// int find_inferred(HJRETE rete_hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
 int is_end(HJITERATOR handle);
 int next(HJITERATOR handle);
 int get_subject(HJITERATOR itor_hdl, HJR * handle);

@@ -66,6 +66,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while creating rdf:type resource: %v", err)
 	}
+	// jetsKey, err := rw.js.GetResource("jets:key")
+	// if err != nil {
+	// 	return &result, fmt.Errorf("while creating jets:key resource: %v", err)
+	// }
 	for inputRecords := range dataInputc {
 		log.Println("Start Rete Session")
 		reteSession, err := rw.js.NewReteSession(*ruleset)
@@ -201,6 +205,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 			return &result, fmt.Errorf("while reteSession.ExecuteRules: %v", err)
 		}
 		log.Println("ExecuteRule() Completed sucessfully")
+		reteSession.DumpRdfGraph()
+
 		// pulling the data out of the rete session
 		for tableName, tableSpec := range outputSpecs {
 			// extract entities by rdf type
@@ -212,22 +218,50 @@ func (rw *ReteWorkspace) ExecuteRules(
 			for !ctor.IsEnd() {
 				subject := ctor.GetSubject()
 				log.Println("Found entity with subject:",subject.AsText())
-				itor, err := reteSession.Find_s(subject)
-				if err != nil {
-					return &result, fmt.Errorf("while finding all triples of an entity of type %s: %v", tableSpec.ClassName, err)
+				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
+				ncol := len(tableSpec.Columns)
+				entityRow := make([]string, ncol)
+				for i:=0; i<ncol; i++ {
+					domainColumn := &tableSpec.Columns[i]
+					if domainColumn.IsArray {
+						itor, err := reteSession.Find_sp(subject, domainColumn.Predicate)
+						if err != nil {
+							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
+						}
+						var buf strings.Builder
+						buf.WriteString("{")
+						isFirst := true
+						for !itor.IsEnd() {
+							buf.WriteString(itor.GetObject().AsText())
+							if !isFirst {
+								buf.WriteString(",")
+							}
+							isFirst = false
+							itor.Next()
+						}
+						buf.WriteString("}")
+						entityRow[i] = buf.String()
+						//*
+						log.Println("Extract p:",domainColumn.PropertyName,"o:",entityRow[i])
+						itor.ReleaseIterator()
+					} else {
+						obj, err := reteSession.GetObject(subject, domainColumn.Predicate)
+						if err != nil {
+							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
+						}
+						if obj != nil {
+							entityRow[i] = obj.AsText()
+						} else {
+							entityRow[i] = "NULL"
+						}
+						//*
+						log.Println("Extract p:",domainColumn.PropertyName,"o:",entityRow[i])
+					}
 				}
-				for !itor.IsEnd() {
-					log.Printf("  %s: (%s, %s, %s)\n", tableName, 
-						itor.GetSubject().AsText(),
-						itor.GetPredicate().AsText(),
-						itor.GetObject().AsText())
-					itor.Next()
-				}
-				itor.ReleaseIterator()
-	
+				// entityRow is complete
+				writeOutputc[tableName] <- entityRow
 				ctor.Next()
 			}
-
 		}
 
 		result.executeRulesCount += 1
@@ -285,7 +319,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		if err != nil {
 			return fmt.Errorf("while asserting rule config (NewResource): %v", err)
 		}
-		predicate, err := rw.js.NewResource(t3.subject)
+		predicate, err := rw.js.NewResource(t3.predicate)
 		if err != nil {
 			return fmt.Errorf("while asserting rule config (NewResource): %v", err)
 		}

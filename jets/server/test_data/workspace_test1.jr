@@ -79,4 +79,4 @@ volatile_resource lkrow = "lkrow";
 # ---------------------------------------------------------------------------------------
 @JetCompilerDirective extract_resources_from_rules = "true";
 
-triple(iState, rdf:type, jets:State);
+triple(jets:iState, rdf:type, jets:State);

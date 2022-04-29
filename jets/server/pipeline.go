@@ -44,6 +44,10 @@ type execResult struct {
 	result ExecuteRulesResult
 	err    error
 }
+type writeResult struct {
+	result WriteTableResult
+	err    error
+}
 
 // Main pipeline processing function
 func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
@@ -185,7 +189,32 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}()
 	// end execute rules pipeline
 
-	// start write2tables pipeline
+	// start write2tables pipeline that reads from writeOutputc
+	// setup a WaitGroup with the number of workers,
+	// each worker is assigned to an output table
+	// create a chanel for executor's result
+	var wg2 sync.WaitGroup
+	// wtrc: Write Table Result Chanel, worker's result status
+	wtrc := make(chan writeResult)
+	ps2 := len(outputMapping)
+	wg2.Add(ps2)
+	// for i := 0; i < ps2; i++ {
+	for tblName, tblSpec := range outputMapping {
+		go func(tableName string, tableSpec *DomainTable) {
+			// Start the write table workers
+			result, err := tableSpec.writeTable(dbpool, writeOutputc[tableName])
+			if err != nil {
+				err = fmt.Errorf("while execute rules: %v", err)
+				log.Println(err)
+			}
+			wtrc <- writeResult{result: *result, err: err}
+			wg2.Done()
+		}(tblName, tblSpec)
+	}
+	go func() {
+		wg2.Wait()
+		close(wtrc)
+	}()
 	// end write2tables pipeline
 
 	// check if the data load failed
@@ -205,8 +234,14 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 	// check the result of write2tables
 	log.Println("Checking results of write2tables...")
-	//*
-	_ = result.outputRecordsCount
+	result.outputRecordsCount = make(map[string]int)
+	//*TODO read from result chan
+	for writerResult := range wtrc {
+		if writerResult.err != nil {
+			return &result, fmt.Errorf("while writing table: %v", writerResult.err)
+		}
+		result.outputRecordsCount[writerResult.result.tableName] += writerResult.result.recordCount
+	}
 
 	if readResult.err != nil {
 		log.Println(fmt.Errorf("data load failed: %v", readResult.err))

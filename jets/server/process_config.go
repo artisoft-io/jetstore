@@ -70,7 +70,7 @@ type RuleConfig struct {
 }
 
 // utility methods
-// prepare the sql statement for readin from input table (csv)
+// prepare the sql statement for reading from input table (csv)
 func (processInput *ProcessInput) makeSqlStmt() (string, int) {
 	var buf strings.Builder
 	buf.WriteString("SELECT ")

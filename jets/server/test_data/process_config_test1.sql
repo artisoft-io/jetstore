@@ -22,7 +22,7 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
 ;
 
 INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALUES
-  (1, 'iState', 'lk:withModifier', 'true', 'bool'),
+  (1, 'jets:iState', 'lk:withModifier', 'true', 'bool'),
   (2, 'subject2', 'predicate1', 'object1', 'int'),
   (2, 'subject2', 'predicate2', 'object2', 'date')
 ;
