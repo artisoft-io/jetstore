@@ -62,7 +62,7 @@ go build server.go process_config.go rete.go pipeline.go workspace.go
 ```
 Execute the process:
 ```
-./server -dsn="postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres" -table=test1 -lookup_db test_data/lookup_test1.db -outTable=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
+./server -dsn="postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres" -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
 ```
 Execute the process with c++ logging:
 ```
