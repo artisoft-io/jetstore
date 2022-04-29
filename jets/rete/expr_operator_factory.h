@@ -85,7 +85,7 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "to_upper")          return create_expr_unary_operator<To_upperVisitor>(key, arg);
   if(op == "to_lower")          return create_expr_unary_operator<To_lowerVisitor>(key, arg);
   if(op == "trim")              return create_expr_unary_operator<TrimVisitor>(key, arg);
-  if(op == "lenght_of")         return create_expr_unary_operator<LengthOfVisitor>(key, arg);
+  if(op == "length_of")         return create_expr_unary_operator<LengthOfVisitor>(key, arg);
   if(op == "parse_usd_currency") return create_expr_unary_operator<ParseUsdCurrencyVisitor>(key, arg);
 
   // Resource operators
