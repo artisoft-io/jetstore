@@ -116,7 +116,7 @@ struct ContainsVisitor: public boost::static_visitor<RDFTTYPE>
 struct LengthOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
   LengthOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T>RDFTTYPE operator()(T lhs)const{RETE_EXCEPTION("Invalid arguments for lenght_of: ("<<lhs<<")");};
+  template<class T>RDFTTYPE operator()(T lhs)const{RETE_EXCEPTION("Invalid arguments for length_of: ("<<lhs<<")");};
   RDFTTYPE operator()(rdf::LString lhs)const
   {
     return rdf::LInt32(lhs.data.size());
