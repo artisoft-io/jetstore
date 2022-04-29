@@ -28,6 +28,13 @@ type RSIterator struct {
 type Resource struct {
 	hdl C.HJR
 }
+
+var (
+	NotDate = errors.New("not a date")
+	NotValidDate = errors.New("not a valid date")
+	NotValidDateTime = errors.New("not a valid datetime")
+)
+
 // ResourceType
 // switch (r->which()) {
 //   case rdf_null_t             :0 return rdf_null_t;
@@ -355,6 +362,41 @@ func (r *Resource) GetInt() (int, error) {
 	return int(*ptr), nil
 }
 
+func (r *Resource) GetDateIsoString() string {
+	// rdf_literal_date_t
+	if r.GetType() != 9 {
+		return ""
+	}
+	return C.GoString(C.go_date_iso_string(r.hdl))
+}
+
+func (r *Resource) GetDatetimeIsoString() string {
+	// rdf_literal_date_t
+	if r.GetType() != 10 {
+		return ""
+	}
+	return C.GoString(C.go_datetime_iso_string(r.hdl))
+}
+
+func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {
+	// rdf_literal_date_t
+	if r.GetType() != 9 {
+		err = NotDate
+		return 
+	}
+	var yptr, mptr, dptr *C.int
+	ret := int(C.get_date_details(r.hdl, yptr, mptr, dptr))
+	if ret == -2 {
+		fmt.Println("ERROR in GetDateDetails: date is not a valid date")
+		err = NotValidDate
+		return 
+	}
+	y = int(*yptr)
+	m = int(*mptr)
+	d = int(*dptr)
+	return 
+}
+
 func (r *Resource) GetText() (string, error) {
 	// rdf_literal_string_t
 	if r.GetType() != 8 {
@@ -364,6 +406,9 @@ func (r *Resource) GetText() (string, error) {
 }
 
 func (r *Resource) AsText() string {
+	if r == nil {
+		return "NULL"
+	}
 	switch rtype := r.GetType(); rtype {
 	case 0: return "NULL"
 	case 1: return "BN:"
@@ -386,6 +431,18 @@ func (r *Resource) AsText() string {
 			fmt.Println("ERROR Can't GetText", err)
 		}
 		return v
+	case 9: 
+		// y, m, d, err := r.GetDateDetails()
+		// if err == NotDate {
+		// 	return "not a date"
+		// }
+		// if err == NotValidDate {
+		// 	return "not a valid date"
+		// }
+		// return fmt.Sprintf("%d-%d-%d", y, m, d)
+		return r.GetDateIsoString()
+	case 10: 
+		return r.GetDatetimeIsoString()
 	default:
 		fmt.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
 		return "ERROR!"
@@ -422,6 +479,15 @@ func (rs *ReteSession) ExecuteRules() error {
 	if ret < 0 {
 		fmt.Println("ERROR in ReteSession.ExecuteRules ret code", ret)
 		return errors.New("ERROR calling ExecuteRules(), ret code: "+fmt.Sprint(ret))
+	}
+	return nil
+}
+// ReteSession DumpRdfGraph
+func (rs *ReteSession) DumpRdfGraph() error {
+	ret := int(C.dump_rdf_graph(rs.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in ReteSession.DumpRdfGraph ret code", ret)
+		return errors.New("ERROR calling DumpRdfGraph(), ret code: "+fmt.Sprint(ret))
 	}
 	return nil
 }
@@ -476,6 +542,22 @@ func (rs *ReteSession) Find_sp(s *Resource, p *Resource) (*RSIterator, error) {
 	}
 	return &itor, nil
 }
+func (rs *ReteSession) GetObject(s *Resource, p *Resource) (*Resource, error) {
+	var obj Resource
+	if s == nil || p == nil {
+		return &obj, fmt.Errorf("ERROR cannot have null args when calling GetObject")
+	}
+	ret := int(C.find_object(rs.hdl, s.hdl, p.hdl, &obj.hdl));
+	if ret < 0 {
+		fmt.Println("ERROR in GetObject ret code", ret)
+		return &obj, errors.New("ERROR calling GetObject(), ret code: "+string(rune(ret)))
+	}
+	if obj.hdl == nil {
+		return nil, nil
+	}
+	return &obj, nil
+}
+
 // RSIterator IsEnd
 func (itor *RSIterator) IsEnd() bool {
 	ret := int(C.is_end(itor.hdl))

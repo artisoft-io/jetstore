@@ -154,7 +154,6 @@ class BetaRow {
 inline bool 
 operator==(BetaRow const& rhs)const
 { 
-  VLOG(1)<<"** operator BetaRow == BetaRow called";
   auto sz = this->get_size();
   if(sz != rhs.get_size()) return false;
 

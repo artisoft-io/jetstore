@@ -71,7 +71,7 @@ class AlphaNodeImpl: public AlphaNode {
     rdf::r_index u = fu_.to_cst();
     rdf::r_index v = fv_.to_cst();
     rdf::r_index w = fw_.to_cst();
-    VLOG(1)<<"AlphaNode::register callback @ alpha node "<<get_key()<<" for vertex "<<vertex<<" with pattern "<<rdf::Triple(u, v, w);
+    VLOG(2)<<"AlphaNode::register callback @ alpha node "<<get_key()<<" for vertex "<<vertex<<" with pattern "<<rdf::Triple(u, v, w);
     rete_session->rdf_session()->inferred_graph()->register_callback(
       create_rete_callback(rete_session, vertex, u, v, w));
     return 0;

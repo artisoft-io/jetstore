@@ -9,7 +9,7 @@ docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --bui
 docker build --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t antlr4:latest -f Dockerfile.antlr4 . 
 ```
 
-## Building the dev image
+## Running the dev image
 docker run -it --rm -u `id -u`:`id -g` \
     -v /home/michel/projects/repos/jetstore:/home/michel/projects/repos/jetstore \
     -v /home/michel/projects/repos/RC-Workspace:/workspaces \

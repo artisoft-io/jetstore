@@ -203,6 +203,37 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.ERROR, False)
     self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
 
+  def test_rule_with_null1(self):
+    data = """
+      # =======================================================================================
+      # Testing the null keyword in a rule filter
+      resource rdf:type = "rdf:type";
+      resource acme:Claim = "acme:Claim";
+      resource acme:CodeClaim = "acme:CodeClaim";
+      resource code = "code";
+
+      [RuleNull1]: 
+        (?clm01 rdf:type acme:Claim).
+        (?clm01 code ?code).
+        [not(?code == null)]
+        ->
+        (?clm01 rdf:type acme:CodeClaim).
+      ;
+    """
+    jetrule_ctx = self._get_augmented_data(data)
+
+    if jetrule_ctx.ERROR:
+      print("GOT ERROR!")
+    for err in jetrule_ctx.errors:
+      print('***', err)
+    
+    expected = ""
+    print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
+    print()
+    print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
+    self.assertEqual(jetrule_ctx.ERROR, False)
+    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+
   def test_class_def1(self):
     fname = "classes_test.jr"
     in_provider = InputProvider('test_data')

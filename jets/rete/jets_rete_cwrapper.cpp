@@ -349,6 +349,55 @@ int get_int_literal(HJR handle, int*v)
   }
 }
 
+int get_date_details(HJR hdl, int* year, int* month, int* day)
+{
+  if(not hdl) return -1;
+  auto const* r =  static_cast<r_index>(hdl);
+  switch (r->which()) {
+  case rdf_literal_date_t: 
+    {
+      date const& d = boost::get<LDate>(r)->data; 
+      if(d.is_not_a_date()) return -2;
+      date::ymd_type ymd = d.year_month_day();
+      *year = ymd.year;
+      *month = ymd.month;
+      *day = ymd.day;
+    }
+    return 0;
+  default: return -1;
+  }
+}
+
+char const* go_date_iso_string(HJR handle)
+{
+  if(not handle) return nullptr;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_literal_date_t: 
+    {
+      date const& d = boost::get<LDate>(r)->data; 
+      if(d.is_not_a_date()) return nullptr;
+      return boost::gregorian::to_iso_extended_string(d).c_str();
+    }
+  default: return nullptr;
+  }
+}
+
+char const* go_datetime_iso_string(HJR handle)
+{
+  if(not handle) return nullptr;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_literal_datetime_t: 
+    {
+      datetime const& d = boost::get<LDatetime>(r)->data; 
+      if(d.is_not_a_date_time()) return nullptr;
+      return boost::posix_time::to_iso_extended_string(d).c_str();
+    }
+  default: return nullptr;
+  }
+}
+
 int get_text_literal(HJR handle, HSTR*v)
 {
   if(not handle) return -1;
@@ -394,7 +443,18 @@ int execute_rules(HJRETE rete_hdl)
 {
   if(not rete_hdl) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  //*
+  std::cout<<"C: Calling rete_session execute_rules..."<<std::endl;
   return rete_session->execute_rules();
+}
+
+int dump_rdf_graph(HJRETE rete_hdl)
+{
+  if(not rete_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  std::cout << "RDF Session Contains:"<<std::endl;
+  std::cout << rete_session->rdf_session()<<"---"<<std::endl;
+  return 0;
 }
 
 int find_all(HJRETE rete_hdl, HJITERATOR * handle)
@@ -426,6 +486,17 @@ int find_sp(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJITERATOR * handle)
   auto const* p =  static_cast<r_index>(p_hdl);
   auto * itor = rete_session->rdf_session()->new_find(s, p);
   *handle = itor;
+  return 0;
+}
+
+int find_object(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR * handle)
+{
+  if(not rete_hdl or not s_hdl or not p_hdl) return -1;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto const* p =  static_cast<r_index>(p_hdl);
+  auto * obj = rete_session->rdf_session()->get_object(s, p);
+  *handle = obj;
   return 0;
 }
 

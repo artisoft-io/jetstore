@@ -199,6 +199,53 @@ class ReteMetaStoreFactory {
   }
 
   int
+  load_meta_triples()
+  {
+    auto const* sql = "SELECT subject_key, predicate_key, object_key FROM triples";
+
+    sqlite3_stmt* stmt;
+    int res = sqlite3_prepare_v2( this->db_, sql, -1, &stmt, 0 );
+    if ( res != SQLITE_OK ) {
+      return res;
+    }
+
+    bool is_done = false;
+    while(not is_done) {
+      res = sqlite3_step( stmt );
+      if ( res == SQLITE_DONE ) {
+        is_done = true;
+        continue;
+      }
+      if(res != SQLITE_ROW) {
+        LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: SQL error while load_meta_triples: " << res;
+        return res;
+      }
+      // Get the data out of the row and in the meta_graph
+      int skey = sqlite3_column_int( stmt, 0 );
+      int pkey = sqlite3_column_int( stmt, 1 );
+      int okey = sqlite3_column_int( stmt, 2 );
+      auto stor = this->r_map_.find(skey);
+      if (stor == this->r_map_.end()) {
+        LOG(ERROR) << "ReteMetaStoreFactory::load_meta_triples: subject key not found in resource map, key: " << skey;
+        return -1;
+      }
+      auto ptor = this->r_map_.find(pkey);
+      if (ptor == this->r_map_.end()) {
+        LOG(ERROR) << "ReteMetaStoreFactory::load_meta_triples: predicate key not found in resource map, key: " << pkey;
+        return -1;
+      }
+      auto otor = this->r_map_.find(okey);
+      if (otor == this->r_map_.end()) {
+        LOG(ERROR) << "ReteMetaStoreFactory::load_meta_triples: object key not found in resource map, key: " << okey;
+        return -1;
+      }
+      this->meta_graph_->insert(stor->second, ptor->second, otor->second);
+    }
+    sqlite3_finalize( stmt );
+    return 0;
+  }
+
+  int
   load_node_vertexes(int file_key, NodeVertexVector & node_vertexes);
 
   int

@@ -34,8 +34,7 @@ ReteMetaStoreFactory::ReteMetaStoreFactory()
 int
 ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db)
 {
-  //*
-  VLOG(1) << "Current path is " << std::filesystem::current_path() << std::endl;
+  VLOG(1) << "Current path is " << std::filesystem::current_path();
   // Open database -- check that db exists
   this->jetrule_rete_db_ = jetrule_rete_db;
   this->lookup_data_db_ = lookup_data_db;
@@ -94,17 +93,19 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     return res;
   }
 
+  // load meta data triples
+  res = this->load_meta_triples();
+  if(res) {
+    return res;
+  }
+  
   // Load LookupSqlHelper
   auto lookup_sql_helper = create_lookup_sql_helper(this->jetrule_rete_db_, this->lookup_data_db_);
   lookup_sql_helper->initialize(this->meta_graph_.get());
 
   // Load each main rule file as a ReteMetaStore
   for(auto const& item: this->jr_map_) {
-    VLOG(1)<< "Loading file key: "<<item.second;
     int file_key = item.second;
-
-    //*
-    VLOG(1) << "Loading vertexes for file_key "<< file_key;
 
     // Load the node_vertexes
     NodeVertexVector node_vertexes;
@@ -112,9 +113,6 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     if ( res != SQLITE_OK ) {
       return res;
     }
-
-    //*
-    VLOG(1) << "Loading alpha nodes for file_key "<< file_key;
 
     // Load the alpha nodes
     AlphaNodeVector alpha_nodes;
@@ -130,14 +128,9 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     this->ms_map_.insert({file_key, rete_meta_store});
   }
 
-  //*
-  // Waiting on locking meta_graph until all operators are integrated
-  // Lock the meta graph and it's associated RManager
-  // this->meta_graph_->rmgr()->set_locked();
-  // this->meta_graph_->set_locked();
-
   // All good!, release the stmts and db connection
   VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
+  VLOG(1)<< "The meta graph contains:"<<std::endl<<this->meta_graph() <<"---"<<std::endl;
   return this->reset();
 }
 
@@ -340,9 +333,6 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     int parent_vertex      = get_column_int_value( this->node_vertexes_stmt_, 9  );   //  INTEGER,
     int is_negation        = get_column_int_value( this->node_vertexes_stmt_, 11 );   //  INTEGER,
     int salience           = get_column_int_value( this->node_vertexes_stmt_, 12 );   //  INTEGER,
-
-    //*
-    VLOG(1) << "Loading vertex: "<< vertex <<", with key "<<key << std::endl;
     
     // validation
     if(vertex<0 or parent_vertex<0) {
@@ -366,9 +356,6 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     std::string_view normalized_label("");
     if(nlabel) normalized_label = nlabel;
 
-    //*
-    if(filter_expr_key >= 0) VLOG(1) << "Creating filter with key: "<< filter_expr_key << std::endl;
-
     // Create Filter
     ExprBasePtr filter{};
     res = this->create_expr(filter_expr_key, filter);
@@ -377,9 +364,6 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
         "SQL error while reading expressions table: " << res;
       return res;
     }
-
-    //*
-    VLOG(1) << "Creating beta row initializer, vertex "<< vertex << std::endl;
 
     // Create BetaRowInitializer
     // load all seq for (vertex, file_key)
@@ -391,9 +375,6 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
         ", file key "<<file_key;
       return res;
     }
-
-    //*
-    VLOG(1) << "Creating NodeVertex @ "<<key<<", vertex "<< vertex << ", parent vertex "<< parent_vertex << std::endl;
     if(node_vertexes.size()<1) {
       LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: " <<
         "Error node_vertexes.size()<1 for vertex " << vertex << 
@@ -408,8 +389,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
       create_node_vertex(parent_index, key, vertex, 
         is_negation, salience, filter, normalized_label, beta_row_initializer));
   }
-  //*
-  VLOG(1) << "Got "<<node_vertexes.size()<<" NodeVertexes " << std::endl;
+  VLOG(2) << "Got "<<node_vertexes.size()<<" NodeVertexes ";
   return SQLITE_OK;
 }
 
@@ -484,8 +464,6 @@ ReteMetaStoreFactory::load_alpha_nodes(int file_key, NodeVertexVector const& nod
       LOG(ERROR) << "ERROR subject_key or predicate_key is null in load alpha_node";
       return -1;
     }
-
-    VLOG(1)<<"Creating AlphaNode: "<<type<<" is_antecedent?"<<is_antecedent<<" ("<<subject_key<<", "<<predicate_key<<", "<<object_key<<")";
 
     auto fu = this->create_func_factory(subject_key);
     auto fv = this->create_func_factory(predicate_key);
