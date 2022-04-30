@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"unsafe"
 )
 
@@ -440,6 +441,46 @@ func (r *Resource) AsText() string {
 		// 	return "not a valid date"
 		// }
 		// return fmt.Sprintf("%d-%d-%d", y, m, d)
+		return r.GetDateIsoString()
+	case 10: 
+		return r.GetDatetimeIsoString()
+	default:
+		fmt.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
+		return "ERROR!"
+	}
+}
+
+func quoteString(str string) string {
+	return "'" + strings.ReplaceAll(str, "'", "''") + "'"
+}
+
+func (r *Resource) AsSQLText() string {
+	if r == nil {
+		return "NULL"
+	}
+	switch rtype := r.GetType(); rtype {
+	case 0: return "NULL"
+	case 1: return "'BN:'"
+	case 2: 
+		v, err := r.GetName()
+		if err != nil {
+			fmt.Println("ERROR Can't GetName", err)
+			return "ERROR!"
+		}
+		return quoteString(v)
+	case 3: 
+		v, err := r.GetInt()
+		if err != nil {
+			fmt.Println("ERROR Can't GetInt", err)
+		}
+		return strconv.Itoa(v)
+	case 8: 
+		v, err := r.GetText()
+		if err != nil {
+			fmt.Println("ERROR Can't GetText", err)
+		}
+		return quoteString(v)
+	case 9: 
 		return r.GetDateIsoString()
 	case 10: 
 		return r.GetDatetimeIsoString()

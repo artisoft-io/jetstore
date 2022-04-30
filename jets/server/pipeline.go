@@ -99,10 +99,10 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 	// create the writeOutput channels
 	fmt.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
-	writeOutputc := make(map[string]chan []string)
+	writeOutputc := make(map[string]chan []interface{})
 	for _, tbl := range reteWorkspace.outTables {
 		log.Println("Creating output channel for out table:", tbl)
-		writeOutputc[tbl] = make(chan []string)
+		writeOutputc[tbl] = make(chan []interface{})
 	}
 
 	//*

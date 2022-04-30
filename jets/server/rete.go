@@ -49,7 +49,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	processInput *ProcessInput,
 	dataInputc <-chan [][]string,
 	outputSpecs OutputTableSpecs,
-	writeOutputc map[string]chan []string) (*ExecuteRulesResult, error) {
+	writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
 	var result ExecuteRulesResult
 	// for each msg in dataInput:
 	// 	- start a rete session,
@@ -220,7 +220,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				log.Println("Found entity with subject:",subject.AsText())
 				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
 				ncol := len(tableSpec.Columns)
-				entityRow := make([]string, ncol)
+				entityRow := make([]interface{}, ncol)
 				for i:=0; i<ncol; i++ {
 					domainColumn := &tableSpec.Columns[i]
 					if domainColumn.IsArray {
@@ -232,7 +232,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 						buf.WriteString("{")
 						isFirst := true
 						for !itor.IsEnd() {
-							buf.WriteString(itor.GetObject().AsText())
+							buf.WriteString(itor.GetObject().AsSQLText())
 							if !isFirst {
 								buf.WriteString(",")
 							}
@@ -250,7 +250,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 						}
 						if obj != nil {
-							entityRow[i] = obj.AsText()
+							entityRow[i] = obj.AsSQLText()
 						} else {
 							entityRow[i] = "NULL"
 						}

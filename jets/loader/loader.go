@@ -145,11 +145,11 @@ func processFile() error {
 			badRowsWriter.WriteRune(reader.Comma)
 		}
 		badRowsWriter.WriteString(header)
-		validHeader, err := makeValid(header)
-		if err != nil {
-			return fmt.Errorf("input csv file contains an invalid header: %s", header)
-		}
-		headers = append(headers, validHeader)
+		// validHeader, err := makeValid(header)
+		// if err != nil {
+		// 	return fmt.Errorf("input csv file contains an invalid header: %s", header)
+		// }
+		headers = append(headers, header)
 	}
 	_, err = badRowsWriter.WriteRune('\n')
 	if err != nil {
