@@ -19,7 +19,7 @@ type WriteTableResult struct {
 
 
 // DomainTable methods for writing output entity records to postgres
-func (domainTable *DomainTable) writeTable(dbpool *pgxpool.Pool, inputc <-chan []string) (*WriteTableResult, error) {
+func (domainTable *DomainTable) writeTable(dbpool *pgxpool.Pool, inputc <-chan []interface{}) (*WriteTableResult, error) {
 	var result WriteTableResult
 	log.Println("Write Table Started")
 	// prepare sql
@@ -28,7 +28,11 @@ func (domainTable *DomainTable) writeTable(dbpool *pgxpool.Pool, inputc <-chan [
 	recCount := 0
 	for row := range inputc {
 		recCount += 1
-		log.Printf("ROW(%d): %s", len(row), strings.Join(row, ","))
+		rowstr := make([]string, len(row))
+		for i := range row {
+			rowstr[i] = row[i].(string)
+		}
+		log.Printf("ROW(%d): %s", len(row), strings.Join(rowstr, ","))
 	}
 	result.tableName = domainTable.TableName
 	result.recordCount = recCount
