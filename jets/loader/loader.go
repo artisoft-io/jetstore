@@ -172,6 +172,7 @@ func processFile() error {
 			for i, v := range record {
 				copyRec[i] = v
 			}
+			fmt.Println("COPY REC:",copyRec)
 			inputRows = append(inputRows, copyRec)
 		}
 	}
