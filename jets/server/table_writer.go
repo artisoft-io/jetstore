@@ -9,6 +9,7 @@ import (
 
 	// "sync"
 
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -19,7 +20,7 @@ type WriteTableResult struct {
 
 
 // DomainTable methods for writing output entity records to postgres
-func (domainTable *DomainTable) writeTable(dbpool *pgxpool.Pool, inputc <-chan []interface{}) (*WriteTableResult, error) {
+func writeTable(dbpool *pgxpool.Pool, domainTable *workspace.DomainTable, inputc <-chan []interface{}) (*WriteTableResult, error) {
 	var result WriteTableResult
 	log.Println("Write Table Started")
 	// prepare sql

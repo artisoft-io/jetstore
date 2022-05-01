@@ -7,6 +7,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -66,7 +67,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	if processInput == nil {
 		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the ProcessConfig")
 	}
-	workspaceMgr, err := OpenWorkspaceDb(reteWorkspace.workspaceDb)
+	workspaceMgr, err := workspace.OpenWorkspaceDb(reteWorkspace.workspaceDb)
 	if err != nil {
 		return &result, fmt.Errorf("while opening workspace db: %v", err)
 	}
@@ -81,7 +82,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	if err != nil {
 		return &result, err
 	}
-	err = reteWorkspace.addRdfType(processInput)
+	err = reteWorkspace.addEntityRdfType(processInput)
 	if err != nil {
 		return &result, err
 	}
@@ -89,9 +90,14 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	if err != nil {
 		return &result, err
 	}
-	err = workspaceMgr.addRdfType(processInput.processInputMapping)
-	if err != nil {
-		return &result, err
+	// Add range rdf type to data properties used in mapping spec
+	pm := processInput.processInputMapping // pm: ProcessMapSlice from process_config.go
+	for ipos := range pm {
+		dp := pm[ipos].dataProperty
+		pm[ipos].rdfType, err = workspaceMgr.GetRangeDataType(dp)
+		if err != nil {
+			return &result, fmt.Errorf("while adding range type to data property %s: %v", dp, err)
+		}
 	}
 
 	// start the read input goroutine
@@ -121,7 +127,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
-	outputMapping, err := workspaceMgr.loadDomainColumnMapping()
+	outputMapping, err := workspaceMgr.LoadDomainColumnMapping()
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
 	}	
@@ -200,9 +206,9 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	wg2.Add(ps2)
 	// for i := 0; i < ps2; i++ {
 	for tblName, tblSpec := range outputMapping {
-		go func(tableName string, tableSpec *DomainTable) {
+		go func(tableName string, tableSpec *workspace.DomainTable) {
 			// Start the write table workers
-			result, err := tableSpec.writeTable(dbpool, writeOutputc[tableName])
+			result, err := writeTable(dbpool, tableSpec, writeOutputc[tableName])
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)

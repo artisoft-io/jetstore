@@ -57,32 +57,6 @@ func tableExists(dbpool *pgxpool.Pool) ( exists bool, err error) {
 func isValidName(name string) bool {
 	return !strings.ContainsAny(name, "=;\t\n ")
 }
-func makeValid(name string) (string, error) {
-	pos := 0
-	badName := false
-	dropInvalid := func(r rune) rune {
-		pos += 1
-		switch {
-		case r >= 'A' && r <= 'Z':
-			return r
-		case r >= 'a' && r <= 'z':
-			return r
-		case pos>1 && r >= '0' && r <= '9':
-			return r
-		case r == '_':
-			return r
-		}
-		if pos == 1 {
-			badName = true
-		}
-		return -1
-	}
-	resultval := strings.Map(dropInvalid, name)
-	if badName {
-		return resultval, errors.New("bad header name")
-	}
-	return resultval, nil
-}
 
 func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{*tblName}.Sanitize())
@@ -145,10 +119,6 @@ func processFile() error {
 			badRowsWriter.WriteRune(reader.Comma)
 		}
 		badRowsWriter.WriteString(header)
-		// validHeader, err := makeValid(header)
-		// if err != nil {
-		// 	return fmt.Errorf("input csv file contains an invalid header: %s", header)
-		// }
 		headers = append(headers, header)
 	}
 	_, err = badRowsWriter.WriteRune('\n')

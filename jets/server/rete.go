@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -48,7 +49,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	dbpool *pgxpool.Pool,
 	processInput *ProcessInput,
 	dataInputc <-chan [][]string,
-	outputSpecs OutputTableSpecs,
+	outputSpecs workspace.OutputTableSpecs,
 	writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
 	var result ExecuteRulesResult
 	// for each msg in dataInput:
@@ -270,7 +271,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 }
 
 // addOutputClassResource: Add the rdf resource to DomainTable for output table
-func (rw *ReteWorkspace) addOutputClassResource(domainTable *DomainTable) error {
+func (rw *ReteWorkspace) addOutputClassResource(domainTable *workspace.DomainTable) error {
 	var err error
 	domainTable.ClassResource, err = rw.js.NewResource(domainTable.ClassName)
 	if err != nil {
@@ -279,7 +280,7 @@ func (rw *ReteWorkspace) addOutputClassResource(domainTable *DomainTable) error 
 	return nil
 }
 // addOutputPredicate: add meta graph resource corresponding to output column names
-func (rw *ReteWorkspace) addOutputPredicate(domainColumns []DomainColumn) error {
+func (rw *ReteWorkspace) addOutputPredicate(domainColumns []workspace.DomainColumn) error {
 	for ipos := range domainColumns {
 		var err error
 		domainColumns[ipos].Predicate, err = rw.js.NewResource(domainColumns[ipos].PropertyName)
@@ -302,8 +303,8 @@ func (rw *ReteWorkspace) addInputPredicate(inputColumns []ProcessMap) error {
 	return nil
 }
 
-// addRdfType: Add rdf type resource to input entity metadata
-func (rw *ReteWorkspace) addRdfType(processInput *ProcessInput) error {
+// addEntityRdfType: Add rdf type resource to input entity metadata
+func (rw *ReteWorkspace) addEntityRdfType(processInput *ProcessInput) error {
 	var err error
 	processInput.entityRdfTypeResource, err = rw.js.NewResource(processInput.entityRdfType)
 	return err
