@@ -93,6 +93,8 @@ func doJob() error {
 
 func main() {
 	flag.Parse()
+
+	// validate command line arguments
 	hasErr := false
 	var errMsg []string
 	if *procConfigKey == 0 {
