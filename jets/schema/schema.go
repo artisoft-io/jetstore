@@ -140,10 +140,8 @@ func toPgType(dt string) string {
 		return "bigint"
 	case "double":
 		return "double precision"
-	case "resource", "volatile_resource":
+	case "resource", "volatile_resource", "date", "datetime":
 		return "text"
-	case "datetime":
-		return "timestamp without time zone"
 	default:
 		return dt // date, text
 	}
