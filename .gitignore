@@ -56,3 +56,4 @@ jets/server/server
 jets/loader/loader
 jets/hello/hello
 jets/copytest/copytest
+jets/update_db/update_db

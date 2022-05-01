@@ -26,7 +26,8 @@ var lookupDb = flag.String("lookupDb", "", "lookup data path")
 var ruleset = flag.String("ruleset", "", "main rule set name (required)")
 var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
-var sessionId = flag.String("sessId", "", "Process session ID used to link entitied processed together.")
+var sessionId = flag.String("sessionId", "", "Process session ID used to link entitied processed together.")
+var shardId = flag.Int("shardId", 0, "Shard id for the processing node.")
 var outTables = flag.String("outTables", "", "Comma-separed list of output tables (required).")
 var outTableSlice []string
 
@@ -132,6 +133,7 @@ func main() {
 	fmt.Printf("Got procConfigKey: %d\n", *procConfigKey)
 	fmt.Printf("Got poolSize: %d\n", *poolSize)
 	fmt.Printf("Got sessionId: %s\n", *sessionId)
+	fmt.Printf("Got shardId: %d\n", *shardId)
 	fmt.Printf("Got workspaceDb: %s\n", *workspaceDb)
 	fmt.Printf("Got lookupDb: %s\n", *lookupDb)
 	fmt.Printf("Got ruleset: %s\n", *ruleset)

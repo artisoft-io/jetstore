@@ -207,6 +207,14 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 		log.Println("ExecuteRule() Completed sucessfully")
 		reteSession.DumpRdfGraph()
+		var sid string
+		if sessionId!=nil && len(*sessionId)>0 {
+			sid = *sessionId
+		}
+		shard := 0
+		if shardId != nil {
+			shard = *shardId
+		}
 
 		// pulling the data out of the rete session
 		for tableName, tableSpec := range outputSpecs {
@@ -224,39 +232,33 @@ func (rw *ReteWorkspace) ExecuteRules(
 				entityRow := make([]interface{}, ncol)
 				for i:=0; i<ncol; i++ {
 					domainColumn := &tableSpec.Columns[i]
-					if domainColumn.IsArray {
-						itor, err := reteSession.Find_sp(subject, domainColumn.Predicate)
-						if err != nil {
-							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
-						}
-						var buf strings.Builder
-						buf.WriteString("{")
-						isFirst := true
-						for !itor.IsEnd() {
-							buf.WriteString(itor.GetObject().AsSQLText())
-							if !isFirst {
-								buf.WriteString(",")
+					switch domainColumn.ColumnName {
+					case "session_id":
+						entityRow[i] = sid
+					case "shard_id":
+						entityRow[i] = shard
+					default:
+						if domainColumn.IsArray {
+							itor, err := reteSession.Find_sp(subject, domainColumn.Predicate)
+							if err != nil {
+								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 							}
-							isFirst = false
-							itor.Next()
-						}
-						buf.WriteString("}")
-						entityRow[i] = buf.String()
-						//*
-						log.Println("Extract p:",domainColumn.PropertyName,"o:",entityRow[i])
-						itor.ReleaseIterator()
-					} else {
-						obj, err := reteSession.GetObject(subject, domainColumn.Predicate)
-						if err != nil {
-							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
-						}
-						if obj != nil {
-							entityRow[i] = obj.AsSQLText()
+							var data []interface{}
+							for !itor.IsEnd() {
+								data = append(data, itor.GetObject().AsInterface())
+								itor.Next()
+							}
+							entityRow[i] = data
+							itor.ReleaseIterator()
 						} else {
-							entityRow[i] = "NULL"
+							obj, err := reteSession.GetObject(subject, domainColumn.Predicate)
+							if err != nil {
+								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
+							}
+							if obj != nil {
+								entityRow[i] = obj.AsInterface()
+							}
 						}
-						//*
-						log.Println("Extract p:",domainColumn.PropertyName,"o:",entityRow[i])
 					}
 				}
 				// entityRow is complete
