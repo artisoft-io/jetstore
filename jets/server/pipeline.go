@@ -35,7 +35,7 @@ import (
 type pipelineResult struct {
 	inputRecordsCount  int
 	executeRulesCount  int
-	outputRecordsCount map[string]int
+	outputRecordsCount map[string]int64
 }
 type readResult struct {
 	inputRecordsCount int
@@ -133,6 +133,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}	
 	// add class rdf type to output table (to select triples from graph)
 	// add predicate to DomainColumn for each output table
+	// add columns for session_id and shard_id
 	for _, domainTable := range outputMapping {
 		err = reteWorkspace.addOutputClassResource(domainTable)
 		if err != nil {
@@ -142,6 +143,10 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		if err != nil {
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
+		sessionCol := workspace.DomainColumn{ColumnName: "session_id", DataType: "text", IsArray: false}
+		domainTable.Columns = append(domainTable.Columns, sessionCol)
+		shardCol := workspace.DomainColumn{ColumnName: "shard_id", DataType: "int", IsArray: false}
+		domainTable.Columns = append(domainTable.Columns, shardCol)
 	}
 
 	//*
@@ -208,7 +213,8 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	for tblName, tblSpec := range outputMapping {
 		go func(tableName string, tableSpec *workspace.DomainTable) {
 			// Start the write table workers
-			result, err := writeTable(dbpool, tableSpec, writeOutputc[tableName])
+			source := WriteTableSource{source: writeOutputc[tableName]}
+			result, err := source.writeTable(dbpool, tableSpec)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)
@@ -240,7 +246,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 	// check the result of write2tables
 	log.Println("Checking results of write2tables...")
-	result.outputRecordsCount = make(map[string]int)
+	result.outputRecordsCount = make(map[string]int64)
 	//*TODO read from result chan
 	for writerResult := range wtrc {
 		if writerResult.err != nil {

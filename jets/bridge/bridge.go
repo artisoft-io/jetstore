@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
+	// "strings"
 	"unsafe"
 )
 
@@ -450,36 +450,32 @@ func (r *Resource) AsText() string {
 	}
 }
 
-func quoteString(str string) string {
-	return "'" + strings.ReplaceAll(str, "'", "''") + "'"
-}
-
-func (r *Resource) AsSQLText() string {
+func (r *Resource) AsInterface() interface{} {
 	if r == nil {
-		return "NULL"
+		return nil
 	}
 	switch rtype := r.GetType(); rtype {
-	case 0: return "NULL"
-	case 1: return "'BN:'"
+	case 0: return nil
+	case 1: return "BN:"
 	case 2: 
 		v, err := r.GetName()
 		if err != nil {
 			fmt.Println("ERROR Can't GetName", err)
 			return "ERROR!"
 		}
-		return quoteString(v)
+		return v
 	case 3: 
 		v, err := r.GetInt()
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)
 		}
-		return strconv.Itoa(v)
+		return v
 	case 8: 
 		v, err := r.GetText()
 		if err != nil {
 			fmt.Println("ERROR Can't GetText", err)
 		}
-		return quoteString(v)
+		return v
 	case 9: 
 		return r.GetDateIsoString()
 	case 10: 
