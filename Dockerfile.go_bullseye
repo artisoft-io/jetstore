@@ -172,7 +172,7 @@ RUN go mod download
 RUN go install jetstore/jets/loader
 RUN go install jetstore/jets/server
 RUN go install jetstore/jets/bridge
-RUN go install jetstore/jets/hello
+RUN go install jetstore/jets/update_db
 
 
 # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### # ### 
