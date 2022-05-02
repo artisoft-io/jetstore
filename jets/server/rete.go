@@ -72,7 +72,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	// 	return &result, fmt.Errorf("while creating jets:key resource: %v", err)
 	// }
 	for inputRecords := range dataInputc {
-		log.Println("Start Rete Session")
+		// log.Println("Start Rete Session")
 		reteSession, err := rw.js.NewReteSession(*ruleset)
 		if err != nil {
 			return &result, fmt.Errorf("while calling NewReteSession: %v", err)
@@ -182,7 +182,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					err = fmt.Errorf("ERROR assertRuleConfig: unknown rdf type for object: %s", inputColumnSpec.rdfType)
 				}
 				if err != nil || len(obj) == 0 {
-					//* try the default value
+					//* TODO try the default value
 					return &result, fmt.Errorf("while mapping input value: %v", err)
 				}
 				if subject == nil {
@@ -205,8 +205,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 		if err != nil {
 			return &result, fmt.Errorf("while reteSession.ExecuteRules: %v", err)
 		}
-		log.Println("ExecuteRule() Completed sucessfully")
-		reteSession.DumpRdfGraph()
+		// log.Println("ExecuteRule() Completed sucessfully")
+		// reteSession.DumpRdfGraph()
 		var sid string
 		if sessionId!=nil && len(*sessionId)>0 {
 			sid = *sessionId
@@ -226,7 +226,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			defer ctor.ReleaseIterator()
 			for !ctor.IsEnd() {
 				subject := ctor.GetSubject()
-				log.Println("Found entity with subject:",subject.AsText())
+				// log.Println("Found entity with subject:",subject.AsText())
 				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
 				ncol := len(tableSpec.Columns)
 				entityRow := make([]interface{}, ncol)

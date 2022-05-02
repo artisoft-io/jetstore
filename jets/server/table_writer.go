@@ -27,8 +27,6 @@ func (wt *WriteTableSource) Next() bool {
 	return ok
 }
 func (wt *WriteTableSource) Values() ([]interface{}, error) {
-	//*
-	fmt.Println("PENDING:",wt.pending)
 	return wt.pending, nil
 }
 func (wt *WriteTableSource) Err() error {
