@@ -443,8 +443,6 @@ int execute_rules(HJRETE rete_hdl)
 {
   if(not rete_hdl) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  //*
-  std::cout<<"C: Calling rete_session execute_rules..."<<std::endl;
   return rete_session->execute_rules();
 }
 

@@ -112,17 +112,17 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}
 
 	//*
-	fmt.Println("processInputMapping is complete, len is", len(processInput.processInputMapping))
-	for icol := range processInput.processInputMapping {
-		fmt.Println(
-			"inputColumn:", processInput.processInputMapping[icol].inputColumn,
-			"dataProperty:", processInput.processInputMapping[icol].dataProperty,
-			"predicate:", processInput.processInputMapping[icol].predicate,
-			"rdfType:", processInput.processInputMapping[icol].rdfType,
-			"functionName:", processInput.processInputMapping[icol].functionName.String,
-			"argument:", processInput.processInputMapping[icol].argument.String,
-			"defaultValue:", processInput.processInputMapping[icol].defaultValue.String)
-	}
+	// fmt.Println("processInputMapping is complete, len is", len(processInput.processInputMapping))
+	// for icol := range processInput.processInputMapping {
+	// 	fmt.Println(
+	// 		"inputColumn:", processInput.processInputMapping[icol].inputColumn,
+	// 		"dataProperty:", processInput.processInputMapping[icol].dataProperty,
+	// 		"predicate:", processInput.processInputMapping[icol].predicate,
+	// 		"rdfType:", processInput.processInputMapping[icol].rdfType,
+	// 		"functionName:", processInput.processInputMapping[icol].functionName.String,
+	// 		"argument:", processInput.processInputMapping[icol].argument.String,
+	// 		"defaultValue:", processInput.processInputMapping[icol].defaultValue.String)
+	// }
 	//*
 
 	// Output domain table's columns specs (map[table name]columns' spec)
@@ -150,18 +150,18 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}
 
 	//*
-	fmt.Println("outputMapping is complete, len is", len(outputMapping))
-	for cname, domainTbl := range outputMapping {
-		fmt.Println("  Output table:", cname)
-		for icol := range domainTbl.Columns {
-			fmt.Println(
-				"PropertyName:", domainTbl.Columns[icol].PropertyName,
-				"ColumnName:", domainTbl.Columns[icol].ColumnName,
-				"Predicate:", domainTbl.Columns[icol].Predicate,
-				"DataType:", domainTbl.Columns[icol].DataType,
-				"IsArray:", domainTbl.Columns[icol].IsArray)
-		}
-	}
+	// fmt.Println("outputMapping is complete, len is", len(outputMapping))
+	// for cname, domainTbl := range outputMapping {
+	// 	fmt.Println("  Output table:", cname)
+	// 	for icol := range domainTbl.Columns {
+	// 		fmt.Println(
+	// 			"PropertyName:", domainTbl.Columns[icol].PropertyName,
+	// 			"ColumnName:", domainTbl.Columns[icol].ColumnName,
+	// 			"Predicate:", domainTbl.Columns[icol].Predicate,
+	// 			"DataType:", domainTbl.Columns[icol].DataType,
+	// 			"IsArray:", domainTbl.Columns[icol].IsArray)
+	// 	}
+	// }
 	//*
 
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
@@ -287,7 +287,6 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 		// A slice to hold data from returned rows.
 		var dataGrps [][]string
 		var groupingValue string
-		var previousGrpValue string
 		// Loop through rows, using Scan to assign column data to struct fields.
 		dataRow := make([]interface{}, nCol)
 		for rows.Next() {
@@ -301,13 +300,9 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 			}
 			// check if grouping change
 			if rowCount == 0 || groupingValue != dataGrp[processInput.groupingPosition] {
-				previousGrpValue = groupingValue
+				// start grouping
 				groupingValue = dataGrp[processInput.groupingPosition]
-				//*
-				fmt.Println("Grouping:", groupingValue, "start")
 				if rowCount > 0 {
-					//*
-					fmt.Println("Sending previous grouping:", previousGrpValue)
 					// send previous grouping
 					select {
 					case dataInputc <- dataGrps:
@@ -323,9 +318,6 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 			// fmt.Println("--row",dataGrp)
 			dataGrps = append(dataGrps, dataGrp)
 		}
-		// send last grouping
-		//*
-		fmt.Println("Sending last grouping:", groupingValue)
 		// send last grouping
 		dataInputc <- dataGrps
 

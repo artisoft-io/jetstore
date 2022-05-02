@@ -195,8 +195,8 @@ class LookupTable {
   inline
   int terminate()
   {
-    //*
-    std::cout <<"LOOKUP TERMINATE CALLED, pool size: "<<this->db_pool_.size() << std::endl;
+    // //*
+    // std::cout <<"LOOKUP TERMINATE CALLED, pool size: "<<this->db_pool_.size() << std::endl;
     return this->db_pool_.terminate();
   }
 
@@ -278,8 +278,8 @@ class TypeOf {
   // close connection pool
   int terminate()
   {
-    //*
-    std::cout <<"TypeOf TERMINATE CALLED, pool size: "<<this->db_pool_.size() << std::endl;
+    // //*
+    // std::cout <<"TypeOf TERMINATE CALLED, pool size: "<<this->db_pool_.size() << std::endl;
     return this->db_pool_.terminate();
   }
 
