@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"strings"
@@ -22,6 +23,8 @@ type ReteWorkspace struct {
 type ExecuteRulesResult struct {
 	executeRulesCount int
 }
+
+var ps = flag.Bool("ps", false, "Print the rete session for each session (very verbose)")
 
 // Load the rete workspace database via cgo
 func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, procConfig *ProcessConfig, outTables []string) (*ReteWorkspace, error) {
@@ -67,10 +70,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while creating rdf:type resource: %v", err)
 	}
-	// jetsKey, err := rw.js.GetResource("jets:key")
-	// if err != nil {
-	// 	return &result, fmt.Errorf("while creating jets:key resource: %v", err)
-	// }
+	jets__key, err := rw.js.GetResource("jets:key")
+	if err != nil {
+		return &result, fmt.Errorf("while creating jets:key resource: %v", err)
+	}
 	for inputRecords := range dataInputc {
 		// log.Println("Start Rete Session")
 		reteSession, err := rw.js.NewReteSession(*ruleset)
@@ -82,15 +85,23 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if len(row) == 0 {
 				continue
 			}
-			jets__key := row[processInput.keyPosition]
-			subject, err := reteSession.NewResource(jets__key)
+			jetsKeyStr := row[processInput.keyPosition]
+			subject, err := reteSession.NewResource(jetsKeyStr)
 			if err != nil {
 				return &result, fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
+			}
+			jetsKey, err := reteSession.NewTextLiteral(jetsKeyStr)
+			if err != nil {
+				return &result, fmt.Errorf("while creating row's jets__key literal (NewTextLiteral): %v", err)
 			}
 			if subject == nil || rdfType == nil || processInput.entityRdfTypeResource == nil {
 				return &result, fmt.Errorf("while asserting row rdf type")
 			}
 			_, err = reteSession.Insert(subject, rdfType, processInput.entityRdfTypeResource)
+			if err != nil {
+				return &result, fmt.Errorf("while asserting row rdf type: %v", err)
+			}
+			_, err = reteSession.Insert(subject, jets__key, jetsKey)
 			if err != nil {
 				return &result, fmt.Errorf("while asserting row rdf type: %v", err)
 			}
@@ -206,7 +217,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 			return &result, fmt.Errorf("while reteSession.ExecuteRules: %v", err)
 		}
 		// log.Println("ExecuteRule() Completed sucessfully")
-		// reteSession.DumpRdfGraph()
+		if *ps {
+			reteSession.DumpRdfGraph()
+		}
 		var sid string
 		if sessionId!=nil && len(*sessionId)>0 {
 			sid = *sessionId
