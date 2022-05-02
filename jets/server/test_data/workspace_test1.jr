@@ -23,7 +23,8 @@ class hc:Claim {
     hc:date_of_service as date,
     hc:service_code as text,
     hc:modifier as text,
-    hc:service_description as text
+    hc:service_description as text,
+    hc:ndays as int
   ],
   $as_table = true
 };
