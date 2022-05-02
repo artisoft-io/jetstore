@@ -7,8 +7,8 @@ INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALU
 RETURNING key;
 
 INSERT INTO process_input (key, process_key, input_table, entity_rdf_type, grouping_column, key_column) VALUES
-  (1, 1, 'test_table', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER'),
-  (3, 3, 'test_table', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER'),
+  (1, 1, 'test1', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER'),
+  (3, 3, 'test1', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER'),
   (2, 2, 'm2c__input1', 'm2c:Claim', 'COL2', NULL)
 ;
 
@@ -18,11 +18,13 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
   (1, 'DOS', 'hc:date_of_service', NULL, NULL, NULL),
   (1, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL),
   (1, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL),
+  (1, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
   (3, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL),
   (3, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL),
   (3, 'DOS', '_0:date_of_service', NULL, NULL, NULL),
   (3, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL),
   (3, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL),
+  (3, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
   (2, 'COL1', 'm2c:P1', 'regex', '\d{3}', NULL),
   (2, 'COL2', 'm2c:P2', NULL, NULL, NULL),
   (2, 'COL2', 'm2c:P3', 'parse_amount', '100', '0')

@@ -1,21 +1,14 @@
 package main
 
 import (
-	// "bufio"
 	"context"
-	"strings"
-	// "encoding/csv"
+	"errors"
 	"flag"
 	"fmt"
-
-	// "io"
 	"log"
 	"os"
+	"strings"
 
-	// "path/filepath"
-	// "strings"
-
-	// "github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -30,6 +23,25 @@ var sessionId = flag.String("sessionId", "", "Process session ID used to link en
 var shardId = flag.Int("shardId", 0, "Shard id for the processing node.")
 var outTables = flag.String("outTables", "", "Comma-separed list of output tables (required).")
 var outTableSlice []string
+var extTables map[string][]string
+
+func init() {
+	extTables = make(map[string][]string)
+	flag.Func("extTable", "Table to extend with volatile resources, format: 'table_name+resource1,resource2'", func(flagValue string) error {
+		// get the table name
+		split1 := strings.Split(flagValue, "+")
+		if len(split1) != 2 {
+			return errors.New("table name must be followed with plus sign (+) to separate from the volatile fields")
+		}
+		// get the volatile fields
+		split2 := strings.Split(split1[1], ",")
+		if len(split2) < 1 {
+			return errors.New("volatile fields must follow table name using comma (,) as separator")
+		}
+		extTables[split1[0]] = split2
+		return nil
+	})
+}
 
 // doJob main function
 func doJob() error {
@@ -74,7 +86,7 @@ func doJob() error {
 	}
 
 	// let's do it!
-	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, &procConfig, outTableSlice)
+	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, &procConfig, outTableSlice, extTables)
 	if err != nil {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}

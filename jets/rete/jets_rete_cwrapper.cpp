@@ -344,7 +344,15 @@ int get_int_literal(HJR handle, int*v)
   if(not handle) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_literal_int32_t    : *v = boost::get<LInt32>(r)->data; return 0;
+  case rdf_literal_int32_t    : 
+    std::cout<<"GET_INT_LITERAL 1CALLED :: "<<std::endl;
+    std::cout<<"GET_INT_LITERAL 2CALLED with "<<r<<std::endl;
+    if(v == nullptr) {
+    std::cout<<"GET_INT_LITERAL 1CALLED :: WHAT??? "<<std::endl;
+    }
+    *v = boost::get<LInt32>(r)->data;
+    std::cout<<"GET_INT_LITERAL 3CALLED :: "<<std::endl;
+    return 0;
   default: return -1;
   }
 }

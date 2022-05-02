@@ -19,6 +19,7 @@ type ReteWorkspace struct {
 	lookupDb    string
 	ruleset     string
 	outTables   []string
+	extTables   map[string][]string
 	procConfig  *ProcessConfig
 }
 
@@ -29,7 +30,14 @@ type ExecuteRulesResult struct {
 var ps = flag.Bool("ps", false, "Print the rete session for each session (very verbose)")
 
 // Load the rete workspace database via cgo
-func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, procConfig *ProcessConfig, outTables []string) (*ReteWorkspace, error) {
+func LoadReteWorkspace(
+	workspaceDb string, 
+	lookupDb string, 
+	ruleset string, 
+	procConfig *ProcessConfig, 
+	outTables []string,
+	extTables map[string][]string) (*ReteWorkspace, error) {
+
 	// load the workspace db
 	reteWorkspace := ReteWorkspace{
 		workspaceDb: workspaceDb,
@@ -37,6 +45,7 @@ func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, proc
 		ruleset:     ruleset,
 		procConfig:  procConfig,
 		outTables:   outTables,
+		extTables:   extTables,
 	}
 	var err error
 	reteWorkspace.js, err = bridge.LoadJetRules(workspaceDb, lookupDb)

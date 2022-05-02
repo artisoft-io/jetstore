@@ -21,6 +21,7 @@ func UpdateTableSchema(dbpool *pgxpool.Pool, tableName string, tableSpec *worksp
 	if len(tableSpec.Columns) == 0 {
 		return fmt.Errorf("error: no tables provided from workspace")
 	}
+	// convert the virtual resource in column names
 	// targetCols is a set of target schema + ext volatile resource
 	targetCols := make(map[string]bool)
 	for _, c := range tableSpec.Columns {
