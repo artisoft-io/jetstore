@@ -68,7 +68,7 @@ Testing the python lib:
 docker run --rm -w=/usr/local/lib/jets/compiler --entrypoint=python3 jetstore:bullseye jetrule_compiler_test.py
 
 Testing the go lib:
-docker run --rm -w=/usr/local/bin --entrypoint=hello jetstore:bullseye 
+docker run --rm -w=/usr/local/bin --entrypoint=update_db jetstore:bullseye -h
 
 # Previous Attempts for Runtime Image
 ## Using golang runtime base image (did not retain)

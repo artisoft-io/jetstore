@@ -28,6 +28,7 @@ COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 # Go commands
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 
 
 RUN \
