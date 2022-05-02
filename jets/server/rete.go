@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/google/uuid"
 )
 
 type ReteWorkspace struct {
@@ -51,7 +53,7 @@ func LoadReteWorkspace(workspaceDb string, lookupDb string, ruleset string, proc
 func (rw *ReteWorkspace) ExecuteRules(
 	dbpool *pgxpool.Pool,
 	processInput *ProcessInput,
-	dataInputc <-chan [][]string,
+	dataInputc <-chan [][]sql.NullString,
 	outputSpecs workspace.OutputTableSpecs,
 	writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
 	var result ExecuteRulesResult
@@ -85,7 +87,12 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if len(row) == 0 {
 				continue
 			}
-			jetsKeyStr := row[processInput.keyPosition]
+			var jetsKeyStr string
+			if row[processInput.keyPosition].Valid {
+				jetsKeyStr = row[processInput.keyPosition].String
+			} else {
+				jetsKeyStr = uuid.New().String()
+			}
 			subject, err := reteSession.NewResource(jetsKeyStr)
 			if err != nil {
 				return &result, fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
@@ -106,25 +113,35 @@ func (rw *ReteWorkspace) ExecuteRules(
 				return &result, fmt.Errorf("while asserting row rdf type: %v", err)
 			}
 			for icol := 0; icol < ncol; icol++ {
-				// asserting input row with mapping spec (make it conditional via func)
+				// asserting input row with mapping spec
 				inputColumnSpec := &processInput.processInputMapping[icol]
 				var obj string
-				if inputColumnSpec.functionName.Valid {
-					switch inputColumnSpec.functionName.String {
-					case "to_upper":
-						obj = strings.ToUpper(row[icol])
-					case "to_zip5":
-					case "reformat0":
-					case "apply_regex":
-					case "scale_units":
-					case "parse_amount":
-					default:
-						return &result, fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
+				if row[icol].Valid {
+					if inputColumnSpec.functionName.Valid {
+						switch inputColumnSpec.functionName.String {
+						case "to_upper":
+							obj = strings.ToUpper(row[icol].String)
+						case "to_zip5":
+						case "reformat0":
+						case "apply_regex":
+						case "scale_units":
+						case "parse_amount":
+						default:
+							return &result, fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
+						}
+	
+					} else {
+						obj = row[icol].String
 					}
-
 				} else {
-					obj = row[icol]
+					// get the default or ignore the filed if no default is avail
+					if inputColumnSpec.defaultValue.Valid {
+						obj = inputColumnSpec.defaultValue.String
+					} else {
+						continue
+					}
 				}
+				
 				// cast obj to type
 				// switch inputColumn.DataType {
 				var object *bridge.Resource
@@ -190,9 +207,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 				case "datetime":
 					object, err = reteSession.NewDatetimeLiteral(obj)
 				default:
-					err = fmt.Errorf("ERROR assertRuleConfig: unknown rdf type for object: %s", inputColumnSpec.rdfType)
+					err = fmt.Errorf("ERROR assertRuleConfig: unknown or invalid rdf type for object: %s", inputColumnSpec.rdfType)
 				}
-				if err != nil || len(obj) == 0 {
+				if err != nil {
 					//* TODO try the default value
 					return &result, fmt.Errorf("while mapping input value: %v", err)
 				}

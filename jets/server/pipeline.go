@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -265,8 +266,8 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 // readInput read the input table and grouping the rows according to the
 // grouping column
-func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *ProcessInput) (<-chan [][]string, <-chan readResult) {
-	dataInputc := make(chan [][]string)
+func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *ProcessInput) (<-chan [][]sql.NullString, <-chan readResult) {
+	dataInputc := make(chan [][]sql.NullString)
 	result := make(chan readResult, 1)
 	go func() {
 		defer close(dataInputc)
@@ -285,12 +286,12 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 
 		// loop over all value of the grouping key
 		// A slice to hold data from returned rows.
-		var dataGrps [][]string
+		var dataGrps [][]sql.NullString
 		var groupingValue string
 		// Loop through rows, using Scan to assign column data to struct fields.
 		dataRow := make([]interface{}, nCol)
 		for rows.Next() {
-			dataGrp := make([]string, nCol)
+			dataGrp := make([]sql.NullString, nCol)
 			for i := 0; i < nCol; i++ {
 				dataRow[i] = &dataGrp[i]
 			}
@@ -299,14 +300,18 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 				return
 			}
 			// check if grouping change
-			if rowCount == 0 || groupingValue != dataGrp[processInput.groupingPosition] {
+			if !dataGrp[processInput.groupingPosition].Valid {
+				result <- readResult{rowCount, errors.New("error while reading input table, got row with null in grouping column")}
+				return
+			}
+			if rowCount == 0 || groupingValue != dataGrp[processInput.groupingPosition].String {
 				// start grouping
-				groupingValue = dataGrp[processInput.groupingPosition]
+				groupingValue = dataGrp[processInput.groupingPosition].String
 				if rowCount > 0 {
 					// send previous grouping
 					select {
 					case dataInputc <- dataGrps:
-						dataGrps = make([][]string, 0)
+						dataGrps = make([][]sql.NullString, 0)
 					case <-done:
 						result <- readResult{rowCount, errors.New("data load from input table canceled")}
 						return
