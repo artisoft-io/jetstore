@@ -99,32 +99,39 @@
             "key": 13
         },
         {
+            "id": "hc:has_mod",
+            "type": "resource",
+            "value": "hc:has_mod",
+            "source_file_name": "workspace_test1.jr",
+            "key": 14
+        },
+        {
             "id": "lk:CodeDescription",
             "type": "resource",
             "value": "lk:CodeDescription",
             "source_file_name": "workspace_test1.jr",
-            "key": 14
+            "key": 15
         },
         {
             "id": "DESCRIPTION",
             "type": "resource",
             "value": "DESCRIPTION",
             "source_file_name": "workspace_test1.jr",
-            "key": 15
+            "key": 16
         },
         {
             "id": "jets:State",
             "type": "resource",
             "value": "jets:State",
             "source_file_name": "workspace_test1.jr",
-            "key": 16
+            "key": 17
         },
         {
             "id": "jets:iState",
             "type": "resource",
             "value": "jets:iState",
             "source_file_name": "workspace_test1.jr",
-            "key": 17
+            "key": 18
         },
         {
             "type": "var",
@@ -132,7 +139,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 1,
-            "key": 18,
+            "key": 19,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -142,14 +149,14 @@
             "vertex": 2,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 19,
+            "key": 20,
             "source_file_name": "workspace_test1.jr"
         },
         {
             "type": "keyword",
             "value": "true",
             "inline": true,
-            "key": 20,
+            "key": 21,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -158,7 +165,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 3,
-            "key": 21,
+            "key": 22,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -168,7 +175,7 @@
             "vertex": 4,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 22,
+            "key": 23,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -177,7 +184,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 4,
-            "key": 23,
+            "key": 24,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -187,7 +194,7 @@
             "vertex": 5,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 24,
+            "key": 25,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -196,7 +203,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 5,
-            "key": 25,
+            "key": 26,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -206,14 +213,14 @@
             "vertex": 6,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 26,
+            "key": 27,
             "source_file_name": "workspace_test1.jr"
         },
         {
             "type": "keyword",
             "value": "false",
             "inline": true,
-            "key": 27,
+            "key": 28,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -222,7 +229,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 7,
-            "key": 28,
+            "key": 29,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -232,7 +239,7 @@
             "vertex": 8,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 29,
+            "key": 30,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -241,7 +248,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 8,
-            "key": 30,
+            "key": 31,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -250,7 +257,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 9,
-            "key": 31,
+            "key": 32,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -260,7 +267,7 @@
             "vertex": 10,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 32,
+            "key": 33,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -269,7 +276,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 10,
-            "key": 33,
+            "key": 34,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -279,7 +286,7 @@
             "vertex": 11,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 34,
+            "key": 35,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -288,7 +295,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 11,
-            "key": 35,
+            "key": 36,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -297,7 +304,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 12,
-            "key": 36,
+            "key": 37,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -307,7 +314,7 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 37,
+            "key": 38,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -317,7 +324,7 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 1,
-            "key": 38,
+            "key": 39,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -327,7 +334,24 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 2,
-            "key": 39,
+            "key": 40,
+            "source_file_name": "workspace_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 5,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 41,
+            "source_file_name": "workspace_test1.jr"
+        },
+        {
+            "type": "keyword",
+            "value": "true",
+            "inline": true,
+            "key": 42,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -337,7 +361,7 @@
             "vertex": 8,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 40,
+            "key": 43,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -347,14 +371,31 @@
             "vertex": 8,
             "is_antecedent": false,
             "var_pos": 1,
-            "key": 41,
+            "key": 44,
             "source_file_name": "workspace_test1.jr"
         },
         {
             "type": "text",
             "value": "N",
             "inline": true,
-            "key": 42,
+            "key": 45,
+            "source_file_name": "workspace_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 8,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 46,
+            "source_file_name": "workspace_test1.jr"
+        },
+        {
+            "type": "keyword",
+            "value": "false",
+            "inline": true,
+            "key": 47,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -364,7 +405,7 @@
             "vertex": 9,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 43,
+            "key": 48,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -374,7 +415,7 @@
             "vertex": 11,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 44,
+            "key": 49,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -384,7 +425,7 @@
             "vertex": 11,
             "is_antecedent": false,
             "var_pos": 1,
-            "key": 45,
+            "key": 50,
             "source_file_name": "workspace_test1.jr"
         },
         {
@@ -394,7 +435,7 @@
             "vertex": 12,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 46,
+            "key": 51,
             "source_file_name": "workspace_test1.jr"
         }
     ],
@@ -444,7 +485,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 1,
-                            "key": 18,
+                            "key": 19,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -452,9 +493,9 @@
                         2,
                         6
                     ],
-                    "subject_key": 18,
+                    "subject_key": 19,
                     "predicate_key": 5,
-                    "object_key": 16
+                    "object_key": 17
                 },
                 {
                     "type": "antecedent",
@@ -470,9 +511,9 @@
                     "children_vertexes": [
                         3
                     ],
-                    "subject_key": 19,
+                    "subject_key": 20,
                     "predicate_key": 0,
-                    "object_key": 20
+                    "object_key": 21
                 },
                 {
                     "type": "antecedent",
@@ -493,14 +534,14 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 3,
-                            "key": 21,
+                            "key": 22,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
                     "children_vertexes": [
                         4
                     ],
-                    "subject_key": 21,
+                    "subject_key": 22,
                     "predicate_key": 5,
                     "object_key": 6
                 },
@@ -531,16 +572,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 4,
-                            "key": 23,
+                            "key": 24,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
                     "children_vertexes": [
                         5
                     ],
-                    "subject_key": 22,
+                    "subject_key": 23,
                     "predicate_key": 10,
-                    "object_key": 23
+                    "object_key": 24
                 },
                 {
                     "type": "antecedent",
@@ -577,7 +618,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 5,
-                            "key": 25,
+                            "key": 26,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -588,9 +629,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 24,
+                    "subject_key": 25,
                     "predicate_key": 11,
-                    "object_key": 25
+                    "object_key": 26
                 }
             ],
             "consequents": [
@@ -601,25 +642,36 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "Rule1",
                     "consequent_salience": 100,
-                    "subject_key": 37,
+                    "subject_key": 38,
                     "predicate_key": 1,
                     "obj_expr": {
                         "type": "binary",
-                        "lhs": 14,
+                        "lhs": 15,
                         "op": "lookup",
                         "rhs": {
                             "type": "binary",
-                            "lhs": 38,
+                            "lhs": 39,
                             "op": "+",
-                            "rhs": 39
+                            "rhs": 40
                         }
                     }
+                },
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x2 hc:has_mod true)",
+                    "vertex": 5,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "Rule1",
+                    "consequent_salience": 100,
+                    "subject_key": 41,
+                    "predicate_key": 14,
+                    "object_key": 42
                 }
             ],
-            "authoredLabel": "[Rule1]:(?config rdf:type jets:State).(?config lk:withModifier true).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code).(?claim hc:modifier ?modifier) -> (?claim lkrow lk:CodeDescription lookup (?code + ?modifier));",
+            "authoredLabel": "[Rule1]:(?config rdf:type jets:State).(?config lk:withModifier true).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code).(?claim hc:modifier ?modifier) -> (?claim lkrow lk:CodeDescription lookup (?code + ?modifier)).(?claim hc:has_mod true);",
             "source_file_name": "workspace_test1.jr",
-            "normalizedLabel": "[Rule1]:(?x1 rdf:type jets:State).(?x1 lk:withModifier true).(?x2 rdf:type hc:Claim).(?x2 hc:service_code ?x3).(?x2 hc:modifier ?x4) -> (?x2 lkrow lk:CodeDescription lookup (?x3 + ?x4));",
-            "label": "[Rule1]:(?config rdf:type jets:State).(?config lk:withModifier true).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code).(?claim hc:modifier ?modifier) -> (?claim lkrow lk:CodeDescription lookup (?code + ?modifier));"
+            "normalizedLabel": "[Rule1]:(?x1 rdf:type jets:State).(?x1 lk:withModifier true).(?x2 rdf:type hc:Claim).(?x2 hc:service_code ?x3).(?x2 hc:modifier ?x4) -> (?x2 lkrow lk:CodeDescription lookup (?x3 + ?x4)).(?x2 hc:has_mod true);",
+            "label": "[Rule1]:(?config rdf:type jets:State).(?config lk:withModifier true).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code).(?claim hc:modifier ?modifier) -> (?claim lkrow lk:CodeDescription lookup (?code + ?modifier)).(?claim hc:has_mod true);"
         },
         {
             "name": "Rule2",
@@ -644,7 +696,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 1,
-                            "key": 18,
+                            "key": 19,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -652,9 +704,9 @@
                         2,
                         6
                     ],
-                    "subject_key": 18,
+                    "subject_key": 19,
                     "predicate_key": 5,
-                    "object_key": 16
+                    "object_key": 17
                 },
                 {
                     "type": "antecedent",
@@ -670,9 +722,9 @@
                     "children_vertexes": [
                         7
                     ],
-                    "subject_key": 26,
+                    "subject_key": 27,
                     "predicate_key": 0,
-                    "object_key": 27
+                    "object_key": 28
                 },
                 {
                     "type": "antecedent",
@@ -693,14 +745,14 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 7,
-                            "key": 28,
+                            "key": 29,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
                     "children_vertexes": [
                         8
                     ],
-                    "subject_key": 28,
+                    "subject_key": 29,
                     "predicate_key": 5,
                     "object_key": 6
                 },
@@ -731,7 +783,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 8,
-                            "key": 30,
+                            "key": 31,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -742,9 +794,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 29,
+                    "subject_key": 30,
                     "predicate_key": 10,
-                    "object_key": 30
+                    "object_key": 31
                 }
             ],
             "consequents": [
@@ -755,25 +807,36 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "Rule2",
                     "consequent_salience": 100,
-                    "subject_key": 40,
+                    "subject_key": 43,
                     "predicate_key": 1,
                     "obj_expr": {
                         "type": "binary",
-                        "lhs": 14,
+                        "lhs": 15,
                         "op": "lookup",
                         "rhs": {
                             "type": "binary",
-                            "lhs": 41,
+                            "lhs": 44,
                             "op": "+",
-                            "rhs": 42
+                            "rhs": 45
                         }
                     }
+                },
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x2 hc:has_mod false)",
+                    "vertex": 8,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "Rule2",
+                    "consequent_salience": 100,
+                    "subject_key": 46,
+                    "predicate_key": 14,
+                    "object_key": 47
                 }
             ],
-            "authoredLabel": "[Rule2]:(?config rdf:type jets:State).(?config lk:withModifier false).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code) -> (?claim lkrow lk:CodeDescription lookup (?code + \"N\"));",
+            "authoredLabel": "[Rule2]:(?config rdf:type jets:State).(?config lk:withModifier false).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code) -> (?claim lkrow lk:CodeDescription lookup (?code + \"N\")).(?claim hc:has_mod false);",
             "source_file_name": "workspace_test1.jr",
-            "normalizedLabel": "[Rule2]:(?x1 rdf:type jets:State).(?x1 lk:withModifier false).(?x2 rdf:type hc:Claim).(?x2 hc:service_code ?x3) -> (?x2 lkrow lk:CodeDescription lookup (?x3 + \"N\"));",
-            "label": "[Rule2]:(?config rdf:type jets:State).(?config lk:withModifier false).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code) -> (?claim lkrow lk:CodeDescription lookup (?code + \"N\"));"
+            "normalizedLabel": "[Rule2]:(?x1 rdf:type jets:State).(?x1 lk:withModifier false).(?x2 rdf:type hc:Claim).(?x2 hc:service_code ?x3) -> (?x2 lkrow lk:CodeDescription lookup (?x3 + \"N\")).(?x2 hc:has_mod false);",
+            "label": "[Rule2]:(?config rdf:type jets:State).(?config lk:withModifier false).(?claim rdf:type hc:Claim).(?claim hc:service_code ?code) -> (?claim lkrow lk:CodeDescription lookup (?code + \"N\")).(?claim hc:has_mod false);"
         },
         {
             "name": "Rule3",
@@ -798,7 +861,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 9,
-                            "key": 31,
+                            "key": 32,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -811,7 +874,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 31,
+                    "subject_key": 32,
                     "predicate_key": 5,
                     "object_key": 6
                 },
@@ -840,16 +903,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 10,
-                            "key": 33,
+                            "key": 34,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
                     "children_vertexes": [
                         11
                     ],
-                    "subject_key": 32,
+                    "subject_key": 33,
                     "predicate_key": 1,
-                    "object_key": 33
+                    "object_key": 34
                 },
                 {
                     "type": "antecedent",
@@ -878,7 +941,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 11,
-                            "key": 35,
+                            "key": 36,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -889,9 +952,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 34,
-                    "predicate_key": 15,
-                    "object_key": 35
+                    "subject_key": 35,
+                    "predicate_key": 16,
+                    "object_key": 36
                 }
             ],
             "consequents": [
@@ -902,9 +965,9 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "Rule3",
                     "consequent_salience": 100,
-                    "subject_key": 44,
+                    "subject_key": 49,
                     "predicate_key": 12,
-                    "object_key": 45
+                    "object_key": 50
                 }
             ],
             "authoredLabel": "[Rule3]:(?claim rdf:type hc:Claim).(?claim lkrow ?row).(?row DESCRIPTION ?desc) -> (?claim hc:service_description ?desc);",
@@ -937,7 +1000,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 12,
-                            "key": 36,
+                            "key": 37,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -948,7 +1011,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 36,
+                    "subject_key": 37,
                     "predicate_key": 5,
                     "object_key": 2
                 }
@@ -961,7 +1024,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "jets__entity__1",
                     "consequent_salience": 100,
-                    "subject_key": 46,
+                    "subject_key": 51,
                     "predicate_key": 5,
                     "object_key": 3
                 }
@@ -996,7 +1059,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 9,
-                            "key": 31,
+                            "key": 32,
                             "source_file_name": "workspace_test1.jr"
                         }
                     ],
@@ -1009,7 +1072,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 31,
+                    "subject_key": 32,
                     "predicate_key": 5,
                     "object_key": 6
                 }
@@ -1022,7 +1085,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "hc__claim__2",
                     "consequent_salience": 100,
-                    "subject_key": 43,
+                    "subject_key": 48,
                     "predicate_key": 5,
                     "object_key": 2
                 }
@@ -1099,6 +1162,11 @@
                     "name": "hc:ndays",
                     "type": "int",
                     "as_array": "false"
+                },
+                {
+                    "name": "hc:has_mod",
+                    "type": "bool",
+                    "as_array": "false"
                 }
             ],
             "source_file_name": "workspace_test1.jr",
@@ -1122,6 +1190,12 @@
                     "as_array": "false",
                     "property_name": "hc:date_of_service",
                     "column_name": "hc__date_of_service"
+                },
+                {
+                    "type": "bool",
+                    "as_array": "false",
+                    "property_name": "hc:has_mod",
+                    "column_name": "hc__has_mod"
                 },
                 {
                     "type": "text",
@@ -1172,9 +1246,9 @@
     "triples": [
         {
             "type": "triple",
-            "subject_key": 17,
+            "subject_key": 18,
             "predicate_key": 5,
-            "object_key": 16
+            "object_key": 17
         }
     ]
 }
