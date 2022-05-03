@@ -39,7 +39,7 @@ date parse_date_internal(std::string&& text) {
       int ntok = what.size();
       if (ntok < 4) {
         LOG(ERROR) <<"parse_date: Argument is not a date: " << text;
-        return date(1400, 1, 1);
+        return date();
       }
 
       // get the date portion
@@ -61,24 +61,24 @@ date parse_date_internal(std::string&& text) {
       }
       if(y < 1400 or y > 9999) {
         LOG(ERROR) <<"parse_date: Argument date has not a valid year: " << text << ", year parsed: "<<y;
-        return date(1400, 1, 1);
+        return date();
       }
       if(m < 1 or m > 12) {
         LOG(ERROR) <<"parse_date: Argument date has not a valid month: " << text << ", month parsed: "<<m;
-        return date(1400, 1, 1);
+        return date();
       }
       if(d < 1 or d > 31) {
         LOG(ERROR) <<"parse_date: Argument date has not a valid day: " << text << ", day parsed: "<<m;
-        return date(1400, 1, 1);
+        return date();
       }
       return date(y, m, d);
     } else {
         LOG(ERROR) <<"parse_date: Argument is not a date: " << text;
-        return date(1400, 1, 1);
+        return date();
     }
   } catch(...) {
-    LOG(ERROR) <<"parse_date: Argument is not a date: " << text;
-    return date(1400, 1, 1);
+    LOG(ERROR) <<"parse_date: catch... Argument is not a date: " << text;
+    return date();
   }
 }
 

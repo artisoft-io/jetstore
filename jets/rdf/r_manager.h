@@ -186,9 +186,9 @@ class RManager {
         return itor->second;
       }
     }
-    auto ret = lmap_.insert({lptr, lptr.get()});
+    auto ret = lmap_.insert(std::make_pair<>(lptr, lptr.get()));
     // if(ret.second) {
-    //   std::cout<<"New resource/literal created: "<<lptr.get()<<std::endl;
+    //   std::cout<<"New resource/literal created XX: "<<ret.first->second<<std::endl;
     // } else {
     //   std::cout<<"Resource/Literal was already created: "<<ret.first->second<<std::endl;
     // }
