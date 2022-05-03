@@ -42,7 +42,6 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 	for i := range domainTable.Columns {
 		columns = append(columns, domainTable.Columns[i].ColumnName)
 	}
-	//*
 	fmt.Println("NBR OF COLUMNS",len(columns))
 
 	recCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{domainTable.TableName}, columns, wt)

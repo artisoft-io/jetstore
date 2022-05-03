@@ -322,7 +322,7 @@ int get_resource_type(HJR handle)
 // Get the resource name and literal value
 int get_resource_name(HJR handle, HSTR*v)
 {
-  if(not handle) return -1;
+  if(not handle or not v) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
   case rdf_named_resource_t   : *v = boost::get<NamedResource>(r)->name.data(); return 0;
@@ -341,17 +341,11 @@ char const* go_get_resource_name(HJR handle)
 
 int get_int_literal(HJR handle, int*v)
 {
-  if(not handle) return -1;
+  if(not handle or not v) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
   case rdf_literal_int32_t    : 
-    std::cout<<"GET_INT_LITERAL 1CALLED :: "<<std::endl;
-    std::cout<<"GET_INT_LITERAL 2CALLED with "<<r<<std::endl;
-    if(v == nullptr) {
-    std::cout<<"GET_INT_LITERAL 1CALLED :: WHAT??? "<<std::endl;
-    }
     *v = boost::get<LInt32>(r)->data;
-    std::cout<<"GET_INT_LITERAL 3CALLED :: "<<std::endl;
     return 0;
   default: return -1;
   }
@@ -359,13 +353,14 @@ int get_int_literal(HJR handle, int*v)
 
 int get_date_details(HJR hdl, int* year, int* month, int* day)
 {
-  if(not hdl) return -1;
+  if(not hdl or not year or not month or not day) return -1;
   auto const* r =  static_cast<r_index>(hdl);
   switch (r->which()) {
   case rdf_literal_date_t: 
     {
       date const& d = boost::get<LDate>(r)->data; 
-      if(d.is_not_a_date()) return -2;
+      // not a date: 1400-1-1 (boost date default constructor throws bad year exception!)
+      if(d.year()==1400 and d.month()==1 and d.day()==1) return -2;
       date::ymd_type ymd = d.year_month_day();
       *year = ymd.year;
       *month = ymd.month;
@@ -408,7 +403,7 @@ char const* go_datetime_iso_string(HJR handle)
 
 int get_text_literal(HJR handle, HSTR*v)
 {
-  if(not handle) return -1;
+  if(not handle or not v) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
   case rdf_literal_string_t   : *v = boost::get<LString>(r)->data.data(); return 0;
@@ -465,7 +460,7 @@ int dump_rdf_graph(HJRETE rete_hdl)
 
 int find_all(HJRETE rete_hdl, HJITERATOR * handle)
 {
-  if(not rete_hdl) return -1;
+  if(not rete_hdl or not handle) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
   auto * itor = rete_session->rdf_session()->new_find();
   *handle = itor;
@@ -486,7 +481,7 @@ int find(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl, HJITERATOR * handle)
 
 int find_sp(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJITERATOR * handle)
 {
-  if(not rete_hdl or not s_hdl or not p_hdl) return -1;
+  if(not rete_hdl or not s_hdl or not p_hdl or not handle) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
@@ -497,7 +492,7 @@ int find_sp(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJITERATOR * handle)
 
 int find_object(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR * handle)
 {
-  if(not rete_hdl or not s_hdl or not p_hdl) return -1;
+  if(not rete_hdl or not s_hdl or not p_hdl or not handle) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
@@ -508,7 +503,7 @@ int find_object(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR * handle)
 
 int find_s(HJRETE rete_hdl, HJR s_hdl, HJITERATOR * handle)
 {
-  if(not rete_hdl or not s_hdl) return -1;
+  if(not rete_hdl or not s_hdl or not handle) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto * itor = rete_session->rdf_session()->new_find(s);
