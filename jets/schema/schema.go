@@ -138,7 +138,7 @@ func TableExists(dbpool *pgxpool.Pool, tableName string) (exists bool, err error
 }
 func toPgType(dt string) string {
 	switch dt {
-	case "int":
+	case "int", "bool":
 		return "integer"
 	case "uint", "long", "ulong":
 		return "bigint"

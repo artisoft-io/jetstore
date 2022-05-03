@@ -24,7 +24,8 @@ class hc:Claim {
     hc:service_code as text,
     hc:modifier as text,
     hc:service_description as text,
-    hc:ndays as int
+    hc:ndays as int,
+    hc:has_mod as bool
   ],
   $as_table = true
 };
@@ -55,7 +56,8 @@ volatile_resource lkrow = "lkrow";
   (?claim hc:service_code ?code).
   (?claim hc:modifier ?modifier)
   ->
-  (?claim lkrow lk:CodeDescription lookup (?code + ?modifier))
+  (?claim lkrow lk:CodeDescription lookup (?code + ?modifier)).
+  (?claim hc:has_mod true)
 ;
 
 # Add service code description to claim
@@ -66,7 +68,8 @@ volatile_resource lkrow = "lkrow";
   (?claim rdf:type hc:Claim).
   (?claim hc:service_code ?code)
   ->
-  (?claim lkrow lk:CodeDescription lookup (?code + "N"))
+  (?claim lkrow lk:CodeDescription lookup (?code + "N")).
+  (?claim hc:has_mod false)
 ;
 
 # Assign the description to the claim
