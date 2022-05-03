@@ -1,0 +1,44 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+
+# =======================================================================================
+# Data Model
+# ---------------------------------------------------------------------------------------
+class jets:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:key as text,
+    rdf:type as array of text
+  ],
+  $as_table = false
+};
+
+class hc:Claim {
+  # This is an example of a domain class
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    hc:claim_number as text,
+    hc:member_number as text,
+    hc:date_of_service as date,
+    hc:service_code as text,
+    hc:modifier as text,
+    hc:service_description as text,
+    hc:ndays as int
+  ],
+  $as_table = true
+};
+
+# config resourse used in process config (start msg)
+resource lk:withModifier = "lk:withModifier";
+volatile_resource lkrow = "lkrow";
+int ndays_default = 25;
+
+# Rules removed ...
+
+# =======================================================================================
+# Metadata Triples
+# ---------------------------------------------------------------------------------------
+@JetCompilerDirective extract_resources_from_rules = "true";
+
+triple(jets:iState, rdf:type, jets:State);

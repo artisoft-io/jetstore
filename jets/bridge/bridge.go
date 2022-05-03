@@ -354,13 +354,13 @@ func (r *Resource) GetInt() (int, error) {
 	if r.GetType() != 3 {
 		return 0, errors.New("ERROR GetInt applies to resources only")
 	}
-	var ptr *C.int
-	ret := int(C.get_int_literal(r.hdl, ptr))
+	var cint C.int
+	ret := int(C.get_int_literal(r.hdl, &cint))
 	if ret != 0 {
 		fmt.Println("ERROR in GetInt ret code", ret)
 		return 0, errors.New("ERROR calling GetInt(), ret code: "+fmt.Sprint(ret))
 	}
-	return int(*ptr), nil
+	return int(cint), nil
 }
 
 func (r *Resource) GetDateIsoString() string {
