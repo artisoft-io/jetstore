@@ -385,16 +385,16 @@ func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {
 		err = NotDate
 		return 
 	}
-	var yptr, mptr, dptr *C.int
-	ret := int(C.get_date_details(r.hdl, yptr, mptr, dptr))
+	var cy, cm, cd C.int
+	ret := int(C.get_date_details(r.hdl, &cy, &cm, &cd))
 	if ret == -2 {
 		fmt.Println("ERROR in GetDateDetails: date is not a valid date")
 		err = NotValidDate
 		return 
 	}
-	y = int(*yptr)
-	m = int(*mptr)
-	d = int(*dptr)
+	y = int(cy)
+	m = int(cm)
+	d = int(cd)
 	return 
 }
 

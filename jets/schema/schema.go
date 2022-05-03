@@ -21,13 +21,17 @@ func UpdateTableSchema(dbpool *pgxpool.Pool, tableName string, tableSpec *worksp
 	if len(tableSpec.Columns) == 0 {
 		return fmt.Errorf("error: no tables provided from workspace")
 	}
-	// convert the virtual resource in column names
+	// convert the virtual resource to column names
+	extCols := make([]string, len(extVR))
+	for i := range extVR {
+		extCols[i] = strings.ToLower(extVR[i])
+	}
 	// targetCols is a set of target schema + ext volatile resource
 	targetCols := make(map[string]bool)
 	for _, c := range tableSpec.Columns {
 		targetCols[c.ColumnName] = true
 	}
-	for _,vr := range extVR {
+	for _,vr := range extCols {
 		targetCols[vr] = true
 	}
 	tableExists := false
@@ -56,12 +60,12 @@ func UpdateTableSchema(dbpool *pgxpool.Pool, tableName string, tableSpec *worksp
 			}
 		}
 
-		err = UpdateTable(dbpool, tableName, tableSpec.Columns, extVR, existingColumns)
+		err = UpdateTable(dbpool, tableName, tableSpec.Columns, extCols, existingColumns)
 		if err != nil {
 			return fmt.Errorf("while UpdateTableSchema called UpdateTable: %w", err)
 		}
 	} else {
-		err = CreateTable(dbpool, tableName, tableSpec.Columns,extVR)
+		err = CreateTable(dbpool, tableName, tableSpec.Columns,extCols)
 		if err != nil {
 			return fmt.Errorf("while UpdateTableSchema called CreateTable: %w", err)
 		}	
@@ -71,7 +75,7 @@ func UpdateTableSchema(dbpool *pgxpool.Pool, tableName string, tableSpec *worksp
 
 // Support Functions
 // --------------------------------------------------------------------------------------
-func UpdateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.DomainColumn, extVR []string, existingColumns map[string]workspace.DomainColumn) error {
+func UpdateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.DomainColumn, extCols []string, existingColumns map[string]workspace.DomainColumn) error {
 	// alter stmt
 	var buf strings.Builder
 	buf.WriteString("ALTER TABLE IF EXISTS ")
@@ -84,7 +88,6 @@ func UpdateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			if !isFirst {
 				buf.WriteString(", ")
 			}
-			//*
 			fmt.Println("ADDING COLUMN:",col.ColumnName,"range",col.DataType,"is_array?",col.IsArray)
 			isFirst = false
 			buf.WriteString("ADD COLUMN IF NOT EXISTS ")
@@ -96,7 +99,7 @@ func UpdateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			}
 		}
 	}
-	for _,vr := range extVR {
+	for _,vr := range extCols {
 		_, ok := existingColumns[vr]
 		if !ok {
 			if !isFirst {
@@ -148,7 +151,7 @@ func toPgType(dt string) string {
 	}
 }
 
-func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.DomainColumn, extVR []string) error {
+func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.DomainColumn, extCols []string) error {
 	// drop stmt
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableName}.Sanitize())
 	if dbpool != nil {
@@ -175,7 +178,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 		buf.WriteString(", ")
 	}
 	// add ext columns
-	for _,vr := range extVR {
+	for _,vr := range extCols {
 		buf.WriteString(pgx.Identifier{vr}.Sanitize())
 		buf.WriteString(" TEXT ARRAY, ")
 	}

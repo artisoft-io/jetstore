@@ -60,12 +60,10 @@ func doJob() error {
 		return fmt.Errorf("while reading process_config table: %v", err)
 	}
 	
-	//*
 	fmt.Println("Got ProcessConfig row:")
 	fmt.Println("  key:", procConfig.key, "client", procConfig.client, "description", procConfig.description, "Main Type", procConfig.mainEntityRdfType)
 	fmt.Println("Got ProcessInput row:")
 	for _, pi := range procConfig.processInputs {
-		//*
 		fmt.Println("  key:", pi.key, ", processKey", pi.processKey, ", InputTable", pi.inputTable, ", rdf Type", pi.entityRdfType, ", Grouping Column", pi.groupingColumn)
 		for _, pm := range pi.processInputMapping {
 			fmt.Println("    InputMapping - key", pm.processInputKey, ", inputColumn:", pm.inputColumn, ", dataProperty:", pm.dataProperty, ", function:", pm.functionName.String, ", arg:", pm.argument.String, ", default:", pm.defaultValue.String)
@@ -75,7 +73,6 @@ func doJob() error {
 	for _, rc := range procConfig.ruleConfigs {
 		fmt.Println("    procKey:", rc.processKey, ", subject", rc.subject, ", predicate", rc.predicate, ", object", rc.object, ", type", rc.rdfType)
 	}
-	//*
 
 	// validation
 	if len(procConfig.processInputs) != 1 {

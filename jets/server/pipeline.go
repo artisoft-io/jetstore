@@ -112,7 +112,6 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		writeOutputc[tbl] = make(chan []interface{})
 	}
 
-	//*
 	// fmt.Println("processInputMapping is complete, len is", len(processInput.processInputMapping))
 	// for icol := range processInput.processInputMapping {
 	// 	fmt.Println(
@@ -124,7 +123,6 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	// 		"argument:", processInput.processInputMapping[icol].argument.String,
 	// 		"defaultValue:", processInput.processInputMapping[icol].defaultValue.String)
 	// }
-	//*
 
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
@@ -134,7 +132,12 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}	
 	// add class rdf type to output table (to select triples from graph)
 	// add predicate to DomainColumn for each output table
+	// add table extensions (extTable): Add DomainColumn corresponding to the volatile resources added to tables
 	// add columns for session_id and shard_id
+	err = reteWorkspace.addExtTablesInfo(&outputMapping)
+	if err != nil {
+		return &result, fmt.Errorf("while adding -extTables info to output tables specs: %v", err)
+	}
 	for _, domainTable := range outputMapping {
 		err = reteWorkspace.addOutputClassResource(domainTable)
 		if err != nil {
@@ -144,13 +147,13 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		if err != nil {
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
+		
 		sessionCol := workspace.DomainColumn{ColumnName: "session_id", DataType: "text", IsArray: false}
 		domainTable.Columns = append(domainTable.Columns, sessionCol)
 		shardCol := workspace.DomainColumn{ColumnName: "shard_id", DataType: "int", IsArray: false}
 		domainTable.Columns = append(domainTable.Columns, shardCol)
 	}
 
-	//*
 	// fmt.Println("outputMapping is complete, len is", len(outputMapping))
 	// for cname, domainTbl := range outputMapping {
 	// 	fmt.Println("  Output table:", cname)
@@ -163,7 +166,6 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	// 			"IsArray:", domainTbl.Columns[icol].IsArray)
 	// 	}
 	// }
-	//*
 
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
 
@@ -273,7 +275,6 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 		defer close(dataInputc)
 		// prepare the sql stmt
 		stmt, nCol := processInput.makeSqlStmt()
-		//*
 		fmt.Println("SQL:", stmt)
 		fmt.Println("Grouping key at pos", processInput.groupingPosition)
 		rows, err := dbpool.Query(context.Background(), stmt)

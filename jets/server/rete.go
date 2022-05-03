@@ -9,8 +9,8 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type ReteWorkspace struct {
@@ -309,6 +309,21 @@ func (rw *ReteWorkspace) ExecuteRules(
 		result.executeRulesCount += 1
 	}
 	return &result, nil
+}
+
+// addExtTablesInfo: Add columns corresponding to volatile resources added to output tables
+func (rw *ReteWorkspace) addExtTablesInfo(tableSpecs *workspace.OutputTableSpecs) error {
+	for tableName, vrs := range rw.extTables {
+		outTable,ok := (*tableSpecs)[tableName]
+		if !ok {
+			return fmt.Errorf("error: -extTable table %s does not found in output table specs", tableName)
+		}
+		for _, vr := range vrs {
+			outTable.Columns = append(outTable.Columns, 
+				workspace.DomainColumn{PropertyName: "_0:"+vr, ColumnName: strings.ToLower(vr), DataType: "text", IsArray: true})
+		}
+	}
+	return nil
 }
 
 // addOutputClassResource: Add the rdf resource to DomainTable for output table
