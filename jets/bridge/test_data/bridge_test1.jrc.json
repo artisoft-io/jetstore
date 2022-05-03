@@ -1,0 +1,261 @@
+{
+    "main_rule_file_name": "bridge_test1.jr",
+    "support_rule_file_names": [],
+    "resources": [
+        {
+            "type": "int",
+            "id": "ndays_default",
+            "value": "25",
+            "source_file_name": "bridge_test1.jr",
+            "key": 0
+        },
+        {
+            "type": "resource",
+            "id": "lk:withModifier",
+            "value": "lk:withModifier",
+            "source_file_name": "bridge_test1.jr",
+            "key": 1
+        },
+        {
+            "type": "volatile_resource",
+            "id": "lkrow",
+            "value": "lkrow",
+            "source_file_name": "bridge_test1.jr",
+            "key": 2
+        },
+        {
+            "id": "jets:Entity",
+            "type": "resource",
+            "value": "jets:Entity",
+            "source_file_name": "bridge_test1.jr",
+            "key": 3
+        },
+        {
+            "id": "owl:Thing",
+            "type": "resource",
+            "value": "owl:Thing",
+            "source_file_name": "predefined",
+            "key": 4
+        },
+        {
+            "id": "jets:key",
+            "type": "resource",
+            "value": "jets:key",
+            "source_file_name": "bridge_test1.jr",
+            "key": 5
+        },
+        {
+            "id": "rdf:type",
+            "type": "resource",
+            "value": "rdf:type",
+            "source_file_name": "predefined",
+            "key": 6
+        },
+        {
+            "id": "hc:Claim",
+            "type": "resource",
+            "value": "hc:Claim",
+            "source_file_name": "bridge_test1.jr",
+            "key": 7
+        },
+        {
+            "id": "hc:claim_number",
+            "type": "resource",
+            "value": "hc:claim_number",
+            "source_file_name": "bridge_test1.jr",
+            "key": 8
+        },
+        {
+            "id": "hc:member_number",
+            "type": "resource",
+            "value": "hc:member_number",
+            "source_file_name": "bridge_test1.jr",
+            "key": 9
+        },
+        {
+            "id": "hc:date_of_service",
+            "type": "resource",
+            "value": "hc:date_of_service",
+            "source_file_name": "bridge_test1.jr",
+            "key": 10
+        },
+        {
+            "id": "hc:service_code",
+            "type": "resource",
+            "value": "hc:service_code",
+            "source_file_name": "bridge_test1.jr",
+            "key": 11
+        },
+        {
+            "id": "hc:modifier",
+            "type": "resource",
+            "value": "hc:modifier",
+            "source_file_name": "bridge_test1.jr",
+            "key": 12
+        },
+        {
+            "id": "hc:service_description",
+            "type": "resource",
+            "value": "hc:service_description",
+            "source_file_name": "bridge_test1.jr",
+            "key": 13
+        },
+        {
+            "id": "hc:ndays",
+            "type": "resource",
+            "value": "hc:ndays",
+            "source_file_name": "bridge_test1.jr",
+            "key": 14
+        },
+        {
+            "id": "jets:iState",
+            "type": "resource",
+            "value": "jets:iState",
+            "source_file_name": "bridge_test1.jr",
+            "key": 15
+        },
+        {
+            "id": "jets:State",
+            "type": "resource",
+            "value": "jets:State",
+            "source_file_name": "bridge_test1.jr",
+            "key": 16
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 1,
+            "key": 17,
+            "source_file_name": "bridge_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 2,
+            "key": 18,
+            "source_file_name": "bridge_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 19,
+            "source_file_name": "bridge_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 2,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 20,
+            "source_file_name": "bridge_test1.jr"
+        }
+    ],
+    "lookup_tables": [],
+    "rete_nodes": [
+        {
+            "vertex": 0,
+            "parent_vertex": 0,
+            "children_vertexes": [
+                1,
+                2
+            ],
+            "type": "head_node"
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+            "vertex": 1,
+            "parent_vertex": 0,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": false,
+                    "var_pos": 0,
+                    "vertex": 1,
+                    "key": 17,
+                    "source_file_name": "bridge_test1.jr"
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "jets__entity__1"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 17,
+            "predicate_key": 6,
+            "object_key": 3
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 rdf:type hc:Claim)",
+            "vertex": 2,
+            "parent_vertex": 0,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": false,
+                    "var_pos": 0,
+                    "vertex": 2,
+                    "key": 18,
+                    "source_file_name": "bridge_test1.jr"
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "hc__claim__2"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 18,
+            "predicate_key": 6,
+            "object_key": 7
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+            "vertex": 1,
+            "consequent_seq": 0,
+            "consequent_for_rule": "jets__entity__1",
+            "consequent_salience": 100,
+            "subject_key": 19,
+            "predicate_key": 6,
+            "object_key": 4
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+            "vertex": 2,
+            "consequent_seq": 0,
+            "consequent_for_rule": "hc__claim__2",
+            "consequent_salience": 100,
+            "subject_key": 20,
+            "predicate_key": 6,
+            "object_key": 3
+        }
+    ]
+}
