@@ -210,11 +210,23 @@ TEST(RdfAstTest, DateTime)
       parse_datetime("2017-01-01 00:00:00.12345678"),
       datetime(date(2017, 1, 1), boost::posix_time::microseconds(123456)));
 
+  // auto d = date();
+  // std::cout <<"GOT:"<<d<<std::endl;
+  // EXPECT_EQ(parse_datetime("NOT VALID DATETIME"), datetime(date(), time_duration(0, 0, 0, 0)));
+
+  // std::cout <<"TESTING not valid literal date:"<<std::endl;
+  // auto rptr = mkLiteral(date());
+  // r_index r = rptr.get();
+  // std::cout <<"TESTING THIS SHOULD NOT BE A VALID DATE:"<<r<<std::endl;
+
+
+  EXPECT_EQ(parse_date("NOT VALID DATE"), date());
+  EXPECT_EQ(parse_date("2022-55-55"), date());
+
   EXPECT_EQ(
       parse_date(
           "20120727T233718.000000-00:00  (time part optional and ignored)"),
       parse_date("2012-07-27"));
-  EXPECT_THROW(parse_date("empty"), rdf_exception);
   EXPECT_EQ(parse_date("07/27/2012 12:59:33.1"),
             boost_date_from_string("2012-07-27"));
   EXPECT_EQ(parse_date("201279"), boost_date_from_string("2012-07-09"));

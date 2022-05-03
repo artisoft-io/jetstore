@@ -186,17 +186,19 @@ int create_meta_date(HJETS js_hdl, char const * v, HJR * handle)
     LOG(ERROR) << "create_meta_date: ERROR NULL factory";
     return -1;
   }
-
   auto d = parse_date(v);
   * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
+  if(d.is_not_a_date()) return -2;
   return 0;
 }
+
 int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle)
 {
   if(not js_hdl) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
   auto d = parse_datetime(v);
   * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
+  if(d.is_not_a_date_time()) return -2;
   return 0;
 }
 
@@ -358,9 +360,8 @@ int get_date_details(HJR hdl, int* year, int* month, int* day)
   switch (r->which()) {
   case rdf_literal_date_t: 
     {
-      date const& d = boost::get<LDate>(r)->data; 
-      // not a date: 1400-1-1 (boost date default constructor throws bad year exception!)
-      if(d.year()==1400 and d.month()==1 and d.day()==1) return -2;
+      date const& d = boost::get<LDate>(r)->data;       
+      if(d.is_not_a_date()) return -2;
       date::ymd_type ymd = d.year_month_day();
       *year = ymd.year;
       *month = ymd.month;

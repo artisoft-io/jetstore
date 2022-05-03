@@ -391,10 +391,18 @@ H AbslHashValue(H h, const Rptr& rptr)
   case rdf_literal_uint64_t   : return H::combine(std::move(h), boost::get<LUInt64      >(m).data);
   case rdf_literal_double_t   : return H::combine(std::move(h), boost::get<LDouble      >(m).data);
   case rdf_literal_string_t   : return H::combine(std::move(h), boost::get<LString      >(m).data);
-  case rdf_literal_date_t     : return H::combine(std::move(h), boost::get<LDate        >(m).data.julian_day());
+  case rdf_literal_date_t     : 
+    {
+      auto & d = boost::get<LDate>(m);
+      if(d.data.is_not_a_date()) {
+        return H::combine(std::move(h), 0);
+      }
+      return H::combine(std::move(h), d.data.julian_day());
+    }
   case rdf_literal_datetime_t : 
     {
-      auto & dt = boost::get<LDatetime    >(m);
+      auto & dt = boost::get<LDatetime>(m);
+      if(dt.data.is_not_a_date_time()) return H::combine(std::move(h), 0);
       auto duration = dt.data.time_of_day();
       return H::combine(std::move(h), dt.data.date().julian_day(), duration.is_special() ? 0L:duration.ticks());
     }
@@ -592,7 +600,12 @@ inline Rptr mkLiteral(std::uint32_t v)      { return std::make_shared<RdfAstType
 inline Rptr mkLiteral(std::int64_t v)       { return std::make_shared<RdfAstType>(LInt64(v)); }
 inline Rptr mkLiteral(std::uint64_t v)      { return std::make_shared<RdfAstType>(LUInt64(v)); }
 inline Rptr mkLiteral(double v)             { return std::make_shared<RdfAstType>(LDouble(v)); }
-inline Rptr mkLiteral(date   v)             { return std::make_shared<RdfAstType>(LDate(v)); }
+inline Rptr mkLiteral(date   v)             { 
+  if(v.is_not_a_date()) {
+    return std::make_shared<RdfAstType>(LDate());
+  }
+  return std::make_shared<RdfAstType>(LDate(v)); 
+}
 inline Rptr mkLiteral(datetime v)           { return std::make_shared<RdfAstType>(LDatetime(v)); }
 
 inline Rptr mkLiteral(std::string n)       
