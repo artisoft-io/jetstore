@@ -56,6 +56,7 @@ int get_resource_type(HJR handle);
 int get_resource_name(HJR handle, HSTR*);
 char const* get_resource_name2(HJR handle, int*);
 int get_int_literal(HJR handle, int*);
+int get_double_literal(HJR handle, double*);
 int get_text_literal(HJR handle, HSTR*);
 char const* get_text_literal2(HJR handle, int*);
 int get_date_details(HJR hdl, int* year, int* month, int* day);

@@ -1,4 +1,5 @@
-TRUNCATE TABLE process_config, process_input, process_mapping, rule_config, process_merge;
+-- TRUNCATE TABLE process_config, process_input, process_mapping, rule_config, process_merge;
+DELETE FROM process_config WHERE key in (1, 2, 3);
 
 INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALUES
   (1, 'ACME', 'Lookup ACME Service Code with Modifier', 'hc:Claim'),
@@ -19,12 +20,16 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
   (1, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL),
   (1, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL),
   (1, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
+  (1, 'SUBMITTED_AMT', '_0:SUBMITTED_AMT', NULL, NULL, NULL),
+  (1, 'ALLOWED_AMT', '_0:ALLOWED_AMT', NULL, NULL, NULL),
   (3, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL),
   (3, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL),
   (3, 'DOS', 'hc:date_of_service', NULL, NULL, NULL),
   (3, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL),
   (3, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL),
   (3, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
+  (3, 'SUBMITTED_AMT', '_0:SUBMITTED_AMT', NULL, NULL, NULL),
+  (3, 'ALLOWED_AMT', '_0:ALLOWED_AMT', NULL, NULL, NULL),
   (2, 'COL1', 'm2c:P1', 'regex', '\d{3}', NULL),
   (2, 'COL2', 'm2c:P2', NULL, NULL, NULL),
   (2, 'COL2', 'm2c:P3', 'parse_amount', '100', '0')
