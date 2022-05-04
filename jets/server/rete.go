@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -284,7 +285,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 							}
 							var data []interface{}
 							for !itor.IsEnd() {
-								obj, err := itor.GetObject().AsInterface()
+								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
 									fmt.Println("ERROR getting value from graph for column", domainColumn.ColumnName)
 									//* TODO TOSS ROW
@@ -300,7 +301,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 							}
 							if obj != nil {
-								iobj, err := obj.AsInterface()
+								iobj, err := obj.AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
 									fmt.Println("ERROR getting value from graph for column", domainColumn.ColumnName)
 									//* TODO TOSS ROW

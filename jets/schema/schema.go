@@ -93,7 +93,7 @@ func UpdateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			buf.WriteString("ADD COLUMN IF NOT EXISTS ")
 			buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 			buf.WriteString(" ")
-			buf.WriteString(toPgType(col.DataType))
+			buf.WriteString(ToPgType(col.DataType))
 			if col.IsArray {
 				buf.WriteString(" ARRAY")
 			}
@@ -136,7 +136,7 @@ func TableExists(dbpool *pgxpool.Pool, tableName string) (exists bool, err error
 	}
 	return exists, err
 }
-func toPgType(dt string) string {
+func ToPgType(dt string) string {
 	switch dt {
 	case "int", "bool":
 		return "integer"
@@ -171,7 +171,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 	for _,col := range columns {
 		buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 		buf.WriteString(" ")
-		buf.WriteString(toPgType(col.DataType))
+		buf.WriteString(ToPgType(col.DataType))
 		if col.IsArray {
 			buf.WriteString(" ARRAY")
 		}
