@@ -373,7 +373,7 @@ func (r *Resource) GetName() (string, error) {
 func (r *Resource) GetInt() (int, error) {
 	// rdf_literal_int32_t
 	if r.GetType() != 3 {
-		return 0, errors.New("ERROR GetInt applies to resources only")
+		return 0, errors.New("ERROR GetInt applies to int literal only")
 	}
 	var cint C.int
 	ret := int(C.get_int_literal(r.hdl, &cint))
@@ -382,6 +382,20 @@ func (r *Resource) GetInt() (int, error) {
 		return 0, errors.New("ERROR calling GetInt(), ret code: " + fmt.Sprint(ret))
 	}
 	return int(cint), nil
+}
+
+func (r *Resource) GetDouble() (float64, error) {
+	// rdf_literal_double_t
+	if r.GetType() != 7 {
+		return 0, errors.New("ERROR GetDouble applies to double literal only")
+	}
+	var cdbl C.double
+	ret := int(C.get_double_literal(r.hdl, &cdbl))
+	if ret != 0 {
+		fmt.Println("ERROR in GetInt ret code", ret)
+		return 0, errors.New("ERROR calling GetDouble(), ret code: " + fmt.Sprint(ret))
+	}
+	return float64(cdbl), nil
 }
 
 func (r *Resource) GetDateIsoString() (string, error) {
@@ -477,6 +491,13 @@ func (r *Resource) AsText() (string, error) {
 			return "", fmt.Errorf("error getting literal int value: %v", err)
 		}
 		return strconv.Itoa(v), nil
+	case 7:
+		v, err := r.GetDouble()
+		if err != nil {
+			fmt.Println("ERROR Can't GetDouble", err)
+			return "", fmt.Errorf("error getting literal double value: %v", err)
+		}
+		return strconv.FormatFloat(v, 'f', 2, 64), nil
 	case 8:
 		v, err := r.GetText()
 		if err != nil {
@@ -521,8 +542,19 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
 		}
 		if columnType != "integer" {
-			fmt.Println("ERROR have int for column type",columnType)
+			fmt.Println("ERROR should have integer for column type, got",columnType)
 			return ret, fmt.Errorf("error have int for column type %s: %v", columnType, err)
+		}
+		return v, nil
+	case 7:
+		v, err := r.GetDouble()
+		if err != nil {
+			fmt.Println("ERROR Can't GetDouble", err)
+			return ret, fmt.Errorf("while getting double value of literal for AsInterface: %v", err)
+		}
+		if columnType != "double precision" {
+			fmt.Println("ERROR should have double precision for column type, got",columnType)
+			return ret, fmt.Errorf("error have double for column type %s: %v", columnType, err)
 		}
 		return v, nil
 	case 8:

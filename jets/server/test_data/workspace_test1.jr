@@ -21,6 +21,8 @@ class hc:Claim {
     hc:claim_number as text,
     hc:member_number as text,
     hc:date_of_service as date,
+    hc:submitted_amount as double,
+    hc:allowed_amount as double,
     hc:service_code as text,
     hc:modifier as text,
     hc:service_description as text,
@@ -46,6 +48,10 @@ lookup_table lk:CodeDescription {
 # config resourse used in process config (start msg)
 resource lk:withModifier = "lk:withModifier";
 volatile_resource lkrow = "lkrow";
+volatile_resource SUBMITTED_AMT = "SUBMITTED_AMT";
+volatile_resource ALLOWED_AMT = "ALLOWED_AMT";
+volatile_resource cleanSubmittedAmt = "cleanSubmittedAmt";
+volatile_resource cleanAllowedAmt = "cleanAllowedAmt";
 
 # Add service code description to claim
 # with consideration of the modifier
@@ -80,6 +86,56 @@ volatile_resource lkrow = "lkrow";
   ->
   (?claim hc:service_description ?desc)
 ;
+
+# Cleanup and transfer the amounts
+# Submitted Amount
+[AMT10]:
+  (?claim rdf:type hc:Claim).
+  (?claim SUBMITTED_AMT ?amt)
+  ->
+  (?claim cleanSubmittedAmt parse_usd_currency ?amt)
+;
+
+[AMT11]:
+  (?claim rdf:type hc:Claim).
+  (?claim cleanSubmittedAmt ?amt).
+  [?amt == null]
+  ->
+  (?claim hc:submitted_amount double(0))
+;
+
+[AMT12]:
+  (?claim rdf:type hc:Claim).
+  (?claim cleanSubmittedAmt ?amt).
+  [?amt != null]
+  ->
+  (?claim hc:submitted_amount to_double(?amt))
+;
+
+# Allowed Amount
+[AMT20]:
+  (?claim rdf:type hc:Claim).
+  (?claim ALLOWED_AMT ?amt)
+  ->
+  (?claim cleanAllowedAmt parse_usd_currency ?amt)
+;
+
+[AMT21]:
+  (?claim rdf:type hc:Claim).
+  (?claim cleanAllowedAmt ?amt).
+  [?amt == null]
+  ->
+  (?claim hc:allowed_amount double(0))
+;
+
+[AMT22]:
+  (?claim rdf:type hc:Claim).
+  (?claim cleanAllowedAmt ?amt).
+  [?amt != null]
+  ->
+  (?claim hc:allowed_amount to_double(?amt))
+;
+
 
 # =======================================================================================
 # Metadata Triples

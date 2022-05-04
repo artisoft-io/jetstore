@@ -353,6 +353,18 @@ int get_int_literal(HJR handle, int*v)
   }
 }
 
+int get_double_literal(HJR handle, double*v)
+{
+  if(not handle or not v) return -1;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_literal_double_t    : 
+    *v = boost::get<LDouble>(r)->data;
+    return 0;
+  default: return -1;
+  }
+}
+
 int get_date_details(HJR hdl, int* year, int* month, int* day)
 {
   if(not hdl or not year or not month or not day) return -1;
