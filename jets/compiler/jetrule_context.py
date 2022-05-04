@@ -171,6 +171,7 @@ class JetRuleContext:
       type = 'resource'
       if name.startswith('_0:'):
         name = name[len('_0:'):]
+        value = name  # we don't keep the _0: prefix to the value, it's added when creating the resource in jetrule c++ lib
         type = 'volatile_resource'
 
       if name in self.defined_resources:

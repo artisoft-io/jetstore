@@ -23,20 +23,21 @@ class JetListenerTest2(absltest.TestCase):
     self.assertEqual(compiler.jetrule_ctx.ERROR, False)
 
     with open("test_data/jetrule_main_test.jr.json", 'rt', encoding='utf-8') as f:
-      expected = json.loads(f.read())
-
-    # TEST HERE
-    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetRules), json.dumps(expected))
+      rules_expected = json.loads(f.read())
 
     # print('GOT RULES:',json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
     # print()
     # print('GOT RETE:',json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+    # print()
 
     with open("test_data/jetrule_main_test.jrc.json", 'rt', encoding='utf-8') as f:
-      expected = json.loads(f.read())
+      rete_expected = json.loads(f.read())
 
     # TEST HERE
-    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetReteNodes), json.dumps(expected))
+    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetRules), json.dumps(rules_expected))
+
+    # TEST HERE
+    self.assertEqual(json.dumps(compiler.jetrule_ctx.jetReteNodes), json.dumps(rete_expected))
 
   def test_rule_file2(self):
     provider = InputProvider("test_data/")

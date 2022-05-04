@@ -10,6 +10,7 @@ docker build --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t antlr4:
 ```
 
 ## Running the dev image
+
 docker run -it --rm -u `id -u`:`id -g` \
     -v /home/michel/projects/repos/jetstore:/home/michel/projects/repos/jetstore \
     -v /home/michel/projects/repos/RC-Workspace:/workspaces \
@@ -100,6 +101,7 @@ docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:py-bullseye -f D
 ```
 
 ### Putting together the jetstore runtime image from the builder and the runtime base images
+
 Using docker file Dockerfile.rt_py_bullseye
 ```
 docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:py-bullseye -f Dockerfile.rt_py_bullseye .
@@ -108,17 +110,22 @@ Try the image
 docker run -it --rm --entrypoint /bin/bash jetstore:py-bullseye
 
 # Generating lookup test cases
+
 ## Generate rete.db from rule file
+
 ```
 python3 jetrule_compiler.py --base_path=/go/jetstore/jets/rete/test_data --in_file=lookup_helper_test_workspace.jr --rete_db=lookup_helper_test_workspace.db -d
 ```
 ## Generate lookup data db from workspace rete.db
+
 ```
 python3 jetrule_lookup_loader.py --base_path=/go/jetstore/jets/rete/test_data --lookup_db=lookup_helper_test_data.db --rete_db=lookup_helper_test_workspace.db
 ```
 
 # Running Postgresql Locally
+
 ## Running Postgres DB docker container locally
+
 Pull the postgres image from docker hub and run it locally:
 ```
 docker pull postgres

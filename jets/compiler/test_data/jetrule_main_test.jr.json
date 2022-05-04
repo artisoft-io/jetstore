@@ -723,7 +723,8 @@
           "optimization": false,
           "salience": 100,
           "normalizedLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?x1 rdf:type acme:Claim).(?x1 has_code ?x2).(?x3 rdf:type acme:Claim).(?x3 has_code ?x2) -> (?x1 related_to ?x3).(?x3 related_to ?x1);",
-          "label": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code) -> (?clm01 related_to ?clm02).(?clm02 related_to ?clm01);"
+          "label": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code) -> (?clm01 related_to ?clm02).(?clm02 related_to ?clm01);",
+          "authoredLabel": "[Rule1, s=+100, o=false, tag=\"ACME\"]:(?clm01 rdf:type acme:Claim).(?clm01 has_code ?code).(?clm02 rdf:type acme:Claim).(?clm02 has_code ?code) -> (?clm01 related_to ?clm02).(?clm02 related_to ?clm01);"
       },
       {
           "name": "Rule2",
