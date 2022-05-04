@@ -230,6 +230,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					return &result, fmt.Errorf("ERROR predicate is null")
 				}
 				if object == nil {
+					//* continue
 					return &result, fmt.Errorf("ERROR object is null")
 				}
 				_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
