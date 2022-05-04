@@ -284,7 +284,12 @@ func (rw *ReteWorkspace) ExecuteRules(
 							}
 							var data []interface{}
 							for !itor.IsEnd() {
-								data = append(data, itor.GetObject().AsInterface())
+								obj, err := itor.GetObject().AsInterface()
+								if err != nil {
+									fmt.Println("ERROR getting value from graph for column", domainColumn.ColumnName)
+									//* TODO TOSS ROW
+								}
+								data = append(data, obj)
 								itor.Next()
 							}
 							entityRow[i] = data
@@ -295,7 +300,12 @@ func (rw *ReteWorkspace) ExecuteRules(
 								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 							}
 							if obj != nil {
-								entityRow[i] = obj.AsInterface()
+								iobj, err := obj.AsInterface()
+								if err != nil {
+									fmt.Println("ERROR getting value from graph for column", domainColumn.ColumnName)
+									//* TODO TOSS ROW
+								}
+								entityRow[i] = iobj
 							}
 						}
 					}
