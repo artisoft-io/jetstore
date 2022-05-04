@@ -331,13 +331,13 @@ int get_resource_name(HJR handle, HSTR*v)
   default: return -1;
   }
 }
-char const* go_get_resource_name(HJR handle)
+char const* get_resource_name2(HJR handle, int*v)
 {
-  if(not handle) return nullptr;
+  if(not handle or not v) return nullptr;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_named_resource_t   : return boost::get<NamedResource>(r)->name.data();
-  default: return nullptr;
+  case rdf_named_resource_t   : *v = 0; return boost::get<NamedResource>(r)->name.data();
+  default: *v = -1; return nullptr;
   }
 }
 
@@ -371,34 +371,70 @@ int get_date_details(HJR hdl, int* year, int* month, int* day)
   default: return -1;
   }
 }
-
-char const* go_date_iso_string(HJR handle)
+int get_date_iso_string(HJR handle, HSTR*v)
 {
-  if(not handle) return nullptr;
+  if(not handle or not v) return -1;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_literal_date_t: 
+  case rdf_literal_date_t   : 
     {
-      date const& d = boost::get<LDate>(r)->data; 
-      if(d.is_not_a_date()) return nullptr;
-      return boost::gregorian::to_iso_extended_string(d).c_str();
+      date const& d = boost::get<LDate>(r)->data;
+      if(d.is_not_a_date()) return -2;
+      *v = boost::gregorian::to_iso_extended_string(d).c_str(); 
+      return 0;
     }
-  default: return nullptr;
+  default: return -1;
   }
 }
-
-char const* go_datetime_iso_string(HJR handle)
+char const* get_date_iso_string2(HJR handle, int*v)
 {
-  if(not handle) return nullptr;
+  if(not handle or not v) return nullptr;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_literal_datetime_t: 
+  case rdf_literal_date_t   : 
     {
-      datetime const& d = boost::get<LDatetime>(r)->data; 
-      if(d.is_not_a_date_time()) return nullptr;
+      date const& d = boost::get<LDate>(r)->data;
+      if(d.is_not_a_date()) {
+        *v = -2;
+        return nullptr;
+      }
+      *v = 0;
+      return boost::gregorian::to_iso_extended_string(d).c_str();
+    }
+  default: *v = -1; return nullptr;
+  }
+}
+int get_datetime_iso_string(HJR handle, HSTR*v)
+{
+  if(not handle or not v) return -1;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_literal_datetime_t   : 
+    {
+      datetime const& d = boost::get<LDatetime>(r)->data;
+      if(d.is_not_a_date_time()) return -2;
+      *v = boost::posix_time::to_iso_extended_string(d).c_str(); 
+      return 0;
+    }
+  default: return -1;
+  }
+}
+char const* get_datetime_iso_string2(HJR handle, int*v)
+{
+  if(not handle or not v) return nullptr;
+  auto const* r =  static_cast<r_index>(handle);
+  switch (r->which()) {
+  case rdf_literal_datetime_t   : 
+    {
+      datetime const& d = boost::get<LDatetime>(r)->data;
+      if(d.is_not_a_date_time()) {
+        *v = -2;
+        return  nullptr;
+      }
+      *v = 0; 
       return boost::posix_time::to_iso_extended_string(d).c_str();
     }
-  default: return nullptr;
+  default: *v = -1; return nullptr;
   }
 }
 
@@ -411,13 +447,13 @@ int get_text_literal(HJR handle, HSTR*v)
   default: return -1;
   }
 }
-char const* go_get_text_literal(HJR handle)
+char const* get_text_literal2(HJR handle, int*v)
 {
-  if(not handle) return nullptr;
+  if(not handle or not v) return nullptr;
   auto const* r =  static_cast<r_index>(handle);
   switch (r->which()) {
-  case rdf_literal_string_t   : return boost::get<LString>(r)->data.data();
-  default: return nullptr;
+  case rdf_literal_string_t   : *v = 0; return boost::get<LString>(r)->data.data();
+  default: *v = -1; return nullptr;
   }
 }
 

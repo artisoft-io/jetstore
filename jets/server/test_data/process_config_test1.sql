@@ -21,7 +21,7 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
   (1, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
   (3, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL),
   (3, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL),
-  (3, 'DOS', '_0:date_of_service', NULL, NULL, NULL),
+  (3, 'DOS', 'hc:date_of_service', NULL, NULL, NULL),
   (3, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL),
   (3, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL),
   (3, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
