@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -35,6 +36,8 @@ var (
 	ErrNotDate          = errors.New("not a date")
 	ErrNotValidDate     = errors.New("not a valid date")
 	ErrNotValidDateTime = errors.New("not a valid datetime")
+	ErrNullValue        = errors.New("null value")
+	ErrUnexpectedRdfType = errors.New("value with unexpected rdf type")
 )
 
 // ResourceType
@@ -357,10 +360,15 @@ func (r *Resource) GetType() int {
 func (r *Resource) GetName() (string, error) {
 	// rdf_named_resource_t
 	if r.GetType() != 2 {
-		return "", errors.New("ERROR GetName applies to resources only")
+		return "", ErrUnexpectedRdfType
 	}
-	name := C.GoString(C.go_get_resource_name(r.hdl))
-	return name, nil
+	var cret C.int
+	sp := C.get_resource_name2(r.hdl, &cret)
+	if int(cret) != 0 {
+		fmt.Println("ERROR getting resource name", int(cret))
+		return "", fmt.Errorf("error while getting resource name: %v", int(cret))
+	}
+	return C.GoString(sp), nil
 }
 
 func (r *Resource) GetInt() (int, error) {
@@ -377,20 +385,40 @@ func (r *Resource) GetInt() (int, error) {
 	return int(cint), nil
 }
 
-func (r *Resource) GetDateIsoString() string {
+func (r *Resource) GetDateIsoString() (string, error) {
 	// rdf_literal_date_t
 	if r.GetType() != 9 {
-		return ""
+		return "", ErrUnexpectedRdfType
 	}
-	return C.GoString(C.go_date_iso_string(r.hdl))
+	var cret C.int
+	sp := C.get_date_iso_string2(r.hdl, &cret)
+	ret := int(cret)
+	if ret == -2 {
+		return "", ErrNotValidDate
+	} 
+	if ret != 0 {
+		fmt.Println("ERROR getting date in iso str format", ret)
+		return "", fmt.Errorf("error while date in iso str format: %v", ret)
+	}
+	return C.GoString(sp), nil
 }
 
-func (r *Resource) GetDatetimeIsoString() string {
+func (r *Resource) GetDatetimeIsoString() (string, error) {
 	// rdf_literal_date_t
 	if r.GetType() != 10 {
-		return ""
+		return "", ErrUnexpectedRdfType
 	}
-	return C.GoString(C.go_datetime_iso_string(r.hdl))
+	var cret C.int
+	sp := C.get_datetime_iso_string2(r.hdl, &cret)
+	ret := int(cret)
+	if ret == -2 {
+		return "", ErrNotValidDateTime
+	} 
+	if ret != 0 {
+		fmt.Println("ERROR getting datetime in iso str format", ret)
+		return "", fmt.Errorf("error while datetime in iso str format: %v", ret)
+	}
+	return C.GoString(sp), nil
 }
 
 func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {
@@ -417,90 +445,101 @@ func (r *Resource) GetText() (string, error) {
 	if r.GetType() != 8 {
 		return "", errors.New("ERROR GetText applies to text literal only")
 	}
-	return C.GoString(C.go_get_text_literal(r.hdl)), nil
+	var cret C.int
+	sp := C.get_text_literal2(r.hdl, &cret)
+	ret := int(cret)
+	if ret != 0 {
+		fmt.Println("ERROR getting literal text value:", ret)
+		return "", fmt.Errorf("error getting literal text value: %v", ret)
+	}
+	return C.GoString(sp), nil
 }
 
-func (r *Resource) AsText() string {
+func (r *Resource) AsText() (string, error) {
 	if r == nil {
-		return "NULL"
+		return "NULL", nil
 	}
 	switch rtype := r.GetType(); rtype {
 	case 0:
-		return "NULL"
+		return "NULL", nil
 	case 1:
-		return "BN:"
+		return "BN:", nil
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
 			fmt.Println("ERROR Can't GetName", err)
-			return "ERROR!"
+			return "", fmt.Errorf("error getting resource name: %v", err)
 		}
-		return v
+		return v, nil
 	case 3:
 		v, err := r.GetInt()
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)
+			return "", fmt.Errorf("error getting literal int value: %v", err)
 		}
-		return strconv.Itoa(v)
+		return strconv.Itoa(v), nil
 	case 8:
 		v, err := r.GetText()
 		if err != nil {
 			fmt.Println("ERROR Can't GetText", err)
+			return "", fmt.Errorf("error getting literal text value: %v", err)
 		}
-		return v
+		return v, nil
 	case 9:
-		// y, m, d, err := r.GetDateDetails()
-		// if err == ErrNotDate {
-		// 	return "not a date"
-		// }
-		// if err == ErrNotValidDate {
-		// 	return "not a valid date"
-		// }
-		// return fmt.Sprintf("%d-%d-%d", y, m, d)
 		return r.GetDateIsoString()
 	case 10:
 		return r.GetDatetimeIsoString()
 	default:
 		fmt.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
-		return "ERROR!"
+		return "", fmt.Errorf("error unexpected resource type: %v", rtype)
 	}
 }
 
 func (r *Resource) AsInterface() interface{} {
 	if r == nil {
-		return nil
+		return sql.NullString{Valid: false}
 	}
 	switch rtype := r.GetType(); rtype {
 	case 0:
-		return nil
+		return sql.NullString{Valid: false}
 	case 1:
 		return "BN:"
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
-			fmt.Println("ERROR Can't GetName", err)
-			return "ERROR!"
+			fmt.Println("ERROR Can't resource name", err)
+			return sql.NullString{Valid: false}
 		}
 		return v
 	case 3:
 		v, err := r.GetInt()
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)
+			return sql.NullInt32{Valid: false}
 		}
 		return v
 	case 8:
 		v, err := r.GetText()
 		if err != nil {
 			fmt.Println("ERROR Can't GetText", err)
+			return sql.NullString{Valid: false}
 		}
 		return v
 	case 9:
-		return r.GetDateIsoString()
+		v, err := r.GetDateIsoString()
+		if err != nil {
+			return sql.NullString{Valid: false}
+		}
+		return v
 	case 10:
-		return r.GetDatetimeIsoString()
+		v, err := r.GetDatetimeIsoString()
+		if err != nil {
+			return sql.NullString{Valid: false}
+		}
+		return v
 	default:
 		fmt.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
-		return "ERROR!"
+		return sql.NullString{Valid: false}
 	}
 }
 

@@ -54,13 +54,15 @@ typedef void const* HSTR;
 // Get the resource name and literal value
 int get_resource_type(HJR handle);
 int get_resource_name(HJR handle, HSTR*);
-char const* go_get_resource_name(HJR handle);
+char const* get_resource_name2(HJR handle, int*);
 int get_int_literal(HJR handle, int*);
 int get_text_literal(HJR handle, HSTR*);
-char const* go_get_text_literal(HJR handle);
+char const* get_text_literal2(HJR handle, int*);
 int get_date_details(HJR hdl, int* year, int* month, int* day);
-char const* go_date_iso_string(HJR handle);
-char const* go_datetime_iso_string(HJR handle);
+int get_date_iso_string(HJR handle, HSTR*);
+int get_datetime_iso_string(HJR handle, HSTR*);
+char const* get_date_iso_string2(HJR handle, int*);
+char const* get_datetime_iso_string2(HJR handle, int*);
 
 
 // main functions
