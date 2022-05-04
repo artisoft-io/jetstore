@@ -18,12 +18,14 @@ type WriteTableResult struct {
 type WriteTableSource struct {
 	source <-chan []interface{}
 	pending []interface{}
+	count int
 }
 
 // pgx.CopyFromSource interface
 func (wt *WriteTableSource) Next() bool {
 	var ok bool
 	wt.pending,ok = <-wt.source
+	wt.count += 1
 	return ok
 }
 func (wt *WriteTableSource) Values() ([]interface{}, error) {
@@ -46,7 +48,17 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 
 	recCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{domainTable.TableName}, columns, wt)
 	if err != nil {
-		return &result, fmt.Errorf("while copy records to db: %v", err)
+		fmt.Println("Last pending row:")
+		for i := range columns {
+			if i > 0 {
+				fmt.Print(",")
+			}
+			if wt.pending[i] != nil {
+				fmt.Print(wt.pending[i])
+			}
+		}
+		fmt.Println()
+		return &result, fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)
 	}
 	
 	result.tableName = domainTable.TableName

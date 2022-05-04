@@ -494,20 +494,24 @@ func (r *Resource) AsText() (string, error) {
 	}
 }
 
-func (r *Resource) AsInterface() (ret interface{}, err error) {
+func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	if r == nil {
 		return ret, fmt.Errorf("error: null resource call AsInterface{}")
 	}
 	switch rtype := r.GetType(); rtype {
 	case 0:
 		return nil, nil
-	case 1:
-		return "BN:", nil
+	// case 1:
+	// 	return "BN:", nil
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
 			fmt.Println("ERROR Can't resource name", err)
 			return ret, fmt.Errorf("while getting name of resource for AsInterface: %v", err)
+		}
+		if columnType != "text" {
+			fmt.Println("ERROR getting resource name for column type",columnType)
+			return ret, fmt.Errorf("error using resource name in column type %s: %v", columnType, err)
 		}
 		return v, nil
 	case 3:
@@ -516,6 +520,10 @@ func (r *Resource) AsInterface() (ret interface{}, err error) {
 			fmt.Println("ERROR Can't GetInt", err)
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
 		}
+		if columnType != "integer" {
+			fmt.Println("ERROR have int for column type",columnType)
+			return ret, fmt.Errorf("error have int for column type %s: %v", columnType, err)
+		}
 		return v, nil
 	case 8:
 		v, err := r.GetText()
@@ -523,17 +531,29 @@ func (r *Resource) AsInterface() (ret interface{}, err error) {
 			fmt.Println("ERROR Can't GetText", err)
 			return ret, fmt.Errorf("while getting text of literal for AsInterface: %v", err)
 		}
-		return v, nil
-	case 9:
-		v, err := r.GetDateIsoString()
-		if err != nil {
-			return ret, fmt.Errorf("while getting date literal for AsInterface: %v", err)
+		if columnType != "text" {
+			fmt.Println("ERROR have text for column type",columnType)
+			return ret, fmt.Errorf("error have text for column type %s: %v", columnType, err)
 		}
 		return v, nil
+	case 9:
+		y, m, d, err := r.GetDateDetails()
+		if err != nil {
+			return ret, fmt.Errorf("while getting date details: %v", err)
+		}
+		if columnType != "text" {
+			fmt.Println("ERROR have text (date) for column type",columnType)
+			return ret, fmt.Errorf("error have text (date) for column type %s: %v", columnType, err)
+		}
+		return fmt.Sprintf("%d-%d-%d", y, m, d), nil
 	case 10:
 		v, err := r.GetDatetimeIsoString()
 		if err != nil {
 			return ret, fmt.Errorf("while getting datetime literal for AsInterface: %v", err)
+		}
+		if columnType != "text" {
+			fmt.Println("ERROR have text (datetime) for column type",columnType)
+			return ret, fmt.Errorf("error have text (datetime) for column type %s: %v", columnType, err)
 		}
 		return v, nil
 	default:
