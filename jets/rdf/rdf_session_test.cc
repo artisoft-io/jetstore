@@ -9,6 +9,106 @@ namespace jets::rdf {
 namespace {
 // Test cases for RDFSession class
 // The suite fixture for RDFSession
+// simple test for bug #154
+//   duplicate triples when inferred and asserted
+TEST(RDFSessionInsert, TestInsert1)
+{
+  auto meta_graph_p = create_rdf_graph();
+  meta_graph_p->set_locked();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+
+  auto r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o=   r_mgr_p->create_resource("o");
+
+  rdf_session_p->insert(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+
+}
+TEST(RDFSessionInsert, TestInsert2)
+{
+  auto meta_graph_p = create_rdf_graph();
+  meta_graph_p->set_locked();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+
+  auto r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o=   r_mgr_p->create_resource("o");
+
+  rdf_session_p->insert_inferred(s, p, o);
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+
+  rdf_session_p->retract(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+
+  rdf_session_p->retract(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 0);
+}
+TEST(RDFSessionInsert, TestInsert3)
+{
+  auto meta_graph_p = create_rdf_graph();
+  meta_graph_p->set_locked();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+
+  auto r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o=   r_mgr_p->create_resource("o");
+
+  rdf_session_p->insert_inferred(s, p, o);
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+
+  rdf_session_p->insert(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+
+  rdf_session_p->retract(s, p, o);
+  rdf_session_p->retract(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+}
+TEST(RDFSessionInsert, TestInsert4)
+{
+  auto meta_graph_p = create_rdf_graph();
+  auto r_mgr_p = meta_graph_p->get_rmgr();
+  auto ms=   r_mgr_p->create_resource("s");
+  auto mp=   r_mgr_p->create_resource("p");
+  auto mo=   r_mgr_p->create_resource("o");
+  meta_graph_p->insert(ms, mp, mo);
+  meta_graph_p->set_locked();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+
+  r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o=   r_mgr_p->create_resource("o");
+  EXPECT_EQ(s, ms);
+  EXPECT_EQ(p, mp);
+  EXPECT_EQ(o, mo);
+
+  EXPECT_EQ(meta_graph_p->size(), 1);
+
+  rdf_session_p->insert_inferred(s, p, o);
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 2);
+
+  rdf_session_p->insert(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 2);
+
+  rdf_session_p->retract(s, p, o);
+  rdf_session_p->retract(s, p, o);
+  rdf_session_p->retract(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 2);
+
+  rdf_session_p->erase(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+}
+
 class RDFSessionStlTest : public ::testing::Test {
  protected:
   RDFSessionStlTest(): rdf_session_p()
