@@ -429,7 +429,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
 struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>
 {
   ToIntVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for Abs: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for to_int: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
@@ -439,7 +439,9 @@ struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LString lhs)const
   {
     auto view = rdf::trim_view(lhs.data);
-    if(view.empty()) return rdf::RDFNull();
+    if(view.empty()) {
+      RETE_EXCEPTION("NULL arguments for to_int");
+    }
     return rdf::LInt32(boost::lexical_cast<int32_t>(view));
   }
 
@@ -452,7 +454,7 @@ struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>
 struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>
 {
   ToDoubleVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for Abs: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for to_double: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}
@@ -462,7 +464,9 @@ struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LString lhs)const
   {
     auto view = rdf::trim_view(lhs.data);
-    if(view.empty()) return rdf::RDFNull();
+    if(view.empty()) {
+      RETE_EXCEPTION("NULL arguments for to_double");
+    }
     return rdf::LDouble(boost::lexical_cast<double_t>(view));
   }
 
