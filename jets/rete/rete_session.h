@@ -91,6 +91,8 @@ class ReteSession {
   int 
   execute_rules();
 
+  char const* execute_rules2(int*v);
+
   /**
    * @brief Notification function called when a triple is added to the inferred graph
    * 

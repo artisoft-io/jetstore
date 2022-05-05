@@ -497,6 +497,12 @@ int execute_rules(HJRETE rete_hdl)
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
   return rete_session->execute_rules();
 }
+char const* execute_rules2(HJRETE rete_hdl, int*v)
+{
+  if(not rete_hdl or not v) return nullptr;
+  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  return rete_session->execute_rules2(v);
+}
 
 int dump_rdf_graph(HJRETE rete_hdl)
 {

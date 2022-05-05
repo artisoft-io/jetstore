@@ -72,6 +72,31 @@ namespace jets::rete {
     return execute_rules(0, true, true);
   }
 
+  // this version is called from the go client is the way forward
+  char const* 
+  ReteSession::execute_rules2(int*v)
+  {
+    if(not v) return nullptr;
+    // Visit the beta nodes
+    try {
+      int ret = this->execute_rules(0, true, true);
+      if(ret < 0) {
+        std::string err("execute rules returned error code ");
+        err + std::to_string(ret);
+        *v = ret;
+        return err.data();
+      }
+    } catch (std::exception& err) {
+      LOG(ERROR) << "ReteSession::execute_rules: error:"<<err.what();
+      *v = -1;
+      return err.what();
+    } catch (...) {
+      *v = -1;
+      return "unknown error in executing rules";
+    }
+    return nullptr;
+  }
+
   int 
   ReteSession::execute_rules(int from_vertex, bool is_inferring, bool compute_consequents)
   {
@@ -94,7 +119,6 @@ namespace jets::rete {
         return err;
       }
     }
-
     return 0;
   }
 

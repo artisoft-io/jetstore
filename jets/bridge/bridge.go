@@ -452,7 +452,6 @@ func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {
 	d = int(cd)
 	return
 }
-
 func (r *Resource) GetText() (string, error) {
 	// rdf_literal_string_t
 	if r.GetType() != 8 {
@@ -621,13 +620,15 @@ func (rs *ReteSession) Contains(s *Resource, p *Resource, o *Resource) (int, err
 }
 
 // ReteSession ExecuteRules
-func (rs *ReteSession) ExecuteRules() error {
-	ret := int(C.execute_rules(rs.hdl))
-	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.ExecuteRules ret code", ret)
-		return errors.New("ERROR calling ExecuteRules(), ret code: " + fmt.Sprint(ret))
+func (rs *ReteSession) ExecuteRules() (string, error) {
+	var cret C.int
+	sp := C.execute_rules2(rs.hdl, &cret)
+	ret := int(cret)
+	if ret != 0 {
+		fmt.Println("ERROR calling execute rules:", ret)
+		return C.GoString(sp), fmt.Errorf("error during execute rules in c: %v", ret)
 	}
-	return nil
+	return "", nil
 }
 
 // ReteSession DumpRdfGraph

@@ -240,9 +240,20 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 		}
 		// done asserting
-		err = reteSession.ExecuteRules()
+		msg, err := reteSession.ExecuteRules()
 		if err != nil {
-			return &result, fmt.Errorf("while reteSession.ExecuteRules: %v", err)
+			//* TODO TOSS OUT ROW
+			for _, row := range inputRecords {
+				var groupStr string
+				if row[processInput.groupingPosition].Valid {
+					groupStr = row[processInput.groupingPosition].String
+				}
+				jetsKeyStr := "was a uuid!"
+				if row[processInput.keyPosition].Valid {
+					jetsKeyStr = row[processInput.keyPosition].String
+				}
+				fmt.Println("BAD ROW: ",groupStr,"|",jetsKeyStr,"|",msg)
+			}
 		}
 		// log.Println("ExecuteRule() Completed sucessfully")
 		if *ps {
