@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS process_errors;
 CREATE TABLE IF NOT EXISTS process_errors (
     key SERIAL PRIMARY KEY  ,
     session_id TEXT,
-    grouping_key TEXT NOT NULL,
+    grouping_key TEXT,
     row_jets_key TEXT,
     error_message TEXT,
     shard_id integer DEFAULT 0 NOT NULL,

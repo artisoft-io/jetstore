@@ -13,26 +13,26 @@ INSERT INTO process_input (key, process_key, input_table, entity_rdf_type, group
   (2, 2, 'm2c__input1', 'm2c:Claim', 'COL2', NULL)
 ;
 
-INSERT INTO process_mapping (process_input_key, input_column, data_property, function_name, argument, default_value) VALUES
-  (1, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL),
-  (1, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL),
-  (1, 'DOS', 'hc:date_of_service', NULL, NULL, NULL),
-  (1, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL),
-  (1, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL),
-  (1, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
-  (1, 'SUBMITTED_AMT', '_0:SUBMITTED_AMT', NULL, NULL, NULL),
-  (1, 'ALLOWED_AMT', '_0:ALLOWED_AMT', NULL, NULL, NULL),
-  (3, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL),
-  (3, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL),
-  (3, 'DOS', 'hc:date_of_service', NULL, NULL, NULL),
-  (3, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL),
-  (3, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL),
-  (3, 'NDAYS', 'hc:ndays', NULL, NULL, NULL),
-  (3, 'SUBMITTED_AMT', '_0:SUBMITTED_AMT', NULL, NULL, NULL),
-  (3, 'ALLOWED_AMT', '_0:ALLOWED_AMT', NULL, NULL, NULL),
-  (2, 'COL1', 'm2c:P1', 'regex', '\d{3}', NULL),
-  (2, 'COL2', 'm2c:P2', NULL, NULL, NULL),
-  (2, 'COL2', 'm2c:P3', 'parse_amount', '100', '0')
+INSERT INTO process_mapping (process_input_key, input_column, data_property, function_name, argument, default_value, error_message) VALUES
+  (1, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL, NULL),
+  (1, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL, NULL),
+  (1, 'DOS', 'hc:date_of_service', NULL, NULL, NULL, NULL),
+  (1, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL, NULL),
+  (1, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL, NULL),
+  (1, 'NDAYS', 'hc:ndays', NULL, NULL, NULL, NULL),
+  (1, 'SUBMITTED_AMT', '_0:SUBMITTED_AMT', NULL, NULL, '99', NULL),
+  (1, 'ALLOWED_AMT', '_0:ALLOWED_AMT', NULL, NULL, NULL, 'Input amounts cannot be null'),
+  (3, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL, NULL),
+  (3, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL, NULL),
+  (3, 'DOS', 'hc:date_of_service', NULL, NULL, NULL, NULL),
+  (3, 'SERVICE_CODE', 'hc:service_code', NULL, NULL, NULL, NULL),
+  (3, 'MODIFIER', 'hc:modifier', NULL, NULL, NULL, NULL),
+  (3, 'NDAYS', 'hc:ndays', NULL, NULL, NULL, NULL),
+  (3, 'SUBMITTED_AMT', '_0:SUBMITTED_AMT', NULL, NULL, '99', NULL),
+  (3, 'ALLOWED_AMT', '_0:ALLOWED_AMT', NULL, NULL, NULL, 'Input amounts cannot be null'),
+  (2, 'COL1', 'm2c:P1', 'regex', '\d{3}', NULL, NULL),
+  (2, 'COL2', 'm2c:P2', NULL, NULL, NULL, NULL),
+  (2, 'COL2', 'm2c:P3', 'parse_amount', '100', '0', 'Input amounts cannot be null')
 ;
 
 INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALUES

@@ -29,12 +29,12 @@ docker run --rm -v=`pwd`:/go/work -w=/usr/local/lib/jets/compiler \
 ## Load the input csv file using jetstore loader
 
 Load of csv file using jetstore loader into the platform postgres database.
-From the `server/test_data` directory:
+From the `server/` directory:
 ```
 docker run --rm -v=`pwd`:/go/work -w=/go/work \
   --entrypoint=loader jetstore:bullseye    \
   -dsn="postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres" \
-  -table=test1 -in_file=input_data_test1.csv -sep '|' -d 
+  -table=test1 -in_file=test_data/input_data_test1.csv -sep '|' -d 
 ```
 
 In postgres, you can query the created table to see it's schema:

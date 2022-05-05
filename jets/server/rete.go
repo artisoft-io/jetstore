@@ -126,7 +126,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// asserting input row with mapping spec
 				inputColumnSpec := &processInput.processInputMapping[icol]
 				var obj string
-				if row[icol].Valid {
+				if row[icol].Valid && len(row[icol].String)>0 {
 					if inputColumnSpec.functionName.Valid {
 						switch inputColumnSpec.functionName.String {
 						case "to_upper":
@@ -144,10 +144,25 @@ func (rw *ReteWorkspace) ExecuteRules(
 						obj = row[icol].String
 					}
 				} else {
-					// get the default or ignore the filed if no default is avail
+					// get the default or report error or ignore the filed if no default or error message is avail
 					if inputColumnSpec.defaultValue.Valid {
 						obj = inputColumnSpec.defaultValue.String
 					} else {
+						if inputColumnSpec.errorMessage.Valid {
+							// report error
+							//* TODO TOSS OUT ROW
+							var br BadRow
+							if sessionId!=nil && len(*sessionId) > 0 {
+								br.SessionId = sql.NullString{String: *sessionId, Valid: true}
+							}
+							br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
+							if row[processInput.groupingPosition].Valid {
+								br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
+							}
+							br.ErrorMessage = inputColumnSpec.errorMessage
+							fmt.Println("BAD Input ROW:",br)
+							//* TODO TOSS OUT ROW
+						}
 						continue
 					}
 				}
@@ -243,17 +258,17 @@ func (rw *ReteWorkspace) ExecuteRules(
 		msg, err := reteSession.ExecuteRules()
 		if err != nil {
 			//* TODO TOSS OUT ROW
-			for _, row := range inputRecords {
-				var groupStr string
-				if row[processInput.groupingPosition].Valid {
-					groupStr = row[processInput.groupingPosition].String
-				}
-				jetsKeyStr := "was a uuid!"
-				if row[processInput.keyPosition].Valid {
-					jetsKeyStr = row[processInput.keyPosition].String
-				}
-				fmt.Println("BAD ROW: ",groupStr,"|",jetsKeyStr,"|",msg)
+			var br BadRow
+			if sessionId!=nil && len(*sessionId) > 0 {
+				br.SessionId = sql.NullString{String: *sessionId, Valid: true}
 			}
+			if inputRecords[0][processInput.groupingPosition].Valid {
+				gp := inputRecords[0][processInput.groupingPosition].String
+				br.GroupingKey = sql.NullString{String: gp, Valid: true}
+			}
+			br.ErrorMessage = sql.NullString{String: msg, Valid: true}
+			fmt.Println("BAD ROW:",br)
+			//* TODO TOSS OUT ROW
 		}
 		// log.Println("ExecuteRule() Completed sucessfully")
 		if *ps {
@@ -299,8 +314,20 @@ func (rw *ReteWorkspace) ExecuteRules(
 							for !itor.IsEnd() {
 								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
-									fmt.Println("ERROR getting value from graph for column", domainColumn.ColumnName)
-									//* TODO TOSS ROW
+									//* TODO TOSS OUT ROW
+									var br BadRow
+									if sessionId!=nil && len(*sessionId) > 0 {
+										br.SessionId = sql.NullString{String: *sessionId, Valid: true}
+									}
+									if inputRecords[0][processInput.groupingPosition].Valid {
+										gp := inputRecords[0][processInput.groupingPosition].String
+										br.GroupingKey = sql.NullString{String: gp, Valid: true}
+									}
+									br.ErrorMessage = sql.NullString{
+										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
+										Valid: true}
+									fmt.Println("BAD EXTRACT:",br)
+									//* TODO TOSS OUT ROW
 								}
 								data = append(data, obj)
 								itor.Next()
@@ -315,8 +342,20 @@ func (rw *ReteWorkspace) ExecuteRules(
 							if obj != nil {
 								iobj, err := obj.AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
-									fmt.Println("ERROR getting value from graph for column", domainColumn.ColumnName)
-									//* TODO TOSS ROW
+									//* TODO TOSS OUT ROW
+									var br BadRow
+									if sessionId!=nil && len(*sessionId) > 0 {
+										br.SessionId = sql.NullString{String: *sessionId, Valid: true}
+									}
+									if inputRecords[0][processInput.groupingPosition].Valid {
+										gp := inputRecords[0][processInput.groupingPosition].String
+										br.GroupingKey = sql.NullString{String: gp, Valid: true}
+									}
+									br.ErrorMessage = sql.NullString{
+										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
+										Valid: true}
+									fmt.Println("BAD EXTRACT:",br)
+									//* TODO TOSS OUT ROW
 								}
 								entityRow[i] = iobj
 							}
