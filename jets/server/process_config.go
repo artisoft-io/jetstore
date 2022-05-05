@@ -27,6 +27,41 @@ type ProcessConfig struct {
 	ruleConfigs       RuleConfigSlice
 }
 
+type BadRow struct {
+	SessionId sql.NullString
+	GroupingKey sql.NullString
+	RowJetsKey sql.NullString
+	ErrorMessage	 sql.NullString
+}
+
+func (br BadRow) String() string {
+	var buf strings.Builder
+	if br.SessionId.Valid {
+		buf.WriteString(br.SessionId.String)
+	} else {
+		buf.WriteString("NULL")
+	}
+	buf.WriteString(" | ")
+	if br.GroupingKey.Valid {
+		buf.WriteString(br.GroupingKey.String)
+	} else {
+		buf.WriteString("NULL")
+	}
+	buf.WriteString(" | ")
+	if br.RowJetsKey.Valid {
+		buf.WriteString(br.RowJetsKey.String)
+	} else {
+		buf.WriteString("NULL")
+	}
+	buf.WriteString(" | ")
+	if br.ErrorMessage.Valid {
+		buf.WriteString(br.ErrorMessage.String)
+	} else {
+		buf.WriteString("NULL")
+	}
+	return buf.String()
+}
+
 // type ProcessRun struct {
 // 	key int
 // 	processConfigKey int
@@ -59,6 +94,7 @@ type ProcessMap struct {
 	functionName    sql.NullString
 	argument        sql.NullString
 	defaultValue    sql.NullString
+	errorMessage    sql.NullString
 }
 
 type RuleConfig struct {
@@ -164,7 +200,7 @@ func (processInputs *ProcessInputSlice) read(dbpool *pgxpool.Pool, pcKey int) er
 
 // read mapping definitions
 func (processMapping *ProcessMapSlice) read(dbpool *pgxpool.Pool, processInputKey int) error {
-	rows, err := dbpool.Query(context.Background(), "SELECT process_input_key, input_column, data_property, function_name, argument, default_value FROM process_mapping WHERE process_input_key = $1", processInputKey)
+	rows, err := dbpool.Query(context.Background(), "SELECT process_input_key, input_column, data_property, function_name, argument, default_value, error_message FROM process_mapping WHERE process_input_key = $1", processInputKey)
 	if err != nil {
 		return err
 	}
@@ -173,7 +209,7 @@ func (processMapping *ProcessMapSlice) read(dbpool *pgxpool.Pool, processInputKe
 	// Loop through rows, using Scan to assign column data to struct fields.
 	for rows.Next() {
 		var pm ProcessMap
-		if err := rows.Scan(&pm.processInputKey, &pm.inputColumn, &pm.dataProperty, &pm.functionName, &pm.argument, &pm.defaultValue); err != nil {
+		if err := rows.Scan(&pm.processInputKey, &pm.inputColumn, &pm.dataProperty, &pm.functionName, &pm.argument, &pm.defaultValue, &pm.errorMessage); err != nil {
 			return err
 		}
 
