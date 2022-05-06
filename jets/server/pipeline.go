@@ -112,6 +112,9 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		writeOutputc[tbl] = make(chan []interface{})
 	}
 
+	// Add one chanel for the BadRow notification
+	writeOutputc["process_errors"] = make(chan []interface{})
+
 	// fmt.Println("processInputMapping is complete, len is", len(processInput.processInputMapping))
 	// for icol := range processInput.processInputMapping {
 	// 	fmt.Println(
@@ -207,6 +210,17 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	// setup a WaitGroup with the number of workers,
 	// each worker is assigned to an output table
 	// create a chanel for executor's result
+	// NOTE: Add to outputMapping the table information for writing BadRows
+	// notifications to the database is included in 
+	outputMapping["process_errors"] = &workspace.DomainTable{
+		TableName: "process_errors", 
+		Columns: []workspace.DomainColumn{
+			{ColumnName: "session_id"},
+			{ColumnName: "grouping_key"},
+			{ColumnName: "row_jets_key"},
+			{ColumnName: "error_message"},
+			{ColumnName: "shard_id"}}}
+
 	var wg2 sync.WaitGroup
 	// wtrc: Write Table Result Chanel, worker's result status
 	wtrc := make(chan writeResult)

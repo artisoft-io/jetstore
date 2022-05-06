@@ -152,15 +152,13 @@ func (rw *ReteWorkspace) ExecuteRules(
 							// report error
 							//* TODO TOSS OUT ROW
 							var br BadRow
-							if sessionId!=nil && len(*sessionId) > 0 {
-								br.SessionId = sql.NullString{String: *sessionId, Valid: true}
-							}
 							br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
 							if row[processInput.groupingPosition].Valid {
 								br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
 							}
 							br.ErrorMessage = inputColumnSpec.errorMessage
 							fmt.Println("BAD Input ROW:",br)
+							br.write2Chan(writeOutputc["process_errors"])
 							//* TODO TOSS OUT ROW
 						}
 						continue
@@ -259,15 +257,13 @@ func (rw *ReteWorkspace) ExecuteRules(
 		if err != nil {
 			//* TODO TOSS OUT ROW
 			var br BadRow
-			if sessionId!=nil && len(*sessionId) > 0 {
-				br.SessionId = sql.NullString{String: *sessionId, Valid: true}
-			}
 			if inputRecords[0][processInput.groupingPosition].Valid {
 				gp := inputRecords[0][processInput.groupingPosition].String
 				br.GroupingKey = sql.NullString{String: gp, Valid: true}
 			}
 			br.ErrorMessage = sql.NullString{String: msg, Valid: true}
 			fmt.Println("BAD ROW:",br)
+			br.write2Chan(writeOutputc["process_errors"])
 			//* TODO TOSS OUT ROW
 		}
 		// log.Println("ExecuteRule() Completed sucessfully")
@@ -285,6 +281,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		// pulling the data out of the rete session
 		for tableName, tableSpec := range outputSpecs {
+			// check if this tableSpec is for the process_errors table
+			if tableName == "process_errors" {
+				continue
+			}
 			// extract entities by rdf type
 			ctor, err := reteSession.Find(nil, rdfType, tableSpec.ClassResource)
 			if err != nil {
@@ -316,9 +316,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 								if err != nil {
 									//* TODO TOSS OUT ROW
 									var br BadRow
-									if sessionId!=nil && len(*sessionId) > 0 {
-										br.SessionId = sql.NullString{String: *sessionId, Valid: true}
-									}
 									if inputRecords[0][processInput.groupingPosition].Valid {
 										gp := inputRecords[0][processInput.groupingPosition].String
 										br.GroupingKey = sql.NullString{String: gp, Valid: true}
@@ -327,6 +324,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
 										Valid: true}
 									fmt.Println("BAD EXTRACT:",br)
+									br.write2Chan(writeOutputc["process_errors"])
 									//* TODO TOSS OUT ROW
 								}
 								data = append(data, obj)
@@ -344,9 +342,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 								if err != nil {
 									//* TODO TOSS OUT ROW
 									var br BadRow
-									if sessionId!=nil && len(*sessionId) > 0 {
-										br.SessionId = sql.NullString{String: *sessionId, Valid: true}
-									}
 									if inputRecords[0][processInput.groupingPosition].Valid {
 										gp := inputRecords[0][processInput.groupingPosition].String
 										br.GroupingKey = sql.NullString{String: gp, Valid: true}
@@ -355,6 +350,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
 										Valid: true}
 									fmt.Println("BAD EXTRACT:",br)
+									br.write2Chan(writeOutputc["process_errors"])
 									//* TODO TOSS OUT ROW
 								}
 								entityRow[i] = iobj

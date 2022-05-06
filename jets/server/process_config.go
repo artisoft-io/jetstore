@@ -28,7 +28,6 @@ type ProcessConfig struct {
 }
 
 type BadRow struct {
-	SessionId sql.NullString
 	GroupingKey sql.NullString
 	RowJetsKey sql.NullString
 	ErrorMessage	 sql.NullString
@@ -36,8 +35,8 @@ type BadRow struct {
 
 func (br BadRow) String() string {
 	var buf strings.Builder
-	if br.SessionId.Valid {
-		buf.WriteString(br.SessionId.String)
+	if sessionId!=nil && len(*sessionId) > 0 {
+		buf.WriteString(*sessionId)
 	} else {
 		buf.WriteString("NULL")
 	}
@@ -62,13 +61,21 @@ func (br BadRow) String() string {
 	return buf.String()
 }
 
-// type ProcessRun struct {
-// 	key int
-// 	processConfigKey int
-// 	workspaceDb string
-// 	lookupDb sql.NullString
-// 	note sql.NullString
-// }
+// wrtie BadRow to ch as slice of interfaces
+func (br BadRow) write2Chan(ch chan<- []interface{}) {
+
+	brout := make([]interface{}, 5)	// len of BadRow columns			var sid string
+	if sessionId!=nil && len(*sessionId)>0 {
+		brout[0] = *sessionId
+	}
+	brout[1] = br.GroupingKey
+	brout[2] = br.RowJetsKey
+	brout[3] = br.ErrorMessage
+	if shardId != nil {
+		brout[4] = *shardId
+	}							
+	ch <- brout
+}
 
 type ProcessMapSlice []ProcessMap
 
