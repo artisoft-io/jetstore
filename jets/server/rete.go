@@ -164,7 +164,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 						continue
 					}
 				}
-				
 				// cast obj to type
 				// switch inputColumn.DataType {
 				var object *bridge.Resource
@@ -308,55 +307,61 @@ func (rw *ReteWorkspace) ExecuteRules(
 					case "shard_id":
 						entityRow[i] = shard
 					default:
+						var data []interface{}
+						itor, err := reteSession.Find_sp(subject, domainColumn.Predicate)
+						if err != nil {
+							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
+						}
+						for !itor.IsEnd() {
+							obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
+							if err != nil {
+								var br BadRow
+								rowkey, err := subject.GetName()
+								if err == nil {
+									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
+								}
+								if inputRecords[0][processInput.groupingPosition].Valid {
+									gp := inputRecords[0][processInput.groupingPosition].String
+									br.GroupingKey = sql.NullString{String: gp, Valid: true}
+								}
+								br.ErrorMessage = sql.NullString {
+									String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
+									Valid: true}
+								//*
+								fmt.Println("BAD EXTRACT:",br)
+								br.write2Chan(writeOutputc["process_errors"])
+							}
+							data = append(data, obj)
+							itor.Next()
+						}
 						if domainColumn.IsArray {
-							itor, err := reteSession.Find_sp(subject, domainColumn.Predicate)
-							if err != nil {
-								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
-							}
-							var data []interface{}
-							for !itor.IsEnd() {
-								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
-								if err != nil {
-									var br BadRow
-									if inputRecords[0][processInput.groupingPosition].Valid {
-										gp := inputRecords[0][processInput.groupingPosition].String
-										br.GroupingKey = sql.NullString{String: gp, Valid: true}
-									}
-									br.ErrorMessage = sql.NullString{
-										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
-										Valid: true}
-										//*
-									fmt.Println("BAD EXTRACT:",br)
-									br.write2Chan(writeOutputc["process_errors"])
-								}
-								data = append(data, obj)
-								itor.Next()
-							}
 							entityRow[i] = data
-							itor.ReleaseIterator()
 						} else {
-							obj, err := reteSession.GetObject(subject, domainColumn.Predicate)
-							if err != nil {
-								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
-							}
-							if obj != nil {
-								iobj, err := obj.AsInterface(schema.ToPgType(domainColumn.DataType))
-								if err != nil {
-									var br BadRow
-									if inputRecords[0][processInput.groupingPosition].Valid {
-										gp := inputRecords[0][processInput.groupingPosition].String
-										br.GroupingKey = sql.NullString{String: gp, Valid: true}
-									}
-									br.ErrorMessage = sql.NullString{
-										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
-										Valid: true}
-									//*
-									fmt.Println("BAD EXTRACT:",br)
-									br.write2Chan(writeOutputc["process_errors"])
+							ld := len(data)
+							switch {
+							case ld == 1:
+								entityRow[i] = data[0]
+							case ld > 1:
+								// Invalid row, multiple values for a functional property
+								var br BadRow
+								rowkey, err := subject.GetName()
+								if err == nil {
+									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 								}
-								entityRow[i] = iobj
+								if inputRecords[0][processInput.groupingPosition].Valid {
+									gp := inputRecords[0][processInput.groupingPosition].String
+									br.GroupingKey = sql.NullString{String: gp, Valid: true}
+								}
+								br.ErrorMessage = sql.NullString {
+									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName), 
+									Valid: true}
+								//*
+								fmt.Println("BAD EXTRACT:",br)
+								br.write2Chan(writeOutputc["process_errors"])
+							default:
 							}
 						}
+						itor.ReleaseIterator()
 					}
 				}
 				// entityRow is complete
