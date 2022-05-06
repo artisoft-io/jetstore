@@ -218,6 +218,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 			{ColumnName: "session_id"},
 			{ColumnName: "grouping_key"},
 			{ColumnName: "row_jets_key"},
+			{ColumnName: "input_column"},
 			{ColumnName: "error_message"},
 			{ColumnName: "shard_id"}}}
 

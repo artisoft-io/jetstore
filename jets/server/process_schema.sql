@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS process_errors (
     session_id TEXT,
     grouping_key TEXT,
     row_jets_key TEXT,
+    input_column TEXT,
     error_message TEXT,
     shard_id integer DEFAULT 0 NOT NULL,
     last_update timestamp without time zone DEFAULT now() NOT NULL

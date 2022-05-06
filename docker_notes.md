@@ -1,4 +1,5 @@
-# DEV BUILDER
+# DEV BUILDER NOTES
+
 ```
 docker pull golang:1.18-bullseye
 docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t dev:latest -f Dockerfile.dev_go . 
@@ -35,16 +36,9 @@ python3 jetrule_compiler.py --help
 python3 jetrule_compiler.py --base_path test_data --in_file test_rule_file3.jr
 ```
 
-## To build
+## Building Runtime images
 
-rm -rf build && mkdir build && cd build && cmake .. && make -j8 
-
-cd build 
-cmake ..
-
-## Runtime images
-
-## Using golang as the base for the builder
+### Using golang as the base for the builder
 
 Using Dockerfile.go_bullseye as the builder image:
 ```
@@ -58,7 +52,7 @@ docker run -it --rm --entrypoint=/bin/bash jetstore_builder:go-bullseye
 ```
 
 
-## Using debian:bullseye as base runtime image (retained approach)
+### Using debian:bullseye as base runtime image (retained approach)
 
 This is what we use.
 Build the runtime base image
@@ -79,60 +73,23 @@ docker run --rm -w=/usr/local/lib/jets/compiler --entrypoint=python3 jetstore:bu
 Testing the go lib:
 docker run --rm -w=/usr/local/bin --entrypoint=update_db jetstore:bullseye -h
 
-# Previous Attempts for Runtime Image
-## Using golang runtime base image (did not retain)
-First attempt is using golang:1.18-bullseye as base image and copy the compiled
-library to it.
+## Generating lookup test cases
 
-The base runtime image is Dockerfile.go_base, it install python 3.9 with required packages
-To build the image:
-```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:go-bullseye -f Dockerfile.go_base .
-```
-
-### Putting together the jetstore runtime image from the builder and the runtime base images
-Using docker file Dockerfile.rt_go_bullseye
-```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:go-bullseye -f Dockerfile.rt_go_bullseye .
-```
-Try the image
-docker run -it --rm --entrypoint /bin/bash jetstore:go-bullseye
-
-## Using python runtime base image (did not retain)
-Second attempt is using python:3.9-bullseye as base image and copy the compiled
-library to it.
-
-The base runtime image is Dockerfile.py_base, it installs python required packages
-To build the image:
-```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:py-bullseye -f Dockerfile.py_base .
-```
-
-### Putting together the jetstore runtime image from the builder and the runtime base images
-
-Using docker file Dockerfile.rt_py_bullseye
-```
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:py-bullseye -f Dockerfile.rt_py_bullseye .
-```
-Try the image
-docker run -it --rm --entrypoint /bin/bash jetstore:py-bullseye
-
-# Generating lookup test cases
-
-## Generate rete.db from rule file
+### Generate rete.db from rule file
 
 ```
 python3 jetrule_compiler.py --base_path=/go/jetstore/jets/rete/test_data --in_file=lookup_helper_test_workspace.jr --rete_db=lookup_helper_test_workspace.db -d
 ```
-## Generate lookup data db from workspace rete.db
+
+### Generate lookup data db from workspace rete.db
 
 ```
 python3 jetrule_lookup_loader.py --base_path=/go/jetstore/jets/rete/test_data --lookup_db=lookup_helper_test_data.db --rete_db=lookup_helper_test_workspace.db
 ```
 
-# Running Postgresql Locally
+## Running Postgresql Locally
 
-## Running Postgres DB docker container locally
+### Running Postgres DB docker container locally
 
 Pull the postgres image from docker hub and run it locally:
 ```
@@ -163,7 +120,8 @@ docker network inspect bridge
 The connection string is now (with the correct IP of postgres) is
 `postgresql://postgres:XXXPWDXXX@172.17.0.2:5432/postgres`
 
-## Running PgAdmin docker locally
+### Running PgAdmin docker locally
+
 Pull the image from docker hub and run it locally:
 ```
 docker pull dpage/pgadmin4

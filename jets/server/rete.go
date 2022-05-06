@@ -90,7 +90,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 		// log.Println("Start Rete Session")
 		reteSession, err := rw.js.NewReteSession(*ruleset)
 		if err != nil {
-			return &result, fmt.Errorf("while calling NewReteSession: %v", err)
+			return &result, fmt.Errorf("while creating rete session: %v", err)
 		}
 		// Each row in inputRecords is a jets:Entity, with it's own jets:key
 		for _, row := range inputRecords {
@@ -112,7 +112,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				return &result, fmt.Errorf("while creating row's jets__key literal (NewTextLiteral): %v", err)
 			}
 			if subject == nil || rdfType == nil || processInput.entityRdfTypeResource == nil {
-				return &result, fmt.Errorf("while asserting row rdf type")
+				return &result, fmt.Errorf("ERROR while asserting row rdf type")
 			}
 			_, err = reteSession.Insert(subject, rdfType, processInput.entityRdfTypeResource)
 			if err != nil {
@@ -120,7 +120,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			_, err = reteSession.Insert(subject, jets__key, jetsKey)
 			if err != nil {
-				return &result, fmt.Errorf("while asserting row rdf type: %v", err)
+				return &result, fmt.Errorf("while asserting row jets key: %v", err)
 			}
 			for icol := 0; icol < ncol; icol++ {
 				// asserting input row with mapping spec
@@ -150,16 +150,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 					} else {
 						if inputColumnSpec.errorMessage.Valid {
 							// report error
-							//* TODO TOSS OUT ROW
 							var br BadRow
 							br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
 							if row[processInput.groupingPosition].Valid {
 								br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
 							}
+							br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
 							br.ErrorMessage = inputColumnSpec.errorMessage
+							//*
 							fmt.Println("BAD Input ROW:",br)
 							br.write2Chan(writeOutputc["process_errors"])
-							//* TODO TOSS OUT ROW
 						}
 						continue
 					}
@@ -177,10 +177,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 				case "int":
 					var v int
 					_, err = fmt.Sscan(obj, &v)
-					if err != nil {
-						return &result, fmt.Errorf("while scaning an int from input valut: %v", err)
+					if err == nil {
+						object, err = reteSession.NewIntLiteral(v)
 					}
-					object, err = reteSession.NewIntLiteral(v)
 				case "bool":
 					v := 0
 					if len(obj) > 0 {
@@ -191,10 +190,12 @@ func (rw *ReteWorkspace) ExecuteRules(
 						case "f", "0", "n":
 							v = 0
 						default:
-							return &result, fmt.Errorf("while mapping input value; object is not bool: %s", obj)
+							err = fmt.Errorf("object is not boolean: %s", obj)
 						}
 					}
-					object, err = reteSession.NewIntLiteral(v)
+					if err == nil {
+						object, err = reteSession.NewIntLiteral(v)
+					}
 				case "uint":
 					var v uint
 					_, err = fmt.Sscan(obj, &v)
@@ -205,10 +206,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 				case "long":
 					var v int
 					_, err = fmt.Sscan(obj, &v)
-					if err != nil {
-						return &result, fmt.Errorf("while mapping input value: %v", err)
+					if err == nil {
+						object, err = reteSession.NewLongLiteral(v)
 					}
-					object, err = reteSession.NewLongLiteral(v)
 				case "ulong":
 					var v uint
 					_, err = fmt.Sscan(obj, &v)
@@ -219,10 +219,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 				case "double":
 					var v float64
 					_, err = fmt.Sscan(obj, &v)
-					if err != nil {
-						return &result, fmt.Errorf("while mapping input value: %v", err)
+					if err == nil {
+						object, err = reteSession.NewDoubleLiteral(v)
 					}
-					object, err = reteSession.NewDoubleLiteral(v)
 				case "text":
 					object, err = reteSession.NewTextLiteral(obj)
 				case "date":
@@ -230,21 +229,26 @@ func (rw *ReteWorkspace) ExecuteRules(
 				case "datetime":
 					object, err = reteSession.NewDatetimeLiteral(obj)
 				default:
-					err = fmt.Errorf("ERROR assertRuleConfig: unknown or invalid rdf type for object: %s", inputColumnSpec.rdfType)
+					err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn, inputColumnSpec.rdfType)
 				}
 				if err != nil {
-					//* TODO try the default value
-					return &result, fmt.Errorf("while mapping input value: %v", err)
-				}
-				if subject == nil {
-					return &result, fmt.Errorf("ERROR subject is null")
+					var br BadRow
+					br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
+					if row[processInput.groupingPosition].Valid {
+						br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
+					}
+					br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
+					br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
+					//*
+					fmt.Println("BAD Input ROW:",br)
+					br.write2Chan(writeOutputc["process_errors"])
+					continue
 				}
 				if inputColumnSpec.predicate == nil {
 					return &result, fmt.Errorf("ERROR predicate is null")
 				}
 				if object == nil {
-					//* continue
-					return &result, fmt.Errorf("ERROR object is null")
+					continue
 				}
 				_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
 				if err != nil {
@@ -255,16 +259,15 @@ func (rw *ReteWorkspace) ExecuteRules(
 		// done asserting
 		msg, err := reteSession.ExecuteRules()
 		if err != nil {
-			//* TODO TOSS OUT ROW
 			var br BadRow
 			if inputRecords[0][processInput.groupingPosition].Valid {
 				gp := inputRecords[0][processInput.groupingPosition].String
 				br.GroupingKey = sql.NullString{String: gp, Valid: true}
 			}
 			br.ErrorMessage = sql.NullString{String: msg, Valid: true}
+			//*
 			fmt.Println("BAD ROW:",br)
 			br.write2Chan(writeOutputc["process_errors"])
-			//* TODO TOSS OUT ROW
 		}
 		// log.Println("ExecuteRule() Completed sucessfully")
 		if *ps {
@@ -314,7 +317,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 							for !itor.IsEnd() {
 								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
-									//* TODO TOSS OUT ROW
 									var br BadRow
 									if inputRecords[0][processInput.groupingPosition].Valid {
 										gp := inputRecords[0][processInput.groupingPosition].String
@@ -323,9 +325,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 									br.ErrorMessage = sql.NullString{
 										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
 										Valid: true}
+										//*
 									fmt.Println("BAD EXTRACT:",br)
 									br.write2Chan(writeOutputc["process_errors"])
-									//* TODO TOSS OUT ROW
 								}
 								data = append(data, obj)
 								itor.Next()
@@ -340,7 +342,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 							if obj != nil {
 								iobj, err := obj.AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
-									//* TODO TOSS OUT ROW
 									var br BadRow
 									if inputRecords[0][processInput.groupingPosition].Valid {
 										gp := inputRecords[0][processInput.groupingPosition].String
@@ -349,9 +350,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 									br.ErrorMessage = sql.NullString{
 										String: fmt.Sprintf("err getting value from graph for column %s", domainColumn.ColumnName), 
 										Valid: true}
+									//*
 									fmt.Println("BAD EXTRACT:",br)
 									br.write2Chan(writeOutputc["process_errors"])
-									//* TODO TOSS OUT ROW
 								}
 								entityRow[i] = iobj
 							}

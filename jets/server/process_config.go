@@ -30,6 +30,7 @@ type ProcessConfig struct {
 type BadRow struct {
 	GroupingKey sql.NullString
 	RowJetsKey sql.NullString
+	InputColumn sql.NullString
 	ErrorMessage	 sql.NullString
 }
 
@@ -53,6 +54,12 @@ func (br BadRow) String() string {
 		buf.WriteString("NULL")
 	}
 	buf.WriteString(" | ")
+	if br.InputColumn.Valid {
+		buf.WriteString(br.InputColumn.String)
+	} else {
+		buf.WriteString("NULL")
+	}
+	buf.WriteString(" | ")
 	if br.ErrorMessage.Valid {
 		buf.WriteString(br.ErrorMessage.String)
 	} else {
@@ -64,15 +71,16 @@ func (br BadRow) String() string {
 // wrtie BadRow to ch as slice of interfaces
 func (br BadRow) write2Chan(ch chan<- []interface{}) {
 
-	brout := make([]interface{}, 5)	// len of BadRow columns			var sid string
+	brout := make([]interface{}, 6)	// len of BadRow columns			var sid string
 	if sessionId!=nil && len(*sessionId)>0 {
 		brout[0] = *sessionId
 	}
 	brout[1] = br.GroupingKey
 	brout[2] = br.RowJetsKey
-	brout[3] = br.ErrorMessage
+	brout[3] = br.InputColumn
+	brout[4] = br.ErrorMessage
 	if shardId != nil {
-		brout[4] = *shardId
+		brout[5] = *shardId
 	}							
 	ch <- brout
 }
