@@ -89,6 +89,24 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#defineRuleSeqStmt.
+    def enterDefineRuleSeqStmt(self, ctx:JetRuleParser.DefineRuleSeqStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#defineRuleSeqStmt.
+    def exitDefineRuleSeqStmt(self, ctx:JetRuleParser.DefineRuleSeqStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#ruleSetDefinitions.
+    def enterRuleSetDefinitions(self, ctx:JetRuleParser.RuleSetDefinitionsContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#ruleSetDefinitions.
+    def exitRuleSetDefinitions(self, ctx:JetRuleParser.RuleSetDefinitionsContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#defineLiteralStmt.
     def enterDefineLiteralStmt(self, ctx:JetRuleParser.DefineLiteralStmtContext):
         pass

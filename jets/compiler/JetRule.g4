@@ -53,7 +53,19 @@ dataPropertyType
   | DateType
   | DatetimeType
   | BoolType
-  ;
+;
+
+// --------------------------------------------------------------------------------------
+// Define Rule Sequence Statements
+// --------------------------------------------------------------------------------------
+defineRuleSeqStmt: RULESEQ ruleseqName=Identifier '{'
+    COMMENT*
+    MainRuleSets ASSIGN '[' COMMENT* ruleSetDefinitions COMMENT* ']' ','?
+    COMMENT*
+  '}' SEMICOLON;
+
+ruleSetDefinitions: 
+  rsName=STRING (',' COMMENT* ruleSetDefinitions)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Literal Statements
@@ -239,6 +251,10 @@ BaseClasses: '$base_classes';
 AsTable: '$as_table';
 DataProperties: '$data_properties';
 ARRAY: 'array of';
+
+// Rule Sequence
+RULESEQ: 'rule_sequence';
+MainRuleSets: '$main_rule_sets';
 
 // Triple statement
 TRIPLE: 'triple';

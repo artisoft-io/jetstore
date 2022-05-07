@@ -163,7 +163,7 @@ RUN groupadd -g ${GROUP_ID} jsuser \
     && useradd -r -u ${USER_ID} -g jsuser jsuser
 
 # Copy source and define the target (APP_HOME) where we will put the compiled artifacts
-ENV JETS_SOURCE_DIR /home/michel/projects/repos/jetstore
+ENV JETS_SOURCE_DIR /go/jetstore
 # Need to define the main app home?
 ENV APP_HOME $JETS_SOURCE_DIR/build
 # Do we still need app_home_scripts for workflow python scripts??
@@ -173,14 +173,14 @@ ENV PYTHONPATH "$PYTHONPATH:$APP_HOME/lib"
 ENV CLASSPATH=".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
 # May need subdirectory where libraries are...
 ENV LD_LIBRARY_PATH "$LD_LIBRARY_PATH:$JETS_SOURCE_DIR/build/jets"
-ENV WORKSPACES_HOME /workspaces
+ENV WORKSPACES_HOME /go/workspaces
 ENV WORK_HOME /go
 ENV PRE_PROCESS_SCRIPT group_by.py
 ENV INSIGHT_SERVER_SCRIPT $JETS_SOURCE_DIR/build/insight_server/insight_server
 ENV JETSERVER_SCRIPT $APP_HOME/jetserver
 
 RUN mkdir -p /home/jsuser && chown jsuser /home/jsuser
-RUN mkdir -p ${JETS_SOURCE_DIR} &&  ln -s ${JETS_SOURCE_DIR} jetstore && chown jsuser ${JETS_SOURCE_DIR}
+RUN mkdir -p ${JETS_SOURCE_DIR} && chown jsuser ${JETS_SOURCE_DIR}
 RUN mkdir -p ${WORKSPACES_HOME} && chown jsuser ${WORKSPACES_HOME}
 RUN mkdir -p ${WORK_HOME}/work && chown jsuser ${WORK_HOME}/work
 
