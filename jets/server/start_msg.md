@@ -1,4 +1,5 @@
 # Refactoring the Start Message
+
 Refactoring the Start Message to simplify mapping and eliminate the mapping rules 
 framework.
 
@@ -6,7 +7,9 @@ Currently the USI rules requires the following rule construct that can be easily
 to simple go functions that can be applied when the data is asserted in the rete session.
 
 ## Functions required for mapping
+
 ### to_upper
+
 Transform the input data into upper case, example:
 ```
 [n=ZZ19, s=100]: (?clm01 rdf:type hc_usi:USIClaim).(?clm01 hc_usi:originalRenderingProviderState ?v)  ->  (?clm01 hc_usi:renderingProviderState (to_upper ?v))
@@ -14,6 +17,7 @@ Transform the input data into upper case, example:
 In that example, do we still need hc_usi:originalRenderingProviderState?
 
 ### to_zip5
+
 Transform input data into a 5 digits zip code, replacing following rules:
 ```
 [MZP010]: (?clm01 rdf:type hc_usi:USIClaim).(?clm01 M_memberZip ?v).[((length_of ?v) == 5)]                            ->  (?clm01 memZipLocal ?v)
@@ -25,6 +29,7 @@ Transform input data into a 5 digits zip code, replacing following rules:
 ```
 
 ### reformat0
+
 Transform the input data to be 9 digits, padding 0 on left as needed. Assuming input are digits
 only. The number of digits (here 9) is a parameter. Replacing following rules:
 ```
@@ -33,6 +38,7 @@ only. The number of digits (here 9) is a parameter. Replacing following rules:
 ```
 
 ### apply_regex
+
 Transform the input data by applying a regex expression. This often use a default value
 if the regex does not match. Note will need to combine 2 regex for hcpcsRegex into a
 single regex. Example of rule:
@@ -42,14 +48,17 @@ single regex. Example of rule:
 ```
 
 ### scale_units
+
 Transform input data, assumed to be castable to double, by scaling the number by applying
 a divisor and rounding up to next integral number (ceiling). The divisor is an argument.
+The rounder is 0.5.
 This would replace the following rules, note this is using a default:
 ```
 [XUNTS010]: (?config rdf:type usi_sm:RRConfig).(?config usi_sm:amtDivisor ?amtDivisor).(?config usi_sm:amtRounder ?amtRounder).(?clm01 rdf:type hc_usi:USIClaim).(?clm01 M_units ?v)  ->  (?clm01 hc_usi:units (to_real ((to_int (((to_real ?v) / ?amtDivisor) + ?amtRounder)))))
 ```
 
 ### parse_amount
+
 Transform the input data by applying a divisor (as argument which can be 1), the input is assumed to be an amount, a negative amount may be expressed with parentesis.
 Replacing the following rules:
 ```
@@ -59,6 +68,7 @@ Replacing the following rules:
 ```
 
 ## Adding default value
+
 Many data element requires default value when the data is either not available or invalid in the input.
 
 ## Specifying the mapping and data transformation as a table
