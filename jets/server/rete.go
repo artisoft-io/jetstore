@@ -5,7 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
+	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -86,6 +89,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while creating jets:key resource: %v", err)
 	}
+	// keep a map of compiled regex, keyed by the regex pattern
+	reMap := make(map[string]*regexp.Regexp)
+	// keep a map of map function argument that needs to be cast to double
+	argdMap := make(map[string]float64)
 	for inputRecords := range dataInputc {
 		// log.Println("Start Rete Session")
 		reteSession, err := rw.js.NewReteSession(*ruleset)
@@ -126,16 +133,136 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// asserting input row with mapping spec
 				inputColumnSpec := &processInput.processInputMapping[icol]
 				var obj string
-				if row[icol].Valid && len(row[icol].String)>0 {
+				sz := len(row[icol].String)
+				if row[icol].Valid && sz>0 {
 					if inputColumnSpec.functionName.Valid {
 						switch inputColumnSpec.functionName.String {
 						case "to_upper":
 							obj = strings.ToUpper(row[icol].String)
 						case "to_zip5":
+							switch {
+							case sz < 5:
+								var v int
+								fmt.Sscanf(row[icol].String, "%d", &v)
+								obj = fmt.Sprintf("%05d", v)
+							case sz == 5:
+								obj = row[icol].String
+							case sz>5 && sz<9:
+								var v int
+								fmt.Sscanf(row[icol].String, "%d", &v)
+								obj = fmt.Sprintf("%09d", v)[:5]
+							case sz == 9:
+								obj = row[icol].String[:5]
+							default:
+								// report error
+								var br BadRow
+								br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
+								if row[processInput.groupingPosition].Valid {
+									br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
+								}
+								br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
+								br.ErrorMessage = sql.NullString{String:"Invalid input for zipcode", Valid: true}
+								//*
+								fmt.Println("BAD Input ROW:",br)
+								br.write2Chan(writeOutputc["process_errors"])
+								continue
+							}
 						case "reformat0":
+							if inputColumnSpec.argument.Valid {
+								arg := inputColumnSpec.argument.String
+								var v int
+								fmt.Sscanf(row[icol].String, "%d", &v)
+								obj = fmt.Sprintf(arg, v)
+							} else {
+								// configuration error, bailing out
+								return &result, fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn)
+							}
 						case "apply_regex":
+							if inputColumnSpec.argument.Valid {
+								arg := inputColumnSpec.argument.String
+								re, ok := reMap[arg]
+								if !ok {
+									re, err = regexp.Compile(arg)
+									if err != nil {
+										// configuration error, bailing out
+										return &result, fmt.Errorf("ERROR regex argument does not compile: %s", arg)
+									}
+									reMap[arg] = re
+								}
+								obj = re.FindString(row[icol].String)
+							} else {
+								// configuration error, bailing out
+								return &result, fmt.Errorf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn)
+							}
 						case "scale_units":
+							if inputColumnSpec.argument.Valid {
+								arg := inputColumnSpec.argument.String
+								if arg == "1" {
+									obj = row[icol].String
+								} else {
+									divisor, ok := argdMap[arg]
+									if !ok {
+										_, err = fmt.Sscan(arg, &divisor)
+										if err != nil {
+											// configuration error, bailing out
+											return &result, fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
+										}
+										argdMap[arg] = divisor
+									}
+									var unit float64
+									_, err = fmt.Sscan(arg, &unit)
+									if err != nil {
+										// report error
+										var br BadRow
+										br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
+										if row[processInput.groupingPosition].Valid {
+											br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
+										}
+										br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
+										br.ErrorMessage = sql.NullString{String:fmt.Sprintf("%v",err), Valid: true}
+										//*
+										fmt.Println("BAD Input ROW:",br)
+										br.write2Chan(writeOutputc["process_errors"])
+										continue
+									}
+									obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))	
+								}
+							} else {
+								// configuration error, bailing out
+								return &result, fmt.Errorf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn)
+							}
 						case "parse_amount":
+							// clean up the amount
+							var buf strings.Builder
+							var c rune
+							for _,c = range row[icol].String {
+								if c=='(' || c=='-' {
+									buf.WriteRune('-')
+								} else if unicode.IsDigit(c) || c=='.' {
+									buf.WriteRune(c)
+								}
+							}
+							if buf.Len() > 0 {
+								obj = buf.String()
+								// argument is optional, assume divisor is 1 if absent
+								if inputColumnSpec.argument.Valid {
+									arg := inputColumnSpec.argument.String
+									if arg != "1" {
+										divisor, ok := argdMap[arg]
+										if !ok {
+											_, err = fmt.Sscan(arg, &divisor)
+											if err != nil {
+												// configuration error, bailing out
+												return &result, fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
+											}
+											argdMap[arg] = divisor
+										}
+										var amt float64
+										fmt.Sscan(obj, &amt)
+										obj = fmt.Sprintf("%f", amt/divisor)
+									}
+								}
+							}
 						default:
 							return &result, fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
 						}
@@ -143,7 +270,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 					} else {
 						obj = row[icol].String
 					}
-				} else {
+				} 
+				if len(obj) == 0 {
 					// get the default or report error or ignore the filed if no default or error message is avail
 					if inputColumnSpec.defaultValue.Valid {
 						obj = inputColumnSpec.defaultValue.String
