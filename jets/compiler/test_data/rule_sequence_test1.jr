@@ -1,0 +1,12 @@
+resource main_rule_seq = "main_rule_seq";
+
+# =======================================================================================
+# Testing Rule Sequence
+# This will result in an error when saving the workspace.db (aka rete_db)
+# since the rule files are not imported
+rule_sequence primaryPipeline {
+  $main_rule_sets = [# first pipeline
+    "test_ruleseq/main_rules1.jr",
+    "test_ruleseq/main_rules2.jr"
+  ]
+};

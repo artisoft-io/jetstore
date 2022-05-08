@@ -24,10 +24,16 @@ class JetRuleContext:
 
     # keeping track of the file imports
     # Format {'main_file.jr': ['import1.jr','import2.jr']}
-    #TODO this will likely change to keep track of the import at file level, not at main file level
+    # sort the imported_files sequence to help testing
+    sorted_imported_files = None
+    if main_rule_fname:
+      sorted_imported_files = []
+    if imported_files:
+      sorted_imported_files = list(imported_files)
+      sorted_imported_files.sort()
     self.imported = {}
     if main_rule_fname:
-      self.imported[main_rule_fname] = imported_files
+      self.imported[main_rule_fname] = sorted_imported_files
       self.jetRules['imports'] = self.imported
 
 
@@ -73,6 +79,7 @@ class JetRuleContext:
     self.lookup_tables = self.jetRules.get('lookup_tables')
     self.jet_rules = self.jetRules.get('jet_rules')
     self.compiler_directives = self.jetRules.get('compiler_directives')
+    self.rule_sequences = self.jetRules.get('rule_sequences')
     self.classes = self.jetRules.get('classes')
     self.tables = []
     self.triples = self.jetRules.get('triples', [])

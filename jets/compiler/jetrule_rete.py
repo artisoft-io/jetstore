@@ -432,6 +432,8 @@ class JetRuleRete:
       'jet_rules': jetRules['jet_rules'],
       'imports': jetRules.get('imports', {}),
     }
+    if self.ctx.rule_sequences:
+      self.ctx.jetRules['rule_sequences'] = self.ctx.rule_sequences
     if self.ctx.classes:
       self.ctx.jetRules['classes'] = self.ctx.classes
     if self.ctx.tables:

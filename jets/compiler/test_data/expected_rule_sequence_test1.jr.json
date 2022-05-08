@@ -1,0 +1,27 @@
+{
+  "resources": [
+    {
+      "type": "resource",
+      "id": "main_rule_seq",
+      "value": "main_rule_seq",
+      "source_file_name": "rule_sequence_test1.jr",
+      "key": 0
+    }
+  ],
+  "lookup_tables": [],
+  "jet_rules": [],
+  "imports": {
+    "rule_sequence_test1.jr": []
+  },
+  "rule_sequences": [
+    {
+      "type": "ruleseq",
+      "name": "primaryPipeline",
+      "main_rule_sets": [
+        "test_ruleseq/main_rules1.jr",
+        "test_ruleseq/main_rules2.jr"
+      ],
+      "source_file_name": "rule_sequence_test1.jr"
+    }
+  ]
+}

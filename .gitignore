@@ -58,3 +58,5 @@ jets/hello/hello
 jets/copytest/copytest
 jets/update_db/update_db
 jets/server/test_data/scratch_pad.sql
+jets/compiler/test_data/rule_sequence_test1.db
+jets/compiler/test_data/rule_sequence_test2.db

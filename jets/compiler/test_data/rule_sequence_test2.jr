@@ -1,0 +1,13 @@
+import "test_ruleseq/main_rules1.jr"
+import "test_ruleseq/main_rules2.jr"
+
+resource main_rule_seq = "main_rule_seq";
+
+# =======================================================================================
+# Testing Rule Sequence
+rule_sequence primaryPipeline {
+  $main_rule_sets = [# first pipeline
+    "test_ruleseq/main_rules1.jr",
+    "test_ruleseq/main_rules2.jr"
+  ]
+};
