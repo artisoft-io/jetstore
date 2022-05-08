@@ -11,9 +11,18 @@ class JetListener(JetRuleListener):
   def __init__(self):
     # Define our state model
     self.classes = []
+    # define property used in functions
+    self.base_classes = []
+    self.data_properties = []
+    self.as_table = None
+
     self.literals = []
     self.resources = []
     self.lookups = []
+    
+    self.ruleSequences = []
+    self.main_rule_sets = []
+
     self.rules = []
     self.triples = []
     self.jetRules = None
@@ -39,6 +48,8 @@ class JetListener(JetRuleListener):
       'lookup_tables': self.lookups,
       'jet_rules': self.rules,
     }
+    if self.ruleSequences:
+      self.jetRules['rule_sequences'] = self.ruleSequences
     if self.classes:
       self.jetRules['classes'] = self.classes
     if self.triples:
@@ -121,6 +132,35 @@ class JetListener(JetRuleListener):
     else:
       data_property['as_array'] = 'false'
     self.data_properties.append(data_property)
+
+
+  # =====================================================================================
+  # Rule Sequence Definition
+  # -------------------------------------------------------------------------------------
+  # Enter a parse tree produced by JetRuleParser#defineRuleSeqStmt.
+  def enterDefineRuleSeqStmt(self, ctx:JetRuleParser.DefineRuleSeqStmtContext):
+    # Entering a class definition
+    self.main_rule_sets = []
+
+  # Exit a parse tree produced by JetRuleParser#ruleSetDefinitions.
+  def exitRuleSetDefinitions(self, ctx:JetRuleParser.RuleSetDefinitionsContext):
+    if ctx.rsName:
+      self.main_rule_sets.append(self.escapeString(ctx.rsName.text))
+
+  # Exit a parse tree produced by JetRuleParser#defineRuleSeqStmt.
+  def exitDefineRuleSeqStmt(self, ctx:JetRuleParser.DefineRuleSeqStmtContext):
+    # Putting the class definition together
+    if not ctx.ruleseqName:
+      return
+    self.main_rule_sets.reverse()
+    ruleSeq = {  
+      'type': 'ruleseq',
+      'name': ctx.ruleseqName.text,    
+      'main_rule_sets': self.main_rule_sets, 
+    }
+    if self.current_file_name:
+      ruleSeq['source_file_name'] = self.current_file_name
+    self.ruleSequences.append(ruleSeq)
 
 
   # =====================================================================================
@@ -255,6 +295,8 @@ class JetListener(JetRuleListener):
 
   # Exit a parse tree produced by JetRuleParser#jetRuleStmt.
   def exitJetRuleStmt(self, ctx:JetRuleParser.JetRuleStmtContext):
+    if not ctx.ruleName:
+      return
     # Putting the rule together
     jet_rule = {
       'name': ctx.ruleName.text, 

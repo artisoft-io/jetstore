@@ -10,6 +10,7 @@ statement
   : jetCompilerDirectiveStmt
   | defineLiteralStmt  
   | defineClassStmt  
+  | defineRuleSeqStmt 
   | defineResourceStmt 
   | lookupTableStmt
   | jetRuleStmt
@@ -64,8 +65,7 @@ defineRuleSeqStmt: RULESEQ ruleseqName=Identifier '{'
     COMMENT*
   '}' SEMICOLON;
 
-ruleSetDefinitions: 
-  rsName=STRING (',' COMMENT* ruleSetDefinitions)* ;
+ruleSetDefinitions: rsName=STRING (',' COMMENT* ruleSetDefinitions)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Literal Statements

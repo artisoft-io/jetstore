@@ -89,6 +89,8 @@ class JetRuleReteSQLite:
         raise Exception("ERROR: main_rule_file_name '"+str(main_rule_file_name)+"' already exist in rete_db")
 
       # Get tables last key for insertion of new rows
+      # Note: don't need to do thid here since the last key is used in only
+      #       one function. See rule_sequences_last_key in _save_rule_sequences()
       self.wc_key                   = self._get_last_key('workspace_control', 'key')
       self.expr_last_key            = self._get_last_key('expressions', 'key')
       self.rete_nodes_last_key      = self._get_last_key('rete_nodes', 'key')
@@ -129,6 +131,10 @@ class JetRuleReteSQLite:
       # -------------------------------------------------------------------------
       self._save_domain_classes()
       self._save_domain_tables()
+
+      # Add all rule sequences
+      # -------------------------------------------------------------------------
+      self._save_rule_sequences()
 
       # Add all lookup_table to rete_db, will skip source file already in rete_db
       # -------------------------------------------------------------------------
@@ -240,6 +246,44 @@ class JetRuleReteSQLite:
 
 
   # -------------------------------------------------------------------------------------
+  # _save_rule_sequences
+  # -------------------------------------------------------------------------------------
+  def _save_rule_sequences(self):
+    rule_sequences_last_key  = self._get_last_key('rule_sequences', 'key')
+    for rseq in self.ctx.jetRules.get('rule_sequences', []):
+      skey = self.rule_file_keys.get(rseq['source_file_name'])
+      if skey is not None:
+        key = rule_sequences_last_key
+        rule_sequences_last_key += 1
+        rseq['db_key'] = key                  # keep the globaly unique key for insertion in other tables
+        row = [key, rseq['name'], skey]
+        self.write_cursor.execute("INSERT INTO rule_sequences (key, name, source_file_key) VALUES (?, ?, ?)", row)
+
+        # save main_rule_sets attribute
+        seq = 0
+        for main_ruleset in rseq['main_rule_sets']:
+          fkey = self.rule_file_keys.get(main_ruleset)
+          if fkey is None:
+            raise Exception("Error main rule file '{0}' in rule sequence not found, make sure it exist".format(main_ruleset))
+          row = [key, main_ruleset, fkey, seq]
+          self.write_cursor.execute("INSERT INTO main_rule_sets (rule_sequence_key, main_ruleset_name, ruleset_file_key, seq) VALUES (?, ?, ?, ?)", row)
+          seq += 1
+
+      else:
+        # file with skey already in db, get the resource 'db_key' from the db;
+        key = self._get_key('rule_sequences', 'name', rseq['name'])
+        if key is None:
+          raise Exception("Error while getting key for rule_sequence with name '{0}', not found!".format(rseq['name']))
+        rseq['db_key'] = key                  # keep the globaly unique key for insertion in other tables when needed
+        # get the main_rule_sets keys as well
+        for main_ruleset in rseq['main_rule_sets']:
+          key = self._get_key('main_rule_sets', 'main_ruleset_name', main_ruleset['main_ruleset_name'])
+          if key is None:
+            raise Exception("Error while getting key for main_rule_sets with main_ruleset_name '{0}', not found!".format(main_ruleset['main_ruleset_name']))
+          main_ruleset['db_key'] = key                  # keep the globaly unique key for insertion in other tables
+
+
+  # -------------------------------------------------------------------------------------
   # _save_domain_classes
   # -------------------------------------------------------------------------------------
   def _save_domain_classes(self):
@@ -307,6 +351,7 @@ class JetRuleReteSQLite:
         if key is None:
           raise Exception("Error while getting key for domain_table with name '{0}', not found!".format(tbl['table_name']))
         tbl['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+
 
   # -------------------------------------------------------------------------------------
   # _save_lookup_tables
@@ -584,6 +629,26 @@ class JetRuleReteSQLite:
         support_file_key   INTEGER NOT NULL,
         UNIQUE (main_file_key, support_file_key)
       );
+
+
+      -- --------------------
+      -- rule_sequences tables
+      -- --------------------
+      CREATE TABLE IF NOT EXISTS rule_sequences (
+        key                INTEGER PRIMARY KEY,
+        name               STRING NOT NULL,
+        source_file_key    INTEGER NOT NULL,
+        -- rule seq name must be unique in workspace
+        UNIQUE (name)
+      );
+      CREATE TABLE IF NOT EXISTS main_rule_sets (
+        rule_sequence_key  INTEGER NOT NULL,
+        main_ruleset_name  TEXT NOT NULL,
+        ruleset_file_key   INTEGER NOT NULL,
+        seq                INTEGER NOT NULL,
+        UNIQUE (rule_sequence_key, ruleset_file_key)
+      );
+
 
       -- --------------------
       -- domain_classes tables

@@ -1,5 +1,6 @@
 """JetRuleValidator tests"""
 
+import os
 import sys
 import json
 from typing import Dict
@@ -9,6 +10,7 @@ import io
 
 from jetrule_compiler import JetRuleCompiler, InputProvider
 from jetrule_context import JetRuleContext
+from jetrule_rete_sqlite import JetRuleReteSQLite
 
 FLAGS = flags.FLAGS
 
@@ -55,7 +57,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test21.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
-    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
   def test_import3(self):
@@ -70,8 +72,8 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test3.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test31.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test32.jr' line 5:8 mismatched input ':' expecting {']', ','}")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
-    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 5)
 
@@ -87,7 +89,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test4.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test41.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test42.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
  
     self.assertEqual(len(jetrule_ctx.errors), 4)
 
@@ -282,6 +284,100 @@ class JetRulesCompilerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
     self.assertEqual(jetrule_ctx.ERROR, False)
     self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+
+
+  def test_ruleseq1(self):
+    data = """
+      # =======================================================================================
+      # Testing Rule Sequence
+      rule_sequence primaryPipeline {
+        $main_rule_sets = [# first pipeline
+          "main_rulesets/process1.jr",
+          "main_rulesets/process2.jr",
+          "main_rulesets/process3.jr"
+        ]
+      };
+      rule_sequence otherPipeline {
+        $main_rule_sets = [   # second pipeline
+          "main_rulesets/process1.jr",
+          "main_rulesets/process2.jr",
+          "main_rulesets/process3.jr"
+        ]
+      };
+    """
+    jetrule_ctx = self._get_augmented_data(data)
+
+    if jetrule_ctx.ERROR:
+      print("GOT ERROR!")
+    for err in jetrule_ctx.errors:
+      print('***', err)
+
+    expected = """{"resources": [], "lookup_tables": [], "jet_rules": [], "imports": {}, "rule_sequences": [{"type": "ruleseq", "name": "primaryPipeline", "main_rule_sets": ["main_rulesets/process1.jr", "main_rulesets/process2.jr", "main_rulesets/process3.jr"]}, {"type": "ruleseq", "name": "otherPipeline", "main_rule_sets": ["main_rulesets/process1.jr", "main_rulesets/process2.jr", "main_rulesets/process3.jr"]}]}"""
+    # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=4))
+    # print()
+    # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
+    self.assertEqual(jetrule_ctx.ERROR, False)
+    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+
+  def test_ruleseq01(self):
+    fname = "rule_sequence_test1.jr"
+    in_provider = InputProvider('test_data')
+
+    compiler = JetRuleCompiler()
+    jetrule_ctx = compiler.compileJetRuleFile(fname, in_provider)
+
+    for err in jetrule_ctx.errors:
+      print('ERROR ::',err)      
+    self.assertFalse(jetrule_ctx.ERROR, "Unexpected JetRuleCompiler Errors")
+
+    data = jetrule_ctx.jetRules
+    # print()
+    # print('GOT01:',json.dumps(data, indent=2))
+
+    expected = 'xx'
+    with open("test_data/expected_rule_sequence_test1.jr.json", 'rt', encoding='utf-8') as f:
+      expected = json.loads(f.read())
+
+    self.assertEqual(json.dumps(data), json.dumps(expected))
+
+    # save the workspace.db
+    rete_db_helper = JetRuleReteSQLite(compiler.jetrule_ctx)
+    if os.path.exists("test_data/rule_sequence_test1.db"):
+      os.remove("test_data/rule_sequence_test1.db")
+
+    err = rete_db_helper.saveReteConfig("test_data/rule_sequence_test1.db")
+    self.assertEqual(err, "Error main rule file 'test_ruleseq/main_rules1.jr' in rule sequence not found, make sure it exist")
+
+  def test_ruleseq02(self):
+    fname = "rule_sequence_test2.jr"
+    in_provider = InputProvider('test_data')
+
+    compiler = JetRuleCompiler()
+    jetrule_ctx = compiler.compileJetRuleFile(fname, in_provider)
+
+    for err in jetrule_ctx.errors:
+      print('ERROR ::',err)      
+    self.assertFalse(jetrule_ctx.ERROR, "Unexpected JetRuleCompiler Errors")
+
+    data = jetrule_ctx.jetRules
+    # print()
+    # print('GOT02:',json.dumps(data, indent=2))
+
+    expected = 'xx'
+    with open("test_data/expected_rule_sequence_test2.jr.json", 'rt', encoding='utf-8') as f:
+      expected = json.loads(f.read())
+
+    self.assertEqual(json.dumps(data), json.dumps(expected))
+
+    # save the workspace.db
+    rete_db_helper = JetRuleReteSQLite(compiler.jetrule_ctx)
+    if os.path.exists("test_data/rule_sequence_test2.db"):
+      os.remove("test_data/rule_sequence_test2.db")
+
+    err = rete_db_helper.saveReteConfig("test_data/rule_sequence_test2.db")
+    if err:
+      print('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err)))
+    self.assertEqual(err, None)
 
 
 if __name__ == '__main__':

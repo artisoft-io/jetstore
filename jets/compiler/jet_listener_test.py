@@ -470,6 +470,26 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
+  def test_ruleseq(self):
+    data = """
+      # =======================================================================================
+      # Jet Rules with rule sequence definition
+      rule_sequence mypipeline {
+        $main_rule_sets = [
+          "main_rulesets/process1.jr",
+          "main_rulesets/process2.jr",
+          "main_rulesets/process3.jr"
+        ]
+      };
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "rule_sequences": [{"type": "ruleseq", "name": "mypipeline", "main_rule_sets": ["main_rulesets/process1.jr", "main_rulesets/process2.jr", "main_rulesets/process3.jr"]}]}"""
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
 
 if __name__ == '__main__':
   absltest.main()
