@@ -36,8 +36,6 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
 ;
 
 INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALUES
-  (1, '4232222802', 'hc:ndays', '99', 'int'),
-  (3, '4232222802', 'hc:ndays', '99', 'int'),
   (1, 'jets:iState', 'lk:withModifier', 'true', 'bool'),
   (3, 'jets:iState', 'lk:withModifier', 'false', 'bool'),
   (2, 'subject2', 'predicate1', 'object1', 'int'),

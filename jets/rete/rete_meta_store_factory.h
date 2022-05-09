@@ -111,33 +111,6 @@ class ReteMetaStoreFactory {
     return mitor->second;
   }
 
-  ReteSessionPtr
-  create_rete_session(std::string const& main_rule)
-  {
-    auto ms = this->get_rete_meta_store(main_rule);
-    if(not ms) {
-      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_session: ERROR ReteMetaStore not found for main_rule file "<<
-        main_rule;
-      return {};
-    }
-    auto rdf_session = rdf::create_rdf_session(this->meta_graph_);
-    auto rete_session = rete::create_rete_session(ms, rdf_session);
-    rete_session->initialize();
-    this->rs_map_.insert({rete_session.get(), rete_session});
-    return rete_session;
-  }
-
-  int
-  delete_rete_session(ReteSession * rs)
-  {
-    if(not rs) {
-      LOG(ERROR) << "ReteMetaStoreFactory::create_rete_session: ERROR ReteSession argument cannot be NULL";
-      return -1;
-    }
-    this->rs_map_.erase(rs);
-    return 0;
-  }
-
   int
   load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db);
 
@@ -342,7 +315,6 @@ class ReteMetaStoreFactory {
   VariableLookup v_map_;
   MainRuleUriLookup jr_map_;
   MetaStoreLookup ms_map_;
-  ReteSessionLookup rs_map_;
 
   sqlite3 *     db_;
   sqlite3_stmt* node_vertexes_stmt_;

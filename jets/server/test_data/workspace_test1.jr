@@ -1,92 +1,14 @@
 # ///////////////////////////////////////////////////////////////////////////////////////
 # Unit Test JetStore server process
 # ---------------------------------------------------------------------------------------
+import "support_test1.jr"
 
 # =======================================================================================
-# Data Model
+# Rule Sequence
 # ---------------------------------------------------------------------------------------
-class jets:Entity {
-  $base_classes = [owl:Thing],
-  $data_properties = [
-    jets:key as text,
-    rdf:type as array of text
-  ],
-  $as_table = false
-};
-
-class hc:Claim {
-  # This is an example of a domain class
-  $base_classes = [jets:Entity],
-  $data_properties = [
-    hc:claim_number as text,
-    hc:member_number as text,
-    hc:date_of_service as date,
-    hc:submitted_amount as double,
-    hc:allowed_amount as double,
-    hc:service_code as text,
-    hc:modifier as text,
-    hc:service_description as text,
-    hc:ndays as int,
-    hc:has_mod as bool
-  ],
-  $as_table = true
-};
-
-# =======================================================================================
-# Lookup Tables
-# ---------------------------------------------------------------------------------------
-# csv file have these columns: "CODE, MODIFIER, DESCRIPTION"
-# Using composite key: CODE+MODIFIER
-lookup_table lk:CodeDescription {
-  $csv_file = "code_description_test1.csv",    # csv file location
-  $key = ["CODE","MODIFIER"], 
-  $columns = [
-    "DESCRIPTION" as text
+rule_sequence step1 {
+  $main_rule_sets = [
+    "ruleset1_test1.jr",
+    "ruleset2_test1.jr"
   ]
 };
-
-# config resourse used in process config (start msg)
-resource lk:withModifier = "lk:withModifier";
-volatile_resource lkrow = "lkrow";
-
-# Add service code description to claim
-# with consideration of the modifier
-[Rule1]:
-  (?config rdf:type jets:State).
-  (?config lk:withModifier true).
-  (?claim rdf:type hc:Claim).
-  (?claim hc:service_code ?code).
-  (?claim hc:modifier ?modifier)
-  ->
-  (?claim lkrow lk:CodeDescription lookup (?code + ?modifier)).
-  (?claim hc:has_mod true)
-;
-
-# Add service code description to claim
-# without consideration of the modifier
-[Rule2]:
-  (?config rdf:type jets:State).
-  (?config lk:withModifier false).
-  (?claim rdf:type hc:Claim).
-  (?claim hc:service_code ?code)
-  ->
-  (?claim lkrow lk:CodeDescription lookup (?code + "N")).
-  (?claim hc:has_mod false)
-;
-
-# Assign the description to the claim
-[Rule3]:
-  (?claim rdf:type hc:Claim).
-  (?claim lkrow ?row).
-  (?row DESCRIPTION ?desc)
-  ->
-  (?claim hc:service_description ?desc)
-;
-
-
-# =======================================================================================
-# Metadata Triples
-# ---------------------------------------------------------------------------------------
-@JetCompilerDirective extract_resources_from_rules = "true";
-
-triple(jets:iState, rdf:type, jets:State);

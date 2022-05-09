@@ -1,0 +1,42 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "support_test1.jr"
+
+# config resource used in process config (start msg)
+resource lk:withModifier = "lk:withModifier";
+volatile_resource lkrow = "lkrow";
+
+# Add service code description to claim
+# with consideration of the modifier
+[Rule1]:
+  (?config rdf:type jets:State).
+  (?config lk:withModifier true).
+  (?claim rdf:type hc:Claim).
+  (?claim hc:service_code ?code).
+  (?claim hc:modifier ?modifier)
+  ->
+  (?claim lkrow lk:CodeDescription lookup (?code + ?modifier)).
+  (?claim hc:has_mod true)
+;
+
+# Add service code description to claim
+# without consideration of the modifier
+[Rule2]:
+  (?config rdf:type jets:State).
+  (?config lk:withModifier false).
+  (?claim rdf:type hc:Claim).
+  (?claim hc:service_code ?code)
+  ->
+  (?claim lkrow lk:CodeDescription lookup (?code + "N")).
+  (?claim hc:has_mod false)
+;
+
+# Assign the description to the claim
+[Rule3]:
+  (?claim rdf:type hc:Claim).
+  (?claim lkrow ?row).
+  (?row DESCRIPTION ?desc)
+  ->
+  (?claim hc:service_description ?desc)
+;

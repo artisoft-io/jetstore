@@ -14,13 +14,20 @@ int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_
 int delete_jetstore_hdl( HJETS handle );
 
 typedef void* HJRETE;
+typedef void* HJRDF;
 
-int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * handle );
+// Create sessions
+// ---------------
+int create_rdf_session( HJETS jets_hdl, HJRDF * handle );
+int delete_rdf_session( HJRDF rdf_session_hdl );
+
+int create_rete_session( HJETS jets_hdl, HJRDF rdf_hdl, char const * jetrule_name, HJRETE * handle );
 int delete_rete_session( HJRETE rete_session_hdl );
 
 typedef void const* HJR;
 
 // Creating meta resources and literals
+// ------------------------------------
 int create_null(HJETS js_hdl, HJR * handle);
 int create_meta_blanknode(HJETS js_hdl, int v, HJR * handle);
 int create_meta_resource(HJETS js_hdl, char const * name, HJR * handle);
@@ -36,18 +43,20 @@ int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle);
 
 int insert_meta_graph(HJETS js_hdl, HJR s, HJR p, HJR o);
 
+// rdf session methods
+// -------------------
 // Creating resources and literals
-int create_blanknode(HJRETE rete_hdl, int v, HJR * handle);
-int create_resource(HJRETE rete_hdl, char const * name, HJR * handle);
-int get_resource(HJRETE rete_hdl, char const * name, HJR * handle);
-int create_text(HJRETE rete_hdl, char const * name, HJR * handle);
-int create_int(HJRETE rete_hdl, int v, HJR * handle);
-int create_uint(HJRETE rete_hdl, uint v, HJR * handle);
-int create_long(HJRETE rete_hdl, long v, HJR * handle);
-int create_ulong(HJRETE rete_hdl, ulong v, HJR * handle);
-int create_double(HJRETE rete_hdl, double v, HJR * handle);
-int create_date(HJRETE rete_hdl, char const * v, HJR * handle);
-int create_datetime(HJRETE rete_hdl, char const * v, HJR * handle);
+int create_blanknode(HJRDF hdl, int v, HJR * handle);
+int create_resource(HJRDF hdl, char const * name, HJR * handle);
+int get_resource(HJRDF hdl, char const * name, HJR * handle);
+int create_text(HJRDF hdl, char const * name, HJR * handle);
+int create_int(HJRDF hdl, int v, HJR * handle);
+int create_uint(HJRDF hdl, uint v, HJR * handle);
+int create_long(HJRDF hdl, long v, HJR * handle);
+int create_ulong(HJRDF hdl, ulong v, HJR * handle);
+int create_double(HJRDF hdl, double v, HJR * handle);
+int create_date(HJRDF hdl, char const * v, HJR * handle);
+int create_datetime(HJRDF hdl, char const * v, HJR * handle);
 
 typedef void const* HSTR;
 
@@ -66,21 +75,22 @@ char const* get_date_iso_string2(HJR handle, int*);
 char const* get_datetime_iso_string2(HJR handle, int*);
 
 
-// main functions
-int insert(HJRETE rete_hdl, HJR s, HJR p, HJR o);
-int contains(HJRETE rete_hdl, HJR s, HJR p, HJR o);
+// rete session functions
+int insert(HJRDF hdl, HJR s, HJR p, HJR o);
+int contains(HJRDF hdl, HJR s, HJR p, HJR o);
 int execute_rules(HJRETE rete_hdl);
 char const* execute_rules2(HJRETE rete_hdl, int*v);
-int dump_rdf_graph(HJRETE rete_hdl);
+int dump_rdf_graph(HJRDF hdl);
+
 typedef void* HJITERATOR;
 
-int find_all(HJRETE rete_hdl, HJITERATOR * handle);
-int find(HJRETE rete_hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
-int find_s(HJRETE rete_hdl, HJR s, HJITERATOR * handle);
-int find_sp(HJRETE rete_hdl, HJR s, HJR p, HJITERATOR * handle);
-int find_object(HJRETE rete_hdl, HJR s, HJR p, HJR * handle);
-// int find_asserted(HJRETE rete_hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
-// int find_inferred(HJRETE rete_hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
+int find_all(HJRDF hdl, HJITERATOR * handle);
+int find(HJRDF hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
+int find_s(HJRDF hdl, HJR s, HJITERATOR * handle);
+int find_sp(HJRDF hdl, HJR s, HJR p, HJITERATOR * handle);
+int find_object(HJRDF hdl, HJR s, HJR p, HJR * handle);
+// int find_asserted(HJRDF hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
+// int find_inferred(HJRDF hdl, HJR s, HJR p, HJR o, HJITERATOR * handle);
 int is_end(HJITERATOR handle);
 int next(HJITERATOR handle);
 int get_subject(HJITERATOR itor_hdl, HJR * handle);

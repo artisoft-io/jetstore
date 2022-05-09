@@ -56,7 +56,7 @@ class ReteSession {
       pending_beta_rows_()
     {}
 
-  ReteSession(ReteMetaStorePtr rule_ms, rdf::RDFSessionPtr rdf_session) 
+  ReteSession(ReteMetaStorePtr rule_ms, rdf::RDFSession * rdf_session) 
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
       beta_relations_(),
@@ -66,7 +66,7 @@ class ReteSession {
   inline rdf::RDFSession *
   rdf_session()
   {
-    return rdf_session_.get();
+    return rdf_session_;
   }
 
   inline ReteMetaStore const*
@@ -210,13 +210,13 @@ class ReteSession {
  friend class BetaRelation;
 
   ReteMetaStorePtr        rule_ms_;
-  rdf::RDFSessionPtr      rdf_session_;
+  rdf::RDFSession *       rdf_session_;
   BetaRelationVector      beta_relations_;
   BetaRowPriorityQueue    pending_beta_rows_;
 };
 
 inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms, 
-  rdf::RDFSessionPtr rdf_session)
+  rdf::RDFSession * rdf_session)
 {
   return std::make_shared<ReteSession>(rule_ms, rdf_session);
 }

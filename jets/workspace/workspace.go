@@ -63,6 +63,26 @@ func (workspaceDb *WorkspaceDb) GetRangeDataType(dataProperty string) (string, e
 	return dataType, nil
 }
 
+// GetRuleSetNames: Get the slice of ruleset name for ruleseq (rule sequence) name
+func (workspaceDb *WorkspaceDb) GetRuleSetNames(ruleseq string) ([]string, error) {
+	var rulesets []string
+
+	rows, err := workspaceDb.db.Query(
+		"SELECT main_ruleset_name FROM rule_sequences rs OUTER LEFT JOIN main_rule_sets mrs ON mrs.rule_sequence_key = rs.key WHERE name = ? ORDER BY seq ASC", ruleseq)
+	if err != nil {
+		return rulesets, fmt.Errorf("while loading domain table columns info from workspace db: %v", err)
+	}
+	rulesets = make([]string, 0)
+	defer rows.Close()
+	for rows.Next() { 
+		var rs_name string
+		rows.Scan(&rs_name)
+		log.Println("  - rs_name:", rs_name)
+		rulesets = append(rulesets, rs_name)
+	}
+	return rulesets, nil
+}
+
 // GetVolatileResources: return list of volatile resources
 func (workspaceDb *WorkspaceDb) GetVolatileResources() ([]string, error) {
 	var result []string

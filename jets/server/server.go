@@ -16,7 +16,8 @@ import (
 var dsn = flag.String("dsn", "", "database connection string (required)")
 var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required)")
 var lookupDb = flag.String("lookupDb", "", "lookup data path")
-var ruleset = flag.String("ruleset", "", "main rule set name (required)")
+var ruleset = flag.String("ruleset", "", "main rule set name (required or -ruleseq)")
+var ruleseq = flag.String("ruleseq", "", "rule set sequence (required or -ruleset)")
 var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
 var sessionId = flag.String("sessionId", "", "Process session ID used to link entitied processed together.")
@@ -83,7 +84,7 @@ func doJob() error {
 	}
 
 	// let's do it!
-	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, &procConfig, outTableSlice, extTables)
+	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, *ruleseq, &procConfig, outTableSlice, extTables)
 	if err != nil {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
@@ -119,9 +120,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")
 	}
-	if *ruleset == "" {
+	if *ruleset == "" && *ruleseq=="" {
 		hasErr = true
-		errMsg = append(errMsg, "Main ruleset name (-ruleset)  must be provided.")
+		errMsg = append(errMsg, "Main ruleset name (-ruleset) or rule set sequence name (-ruleseq)  must be provided.")
 	}
 	if *outTables == "" {
 		hasErr = true
@@ -146,6 +147,7 @@ func main() {
 	fmt.Printf("Got workspaceDb: %s\n", *workspaceDb)
 	fmt.Printf("Got lookupDb: %s\n", *lookupDb)
 	fmt.Printf("Got ruleset: %s\n", *ruleset)
+	fmt.Printf("Got ruleseq: %s\n", *ruleseq)
 
 	err := doJob()
 	if err != nil {
