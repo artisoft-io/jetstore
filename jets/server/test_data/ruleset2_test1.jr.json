@@ -147,16 +147,53 @@
             "var_pos": 0,
             "vertex": 1,
             "key": 20,
-            "source_file_name": "workspace_test1.jr"
+            "source_file_name": "ruleset2_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 2,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 21,
+            "source_file_name": "ruleset2_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 2,
+            "key": 22,
+            "source_file_name": "ruleset2_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 3,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 23,
+            "source_file_name": "ruleset2_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "vertex": 3,
+            "key": 24,
+            "source_file_name": "ruleset2_test1.jr"
         },
         {
             "type": "var",
             "id": "?x1",
             "is_binded": false,
             "var_pos": 0,
-            "vertex": 2,
-            "key": 21,
-            "source_file_name": "workspace_test1.jr"
+            "vertex": 4,
+            "key": 25,
+            "source_file_name": "ruleset2_test1.jr"
         },
         {
             "type": "var",
@@ -165,18 +202,45 @@
             "vertex": 1,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 22,
-            "source_file_name": "workspace_test1.jr"
+            "key": 26,
+            "source_file_name": "ruleset2_test1.jr"
         },
         {
             "type": "var",
             "id": "?x1",
             "is_binded": true,
-            "vertex": 2,
+            "vertex": 3,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 23,
-            "source_file_name": "workspace_test1.jr"
+            "key": 27,
+            "source_file_name": "ruleset2_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 3,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 28,
+            "source_file_name": "ruleset2_test1.jr"
+        },
+        {
+            "type": "int",
+            "value": "10",
+            "inline": true,
+            "key": 29,
+            "source_file_name": "ruleset2_test1.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 30,
+            "source_file_name": "ruleset2_test1.jr"
         }
     ],
     "lookup_tables": [
@@ -203,17 +267,15 @@
     ],
     "jet_rules": [
         {
-            "name": "jets__entity__1",
-            "properties": {
-                "i": "true"
-            },
+            "name": "X1",
+            "properties": {},
             "optimization": true,
             "salience": 100,
             "antecedents": [
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "normalizedLabel": "(?x1 rdf:type hc:Claim)",
                     "vertex": 1,
                     "parent_vertex": 0,
                     "beta_relation_vars": [
@@ -228,7 +290,149 @@
                             "var_pos": 0,
                             "vertex": 1,
                             "key": 20,
-                            "source_file_name": "workspace_test1.jr"
+                            "source_file_name": "ruleset2_test1.jr"
+                        }
+                    ],
+                    "children_vertexes": [
+                        2
+                    ],
+                    "rules": [
+                        "hc__claim__2"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 20,
+                    "predicate_key": 5,
+                    "object_key": 6
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 hc:ndays ?x2)",
+                    "vertex": 2,
+                    "parent_vertex": 1,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 2
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 2,
+                            "key": 22,
+                            "source_file_name": "ruleset2_test1.jr"
+                        }
+                    ],
+                    "children_vertexes": [
+                        3
+                    ],
+                    "subject_key": 21,
+                    "predicate_key": 15,
+                    "object_key": 22
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 hc:service_description ?x3)",
+                    "vertex": 3,
+                    "parent_vertex": 2,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [
+                        "?x3"
+                    ],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 3
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": true,
+                            "var_pos": 1,
+                            "vertex": 3
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "X1"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 23,
+                    "predicate_key": 14,
+                    "object_key": 24
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 hc:corrected_ndays ?x2 * int(10))",
+                    "vertex": 3,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "X1",
+                    "consequent_salience": 100,
+                    "subject_key": 27,
+                    "predicate_key": 16,
+                    "obj_expr": {
+                        "type": "binary",
+                        "lhs": 28,
+                        "op": "*",
+                        "rhs": 29
+                    }
+                }
+            ],
+            "authoredLabel": "[X1]:(?claim rdf:type hc:Claim).(?claim hc:ndays ?ndays).(?claim hc:service_description ?desc) -> (?claim hc:corrected_ndays ?ndays * int(10));",
+            "source_file_name": "ruleset2_test1.jr",
+            "normalizedLabel": "[X1]:(?x1 rdf:type hc:Claim).(?x1 hc:ndays ?x2).(?x1 hc:service_description ?x3) -> (?x1 hc:corrected_ndays ?x2 * int(10));",
+            "label": "[X1]:(?claim rdf:type hc:Claim).(?claim hc:ndays ?ndays).(?claim hc:service_description ?desc) -> (?claim hc:corrected_ndays ?ndays * int(10));"
+        },
+        {
+            "name": "jets__entity__1",
+            "properties": {
+                "i": "true"
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "vertex": 4,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 4,
+                            "key": 25,
+                            "source_file_name": "ruleset2_test1.jr"
                         }
                     ],
                     "children_vertexes": [],
@@ -238,7 +442,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 20,
+                    "subject_key": 25,
                     "predicate_key": 5,
                     "object_key": 2
                 }
@@ -247,11 +451,11 @@
                 {
                     "type": "consequent",
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
-                    "vertex": 1,
+                    "vertex": 4,
                     "consequent_seq": 0,
                     "consequent_for_rule": "jets__entity__1",
                     "consequent_salience": 100,
-                    "subject_key": 22,
+                    "subject_key": 30,
                     "predicate_key": 5,
                     "object_key": 3
                 }
@@ -273,7 +477,7 @@
                     "type": "antecedent",
                     "isNot": false,
                     "normalizedLabel": "(?x1 rdf:type hc:Claim)",
-                    "vertex": 2,
+                    "vertex": 1,
                     "parent_vertex": 0,
                     "beta_relation_vars": [
                         "?x1"
@@ -285,19 +489,21 @@
                             "id": "?x1",
                             "is_binded": false,
                             "var_pos": 0,
-                            "vertex": 2,
-                            "key": 21,
-                            "source_file_name": "workspace_test1.jr"
+                            "vertex": 1,
+                            "key": 20,
+                            "source_file_name": "ruleset2_test1.jr"
                         }
                     ],
-                    "children_vertexes": [],
+                    "children_vertexes": [
+                        2
+                    ],
                     "rules": [
                         "hc__claim__2"
                     ],
                     "salience": [
                         100
                     ],
-                    "subject_key": 21,
+                    "subject_key": 20,
                     "predicate_key": 5,
                     "object_key": 6
                 }
@@ -306,11 +512,11 @@
                 {
                     "type": "consequent",
                     "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-                    "vertex": 2,
+                    "vertex": 1,
                     "consequent_seq": 0,
                     "consequent_for_rule": "hc__claim__2",
                     "consequent_salience": 100,
-                    "subject_key": 23,
+                    "subject_key": 26,
                     "predicate_key": 5,
                     "object_key": 2
                 }
@@ -322,21 +528,10 @@
         }
     ],
     "imports": {
-        "workspace_test1.jr": [
+        "ruleset2_test1.jr": [
             "support_test1.jr"
         ]
     },
-    "rule_sequences": [
-        {
-            "type": "ruleseq",
-            "name": "step1",
-            "main_rule_sets": [
-                "ruleset1_test1.jr",
-                "ruleset2_test1.jr"
-            ],
-            "source_file_name": "workspace_test1.jr"
-        }
-    ],
     "classes": [
         {
             "type": "class",

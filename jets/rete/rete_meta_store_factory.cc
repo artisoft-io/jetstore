@@ -22,7 +22,6 @@ ReteMetaStoreFactory::ReteMetaStoreFactory()
   v_map_(),
   jr_map_(),
   ms_map_(),
-  rs_map_(),
   db_(nullptr),
   node_vertexes_stmt_(nullptr),
   alpha_nodes_stmt_(nullptr),

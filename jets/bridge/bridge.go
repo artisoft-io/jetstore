@@ -19,8 +19,13 @@ type JetStore struct {
 	hdl C.HJETS
 }
 
+type RDFSession struct {
+	hdl           C.HJRDF
+}
+
 type ReteSession struct {
 	hdl           C.HJRETE
+	rdfs          *RDFSession
 	jetrules_name string
 }
 type RSIterator struct {
@@ -76,15 +81,35 @@ func (jr *JetStore) ReleaseJetRules() error {
 	return nil
 }
 
-func (jr *JetStore) NewReteSession(jetrules_name string) (*ReteSession, error) {
+func (jr *JetStore) NewRDFSession() (*RDFSession, error) {
+	var rdfs RDFSession
+	ret := int(C.create_rdf_session(jr.hdl, &rdfs.hdl))
+	if ret != 0 {
+		fmt.Println("Got error in NewRDFSession ret code", ret)
+		return &rdfs, errors.New("ERROR calling NewRDFSession(), ret code: " + fmt.Sprint(ret))
+	}
+	return &rdfs, nil
+}
+
+func (rdfs *RDFSession) ReleaseRDFSession() error {
+	ret := int(C.delete_rdf_session(rdfs.hdl))
+	if ret != 0 {
+		fmt.Println("OOps got error in c++ ReleaseRDFSession!! ret code", ret)
+		return errors.New("error calling ReleaseRDFSession(), ret code: " + fmt.Sprint(ret))
+	}
+	return nil
+}
+
+func (jr *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string) (*ReteSession, error) {
 	var rs ReteSession
 	cstr := C.CString(jetrules_name)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_rete_session(jr.hdl, cstr, &rs.hdl))
+	ret := int(C.create_rete_session(jr.hdl, rdfSession.hdl, cstr, &rs.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewReteSession ret code", ret)
 		return &rs, errors.New("ERROR calling NewReteSession(), ret code: " + fmt.Sprint(ret))
 	}
+	rs.rdfs = rdfSession
 	return &rs, nil
 }
 
@@ -241,7 +266,7 @@ func (rs *ReteSession) NewResource(resource_name string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(resource_name)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_resource(rs.hdl, cstr, &r.hdl))
+	ret := int(C.create_resource(rs.rdfs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewResource ret code", ret)
 		return &r, errors.New("ERROR calling NewResource(), ret code: " + fmt.Sprint(ret))
@@ -252,7 +277,7 @@ func (rs *ReteSession) GetResource(resource_name string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(resource_name)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.get_resource(rs.hdl, cstr, &r.hdl))
+	ret := int(C.get_resource(rs.rdfs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in GetResource ret code", ret)
 		return &r, errors.New("ERROR calling GetResource(), ret code: " + fmt.Sprint(ret))
@@ -263,7 +288,7 @@ func (rs *ReteSession) NewTextLiteral(txt string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(txt)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_text(rs.hdl, cstr, &r.hdl))
+	ret := int(C.create_text(rs.rdfs.hdl, cstr, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewTextLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewTextLiteral(), ret code: " + fmt.Sprint(ret))
@@ -272,7 +297,7 @@ func (rs *ReteSession) NewTextLiteral(txt string) (*Resource, error) {
 }
 func (rs *ReteSession) NewIntLiteral(value int) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_int(rs.hdl, C.int(value), &r.hdl))
+	ret := int(C.create_int(rs.rdfs.hdl, C.int(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewIntLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewIntLiteral(), ret code: " + fmt.Sprint(ret))
@@ -281,7 +306,7 @@ func (rs *ReteSession) NewIntLiteral(value int) (*Resource, error) {
 }
 func (rs *ReteSession) NewUIntLiteral(value uint) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_uint(rs.hdl, C.uint(value), &r.hdl))
+	ret := int(C.create_uint(rs.rdfs.hdl, C.uint(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewUIntLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewUIntLiteral(), ret code: " + fmt.Sprint(ret))
@@ -290,7 +315,7 @@ func (rs *ReteSession) NewUIntLiteral(value uint) (*Resource, error) {
 }
 func (rs *ReteSession) NewLongLiteral(value int) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_long(rs.hdl, C.long(value), &r.hdl))
+	ret := int(C.create_long(rs.rdfs.hdl, C.long(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewLongLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewLongLiteral(), ret code: " + fmt.Sprint(ret))
@@ -299,7 +324,7 @@ func (rs *ReteSession) NewLongLiteral(value int) (*Resource, error) {
 }
 func (rs *ReteSession) NewULongLiteral(value uint) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_ulong(rs.hdl, C.ulong(value), &r.hdl))
+	ret := int(C.create_ulong(rs.rdfs.hdl, C.ulong(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewULongLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewULongLiteral(), ret code: " + fmt.Sprint(ret))
@@ -308,7 +333,7 @@ func (rs *ReteSession) NewULongLiteral(value uint) (*Resource, error) {
 }
 func (rs *ReteSession) NewDoubleLiteral(value float64) (*Resource, error) {
 	var r Resource
-	ret := int(C.create_double(rs.hdl, C.double(value), &r.hdl))
+	ret := int(C.create_double(rs.rdfs.hdl, C.double(value), &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in NewDoubleLiteral ret code", ret)
 		return &r, errors.New("ERROR calling NewDoubleLiteral(), ret code: " + fmt.Sprint(ret))
@@ -319,7 +344,7 @@ func (rs *ReteSession) NewDateLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_date(rs.hdl, cstr, &r.hdl))
+	ret := int(C.create_date(rs.rdfs.hdl, cstr, &r.hdl))
 	if ret == -2 {
 		// fmt.Println("ERROR in NewDateLiteral: date is not a valid date")
 		return &r, ErrNotValidDate
@@ -334,7 +359,7 @@ func (rs *ReteSession) NewDatetimeLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_datetime(rs.hdl, cstr, &r.hdl))
+	ret := int(C.create_datetime(rs.rdfs.hdl, cstr, &r.hdl))
 	if ret == -2 {
 		// fmt.Println("ERROR in NewDatetimeLiteral: datetime is not valid")
 		return &r, ErrNotValidDateTime
@@ -594,29 +619,41 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 }
 
 // ReteSession Insert
-func (rs *ReteSession) Insert(s *Resource, p *Resource, o *Resource) (int, error) {
+func (rs *RDFSession) Insert(s *Resource, p *Resource, o *Resource) (int, error) {
 	if s == nil || p == nil || o == nil {
 		return 0, fmt.Errorf("ERROR cannot have null args when calling Insert")
 	}
 	ret := int(C.insert(rs.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.Insert ret code", ret)
+		fmt.Println("ERROR in RDFSession.Insert ret code", ret)
 		return ret, errors.New("ERROR calling Insert(), ret code: " + fmt.Sprint(ret))
 	}
 	return ret, nil
 }
+func (rs *ReteSession) Insert(s *Resource, p *Resource, o *Resource) (int, error) {
+	if s == nil || p == nil || o == nil {
+		return 0, fmt.Errorf("ERROR cannot have null args when calling Insert")
+	}
+	return rs.rdfs.Insert(s, p, o)
+}
 
 // ReteSession Contains
-func (rs *ReteSession) Contains(s *Resource, p *Resource, o *Resource) (int, error) {
+func (rs *RDFSession) Contains(s *Resource, p *Resource, o *Resource) (int, error) {
 	if s == nil || p == nil || o == nil {
 		return 0, fmt.Errorf("ERROR cannot have null args when calling Contains")
 	}
 	ret := int(C.contains(rs.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.Contains ret code", ret)
+		fmt.Println("ERROR in RDFSession.Contains ret code", ret)
 		return ret, errors.New("ERROR calling Contains(), ret code: " + fmt.Sprint(ret))
 	}
 	return ret, nil
+}
+func (rs *ReteSession) Contains(s *Resource, p *Resource, o *Resource) (int, error) {
+	if s == nil || p == nil || o == nil {
+		return 0, fmt.Errorf("ERROR cannot have null args when calling Contains")
+	}
+	return rs.rdfs.Contains(s, p, o)
 }
 
 // ReteSession ExecuteRules
@@ -632,28 +669,34 @@ func (rs *ReteSession) ExecuteRules() (string, error) {
 }
 
 // ReteSession DumpRdfGraph
-func (rs *ReteSession) DumpRdfGraph() error {
+func (rs *RDFSession) DumpRdfGraph() error {
 	ret := int(C.dump_rdf_graph(rs.hdl))
 	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.DumpRdfGraph ret code", ret)
+		fmt.Println("ERROR in RDFSession.DumpRdfGraph ret code", ret)
 		return errors.New("ERROR calling DumpRdfGraph(), ret code: " + fmt.Sprint(ret))
 	}
 	return nil
 }
+func (rs *ReteSession) DumpRdfGraph() error {
+	return rs.rdfs.DumpRdfGraph()
+}
 
 // ReteSession FindAll
-func (rs *ReteSession) FindAll() (*RSIterator, error) {
+func (rs *RDFSession) FindAll() (*RSIterator, error) {
 	var itor RSIterator
 	ret := int(C.find_all(rs.hdl, &itor.hdl))
 	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.FindAll ret code", ret)
+		fmt.Println("ERROR in RDFSession.FindAll ret code", ret)
 		return &itor, errors.New("ERROR calling FindAll(), ret code: " + string(rune(ret)))
 	}
 	return &itor, nil
 }
+func (rs *ReteSession) FindAll() (*RSIterator, error) {
+	return rs.rdfs.FindAll()
+}
 
 // ReteSession Find
-func (rs *ReteSession) Find(s *Resource, p *Resource, o *Resource) (*RSIterator, error) {
+func (rs *RDFSession) Find(s *Resource, p *Resource, o *Resource) (*RSIterator, error) {
 	var itor RSIterator
 	var cs, cp, co C.HJR
 	if s != nil {
@@ -665,41 +708,50 @@ func (rs *ReteSession) Find(s *Resource, p *Resource, o *Resource) (*RSIterator,
 	if o != nil {
 		co = o.hdl
 	}
-
 	ret := int(C.find(rs.hdl, cs, cp, co, &itor.hdl))
 	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.Find ret code", ret)
+		fmt.Println("ERROR in RDFSession.Find ret code", ret)
+		return &itor, errors.New("ERROR calling Find(), ret code: " + string(rune(ret)))
+	}
+	return &itor, nil
+}
+func (rs *ReteSession) Find(s *Resource, p *Resource, o *Resource) (*RSIterator, error) {
+	return rs.rdfs.Find(s, p, o)
+}
+
+func (rs *RDFSession) Find_s(s *Resource) (*RSIterator, error) {
+	var itor RSIterator
+	if s == nil {
+		return &itor, fmt.Errorf("ERROR cannot have null args when calling Find_s")
+	}
+	ret := int(C.find_s(rs.hdl, s.hdl, &itor.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in RDFSession.Find ret code", ret)
 		return &itor, errors.New("ERROR calling Find(), ret code: " + string(rune(ret)))
 	}
 	return &itor, nil
 }
 func (rs *ReteSession) Find_s(s *Resource) (*RSIterator, error) {
-	var itor RSIterator
-	if s == nil {
-		return &itor, fmt.Errorf("ERROR cannot have null args when calling Find_s")
-	}
-
-	ret := int(C.find_s(rs.hdl, s.hdl, &itor.hdl))
-	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.Find ret code", ret)
-		return &itor, errors.New("ERROR calling Find(), ret code: " + string(rune(ret)))
-	}
-	return &itor, nil
+	return rs.rdfs.Find_s(s)
 }
-func (rs *ReteSession) Find_sp(s *Resource, p *Resource) (*RSIterator, error) {
+
+func (rs *RDFSession) Find_sp(s *Resource, p *Resource) (*RSIterator, error) {
 	var itor RSIterator
 	if s == nil || p == nil {
 		return &itor, fmt.Errorf("ERROR cannot have null args when calling Find_sp")
 	}
-
 	ret := int(C.find_sp(rs.hdl, s.hdl, p.hdl, &itor.hdl))
 	if ret < 0 {
-		fmt.Println("ERROR in ReteSession.Find_sp ret code", ret)
+		fmt.Println("ERROR in RDFSession.Find_sp ret code", ret)
 		return &itor, errors.New("ERROR calling Find_sp(), ret code: " + string(rune(ret)))
 	}
 	return &itor, nil
 }
-func (rs *ReteSession) GetObject(s *Resource, p *Resource) (*Resource, error) {
+func (rs *ReteSession) Find_sp(s *Resource, p *Resource) (*RSIterator, error) {
+	return rs.rdfs.Find_sp(s, p)
+}
+
+func (rs *RDFSession) GetObject(s *Resource, p *Resource) (*Resource, error) {
 	var obj Resource
 	if s == nil || p == nil {
 		return &obj, fmt.Errorf("ERROR cannot have null args when calling GetObject")
@@ -713,6 +765,9 @@ func (rs *ReteSession) GetObject(s *Resource, p *Resource) (*Resource, error) {
 		return nil, nil
 	}
 	return &obj, nil
+}
+func (rs *ReteSession) GetObject(s *Resource, p *Resource) (*Resource, error) {
+	return rs.rdfs.GetObject(s, p)
 }
 
 // RSIterator IsEnd

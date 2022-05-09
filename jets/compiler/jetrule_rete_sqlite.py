@@ -262,7 +262,7 @@ class JetRuleReteSQLite:
         # save main_rule_sets attribute
         seq = 0
         for main_ruleset in rseq['main_rule_sets']:
-          fkey = self.rule_file_keys.get(main_ruleset)
+          fkey = self._get_source_rule_file_key(main_ruleset)
           if fkey is None:
             raise Exception("Error main rule file '{0}' in rule sequence not found, make sure it exist".format(main_ruleset))
           row = [key, main_ruleset, fkey, seq]

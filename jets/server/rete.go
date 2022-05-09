@@ -5,15 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"regexp"
 	"strings"
-	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -21,7 +18,8 @@ type ReteWorkspace struct {
 	js          *bridge.JetStore
 	workspaceDb string
 	lookupDb    string
-	ruleset     string
+	ruleset     []string
+	ruleseq     string
 	outTables   []string
 	extTables   map[string][]string
 	procConfig  *ProcessConfig
@@ -38,6 +36,7 @@ func LoadReteWorkspace(
 	workspaceDb string, 
 	lookupDb string, 
 	ruleset string, 
+	ruleseq string, 
 	procConfig *ProcessConfig, 
 	outTables []string,
 	extTables map[string][]string) (*ReteWorkspace, error) {
@@ -46,12 +45,16 @@ func LoadReteWorkspace(
 	reteWorkspace := ReteWorkspace{
 		workspaceDb: workspaceDb,
 		lookupDb:    lookupDb,
-		ruleset:     ruleset,
+		ruleseq:     ruleseq,
 		procConfig:  procConfig,
 		outTables:   outTables,
 		extTables:   extTables,
 	}
 	var err error
+	// case invoking single ruleset, in pipeline for case ruleseq
+	if len(ruleset) > 0 {
+		reteWorkspace.ruleset = []string {ruleset}
+	}
 	reteWorkspace.js, err = bridge.LoadJetRules(workspaceDb, lookupDb)
 	if err != nil {
 		return &reteWorkspace, fmt.Errorf("while loading workspace db: %v", err)
@@ -78,327 +81,66 @@ func (rw *ReteWorkspace) ExecuteRules(
 	//		- extract entities
 	//		- write to ouput chanel
 	// ---------------------------
-	// get the grouping column position
+	// ReteInputContext: context/cache across all rdf sessions
 	log.Println("Execute Rule Started")
-	ncol := len(processInput.processInputMapping)
-	rdfType, err := rw.js.GetResource("rdf:type")
+	var ri ReteInputContext
+	var err error
+	ri.ncol = len(processInput.processInputMapping)
+	ri.rdfType, err = rw.js.GetResource("rdf:type")
 	if err != nil {
 		return &result, fmt.Errorf("while creating rdf:type resource: %v", err)
 	}
-	jets__key, err := rw.js.GetResource("jets:key")
+	ri.jets__key, err = rw.js.GetResource("jets:key")
 	if err != nil {
 		return &result, fmt.Errorf("while creating jets:key resource: %v", err)
 	}
 	// keep a map of compiled regex, keyed by the regex pattern
-	reMap := make(map[string]*regexp.Regexp)
+	ri.reMap = make(map[string]*regexp.Regexp)
 	// keep a map of map function argument that needs to be cast to double
-	argdMap := make(map[string]float64)
+	ri.argdMap = make(map[string]float64)
+
 	for inputRecords := range dataInputc {
-		// log.Println("Start Rete Session")
-		reteSession, err := rw.js.NewReteSession(*ruleset)
+		var groupingKey sql.NullString
+		if len(inputRecords)>0 && inputRecords[0][processInput.groupingPosition].Valid {
+			gp := inputRecords[0][processInput.groupingPosition].String
+			groupingKey = sql.NullString{String: gp, Valid: true}
+		}
+		// setup the rdf session for the grouping
+		// log.Println("Start RDF Session")
+		rdfSession,err := rw.js.NewRDFSession()
 		if err != nil {
-			return &result, fmt.Errorf("while creating rete session: %v", err)
+			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
-		// Each row in inputRecords is a jets:Entity, with it's own jets:key
-		for _, row := range inputRecords {
-			if len(row) == 0 {
-				continue
-			}
-			var jetsKeyStr string
-			if row[processInput.keyPosition].Valid {
-				jetsKeyStr = row[processInput.keyPosition].String
-			} else {
-				jetsKeyStr = uuid.New().String()
-			}
-			subject, err := reteSession.NewResource(jetsKeyStr)
+
+		for i, ruleset := range rw.ruleset {
+			// log.Println("Start Rete Session for ruleset", ruleset)
+			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
-				return &result, fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
+				return &result, fmt.Errorf("while creating rete session: %v", err)
 			}
-			jetsKey, err := reteSession.NewTextLiteral(jetsKeyStr)
-			if err != nil {
-				return &result, fmt.Errorf("while creating row's jets__key literal (NewTextLiteral): %v", err)
-			}
-			if subject == nil || rdfType == nil || processInput.entityRdfTypeResource == nil {
-				return &result, fmt.Errorf("ERROR while asserting row rdf type")
-			}
-			_, err = reteSession.Insert(subject, rdfType, processInput.entityRdfTypeResource)
-			if err != nil {
-				return &result, fmt.Errorf("while asserting row rdf type: %v", err)
-			}
-			_, err = reteSession.Insert(subject, jets__key, jetsKey)
-			if err != nil {
-				return &result, fmt.Errorf("while asserting row jets key: %v", err)
-			}
-			for icol := 0; icol < ncol; icol++ {
-				// asserting input row with mapping spec
-				inputColumnSpec := &processInput.processInputMapping[icol]
-				var obj string
-				sz := len(row[icol].String)
-				if row[icol].Valid && sz>0 {
-					if inputColumnSpec.functionName.Valid {
-						switch inputColumnSpec.functionName.String {
-						case "to_upper":
-							obj = strings.ToUpper(row[icol].String)
-						case "to_zip5":
-							switch {
-							case sz < 5:
-								var v int
-								fmt.Sscanf(row[icol].String, "%d", &v)
-								obj = fmt.Sprintf("%05d", v)
-							case sz == 5:
-								obj = row[icol].String
-							case sz>5 && sz<9:
-								var v int
-								fmt.Sscanf(row[icol].String, "%d", &v)
-								obj = fmt.Sprintf("%09d", v)[:5]
-							case sz == 9:
-								obj = row[icol].String[:5]
-							default:
-								// report error
-								var br BadRow
-								br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-								if row[processInput.groupingPosition].Valid {
-									br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
-								}
-								br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
-								br.ErrorMessage = sql.NullString{String:"Invalid input for zipcode", Valid: true}
-								//*
-								fmt.Println("BAD Input ROW:",br)
-								br.write2Chan(writeOutputc["process_errors"])
-								continue
-							}
-						case "reformat0":
-							if inputColumnSpec.argument.Valid {
-								arg := inputColumnSpec.argument.String
-								var v int
-								fmt.Sscanf(row[icol].String, "%d", &v)
-								obj = fmt.Sprintf(arg, v)
-							} else {
-								// configuration error, bailing out
-								return &result, fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn)
-							}
-						case "apply_regex":
-							if inputColumnSpec.argument.Valid {
-								arg := inputColumnSpec.argument.String
-								re, ok := reMap[arg]
-								if !ok {
-									re, err = regexp.Compile(arg)
-									if err != nil {
-										// configuration error, bailing out
-										return &result, fmt.Errorf("ERROR regex argument does not compile: %s", arg)
-									}
-									reMap[arg] = re
-								}
-								obj = re.FindString(row[icol].String)
-							} else {
-								// configuration error, bailing out
-								return &result, fmt.Errorf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn)
-							}
-						case "scale_units":
-							if inputColumnSpec.argument.Valid {
-								arg := inputColumnSpec.argument.String
-								if arg == "1" {
-									obj = row[icol].String
-								} else {
-									divisor, ok := argdMap[arg]
-									if !ok {
-										_, err = fmt.Sscan(arg, &divisor)
-										if err != nil {
-											// configuration error, bailing out
-											return &result, fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
-										}
-										argdMap[arg] = divisor
-									}
-									var unit float64
-									_, err = fmt.Sscan(arg, &unit)
-									if err != nil {
-										// report error
-										var br BadRow
-										br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-										if row[processInput.groupingPosition].Valid {
-											br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
-										}
-										br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
-										br.ErrorMessage = sql.NullString{String:fmt.Sprintf("%v",err), Valid: true}
-										//*
-										fmt.Println("BAD Input ROW:",br)
-										br.write2Chan(writeOutputc["process_errors"])
-										continue
-									}
-									obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))	
-								}
-							} else {
-								// configuration error, bailing out
-								return &result, fmt.Errorf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn)
-							}
-						case "parse_amount":
-							// clean up the amount
-							var buf strings.Builder
-							var c rune
-							for _,c = range row[icol].String {
-								if c=='(' || c=='-' {
-									buf.WriteRune('-')
-								} else if unicode.IsDigit(c) || c=='.' {
-									buf.WriteRune(c)
-								}
-							}
-							if buf.Len() > 0 {
-								obj = buf.String()
-								// argument is optional, assume divisor is 1 if absent
-								if inputColumnSpec.argument.Valid {
-									arg := inputColumnSpec.argument.String
-									if arg != "1" {
-										divisor, ok := argdMap[arg]
-										if !ok {
-											_, err = fmt.Sscan(arg, &divisor)
-											if err != nil {
-												// configuration error, bailing out
-												return &result, fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
-											}
-											argdMap[arg] = divisor
-										}
-										var amt float64
-										fmt.Sscan(obj, &amt)
-										obj = fmt.Sprintf("%f", amt/divisor)
-									}
-								}
-							}
-						default:
-							return &result, fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
-						}
-	
-					} else {
-						obj = row[icol].String
-					}
-				} 
-				if len(obj) == 0 {
-					// get the default or report error or ignore the filed if no default or error message is avail
-					if inputColumnSpec.defaultValue.Valid {
-						obj = inputColumnSpec.defaultValue.String
-					} else {
-						if inputColumnSpec.errorMessage.Valid {
-							// report error
-							var br BadRow
-							br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-							if row[processInput.groupingPosition].Valid {
-								br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
-							}
-							br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
-							br.ErrorMessage = inputColumnSpec.errorMessage
-							//*
-							fmt.Println("BAD Input ROW:",br)
-							br.write2Chan(writeOutputc["process_errors"])
-						}
-						continue
-					}
-				}
-				// cast obj to type
-				// switch inputColumn.DataType {
-				var object *bridge.Resource
-				var err error
-				switch inputColumnSpec.rdfType {
-				// case "null":
-				// 	object, err = rw.js.NewNull()
-				case "resource":
-					object, err = reteSession.NewResource(obj)
-				case "int":
-					var v int
-					_, err = fmt.Sscan(obj, &v)
-					if err == nil {
-						object, err = reteSession.NewIntLiteral(v)
-					}
-				case "bool":
-					v := 0
-					if len(obj) > 0 {
-						c := strings.ToLower(obj[0:1])
-						switch c {
-						case "t", "1", "y":
-							v = 1
-						case "f", "0", "n":
-							v = 0
-						default:
-							err = fmt.Errorf("object is not boolean: %s", obj)
-						}
-					}
-					if err == nil {
-						object, err = reteSession.NewIntLiteral(v)
-					}
-				case "uint":
-					var v uint
-					_, err = fmt.Sscan(obj, &v)
-					if err != nil {
-						return &result, fmt.Errorf("while mapping input value: %v", err)
-					}
-					object, err = reteSession.NewUIntLiteral(v)
-				case "long":
-					var v int
-					_, err = fmt.Sscan(obj, &v)
-					if err == nil {
-						object, err = reteSession.NewLongLiteral(v)
-					}
-				case "ulong":
-					var v uint
-					_, err = fmt.Sscan(obj, &v)
-					if err != nil {
-						return &result, fmt.Errorf("while mapping input value: %v", err)
-					}
-					object, err = reteSession.NewULongLiteral(v)
-				case "double":
-					var v float64
-					_, err = fmt.Sscan(obj, &v)
-					if err == nil {
-						object, err = reteSession.NewDoubleLiteral(v)
-					}
-				case "text":
-					object, err = reteSession.NewTextLiteral(obj)
-				case "date":
-					object, err = reteSession.NewDateLiteral(obj)
-				case "datetime":
-					object, err = reteSession.NewDatetimeLiteral(obj)
-				default:
-					err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn, inputColumnSpec.rdfType)
-				}
+			if i == 0 {
+				// log.Println("Asserting input records with ruleset", ruleset)
+				err = ri.assertInputRecords(reteSession, processInput, &inputRecords, &writeOutputc)
 				if err != nil {
-					var br BadRow
-					br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-					if row[processInput.groupingPosition].Valid {
-						br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
-					}
-					br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
-					br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
-					//*
-					fmt.Println("BAD Input ROW:",br)
-					br.write2Chan(writeOutputc["process_errors"])
-					continue
-				}
-				if inputColumnSpec.predicate == nil {
-					return &result, fmt.Errorf("ERROR predicate is null")
-				}
-				if object == nil {
-					continue
-				}
-				_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
-				if err != nil {
-					return &result, fmt.Errorf("while asserting triple to rete sesson: %v", err)
-				}
+					return &result, fmt.Errorf("while assertInputRecords: %v", err)
+				}	
 			}
-		}
-		// done asserting
-		msg, err := reteSession.ExecuteRules()
-		if err != nil {
-			var br BadRow
-			if inputRecords[0][processInput.groupingPosition].Valid {
-				gp := inputRecords[0][processInput.groupingPosition].String
-				br.GroupingKey = sql.NullString{String: gp, Valid: true}
+			msg, err := reteSession.ExecuteRules()
+			if err != nil {
+				var br BadRow
+				br.GroupingKey = groupingKey
+				br.ErrorMessage = sql.NullString{String: msg, Valid: true}
+				//*
+				fmt.Println("BAD ROW:",br)
+				br.write2Chan(writeOutputc["process_errors"])
+				break
 			}
-			br.ErrorMessage = sql.NullString{String: msg, Valid: true}
-			//*
-			fmt.Println("BAD ROW:",br)
-			br.write2Chan(writeOutputc["process_errors"])
+			reteSession.ReleaseReteSession()
 		}
+
 		// log.Println("ExecuteRule() Completed sucessfully")
 		if *ps {
-			reteSession.DumpRdfGraph()
+			rdfSession.DumpRdfGraph()
 		}
 		var sid string
 		if sessionId!=nil && len(*sessionId)>0 {
@@ -416,11 +158,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 				continue
 			}
 			// extract entities by rdf type
-			ctor, err := reteSession.Find(nil, rdfType, tableSpec.ClassResource)
+			ctor, err := rdfSession.Find(nil, ri.rdfType, tableSpec.ClassResource)
 			if err != nil {
 				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.ClassName, err)
 			}
-			defer ctor.ReleaseIterator()
 			for !ctor.IsEnd() {
 				subject := ctor.GetSubject()
 				// log.Println("Found entity with subject:",subject.AsText())
@@ -436,7 +177,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 						entityRow[i] = shard
 					default:
 						var data []interface{}
-						itor, err := reteSession.Find_sp(subject, domainColumn.Predicate)
+						itor, err := rdfSession.Find_sp(subject, domainColumn.Predicate)
 						if err != nil {
 							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 						}
@@ -448,10 +189,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								if err == nil {
 									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 								}
-								if inputRecords[0][processInput.groupingPosition].Valid {
-									gp := inputRecords[0][processInput.groupingPosition].String
-									br.GroupingKey = sql.NullString{String: gp, Valid: true}
-								}
+								br.GroupingKey = groupingKey
 								br.ErrorMessage = sql.NullString {
 									String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
 									Valid: true}
@@ -476,10 +214,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								if err == nil {
 									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 								}
-								if inputRecords[0][processInput.groupingPosition].Valid {
-									gp := inputRecords[0][processInput.groupingPosition].String
-									br.GroupingKey = sql.NullString{String: gp, Valid: true}
-								}
+								br.GroupingKey = groupingKey
 								br.ErrorMessage = sql.NullString {
 									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName), 
 									Valid: true}
@@ -496,9 +231,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 				writeOutputc[tableName] <- entityRow
 				ctor.Next()
 			}
+			ctor.ReleaseIterator()
 		}
-
 		result.executeRulesCount += 1
+		rdfSession.ReleaseRDFSession()
 	}
 	return &result, nil
 }

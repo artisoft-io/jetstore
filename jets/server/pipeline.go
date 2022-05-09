@@ -101,6 +101,14 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		}
 	}
 
+	// Get ruleset name if case of ruleseq - rule sequence
+	if len(reteWorkspace.ruleseq) > 0 {
+		reteWorkspace.ruleset, err = workspaceMgr.GetRuleSetNames(reteWorkspace.ruleseq)
+		if err != nil {
+			return &result, fmt.Errorf("while adding ruleset name for ruleseq %s: %v", *ruleseq, err)
+		}
+	}
+
 	// start the read input goroutine
 	dataInputc, readResultc := readInput(dbpool, done, processInput)
 

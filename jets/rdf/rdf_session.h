@@ -69,6 +69,17 @@ class RDFSession {
     return std::make_shared<make_shared_enabler>(meta_graph);
   }
 
+  static RDFSession * create_raw_ptr(RDFGraphPtr meta_graph)
+  {
+    if(meta_graph) {
+      meta_graph->set_locked();
+    } else {
+      LOG(ERROR) << "create_rdf_session: meta_graph argument is required and cannot be null";
+      return nullptr;
+    }
+    return new RDFSession(meta_graph);
+  }
+
   /**
    * @brief the number of triples in all graphs
    * 

@@ -32,23 +32,45 @@ int delete_jetstore_hdl( HJETS handle )
   return 0;
 }
 
-int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * handle )
+int create_rdf_session( HJETS jets_hdl, HJRDF * handle )
 {
-  if(not jetrule_name) return -1;
+  if(not jets_hdl or not handle) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(jets_hdl);
   if(not factory) {
-    LOG(ERROR) << "create_rete_session: ERROR NULL factory for "<<jetrule_name;
+    LOG(ERROR) << "create_rdf_session: ERROR NULL factory!";
     return -1;
   }
+  auto * rdf_session = jets::rdf::RDFSession::create_raw_ptr(factory->get_meta_graph());
+  *handle = rdf_session;
+  if(not rdf_session) return -1;
+  return 0;
+}
 
+int delete_rdf_session(HJRDF hdl )
+{
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  delete rdf_session;
+  return 0;
+}
+
+int create_rete_session(HJETS jets_hdl, HJRDF rdf_hdl, char const * jetrule_name, HJRETE * handle )
+{
+  if(not jetrule_name or not jets_hdl or not rdf_hdl) return -1;
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(jets_hdl);
+  auto * rdf_session =  static_cast<RDFSession*>(rdf_hdl);
+  if(not factory or not rdf_session) {
+    LOG(ERROR) << "create_rete_session2: ERROR NULL factory for "<<jetrule_name;
+    return -1;
+  }
   auto ms = factory->get_rete_meta_store(jetrule_name);
   if(not ms) {
     LOG(ERROR) << "::create_rete_session: ERROR ReteMetaStore not found for main_rule file ";
     return -1;
   }
-  auto rdf_session = jets::rdf::create_rdf_session(ms->get_meta_graph());
   auto * rete_session = new ReteSession(ms, rdf_session);
   *handle = rete_session;
+  if(not rete_session) return -1;
   int res = rete_session->initialize();
   if(res) {
     LOG(ERROR) << "create_rete_session: ERROR while initializing rete session "<<
@@ -57,7 +79,7 @@ int create_rete_session( HJETS jets_hdl, char const * jetrule_name, HJRETE * han
   return res;
 }
 
-int delete_rete_session(  HJRETE rete_session_hdl )
+int delete_rete_session(HJRETE rete_session_hdl )
 {
   if(not rete_session_hdl) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_session_hdl);
@@ -220,83 +242,83 @@ int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
 }
 
 // Creating resources and literals
-int create_blanknode(HJRETE rete_hdl, int v, HJR * handle)
+int create_blanknode(HJRDF hdl, int v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_bnode(v);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_bnode(v);
   return 0;
 }
-int create_resource(HJRETE rete_hdl, char const * name, HJR * handle)
+int create_resource(HJRDF hdl, char const * name, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_resource(name);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_resource(name);
   return 0;
 }
-int get_resource(HJRETE rete_hdl, char const * name, HJR * handle)
+int get_resource(HJRDF hdl, char const * name, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->get_resource(name);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->get_resource(name);
   return 0;
 }
-int create_text(HJRETE rete_hdl, char const * txt, HJR * handle)
+int create_text(HJRDF hdl, char const * txt, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(txt);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_literal(txt);
   return 0;
 }
-int create_int(HJRETE rete_hdl, int v, HJR * handle)
+int create_int(HJRDF hdl, int v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_literal(v);
   return 0;
 }
-int create_uint(HJRETE rete_hdl, uint v, HJR * handle)
+int create_uint(HJRDF hdl, uint v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_literal(v);
   return 0;
 }
-int create_long(HJRETE rete_hdl, long v, HJR * handle)
+int create_long(HJRDF hdl, long v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_literal(v);
   return 0;
 }
-int create_ulong(HJRETE rete_hdl, ulong v, HJR * handle)
+int create_ulong(HJRDF hdl, ulong v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_literal(v);
   return 0;
 }
-int create_double(HJRETE rete_hdl, double v, HJR * handle)
+int create_double(HJRDF hdl, double v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(v);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->get_rmgr()->create_literal(v);
   return 0;
 }
-int create_date(HJRETE rete_hdl, char const * v, HJR * handle)
+int create_date(HJRDF hdl, char const * v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto d = parse_date(v);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(d);
+  * handle = rdf_session->get_rmgr()->create_literal(d);
   return 0;
 }
-int create_datetime(HJRETE rete_hdl, char const * v, HJR * handle)
+int create_datetime(HJRDF hdl, char const * v, HJR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto d = parse_datetime(v);
-  * handle = rete_session->rdf_session()->get_rmgr()->create_literal(d);
+  * handle = rdf_session->get_rmgr()->create_literal(d);
   return 0;
 }
 
@@ -469,26 +491,26 @@ char const* get_text_literal2(HJR handle, int*v)
   }
 }
 
-int insert(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+int insert(HJRDF hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
 {
-  if(not rete_hdl) return -1;
+  if(not hdl) return -1;
   if(not s_hdl or not p_hdl or not o_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
   auto const* o =  static_cast<r_index>(o_hdl);
-  return rete_session->rdf_session()->insert(s, p, o);
+  return rdf_session->insert(s, p, o);
 }
 
-int contains(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+int contains(HJRDF hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
 {
-  if(not rete_hdl) return -1;
+  if(not hdl) return -1;
   if(not s_hdl or not p_hdl or not o_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
   auto const* o =  static_cast<r_index>(o_hdl);
-  return rete_session->rdf_session()->contains(s, p, o);
+  return rdf_session->contains(s, p, o);
 }
 
 int execute_rules(HJRETE rete_hdl)
@@ -504,64 +526,64 @@ char const* execute_rules2(HJRETE rete_hdl, int*v)
   return rete_session->execute_rules2(v);
 }
 
-int dump_rdf_graph(HJRETE rete_hdl)
+int dump_rdf_graph(HJRDF hdl)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   std::cout << "RDF Session Contains:"<<std::endl;
-  std::cout << rete_session->rdf_session()<<"---"<<std::endl;
+  std::cout << rdf_session<<"---"<<std::endl;
   return 0;
 }
 
-int find_all(HJRETE rete_hdl, HJITERATOR * handle)
+int find_all(HJRDF hdl, HJITERATOR * handle)
 {
-  if(not rete_hdl or not handle) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
-  auto * itor = rete_session->rdf_session()->new_find();
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  auto * itor = rdf_session->new_find();
   *handle = itor;
   return 0;
 }
 
-int find(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl, HJITERATOR * handle)
+int find(HJRDF hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl, HJITERATOR * handle)
 {
-  if(not rete_hdl) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
   auto const* o =  static_cast<r_index>(o_hdl);
-  auto * itor = rete_session->rdf_session()->new_find(s, p, o);
+  auto * itor = rdf_session->new_find(s, p, o);
   *handle = itor;
   return 0;
 }
 
-int find_sp(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJITERATOR * handle)
+int find_sp(HJRDF hdl, HJR s_hdl, HJR p_hdl, HJITERATOR * handle)
 {
-  if(not rete_hdl or not s_hdl or not p_hdl or not handle) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
-  auto * itor = rete_session->rdf_session()->new_find(s, p);
+  auto * itor = rdf_session->new_find(s, p);
   *handle = itor;
   return 0;
 }
 
-int find_object(HJRETE rete_hdl, HJR s_hdl, HJR p_hdl, HJR * handle)
+int find_object(HJRDF hdl, HJR s_hdl, HJR p_hdl, HJR * handle)
 {
-  if(not rete_hdl or not s_hdl or not p_hdl or not handle) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
-  auto * obj = rete_session->rdf_session()->get_object(s, p);
+  auto * obj = rdf_session->get_object(s, p);
   *handle = obj;
   return 0;
 }
 
-int find_s(HJRETE rete_hdl, HJR s_hdl, HJITERATOR * handle)
+int find_s(HJRDF hdl, HJR s_hdl, HJITERATOR * handle)
 {
-  if(not rete_hdl or not s_hdl or not handle) return -1;
-  auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto const* s =  static_cast<r_index>(s_hdl);
-  auto * itor = rete_session->rdf_session()->new_find(s);
+  auto * itor = rdf_session->new_find(s);
   *handle = itor;
   return 0;
 }
