@@ -120,9 +120,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")
 	}
-	if *ruleset == "" && *ruleseq=="" {
+	if (*ruleset=="" && *ruleseq=="") || (*ruleset!="" && *ruleseq!="") {
 		hasErr = true
-		errMsg = append(errMsg, "Main ruleset name (-ruleset) or rule set sequence name (-ruleseq)  must be provided.")
+		errMsg = append(errMsg, "Ruleset name (-ruleset) or rule set sequence name (-ruleseq) must be provided, but not both.")
 	}
 	if *outTables == "" {
 		hasErr = true
