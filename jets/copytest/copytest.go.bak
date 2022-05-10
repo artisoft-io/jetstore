@@ -12,7 +12,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	dsn := "postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres?sslmode=disable"
+	dsn := "postgresql://postgres:<PWD>@<IP>:5432/postgres?sslmode=disable"
 	fmt.Println("Connecting using ",dsn)
 	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
 	db := bun.NewDB(sqldb, pgdialect.New())
