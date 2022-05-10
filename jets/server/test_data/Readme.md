@@ -2,7 +2,9 @@
 
 Simple unit test for server process consisting of following files:
 
-- workspace_test1.jr: workspace rule file
+- workspace_test1.jr: rule sequence file
+- ruleset1_test1.jr: main rule file
+- ruleset2_test1.jr: main rule file
 - code_description_test1.csv: lookup table data
 - process_config_test1.sql: process config data
 
