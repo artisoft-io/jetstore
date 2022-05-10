@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -71,36 +72,30 @@ func (ri *ReteInputContext) assertInputRecords(
 						switch {
 						case sz < 5:
 							var v int
-							fmt.Sscanf(row[icol].String, "%d", &v)
-							obj = fmt.Sprintf("%05d", v)
+							v, err = strconv.Atoi(row[icol].String)
+							if err == nil {
+								obj = fmt.Sprintf("%05d", v)
+							}
 						case sz == 5:
 							obj = row[icol].String
 						case sz>5 && sz<9:
 							var v int
-							fmt.Sscanf(row[icol].String, "%d", &v)
-							obj = fmt.Sprintf("%09d", v)[:5]
+							v, err = strconv.Atoi(row[icol].String)
+							if err == nil {
+								obj = fmt.Sprintf("%09d", v)[:5]
+							}
 						case sz == 9:
 							obj = row[icol].String[:5]
 						default:
-							// report error
-							var br BadRow
-							br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-							if row[processInput.groupingPosition].Valid {
-								br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
-							}
-							br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
-							br.ErrorMessage = sql.NullString{String:"Invalid input for zipcode", Valid: true}
-							//*
-							fmt.Println("BAD Input ROW:",br)
-							br.write2Chan((*writeOutputc)["process_errors"])
-							continue
 						}
 					case "reformat0":
 						if inputColumnSpec.argument.Valid {
 							arg := inputColumnSpec.argument.String
 							var v int
-							fmt.Sscanf(row[icol].String, "%d", &v)
-							obj = fmt.Sprintf(arg, v)
+							v, err = strconv.Atoi(row[icol].String)
+							if err == nil {
+								obj = fmt.Sprintf(arg, v)[:5]
+							}
 						} else {
 							// configuration error, bailing out
 							return fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn)
@@ -130,7 +125,7 @@ func (ri *ReteInputContext) assertInputRecords(
 							} else {
 								divisor, ok := ri.argdMap[arg]
 								if !ok {
-									_, err = fmt.Sscan(arg, &divisor)
+									divisor, err = strconv.ParseFloat(arg, 64)
 									if err != nil {
 										// configuration error, bailing out
 										return fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
@@ -138,22 +133,10 @@ func (ri *ReteInputContext) assertInputRecords(
 									ri.argdMap[arg] = divisor
 								}
 								var unit float64
-								_, err = fmt.Sscan(arg, &unit)
-								if err != nil {
-									// report error
-									var br BadRow
-									br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-									if row[processInput.groupingPosition].Valid {
-										br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
-									}
-									br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
-									br.ErrorMessage = sql.NullString{String:fmt.Sprintf("%v",err), Valid: true}
-									//*
-									fmt.Println("BAD Input ROW:",br)
-									br.write2Chan((*writeOutputc)["process_errors"])
-									continue
+								unit, err = strconv.ParseFloat(row[icol].String, 64)
+								if err == nil {
+									obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))	
 								}
-								obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))	
 							}
 						} else {
 							// configuration error, bailing out
@@ -178,7 +161,7 @@ func (ri *ReteInputContext) assertInputRecords(
 								if arg != "1" {
 									divisor, ok := ri.argdMap[arg]
 									if !ok {
-										_, err = fmt.Sscan(arg, &divisor)
+										divisor, err = strconv.ParseFloat(arg, 64)
 										if err != nil {
 											// configuration error, bailing out
 											return fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
@@ -186,8 +169,10 @@ func (ri *ReteInputContext) assertInputRecords(
 										ri.argdMap[arg] = divisor
 									}
 									var amt float64
-									fmt.Sscan(obj, &amt)
-									obj = fmt.Sprintf("%f", amt/divisor)
+									amt, err = strconv.ParseFloat(obj, 64)
+									if err == nil {
+										obj = fmt.Sprintf("%f", amt/divisor)	
+									}
 								}
 							}
 						}
@@ -199,7 +184,7 @@ func (ri *ReteInputContext) assertInputRecords(
 					obj = row[icol].String
 				}
 			} 
-			if len(obj) == 0 {
+			if err!=nil || len(obj) == 0 {
 				// get the default or report error or ignore the filed if no default or error message is avail
 				if inputColumnSpec.defaultValue.Valid {
 					obj = inputColumnSpec.defaultValue.String
@@ -212,7 +197,11 @@ func (ri *ReteInputContext) assertInputRecords(
 							br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
 						}
 						br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
-						br.ErrorMessage = inputColumnSpec.errorMessage
+						if err != nil {
+							br.ErrorMessage = sql.NullString{String: fmt.Sprintf("%v", err), Valid: true}
+						} else {
+							br.ErrorMessage = inputColumnSpec.errorMessage
+						}
 						//*
 						fmt.Println("BAD Input ROW:",br)
 						br.write2Chan((*writeOutputc)["process_errors"])
