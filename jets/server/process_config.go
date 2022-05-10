@@ -203,7 +203,9 @@ func (processInputs *ProcessInputSlice) read(dbpool *pgxpool.Pool, pcKey int) er
 		}
 
 		// read the column to fiefd mapping definitions
-		pi.processInputMapping.read(dbpool, pi.key)
+		if err = pi.processInputMapping.read(dbpool, pi.key); err!=nil {
+			return err
+		}
 
 		*processInputs = append(*processInputs, pi)
 	}
@@ -228,6 +230,12 @@ func (processMapping *ProcessMapSlice) read(dbpool *pgxpool.Pool, processInputKe
 			return err
 		}
 
+		// validate that we don't have both a default and an error message
+		if pm.errorMessage.Valid && pm.defaultValue.Valid {
+			if len(pm.defaultValue.String)>0 && len(pm.errorMessage.String)>0 {
+				return fmt.Errorf("error: cannot have both a default value and an error message in table process_mapping")
+			}
+		}
 		*processMapping = append(*processMapping, pm)
 	}
 	if err = rows.Err(); err != nil {
