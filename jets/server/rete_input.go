@@ -62,6 +62,7 @@ func (ri *ReteInputContext) assertInputRecords(
 			// asserting input row with mapping spec
 			inputColumnSpec := &processInput.processInputMapping[icol]
 			var obj string
+			var err error
 			sz := len(row[icol].String)
 			if row[icol].Valid && sz>0 {
 				if inputColumnSpec.functionName.Valid {
@@ -212,7 +213,6 @@ func (ri *ReteInputContext) assertInputRecords(
 			// cast obj to type
 			// switch inputColumn.DataType {
 			var object *bridge.Resource
-			var err error
 			switch inputColumnSpec.rdfType {
 			// case "null":
 			// 	object, err = ri.rw.js.NewNull()
