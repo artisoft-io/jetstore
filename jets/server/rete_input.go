@@ -220,7 +220,7 @@ func (ri *ReteInputContext) assertInputRecords(
 				object, err = reteSession.NewResource(obj)
 			case "int":
 				var v int
-				_, err = fmt.Sscan(obj, &v)
+				v, err = strconv.Atoi(obj)
 				if err == nil {
 					object, err = reteSession.NewIntLiteral(v)
 				}
@@ -241,28 +241,27 @@ func (ri *ReteInputContext) assertInputRecords(
 					object, err = reteSession.NewIntLiteral(v)
 				}
 			case "uint":
-				var v uint
-				_, err = fmt.Sscan(obj, &v)
-				if err != nil {
-					return fmt.Errorf("while mapping input value: %v", err)
+				var v uint64
+				v, err = strconv.ParseUint(obj, 10, 32)
+				if err == nil {
+					object, err = reteSession.NewUIntLiteral(uint(v))
 				}
-				object, err = reteSession.NewUIntLiteral(v)
 			case "long":
-				var v int
-				_, err = fmt.Sscan(obj, &v)
+				var v int64
+				v, err = strconv.ParseInt(obj, 10, 64)
 				if err == nil {
 					object, err = reteSession.NewLongLiteral(v)
 				}
 			case "ulong":
-				var v uint
-				_, err = fmt.Sscan(obj, &v)
+				var v uint64
+				v, err = strconv.ParseUint(obj, 10, 64)
 				if err != nil {
 					return fmt.Errorf("while mapping input value: %v", err)
 				}
 				object, err = reteSession.NewULongLiteral(v)
 			case "double":
 				var v float64
-				_, err = fmt.Sscan(obj, &v)
+				v, err = strconv.ParseFloat(obj, 64)
 				if err == nil {
 					object, err = reteSession.NewDoubleLiteral(v)
 				}
@@ -296,7 +295,7 @@ func (ri *ReteInputContext) assertInputRecords(
 			}
 			_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
 			if err != nil {
-				return fmt.Errorf("while asserting triple to rete sesson: %v", err)
+				return fmt.Errorf("while asserting triple to rete session: %v", err)
 			}
 		}
 	}

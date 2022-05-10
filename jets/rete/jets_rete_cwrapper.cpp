@@ -209,8 +209,8 @@ int create_meta_date(HJETS js_hdl, char const * v, HJR * handle)
     return -1;
   }
   auto d = parse_date(v);
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
   if(d.is_not_a_date()) return -2;
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
   return 0;
 }
 
@@ -219,8 +219,8 @@ int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle)
   if(not js_hdl) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
   auto d = parse_datetime(v);
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
   if(d.is_not_a_date_time()) return -2;
+  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
   return 0;
 }
 
@@ -310,6 +310,7 @@ int create_date(HJRDF hdl, char const * v, HJR * handle)
   if(not hdl) return -1;
   auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto d = parse_date(v);
+  if(d.is_not_a_date()) return -2;
   * handle = rdf_session->get_rmgr()->create_literal(d);
   return 0;
 }
@@ -318,6 +319,7 @@ int create_datetime(HJRDF hdl, char const * v, HJR * handle)
   if(not hdl) return -1;
   auto * rdf_session =  static_cast<RDFSession*>(hdl);
   auto d = parse_datetime(v);
+  if(d.is_not_a_date_time()) return -2;
   * handle = rdf_session->get_rmgr()->create_literal(d);
   return 0;
 }
