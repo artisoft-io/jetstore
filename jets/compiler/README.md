@@ -87,11 +87,15 @@ meaning they are not part of the persistent model.
 ```
 
 #### Defining Resources
+
 Defining named resources:
+
 ```
   resource nbr_providers = "nbr_providers", ck:Value = "ck:value";
 ```
+
 Defining resources for use as volatile properties:
+
 ```
   volatile_resource allClaimsInPeriod = "allClaimsInPeriod";
   volatile_resource allMedicalClaimsInPeriod = "allMedicalClaimsInPeriod";

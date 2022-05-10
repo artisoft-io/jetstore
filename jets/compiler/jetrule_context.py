@@ -79,6 +79,7 @@ class JetRuleContext:
     self.lookup_tables = self.jetRules.get('lookup_tables')
     self.jet_rules = self.jetRules.get('jet_rules')
     self.compiler_directives = self.jetRules.get('compiler_directives')
+    self.jetstore_config = self.jetRules.get('jetstore_config')
     self.rule_sequences = self.jetRules.get('rule_sequences')
     self.classes = self.jetRules.get('classes')
     self.tables = []

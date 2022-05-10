@@ -1122,6 +1122,11 @@
             "support_test1.jr"
         ]
     },
+    "jetstore_config": {
+        "$max_rule_exec": "10000",
+        "source_file_name": "ruleset1_test1.jr",
+        "type": "jsconfig"
+    },
     "classes": [
         {
             "type": "class",

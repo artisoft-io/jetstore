@@ -39,6 +39,10 @@ defineJetStoreConfigStmt: JETSCONFIG '{'
   '}' SEMICOLON;
 
 jetstoreConfigSeq: jetstoreConfigItem (',' COMMENT* jetstoreConfigSeq)* ;
+jetstoreConfigItem
+  : configKey=MaxLooping ASSIGN configValue=uintExpr
+  | configKey=MaxRuleExec ASSIGN configValue=uintExpr
+  ;
 
 // --------------------------------------------------------------------------------------
 // Define Class Statements
