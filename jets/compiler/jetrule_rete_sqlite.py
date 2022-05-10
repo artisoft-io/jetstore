@@ -112,7 +112,11 @@ class JetRuleReteSQLite:
 
       # Add main_rule_file to workspace_control table
       # Will need the key for the rete_nodes
-      self.main_rule_file_key = self._add_source_rule_file(main_rule_file_name, True)
+      isMain = False
+      rn = self.ctx.jetReteNodes.get('rete_nodes')
+      if rn and len(rn) > 1:
+        isMain = True
+      self.main_rule_file_key = self._add_source_rule_file(main_rule_file_name, isMain)
 
       # Add support files to workspace_control if not there already
       for support_file in self.ctx.jetReteNodes['support_rule_file_names']:
@@ -131,6 +135,10 @@ class JetRuleReteSQLite:
       # -------------------------------------------------------------------------
       self._save_domain_classes()
       self._save_domain_tables()
+
+      # Add all jetstore config
+      # -------------------------------------------------------------------------
+      self._save_jetstore_config()
 
       # Add all rule sequences
       # -------------------------------------------------------------------------
@@ -243,6 +251,28 @@ class JetRuleReteSQLite:
         if key is None:
           raise Exception("Error while getting key for resource with id '{0}', resource not found!".format(item['id']))
         item['db_key'] = key                  # keep the globaly unique key for insertion in expressions and rete_nodes tables
+
+
+  # -------------------------------------------------------------------------------------
+  # _save_jetstore_config
+  # -------------------------------------------------------------------------------------
+  def _save_jetstore_config(self):
+    jsconfig = self.ctx.jetRules.get('jetstore_config')
+    if not jsconfig:
+      return
+    fname = jsconfig.get('source_file_name')
+    if not fname:
+      return
+    skey = self.rule_file_keys.get(fname)
+    if skey is None:
+      # Error, source_file_name is the main file being compile, should not be none
+      raise Exception("Error while processing jetrule_config, source_file_name '{0}' not found!".format(fname))
+    # save to workspace db
+    for configKey, configValue in jsconfig.items():
+      if configKey[0] != "$":
+        continue
+      row = [configKey, configValue, skey]
+      self.write_cursor.execute("INSERT INTO jetstore_config (config_key, config_value, source_file_key) VALUES (?, ?, ?)", row)
 
 
   # -------------------------------------------------------------------------------------
@@ -628,6 +658,16 @@ class JetRuleReteSQLite:
         main_file_key      INTEGER NOT NULL,
         support_file_key   INTEGER NOT NULL,
         UNIQUE (main_file_key, support_file_key)
+      );
+
+
+      -- --------------------
+      -- jetstore_config table
+      -- --------------------
+      CREATE TABLE IF NOT  EXISTS jetstore_config (
+        config_key         STRING NOT NULL,
+        config_value       STRING NOT NULL,
+        source_file_key    INTEGER NOT NULL
       );
 
 

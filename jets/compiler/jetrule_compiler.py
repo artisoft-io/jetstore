@@ -209,7 +209,7 @@ class JetRuleCompiler:
     tree = parser.jetrule()
 
     # evaluator
-    listener = JetListener()
+    listener = JetListener(self.main_rule_fname)
     walker = a4.ParseTreeWalker()
     walker.walk(listener, tree)
 

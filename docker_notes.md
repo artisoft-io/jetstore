@@ -69,7 +69,7 @@ docker pull debian:bullseye
 docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
 ```
 
-Building the runtime image
+Building the runtime image (PACKAGE THE BUILD)
 
 ```bash
 docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore:bullseye -f Dockerfile.rt_bullseye .

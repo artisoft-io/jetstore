@@ -2,22 +2,26 @@
 
 Simple unit test for server process consisting of following files:
 
-- workspace_test1.jr: rule sequence file
 - ruleset1_test1.jr: main rule file
 - ruleset2_test1.jr: main rule file
+- support_test1.jr: common components file
 - code_description_test1.csv: lookup table data
 - process_config_test1.sql: process config data
 
 ## Generate the workspace db using jetstore compiler
 
-Command to execute the compiler from the jetserver source directory,  
-the workspace base directory is `server/test_data`.
-Run the compiler on the `workspace_test1.jr` rule file:
+Command to execute the compiler from the jetserver source directory `server/`
+(the workspace base directory is `server/test_data`.)
+Run the compiler on the main rule files:`ruleset1_test1.jr` and `ruleset2_test1.jr`
 
 ```bash
 docker run --rm -v=`pwd`/test_data:/go/work -w=/usr/local/lib/jets/compiler \
   --entrypoint=python3 jetstore:bullseye jetrule_compiler.py      \
-  --base_path /go/work --in_file workspace_test1.jr -d --rete_db workspace_test1.db
+  --base_path /go/work --in_file ruleset1_test1.jr -d --rete_db workspace_test1.db
+
+docker run --rm -v=`pwd`/test_data:/go/work -w=/usr/local/lib/jets/compiler \
+  --entrypoint=python3 jetstore:bullseye jetrule_compiler.py      \
+  --base_path /go/work --in_file ruleset2_test1.jr --rete_db workspace_test1.db
 ```
 
 ## Generate the lookup data db using lookup loader

@@ -490,6 +490,40 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
+  def test_jetstore_config1(self):
+    data = """
+      # =======================================================================================
+      # JetStore config
+      jetstore_config {
+        $max_rule_exec = 5000,
+        $max_looping = 5
+      };
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "jetstore_config": {"$max_looping": "5", "$max_rule_exec": "5000", "type": "jsconfig"}}"""
+    print('GOT:',json.dumps(jetRules, indent=2))
+    print()
+    print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
+  def test_jetstore_config2(self):
+    data = """
+      # =======================================================================================
+      jetstore_config {
+        $max_rule_exec = 5000,
+        $max_looping = 5
+      };
+      jetstore_config { $max_looping = 50 };
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "jetstore_config": {"$max_looping": "50", "$max_rule_exec": "5000", "type": "jsconfig"}}"""
+    print('GOT:',json.dumps(jetRules, indent=2))
+    print()
+    print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
 
 if __name__ == '__main__':
   absltest.main()

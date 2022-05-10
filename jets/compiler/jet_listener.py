@@ -8,10 +8,20 @@ from JetRuleListener import JetRuleListener
 
 class JetListener(JetRuleListener):
 
-  def __init__(self):
+  def __init__(self, main_rule_file=None):
+
+    # keeping track which file we're parsing
+    self.main_rule_file = main_rule_file
+    self.current_file_name = None
+
+    # Compiler directives
+    self.compiler_directives = {}
+
+    # JetStore config obj, only one per main
+    self.jetstore_config = {}
+
     # Define our state model
     self.classes = []
-    # define property used in functions
     self.base_classes = []
     self.data_properties = []
     self.as_table = None
@@ -26,8 +36,6 @@ class JetListener(JetRuleListener):
     self.rules = []
     self.triples = []
     self.jetRules = None
-    self.current_file_name = None
-    self.compiler_directives = {}
     self.implicit_number_re = re.compile(r'^\+?\-?\d+\.?\d*$')
 
     # Defining intermediate structure for Jet Rule
@@ -56,6 +64,11 @@ class JetListener(JetRuleListener):
       self.jetRules['triples'] = self.triples
     if self.compiler_directives:
       self.jetRules['compiler_directives'] = self.compiler_directives
+    if self.jetstore_config:
+      self.jetstore_config['type'] = 'jsconfig'
+      if self.main_rule_file:
+        self.jetstore_config['source_file_name'] = self.main_rule_file
+      self.jetRules['jetstore_config'] = dict(sorted(self.jetstore_config.items()))
 
   # =====================================================================================
   # Compiler Directives
@@ -79,6 +92,14 @@ class JetListener(JetRuleListener):
     if self.current_file_name and len(self.resources) > 0:
       self.resources[-1]['source_file_name'] = self.current_file_name
 
+  # =====================================================================================
+  # JetStore Config
+  # -------------------------------------------------------------------------------------
+  # Exit a parse tree produced by JetRuleParser#jetstoreConfigItem.
+  def exitJetstoreConfigItem(self, ctx:JetRuleParser.JetstoreConfigItemContext):
+    if not ctx.configKey or not ctx.configValue:
+      return
+    self.jetstore_config[ctx.configKey.text] = ctx.configValue.getText()
 
   # =====================================================================================
   # Class Definition
