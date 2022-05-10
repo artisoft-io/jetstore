@@ -94,7 +94,7 @@ func (ri *ReteInputContext) assertInputRecords(
 							var v int
 							v, err = strconv.Atoi(row[icol].String)
 							if err == nil {
-								obj = fmt.Sprintf(arg, v)[:5]
+								obj = fmt.Sprintf(arg, v)
 							}
 						} else {
 							// configuration error, bailing out
