@@ -313,7 +313,7 @@ func (rs *ReteSession) NewUIntLiteral(value uint) (*Resource, error) {
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewLongLiteral(value int) (*Resource, error) {
+func (rs *ReteSession) NewLongLiteral(value int64) (*Resource, error) {
 	var r Resource
 	ret := int(C.create_long(rs.rdfs.hdl, C.long(value), &r.hdl))
 	if ret != 0 {
@@ -322,7 +322,7 @@ func (rs *ReteSession) NewLongLiteral(value int) (*Resource, error) {
 	}
 	return &r, nil
 }
-func (rs *ReteSession) NewULongLiteral(value uint) (*Resource, error) {
+func (rs *ReteSession) NewULongLiteral(value uint64) (*Resource, error) {
 	var r Resource
 	ret := int(C.create_ulong(rs.rdfs.hdl, C.ulong(value), &r.hdl))
 	if ret != 0 {
