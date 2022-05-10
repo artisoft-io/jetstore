@@ -34,11 +34,11 @@ jetCompilerDirectiveStmt:
 // --------------------------------------------------------------------------------------
 defineJetStoreConfigStmt: JETSCONFIG '{'
     COMMENT*
-    jetstoreConfigItem
+    jetstoreConfigSeq
     COMMENT*
   '}' SEMICOLON;
 
-jetstoreConfigItem: rsName=STRING (',' COMMENT* ruleSetDefinitions)* ;
+jetstoreConfigSeq: jetstoreConfigItem (',' COMMENT* jetstoreConfigSeq)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Class Statements
