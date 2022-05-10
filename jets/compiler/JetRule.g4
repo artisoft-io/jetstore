@@ -8,6 +8,7 @@ jetrule: statement* EOF;
 
 statement
   : jetCompilerDirectiveStmt
+  | defineJetStoreConfigStmt  
   | defineLiteralStmt  
   | defineClassStmt  
   | defineRuleSeqStmt 
@@ -27,6 +28,17 @@ jetCompilerDirectiveStmt:
   ASSIGN declValue=STRING 
   SEMICOLON
 ;
+
+// --------------------------------------------------------------------------------------
+// Define JetStore Config Statements
+// --------------------------------------------------------------------------------------
+defineJetStoreConfigStmt: JETSCONFIG '{'
+    COMMENT*
+    jetstoreConfigItem
+    COMMENT*
+  '}' SEMICOLON;
+
+jetstoreConfigItem: rsName=STRING (',' COMMENT* ruleSetDefinitions)* ;
 
 // --------------------------------------------------------------------------------------
 // Define Class Statements
@@ -251,6 +263,11 @@ BaseClasses: '$base_classes';
 AsTable: '$as_table';
 DataProperties: '$data_properties';
 ARRAY: 'array of';
+
+// JetStore Config
+JETSCONFIG: 'jetstore_config';
+MaxLooping: '$max_looping';        // Rule looping, default is 0, no looping
+MaxRuleExec: '$max_rule_exec';     // Max number of times a rule can fire, default 10,000
 
 // Rule Sequence
 RULESEQ: 'rule_sequence';
