@@ -81,18 +81,20 @@ namespace jets::rete {
     try {
       int ret = this->execute_rules(0, true, true);
       if(ret < 0) {
-        std::string err("execute rules returned error code ");
-        err + std::to_string(ret);
+        this->err_msg_ = std::string("execute rules returned error code ") +
+        std::to_string(ret);
         *v = ret;
-        return err.data();
+        return this->err_msg_.data();
       }
     } catch (std::exception& err) {
       LOG(ERROR) << "ReteSession::execute_rules: error:"<<err.what();
+      this->err_msg_ = std::string(err.what());
       *v = -1;
-      return err.what();
+      return this->err_msg_.data();
     } catch (...) {
       *v = -1;
-      return "unknown error in executing rules";
+      this->err_msg_ = std::string("unknown error in executing rules");
+      return this->err_msg_.data();
     }
     return nullptr;
   }

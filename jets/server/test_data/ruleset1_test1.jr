@@ -40,3 +40,21 @@ volatile_resource lkrow = "lkrow";
   ->
   (?claim hc:service_description ?desc)
 ;
+
+# Incur runtime error in consequent term
+date bad_date = "BAD";
+volatile_resource lk2 = "lk2";
+volatile_resource lk3 = "lk3";
+[RBad10]:
+  (?claim rdf:type hc:Claim).
+  (?claim hc:service_code ?code).
+  [?code == "BAD"]
+  ->
+  (?claim lk2 to_double(?code))
+;
+[RBad11]:
+  (?claim rdf:type hc:Claim).
+  (?claim lk2 ?d)
+  ->
+  (?claim lk3 (?d + 1))
+;
