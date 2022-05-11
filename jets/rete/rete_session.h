@@ -53,14 +53,16 @@ class ReteSession {
     : rule_ms_(),
       rdf_session_(),
       beta_relations_(),
-      pending_beta_rows_()
+      pending_beta_rows_(),
+      err_msg_()
     {}
 
   ReteSession(ReteMetaStorePtr rule_ms, rdf::RDFSession * rdf_session) 
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
       beta_relations_(),
-      pending_beta_rows_()
+      pending_beta_rows_(),
+      err_msg_()
     { }
 
   inline rdf::RDFSession *
@@ -213,6 +215,7 @@ class ReteSession {
   rdf::RDFSession *       rdf_session_;
   BetaRelationVector      beta_relations_;
   BetaRowPriorityQueue    pending_beta_rows_;
+  std::string             err_msg_;
 };
 
 inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms, 
