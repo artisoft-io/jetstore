@@ -69,8 +69,8 @@ int create_rete_session(HJETS jets_hdl, HJRDF rdf_hdl, char const * jetrule_name
     return -1;
   }
   auto * rete_session = new ReteSession(ms, rdf_session);
-  *handle = rete_session;
   if(not rete_session) return -1;
+  *handle = rete_session;
   int res = rete_session->initialize();
   if(res) {
     LOG(ERROR) << "create_rete_session: ERROR while initializing rete session "<<
