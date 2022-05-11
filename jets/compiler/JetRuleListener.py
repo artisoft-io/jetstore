@@ -71,12 +71,30 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#subClassOfSeq.
+    def enterSubClassOfSeq(self, ctx:JetRuleParser.SubClassOfSeqContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#subClassOfSeq.
+    def exitSubClassOfSeq(self, ctx:JetRuleParser.SubClassOfSeqContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#subClassOfStmt.
     def enterSubClassOfStmt(self, ctx:JetRuleParser.SubClassOfStmtContext):
         pass
 
     # Exit a parse tree produced by JetRuleParser#subClassOfStmt.
     def exitSubClassOfStmt(self, ctx:JetRuleParser.SubClassOfStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#dataPropertySeq.
+    def enterDataPropertySeq(self, ctx:JetRuleParser.DataPropertySeqContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#dataPropertySeq.
+    def exitDataPropertySeq(self, ctx:JetRuleParser.DataPropertySeqContext):
         pass
 
 
@@ -122,6 +140,15 @@ class JetRuleListener(ParseTreeListener):
 
     # Exit a parse tree produced by JetRuleParser#defineRuleSeqStmt.
     def exitDefineRuleSeqStmt(self, ctx:JetRuleParser.DefineRuleSeqStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#ruleSetSeq.
+    def enterRuleSetSeq(self, ctx:JetRuleParser.RuleSetSeqContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#ruleSetSeq.
+    def exitRuleSetSeq(self, ctx:JetRuleParser.RuleSetSeqContext):
         pass
 
 
@@ -329,6 +356,15 @@ class JetRuleListener(ParseTreeListener):
 
     # Exit a parse tree produced by JetRuleParser#stringSeq.
     def exitStringSeq(self, ctx:JetRuleParser.StringSeqContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#columnDefSeq.
+    def enterColumnDefSeq(self, ctx:JetRuleParser.ColumnDefSeqContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#columnDefSeq.
+    def exitColumnDefSeq(self, ctx:JetRuleParser.ColumnDefSeqContext):
         pass
 
 

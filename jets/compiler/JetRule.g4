@@ -38,7 +38,7 @@ defineJetStoreConfigStmt: JETSCONFIG '{'
     COMMENT*
   '}' SEMICOLON;
 
-jetstoreConfigSeq: jetstoreConfigItem (',' COMMENT* jetstoreConfigSeq)* ;
+jetstoreConfigSeq: jetstoreConfigItem (',' COMMENT* jetstoreConfigItem)* ;
 jetstoreConfigItem
   : configKey=MaxLooping ASSIGN configValue=uintExpr
   | configKey=MaxRuleExec ASSIGN configValue=uintExpr
@@ -49,15 +49,17 @@ jetstoreConfigItem
 // --------------------------------------------------------------------------------------
 defineClassStmt: CLASS className=declIdentifier '{' 
     COMMENT*
-    BaseClasses ASSIGN '[' COMMENT* subClassOfStmt COMMENT* ']' ','
+    BaseClasses ASSIGN '[' COMMENT* subClassOfSeq COMMENT* ']' ','
     COMMENT*
-    DataProperties ASSIGN '[' COMMENT* dataPropertyDefinitions COMMENT* ']'
+    DataProperties ASSIGN '[' COMMENT* dataPropertySeq COMMENT* ']'
     (asTableStmt)?
     COMMENT*
   '}' SEMICOLON;
 
-subClassOfStmt: baseClassName=declIdentifier (',' COMMENT* subClassOfStmt)* ;
-dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType (',' COMMENT* dataPropertyDefinitions)* ;
+subClassOfSeq: subClassOfStmt (',' COMMENT* subClassOfStmt)* ;
+subClassOfStmt: baseClassName=declIdentifier;
+dataPropertySeq: dataPropertyDefinitions (','COMMENT* dataPropertyDefinitions)* ;
+dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType;
 asTableStmt: ',' COMMENT* AsTable ASSIGN asTable=asTableFlag;
 asTableFlag: TRUE | FALSE;
 dataPropertyType
@@ -77,11 +79,12 @@ dataPropertyType
 // --------------------------------------------------------------------------------------
 defineRuleSeqStmt: RULESEQ ruleseqName=Identifier '{'
     COMMENT*
-    MainRuleSets ASSIGN '[' COMMENT* ruleSetDefinitions COMMENT* ']' ','?
+    MainRuleSets ASSIGN '[' COMMENT* ruleSetSeq COMMENT* ']' ','?
     COMMENT*
   '}' SEMICOLON;
 
-ruleSetDefinitions: rsName=STRING (',' COMMENT* ruleSetDefinitions)* ;
+ruleSetSeq: ruleSetDefinitions (',' COMMENT* ruleSetDefinitions)* ;
+ruleSetDefinitions: rsName=STRING;
 
 // --------------------------------------------------------------------------------------
 // Define Literal Statements
@@ -157,7 +160,7 @@ lookupTableStmt: LookupTable lookupName=declIdentifier '{'
     COMMENT*
     Key ASSIGN tblKeys=stringList ',' 
     COMMENT*
-    Columns ASSIGN '[' COMMENT* columnDefinitions COMMENT* ']' ','?
+    Columns ASSIGN '[' COMMENT* columnDefSeq COMMENT* ']' ','?
     COMMENT*
   '}' SEMICOLON;
 
@@ -169,8 +172,9 @@ csvLocation
 stringList: '[' seqCtx=stringSeq? ']';
 stringSeq: slist+=STRING (',' slist+=STRING)* ;
 
+columnDefSeq: columnDefinitions (',' COMMENT* columnDefinitions)* ;
 columnDefinitions: 
-  columnName=STRING 'as' array=ARRAY? columnType=dataPropertyType (',' COMMENT* columnDefinitions)* ;
+  columnName=STRING 'as' array=ARRAY? columnType=dataPropertyType;
 
 // --------------------------------------------------------------------------------------
 // Define Jet Rule

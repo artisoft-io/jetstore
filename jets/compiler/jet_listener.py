@@ -117,8 +117,6 @@ class JetListener(JetRuleListener):
     if not ctx.className:
       return
 
-    self.base_classes.reverse()
-    self.data_properties.reverse()
     class_def = {
       'type': 'class',
       'name': self.escape(ctx.className.getText()), 
@@ -173,7 +171,6 @@ class JetListener(JetRuleListener):
     # Putting the class definition together
     if not ctx.ruleseqName:
       return
-    self.main_rule_sets.reverse()
     ruleSeq = {  
       'type': 'ruleseq',
       'name': ctx.ruleseqName.text,    
@@ -283,7 +280,6 @@ class JetListener(JetRuleListener):
     for v in ctx.tblKeys.seqCtx.slist:
       keys.append(self.escapeString(v.text))
 
-    self.columnsDefs.reverse()
     lookupTbl = {
       'type': 'lookup',
       'name': ctx.lookupName.getText(), 
