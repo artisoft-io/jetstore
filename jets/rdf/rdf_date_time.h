@@ -65,6 +65,15 @@ inline datetime to_datetime(date t) {
   return boost::posix_time::ptime(t, boost::posix_time::time_duration(0, 0, 0, 0));
 }
 
+/**
+ * String representation of date. Delegates to iso_extended_string of boost.
+ *
+ * Format: 	To YYYY-MM-DD where all components are integers.
+ * example: 2002-01-31
+ *
+ * @param t
+ * @return
+ */
 inline std::string to_string(date d) {
   return boost::gregorian::to_iso_extended_string(d);
 }
@@ -72,8 +81,8 @@ inline std::string to_string(date d) {
 /**
  * String representation of time. Delegates to to_simple_string of boost.
  *
- * Format: YYYY-mmm-DD HH:MM:SS.ffffff string where mmm 3 char month name. Fractional microsecond only included if non-zero.
- * example: 2002-Jan-01 10:00:01.123456
+ * Format: Convert to form YYYY-MM-DDTHH:MM:SS,fffffffff where T is the date-time separator
+ * example: 2002-01-31T10:00:01,123456
  *
  * @param t
  * @return
@@ -81,14 +90,11 @@ inline std::string to_string(date d) {
 inline std::string
 to_string(datetime t)
 {
-  return boost::posix_time::to_simple_string(t);
+  return boost::posix_time::to_iso_extended_string(t);
 }
 
 /**
  * Create date from string representation. Delegates to from_string of boost.
- *
- * Format: YYYY-mmm-DD string where mmm 3 char month name.
- * example: 2002-Jan-01
  *
  * @param s
  * @return

@@ -37,7 +37,6 @@ type Resource struct {
 }
 
 var (
-	ErrNotDate          = errors.New("not a date")
 	ErrNotValidDate     = errors.New("not a valid date")
 	ErrNotValidDateTime = errors.New("not a valid datetime")
 	ErrNullValue        = errors.New("null value")
@@ -462,7 +461,7 @@ func (r *Resource) GetDatetimeIsoString() (string, error) {
 func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {
 	// rdf_literal_date_t
 	if r.GetType() != 9 {
-		err = ErrNotDate
+		err = ErrNotValidDate
 		return
 	}
 	var cy, cm, cd C.int

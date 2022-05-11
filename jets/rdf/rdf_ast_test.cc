@@ -147,7 +147,7 @@ TEST(RdfAstTest, DateTime)
   // format used for fbl encoding (see resource_manager::create_literal(int
   // type, char *data, int size))
   EXPECT_EQ(to_string(parse_datetime("20170101T000000,150")),
-            "2017-Jan-01 00:00:00.150000");
+            "2017-01-01T00:00:00.150000");
 
   // Additional tests
   EXPECT_EQ(parse_datetime("20170101T000000,000002"),
