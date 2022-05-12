@@ -98,6 +98,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	ri.reMap = make(map[string]*regexp.Regexp)
 	// keep a map of map function argument that needs to be cast to double
 	ri.argdMap = make(map[string]float64)
+	var session_count int64
 
 	for inputRecords := range dataInputc {
 		var groupingKey sql.NullString
@@ -105,8 +106,12 @@ func (rw *ReteWorkspace) ExecuteRules(
 			gp := inputRecords[0][processInput.groupingPosition].String
 			groupingKey = sql.NullString{String: gp, Valid: true}
 		}
+		
 		// setup the rdf session for the grouping
-		// log.Println("Start RDF Session")
+		if glogv > 0 {
+			session_count += 1
+			log.Println("Start RDF Session", session_count)
+		}
 		rdfSession,err := rw.js.NewRDFSession()
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)

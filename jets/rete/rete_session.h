@@ -63,7 +63,12 @@ class ReteSession {
       beta_relations_(),
       pending_beta_rows_(),
       err_msg_()
-    { }
+    {}
+
+  ~ReteSession()
+  {
+    this->remove_graph_callbacks();
+  }
 
   inline rdf::RDFSession *
   rdf_session()
@@ -238,14 +243,14 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Flag row as new and pending to infer triples
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
-      VLOG(2)<<"    BetaRelation::insert_beta_row at vertex "<<
+      VLOG(5)<<"    BetaRelation::insert_beta_row at vertex "<<
         this->get_node_vertex()->vertex<<", row "<<beta_row<<
         " added, status set to Inserted - scheduled consequent - "<<
         (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
     } else {
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
-      VLOG(2)<<"    BetaRelation::insert_beta_row at vertex "<<
+      VLOG(5)<<"    BetaRelation::insert_beta_row at vertex "<<
         this->get_node_vertex()->vertex<<", row "<<beta_row<<
         " added, status set to Processed - no consequents - "<<
         (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
@@ -271,18 +276,18 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   auto itor = this->all_beta_rows_.find(beta_row);
   if(itor==this->all_beta_rows_.end()) {
     // Already deleted!
-    VLOG(2)<<"BetaRowPtr not found, must be already deleted.(D01)";
+    VLOG(5)<<"BetaRowPtr not found, must be already deleted.(D01)";
     return 0;
   }
   // make sure we point to the right instance
   beta_row = *itor;
-  VLOG(2)<<"    BetaRelation::remove_beta_row at vertex "<<
+  VLOG(5)<<"    BetaRelation::remove_beta_row at vertex "<<
     this->get_node_vertex()->vertex<<", row "<<beta_row<<
     ", status "<<beta_row->get_status()<<" - "<<
     (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
   if(beta_row->is_deleted()) {
     // Marked deleted already
-    VLOG(2)<<"    Marked as deleted already";
+    VLOG(5)<<"    Marked as deleted already";
     return 0;
   }
 
@@ -292,7 +297,7 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     if(beta_row->is_inserted()) {
       // Row was marked kInserted, not inferred yet
       // Cancel row insertion **
-      VLOG(2)<<"Row marked kInserted, not inferred yet ** Cancel row insertion **";
+      VLOG(5)<<"Row marked kInserted, not inferred yet ** Cancel row insertion **";
       beta_row->set_status(BetaRowStatus::kProcessed);
       // Put the row in the pending queue to notify children
       this->pending_beta_rows_.push_back(beta_row);
@@ -306,7 +311,7 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       return 0;
     }
 
-    VLOG(2)<<"Row marked kProcessed, need to put it for delete/retract";
+    VLOG(5)<<"Row marked kProcessed, need to put it for delete/retract";
     // Row must be in kProcessed state -- need to put it for delete/retract
     beta_row->set_status(BetaRowStatus::kDeleted);
     // Put the row in the pending queue to notify children
@@ -361,7 +366,7 @@ ReteCallBackImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o
   if(this->s_filter_ and this->s_filter_!=s) return;
   if(this->p_filter_ and this->p_filter_!=p) return;
   if(this->o_filter_ and this->o_filter_!=o) return;
-  // VLOG(2)<<"        ReteCallBackImpl::triple_inserted t3: "<<rdf::Triple(s, p, o)<<
+  // VLOG(5)<<"        ReteCallBackImpl::triple_inserted t3: "<<rdf::Triple(s, p, o)<<
   //   ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_;
   this->rete_session_->triple_inserted(this->vertex_, s, p, o);
 }
@@ -372,7 +377,7 @@ ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)
   if(this->s_filter_ and this->s_filter_!=s) return;
   if(this->p_filter_ and this->p_filter_!=p) return;
   if(this->o_filter_ and this->o_filter_!=o) return;
-  // VLOG(2)<<"        ReteCallBackImpl::triple_deleted t3: "<<rdf::Triple(s, p, o)<<
+  // VLOG(5)<<"        ReteCallBackImpl::triple_deleted t3: "<<rdf::Triple(s, p, o)<<
   //   ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_;
   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
 }

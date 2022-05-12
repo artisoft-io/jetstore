@@ -411,6 +411,7 @@ class RDFSession {
                  << s << ", " << p << ", " << o <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
+    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")"<<std::endl;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
     return inferred_graph_->insert(s, p, o, notify_listners);
   }
