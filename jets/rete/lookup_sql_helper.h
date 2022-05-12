@@ -107,6 +107,8 @@ class DBConnectionPool {
   int terminate()
   {
     int err = 0;
+    //*
+    std::cout<<"::"<<this->db_path_<<" | TERM @ "<<this->pool_.size()<<" |"<<this->sql_<<std::endl;
     for(auto info: this->pool_) {
       sqlite3_finalize( info.stmt );
       int xerr = sqlite3_close_v2( info.db );
@@ -187,7 +189,7 @@ class LookupTable {
       return -1;
     }
     this->db_pool_.put_connection(lc);
-    VLOG(1) << "LookupTable '" << this->lookup_name_ <<"' initialized";
+    LOG(INFO) << "LookupTable '" << this->lookup_name_ <<"' initialized";
     return 0;
   }
 
@@ -195,8 +197,6 @@ class LookupTable {
   inline
   int terminate()
   {
-    // //*
-    // std::cout <<"LOOKUP TERMINATE CALLED, pool size: "<<this->db_pool_.size() << std::endl;
     return this->db_pool_.terminate();
   }
 

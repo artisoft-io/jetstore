@@ -388,7 +388,7 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
       create_node_vertex(parent_index, key, vertex, 
         is_negation, salience, filter, normalized_label, beta_row_initializer));
   }
-  VLOG(2) << "Got "<<node_vertexes.size()<<" NodeVertexes ";
+  VLOG(1) << "Got "<<node_vertexes.size()<<" NodeVertexes ";
   return SQLITE_OK;
 }
 

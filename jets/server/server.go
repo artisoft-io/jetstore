@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -25,6 +26,7 @@ var shardId = flag.Int("shardId", 0, "Shard id for the processing node.")
 var outTables = flag.String("outTables", "", "Comma-separed list of output tables (required).")
 var outTableSlice []string
 var extTables map[string][]string
+var glogv int 	// taken from env GLOG_v
 
 func init() {
 	extTables = make(map[string][]string)
@@ -148,6 +150,9 @@ func main() {
 	fmt.Printf("Got lookupDb: %s\n", *lookupDb)
 	fmt.Printf("Got ruleset: %s\n", *ruleset)
 	fmt.Printf("Got ruleseq: %s\n", *ruleseq)
+	v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
+	glogv = int(v)
+	fmt.Println("GLOG_v is set to",glogv)
 
 	err := doJob()
 	if err != nil {
