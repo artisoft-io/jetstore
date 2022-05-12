@@ -83,6 +83,7 @@ int delete_rete_session(HJRETE rete_session_hdl )
 {
   if(not rete_session_hdl) return -1;
   auto * rete_session =  static_cast<ReteSession*>(rete_session_hdl);
+  rete_session->terminate();
   delete rete_session;
   return 0;
 }

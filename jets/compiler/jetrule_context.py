@@ -204,6 +204,16 @@ class JetRuleContext:
     return None
 
   def _initPredefinedResources(self):
+    self.predefined_resources.add('jets:completed')
+    self.predefined_resources.add('jets:entity_property')
+    self.predefined_resources.add('jets:exception')
+    self.predefined_resources.add('jets:iState')
+    self.predefined_resources.add('jets:key')
+    self.predefined_resources.add('jets:lookup_multi_rows')
+    self.predefined_resources.add('jets:lookup_row')
+    self.predefined_resources.add('jets:loop')
+    self.predefined_resources.add('jets:State')
+    self.predefined_resources.add('jets:value_property')
     self.predefined_resources.add('owl:AllDifferent')
     self.predefined_resources.add('owl:AllDisjointClasses')
     self.predefined_resources.add('owl:AllDisjointProperties')

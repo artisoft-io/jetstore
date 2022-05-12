@@ -19,6 +19,9 @@ namespace {
  */
 class ReteSessionTest : public ::testing::Test {
  protected:
+  ~ReteSessionTest() {
+    this->rete_session->terminate();
+  }
   ReteSessionTest() 
     : rete_session(), rete_meta_store(), rdf_session() 
   {

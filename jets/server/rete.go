@@ -86,14 +86,14 @@ func (rw *ReteWorkspace) ExecuteRules(
 	var ri ReteInputContext
 	var err error
 	ri.ncol = len(processInput.processInputMapping)
-	ri.rdfType, err = rw.js.GetResource("rdf:type")
-	if err != nil {
-		return &result, fmt.Errorf("while creating rdf:type resource: %v", err)
-	}
-	ri.jets__key, err = rw.js.GetResource("jets:key")
-	if err != nil {
-		return &result, fmt.Errorf("while creating jets:key resource: %v", err)
-	}
+	// cache pre-defined resources
+	ri.jets__completed, err = rw.js.GetResource("jets:completed"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
+	ri.jets__istate, err = rw.js.GetResource("jets:iState"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
+	ri.jets__key, err = rw.js.GetResource("jets:key"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
+	ri.jets__loop, err = rw.js.GetResource("jets:loop"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
+	ri.jets__state, err = rw.js.GetResource("jets:State"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
+	ri.rdf__type, err = rw.js.GetResource("rdf:type"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
+
 	// keep a map of compiled regex, keyed by the regex pattern
 	ri.reMap = make(map[string]*regexp.Regexp)
 	// keep a map of map function argument that needs to be cast to double
@@ -108,10 +108,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 		
 		// setup the rdf session for the grouping
-		if glogv > 0 {
-			session_count += 1
-			log.Println("Start RDF Session", session_count)
-		}
+		session_count += 1
 		rdfSession,err := rw.js.NewRDFSession()
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
@@ -119,6 +116,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		for i, ruleset := range rw.ruleset {
 			// log.Println("Start Rete Session for ruleset", ruleset)
+			if glogv > 0 {
+				log.Println("Start Session", session_count,"for ruleset",ruleset, "with grouping key", groupingKey.String)
+			}
 			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
 				return &result, fmt.Errorf("while creating rete session: %v", err)
@@ -130,6 +130,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 					return &result, fmt.Errorf("while assertInputRecords: %v", err)
 				}	
 			}
+			// Check for looping
+			
 			msg, err := reteSession.ExecuteRules()
 			if err != nil {
 				var br BadRow
@@ -163,7 +165,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				continue
 			}
 			// extract entities by rdf type
-			ctor, err := rdfSession.Find(nil, ri.rdfType, tableSpec.ClassResource)
+			ctor, err := rdfSession.Find(nil, ri.rdf__type, tableSpec.ClassResource)
 			if err != nil {
 				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.ClassName, err)
 			}

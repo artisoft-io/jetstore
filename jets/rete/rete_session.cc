@@ -34,8 +34,14 @@ namespace jets::rete {
       }
       beta_relations_.push_back(bn);
     }
-    this->set_graph_callbacks();
-    return 0;
+    auto ret = this->set_graph_callbacks();
+    return ret;
+  }
+
+  int 
+  ReteSession::terminate()
+  {
+    return this->remove_graph_callbacks();
   }
 
   int 
@@ -61,7 +67,8 @@ namespace jets::rete {
   int 
   ReteSession::remove_graph_callbacks()
   {
-    this->rdf_session()->inferred_graph()->remove_all_callbacks();
+    if(not this->rdf_session_) return;
+    this->rdf_session_->inferred_graph()->remove_all_callbacks();
     return 0;
   }
 
