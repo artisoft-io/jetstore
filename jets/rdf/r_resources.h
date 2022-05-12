@@ -25,11 +25,17 @@ struct JetsResources {
     return true;
   }
 
+  r_index jets__completed{nullptr};
   r_index jets__entity_property{nullptr};
-  r_index jets__value_property{nullptr};
+  r_index jets__exception{nullptr};
+  r_index jets__istate{nullptr};
   r_index jets__key{nullptr};
   r_index jets__lookup_multi_rows{nullptr};
   r_index jets__lookup_row{nullptr};
+  r_index jets__loop{nullptr};
+  r_index jets__state{nullptr};
+  r_index jets__value_property{nullptr};
+  r_index rdf__type{nullptr};
 
 };
 

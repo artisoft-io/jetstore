@@ -15,8 +15,12 @@ import (
 
 type ReteInputContext struct {
 	ncol int // len(processInput.processInputMapping)
-	rdfType *bridge.Resource
+	jets__completed *bridge.Resource
+	jets__istate *bridge.Resource
 	jets__key *bridge.Resource
+	jets__loop *bridge.Resource
+	jets__state *bridge.Resource
+	rdf__type *bridge.Resource
 	reMap map[string]*regexp.Regexp
 	argdMap map[string]float64
 }
@@ -47,10 +51,10 @@ func (ri *ReteInputContext) assertInputRecords(
 		if err != nil {
 			return fmt.Errorf("while creating row's jets__key literal (NewTextLiteral): %v", err)
 		}
-		if subject == nil || ri.rdfType == nil || processInput.entityRdfTypeResource == nil {
+		if subject == nil || ri.rdf__type == nil || processInput.entityRdfTypeResource == nil {
 			return fmt.Errorf("ERROR while asserting row rdf type")
 		}
-		_, err = reteSession.Insert(subject, ri.rdfType, processInput.entityRdfTypeResource)
+		_, err = reteSession.Insert(subject, ri.rdf__type, processInput.entityRdfTypeResource)
 		if err != nil {
 			return fmt.Errorf("while asserting row rdf type: %v", err)
 		}

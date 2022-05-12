@@ -49,14 +49,6 @@ class ReteSession {
  public:
   using Iterator = rdf::RDFSession::Iterator;
 
-  ReteSession()
-    : rule_ms_(),
-      rdf_session_(),
-      beta_relations_(),
-      pending_beta_rows_(),
-      err_msg_()
-    {}
-
   ReteSession(ReteMetaStorePtr rule_ms, rdf::RDFSession * rdf_session) 
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
@@ -64,11 +56,6 @@ class ReteSession {
       pending_beta_rows_(),
       err_msg_()
     {}
-
-  ~ReteSession()
-  {
-    this->remove_graph_callbacks();
-  }
 
   inline rdf::RDFSession *
   rdf_session()
@@ -143,6 +130,14 @@ class ReteSession {
    */
   int
   initialize();
+
+  /**
+   * @brief Terminate the ReteSession, remove dependency on RdfSession
+   * 
+   * @return int 0 if normal
+   */
+  int
+  terminate();
 
  protected:
   int
