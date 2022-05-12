@@ -67,7 +67,7 @@ namespace jets::rete {
   int 
   ReteSession::remove_graph_callbacks()
   {
-    if(not this->rdf_session_) return;
+    if(not this->rdf_session_) return -1;
     this->rdf_session_->inferred_graph()->remove_all_callbacks();
     return 0;
   }
