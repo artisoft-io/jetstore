@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include "absl/hash/hash.h"
+#include <glog/logging.h>
 
 #include "../rdf/rdf_ast.h"
 #include "../rdf/w_node.h"
@@ -276,29 +277,32 @@ class BaseGraph {
   /**
    * Remove the triple (s, p, o).
    *
-   * The registered callback functions are notified.
-   *
    * @param u subject
    * @param v predicate
    * @param w object
-   * @return 0 if was not found, 1 if removed.
+   * @return 1 if erased, 0 if was not there (not erased), -1 if error.
    */
   int erase(r_index u, r_index v, r_index w) 
   {
+    if(!u or !v or !w) {
+      LOG(ERROR) << "BaseGraph::erase: trying to erase a triple with a NULL ptr index (" 
+                 << u << ", " << v << ", " << w <<")";
+      return -1;
+    }
     auto utor = umap_data_.find(u);
     if (utor == umap_data_.end()) return 0;
 
     auto vtor = utor->second.find(v);
     if (vtor == utor->second.end()) return 0;
 
-    int count = vtor->second.erase(WSetType::value_type{w});
+    auto count = vtor->second.erase(WSetType::value_type{w});
     if (vtor->second.empty()) {
       utor->second.erase(v);
       if (utor->second.empty()) {
         umap_data_.erase(u);
       }
     }
-    return count;
+    return count > 0;
   }
 
   inline int erase_spo(r_index s, r_index p, r_index o) 
@@ -313,15 +317,18 @@ class BaseGraph {
    *
    * The triple is removed if the reference count becomes zero.
    *
-   * The registered callback functions are notified.
-   *
    * @param u subject
    * @param v predicate
    * @param w object
-   * @return 0 if not found or not removed, 1 if removed.
+   * @return 0 if not found or not removed, 1 if removed, -1 if error.
    */
   int retract(r_index u, r_index v, r_index w) 
   {
+    if(!u or !v or !w) {
+      LOG(ERROR) << "BaseGraph::retact: trying to retract a triple with a NULL ptr index (" 
+                 << u << ", " << v << ", " << w <<")";
+      return -1;
+    }
     auto utor = umap_data_.find(u);
     if (utor == umap_data_.end()) return 0;
 

@@ -159,6 +159,14 @@ class RDFSession {
         inferred_graph_->contains(s, p, o) or
         meta_graph_->contains(s, p, o) ;
   }
+
+  inline int
+  erase(r_index s, r_index p, r_index o) const 
+  {
+    return 
+        asserted_graph_->erase(s, p, o) +
+        inferred_graph_->erase(s, p, o);
+  }
   
   inline bool 
   contains_sp(r_index s, r_index p) const 
@@ -312,7 +320,7 @@ class RDFSession {
 
   // insert triple (s, p, o), returns 1 if inserted zero otherwise
   inline int
-  insert(r_index s, r_index p, r_index o, bool notify_listners=true)
+  insert(r_index s, r_index p, r_index o /*, bool notify_listners=true */)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
@@ -322,7 +330,8 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(s, p, o);
     }
-    return asserted_graph_->insert(s, p, o, notify_listners);
+    VLOG(4)<<"INSERT ("<< s <<", "<< p <<", " << o <<")";
+    return asserted_graph_->insert(s, p, o /*, notify_listners */);
   }
 
   // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
@@ -337,6 +346,7 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
+    VLOG(4)<<"INSERT ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
 
@@ -352,6 +362,7 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
+    VLOG(4)<<"INSERT ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
 
@@ -367,6 +378,7 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
+    VLOG(4)<<"INSERT ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
   // ------------------------------------------------------------------------------------
@@ -384,6 +396,7 @@ class RDFSession {
     }
     auto o = rmgr()->create_literal(v);
     if(this->asserted_graph()->contains(s, p, o)) return 0;
+    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
   }
 
@@ -399,21 +412,22 @@ class RDFSession {
     }
     auto o = rmgr()->create_literal(std::forward<L>(v));
     if(this->asserted_graph()->contains(s, p, o)) return 0;
+    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
   }
 
   // insert triple (s, p, o), returns 1 if inserted zero otherwise
   inline int
-  insert_inferred(r_index s, r_index p, r_index o, bool notify_listners=true)
+  insert_inferred(r_index s, r_index p, r_index o /*, bool notify_listners=true */)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
                  << s << ", " << p << ", " << o <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
-    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")"<<std::endl;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
-    return inferred_graph_->insert(s, p, o, notify_listners);
+    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
+    return inferred_graph_->insert(s, p, o /*, notify_listners */);
   }
 
   // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
@@ -427,6 +441,7 @@ class RDFSession {
     }
     // std::cout<<"    RdfSession::insert_inferred "<<t3<<std::endl;
     if(this->asserted_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
+    VLOG(4)<<"INSERT INFERRED ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
 
@@ -441,6 +456,7 @@ class RDFSession {
     }
     // std::cout<<"    RdfSession::insert_inferred&& "<<t3<<std::endl;
     if(this->asserted_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
+    VLOG(4)<<"INSERT INFERRED ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
   // ------------------------------------------------------------------------------------
@@ -450,50 +466,31 @@ class RDFSession {
   // Note triples in meta graph are never erased or inserted from the rete session, this
   // graph is read only.
   inline int
-  erase(r_index s, r_index p, r_index o, bool notify_listners=true)
+  erase(r_index s, r_index p, r_index o)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a NULL ptr index (" 
                  << s << ", " << p << ", " << o <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
-    bool erased = asserted_graph_->erase(s, p, o, notify_listners);
-    erased = inferred_graph_->erase(s, p, o, notify_listners) or erased;
+    bool erased = asserted_graph_->erase(s, p, o);
+    erased = inferred_graph_->erase(s, p, o) or erased;
+    VLOG(4)<<"ERASE ("<< s <<", "<< p <<", " << o <<")";
     return erased;
-  }
-
-  // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
-  inline int
-  erase(Triple t3)
-  {
-    return erase(t3.subject, t3.predicate, t3.object);
-  }
-
-  // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
-  inline int
-  erase(Triple const& t3)
-  {
-    return erase(t3.subject, t3.predicate, t3.object);
-  }
-
-  // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
-  inline int
-  erase(Triple && t3)
-  {
-    return erase(t3.subject, t3.predicate, t3.object);
   }
 
   // retract triple (s, p, o) from inferred graph, reducing the reference count,
   //  return 1 if actually erased (ref count == 0)
   inline int
-  retract(r_index s, r_index p, r_index o, bool notify_listners=true)
+  retract(r_index s, r_index p, r_index o /*, bool notify_listners=true */ )
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a NULL ptr index (" 
                  << s << ", " << p << ", " << o <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
-    return inferred_graph_->retract(s, p, o, notify_listners);
+    VLOG(4)<<"RETRACT ("<< s <<", "<< p <<", " << o <<")";
+    return inferred_graph_->retract(s, p, o /*, notify_listners */);
   }
 
   inline int

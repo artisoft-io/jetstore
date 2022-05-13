@@ -516,6 +516,16 @@ int contains(HJRDF hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
   return rdf_session->contains(s, p, o);
 }
 
+int erase(HJRDF hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+{
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  auto const* s =  static_cast<r_index>(s_hdl);
+  auto const* p =  static_cast<r_index>(p_hdl);
+  auto const* o =  static_cast<r_index>(o_hdl);
+  return rdf_session->erase(s, p, o);
+}
+
 int execute_rules(HJRETE rete_hdl)
 {
   if(not rete_hdl) return -1;
