@@ -288,10 +288,10 @@ class RDFGraph {
     return 0;
   }
 
-  // erase triple (s, p, o) from graph, return 1 if erased
+  // erase triple (s, p, o) from graph, return 0 if ok, -1 if error
   // ------------------------------------------------------------------------------------
   inline int
-  erase(r_index s, r_index p, r_index o, bool notify_listners=true)
+  erase_internal(r_index s, r_index p, r_index o)
   {
     if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
       "This is probably a meta graph and you want to mutate the asserted"
@@ -299,20 +299,51 @@ class RDFGraph {
     if(!s or !p or !o) {
       LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a NULL ptr index (" 
                  << s << ", " << p << ", " << o <<")";
-      RDF_EXCEPTION("rdf_graph::insert: trying to insert a triple with a NULL ptr index (see logs)");
+      return -1;
     }
     bool erased = spo_graph_.erase(s, p, o);
+    pos_graph_.erase(p, o, s);
+    osp_graph_.erase(o, s, p);
     if(erased) {
-      pos_graph_.erase(p, o, s);
-      osp_graph_.erase(o, s, p);
       size_-= 1;
-      if(notify_listners) this->graph_callback_mgr_->triple_deleted(s, p, o);
-      return 1;
     }
     return 0;
   }
 
-  // retract triple (s, p, o) from graph, return 1 if actually erased
+  /**
+   * @brief erase all triples matching (s, p, o)
+   * Arguments can be null to erase all triple matching the position,
+   * e.g. (s, null, o) -> (s, *, o)
+   * 
+   * Throws exception if graph is locked
+   * 
+   * @param s can be null
+   * @param p can be null
+   * @param o can be null
+   * @return int 0 if ok, -1 if error
+   */
+  inline int
+  erase(r_index s, r_index p, r_index o)
+  {
+    if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
+      "This is probably a meta graph and you want to mutate the asserted"
+      " of inferred graph of the redf session.");
+    AllOrRIndex u = s==nullptr ? AllOrRIndex():AllOrRIndex(s);
+    AllOrRIndex v = p==nullptr ? AllOrRIndex():AllOrRIndex(p);
+    AllOrRIndex w = o==nullptr ? AllOrRIndex():AllOrRIndex(o);
+    std::list<Triple> triples;
+    auto itor = this->find(u, v, w);
+    while(!itor.is_end()) {
+      triples.push_back(itor.as_triple());
+      itor.next();
+    }
+    for(auto t3: triples) {
+      this->erase_internal(t3.subject, t3.predicate, t3.object);
+    }
+    return 0;
+  }
+
+  // retract triple (s, p, o) from graph, return 1 if actually erased, -1 if error
   // ------------------------------------------------------------------------------------
   inline int
   retract(r_index s, r_index p, r_index o, bool notify_listners=true)
@@ -321,14 +352,14 @@ class RDFGraph {
       "This is probably a meta graph and you want to mutate the asserted"
       " of inferred graph of the redf session.");
     if(!s or !p or !o) {
-      LOG(ERROR) << "rdf_graph::erase: trying to erase a triple with a NULL ptr index (" 
+      LOG(ERROR) << "rdf_graph::retract: trying to retract a triple with a NULL ptr index (" 
                  << s << ", " << p << ", " << o <<")";
-      RDF_EXCEPTION("rdf_graph::insert: trying to insert a triple with a NULL ptr index (see logs)");
+      return -1;
     }
     bool erased = spo_graph_.retract(s, p, o);
+    pos_graph_.retract(p, o, s);
+    osp_graph_.retract(o, s, p);
     if(erased) {
-      pos_graph_.retract(p, o, s);
-      osp_graph_.retract(o, s, p);
       size_-= 1;
       if(notify_listners) this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
