@@ -78,6 +78,7 @@ char const* get_datetime_iso_string2(HJR handle, int*);
 // rete session functions
 int insert(HJRDF hdl, HJR s, HJR p, HJR o);
 int contains(HJRDF hdl, HJR s, HJR p, HJR o);
+int contains_sp(HJRDF hdl, HJR s_hdl, HJR p_hdl);
 int erase(HJRDF hdl, HJR s, HJR p, HJR o);
 int execute_rules(HJRETE rete_hdl);
 char const* execute_rules2(HJRETE rete_hdl, int*v);

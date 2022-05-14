@@ -17,3 +17,64 @@ import "support_test2.jr"
   ->
   (?claim hc:clean_zip "99999")
 ;
+
+# Create Population
+# ========================================================================
+# Loop Control
+# -----------------------------------------------------------------------
+# Create Member / Patient
+# -----------------------------------------------------------------------
+
+resource NBR_PATIENTS = "NBR_PATIENTS";
+resource PATIENT_KEY_PREFIX = "PATIENT_KEY_PREFIX";
+resource PATIENT_PERSONA_LK_URI = "PATIENT_PERSONA_LK_URI";
+volatile_resource newPatient = "newPatient";
+
+[LOOP020]:
+  (?state rdf:type jets:State).
+  (?state NBR_PATIENTS ?max).
+  (?state PATIENT_KEY_PREFIX ?patient_start_key).
+  (?state jets:loop ?i).
+  [?i <= ?max]
+  ->
+  (?state newPatient (create_entity (?patient_start_key + (?i apply_format "%03u"))))
+;
+
+# Note: Adding +1 to the max loop to ensure when that when top:completed is set 
+#       all the entities are created and we're ready to do 'pick_one' on local lists
+[LOOP030]:
+  (?state rdf:type top:State).
+  (?state NBR_PATIENTS ?max).
+  (?state jets:loop ?i).
+  [?i >= (?max + 1)]
+  ->
+  (?state jets:completed true)
+;
+
+
+# ========================================================================
+# Create Patients & Claims
+# -----------------------------------------------------------------------
+[MEC01]:
+  (?state rdf:type top:State).
+  (?state PATIENT_PERSONA_LK_URI ?uri).
+  (?state newPatient ?patient).
+  (?patient jets:key ?key)
+  ->
+  (?patient rdf:type hc:Patient).
+  (?patient patientPersonaRow (lookup_rand ?uri)).
+  (?patient hc:patient_number ?key)
+;
+
+[MEC210]:
+  (?patient rdf:type hc:Patient).
+  (?patient patientPersonaRow ?persona_row).
+  (?persona_row PERSONA_KEY ?persona_key).
+  (?persona_row CLAIM_GRP1_LK_URI ?claim_grp1_lk_uri).
+  [?claim_grp1_lk_uri != NULL].
+  (?persona_row AGE_GROUP ?age_group)
+  ->
+  (?patient rsim:persona_key ?persona_key).
+  (?patient claim_group_lk_uri (create_resource ?claim_grp1_lk_uri)).
+  (?patient rsim:demographic_group ?age_group)
+;

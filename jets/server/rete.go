@@ -162,7 +162,19 @@ func (rw *ReteWorkspace) ExecuteRules(
 					br.write2Chan(writeOutputc["process_errors"])
 					break
 				}
-				//* CHECK for jets__terminate and jets__exception
+				// CHECK for jets__terminate and jets__exception
+				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err!=nil {
+					break
+				}
+			}
+			if iloop >= nloop {
+				var br BadRow
+				br.GroupingKey = groupingKey
+				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
+				//*
+				fmt.Println("MAX LOOP REACHED:",br)
+				br.write2Chan(writeOutputc["process_errors"])
+				break
 			}
 			reteSession.ReleaseReteSession()			
 		}

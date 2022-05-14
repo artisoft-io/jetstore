@@ -654,6 +654,23 @@ func (rs *ReteSession) Contains(s *Resource, p *Resource, o *Resource) (int, err
 	}
 	return rs.rdfs.Contains(s, p, o)
 }
+func (rs *RDFSession) ContainsSP(s *Resource, p *Resource) (int, error) {
+	if s == nil || p == nil {
+		return 0, fmt.Errorf("ERROR cannot have null args when calling Contains")
+	}
+	ret := int(C.contains_sp(rs.hdl, s.hdl, p.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in RDFSession.ContainsSP ret code", ret)
+		return ret, errors.New("ERROR calling Contains(), ret code: " + fmt.Sprint(ret))
+	}
+	return ret, nil
+}
+func (rs *ReteSession) ContainsSP(s *Resource, p *Resource) (int, error) {
+	if s == nil || p == nil {
+		return 0, fmt.Errorf("ERROR cannot have null args when calling Contains")
+	}
+	return rs.rdfs.ContainsSP(s, p)
+}
 
 // ReteSession Erase
 func (rs *RDFSession) Erase(s *Resource, p *Resource, o *Resource) (int, error) {
