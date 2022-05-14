@@ -194,7 +194,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	for i := 0; i < ps; i++ {
 		go func() {
 			// Start the execute rules workers
-			result, err := reteWorkspace.ExecuteRules(dbpool, processInput, dataInputc, outputMapping, writeOutputc)
+			result, err := reteWorkspace.ExecuteRules(dbpool, workspaceMgr, processInput, dataInputc, outputMapping, writeOutputc)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)

@@ -1,0 +1,19 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "support_test2.jr"
+
+[Rule1]:
+  (?claim rdf:type hc:ZipClaim).
+  (?claim hc:zip ?zip).
+  not(?claim hc:is_override true)
+  ->
+  (?claim hc:clean_zip ?zip)
+;
+
+[Rule2]:
+  (?claim rdf:type hc:ZipClaim).
+  (?claim hc:is_override true)
+  ->
+  (?claim hc:clean_zip "99999")
+;

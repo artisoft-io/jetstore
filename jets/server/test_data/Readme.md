@@ -24,6 +24,22 @@ docker run --rm -v=`pwd`/test_data:/go/work -w=/usr/local/lib/jets/compiler \
   --base_path /go/work --in_file ruleset2_test1.jr --rete_db workspace_test1.db
 ```
 
+Running `test2`
+
+```bash
+docker run --rm -v=`pwd`/test_data:/go/work -w=/usr/local/lib/jets/compiler \
+  --entrypoint=python3 jetstore:bullseye jetrule_compiler.py      \
+  --base_path /go/work --in_file ruleset1_test2.jr -d --rete_db workspace_test2.db
+
+docker run --rm -v=`pwd`/test_data:/go/work -w=/usr/local/lib/jets/compiler \
+  --entrypoint=python3 jetstore:bullseye jetrule_compiler.py      \
+  --base_path /go/work --in_file ruleset2_test2.jr --rete_db workspace_test2.db
+
+docker run --rm -v=`pwd`/test_data:/go/work -w=/usr/local/lib/jets/compiler \
+  --entrypoint=python3 jetstore:bullseye jetrule_compiler.py      \
+  --base_path /go/work --in_file ruleseq_test2.jr --rete_db workspace_test2.db
+```
+
 ## Generate the lookup data db using lookup loader
 
 Simularily, from the `test_data` directory where the workspace files are located:
@@ -93,5 +109,11 @@ Execute the process:
 Execute the process with c++ logging:
 
 ```bash
-GLOG_v=1 ./server -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres"  -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
+GLOG_v=1 ./server -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres"  -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessionId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
+```
+
+Running `test2` with logging:
+
+```bash
+GLOG_v=4 ./server -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres"  -outTables=hc__zipclaim -pcKey=201 -ruleseq=step1 -sessionId=sess1 -workspaceDb=test_data/workspace_test2.db -poolSize=1
 ```

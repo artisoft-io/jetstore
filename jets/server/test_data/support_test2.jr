@@ -1,0 +1,28 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+
+# =======================================================================================
+# Data Model
+# ---------------------------------------------------------------------------------------
+class jets:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:key as text,
+    rdf:type as array of text
+  ],
+  $as_table = false
+};
+
+class hc:ZipClaim {
+  # This is an example of a domain class
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    hc:claim_number as text,
+    hc:member_number as text,
+    hc:zip as text,
+    hc:is_override as bool,
+    hc:clean_zip as text
+  ],
+  $as_table = true
+};
