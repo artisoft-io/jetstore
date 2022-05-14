@@ -175,6 +175,18 @@ class RManager {
     return create_bnode(get_next_key());
   }
 
+  inline r_index
+  insert_rdfast(RdfAstType v)
+  {
+    return insert_item(std::make_shared<RdfAstType>(v));
+  }
+
+  inline r_index
+  get_rdfast(RdfAstType v)
+  {
+    return get_item(std::make_shared<RdfAstType>(v));
+  }
+
   inline r_index 
   insert_item(Rptr lptr)
   {

@@ -29,8 +29,8 @@ using RDFTTYPE = rdf::RdfAstType;
 // --------------------------------------------------------------------------------------
 struct RegexVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  RegexVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  RegexVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {}
+  RegexVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  RegexVisitor(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for REGEX: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::LString lhs, rdf::LString rhs)const
   {
@@ -43,8 +43,6 @@ struct RegexVisitor: public boost::static_visitor<RDFTTYPE>
   }
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // To_upperVisitor
@@ -100,7 +98,7 @@ struct TrimVisitor: public boost::static_visitor<RDFTTYPE>
 // --------------------------------------------------------------------------------------
 struct ContainsVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  ContainsVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index, rdf::r_index): rs(rs), br(br) {}
+  ContainsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   ContainsVisitor(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for contains: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const
@@ -159,7 +157,7 @@ struct ParseUsdCurrencyVisitor: public boost::static_visitor<RDFTTYPE>
 // --------------------------------------------------------------------------------------
 struct ApplyFormatVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  ApplyFormatVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index, rdf::r_index): rs(rs), br(br) {}
+  ApplyFormatVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   ApplyFormatVisitor(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for apply_format: ("<<lhs<<", "<<rhs<<")");};
 
@@ -181,7 +179,7 @@ struct ApplyFormatVisitor: public boost::static_visitor<RDFTTYPE>
 // --------------------------------------------------------------------------------------
 struct StartsWithVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  StartsWithVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index, rdf::r_index): rs(rs), br(br) {}
+  StartsWithVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   StartsWithVisitor(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for starts_with: ("<<lhs<<", "<<rhs<<")");};
 

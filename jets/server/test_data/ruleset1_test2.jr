@@ -9,3 +9,10 @@ import "support_test2.jr"
   ->
   (?claim hc:is_override true)
 ;
+
+[Rule3]:
+  (?claim rdf:type hc:ZipClaim).
+  not(?claim hc:is_override true)
+  ->
+  (?claim hc:is_override false)
+;

@@ -101,10 +101,27 @@
         {
             "type": "var",
             "id": "?x1",
+            "is_binded": true,
+            "vertex": 3,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 13,
+            "source_file_name": "ruleset1_test2.jr"
+        },
+        {
+            "type": "keyword",
+            "value": "true",
+            "inline": true,
+            "key": 14,
+            "source_file_name": "ruleset1_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
             "is_binded": false,
             "var_pos": 0,
-            "vertex": 3,
-            "key": 13,
+            "vertex": 4,
+            "key": 15,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -114,14 +131,14 @@
             "vertex": 1,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 14,
+            "key": 16,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
             "type": "keyword",
             "value": "true",
             "inline": true,
-            "key": 15,
+            "key": 17,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -131,7 +148,7 @@
             "vertex": 2,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 16,
+            "key": 18,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -141,7 +158,24 @@
             "vertex": 3,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 17,
+            "key": 19,
+            "source_file_name": "ruleset1_test2.jr"
+        },
+        {
+            "type": "keyword",
+            "value": "false",
+            "inline": true,
+            "key": 20,
+            "source_file_name": "ruleset1_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 21,
             "source_file_name": "ruleset1_test2.jr"
         }
     ],
@@ -200,9 +234,9 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "Rule1",
                     "consequent_salience": 100,
-                    "subject_key": 14,
+                    "subject_key": 16,
                     "predicate_key": 8,
-                    "object_key": 15
+                    "object_key": 17
                 }
             ],
             "authoredLabel": "[Rule1]:(?claim rdf:type hc:ZipClaim).[?claim exist_not hc:zip] -> (?claim hc:is_override true);",
@@ -211,17 +245,15 @@
             "label": "[Rule1]:(?claim rdf:type hc:ZipClaim).[?claim exist_not hc:zip] -> (?claim hc:is_override true);"
         },
         {
-            "name": "jets__entity__1",
-            "properties": {
-                "i": "true"
-            },
+            "name": "Rule3",
+            "properties": {},
             "optimization": true,
             "salience": 100,
             "antecedents": [
                 {
                     "type": "antecedent",
                     "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "normalizedLabel": "(?x1 rdf:type hc:ZipClaim)",
                     "vertex": 2,
                     "parent_vertex": 0,
                     "beta_relation_vars": [
@@ -239,6 +271,97 @@
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
+                    "children_vertexes": [
+                        3
+                    ],
+                    "rules": [
+                        "hc__zipclaim__2"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 12,
+                    "predicate_key": 3,
+                    "object_key": 4
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "normalizedLabel": "not(?x1 hc:is_override true)",
+                    "vertex": 3,
+                    "parent_vertex": 2,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 3
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "Rule3"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 13,
+                    "predicate_key": 8,
+                    "object_key": 14
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 hc:is_override false)",
+                    "vertex": 3,
+                    "consequent_seq": 0,
+                    "consequent_for_rule": "Rule3",
+                    "consequent_salience": 100,
+                    "subject_key": 19,
+                    "predicate_key": 8,
+                    "object_key": 20
+                }
+            ],
+            "authoredLabel": "[Rule3]:(?claim rdf:type hc:ZipClaim).not(?claim hc:is_override true) -> (?claim hc:is_override false);",
+            "source_file_name": "ruleset1_test2.jr",
+            "normalizedLabel": "[Rule3]:(?x1 rdf:type hc:ZipClaim).not(?x1 hc:is_override true) -> (?x1 hc:is_override false);",
+            "label": "[Rule3]:(?claim rdf:type hc:ZipClaim).not(?claim hc:is_override true) -> (?claim hc:is_override false);"
+        },
+        {
+            "name": "jets__entity__1",
+            "properties": {
+                "i": "true"
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "vertex": 4,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 4,
+                            "key": 15,
+                            "source_file_name": "ruleset1_test2.jr"
+                        }
+                    ],
                     "children_vertexes": [],
                     "rules": [
                         "jets__entity__1"
@@ -246,7 +369,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 12,
+                    "subject_key": 15,
                     "predicate_key": 3,
                     "object_key": 0
                 }
@@ -255,11 +378,11 @@
                 {
                     "type": "consequent",
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
-                    "vertex": 2,
+                    "vertex": 4,
                     "consequent_seq": 0,
                     "consequent_for_rule": "jets__entity__1",
                     "consequent_salience": 100,
-                    "subject_key": 16,
+                    "subject_key": 21,
                     "predicate_key": 3,
                     "object_key": 1
                 }
@@ -281,7 +404,7 @@
                     "type": "antecedent",
                     "isNot": false,
                     "normalizedLabel": "(?x1 rdf:type hc:ZipClaim)",
-                    "vertex": 3,
+                    "vertex": 2,
                     "parent_vertex": 0,
                     "beta_relation_vars": [
                         "?x1"
@@ -293,19 +416,21 @@
                             "id": "?x1",
                             "is_binded": false,
                             "var_pos": 0,
-                            "vertex": 3,
-                            "key": 13,
+                            "vertex": 2,
+                            "key": 12,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
-                    "children_vertexes": [],
+                    "children_vertexes": [
+                        3
+                    ],
                     "rules": [
                         "hc__zipclaim__2"
                     ],
                     "salience": [
                         100
                     ],
-                    "subject_key": 13,
+                    "subject_key": 12,
                     "predicate_key": 3,
                     "object_key": 4
                 }
@@ -314,11 +439,11 @@
                 {
                     "type": "consequent",
                     "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-                    "vertex": 3,
+                    "vertex": 2,
                     "consequent_seq": 0,
                     "consequent_for_rule": "hc__zipclaim__2",
                     "consequent_salience": 100,
-                    "subject_key": 17,
+                    "subject_key": 18,
                     "predicate_key": 3,
                     "object_key": 0
                 }

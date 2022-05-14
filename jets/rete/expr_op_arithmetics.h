@@ -28,8 +28,8 @@ using RDFTTYPE = rdf::RdfAstType;
 // --------------------------------------------------------------------------------------
 struct AddVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  AddVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  AddVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {}
+  AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  AddVisitor(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for ADD: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
@@ -93,15 +93,13 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), rhs.data), lhs.data.time_of_day()}};}
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // SubsVisitor
 // --------------------------------------------------------------------------------------
 struct SubsVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  SubsVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  SubsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for substraction: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
@@ -152,15 +150,13 @@ struct SubsVisitor: public boost::static_visitor<RDFTTYPE>
   RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), -rhs.data), lhs.data.time_of_day()}};}
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // MultVisitor
 // --------------------------------------------------------------------------------------
 struct MultVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  MultVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  MultVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for Multiplication: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
@@ -195,15 +191,13 @@ struct MultVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // DivVisitor
 // --------------------------------------------------------------------------------------
 struct DivVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  DivVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  DivVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for Division: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data/rhs.data};}
@@ -238,8 +232,6 @@ struct DivVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // AbsVisitor
@@ -307,62 +299,63 @@ struct ApplyMinMaxVisitor
 // --------------------------------------------------------------------------------------
 struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  MaxOfVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  MaxOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for max_of: ("<<lhs<<", "<<rhs<<")");};
 
-  RDFTTYPE operator()(rdf::NamedResource, rdf::NamedResource)const
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
+    auto * sess = this->rs->rdf_session();
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) return rdf::Null();
     ApplyMinMaxVisitor av(this->rs, false);
-    return av(this->lhs_, this->rhs_);
+    return av(pr.first, pr.second);
   }
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // MinOfVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
 struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  MinOfVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  MinOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for min_of: ("<<lhs<<", "<<rhs<<")");};
 
-  RDFTTYPE operator()(rdf::NamedResource, rdf::NamedResource)const
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
+    auto * sess = this->rs->rdf_session();
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) return rdf::Null();
     ApplyMinMaxVisitor av(this->rs, true);
-    return av(this->lhs_, this->rhs_);
+    return av(pr.first, pr.second);
   }
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // SortedHeadVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
 struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  SortedHeadVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  SortedHeadVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for sorted_head: ("<<lhs<<", "<<rhs<<")");};
 
-  RDFTTYPE operator()(rdf::NamedResource, rdf::NamedResource)const
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
-    ApplyMinMaxVisitor av(this->rs, false);
     auto * sess = this->rs->rdf_session();
-    auto * rmgr = sess->rmgr();
-    auto const* jr = rmgr->jets();
-    auto objp = sess->get_object(this->rhs_, jr->jets__entity_property);
-    auto datap = sess->get_object(this->rhs_, jr->jets__value_property);
-    return av(this->lhs_, objp, datap);
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) return rdf::Null();
+    ApplyMinMaxVisitor av(this->rs, false);
+    auto const* jr = sess->rmgr()->jets();
+    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
+    auto datap = sess->get_object(pr.second, jr->jets__value_property);
+    return av(pr.first, objp, datap);
   }
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // SUM VALUES ==========================================================================
@@ -406,24 +399,23 @@ struct ApplySumValuesVisitor
 // --------------------------------------------------------------------------------------
 struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  SumValuesVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  SumValuesVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for sum_values: ("<<lhs<<", "<<rhs<<")");};
 
-  RDFTTYPE operator()(rdf::NamedResource, rdf::NamedResource)const
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
-    ApplySumValuesVisitor av(this->rs);
     auto * sess = this->rs->rdf_session();
-    auto * rmgr = sess->rmgr();
-    auto const* jr = rmgr->jets();
-    auto objp = sess->get_object(this->rhs_, jr->jets__entity_property);
-    auto datap = sess->get_object(this->rhs_, jr->jets__value_property);
-    return av(this->lhs_, objp, datap);
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) return rdf::Null();
+    ApplySumValuesVisitor av(this->rs);
+    auto const* jr = sess->rmgr()->jets();
+    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
+    auto datap = sess->get_object(pr.second, jr->jets__value_property);
+    return av(pr.first, objp, datap);
   }
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // ToIntVisitor

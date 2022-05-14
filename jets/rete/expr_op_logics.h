@@ -28,8 +28,8 @@ using RDFTTYPE = rdf::RdfAstType;
 struct EqVisitor: public boost::static_visitor<RDFTTYPE>
 {
   // Fully expanded example to serve as template
-  EqVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  EqVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  EqVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  EqVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::True();}
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::BlankNode     rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::NamedResource rhs)const{return rdf::False();}
@@ -167,16 +167,14 @@ struct EqVisitor: public boost::static_visitor<RDFTTYPE>
   
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // NeVisitor
 // --------------------------------------------------------------------------------------
 struct NeVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  NeVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  NeVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  NeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  NeVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::True();};
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::BlankNode     rhs)const{return rdf::LInt32{lhs.key != rhs.key};}
@@ -222,16 +220,14 @@ struct NeVisitor: public boost::static_visitor<RDFTTYPE>
   
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // LeVisitor
 // --------------------------------------------------------------------------------------
 struct LeVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  LeVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  LeVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  LeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  LeVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::False();};
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::True();}
   RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::BlankNode     rhs)const{return rdf::LInt32{lhs.key <= rhs.key};}
@@ -277,16 +273,14 @@ struct LeVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // LtVisitor
 // --------------------------------------------------------------------------------------
 struct LtVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  LtVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  LtVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  LtVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  LtVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::False();};
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::BlankNode     rhs)const{return rdf::LInt32{lhs.key < rhs.key};}
@@ -332,16 +326,14 @@ struct LtVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // GeVisitor
 // --------------------------------------------------------------------------------------
 struct GeVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  GeVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  GeVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  GeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  GeVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::False();};
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::True();}
   RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::BlankNode     rhs)const{return rdf::LInt32{lhs.key >= rhs.key};}
@@ -387,16 +379,14 @@ struct GeVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // GtVisitor
 // --------------------------------------------------------------------------------------
 struct GtVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  GtVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  GtVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  GtVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  GtVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::False();};
   RDFTTYPE operator()(rdf::RDFNull       lhs, rdf::RDFNull       rhs)const{return rdf::False();}
   RDFTTYPE operator()(rdf::BlankNode     lhs, rdf::BlankNode     rhs)const{return rdf::LInt32{lhs.key > rhs.key};}
@@ -442,16 +432,14 @@ struct GtVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // AndVisitor
 // --------------------------------------------------------------------------------------
 struct AndVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  AndVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  AndVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  AndVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  AndVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::False();};
   RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LInt32        rhs)const{return rdf::LInt32{lhs.data and rhs.data};}
   RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{lhs.data and rhs.data};}
@@ -487,16 +475,14 @@ struct AndVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // OrVisitor
 // --------------------------------------------------------------------------------------
 struct OrVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  OrVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  OrVisitor(): rs(nullptr), br(nullptr), lhs_(nullptr), rhs_(nullptr) {} // for use by other operators
+  OrVisitor(ReteSession * rs, BetaRow const* br): rs(rs) {}
+  OrVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {return rdf::False();};
   RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LInt32        rhs)const{return rdf::LInt32{lhs.data or rhs.data};}
   RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{lhs.data or rhs.data};}
@@ -532,8 +518,6 @@ struct OrVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // NotVisitor

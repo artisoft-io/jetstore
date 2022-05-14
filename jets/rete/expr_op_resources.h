@@ -113,68 +113,55 @@ struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>
 // --------------------------------------------------------------------------------------
 struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  ExistVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  ExistVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for exist: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto * rmgr = sess->rmgr();
-    auto * l = rmgr->get_resource(std::move(lhs.name));
-    if(not l) return rdf::LInt32(0);
-    auto * r = rmgr->get_resource(std::move(rhs.name));
-    if(not r) return rdf::LInt32(0);
-    auto objp = sess->get_object(l, r);
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) return rdf::LInt32(0);
+    auto objp = sess->get_object(pr.first, pr.second);
     return rdf::LInt32(objp != nullptr);
   }
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // ExistNotVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
 struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  ExistNotVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  ExistNotVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for exist_not: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto * rmgr = sess->rmgr();
-    auto * l = rmgr->get_resource(std::move(lhs.name));
-    if(not l) return rdf::LInt32(1);
-    auto * r = rmgr->get_resource(std::move(rhs.name));
-    if(not r) return rdf::LInt32(1);
-    auto objp = sess->get_object(l, r);
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) return rdf::LInt32(1);
+    auto objp = sess->get_object(pr.first, pr.second);
     return rdf::LInt32(objp == nullptr);
   }
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // Visitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
 struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
-  SizeOfVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  SizeOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for size_of: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto * rmgr = sess->rmgr();
-    auto * l = rmgr->get_resource(std::move(lhs.name));
-    if(not l) return rdf::LInt32(0);
-    auto * r = rmgr->get_resource(std::move(rhs.name));
-    if(not r) return rdf::LInt32(0);
-    auto itor = sess->find(l, r, rdf::make_any());
+    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
+    if(not pr.first or not pr.second) return rdf::LInt32(0);
+    auto itor = sess->find(pr.first, pr.second, rdf::make_any());
     int size = 0;
     while(not itor.is_end()) {
       ++size;
@@ -185,8 +172,6 @@ struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // IsLiteralVisitor
