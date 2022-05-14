@@ -462,21 +462,16 @@ class RDFSession {
   // ------------------------------------------------------------------------------------
   // erase/retract methods
   // ------------------------------------------------------------------------------------
-  // erase triple (s, p, o) from asserted and inferred graphs, return 1 if erased
+  // erase triple (s, p, o) from asserted and inferred graphs, 
+  // return count erased or -1 if error
   // Note triples in meta graph are never erased or inserted from the rete session, this
   // graph is read only.
   inline int
   erase(r_index s, r_index p, r_index o)
   {
-    if(!s or !p or !o) {
-      LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a NULL ptr index (" 
-                 << s << ", " << p << ", " << o <<")";
-      RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
-    }
-    bool erased = asserted_graph_->erase(s, p, o);
-    erased = inferred_graph_->erase(s, p, o) or erased;
-    VLOG(4)<<"ERASE ("<< s <<", "<< p <<", " << o <<")";
-    return erased;
+    int res = asserted_graph_->erase(s, p, o) + inferred_graph_->erase(s, p, o);
+    VLOG(4)<<"ERASE ("<< s <<", "<< p <<", " << o <<") result "<<res;
+    return res;
   }
 
   // retract triple (s, p, o) from inferred graph, reducing the reference count,

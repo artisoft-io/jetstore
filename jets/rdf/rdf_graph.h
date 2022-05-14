@@ -288,7 +288,7 @@ class RDFGraph {
     return 0;
   }
 
-  // erase triple (s, p, o) from graph, return 0 if ok, -1 if error
+  // erase_internal triple (s, p, o) from graph, return 1 if do it, 0 if do nothing, -1 if error
   // ------------------------------------------------------------------------------------
   inline int
   erase_internal(r_index s, r_index p, r_index o)
@@ -301,13 +301,13 @@ class RDFGraph {
                  << s << ", " << p << ", " << o <<")";
       return -1;
     }
-    bool erased = spo_graph_.erase(s, p, o);
+    int erased = spo_graph_.erase(s, p, o);
     pos_graph_.erase(p, o, s);
     osp_graph_.erase(o, s, p);
     if(erased) {
       size_-= 1;
     }
-    return 0;
+    return erased;
   }
 
   /**
@@ -320,7 +320,7 @@ class RDFGraph {
    * @param s can be null
    * @param p can be null
    * @param o can be null
-   * @return int 0 if ok, -1 if error
+   * @return int count of erase, -1 if error
    */
   inline int
   erase(r_index s, r_index p, r_index o)
@@ -337,10 +337,13 @@ class RDFGraph {
       triples.push_back(itor.as_triple());
       itor.next();
     }
+    int count = 0;
     for(auto t3: triples) {
-      this->erase_internal(t3.subject, t3.predicate, t3.object);
+      auto c = this->erase_internal(t3.subject, t3.predicate, t3.object);
+      if(c < 0) return -1;
+      count += c;
     }
-    return 0;
+    return count;
   }
 
   // retract triple (s, p, o) from graph, return 1 if actually erased, -1 if error

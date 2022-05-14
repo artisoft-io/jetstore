@@ -295,14 +295,14 @@ class BaseGraph {
     auto vtor = utor->second.find(v);
     if (vtor == utor->second.end()) return 0;
 
-    auto count = vtor->second.erase(WSetType::value_type{w});
+    int count = vtor->second.erase(WSetType::value_type{w});
     if (vtor->second.empty()) {
       utor->second.erase(v);
       if (utor->second.empty()) {
         umap_data_.erase(u);
       }
     }
-    return count > 0;
+    return count;
   }
 
   inline int erase_spo(r_index s, r_index p, r_index o) 

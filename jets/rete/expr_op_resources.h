@@ -116,11 +116,15 @@ struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
   ExistVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for exist: ("<<lhs<<", "<<rhs<<")");};
 
-  RDFTTYPE operator()(rdf::NamedResource, rdf::NamedResource)const
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
     auto * rmgr = sess->rmgr();
-    auto objp = sess->get_object(this->lhs_, this->rhs_);
+    auto * l = rmgr->get_resource(std::move(lhs.name));
+    if(not l) return rdf::LInt32(0);
+    auto * r = rmgr->get_resource(std::move(rhs.name));
+    if(not r) return rdf::LInt32(0);
+    auto objp = sess->get_object(l, r);
     return rdf::LInt32(objp != nullptr);
   }
 
@@ -137,9 +141,15 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
   ExistNotVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for exist_not: ("<<lhs<<", "<<rhs<<")");};
 
-  RDFTTYPE operator()(rdf::NamedResource, rdf::NamedResource)const
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
-    auto objp = this->rs->rdf_session()->get_object(this->lhs_, this->rhs_);
+    auto * sess = this->rs->rdf_session();
+    auto * rmgr = sess->rmgr();
+    auto * l = rmgr->get_resource(std::move(lhs.name));
+    if(not l) return rdf::LInt32(1);
+    auto * r = rmgr->get_resource(std::move(rhs.name));
+    if(not r) return rdf::LInt32(1);
+    auto objp = sess->get_object(l, r);
     return rdf::LInt32(objp == nullptr);
   }
 
@@ -154,12 +164,17 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
 struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
   SizeOfVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for exist_not: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for size_of: ("<<lhs<<", "<<rhs<<")");};
 
-  RDFTTYPE operator()(rdf::NamedResource, rdf::NamedResource)const
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto itor = sess->find(this->lhs_, this->rhs_, rdf::make_any());
+    auto * rmgr = sess->rmgr();
+    auto * l = rmgr->get_resource(std::move(lhs.name));
+    if(not l) return rdf::LInt32(0);
+    auto * r = rmgr->get_resource(std::move(rhs.name));
+    if(not r) return rdf::LInt32(0);
+    auto itor = sess->find(l, r, rdf::make_any());
     int size = 0;
     while(not itor.is_end()) {
       ++size;
