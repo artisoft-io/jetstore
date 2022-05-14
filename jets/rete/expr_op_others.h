@@ -29,7 +29,7 @@ using RDFTTYPE = rdf::RdfAstType;
 struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
-  LookupVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  LookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
@@ -60,8 +60,6 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // MultiLookupVisitor
@@ -69,7 +67,7 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
 struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
-  MultiLookupVisitor(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) {}
+  MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->multi_lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
@@ -100,8 +98,6 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
 };
 
 // ToTypeOfOperator
@@ -256,8 +252,8 @@ struct ToTypeOfOperator
 
   ReteSession * rs;
   BetaRow const* br;
-  rdf::r_index lhs_;  // Note: This is the lhs as an r_index, may not exist in r_manager if this is
-  rdf::r_index rhs_;  //       transitory resource
+  rdf::r_index lhs_;  
+  rdf::r_index rhs_;  
   int type_;
 };
 

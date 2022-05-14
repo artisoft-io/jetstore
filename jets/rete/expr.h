@@ -29,6 +29,16 @@ namespace jets::rete {
 // Definition of ExprBasePtr is in node_vertex.h
 class ReteSession;
 
+// Utility function for operators that need to get a graph rdf::r_index
+inline 
+std::pair<rdf::r_index, rdf::r_index>
+get_resources(rdf::RManager *rmgr, std::string && lhs, std::string && rhs)
+{
+  auto * l = rmgr->get_resource(std::forward<std::string>(lhs));
+  auto * r = rmgr->get_resource(std::forward<std::string>(rhs));
+  return {l, r};
+}
+
 // ExprBase - Abstract base class for an expression tree
 // The expression tree is performing operation on rdf::RdfAstType
 // which is the rdf variant type

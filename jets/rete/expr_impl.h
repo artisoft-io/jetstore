@@ -59,19 +59,7 @@ ExprBinaryOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const
 {
   typename ExprBinaryOp<Op>::ExprDataType lhs = this->lhs_->eval(rete_session, beta_row);
   typename ExprBinaryOp<Op>::ExprDataType rhs = this->rhs_->eval(rete_session, beta_row);
-  return boost::apply_visitor(Op(rete_session, beta_row, &lhs, &rhs), lhs, rhs);
-}
-
-// ExprBinaryStructOp
-// --------------------------------------------------------------------------------------
-template<class Op>
-typename ExprBinaryStructOp<Op>::ExprDataType
-ExprBinaryStructOp<Op>::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
-{
-  typename ExprBinaryOp<Op>::ExprDataType lhs = this->lhs_->eval(rete_session, beta_row);
-  typename ExprBinaryOp<Op>::ExprDataType rhs = this->rhs_->eval(rete_session, beta_row);
-  Op op(rete_session, beta_row, &lhs, &rhs);
-  return op();
+  return boost::apply_visitor(Op(rete_session, beta_row), lhs, rhs);
 }
 
 // ExprUnaryOp
