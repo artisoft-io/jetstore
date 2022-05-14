@@ -109,6 +109,37 @@ TEST(RDFSessionInsert, TestInsert4)
   EXPECT_EQ(rdf_session_p->size(), 1);
 }
 
+TEST(RDFSessionFind, TestFind1)
+{
+  auto meta_graph_p = create_rdf_graph();
+  meta_graph_p->set_locked();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+
+  auto r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o1=  r_mgr_p->create_resource("o1");
+  auto o2=  r_mgr_p->create_resource("o2");
+
+  rdf_session_p->insert(s, p, o1);
+  rdf_session_p->insert_inferred(s, p, o2);
+  EXPECT_EQ(rdf_session_p->size(), 2);
+  // auto itor = rdf_session_p->find();
+  // while(!itor.is_end()) {
+  //   std::cout<<"find(): "<<itor.as_triple()<<" -- get_object "<<itor.get_object()<<std::endl;
+  //   itor.next();
+  // }
+  // itor = rdf_session_p->find(s, p);
+  // while(!itor.is_end()) {
+  //   std::cout<<"find(s, p): "<<itor.as_triple()<<" -- get_object "<<itor.get_object()<<std::endl;
+  //   itor.next();
+  // }
+  // std::cout<<"rdf_session::get_object(s, p) = "<<rdf_session_p->get_object(s, p)<<std::endl;
+  // std::cout<<"rdf_session::get_object(s, o1) = "<<rdf_session_p->get_object(s, o1)<<std::endl;
+  EXPECT_EQ(rdf_session_p->get_object(s, p), o1);
+  EXPECT_EQ(rdf_session_p->get_object(s, o1), nullptr);
+}
+
 class RDFSessionStlTest : public ::testing::Test {
  protected:
   RDFSessionStlTest(): rdf_session_p()

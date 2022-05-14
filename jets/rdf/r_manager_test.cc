@@ -95,6 +95,18 @@ TEST(RManagerTest, CreateResources)
   EXPECT_EQ(r2, r1);
 }
 
+TEST(RManagerTest, CreateResources2) 
+{
+  // rdf resource manager
+  auto rmanager_p = RManager::create();
+  auto rmanager = *rmanager_p;
+
+  // test to find back resource
+  auto r1 = rmanager.create_resource("r1");
+  auto r2 = rmanager.get_resource("r1");
+  EXPECT_EQ(r1, r2);
+}
+
 TEST(RManagerTest, CreateNulls) 
 {
   // rdf resource manager
