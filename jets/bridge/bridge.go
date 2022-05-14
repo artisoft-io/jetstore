@@ -655,6 +655,29 @@ func (rs *ReteSession) Contains(s *Resource, p *Resource, o *Resource) (int, err
 	return rs.rdfs.Contains(s, p, o)
 }
 
+// ReteSession Erase
+func (rs *RDFSession) Erase(s *Resource, p *Resource, o *Resource) (int, error) {
+	var s_hdl, p_hdl, o_hdl C.HJR
+	if s != nil {
+		s_hdl = s.hdl
+	}
+	if p != nil {
+		p_hdl = p.hdl
+	}
+	if o != nil {
+		o_hdl = o.hdl
+	}
+	ret := int(C.erase(rs.hdl, s_hdl, p_hdl, o_hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in RDFSession.Erase ret code", ret)
+		return ret, errors.New("ERROR calling Erase(), ret code: " + fmt.Sprint(ret))
+	}
+	return ret, nil
+}
+func (rs *ReteSession) Erase(s *Resource, p *Resource, o *Resource) (int, error) {
+	return rs.rdfs.Erase(s, p, o)
+}
+
 // ReteSession ExecuteRules
 func (rs *ReteSession) ExecuteRules() (string, error) {
 	var cret C.int

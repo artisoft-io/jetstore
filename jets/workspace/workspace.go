@@ -33,6 +33,8 @@ type DomainTable struct {
 	Columns       []DomainColumn
 }
 
+type JetStoreProperties map[string]string
+
 type OutputTableSpecs map[string]*DomainTable
 
 func OpenWorkspaceDb(dsn string) (*WorkspaceDb, error) {
@@ -145,4 +147,26 @@ func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping() (OutputTableSpecs, err
 		columnMap[tableName] = &domainColumns
 	}
 	return columnMap, nil
+}
+
+// loadJetStoreProperties: returns a mapping of the output domain tables with their column specs
+func (workspaceDb *WorkspaceDb) LoadJetStoreProperties(ruleset string) (JetStoreProperties, error) {
+	result := make(JetStoreProperties)
+	if workspaceDb.db == nil {
+		return result, fmt.Errorf("error while loading JetStore properties from workspace db, db connection is not opened")
+	}
+
+	// Get properties
+	pRow, err := workspaceDb.db.Query("SELECT jp.config_key, jp.config_value FROM jetstore_config jp, workspace_control wc WHERE jp.source_file_key = wc.key AND wc.source_file_name = ?", ruleset)
+	if err != nil {
+		return result, fmt.Errorf("while loading JetStore properties from workspace db: %v", err)
+	}
+	defer pRow.Close()
+	for pRow.Next() { // Iterate and fetch the records from result cursor
+		var propertyKey, propertyValue string
+		pRow.Scan(&propertyKey, &propertyValue)
+
+		result[propertyKey] = propertyValue
+	}
+	return result, nil
 }

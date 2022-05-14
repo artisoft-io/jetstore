@@ -1,0 +1,19 @@
+{
+    "resources": [],
+    "lookup_tables": [],
+    "jet_rules": [],
+    "imports": {
+        "ruleseq_test2.jr": []
+    },
+    "rule_sequences": [
+        {
+            "type": "ruleseq",
+            "name": "step1",
+            "main_rule_sets": [
+                "ruleset1_test2.jr",
+                "ruleset2_test2.jr"
+            ],
+            "source_file_name": "ruleseq_test2.jr"
+        }
+    ]
+}

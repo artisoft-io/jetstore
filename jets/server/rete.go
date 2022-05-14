@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
@@ -68,6 +69,7 @@ func LoadReteWorkspace(
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
 	dbpool *pgxpool.Pool,
+	workspaceMgr *workspace.WorkspaceDb,
 	processInput *ProcessInput,
 	dataInputc <-chan [][]sql.NullString,
 	outputSpecs workspace.OutputTableSpecs,
@@ -115,9 +117,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 
 		for i, ruleset := range rw.ruleset {
-			// log.Println("Start Rete Session for ruleset", ruleset)
 			if glogv > 0 {
-				log.Println("Start Session", session_count,"for ruleset",ruleset, "with grouping key", groupingKey.String)
+				log.Println("Start Rete Session", session_count,"for ruleset",ruleset, "with grouping key", groupingKey.String)
 			}
 			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
@@ -130,19 +131,40 @@ func (rw *ReteWorkspace) ExecuteRules(
 					return &result, fmt.Errorf("while assertInputRecords: %v", err)
 				}	
 			}
-			// Check for looping
-			
-			msg, err := reteSession.ExecuteRules()
+			// Step 0 of loop is pre loop or no loop
+			// Step 1+ for looping
+			reteSession.Erase(ri.jets__istate, ri.jets__loop, nil)
+			reteSession.Erase(ri.jets__istate, ri.jets__completed, nil)
+			jetStoreProp, err := workspaceMgr.LoadJetStoreProperties(ruleset)
 			if err != nil {
-				var br BadRow
-				br.GroupingKey = groupingKey
-				br.ErrorMessage = sql.NullString{String: msg, Valid: true}
-				//*
-				fmt.Println("BAD ROW:",br)
-				br.write2Chan(writeOutputc["process_errors"])
-				break
+				return &result, fmt.Errorf("while LoadJetStoreProperties for ruleset %s: %v", ruleset, err)
 			}
-			reteSession.ReleaseReteSession()
+			var nloop, iloop int64
+			value, ok := jetStoreProp["$max_looping"]
+			if ok {
+				nloop, err = strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return &result, fmt.Errorf("while parsing $max_looping value as int: %v", err)
+				}
+			}
+			// do for iloop <= maxloop (since loop start at one!)
+			for iloop=0; iloop <= nloop; iloop++ {
+				if glogv > 3 {
+					log.Println("Calling Execute Rules, loop:",iloop,", session count:", session_count,", for ruleset:",ruleset, ", with grouping key:", groupingKey.String)
+				}
+				msg, err := reteSession.ExecuteRules()
+				if err != nil {
+					var br BadRow
+					br.GroupingKey = groupingKey
+					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
+					//*
+					fmt.Println("BAD ROW:",br)
+					br.write2Chan(writeOutputc["process_errors"])
+					break
+				}
+				//* CHECK for jets__terminate and jets__exception
+			}
+			reteSession.ReleaseReteSession()			
 		}
 
 		// log.Println("ExecuteRule() Completed sucessfully")
