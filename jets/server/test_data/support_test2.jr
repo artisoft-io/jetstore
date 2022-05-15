@@ -3,6 +3,13 @@
 # ---------------------------------------------------------------------------------------
 
 # =======================================================================================
+# Base configuration for JetStore
+# ---------------------------------------------------------------------------------------
+jetstore_config {
+  $max_rule_exec = 100000
+};
+
+# =======================================================================================
 # Data Model
 # ---------------------------------------------------------------------------------------
 class jets:Entity {
@@ -14,15 +21,99 @@ class jets:Entity {
   $as_table = false
 };
 
-class hc:ZipClaim {
-  # This is an example of a domain class
+class jets:State {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:completed as text,
+    jets:loop as int
+  ],
+  $as_table = false
+};
+
+class jets:Row {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:entity_property as text,
+    jets:lookup_multi_rows as text,
+    jets:lookup_row as text
+  ],
+  $as_table = false
+};
+
+class aspec:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    aspec:age_group as text,
+    aspec:nbr_patients as int,
+    aspec:patient_key_prefix as text,
+    aspec:patient_persona_lk_key as text
+  ],
+  $as_table = false
+};
+
+class asim:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    asim:persona_key as text,
+    asim:demographic_group as text,
+    asim:claim_group_key as text,
+    asim:description as text
+  ],
+  $as_table = false
+};
+
+class hc:Patient {
   $base_classes = [jets:Entity],
   $data_properties = [
-    hc:claim_number as text,
-    hc:member_number as text,
-    hc:zip as text,
-    hc:is_override as bool,
-    hc:clean_zip as text
+    hc:patient_number as text,
+    hc:dob as date
   ],
   $as_table = true
+};
+
+class hc:Claim {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    hc:member_number as text,
+    hc:claim_number as text,
+    hc:zip as text,
+    hc:dos as date
+  ],
+  $as_table = true
+};
+
+class hc:SimulatedPatient {
+  $base_classes = [
+    jets:Entity,
+    asim:Entity,
+    hc:Patient
+  ],
+  $data_properties = [
+    hc:run_name as text
+  ],
+  $as_table = true
+};
+
+class lk:BasePatientPersona {
+  $base_classes = [asim:Entity],
+  $data_properties = [
+    asim:age_group as text,
+    asim:claim_group_lk_key as text
+  ],
+  $as_table = false
+};
+
+# =======================================================================================
+# Lookup Tables
+# ---------------------------------------------------------------------------------------
+# csv file have these columns: "KEY,asim:persona_key,asim:age_group,asim:claim_group_lk_key,asim:description"
+lookup_table lk:BasePatientPersona {
+  $csv_file = "base_patient_persona_test2.csv",    # csv file location
+  $key = ["KEY"], 
+  $columns = [
+    "asim:persona_key" as text,
+    "asim:age_group" as text,
+    "asim:claim_group_lk_key" as text,
+    "asim:description" as text
+  ]
 };

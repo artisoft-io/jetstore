@@ -27,6 +27,7 @@ var outTables = flag.String("outTables", "", "Comma-separed list of output table
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int 	// taken from env GLOG_v
+var out2all bool
 
 func init() {
 	extTables = make(map[string][]string)
@@ -92,6 +93,7 @@ func doJob() error {
 	}
 	pipelineResult, err := ProcessData(dbpool, reteWorkspace)
 	if err != nil {
+		reteWorkspace.Release()
 		return fmt.Errorf("while processing pipeline: %v", err)
 	}
 
@@ -100,7 +102,7 @@ func doJob() error {
 	for rdfType, count := range pipelineResult.outputRecordsCount {
 		fmt.Printf("Output records count for type '%s' is: %d\n",rdfType, count)
 	}
-
+	reteWorkspace.Release()
 	return nil
 }
 
@@ -130,10 +132,16 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Output type must be specified using comma-separated list of table names (-outTables)  must be provided.")
 	}
-	outTableSlice = strings.Split(*outTables, ",")
-	if len(outTableSlice) == 0 {
-		hasErr = true
-		errMsg = append(errMsg, "Invalid list of comma-separated table names (-outTables)")
+	if *outTables == "all" {
+		// output to all tables
+		out2all = true
+		log.Print("Will output to all available tables of the workspace")
+	} else {
+		outTableSlice = strings.Split(*outTables, ",")
+		if len(outTableSlice) == 0 {
+			hasErr = true
+			errMsg = append(errMsg, "Invalid list of comma-separated table names (-outTables)")
+		}
 	}
 	if hasErr {
 		flag.Usage()
@@ -150,6 +158,7 @@ func main() {
 	fmt.Printf("Got lookupDb: %s\n", *lookupDb)
 	fmt.Printf("Got ruleset: %s\n", *ruleset)
 	fmt.Printf("Got ruleseq: %s\n", *ruleseq)
+	fmt.Printf("Got outTables: %s\n", *outTables)
 	v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
 	glogv = int(v)
 	fmt.Println("GLOG_v is set to",glogv)

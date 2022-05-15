@@ -1,0 +1,5 @@
+KEY,asim:persona_key,asim:age_group,asim:claim_group_lk_key,asim:description
+0,P01,A01,CLMX1,Persona P01 A01 with Claim G1 CLMX1
+1,P02,A02,CLMX1,Persona P02 A02 with Claim G1 CLMX1
+2,P02,A01,CLMX1,Persona P02 A01 with Claim G1 CLMX1
+3,P03,A03,CLMX1,Persona P03 A03 with Claim G1 CLMX1

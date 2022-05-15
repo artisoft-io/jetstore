@@ -267,7 +267,7 @@ class RDFGraph {
 
   // insert triple (s, p, o), returns 1 if inserted zero otherwise
   inline int
-  insert(r_index s, r_index p, r_index o, bool notify_listners=true)
+  insert(r_index s, r_index p, r_index o)
   {
     if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
       "This is probably a meta graph and you want to mutate the asserted"
@@ -282,7 +282,7 @@ class RDFGraph {
       pos_graph_.insert(p, o, s);
       osp_graph_.insert(o, s, p);
       size_+= 1;
-      if(notify_listners) this->graph_callback_mgr_->triple_inserted(s, p, o);
+      this->graph_callback_mgr_->triple_inserted(s, p, o);
       return 1;
     }
     return 0;
@@ -349,7 +349,7 @@ class RDFGraph {
   // retract triple (s, p, o) from graph, return 1 if actually erased, -1 if error
   // ------------------------------------------------------------------------------------
   inline int
-  retract(r_index s, r_index p, r_index o, bool notify_listners=true)
+  retract(r_index s, r_index p, r_index o)
   {
     if(is_locked_) throw rdf_exception("rdf graph locked, cannot mutate. "
       "This is probably a meta graph and you want to mutate the asserted"
@@ -364,7 +364,7 @@ class RDFGraph {
     osp_graph_.retract(o, s, p);
     if(erased) {
       size_-= 1;
-      if(notify_listners) this->graph_callback_mgr_->triple_deleted(s, p, o);
+      this->graph_callback_mgr_->triple_deleted(s, p, o);
       return 1;
     }
     return 0;

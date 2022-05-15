@@ -41,6 +41,7 @@ var (
 	ErrNotValidDateTime = errors.New("not a valid datetime")
 	ErrNullValue        = errors.New("null value")
 	ErrUnexpectedRdfType = errors.New("value with unexpected rdf type")
+	ErrLookupTable      = errors.New("error loading lookup tables")
 )
 
 // ResourceType
@@ -65,8 +66,11 @@ func LoadJetRules(rete_db_path string, lookup_db_path string) (*JetStore, error)
 	defer C.free(unsafe.Pointer(lk_cstr))
 	ret := int(C.create_jetstore_hdl(cstr, lk_cstr, &js.hdl))
 	if ret != 0 {
-		fmt.Println("Yikes got error in LoadJetRules, ret code", ret)
-		return &js, errors.New("ERROR calling LoadJetRules()! ")
+		fmt.Println("Error in LoadJetRules, ret code", ret)
+		if ret < -99 && ret > -200 {
+			return &js, ErrLookupTable
+		}
+		return &js, errors.New("error loading workspace, see logs")
 	}
 	return &js, nil
 }

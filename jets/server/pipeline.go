@@ -85,11 +85,25 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}
 	err = reteWorkspace.addEntityRdfType(processInput)
 	if err != nil {
+		log.Println("Error while getting adding entity rdf type:", err)
 		return &result, err
 	}
 	err = reteWorkspace.addInputPredicate(processInput.processInputMapping)
 	if err != nil {
+		log.Println("Error while getting input predicate:", err)
 		return &result, err
+	}
+	if out2all {
+		// get all tables of the workspace
+		reteWorkspace.outTables, err = workspaceMgr.GetTableNames()
+		if err != nil {
+			log.Println("Error while getting table names:", err)
+			return &result, err
+		}
+		log.Println("The output tables are:")
+		for i,_ := range reteWorkspace.outTables {
+			log.Printf("   - %s\n",reteWorkspace.outTables[i])
+		}
 	}
 	// Add range rdf type to data properties used in mapping spec
 	pm := processInput.processInputMapping // pm: ProcessMapSlice from process_config.go

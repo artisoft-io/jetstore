@@ -39,7 +39,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
   this->lookup_data_db_ = lookup_data_db;
   std::filesystem::path p(this->jetrule_rete_db_);
   if(not std::filesystem::exists(p)) {
-    LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: Invalid argument jetrule_rete_db: '" <<
+    LOG(ERROR) << "Load Workspace DB: ERROR: Invalid argument jetrule_rete_db: '" <<
       this->jetrule_rete_db_<<"' database does not exists.";
     return -1;
   }
@@ -47,17 +47,24 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
   int err = 0;
   err = sqlite3_open(this->jetrule_rete_db_.c_str(), &this->db_);
   if( err ) {
-    LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: Can't open database: '" <<
+    LOG(ERROR) << "Load Workspace DB: ERROR: Can't open database: '" <<
       this->jetrule_rete_db_<<"', error:" << sqlite3_errmsg(this->db_);
     return err;
   }
 
   // Load all resources
   err = this->load_resources();
-  if(err) return err;
+  if(err) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while loading resources";
+    return err;
+  }
 
   // load the rete config for main_rule
-  this->load_workspace_control();
+  err = this->load_workspace_control();
+  if(err) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while loading workspace control table";
+    return err;
+  }
 
   // load RetaMetaStores configurations
   this->ms_map_.clear();
@@ -67,40 +74,49 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
   // Prepared statement for MetaStore node vertexes
   auto const* node_vertexes_sql = "SELECT * FROM rete_nodes "
                     "WHERE source_file_key is ? AND type is 'antecedent' ORDER BY vertex ASC";
-  int res = sqlite3_prepare_v2( this->db_, node_vertexes_sql, -1, &this->node_vertexes_stmt_, 0 );
-  if ( res != SQLITE_OK ) {
-    return res;
+  err = sqlite3_prepare_v2( this->db_, node_vertexes_sql, -1, &this->node_vertexes_stmt_, 0 );
+  if ( err != SQLITE_OK ) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while preparing statement";
+    return err;
   }
   // Prepared statement for MetaStore alpha nodes
   auto const* alpha_nodes_sql = "SELECT * FROM rete_nodes "
                     "WHERE source_file_key is ? ORDER BY key ASC";
-  res = sqlite3_prepare_v2( this->db_, alpha_nodes_sql, -1, &this->alpha_nodes_stmt_, 0 );
-  if ( res != SQLITE_OK ) {
-    return res;
+  err = sqlite3_prepare_v2( this->db_, alpha_nodes_sql, -1, &this->alpha_nodes_stmt_, 0 );
+  if ( err != SQLITE_OK ) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while preparing statement";
+    return err;
   }
   // Prepare the statement for expressions table
   auto const* expr_sql = "SELECT * FROM expressions WHERE key = ?";
-  res = sqlite3_prepare_v2( this->db_, expr_sql, -1, &this->expr_stmt_, 0 );
-  if ( res != SQLITE_OK ) {
-    return res;
+  err = sqlite3_prepare_v2( this->db_, expr_sql, -1, &this->expr_stmt_, 0 );
+  if ( err != SQLITE_OK ) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while preparing statement";
+    return err;
   }
   // Prepare the statement for beta_row_config table
   auto const* br_sql = 
     "SELECT * FROM beta_row_config WHERE vertex = ? AND source_file_key = ? ORDER BY seq ASC";
-  res = sqlite3_prepare_v2( this->db_, br_sql, -1, &this->br_stmt_, 0 );
-  if ( res != SQLITE_OK ) {
-    return res;
+  err = sqlite3_prepare_v2( this->db_, br_sql, -1, &this->br_stmt_, 0 );
+  if ( err != SQLITE_OK ) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while preparing statement";
+    return err;
   }
 
   // load meta data triples
-  res = this->load_meta_triples();
-  if(res) {
-    return res;
+  err = this->load_meta_triples();
+  if(err) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while loading meta graph triples";
+    return err;
   }
   
   // Load LookupSqlHelper
   auto lookup_sql_helper = create_lookup_sql_helper(this->jetrule_rete_db_, this->lookup_data_db_);
-  lookup_sql_helper->initialize(this->meta_graph_.get());
+  err = lookup_sql_helper->initialize(this->meta_graph_.get());
+  if(err) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while initializing lookup helper";
+    return err;
+  }
 
   // Load each main rule file as a ReteMetaStore
   for(auto const& item: this->jr_map_) {
@@ -108,23 +124,33 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
 
     // Load the node_vertexes
     NodeVertexVector node_vertexes;
-    res = this->load_node_vertexes(file_key, node_vertexes);
-    if ( res != SQLITE_OK ) {
-      return res;
+    err = this->load_node_vertexes(file_key, node_vertexes);
+    if ( err != SQLITE_OK ) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while loading node vertexes";
+      return err;
     }
 
     // Load the alpha nodes
     AlphaNodeVector alpha_nodes;
-    res = this->load_alpha_nodes(file_key, node_vertexes, alpha_nodes);
-    if ( res != SQLITE_OK ) {
-      return res;
+    err = this->load_alpha_nodes(file_key, node_vertexes, alpha_nodes);
+    if ( err != SQLITE_OK ) {
+    LOG(ERROR) << "Load Workspace DB: ERROR while loading alpha nodes";
+      return err;
     }
 
     // Create the ReteMetaStore
     // create & initalize the meta store
     auto rete_meta_store = rete::create_rete_meta_store(this->meta_graph_, lookup_sql_helper, alpha_nodes, node_vertexes);
-    rete_meta_store->initialize();
-    this->ms_map_.insert({file_key, rete_meta_store});
+    err = rete_meta_store->initialize();
+    if(err) {
+      LOG(ERROR) << "Load Workspace DB: ERROR while initializing meta store "<<item.first;
+      return err;
+    }
+    auto res = this->ms_map_.insert({file_key, rete_meta_store});
+    if(not res.second) {
+      LOG(ERROR) << "Load Workspace DB: ERROR meta store duplicated?"<<item.first;
+      return err;
+    }
   }
 
   // All good!, release the stmts and db connection

@@ -66,6 +66,11 @@ func LoadReteWorkspace(
 	return &reteWorkspace, err
 }
 
+// Terminate the c++ allocated resources
+func (rw *ReteWorkspace) Release() error {
+	return rw.js.ReleaseJetRules()
+}
+
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
 	dbpool *pgxpool.Pool,
@@ -147,10 +152,21 @@ func (rw *ReteWorkspace) ExecuteRules(
 					return &result, fmt.Errorf("while parsing $max_looping value as int: %v", err)
 				}
 			}
+			if nloop > 0 {
+				// log.Println("looping in use, max number of loops is ",nloop)
+				rdfSession.Insert(ri.jets__istate, ri.rdf__type, ri.jets__state)
+			}
 			// do for iloop <= maxloop (since loop start at one!)
 			for iloop=0; iloop <= nloop; iloop++ {
-				if glogv > 3 {
+				if glogv > 1 {
 					log.Println("Calling Execute Rules, loop:",iloop,", session count:", session_count,", for ruleset:",ruleset, ", with grouping key:", groupingKey.String)
+				}
+				if iloop > 0 {
+					r, err := reteSession.NewIntLiteral(int(iloop))
+					if err != nil {
+						return &result, fmt.Errorf("while NewIntLiteral for loop %s: %v", ruleset, err)
+					}		
+					rdfSession.Insert(ri.jets__istate, ri.jets__loop, r)
 				}
 				msg, err := reteSession.ExecuteRules()
 				if err != nil {
@@ -164,6 +180,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				}
 				// CHECK for jets__terminate and jets__exception
 				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err!=nil {
+					// fmt.Println("Rete Session Looping Completed")
 					break
 				}
 			}
@@ -205,12 +222,14 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			for !ctor.IsEnd() {
 				subject := ctor.GetSubject()
-				// log.Println("Found entity with subject:",subject.AsText())
 				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
 				ncol := len(tableSpec.Columns)
+				// stxt,_ := subject.AsText()
+				// log.Println("Found entity with subject:",stxt, "with",ncol,"columns")
 				entityRow := make([]interface{}, ncol)
 				for i:=0; i<ncol; i++ {
 					domainColumn := &tableSpec.Columns[i]
+					// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 					switch domainColumn.ColumnName {
 					case "session_id":
 						entityRow[i] = sid

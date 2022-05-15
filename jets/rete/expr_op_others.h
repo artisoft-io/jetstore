@@ -62,13 +62,40 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
   BetaRow const* br;
 };
 
+// LookupRandVisitor
+// --------------------------------------------------------------------------------------
+// Visitor used to lookup table by random key
+struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  explicit
+  LookupRandVisitor(ReteSession * rs, BetaRow const* br): rs(rs){}
+  template<class T> RDFTTYPE operator()(T) const{return rdf::Null();}
+  RDFTTYPE operator()(rdf::NamedResource const&v)const{return this->lookup(v.name);}
+  RDFTTYPE operator()(rdf::LString       const&v)const{return this->lookup(v.data);}
+  
+  RDFTTYPE lookup(std::string const& lookup_tbl)const
+  {
+    RDFTTYPE out;
+    auto helper = this->rs->rule_ms()->get_lookup_sql_helper();
+    if(not helper) {
+      RETE_EXCEPTION("Invalid lookup helper! Arguments: ("<<lookup_tbl<<")");
+    }
+    if(helper->lookup_rand(this->rs, lookup_tbl, &out)) {
+      return {};
+    }
+    return out;
+  }
+
+  ReteSession * rs;
+};
+
 // MultiLookupVisitor
 // --------------------------------------------------------------------------------------
 struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup rand: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->multi_lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
@@ -100,13 +127,38 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
   BetaRow const* br;
 };
 
+// MultiLookupRandVisitor
+// --------------------------------------------------------------------------------------
+struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
+  MultiLookupRandVisitor(ReteSession * rs, BetaRow const* ): rs(rs) {}
+  template<class T> RDFTTYPE operator()(T) const{return rdf::Null();}
+  RDFTTYPE operator()(rdf::NamedResource const&v)const{return this->lookup(v.name);}
+  RDFTTYPE operator()(rdf::LString       const&v)const{return this->lookup(v.data);}
+  
+  RDFTTYPE lookup(std::string const& lookup_tbl)const
+  {
+    RDFTTYPE out;
+    auto helper = this->rs->rule_ms()->get_lookup_sql_helper();
+    if(not helper) {
+      RETE_EXCEPTION("Invalid lookup helper! Arguments: ("<<lookup_tbl<<")");
+    }
+    if(helper->multi_lookup_rand(this->rs, lookup_tbl, &out)) {
+      return {};
+    }
+    return out;
+  }
+
+  ReteSession * rs;
+};
+
 // ToTypeOfOperator
 // --------------------------------------------------------------------------------------
 // Visitor used by ToTypeOfOperator to determine the rhs data type (return -1 if not valid type)
 struct DataTypeVisitor: public boost::static_visitor<int>
 {
-  explicit
-  DataTypeVisitor(ReteSession * rs): rs(rs){}
+  DataTypeVisitor(ReteSession * rs, BetaRow const* ): rs(rs){}
   int operator()(rdf::RDFNull       const& )const{return rdf::rdf_null_t;}
   int operator()(rdf::BlankNode     const&v)const{return rdf::rdf_blank_node_t;}
   int operator()(rdf::NamedResource const&v)const{return this->rs->rule_ms()->get_lookup_sql_helper()->type_of(this->rs, v.name);}
@@ -240,7 +292,7 @@ struct ToTypeOfOperator
   // This operator is used as: value cast_to type where type is a rdf data type as a text or int literal corresponding to the data type
   ToTypeOfOperator(ReteSession * rs, BetaRow const* br, rdf::r_index lhs, rdf::r_index rhs): rs(rs), br(br), lhs_(lhs), rhs_(rhs) 
   {
-    DataTypeVisitor visitor(this->rs);
+    DataTypeVisitor visitor(this->rs, br);
     this->type_ = boost::apply_visitor(visitor, *rhs);
   }
 
