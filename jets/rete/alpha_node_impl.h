@@ -48,9 +48,9 @@ class AlphaNodeImpl: public AlphaNode {
   {}
 
   /**
-   * @brief Register ReteCallBack functions to inferred rdf graph
+   * @brief Register ReteCallBack functions to asserted and inferred rdf graphs
    * 
-   * Register ReteCallBack functions to inferred rdf graph
+   * Register ReteCallBack functions to asserted and inferred rdf graphs
    * 
    * To regester the callback functions, need to spell out each case:
    * (*, *, *)
@@ -71,9 +71,11 @@ class AlphaNodeImpl: public AlphaNode {
     rdf::r_index u = fu_.to_cst();
     rdf::r_index v = fv_.to_cst();
     rdf::r_index w = fw_.to_cst();
-    VLOG(5)<<"AlphaNode::register callback @ alpha node "<<get_key()<<" for vertex "<<vertex<<" with pattern "<<rdf::Triple(u, v, w);
-    rete_session->rdf_session()->inferred_graph()->register_callback(
-      create_rete_callback(rete_session, vertex, u, v, w));
+    VLOG(4)<<"AlphaNode::register callback @ alpha node "<<get_key()<<" for vertex "<<vertex<<" with pattern "<<rdf::Triple(u, v, w);
+    auto * rdf_session_p = rete_session->rdf_session();
+    auto cb = create_rete_callback(rete_session, vertex, u, v, w);
+    rdf_session_p->asserted_graph()->register_callback(cb);
+    rdf_session_p->inferred_graph()->register_callback(cb);
     return 0;
   }
 

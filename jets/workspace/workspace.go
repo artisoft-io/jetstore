@@ -52,6 +52,23 @@ func (workspaceDb *WorkspaceDb) Close() {
 	}
 }
 
+// GetTableName: Get the table name of the workspace
+func (workspaceDb *WorkspaceDb) GetTableNames() ([]string, error) {
+	var tableNames []string
+	rows, err := workspaceDb.db.Query("SELECT name FROM domain_tables")
+	if err != nil {
+		return tableNames, fmt.Errorf("while getting domain table names: %v", err)
+	}
+	tableNames = make([]string, 0)
+	defer rows.Close()
+	for rows.Next() { 
+		var tblName string
+		rows.Scan(&tblName)
+		tableNames = append(tableNames, tblName)
+	}
+	return tableNames, nil
+}
+
 // GetRangeDataType: Get the data type for the range of the dataProperty arg
 func (workspaceDb *WorkspaceDb) GetRangeDataType(dataProperty string) (string, error) {
 	if strings.HasPrefix(dataProperty, "_0:") {

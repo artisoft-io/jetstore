@@ -320,7 +320,7 @@ class RDFSession {
 
   // insert triple (s, p, o), returns 1 if inserted zero otherwise
   inline int
-  insert(r_index s, r_index p, r_index o /*, bool notify_listners=true */)
+  insert(r_index s, r_index p, r_index o)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
@@ -331,7 +331,7 @@ class RDFSession {
       this->inferred_graph()->erase(s, p, o);
     }
     VLOG(4)<<"INSERT ("<< s <<", "<< p <<", " << o <<")";
-    return asserted_graph_->insert(s, p, o /*, notify_listners */);
+    return asserted_graph_->insert(s, p, o);
   }
 
   // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
@@ -418,7 +418,7 @@ class RDFSession {
 
   // insert triple (s, p, o), returns 1 if inserted zero otherwise
   inline int
-  insert_inferred(r_index s, r_index p, r_index o /*, bool notify_listners=true */)
+  insert_inferred(r_index s, r_index p, r_index o)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::insert: trying to insert a triple with a NULL ptr index (" 
@@ -427,7 +427,7 @@ class RDFSession {
     }
     if(this->asserted_graph()->contains(s, p, o)) return 0;
     VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
-    return inferred_graph_->insert(s, p, o /*, notify_listners */);
+    return inferred_graph_->insert(s, p, o);
   }
 
   // insert triple (Triple(s, p, o)), returns 1 if inserted zero otherwise
@@ -477,7 +477,7 @@ class RDFSession {
   // retract triple (s, p, o) from inferred graph, reducing the reference count,
   //  return 1 if actually erased (ref count == 0)
   inline int
-  retract(r_index s, r_index p, r_index o /*, bool notify_listners=true */ )
+  retract(r_index s, r_index p, r_index o)
   {
     if(!s or !p or !o) {
       LOG(ERROR) << "RDFSession::erase: trying to erase a triple with a NULL ptr index (" 
@@ -485,7 +485,7 @@ class RDFSession {
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     VLOG(4)<<"RETRACT ("<< s <<", "<< p <<", " << o <<")";
-    return inferred_graph_->retract(s, p, o /*, notify_listners */);
+    return inferred_graph_->retract(s, p, o);
   }
 
   inline int

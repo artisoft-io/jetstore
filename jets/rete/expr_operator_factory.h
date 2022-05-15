@@ -97,6 +97,10 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "is_literal")        return create_expr_unary_operator<IsLiteralVisitor>(key, arg);
   if(op == "is_resource")       return create_expr_unary_operator<IsResourceVisitor>(key, arg);
 
+  // Lookup operators (in expr_op_others.h)
+  if(op == "lookup_rand")       return create_expr_unary_operator<LookupRandVisitor>(key, arg);
+  if(op == "multi_lookup_rand") return create_expr_unary_operator<MultiLookupRandVisitor>(key, arg);
+
   LOG(ERROR) << "create_unary_expr: ERROR unknown unary operator: "<<
     op<<", called with key "<<key;
   RETE_EXCEPTION("create_unary_expr: ERROR unknown unary operator: "<<

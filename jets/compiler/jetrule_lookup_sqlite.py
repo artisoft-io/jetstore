@@ -184,7 +184,7 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # Get column names and types for schema creation
   def _get_lookup_column_schema(self, lookup_table_columns: list[dict]) -> str: 
-        column_schema = ',\n'.join([x['name'] + '  ' +  self._convert_jetrule_type(x['type']) for x in  lookup_table_columns])
+        column_schema = ',\n'.join(['"'+x['name'] + '"  ' +  self._convert_jetrule_type(x['type']) for x in  lookup_table_columns])
         return column_schema
 
 

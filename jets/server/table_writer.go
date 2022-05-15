@@ -38,13 +38,12 @@ func (wt *WriteTableSource) Err() error {
 // DomainTable methods for writing output entity records to postgres
 func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *workspace.DomainTable) (*WriteTableResult, error) {
 	var result WriteTableResult
-	log.Println("Write Table Started")
 	// prepare sql -- get a slice of the columns
 	var columns []string
 	for i := range domainTable.Columns {
 		columns = append(columns, domainTable.Columns[i].ColumnName)
 	}
-	fmt.Println("NBR OF COLUMNS",len(columns))
+	log.Println("Write Table Started for", domainTable.TableName, "with", len(columns), "columns")
 
 	recCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{domainTable.TableName}, columns, wt)
 	if err != nil {

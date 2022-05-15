@@ -14,6 +14,7 @@
 #include <list>
 #include <vector>
 #include <unordered_map>
+#include <random>
 
 #include "sqlite3.h"
 
@@ -32,7 +33,8 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // Utility Classes & Functions
 // --------------------------------------------------------------------------------------
-inline std::string to_table_name(std::string const& resource_name)
+inline 
+std::string to_table_name(std::string const& resource_name)
 {
   std::string str;
   str.reserve(resource_name.size()+5);
@@ -44,11 +46,30 @@ inline std::string to_table_name(std::string const& resource_name)
   return str;
 }
 
-// DBConnectionPool - Manage a connection pool with a single compiled statement
+inline
+int run_count_statement( sqlite3 * db, std::string sql )
+{
+  sqlite3_stmt* stmt;
+  int res = sqlite3_prepare_v2( db, sql.data(), -1, &stmt, 0 );
+  if ( res != SQLITE_OK )
+    return -1;
+
+  res = sqlite3_step( stmt );
+  if ( res != SQLITE_ROW )
+    return -1;
+
+  int count = sqlite3_column_int( stmt, 0 );
+  sqlite3_finalize( stmt );
+  return count;
+}
+
+
+// DBConnectionPool - Manage a connection pool with 2 compiled statements, stmt1 & stmt2
 // ------------------------------------------------------------------------------------
 struct DBConnection {
   sqlite3 *     db{nullptr};
-  sqlite3_stmt* stmt{nullptr};
+  sqlite3_stmt* stmt1{nullptr};
+  sqlite3_stmt* stmt2{nullptr};
 };
 using LCPool = std::list<DBConnection>;
 
@@ -57,15 +78,22 @@ class DBConnectionPool {
   explicit
   DBConnectionPool(std::string_view db_path)
     : db_path_(db_path),
-    sql_(),
+    sql1_(),
+    sql2_(),
     mutex_(),
     pool_()
   {}
 
-  int initialize(std::string sql)
+  int initialize(std::string sql1, std::string sql2)
   {
-    if(sql.empty()) return -1;
-    this->sql_ = std::move(sql);
+    if(not sql1.empty()) {
+      this->sql1_ = std::move(sql1);
+    }
+    if(not sql2.empty()) {
+      this->sql2_ = std::move(sql2);
+    }
+    VLOG(2) << "Lookup Connection Pool initialize with statements " << this->sql1_
+      <<" and " << this->sql2_;
     return 0;
   }
 
@@ -80,15 +108,27 @@ class DBConnectionPool {
     if(this->pool_.empty()) {
       // setup a new connection
       DBConnection lc;
+      lc.stmt1 = nullptr;
+      lc.stmt2 = nullptr;
       int err = sqlite3_open(this->db_path_.c_str(), &lc.db);
       if( err ) {
         LOG(ERROR) << "DBConnection::get_connection: ERROR: Can't open database: '" <<
           this->db_path_<<"' as db_path, error:" << sqlite3_errmsg(lc.db);
         return {};
       }
-      err = sqlite3_prepare_v2( lc.db, this->sql_.c_str(), -1, &lc.stmt, 0 );
-      if ( err != SQLITE_OK ) {
-        return {};
+      if(not this->sql1_.empty()) {
+        err = sqlite3_prepare_v2( lc.db, this->sql1_.c_str(), -1, &lc.stmt1, 0 );
+        if ( err != SQLITE_OK ) {
+          LOG(ERROR) << "DBConnection::get_connection: ERROR: Can't prepare sql1: " << this->sql1_;
+          return {};
+        }
+      }
+      if(not this->sql2_.empty()) {
+        err = sqlite3_prepare_v2( lc.db, this->sql2_.c_str(), -1, &lc.stmt2, 0 );
+        if ( err != SQLITE_OK ) {
+          LOG(ERROR) << "DBConnection::get_connection: ERROR: Can't prepare sql2: " << this->sql2_;
+          return {};
+        }
       }
       return lc;
     }
@@ -107,10 +147,14 @@ class DBConnectionPool {
   int terminate()
   {
     int err = 0;
-    //*
-    std::cout<<"::"<<this->db_path_<<" | TERM @ "<<this->pool_.size()<<" |"<<this->sql_<<std::endl;
+    VLOG(2)<<"DB Pool Terminate called, pool size is "<<this->pool_.size()<<" for statement "<<this->sql1_<<std::endl;
     for(auto info: this->pool_) {
-      sqlite3_finalize( info.stmt );
+      if(not this->sql1_.empty()) {
+        sqlite3_finalize( info.stmt1 );
+      }
+      if(not this->sql2_.empty()) {
+        sqlite3_finalize( info.stmt2 );
+      }
       int xerr = sqlite3_close_v2( info.db );
       if ( xerr != SQLITE_OK ) {
         err = xerr;
@@ -122,7 +166,8 @@ class DBConnectionPool {
 
  private:
   std::string         db_path_;
-  std::string         sql_;
+  std::string         sql1_;
+  std::string         sql2_;
   mutable std::mutex  mutex_;
   LCPool              pool_;
 };
@@ -144,13 +189,16 @@ class LookupTable {
     cache_uri_(nullptr),
     subject_prefix_("jets:"),
     db_pool_(lookup_db_path),
-    columns_()
+    columns_(),
+    max_key_(0),
+    rand_eng_(),
+    uniform_dist_()
   {
     this->cache_uri_ = this->meta_graph_->rmgr()->create_resource(this->lookup_name_);
     this->subject_prefix_.append(this->lookup_name_).push_back(':');
   }
 
-  int initialize(sqlite3 * workspace_db)
+  int initialize(sqlite3 * workspace_db, sqlite3 * lookup_db)
   {
     if(not meta_graph_ or not workspace_db) {
       LOG(ERROR) << "LookupTable::initialize: ERROR: Arguments meta_graph and workspace_db are required";
@@ -158,6 +206,8 @@ class LookupTable {
     }
     int err = 0;
     char * err_msg = 0;
+    auto lookup_table_name = to_table_name(this->lookup_name_);
+    // Get the columns info
     std::string sql = "SELECT name, type, as_array from lookup_columns WHERE lookup_table_key = ";
     sql += std::to_string(this->lookup_key_);
     err = sqlite3_exec(workspace_db, sql.c_str(), ::lookup_column_cb, (void*)this, &err_msg);
@@ -167,26 +217,37 @@ class LookupTable {
       return err;
     }
 
+    // Get table's max key
+    sql = "SELECT MAX(__key__) FROM " + lookup_table_name;
+    this->max_key_ = run_count_statement(lookup_db, sql);
+    if(this->max_key_ < 0) {
+      LOG(ERROR) << "LookupTable::initialize: ERROR while getting last key of lookup table "<<lookup_table_name;
+      return -1;
+    }
+    VLOG(3)<<"Lookup table "<<this->lookup_name_<<" max __key__ is "<<this->max_key_<<std::endl;
+
+    // Prepare for random lookup
+    this->uniform_dist_ = std::uniform_int_distribution<int>(0, this->max_key_);
+
     // Create statement and cnx pool
     std::ostringstream sqlb("SELECT ", std::ios_base::ate);
     bool is_first = true;
     for(auto const& colinfo: this->columns_) {
       if(not is_first) sqlb << ", ";
       is_first = false;
-      sqlb << rdf::get_name(colinfo.first);
+      sqlb << "\""<< rdf::get_name(colinfo.first) << "\"";
     }
-    sqlb << " FROM " << to_table_name(this->lookup_name_);
-    sqlb << " WHERE jets__key = ?";
-
-    err = this->db_pool_.initialize(sqlb.str());
+    sqlb << " FROM \"" << lookup_table_name << "\" WHERE ";
+    auto str = sqlb.str();
+    err = this->db_pool_.initialize(str+"\"jets__key\" = ?", str+"__key__ = ?");
     if(err) {
       LOG(ERROR) << "LookupTable::initialize: ERROR while initializing DBConnectionPool";
       return err;
     }
     auto lc = this->db_pool_.get_connection();
-    if(not lc.db or not lc.stmt) {
+    if(not lc.db or (not lc.stmt1 and not lc.stmt2)) {
       LOG(ERROR) << "LookupTable::initialize: ERROR while initializing first connection in DBConnectionPool";
-      return -1;
+      return -100;
     }
     this->db_pool_.put_connection(lc);
     LOG(INFO) << "LookupTable '" << this->lookup_name_ <<"' initialized";
@@ -207,9 +268,21 @@ class LookupTable {
   }
 
   inline
+  int lookup_rand(ReteSession * rete_session, RDFTTYPE * out)
+  {
+    return this->lookup_internal_rand(rete_session, false, out);
+  }
+
+  inline
   int multi_lookup(ReteSession * rete_session, std::string const& key, RDFTTYPE * out)
   {
     return this->lookup_internal(rete_session, true, key, out);
+  }
+
+  inline
+  int multi_lookup_rand(ReteSession * rete_session, RDFTTYPE * out)
+  {
+    return this->lookup_internal_rand(rete_session, true, out);
   }
 
   inline
@@ -226,16 +299,21 @@ class LookupTable {
  protected:
 
   int lookup_internal(ReteSession * rete_session, bool is_multi, std::string const& key, RDFTTYPE * out);
+  int lookup_internal_rand(ReteSession * rete_session, bool is_multi, RDFTTYPE * out);
+  int lookup_internal_c(ReteSession * rete_session, bool is_multi, rdf::r_index subject, std::string const& key, sqlite3_stmt* stmt, RDFTTYPE * out);
 
  private:
 
-  rdf::RDFGraph *     meta_graph_;
-  int                 lookup_key_;
-  std::string         lookup_name_;
-  rdf::r_index        cache_uri_;
-  std::string         subject_prefix_;
-  DBConnectionPool    db_pool_;
-  LookupInfoV         columns_;
+  rdf::RDFGraph *                    meta_graph_;
+  int                                lookup_key_;
+  std::string                        lookup_name_;
+  rdf::r_index                       cache_uri_;
+  std::string                        subject_prefix_;
+  DBConnectionPool                   db_pool_;
+  LookupInfoV                        columns_;
+  int                                max_key_;
+  std::default_random_engine         rand_eng_;
+  std::uniform_int_distribution<int> uniform_dist_;
 };
 
 inline LookupTablePtr 
@@ -266,11 +344,11 @@ class TypeOf {
       return -1;
     }
     // Create statement and cnx pool
-    this->db_pool_.initialize("SELECT type, as_array FROM data_properties WHERE name = ?");
+    this->db_pool_.initialize("SELECT type, as_array FROM data_properties WHERE name = ?", "");
 
     // setup the first connection to make sure we can open it
     auto lc = this->db_pool_.get_connection();
-    if(not lc.db or not lc.stmt) return -1;
+    if(not lc.db or not lc.stmt1) return -100;
     this->db_pool_.put_connection(lc);
     return 0;
   }
@@ -278,8 +356,6 @@ class TypeOf {
   // close connection pool
   int terminate()
   {
-    // //*
-    // std::cout <<"TypeOf TERMINATE CALLED, pool size: "<<this->db_pool_.size() << std::endl;
     return this->db_pool_.terminate();
   }
 
@@ -288,19 +364,19 @@ class TypeOf {
   {
     // Get the db connection and bind it to the key
     auto lc = this->db_pool_.get_connection();
-    int err = sqlite3_reset(lc.stmt);
+    int err = sqlite3_reset(lc.stmt1);
+    if( err != SQLITE_OK ) return -100;
+
+    err = sqlite3_bind_text(lc.stmt1, 1, data_property.c_str(), data_property.size(), nullptr);
     if( err != SQLITE_OK ) return -1;
 
-    err = sqlite3_bind_text(lc.stmt, 1, data_property.c_str(), data_property.size(), nullptr);
-    if( err != SQLITE_OK ) return -1;
-
-    err = sqlite3_step( lc.stmt );
+    err = sqlite3_step( lc.stmt1 );
     if ( err != SQLITE_ROW ) {
       LOG(ERROR)<<"TypeOf::type_of: ERROR Unknown Data Property: "<<data_property;
       return -1;
     }
 
-    int type = rdf::type_name2which((char*)sqlite3_column_text(lc.stmt, 0));
+    int type = rdf::type_name2which((char*)sqlite3_column_text(lc.stmt1, 0));
     this->db_pool_.put_connection(lc);
     return type;
   }
@@ -360,15 +436,31 @@ class LookupSqlHelper {
     // Prepare the LookupTable that will cast the retured columns
     err = 0;
     auto rmgr = meta_graph->rmgr();
+    // open a connection to lookup_db to get max(__key__) during initialization
+    sqlite3 * lkdb;
+    err = sqlite3_open(this->lookup_db_path_.c_str(), &lkdb);
+    if( err ) {
+      LOG(ERROR) << "LookupSqlHelper::initialize: ERROR: Can't open lookup database: '" <<
+        this->lookup_db_path_<<"' as lookup_db, error:" << sqlite3_errmsg(lkdb);
+      return err;
+    }
     for(auto const& info: this->lookup_tbl_info_) {
       auto l = create_lookup_table(meta_graph, info.first, info.second, this->lookup_db_path_);
       this->lookup_tbl_map_.insert({info.second, l});
-      int xerr = l->initialize(this->workspace_db_);
+      int xerr = l->initialize(this->workspace_db_, lkdb);
       if(xerr) {
         err = xerr;
         LOG(ERROR) << "LookupSqlHelper::initialize: ERROR while initializing LookupTable: " << info.second;
       }
     }
+    int err2 = 0;
+    if(lkdb) {
+      err2 = sqlite3_close_v2( lkdb );
+      if ( err2 != SQLITE_OK ) {
+        LOG(ERROR) << "ERROR while closing lookup_db connection, code: "<<err;
+      }
+    }
+    if( err2 ) return err2;
     if( err ) return err;
 
     // Prepare the type_of struct for casting
@@ -391,6 +483,17 @@ class LookupSqlHelper {
   }
 
   inline
+  int lookup_rand(ReteSession * rete_session, std::string const& lookup_tbl, RDFTTYPE * out) const
+  {
+    auto itor = this->lookup_tbl_map_.find(lookup_tbl);
+    if(itor == this->lookup_tbl_map_.end()) {
+      LOG(ERROR) << "LookupSqlHelper::lookup: ERROR LookupTable not found: " << lookup_tbl;
+      return -1;
+    }
+    return itor->second->lookup_rand(rete_session, out);
+  }
+
+  inline
   int multi_lookup(ReteSession * rete_session, std::string const& lookup_tbl, std::string const& key, RDFTTYPE * out) const
   {
     auto itor = this->lookup_tbl_map_.find(lookup_tbl);
@@ -399,6 +502,17 @@ class LookupSqlHelper {
       return -1;
     }
     return itor->second->multi_lookup(rete_session, key, out);
+  }
+
+  inline
+  int multi_lookup_rand(ReteSession * rete_session, std::string const& lookup_tbl, RDFTTYPE * out) const
+  {
+    auto itor = this->lookup_tbl_map_.find(lookup_tbl);
+    if(itor == this->lookup_tbl_map_.end()) {
+      LOG(ERROR) << "LookupSqlHelper::lookup: ERROR LookupTable not found: " << lookup_tbl;
+      return -1;
+    }
+    return itor->second->multi_lookup_rand(rete_session, out);
   }
 
   inline
@@ -416,6 +530,12 @@ class LookupSqlHelper {
       if( xerr ) {
         err = xerr;
         LOG(ERROR) << "LookupSqlHelper::terminate: ERROR while terminating LookupTable: " << info.first;
+      }
+    }
+    if(this->workspace_db_) {
+      err = sqlite3_close_v2( this->workspace_db_ );
+      if ( err != SQLITE_OK ) {
+        LOG(ERROR) << "LookupTable::terminate: ERROR while closing rete_db connection, code: "<<err;
       }
     }
     return err;
