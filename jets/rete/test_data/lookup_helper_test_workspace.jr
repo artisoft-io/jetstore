@@ -43,14 +43,3 @@ lookup_table acme:ProcedureLookup {
     "EXCL" as bool
   ]
 };
-
-# # Corresponding lookup table for lookup data
-# CREATE TABLE "acme__procedurelookup" (
-# 	"__key__"	INTEGER,
-# 	"jets__key"	TEXT,
-# 	"EVENT_DURATION"	INTEGER,
-# 	"PROC_RID"	INTEGER,
-# 	"FROM_DATE"	TEXT,
-# 	"EXCL"	INTEGER,
-# 	PRIMARY KEY("__key__")
-# );

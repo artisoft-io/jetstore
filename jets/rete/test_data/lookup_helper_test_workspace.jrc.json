@@ -212,7 +212,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "hc__claim__1"
+                "hc:Claim:1"
             ],
             "salience": [
                 100
@@ -226,7 +226,7 @@
             "normalizedLabel": "(?x1 rdf:type owl:Thing)",
             "vertex": 1,
             "consequent_seq": 0,
-            "consequent_for_rule": "hc__claim__1",
+            "consequent_for_rule": "hc:Claim:1",
             "consequent_salience": 100,
             "subject_key": 18,
             "predicate_key": 16,
