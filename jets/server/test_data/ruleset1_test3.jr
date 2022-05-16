@@ -1,0 +1,12 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "support_test3.jr"
+
+[Rule1]:
+  (?claim rdf:type hc:Test_3_Claim).
+  [?claim exist_not hc:provider_zip]
+  ->
+  (?claim hc:is_zip_overwritten 1)
+;
+
