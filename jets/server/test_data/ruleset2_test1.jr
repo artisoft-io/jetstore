@@ -6,9 +6,6 @@ import "support_test1.jr"
 # =======================================================================================
 # Ruleset specific configuration for JetStore
 # ---------------------------------------------------------------------------------------
-jetstore_config {
-  $max_looping = 10
-};
 
 # Rule to augment ndays by a factor 10 if have a service description
 [X1]:

@@ -96,7 +96,7 @@ class JetRuleLookupSQLite:
     lookup_tbl_cursor = self.lookup_connection.cursor()  
 
     try:
-        select_lookup = f'SELECT * FROM {table_name}'
+        select_lookup = f'SELECT * FROM "{table_name}"'
 
         lookup_tbl_cursor.execute(select_lookup)    
         lookup_table = lookup_tbl_cursor.fetchall()
