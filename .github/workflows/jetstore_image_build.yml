@@ -52,7 +52,7 @@ jobs:
         docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker image tag jetstore:bullseye image_to_scan:latest
         docker run --rm -w=/usr/local/bin --entrypoint=jets_test $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        # docker run --rm -w=/usr/local/lib/jets/compiler --entrypoint=python3 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG jetrule_compiler_test.py
+        docker run --rm -w=/usr/local/lib/jets/compiler --entrypoint=python3 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG jetrule_compiler_test.py
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
 
