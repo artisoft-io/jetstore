@@ -17,11 +17,10 @@ class LookupSqlHelperTest : public ::testing::Test {
  protected:
   LookupSqlHelperTest() : factory(), rdf_session(), rete_session() 
   {
-    // int res = factory.load_database("test_data/lookup_helper_test_workspace.db", "test_data/lookup_helper_test_data_by_hand.db");
     int res = factory.load_database("test_data/lookup_helper_test_workspace.db", "test_data/lookup_helper_test_data.db");
     EXPECT_EQ(res, 0);
 
-    // Get the Rete Meta Store
+    // Get the Rete Meta Store 
     meta_store = factory.get_rete_meta_store("lookup_helper_test_workspace.jr");  
     EXPECT_TRUE(meta_store);
 
@@ -31,7 +30,7 @@ class LookupSqlHelperTest : public ::testing::Test {
     this->rete_session = create_rete_session(meta_store, this->rdf_session.get());
     this->rete_session->initialize();
 
-    std::cout<<"Rete Session Initialize Completed!"<<std::endl;
+    // std::cout<<"Rete Session Initialize Completed!"<<std::endl;
   }
 
   ReteMetaStoreFactory factory;
@@ -48,7 +47,7 @@ TEST_F(LookupSqlHelperTest, LookupTest1) {
   // Lookup
   EXPECT_EQ(helper->lookup(rete_session.get(), "acme:ProcedureLookup", "100", &out), 0);
 
-  std::cout<<"Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
+  // std::cout<<"Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
 
   // Verifying we pull stuff correctly from lookup table
   rdf::r_index s = rdf_session->rmgr()->create_resource("jets:acme:ProcedureLookup:100");
@@ -80,7 +79,7 @@ TEST_F(LookupSqlHelperTest, LookupTest2) {
   // Lookup
   EXPECT_EQ(helper->lookup(rete_session.get(), "acme:ProcedureLookup", "100", &out), 0);
 
-  std::cout<<"Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
+  // std::cout<<"Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
 
   // Verifying we pull stuff correctly from lookup table
   rdf::r_index s = rdf_session->rmgr()->create_resource("jets:acme:ProcedureLookup:100");
@@ -116,7 +115,7 @@ TEST_F(LookupSqlHelperTest, MultiLookupTest1) {
   // Multi Lookup
   EXPECT_EQ(helper->multi_lookup(rete_session.get(), "acme:ProcedureLookup", "200", &out), 0);
 
-  std::cout<<"MULTI Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
+  // std::cout<<"MULTI Lookup GOT: "<<rdf::get_name(&out)<<std::endl;
 
   // Verifying we pull stuff correctly from lookup table
   rdf::r_index s = rdf_session->rmgr()->create_resource("jets:acme:ProcedureLookup:200");
@@ -227,7 +226,7 @@ TEST_F(LookupSqlHelperTest, ToTypeOfTest6) {
   rdf::RdfAstType rhs(rdf::LString("date")); 
   ToTypeOfOperator op(this->rete_session.get(), nullptr, &lhs, &rhs);
   rdf::RdfAstType out = op();
-  std::cout<<"*** The Date is: "<<out<<std::endl;
+  // std::cout<<"*** The Date is: "<<out<<std::endl;
   EXPECT_EQ(boost::get<rdf::LDate>(out).data, rdf::parse_date("01/22/2022"));
   EXPECT_EQ(rdf::get_type(&out), 9);
 }
@@ -239,7 +238,7 @@ TEST_F(LookupSqlHelperTest, ToTypeOfTest61) {
   rdf::RdfAstType rhs(rdf::LInt32(9)); 
   ToTypeOfOperator op(this->rete_session.get(), nullptr, &lhs, &rhs);
   rdf::RdfAstType out = op();
-  std::cout<<"*** The Date is: "<<out<<std::endl;
+  // std::cout<<"*** The Date is: "<<out<<std::endl;
   EXPECT_EQ(boost::get<rdf::LDate>(out).data, rdf::parse_date("01/22/2022"));
   EXPECT_EQ(rdf::get_type(&out), 9);
 }
@@ -251,7 +250,7 @@ TEST_F(LookupSqlHelperTest, ToTypeOfTest7) {
   rdf::RdfAstType rhs(rdf::NamedResource("date_of_service")); 
   ToTypeOfOperator op(this->rete_session.get(), nullptr, &lhs, &rhs);
   rdf::RdfAstType out = op();
-  std::cout<<"*** The Date from Named Resource is: "<<out<<std::endl;
+  // std::cout<<"*** The Date from Named Resource is: "<<out<<std::endl;
   EXPECT_EQ(boost::get<rdf::LDate>(out).data, rdf::parse_date("01/22/2022"));
   EXPECT_EQ(rdf::get_type(&out), 9);
 }
@@ -263,7 +262,7 @@ TEST_F(LookupSqlHelperTest, ToTypeOfTest8) {
   rdf::RdfAstType rhs(rdf::NamedResource("count")); 
   ToTypeOfOperator op(this->rete_session.get(), nullptr, &lhs, &rhs);
   rdf::RdfAstType out = op();
-  std::cout<<"*** The count from Named Resource is: "<<out<<std::endl;
+  // std::cout<<"*** The count from Named Resource is: "<<out<<std::endl;
   EXPECT_EQ(boost::get<rdf::LInt32>(out).data, 123);
   EXPECT_EQ(rdf::get_type(&out), 3);
 }
