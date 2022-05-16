@@ -65,7 +65,7 @@ func doJob() error {
 		return fmt.Errorf("while reading volatile resource from workspace db: %v", err)
 	}
 	// get the table definitions from workspace db
-	tableSpecs, err := workspaceMgr.LoadDomainColumnMapping()
+	tableSpecs, err := workspaceMgr.LoadDomainColumnMapping(true, make(map[string]bool))
 	if err != nil {
 		return fmt.Errorf("while loading table definition from workspace db: %v", err)
 	}

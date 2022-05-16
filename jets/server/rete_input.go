@@ -49,7 +49,7 @@ func (ri *ReteInputContext) assertInputRecords(
 		}
 		jetsKey, err := reteSession.NewTextLiteral(jetsKeyStr)
 		if err != nil {
-			return fmt.Errorf("while creating row's jets__key literal (NewTextLiteral): %v", err)
+			return fmt.Errorf("while creating row's jets:key literal (NewTextLiteral): %v", err)
 		}
 		if subject == nil || ri.rdf__type == nil || processInput.entityRdfTypeResource == nil {
 			return fmt.Errorf("ERROR while asserting row rdf type")

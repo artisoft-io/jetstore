@@ -197,7 +197,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 	}
 	
 	// primary index stmt
-	stmt = fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s  (jets__key, session_id, last_update DESC);", 
+	stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  ("jets:key", session_id, last_update DESC);`, 
 		pgx.Identifier{tableName+"_primary_idx"}.Sanitize(),
 		pgx.Identifier{tableName}.Sanitize())
 	if dbpool != nil {

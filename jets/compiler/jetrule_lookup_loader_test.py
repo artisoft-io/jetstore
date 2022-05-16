@@ -25,7 +25,7 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
     self.assertEqual(len(basic_table), 11)  
     self.assertEqual(len(basic_table[0].keys()), 10)  
     self.assertEqual(
-      {'BASIC_TEST_LONG','BASIC_TEST_DATE','jets__key','BASIC_TEST_BOOL','BASIC_TEST_INT','__key__','BASIC_TEST_TEXT','BASIC_TEST_UINT','BASIC_TEST_DOUBLE','BASIC_TEST_ULONG'},
+      {'BASIC_TEST_LONG','BASIC_TEST_DATE','jets:key','BASIC_TEST_BOOL','BASIC_TEST_INT','__key__','BASIC_TEST_TEXT','BASIC_TEST_UINT','BASIC_TEST_DOUBLE','BASIC_TEST_ULONG'},
       set(basic_table[0].keys())
     )  
 
@@ -36,7 +36,7 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
     double_list = [] 
     expected_double_list = [0.5, 0.5, 1.0, 1.1, None, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1]   
     for row in basic_table:
-      self.assertEqual(row['jets__key'],'0')
+      self.assertEqual(row['jets:key'],'0')
       self.assertEqual(row['BASIC_TEST_DATE'],'1-1-2022')
       self.assertEqual(abs(int(row['BASIC_TEST_INT'])),42)
       self.assertEqual(abs(int(row['BASIC_TEST_LONG'])),1549251913000)      
@@ -59,7 +59,7 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
     self.assertEqual(len(composite_table), 2)  
     self.assertEqual(len(composite_table[0].keys()), 8)  
     self.assertEqual(
-      {'jets__key','__key__','COMPOSITE_TEST_KEY_2','COMPOSITE_TEST_INT','COMPOSITE_TEST_TEXT','COMPOSITE_TEST_BOOL','COMPOSITE_TEST_LONG','COMPOSITE_TEST_DATE'},
+      {'jets:key','__key__','COMPOSITE_TEST_KEY_2','COMPOSITE_TEST_INT','COMPOSITE_TEST_TEXT','COMPOSITE_TEST_BOOL','COMPOSITE_TEST_LONG','COMPOSITE_TEST_DATE'},
       set(composite_table[0].keys())
     )  
 
@@ -76,7 +76,7 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
       self.assertEqual(row['COMPOSITE_TEST_KEY_2'],2)
       bool_list.append(row['COMPOSITE_TEST_BOOL']) 
       key_list.append(row['__key__']) 
-      jets_key_list.append(row['jets__key']) 
+      jets_key_list.append(row['jets:key']) 
 
     self.assertEqual(exected_bool_list, bool_list)
     self.assertEqual(expected_key_list, key_list)   

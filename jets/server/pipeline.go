@@ -154,7 +154,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
-	outputMapping, err := workspaceMgr.LoadDomainColumnMapping(outTableFilter)
+	outputMapping, err := workspaceMgr.LoadDomainColumnMapping(false, outTableFilter)
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
 	}	

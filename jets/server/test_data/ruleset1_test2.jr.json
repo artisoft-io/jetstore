@@ -1014,7 +1014,7 @@
                         8
                     ],
                     "rules": [
-                        "aspec__entity__4"
+                        "aspec:Entity:4"
                     ],
                     "salience": [
                         100
@@ -1273,7 +1273,7 @@
                         8
                     ],
                     "rules": [
-                        "aspec__entity__4"
+                        "aspec:Entity:4"
                     ],
                     "salience": [
                         100
@@ -1469,7 +1469,7 @@
                         8
                     ],
                     "rules": [
-                        "aspec__entity__4"
+                        "aspec:Entity:4"
                     ],
                     "salience": [
                         100
@@ -1723,7 +1723,7 @@
                         13
                     ],
                     "rules": [
-                        "asim__entity__5"
+                        "asim:Entity:5"
                     ],
                     "salience": [
                         100
@@ -2043,7 +2043,7 @@
             "label": "[MEC210]:(?patient rdf:type asim:Entity).(?patient patientPersonaRow ?persona_row).(?persona_row asim:persona_key ?persona_key).(?persona_row asim:claim_group_lk_key ?claim_grp1_lk_key).(?persona_row asim:age_group ?age_group).(?persona_row asim:description ?desc) -> (?patient asim:persona_key ?persona_key).(?patient asim:claim_group_key ?claim_grp1_lk_key).(?patient asim:demographic_group ?age_group).(?patient asim:description ?desc);"
         },
         {
-            "name": "jets__entity__1",
+            "name": "jets:Entity:1",
             "properties": {
                 "i": "true"
             },
@@ -2073,7 +2073,7 @@
                     ],
                     "children_vertexes": [],
                     "rules": [
-                        "jets__entity__1"
+                        "jets:Entity:1"
                     ],
                     "salience": [
                         100
@@ -2089,20 +2089,20 @@
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
                     "vertex": 18,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "jets__entity__1",
+                    "consequent_for_rule": "jets:Entity:1",
                     "consequent_salience": 100,
                     "subject_key": 100,
                     "predicate_key": 6,
                     "object_key": 4
                 }
             ],
-            "authoredLabel": "[jets__entity__1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
+            "authoredLabel": "[jets:Entity:1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[jets__entity__1, i=true]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
-            "label": "[jets__entity__1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
+            "normalizedLabel": "[jets:Entity:1, i=true]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets:Entity:1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
         },
         {
-            "name": "jets__state__2",
+            "name": "jets:State:2",
             "properties": {
                 "i": "true"
             },
@@ -2132,7 +2132,7 @@
                     ],
                     "children_vertexes": [],
                     "rules": [
-                        "jets__state__2"
+                        "jets:State:2"
                     ],
                     "salience": [
                         100
@@ -2148,20 +2148,20 @@
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
                     "vertex": 19,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "jets__state__2",
+                    "consequent_for_rule": "jets:State:2",
                     "consequent_salience": 100,
                     "subject_key": 101,
                     "predicate_key": 6,
                     "object_key": 4
                 }
             ],
-            "authoredLabel": "[jets__state__2, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);",
+            "authoredLabel": "[jets:State:2, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[jets__state__2, i=true]:(?x1 rdf:type jets:State) -> (?x1 rdf:type owl:Thing);",
-            "label": "[jets__state__2, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);"
+            "normalizedLabel": "[jets:State:2, i=true]:(?x1 rdf:type jets:State) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets:State:2, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);"
         },
         {
-            "name": "jets__row__3",
+            "name": "jets:Row:3",
             "properties": {
                 "i": "true"
             },
@@ -2191,7 +2191,7 @@
                     ],
                     "children_vertexes": [],
                     "rules": [
-                        "jets__row__3"
+                        "jets:Row:3"
                     ],
                     "salience": [
                         100
@@ -2207,20 +2207,20 @@
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
                     "vertex": 20,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "jets__row__3",
+                    "consequent_for_rule": "jets:Row:3",
                     "consequent_salience": 100,
                     "subject_key": 102,
                     "predicate_key": 6,
                     "object_key": 4
                 }
             ],
-            "authoredLabel": "[jets__row__3, i=true]:(?s1 rdf:type jets:Row) -> (?s1 rdf:type owl:Thing);",
+            "authoredLabel": "[jets:Row:3, i=true]:(?s1 rdf:type jets:Row) -> (?s1 rdf:type owl:Thing);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[jets__row__3, i=true]:(?x1 rdf:type jets:Row) -> (?x1 rdf:type owl:Thing);",
-            "label": "[jets__row__3, i=true]:(?s1 rdf:type jets:Row) -> (?s1 rdf:type owl:Thing);"
+            "normalizedLabel": "[jets:Row:3, i=true]:(?x1 rdf:type jets:Row) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets:Row:3, i=true]:(?s1 rdf:type jets:Row) -> (?s1 rdf:type owl:Thing);"
         },
         {
-            "name": "aspec__entity__4",
+            "name": "aspec:Entity:4",
             "properties": {
                 "i": "true"
             },
@@ -2253,7 +2253,7 @@
                         8
                     ],
                     "rules": [
-                        "aspec__entity__4"
+                        "aspec:Entity:4"
                     ],
                     "salience": [
                         100
@@ -2269,20 +2269,20 @@
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
                     "vertex": 1,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "aspec__entity__4",
+                    "consequent_for_rule": "aspec:Entity:4",
                     "consequent_salience": 100,
                     "subject_key": 78,
                     "predicate_key": 6,
                     "object_key": 4
                 }
             ],
-            "authoredLabel": "[aspec__entity__4, i=true]:(?s1 rdf:type aspec:Entity) -> (?s1 rdf:type owl:Thing);",
+            "authoredLabel": "[aspec:Entity:4, i=true]:(?s1 rdf:type aspec:Entity) -> (?s1 rdf:type owl:Thing);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[aspec__entity__4, i=true]:(?x1 rdf:type aspec:Entity) -> (?x1 rdf:type owl:Thing);",
-            "label": "[aspec__entity__4, i=true]:(?s1 rdf:type aspec:Entity) -> (?s1 rdf:type owl:Thing);"
+            "normalizedLabel": "[aspec:Entity:4, i=true]:(?x1 rdf:type aspec:Entity) -> (?x1 rdf:type owl:Thing);",
+            "label": "[aspec:Entity:4, i=true]:(?s1 rdf:type aspec:Entity) -> (?s1 rdf:type owl:Thing);"
         },
         {
-            "name": "asim__entity__5",
+            "name": "asim:Entity:5",
             "properties": {
                 "i": "true"
             },
@@ -2314,7 +2314,7 @@
                         13
                     ],
                     "rules": [
-                        "asim__entity__5"
+                        "asim:Entity:5"
                     ],
                     "salience": [
                         100
@@ -2330,20 +2330,20 @@
                     "normalizedLabel": "(?x1 rdf:type owl:Thing)",
                     "vertex": 12,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "asim__entity__5",
+                    "consequent_for_rule": "asim:Entity:5",
                     "consequent_salience": 100,
                     "subject_key": 91,
                     "predicate_key": 6,
                     "object_key": 4
                 }
             ],
-            "authoredLabel": "[asim__entity__5, i=true]:(?s1 rdf:type asim:Entity) -> (?s1 rdf:type owl:Thing);",
+            "authoredLabel": "[asim:Entity:5, i=true]:(?s1 rdf:type asim:Entity) -> (?s1 rdf:type owl:Thing);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[asim__entity__5, i=true]:(?x1 rdf:type asim:Entity) -> (?x1 rdf:type owl:Thing);",
-            "label": "[asim__entity__5, i=true]:(?s1 rdf:type asim:Entity) -> (?s1 rdf:type owl:Thing);"
+            "normalizedLabel": "[asim:Entity:5, i=true]:(?x1 rdf:type asim:Entity) -> (?x1 rdf:type owl:Thing);",
+            "label": "[asim:Entity:5, i=true]:(?s1 rdf:type asim:Entity) -> (?s1 rdf:type owl:Thing);"
         },
         {
-            "name": "hc__patient__6",
+            "name": "hc:Patient:6",
             "properties": {
                 "i": "true"
             },
@@ -2373,7 +2373,7 @@
                     ],
                     "children_vertexes": [],
                     "rules": [
-                        "hc__patient__6"
+                        "hc:Patient:6"
                     ],
                     "salience": [
                         100
@@ -2389,20 +2389,20 @@
                     "normalizedLabel": "(?x1 rdf:type jets:Entity)",
                     "vertex": 21,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "hc__patient__6",
+                    "consequent_for_rule": "hc:Patient:6",
                     "consequent_salience": 100,
                     "subject_key": 103,
                     "predicate_key": 6,
                     "object_key": 3
                 }
             ],
-            "authoredLabel": "[hc__patient__6, i=true]:(?s1 rdf:type hc:Patient) -> (?s1 rdf:type jets:Entity);",
+            "authoredLabel": "[hc:Patient:6, i=true]:(?s1 rdf:type hc:Patient) -> (?s1 rdf:type jets:Entity);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[hc__patient__6, i=true]:(?x1 rdf:type hc:Patient) -> (?x1 rdf:type jets:Entity);",
-            "label": "[hc__patient__6, i=true]:(?s1 rdf:type hc:Patient) -> (?s1 rdf:type jets:Entity);"
+            "normalizedLabel": "[hc:Patient:6, i=true]:(?x1 rdf:type hc:Patient) -> (?x1 rdf:type jets:Entity);",
+            "label": "[hc:Patient:6, i=true]:(?s1 rdf:type hc:Patient) -> (?s1 rdf:type jets:Entity);"
         },
         {
-            "name": "hc__claim__7",
+            "name": "hc:Claim:7",
             "properties": {
                 "i": "true"
             },
@@ -2432,7 +2432,7 @@
                     ],
                     "children_vertexes": [],
                     "rules": [
-                        "hc__claim__7"
+                        "hc:Claim:7"
                     ],
                     "salience": [
                         100
@@ -2448,20 +2448,20 @@
                     "normalizedLabel": "(?x1 rdf:type jets:Entity)",
                     "vertex": 22,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "hc__claim__7",
+                    "consequent_for_rule": "hc:Claim:7",
                     "consequent_salience": 100,
                     "subject_key": 104,
                     "predicate_key": 6,
                     "object_key": 3
                 }
             ],
-            "authoredLabel": "[hc__claim__7, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
+            "authoredLabel": "[hc:Claim:7, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[hc__claim__7, i=true]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
-            "label": "[hc__claim__7, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
+            "normalizedLabel": "[hc:Claim:7, i=true]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type jets:Entity);",
+            "label": "[hc:Claim:7, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type jets:Entity);"
         },
         {
-            "name": "hc__simulatedpatient__8",
+            "name": "hc:SimulatedPatient:8",
             "properties": {
                 "i": "true"
             },
@@ -2491,7 +2491,7 @@
                     ],
                     "children_vertexes": [],
                     "rules": [
-                        "hc__simulatedpatient__8"
+                        "hc:SimulatedPatient:8"
                     ],
                     "salience": [
                         100
@@ -2507,7 +2507,7 @@
                     "normalizedLabel": "(?x1 rdf:type jets:Entity)",
                     "vertex": 23,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "hc__simulatedpatient__8",
+                    "consequent_for_rule": "hc:SimulatedPatient:8",
                     "consequent_salience": 100,
                     "subject_key": 105,
                     "predicate_key": 6,
@@ -2518,7 +2518,7 @@
                     "normalizedLabel": "(?x1 rdf:type asim:Entity)",
                     "vertex": 23,
                     "consequent_seq": 1,
-                    "consequent_for_rule": "hc__simulatedpatient__8",
+                    "consequent_for_rule": "hc:SimulatedPatient:8",
                     "consequent_salience": 100,
                     "subject_key": 106,
                     "predicate_key": 6,
@@ -2529,20 +2529,20 @@
                     "normalizedLabel": "(?x1 rdf:type hc:Patient)",
                     "vertex": 23,
                     "consequent_seq": 2,
-                    "consequent_for_rule": "hc__simulatedpatient__8",
+                    "consequent_for_rule": "hc:SimulatedPatient:8",
                     "consequent_salience": 100,
                     "subject_key": 107,
                     "predicate_key": 6,
                     "object_key": 24
                 }
             ],
-            "authoredLabel": "[hc__simulatedpatient__8, i=true]:(?s1 rdf:type hc:SimulatedPatient) -> (?s1 rdf:type jets:Entity).(?s1 rdf:type asim:Entity).(?s1 rdf:type hc:Patient);",
+            "authoredLabel": "[hc:SimulatedPatient:8, i=true]:(?s1 rdf:type hc:SimulatedPatient) -> (?s1 rdf:type jets:Entity).(?s1 rdf:type asim:Entity).(?s1 rdf:type hc:Patient);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[hc__simulatedpatient__8, i=true]:(?x1 rdf:type hc:SimulatedPatient) -> (?x1 rdf:type jets:Entity).(?x1 rdf:type asim:Entity).(?x1 rdf:type hc:Patient);",
-            "label": "[hc__simulatedpatient__8, i=true]:(?s1 rdf:type hc:SimulatedPatient) -> (?s1 rdf:type jets:Entity).(?s1 rdf:type asim:Entity).(?s1 rdf:type hc:Patient);"
+            "normalizedLabel": "[hc:SimulatedPatient:8, i=true]:(?x1 rdf:type hc:SimulatedPatient) -> (?x1 rdf:type jets:Entity).(?x1 rdf:type asim:Entity).(?x1 rdf:type hc:Patient);",
+            "label": "[hc:SimulatedPatient:8, i=true]:(?s1 rdf:type hc:SimulatedPatient) -> (?s1 rdf:type jets:Entity).(?s1 rdf:type asim:Entity).(?s1 rdf:type hc:Patient);"
         },
         {
-            "name": "lk__basepatientpersona__9",
+            "name": "lk:BasePatientPersona:9",
             "properties": {
                 "i": "true"
             },
@@ -2572,7 +2572,7 @@
                     ],
                     "children_vertexes": [],
                     "rules": [
-                        "lk__basepatientpersona__9"
+                        "lk:BasePatientPersona:9"
                     ],
                     "salience": [
                         100
@@ -2588,17 +2588,17 @@
                     "normalizedLabel": "(?x1 rdf:type asim:Entity)",
                     "vertex": 24,
                     "consequent_seq": 0,
-                    "consequent_for_rule": "lk__basepatientpersona__9",
+                    "consequent_for_rule": "lk:BasePatientPersona:9",
                     "consequent_salience": 100,
                     "subject_key": 108,
                     "predicate_key": 6,
                     "object_key": 19
                 }
             ],
-            "authoredLabel": "[lk__basepatientpersona__9, i=true]:(?s1 rdf:type lk:BasePatientPersona) -> (?s1 rdf:type asim:Entity);",
+            "authoredLabel": "[lk:BasePatientPersona:9, i=true]:(?s1 rdf:type lk:BasePatientPersona) -> (?s1 rdf:type asim:Entity);",
             "source_file_name": "support_test2.jr",
-            "normalizedLabel": "[lk__basepatientpersona__9, i=true]:(?x1 rdf:type lk:BasePatientPersona) -> (?x1 rdf:type asim:Entity);",
-            "label": "[lk__basepatientpersona__9, i=true]:(?s1 rdf:type lk:BasePatientPersona) -> (?s1 rdf:type asim:Entity);"
+            "normalizedLabel": "[lk:BasePatientPersona:9, i=true]:(?x1 rdf:type lk:BasePatientPersona) -> (?x1 rdf:type asim:Entity);",
+            "label": "[lk:BasePatientPersona:9, i=true]:(?s1 rdf:type lk:BasePatientPersona) -> (?s1 rdf:type asim:Entity);"
         }
     ],
     "imports": {
@@ -2838,138 +2838,138 @@
     "tables": [
         {
             "type": "table",
-            "table_name": "hc__patient",
+            "table_name": "hc:Patient",
             "class_name": "hc:Patient",
             "columns": [
                 {
                     "type": "date",
                     "as_array": "false",
                     "property_name": "hc:dob",
-                    "column_name": "hc__dob"
+                    "column_name": "hc:dob"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "hc:patient_number",
-                    "column_name": "hc__patient_number"
+                    "column_name": "hc:patient_number"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "jets:key",
-                    "column_name": "jets__key"
+                    "column_name": "jets:key"
                 },
                 {
                     "type": "text",
                     "as_array": "true",
                     "property_name": "rdf:type",
-                    "column_name": "rdf__type"
+                    "column_name": "rdf:type"
                 }
             ],
             "source_file_name": "support_test2.jr"
         },
         {
             "type": "table",
-            "table_name": "hc__claim",
+            "table_name": "hc:Claim",
             "class_name": "hc:Claim",
             "columns": [
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "hc:claim_number",
-                    "column_name": "hc__claim_number"
+                    "column_name": "hc:claim_number"
                 },
                 {
                     "type": "date",
                     "as_array": "false",
                     "property_name": "hc:dos",
-                    "column_name": "hc__dos"
+                    "column_name": "hc:dos"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "hc:member_number",
-                    "column_name": "hc__member_number"
+                    "column_name": "hc:member_number"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "hc:zip",
-                    "column_name": "hc__zip"
+                    "column_name": "hc:zip"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "jets:key",
-                    "column_name": "jets__key"
+                    "column_name": "jets:key"
                 },
                 {
                     "type": "text",
                     "as_array": "true",
                     "property_name": "rdf:type",
-                    "column_name": "rdf__type"
+                    "column_name": "rdf:type"
                 }
             ],
             "source_file_name": "support_test2.jr"
         },
         {
             "type": "table",
-            "table_name": "hc__simulatedpatient",
+            "table_name": "hc:SimulatedPatient",
             "class_name": "hc:SimulatedPatient",
             "columns": [
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "asim:claim_group_key",
-                    "column_name": "asim__claim_group_key"
+                    "column_name": "asim:claim_group_key"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "asim:demographic_group",
-                    "column_name": "asim__demographic_group"
+                    "column_name": "asim:demographic_group"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "asim:description",
-                    "column_name": "asim__description"
+                    "column_name": "asim:description"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "asim:persona_key",
-                    "column_name": "asim__persona_key"
+                    "column_name": "asim:persona_key"
                 },
                 {
                     "type": "date",
                     "as_array": "false",
                     "property_name": "hc:dob",
-                    "column_name": "hc__dob"
+                    "column_name": "hc:dob"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "hc:patient_number",
-                    "column_name": "hc__patient_number"
+                    "column_name": "hc:patient_number"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "hc:run_name",
-                    "column_name": "hc__run_name"
+                    "column_name": "hc:run_name"
                 },
                 {
                     "type": "text",
                     "as_array": "false",
                     "property_name": "jets:key",
-                    "column_name": "jets__key"
+                    "column_name": "jets:key"
                 },
                 {
                     "type": "text",
                     "as_array": "true",
                     "property_name": "rdf:type",
-                    "column_name": "rdf__type"
+                    "column_name": "rdf:type"
                 }
             ],
             "source_file_name": "support_test2.jr"

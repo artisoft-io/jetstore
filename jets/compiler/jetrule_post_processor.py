@@ -101,7 +101,8 @@ class JetRulesPostProcessor:
 
 
   def make_name(self, class_name: str) -> str:
-    return class_name.replace(':', '__').lower()
+    # return class_name.replace(':', '__').lower()
+    return class_name
 
   def make_columns(self, class_item: object) -> Sequence[object]:
     columns = {}

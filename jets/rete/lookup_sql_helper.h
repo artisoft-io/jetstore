@@ -36,14 +36,15 @@ using RDFTTYPE = rdf::RdfAstType;
 inline 
 std::string to_table_name(std::string const& resource_name)
 {
-  std::string str;
-  str.reserve(resource_name.size()+5);
-  for(auto c: resource_name) {
-    if(c == ':') str.append("__");
-    else str.push_back(c);
-  }
-  boost::to_lower(str);
-  return str;
+  // std::string str;
+  // str.reserve(resource_name.size()+5);
+  // for(auto c: resource_name) {
+  //   if(c == ':') str.append("__");
+  //   else str.push_back(c);
+  // }
+  // boost::to_lower(str);
+  // return str;
+  return resource_name;
 }
 
 inline
@@ -218,7 +219,7 @@ class LookupTable {
     }
 
     // Get table's max key
-    sql = "SELECT MAX(__key__) FROM " + lookup_table_name;
+    sql = "SELECT MAX(__key__) FROM \"" + lookup_table_name+"\"";
     this->max_key_ = run_count_statement(lookup_db, sql);
     if(this->max_key_ < 0) {
       LOG(ERROR) << "LookupTable::initialize: ERROR while getting last key of lookup table "<<lookup_table_name;
@@ -239,7 +240,7 @@ class LookupTable {
     }
     sqlb << " FROM \"" << lookup_table_name << "\" WHERE ";
     auto str = sqlb.str();
-    err = this->db_pool_.initialize(str+"\"jets__key\" = ?", str+"__key__ = ?");
+    err = this->db_pool_.initialize(str+"\"jets:key\" = ?", str+"__key__ = ?");
     if(err) {
       LOG(ERROR) << "LookupTable::initialize: ERROR while initializing DBConnectionPool";
       return err;
