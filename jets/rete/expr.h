@@ -1,14 +1,15 @@
 #ifndef JETS_RETE_EXPR_H
 #define JETS_RETE_EXPR_H
 
-#include <boost/variant/detail/apply_visitor_unary.hpp>
 #include <type_traits>
 #include <string>
 #include <memory>
 #include <utility>
 #include <vector>
 
+#include <glog/logging.h>
 #include "boost/variant.hpp"
+#include <boost/variant/detail/apply_visitor_unary.hpp>
 
 #include "../rdf/rdf_types.h"
 #include "../rete/node_vertex.h"
