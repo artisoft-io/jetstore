@@ -184,7 +184,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					break
 				}
 			}
-			if iloop >= nloop {
+			if nloop>0 && iloop >= nloop {
 				var br BadRow
 				br.GroupingKey = groupingKey
 				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
