@@ -119,7 +119,7 @@ func (workspaceDb *WorkspaceDb) GetVolatileResources() ([]string, error) {
 }
 
 // loadDomainColumnMapping: returns a mapping of the output domain tables with their column specs
-func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping() (OutputTableSpecs, error) {
+func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(outTableFilter map[string]bool) (OutputTableSpecs, error) {
 	columnMap := make(OutputTableSpecs)
 	if workspaceDb.db == nil {
 		return columnMap, fmt.Errorf("error while loading domain tables from workspace db, db connection is not opened")
@@ -137,31 +137,33 @@ func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping() (OutputTableSpecs, err
 		domainTablesRow.Scan(&tableKey, &tableName)
 
 		// read the domain table column info
-		log.Println("Reading table", tableName, "info...")
-		domainColumnsRow, err := workspaceDb.db.Query(
-			"SELECT dc.name, dp.name, dc.type, dc.as_array FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
-		if err != nil {
-			return columnMap, fmt.Errorf("while loading domain table columns info from workspace db: %v", err)
-		}
-		defer domainColumnsRow.Close()
-		domainColumns := DomainTable{TableName: tableName, Columns: make([]DomainColumn, 0)}
-		for domainColumnsRow.Next() { // Iterate and fetch the records from result cursor
-			var domainColumn DomainColumn
-			domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray)
-			log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray)
-			domainColumns.Columns = append(domainColumns.Columns, domainColumn)
-		}
-		log.Println("Got", len(domainColumns.Columns), "columns")
+		if outTableFilter[tableName] {
+			log.Println("Reading table", tableName, "info...")
+			domainColumnsRow, err := workspaceDb.db.Query(
+				"SELECT dc.name, dp.name, dc.type, dc.as_array FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
+			if err != nil {
+				return columnMap, fmt.Errorf("while loading domain table columns info from workspace db: %v", err)
+			}
+			defer domainColumnsRow.Close()
+			domainColumns := DomainTable{TableName: tableName, Columns: make([]DomainColumn, 0)}
+			for domainColumnsRow.Next() { // Iterate and fetch the records from result cursor
+				var domainColumn DomainColumn
+				domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray)
+				log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray)
+				domainColumns.Columns = append(domainColumns.Columns, domainColumn)
+			}
+			log.Println("Got", len(domainColumns.Columns), "columns")
 
-		// add the corresponding class name
-		err = workspaceDb.db.QueryRow(
-			"SELECT dc.name FROM domain_tables dt LEFT JOIN domain_classes dc WHERE dt.name = ? AND dt.domain_class_key = dc.key",
-			tableName).Scan(&domainColumns.ClassName)
-		if err != nil {
-			return columnMap, fmt.Errorf("while loading ClassName from workspace db for TableName %s: %v", tableName, err)
-		}
+			// add the corresponding class name
+			err = workspaceDb.db.QueryRow(
+				"SELECT dc.name FROM domain_tables dt LEFT JOIN domain_classes dc WHERE dt.name = ? AND dt.domain_class_key = dc.key",
+				tableName).Scan(&domainColumns.ClassName)
 
-		columnMap[tableName] = &domainColumns
+			if err != nil {
+				return columnMap, fmt.Errorf("while loading ClassName from workspace db for TableName %s: %v", tableName, err)
+			}
+			columnMap[tableName] = &domainColumns
+		}
 	}
 	return columnMap, nil
 }

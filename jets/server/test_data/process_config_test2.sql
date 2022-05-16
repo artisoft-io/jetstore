@@ -18,7 +18,7 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
 INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALUES
   (201, 'asim:KEY001', 'rdf:type', 'aspec:Entity', 'resource'),
   (201, 'asim:KEY001', 'aspec:patient_persona_lk_key', 'lk:BasePatientPersona', 'text'),
-  (201, 'asim:KEY001', 'aspec:nbr_patients', '1000', 'int'),
+  (201, 'asim:KEY001', 'aspec:nbr_patients', '100', 'int'),
   (201, 'asim:KEY001', 'aspec:patient_key_prefix', '02001', 'text')
 ;
 
