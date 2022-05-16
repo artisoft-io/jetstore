@@ -1028,7 +1028,7 @@
                 8
             ],
             "rules": [
-                "aspec__entity__4"
+                "aspec:Entity:4"
             ],
             "salience": [
                 100
@@ -1504,7 +1504,7 @@
                 13
             ],
             "rules": [
-                "asim__entity__5"
+                "asim:Entity:5"
             ],
             "salience": [
                 100
@@ -1794,7 +1794,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "jets__entity__1"
+                "jets:Entity:1"
             ],
             "salience": [
                 100
@@ -1826,7 +1826,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "jets__state__2"
+                "jets:State:2"
             ],
             "salience": [
                 100
@@ -1858,7 +1858,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "jets__row__3"
+                "jets:Row:3"
             ],
             "salience": [
                 100
@@ -1890,7 +1890,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "hc__patient__6"
+                "hc:Patient:6"
             ],
             "salience": [
                 100
@@ -1922,7 +1922,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "hc__claim__7"
+                "hc:Claim:7"
             ],
             "salience": [
                 100
@@ -1954,7 +1954,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "hc__simulatedpatient__8"
+                "hc:SimulatedPatient:8"
             ],
             "salience": [
                 100
@@ -1986,7 +1986,7 @@
             ],
             "children_vertexes": [],
             "rules": [
-                "lk__basepatientpersona__9"
+                "lk:BasePatientPersona:9"
             ],
             "salience": [
                 100
@@ -2000,7 +2000,7 @@
             "normalizedLabel": "(?x1 rdf:type owl:Thing)",
             "vertex": 1,
             "consequent_seq": 0,
-            "consequent_for_rule": "aspec__entity__4",
+            "consequent_for_rule": "aspec:Entity:4",
             "consequent_salience": 100,
             "subject_key": 78,
             "predicate_key": 6,
@@ -2095,7 +2095,7 @@
             "normalizedLabel": "(?x1 rdf:type owl:Thing)",
             "vertex": 12,
             "consequent_seq": 0,
-            "consequent_for_rule": "asim__entity__5",
+            "consequent_for_rule": "asim:Entity:5",
             "consequent_salience": 100,
             "subject_key": 91,
             "predicate_key": 6,
@@ -2150,7 +2150,7 @@
             "normalizedLabel": "(?x1 rdf:type owl:Thing)",
             "vertex": 18,
             "consequent_seq": 0,
-            "consequent_for_rule": "jets__entity__1",
+            "consequent_for_rule": "jets:Entity:1",
             "consequent_salience": 100,
             "subject_key": 100,
             "predicate_key": 6,
@@ -2161,7 +2161,7 @@
             "normalizedLabel": "(?x1 rdf:type owl:Thing)",
             "vertex": 19,
             "consequent_seq": 0,
-            "consequent_for_rule": "jets__state__2",
+            "consequent_for_rule": "jets:State:2",
             "consequent_salience": 100,
             "subject_key": 101,
             "predicate_key": 6,
@@ -2172,7 +2172,7 @@
             "normalizedLabel": "(?x1 rdf:type owl:Thing)",
             "vertex": 20,
             "consequent_seq": 0,
-            "consequent_for_rule": "jets__row__3",
+            "consequent_for_rule": "jets:Row:3",
             "consequent_salience": 100,
             "subject_key": 102,
             "predicate_key": 6,
@@ -2183,7 +2183,7 @@
             "normalizedLabel": "(?x1 rdf:type jets:Entity)",
             "vertex": 21,
             "consequent_seq": 0,
-            "consequent_for_rule": "hc__patient__6",
+            "consequent_for_rule": "hc:Patient:6",
             "consequent_salience": 100,
             "subject_key": 103,
             "predicate_key": 6,
@@ -2194,7 +2194,7 @@
             "normalizedLabel": "(?x1 rdf:type jets:Entity)",
             "vertex": 22,
             "consequent_seq": 0,
-            "consequent_for_rule": "hc__claim__7",
+            "consequent_for_rule": "hc:Claim:7",
             "consequent_salience": 100,
             "subject_key": 104,
             "predicate_key": 6,
@@ -2205,7 +2205,7 @@
             "normalizedLabel": "(?x1 rdf:type jets:Entity)",
             "vertex": 23,
             "consequent_seq": 0,
-            "consequent_for_rule": "hc__simulatedpatient__8",
+            "consequent_for_rule": "hc:SimulatedPatient:8",
             "consequent_salience": 100,
             "subject_key": 105,
             "predicate_key": 6,
@@ -2216,7 +2216,7 @@
             "normalizedLabel": "(?x1 rdf:type asim:Entity)",
             "vertex": 23,
             "consequent_seq": 1,
-            "consequent_for_rule": "hc__simulatedpatient__8",
+            "consequent_for_rule": "hc:SimulatedPatient:8",
             "consequent_salience": 100,
             "subject_key": 106,
             "predicate_key": 6,
@@ -2227,7 +2227,7 @@
             "normalizedLabel": "(?x1 rdf:type hc:Patient)",
             "vertex": 23,
             "consequent_seq": 2,
-            "consequent_for_rule": "hc__simulatedpatient__8",
+            "consequent_for_rule": "hc:SimulatedPatient:8",
             "consequent_salience": 100,
             "subject_key": 107,
             "predicate_key": 6,
@@ -2238,7 +2238,7 @@
             "normalizedLabel": "(?x1 rdf:type asim:Entity)",
             "vertex": 24,
             "consequent_seq": 0,
-            "consequent_for_rule": "lk__basepatientpersona__9",
+            "consequent_for_rule": "lk:BasePatientPersona:9",
             "consequent_salience": 100,
             "subject_key": 108,
             "predicate_key": 6,

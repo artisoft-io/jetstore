@@ -52,7 +52,7 @@ class JetRuleLookupSQLite:
           # Create the lookup table schema in the lookup_db
           self._create_lookup_schema(table_name, lk_columns_dicts)
 
-          return_columns = ['__key__','jets__key']
+          return_columns = ['__key__','jets:key']
           return_columns.extend([x['name'] for x in  lk_columns_dicts])
           converters_and_dtypes = self._get_converters_and_dtypes(lk_columns_dicts, key_columns) # {} # converters={'date':pd.to_datetime})
 
@@ -193,16 +193,17 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # Rename table name to expected format
   def _to_table_name(self,to_table_name:str) -> str:
-    new_table_name = []
-    for i in to_table_name:
-      if not i.isalnum():
-        if i == ':':
-          new_table_name.append('__')
-        else:
-          new_table_name.append('_')
-      else:
-        new_table_name.append(i.lower())
-    return ''.join(new_table_name)
+    # new_table_name = []
+    # for i in to_table_name:
+    #   if not i.isalnum():
+    #     if i == ':':
+    #       new_table_name.append('__')
+    #     else:
+    #       new_table_name.append('_')
+    #   else:
+    #     new_table_name.append(i.lower())
+    # return ''.join(new_table_name)
+    return ''.join(to_table_name)
 
 
   # -------------------------------------------------------------------------------------
@@ -224,14 +225,14 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # Used to sanitize rows before execution in SQL, if strict is set to True (default) will raise exception if sanitized string differs from input
   def _sanitize_rows(self,rows_to_sanitize:list[dict], strict:bool=True) -> str:
-    sanitized_rows = []
-    for row in rows_to_sanitize:
-      sanitized_row = {}
-      for key in row.keys():
-        sanitized_row[key] = self._sanitize(str(row[key]), strict)
-      sanitized_rows.append(sanitized_row)  
-
-    return sanitized_rows
+    # sanitized_rows = []
+    # for row in rows_to_sanitize:
+    #   sanitized_row = {}
+    #   for key in row.keys():
+    #     sanitized_row[key] = self._sanitize(str(row[key]), strict)
+    #   sanitized_rows.append(sanitized_row)  
+    # return sanitized_rows
+    return rows_to_sanitize
 
 
   # -------------------------------------------------------------------------------------
@@ -245,27 +246,27 @@ class JetRuleLookupSQLite:
     cursor = self.lookup_connection.cursor()
 
     drop_table_statement = f"""
-      DROP TABLE IF EXISTS {table_name}; 
+      DROP TABLE IF EXISTS "{table_name}"; 
    """
 
     create_table__strict_statement = f"""
-      CREATE TABLE {table_name} (
+      CREATE TABLE "{table_name}" (
         __key__            INTEGER PRIMARY KEY, 
-        jets__key          TEXT NOT NULL,
+        "jets:key"         TEXT NOT NULL,
         {column_schema}
       ) STRICT;
    """ # currently not supported by apsw and sqlite browser
 
     create_table_statement = f"""
-      CREATE TABLE {table_name} (
+      CREATE TABLE "{table_name}" (
         __key__            INTEGER PRIMARY KEY, 
-        jets__key          TEXT NOT NULL,
+        "jets:key"         TEXT NOT NULL,
         {column_schema}
       );
    """
     create_index_statement = f"""
-      CREATE INDEX IF NOT EXISTS {table_name}_idx 
-      ON {table_name} (jets__key);
+      CREATE INDEX IF NOT EXISTS "{table_name}_idx" 
+      ON "{table_name}" ("jets:key");
    """
     cursor.execute(drop_table_statement)
     cursor.execute(create_table_statement)
@@ -368,7 +369,7 @@ class JetRuleLookupSQLite:
 
 
         if set(key_columns).issubset(set(lookup_df.columns)): 
-            lookup_df.insert(0,'jets__key', lookup_df[key_columns].agg(''.join, axis=1))
+            lookup_df.insert(0,'jets:key', lookup_df[key_columns].agg(''.join, axis=1))
         else:
             raise Exception(f'Key Columns missing in provided CSV. Expected {str(key_columns)} in header {str(lookup_df.columns)}')    
 
@@ -391,7 +392,7 @@ class JetRuleLookupSQLite:
   # -------------------------------------------------------------------------------------
   # _create_jets_key
   # -------------------------------------------------------------------------------------
-  # Function to create jets__key by joining defined Key Columns
+  # Function to create jets:key by joining defined Key Columns
   def _create_jets_key(self,row,key_columns: list[str]):
      composite_key = ''.join([row[x] for x in key_columns])
      return composite_key       

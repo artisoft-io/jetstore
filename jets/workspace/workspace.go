@@ -119,7 +119,8 @@ func (workspaceDb *WorkspaceDb) GetVolatileResources() ([]string, error) {
 }
 
 // loadDomainColumnMapping: returns a mapping of the output domain tables with their column specs
-func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(outTableFilter map[string]bool) (OutputTableSpecs, error) {
+// if allTble is true, return all otherwise, filter using outTableFilter
+func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(allTbl bool, outTableFilter map[string]bool) (OutputTableSpecs, error) {
 	columnMap := make(OutputTableSpecs)
 	if workspaceDb.db == nil {
 		return columnMap, fmt.Errorf("error while loading domain tables from workspace db, db connection is not opened")
@@ -137,7 +138,7 @@ func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(outTableFilter map[strin
 		domainTablesRow.Scan(&tableKey, &tableName)
 
 		// read the domain table column info
-		if outTableFilter[tableName] {
+		if allTbl || outTableFilter[tableName] {
 			log.Println("Reading table", tableName, "info...")
 			domainColumnsRow, err := workspaceDb.db.Query(
 				"SELECT dc.name, dp.name, dc.type, dc.as_array FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
