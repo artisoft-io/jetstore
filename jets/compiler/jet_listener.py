@@ -289,7 +289,7 @@ class JetListener(JetRuleListener):
 
     # case it's from a table
     if csvLocationCtx.tblStorageName:
-      lookupTbl['table'] = csvLocationCtx.tblStorageName.text
+      lookupTbl['table'] = csvLocationCtx.tblStorageName.getText()
 
     # case it's from a csv file
     if csvLocationCtx.csvFileName:

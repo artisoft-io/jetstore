@@ -89,6 +89,15 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#dataPropertiesStmt.
+    def enterDataPropertiesStmt(self, ctx:JetRuleParser.DataPropertiesStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#dataPropertiesStmt.
+    def exitDataPropertiesStmt(self, ctx:JetRuleParser.DataPropertiesStmtContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#dataPropertySeq.
     def enterDataPropertySeq(self, ctx:JetRuleParser.DataPropertySeqContext):
         pass
