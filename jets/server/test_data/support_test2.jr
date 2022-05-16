@@ -88,9 +88,6 @@ class hc:SimulatedPatient {
     asim:Entity,
     hc:Patient
   ],
-  $data_properties = [
-    hc:run_name as text
-  ],
   $as_table = true
 };
 

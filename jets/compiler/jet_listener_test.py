@@ -502,9 +502,9 @@ class JetListenerTest(absltest.TestCase):
     jetRules = self._get_listener_data(data)
     
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "jetstore_config": {"$max_looping": "5", "$max_rule_exec": "5000", "type": "jsconfig"}}"""
-    print('GOT:',json.dumps(jetRules, indent=2))
-    print()
-    print('COMPACT:',json.dumps(jetRules))
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
   def test_jetstore_config2(self):
@@ -519,9 +519,9 @@ class JetListenerTest(absltest.TestCase):
     jetRules = self._get_listener_data(data)
     
     expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "jetstore_config": {"$max_looping": "50", "$max_rule_exec": "5000", "type": "jsconfig"}}"""
-    print('GOT:',json.dumps(jetRules, indent=2))
-    print()
-    print('COMPACT:',json.dumps(jetRules))
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
 

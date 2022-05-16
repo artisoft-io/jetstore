@@ -232,32 +232,25 @@
             "key": 32
         },
         {
-            "id": "hc:run_name",
-            "type": "resource",
-            "value": "hc:run_name",
-            "source_file_name": "support_test2.jr",
-            "key": 33
-        },
-        {
             "id": "lk:BasePatientPersona",
             "type": "resource",
             "value": "lk:BasePatientPersona",
             "source_file_name": "support_test2.jr",
-            "key": 34
+            "key": 33
         },
         {
             "id": "asim:age_group",
             "type": "resource",
             "value": "asim:age_group",
             "source_file_name": "support_test2.jr",
-            "key": 35
+            "key": 34
         },
         {
             "id": "asim:claim_group_lk_key",
             "type": "resource",
             "value": "asim:claim_group_lk_key",
             "source_file_name": "support_test2.jr",
-            "key": 36
+            "key": 35
         },
         {
             "type": "var",
@@ -265,7 +258,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 1,
-            "key": 37,
+            "key": 36,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -275,7 +268,7 @@
             "vertex": 2,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 38,
+            "key": 37,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -284,7 +277,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 2,
-            "key": 39,
+            "key": 38,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -294,7 +287,7 @@
             "vertex": 3,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 40,
+            "key": 39,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -303,7 +296,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 3,
-            "key": 41,
+            "key": 40,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -312,7 +305,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 4,
-            "key": 42,
+            "key": 41,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -322,7 +315,7 @@
             "vertex": 5,
             "is_antecedent": true,
             "var_pos": 2,
-            "key": 43,
+            "key": 42,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -331,7 +324,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 5,
-            "key": 44,
+            "key": 43,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -341,7 +334,7 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 3,
-            "key": 45,
+            "key": 44,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -351,7 +344,7 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 46,
+            "key": 45,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -360,7 +353,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 6,
-            "key": 47,
+            "key": 46,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -370,7 +363,7 @@
             "vertex": 7,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 48,
+            "key": 47,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -379,7 +372,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 7,
-            "key": 49,
+            "key": 48,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -389,7 +382,7 @@
             "vertex": 7,
             "is_antecedent": false,
             "var_pos": 2,
-            "key": 50,
+            "key": 49,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -399,14 +392,14 @@
             "vertex": 7,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 51,
+            "key": 50,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
             "type": "int",
             "value": "1",
             "inline": true,
-            "key": 52,
+            "key": 51,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -416,7 +409,7 @@
             "vertex": 8,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 53,
+            "key": 52,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -425,7 +418,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 8,
-            "key": 54,
+            "key": 53,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -434,7 +427,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 9,
-            "key": 55,
+            "key": 54,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -444,7 +437,7 @@
             "vertex": 10,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 56,
+            "key": 55,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -453,7 +446,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 10,
-            "key": 57,
+            "key": 56,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -463,7 +456,7 @@
             "vertex": 11,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 58,
+            "key": 57,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -472,7 +465,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 11,
-            "key": 59,
+            "key": 58,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -481,7 +474,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 12,
-            "key": 60,
+            "key": 59,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -491,7 +484,7 @@
             "vertex": 13,
             "is_antecedent": true,
             "var_pos": 0,
-            "key": 61,
+            "key": 60,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -500,7 +493,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 13,
-            "key": 62,
+            "key": 61,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -510,7 +503,7 @@
             "vertex": 14,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 63,
+            "key": 62,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -519,7 +512,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 14,
-            "key": 64,
+            "key": 63,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -529,7 +522,7 @@
             "vertex": 15,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 65,
+            "key": 64,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -538,7 +531,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 15,
-            "key": 66,
+            "key": 65,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -548,7 +541,7 @@
             "vertex": 16,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 67,
+            "key": 66,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -557,7 +550,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 16,
-            "key": 68,
+            "key": 67,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -567,7 +560,7 @@
             "vertex": 17,
             "is_antecedent": true,
             "var_pos": 1,
-            "key": 69,
+            "key": 68,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -576,7 +569,7 @@
             "is_binded": false,
             "var_pos": 2,
             "vertex": 17,
-            "key": 70,
+            "key": 69,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -585,7 +578,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 18,
-            "key": 71,
+            "key": 70,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -594,7 +587,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 19,
-            "key": 72,
+            "key": 71,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -603,7 +596,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 20,
-            "key": 73,
+            "key": 72,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -612,7 +605,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 21,
-            "key": 74,
+            "key": 73,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -621,7 +614,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 22,
-            "key": 75,
+            "key": 74,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -630,7 +623,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 23,
-            "key": 76,
+            "key": 75,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -639,7 +632,7 @@
             "is_binded": false,
             "var_pos": 0,
             "vertex": 24,
-            "key": 77,
+            "key": 76,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -649,7 +642,7 @@
             "vertex": 1,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 78,
+            "key": 77,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -659,7 +652,7 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 2,
-            "key": 79,
+            "key": 78,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -669,7 +662,7 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 1,
-            "key": 80,
+            "key": 79,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -679,14 +672,14 @@
             "vertex": 5,
             "is_antecedent": false,
             "var_pos": 3,
-            "key": 81,
+            "key": 80,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
             "type": "text",
             "value": "%03u",
             "inline": true,
-            "key": 82,
+            "key": 81,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -696,13 +689,23 @@
             "vertex": 7,
             "is_antecedent": false,
             "var_pos": 1,
-            "key": 83,
+            "key": 82,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
             "type": "keyword",
             "value": "true",
             "inline": true,
+            "key": 83,
+            "source_file_name": "ruleset1_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x4",
+            "is_binded": true,
+            "vertex": 11,
+            "is_antecedent": false,
+            "var_pos": 1,
             "key": 84,
             "source_file_name": "ruleset1_test2.jr"
         },
@@ -728,22 +731,12 @@
         },
         {
             "type": "var",
-            "id": "?x4",
-            "is_binded": true,
-            "vertex": 11,
-            "is_antecedent": false,
-            "var_pos": 1,
-            "key": 87,
-            "source_file_name": "ruleset1_test2.jr"
-        },
-        {
-            "type": "var",
             "id": "?x2",
             "is_binded": true,
             "vertex": 11,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 88,
+            "key": 87,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -753,7 +746,7 @@
             "vertex": 11,
             "is_antecedent": false,
             "var_pos": 1,
-            "key": 89,
+            "key": 88,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -763,7 +756,7 @@
             "vertex": 11,
             "is_antecedent": false,
             "var_pos": 2,
-            "key": 90,
+            "key": 89,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -773,7 +766,7 @@
             "vertex": 12,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 91,
+            "key": 90,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -783,7 +776,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 92,
+            "key": 91,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -793,7 +786,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 1,
-            "key": 93,
+            "key": 92,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -803,7 +796,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 94,
+            "key": 93,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -813,7 +806,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 2,
-            "key": 95,
+            "key": 94,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -823,7 +816,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 96,
+            "key": 95,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -833,7 +826,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 3,
-            "key": 97,
+            "key": 96,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -843,7 +836,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 98,
+            "key": 97,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -853,7 +846,7 @@
             "vertex": 17,
             "is_antecedent": false,
             "var_pos": 4,
-            "key": 99,
+            "key": 98,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -863,7 +856,7 @@
             "vertex": 18,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 100,
+            "key": 99,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -873,7 +866,7 @@
             "vertex": 19,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 101,
+            "key": 100,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -883,7 +876,7 @@
             "vertex": 20,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 102,
+            "key": 101,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -893,7 +886,7 @@
             "vertex": 21,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 103,
+            "key": 102,
             "source_file_name": "ruleset1_test2.jr"
         },
         {
@@ -901,6 +894,16 @@
             "id": "?x1",
             "is_binded": true,
             "vertex": 22,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 103,
+            "source_file_name": "ruleset1_test2.jr"
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 23,
             "is_antecedent": false,
             "var_pos": 0,
             "key": 104,
@@ -930,20 +933,10 @@
             "type": "var",
             "id": "?x1",
             "is_binded": true,
-            "vertex": 23,
-            "is_antecedent": false,
-            "var_pos": 0,
-            "key": 107,
-            "source_file_name": "ruleset1_test2.jr"
-        },
-        {
-            "type": "var",
-            "id": "?x1",
-            "is_binded": true,
             "vertex": 24,
             "is_antecedent": false,
             "var_pos": 0,
-            "key": 108,
+            "key": 107,
             "source_file_name": "ruleset1_test2.jr"
         }
     ],
@@ -1005,7 +998,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 1,
-                            "key": 37,
+                            "key": 36,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1019,7 +1012,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 37,
+                    "subject_key": 36,
                     "predicate_key": 6,
                     "object_key": 14
                 },
@@ -1048,7 +1041,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 2,
-                            "key": 39,
+                            "key": 38,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1056,9 +1049,9 @@
                         3,
                         6
                     ],
-                    "subject_key": 38,
+                    "subject_key": 37,
                     "predicate_key": 16,
-                    "object_key": 39
+                    "object_key": 38
                 },
                 {
                     "type": "antecedent",
@@ -1087,16 +1080,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 3,
-                            "key": 41,
+                            "key": 40,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         4
                     ],
-                    "subject_key": 40,
+                    "subject_key": 39,
                     "predicate_key": 17,
-                    "object_key": 41
+                    "object_key": 40
                 },
                 {
                     "type": "antecedent",
@@ -1133,14 +1126,14 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 4,
-                            "key": 42,
+                            "key": 41,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         5
                     ],
-                    "subject_key": 42,
+                    "subject_key": 41,
                     "predicate_key": 6,
                     "object_key": 7
                 },
@@ -1150,9 +1143,9 @@
                     "normalizedLabel": "(?x4 jets:loop ?x5).[?x5 <= ?x2]",
                     "filter": {
                         "type": "binary",
-                        "lhs": 45,
+                        "lhs": 44,
                         "op": "<=",
-                        "rhs": 46
+                        "rhs": 45
                     },
                     "vertex": 5,
                     "parent_vertex": 4,
@@ -1193,7 +1186,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 5,
-                            "key": 44,
+                            "key": 43,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1204,9 +1197,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 43,
+                    "subject_key": 42,
                     "predicate_key": 9,
-                    "object_key": 44
+                    "object_key": 43
                 }
             ],
             "consequents": [
@@ -1217,20 +1210,20 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "LOOP020",
                     "consequent_salience": 100,
-                    "subject_key": 79,
+                    "subject_key": 78,
                     "predicate_key": 0,
                     "obj_expr": {
                         "type": "unary",
                         "op": "create_entity",
                         "arg": {
                             "type": "binary",
-                            "lhs": 80,
+                            "lhs": 79,
                             "op": "+",
                             "rhs": {
                                 "type": "binary",
-                                "lhs": 81,
+                                "lhs": 80,
                                 "op": "apply_format",
-                                "rhs": 82
+                                "rhs": 81
                             }
                         }
                     }
@@ -1264,7 +1257,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 1,
-                            "key": 37,
+                            "key": 36,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1278,7 +1271,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 37,
+                    "subject_key": 36,
                     "predicate_key": 6,
                     "object_key": 14
                 },
@@ -1307,7 +1300,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 2,
-                            "key": 39,
+                            "key": 38,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1315,9 +1308,9 @@
                         3,
                         6
                     ],
-                    "subject_key": 38,
+                    "subject_key": 37,
                     "predicate_key": 16,
-                    "object_key": 39
+                    "object_key": 38
                 },
                 {
                     "type": "antecedent",
@@ -1346,14 +1339,14 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 6,
-                            "key": 47,
+                            "key": 46,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         7
                     ],
-                    "subject_key": 47,
+                    "subject_key": 46,
                     "predicate_key": 6,
                     "object_key": 7
                 },
@@ -1363,13 +1356,13 @@
                     "normalizedLabel": "(?x3 jets:loop ?x4).[?x4 >= (?x2 + int(1))]",
                     "filter": {
                         "type": "binary",
-                        "lhs": 50,
+                        "lhs": 49,
                         "op": ">=",
                         "rhs": {
                             "type": "binary",
-                            "lhs": 51,
+                            "lhs": 50,
                             "op": "+",
-                            "rhs": 52
+                            "rhs": 51
                         }
                     },
                     "vertex": 7,
@@ -1403,7 +1396,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 7,
-                            "key": 49,
+                            "key": 48,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1414,9 +1407,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 48,
+                    "subject_key": 47,
                     "predicate_key": 9,
-                    "object_key": 49
+                    "object_key": 48
                 }
             ],
             "consequents": [
@@ -1427,9 +1420,9 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "LOOP030",
                     "consequent_salience": 100,
-                    "subject_key": 83,
+                    "subject_key": 82,
                     "predicate_key": 8,
-                    "object_key": 84
+                    "object_key": 83
                 }
             ],
             "authoredLabel": "[LOOP030]:(?simspec rdf:type aspec:Entity).(?simspec aspec:nbr_patients ?max).(?state rdf:type jets:State).(?state jets:loop ?i).[?i >= (?max + int(1))] -> (?state jets:completed true);",
@@ -1460,7 +1453,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 1,
-                            "key": 37,
+                            "key": 36,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1474,7 +1467,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 37,
+                    "subject_key": 36,
                     "predicate_key": 6,
                     "object_key": 14
                 },
@@ -1497,16 +1490,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 8,
-                            "key": 54,
+                            "key": 53,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         9
                     ],
-                    "subject_key": 53,
+                    "subject_key": 52,
                     "predicate_key": 18,
-                    "object_key": 54
+                    "object_key": 53
                 },
                 {
                     "type": "antecedent",
@@ -1535,14 +1528,14 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 9,
-                            "key": 55,
+                            "key": 54,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         10
                     ],
-                    "subject_key": 55,
+                    "subject_key": 54,
                     "predicate_key": 6,
                     "object_key": 7
                 },
@@ -1574,16 +1567,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 10,
-                            "key": 57,
+                            "key": 56,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         11
                     ],
-                    "subject_key": 56,
+                    "subject_key": 55,
                     "predicate_key": 0,
-                    "object_key": 57
+                    "object_key": 56
                 },
                 {
                     "type": "antecedent",
@@ -1621,7 +1614,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 11,
-                            "key": 59,
+                            "key": 58,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1632,9 +1625,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 58,
+                    "subject_key": 57,
                     "predicate_key": 5,
-                    "object_key": 59
+                    "object_key": 58
                 }
             ],
             "consequents": [
@@ -1645,7 +1638,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "MEC01",
                     "consequent_salience": 100,
-                    "subject_key": 85,
+                    "subject_key": 84,
                     "predicate_key": 6,
                     "object_key": 19
                 },
@@ -1656,7 +1649,7 @@
                     "consequent_seq": 1,
                     "consequent_for_rule": "MEC01",
                     "consequent_salience": 100,
-                    "subject_key": 86,
+                    "subject_key": 85,
                     "predicate_key": 6,
                     "object_key": 32
                 },
@@ -1667,12 +1660,12 @@
                     "consequent_seq": 2,
                     "consequent_for_rule": "MEC01",
                     "consequent_salience": 100,
-                    "subject_key": 87,
+                    "subject_key": 86,
                     "predicate_key": 1,
                     "obj_expr": {
                         "type": "unary",
                         "op": "lookup_rand",
-                        "arg": 88
+                        "arg": 87
                     }
                 },
                 {
@@ -1682,9 +1675,9 @@
                     "consequent_seq": 3,
                     "consequent_for_rule": "MEC01",
                     "consequent_salience": 100,
-                    "subject_key": 89,
+                    "subject_key": 88,
                     "predicate_key": 25,
-                    "object_key": 90
+                    "object_key": 89
                 }
             ],
             "authoredLabel": "[MEC01]:(?simspec rdf:type aspec:Entity).(?simspec aspec:patient_persona_lk_key ?uri).(?state rdf:type jets:State).(?state newPatient ?patient).(?patient jets:key ?key) -> (?patient rdf:type asim:Entity).(?patient rdf:type hc:SimulatedPatient).(?patient patientPersonaRow lookup_rand ?uri).(?patient hc:patient_number ?key);",
@@ -1715,7 +1708,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 12,
-                            "key": 60,
+                            "key": 59,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1728,7 +1721,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 60,
+                    "subject_key": 59,
                     "predicate_key": 6,
                     "object_key": 19
                 },
@@ -1757,16 +1750,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 13,
-                            "key": 62,
+                            "key": 61,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         14
                     ],
-                    "subject_key": 61,
+                    "subject_key": 60,
                     "predicate_key": 1,
-                    "object_key": 62
+                    "object_key": 61
                 },
                 {
                     "type": "antecedent",
@@ -1801,16 +1794,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 14,
-                            "key": 64,
+                            "key": 63,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         15
                     ],
-                    "subject_key": 63,
+                    "subject_key": 62,
                     "predicate_key": 20,
-                    "object_key": 64
+                    "object_key": 63
                 },
                 {
                     "type": "antecedent",
@@ -1853,16 +1846,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 15,
-                            "key": 66,
+                            "key": 65,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         16
                     ],
-                    "subject_key": 65,
-                    "predicate_key": 36,
-                    "object_key": 66
+                    "subject_key": 64,
+                    "predicate_key": 35,
+                    "object_key": 65
                 },
                 {
                     "type": "antecedent",
@@ -1913,16 +1906,16 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 16,
-                            "key": 68,
+                            "key": 67,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
                     "children_vertexes": [
                         17
                     ],
-                    "subject_key": 67,
-                    "predicate_key": 35,
-                    "object_key": 68
+                    "subject_key": 66,
+                    "predicate_key": 34,
+                    "object_key": 67
                 },
                 {
                     "type": "antecedent",
@@ -1975,7 +1968,7 @@
                             "is_binded": false,
                             "var_pos": 2,
                             "vertex": 17,
-                            "key": 70,
+                            "key": 69,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -1986,9 +1979,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 69,
+                    "subject_key": 68,
                     "predicate_key": 23,
-                    "object_key": 70
+                    "object_key": 69
                 }
             ],
             "consequents": [
@@ -1999,9 +1992,9 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "MEC210",
                     "consequent_salience": 100,
-                    "subject_key": 92,
+                    "subject_key": 91,
                     "predicate_key": 20,
-                    "object_key": 93
+                    "object_key": 92
                 },
                 {
                     "type": "consequent",
@@ -2010,9 +2003,9 @@
                     "consequent_seq": 1,
                     "consequent_for_rule": "MEC210",
                     "consequent_salience": 100,
-                    "subject_key": 94,
+                    "subject_key": 93,
                     "predicate_key": 22,
-                    "object_key": 95
+                    "object_key": 94
                 },
                 {
                     "type": "consequent",
@@ -2021,9 +2014,9 @@
                     "consequent_seq": 2,
                     "consequent_for_rule": "MEC210",
                     "consequent_salience": 100,
-                    "subject_key": 96,
+                    "subject_key": 95,
                     "predicate_key": 21,
-                    "object_key": 97
+                    "object_key": 96
                 },
                 {
                     "type": "consequent",
@@ -2032,9 +2025,9 @@
                     "consequent_seq": 3,
                     "consequent_for_rule": "MEC210",
                     "consequent_salience": 100,
-                    "subject_key": 98,
+                    "subject_key": 97,
                     "predicate_key": 23,
-                    "object_key": 99
+                    "object_key": 98
                 }
             ],
             "authoredLabel": "[MEC210]:(?patient rdf:type asim:Entity).(?patient patientPersonaRow ?persona_row).(?persona_row asim:persona_key ?persona_key).(?persona_row asim:claim_group_lk_key ?claim_grp1_lk_key).(?persona_row asim:age_group ?age_group).(?persona_row asim:description ?desc) -> (?patient asim:persona_key ?persona_key).(?patient asim:claim_group_key ?claim_grp1_lk_key).(?patient asim:demographic_group ?age_group).(?patient asim:description ?desc);",
@@ -2067,7 +2060,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 18,
-                            "key": 71,
+                            "key": 70,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2078,7 +2071,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 71,
+                    "subject_key": 70,
                     "predicate_key": 6,
                     "object_key": 3
                 }
@@ -2091,7 +2084,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "jets:Entity:1",
                     "consequent_salience": 100,
-                    "subject_key": 100,
+                    "subject_key": 99,
                     "predicate_key": 6,
                     "object_key": 4
                 }
@@ -2126,7 +2119,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 19,
-                            "key": 72,
+                            "key": 71,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2137,7 +2130,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 72,
+                    "subject_key": 71,
                     "predicate_key": 6,
                     "object_key": 7
                 }
@@ -2150,7 +2143,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "jets:State:2",
                     "consequent_salience": 100,
-                    "subject_key": 101,
+                    "subject_key": 100,
                     "predicate_key": 6,
                     "object_key": 4
                 }
@@ -2185,7 +2178,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 20,
-                            "key": 73,
+                            "key": 72,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2196,7 +2189,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 73,
+                    "subject_key": 72,
                     "predicate_key": 6,
                     "object_key": 10
                 }
@@ -2209,7 +2202,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "jets:Row:3",
                     "consequent_salience": 100,
-                    "subject_key": 102,
+                    "subject_key": 101,
                     "predicate_key": 6,
                     "object_key": 4
                 }
@@ -2244,7 +2237,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 1,
-                            "key": 37,
+                            "key": 36,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2258,7 +2251,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 37,
+                    "subject_key": 36,
                     "predicate_key": 6,
                     "object_key": 14
                 }
@@ -2271,7 +2264,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "aspec:Entity:4",
                     "consequent_salience": 100,
-                    "subject_key": 78,
+                    "subject_key": 77,
                     "predicate_key": 6,
                     "object_key": 4
                 }
@@ -2306,7 +2299,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 12,
-                            "key": 60,
+                            "key": 59,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2319,7 +2312,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 60,
+                    "subject_key": 59,
                     "predicate_key": 6,
                     "object_key": 19
                 }
@@ -2332,7 +2325,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "asim:Entity:5",
                     "consequent_salience": 100,
-                    "subject_key": 91,
+                    "subject_key": 90,
                     "predicate_key": 6,
                     "object_key": 4
                 }
@@ -2367,7 +2360,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 21,
-                            "key": 74,
+                            "key": 73,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2378,7 +2371,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 74,
+                    "subject_key": 73,
                     "predicate_key": 6,
                     "object_key": 24
                 }
@@ -2391,7 +2384,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "hc:Patient:6",
                     "consequent_salience": 100,
-                    "subject_key": 103,
+                    "subject_key": 102,
                     "predicate_key": 6,
                     "object_key": 3
                 }
@@ -2426,7 +2419,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 22,
-                            "key": 75,
+                            "key": 74,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2437,7 +2430,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 75,
+                    "subject_key": 74,
                     "predicate_key": 6,
                     "object_key": 27
                 }
@@ -2450,7 +2443,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "hc:Claim:7",
                     "consequent_salience": 100,
-                    "subject_key": 104,
+                    "subject_key": 103,
                     "predicate_key": 6,
                     "object_key": 3
                 }
@@ -2485,7 +2478,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 23,
-                            "key": 76,
+                            "key": 75,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2496,7 +2489,7 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 76,
+                    "subject_key": 75,
                     "predicate_key": 6,
                     "object_key": 32
                 }
@@ -2509,7 +2502,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "hc:SimulatedPatient:8",
                     "consequent_salience": 100,
-                    "subject_key": 105,
+                    "subject_key": 104,
                     "predicate_key": 6,
                     "object_key": 3
                 },
@@ -2520,7 +2513,7 @@
                     "consequent_seq": 1,
                     "consequent_for_rule": "hc:SimulatedPatient:8",
                     "consequent_salience": 100,
-                    "subject_key": 106,
+                    "subject_key": 105,
                     "predicate_key": 6,
                     "object_key": 19
                 },
@@ -2531,7 +2524,7 @@
                     "consequent_seq": 2,
                     "consequent_for_rule": "hc:SimulatedPatient:8",
                     "consequent_salience": 100,
-                    "subject_key": 107,
+                    "subject_key": 106,
                     "predicate_key": 6,
                     "object_key": 24
                 }
@@ -2566,7 +2559,7 @@
                             "is_binded": false,
                             "var_pos": 0,
                             "vertex": 24,
-                            "key": 77,
+                            "key": 76,
                             "source_file_name": "ruleset1_test2.jr"
                         }
                     ],
@@ -2577,9 +2570,9 @@
                     "salience": [
                         100
                     ],
-                    "subject_key": 77,
+                    "subject_key": 76,
                     "predicate_key": 6,
-                    "object_key": 34
+                    "object_key": 33
                 }
             ],
             "consequents": [
@@ -2590,7 +2583,7 @@
                     "consequent_seq": 0,
                     "consequent_for_rule": "lk:BasePatientPersona:9",
                     "consequent_salience": 100,
-                    "subject_key": 108,
+                    "subject_key": 107,
                     "predicate_key": 6,
                     "object_key": 19
                 }
@@ -2803,13 +2796,7 @@
                 "asim:Entity",
                 "hc:Patient"
             ],
-            "data_properties": [
-                {
-                    "name": "hc:run_name",
-                    "type": "text",
-                    "as_array": "false"
-                }
-            ],
+            "data_properties": [],
             "source_file_name": "support_test2.jr",
             "as_table": "true"
         },
@@ -2952,12 +2939,6 @@
                     "as_array": "false",
                     "property_name": "hc:patient_number",
                     "column_name": "hc:patient_number"
-                },
-                {
-                    "type": "text",
-                    "as_array": "false",
-                    "property_name": "hc:run_name",
-                    "column_name": "hc:run_name"
                 },
                 {
                     "type": "text",

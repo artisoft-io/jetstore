@@ -49,7 +49,7 @@ jetstoreConfigItem
 // --------------------------------------------------------------------------------------
 defineClassStmt: CLASS className=declIdentifier '{' 
     COMMENT*
-    BaseClasses ASSIGN '[' COMMENT* subClassOfSeq COMMENT* ']' ','
+    BaseClasses ASSIGN '[' COMMENT* subClassOfSeq COMMENT* ']'
     (dataPropertiesStmt)?
     (asTableStmt)?
     COMMENT*
@@ -167,7 +167,7 @@ lookupTableStmt: LookupTable lookupName=declIdentifier '{'
   '}' SEMICOLON;
 
 csvLocation
-  : TableName ASSIGN tblStorageName=Identifier ',' 
+  : TableName ASSIGN tblStorageName=declIdentifier ',' 
   | CSVFileName ASSIGN csvFileName=STRING ','
   ;
 
