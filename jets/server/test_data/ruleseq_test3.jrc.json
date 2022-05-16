@@ -1,0 +1,14 @@
+{
+    "main_rule_file_name": "ruleseq_test3.jr",
+    "support_rule_file_names": [],
+    "resources": [],
+    "lookup_tables": [],
+    "rete_nodes": [
+        {
+            "vertex": 0,
+            "parent_vertex": 0,
+            "children_vertexes": [],
+            "type": "head_node"
+        }
+    ]
+}
