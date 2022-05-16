@@ -50,16 +50,18 @@ jetstoreConfigItem
 defineClassStmt: CLASS className=declIdentifier '{' 
     COMMENT*
     BaseClasses ASSIGN '[' COMMENT* subClassOfSeq COMMENT* ']' ','
-    COMMENT*
-    DataProperties ASSIGN '[' COMMENT* dataPropertySeq COMMENT* ']'
+    (dataPropertiesStmt)?
     (asTableStmt)?
     COMMENT*
   '}' SEMICOLON;
 
 subClassOfSeq: subClassOfStmt (',' COMMENT* subClassOfStmt)* ;
 subClassOfStmt: baseClassName=declIdentifier;
+
+dataPropertiesStmt: ',' COMMENT* DataProperties ASSIGN '[' COMMENT* dataPropertySeq COMMENT* ']';
 dataPropertySeq: dataPropertyDefinitions (','COMMENT* dataPropertyDefinitions)* ;
 dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType;
+
 asTableStmt: ',' COMMENT* AsTable ASSIGN asTable=asTableFlag;
 asTableFlag: TRUE | FALSE;
 dataPropertyType
