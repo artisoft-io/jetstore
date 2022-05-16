@@ -100,10 +100,13 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 			log.Println("Error while getting table names:", err)
 			return &result, err
 		}
-		log.Println("The output tables are:")
-		for i,_ := range reteWorkspace.outTables {
-			log.Printf("   - %s\n",reteWorkspace.outTables[i])
-		}
+	}
+	// create a filter to retain selected tables
+	outTableFilter := make(map[string]bool)
+	log.Println("The output tables are:")
+	for i := range reteWorkspace.outTables {
+		log.Printf("   - %s\n",reteWorkspace.outTables[i])
+		outTableFilter[reteWorkspace.outTables[i]] = true
 	}
 	// Add range rdf type to data properties used in mapping spec
 	pm := processInput.processInputMapping // pm: ProcessMapSlice from process_config.go
@@ -151,7 +154,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
-	outputMapping, err := workspaceMgr.LoadDomainColumnMapping()
+	outputMapping, err := workspaceMgr.LoadDomainColumnMapping(outTableFilter)
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
 	}	
