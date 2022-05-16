@@ -361,8 +361,10 @@ ReteCallBackImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o
   if(this->s_filter_ and this->s_filter_!=s) return;
   if(this->p_filter_ and this->p_filter_!=p) return;
   if(this->o_filter_ and this->o_filter_!=o) return;
-  // VLOG(5)<<"        ReteCallBackImpl::triple_inserted t3: "<<rdf::Triple(s, p, o)<<
-  //   ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_;
+  // If beta node is not activated yet, ignore the notification
+  if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    return;
+  }
   this->rete_session_->triple_inserted(this->vertex_, s, p, o);
 }
 // Declaired in graph_callback_mgr_impl.h
@@ -372,8 +374,10 @@ ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)
   if(this->s_filter_ and this->s_filter_!=s) return;
   if(this->p_filter_ and this->p_filter_!=p) return;
   if(this->o_filter_ and this->o_filter_!=o) return;
-  // VLOG(5)<<"        ReteCallBackImpl::triple_deleted t3: "<<rdf::Triple(s, p, o)<<
-  //   ", MATCH filter: "<<rdf::Triple(s_filter_, p_filter_, o_filter_)<<", vertex "<<this->vertex_;
+  // If beta node is not activated yet, ignore the notification
+  if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    return;
+  }
   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
 }
 

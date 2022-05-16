@@ -10,3 +10,10 @@ import "support_test3.jr"
   (?claim hc:is_zip_overwritten 1)
 ;
 
+[Rule2]:
+  (?claim rdf:type hc:Test_3_Claim).
+  [?claim exist hc:provider_zip]
+  ->
+  (?claim hc:is_zip_overwritten 0)
+;
+
