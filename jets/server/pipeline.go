@@ -112,7 +112,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	pm := processInput.processInputMapping // pm: ProcessMapSlice from process_config.go
 	for ipos := range pm {
 		dp := pm[ipos].dataProperty
-		pm[ipos].rdfType, err = workspaceMgr.GetRangeDataType(dp)
+		pm[ipos].rdfType, pm[ipos].isArray, err = workspaceMgr.GetRangeDataType(dp)
 		if err != nil {
 			return &result, fmt.Errorf("while adding range type to data property %s: %v", dp, err)
 		}

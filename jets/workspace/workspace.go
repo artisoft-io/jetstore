@@ -70,16 +70,17 @@ func (workspaceDb *WorkspaceDb) GetTableNames() ([]string, error) {
 }
 
 // GetRangeDataType: Get the data type for the range of the dataProperty arg
-func (workspaceDb *WorkspaceDb) GetRangeDataType(dataProperty string) (string, error) {
+func (workspaceDb *WorkspaceDb) GetRangeDataType(dataProperty string) (string, bool, error) {
 	if strings.HasPrefix(dataProperty, "_0:") {
-		return "text", nil
+		return "text", true, nil
 	}
 	var dataType string
-	err := workspaceDb.db.QueryRow("SELECT type FROM data_properties WHERE name = ?", dataProperty).Scan(&dataType)
+	var asArray bool
+	err := workspaceDb.db.QueryRow("SELECT type, as_array FROM data_properties WHERE name = ?", dataProperty).Scan(&dataType, &asArray)
 	if err != nil {
-		return dataType, fmt.Errorf("while looking up range data type for data_property %s: %v", dataProperty, err)
+		return dataType, asArray, fmt.Errorf("while looking up range data type for data_property %s: %v", dataProperty, err)
 	}
-	return dataType, nil
+	return dataType, asArray, nil
 }
 
 // GetRuleSetNames: Get the slice of ruleset name for ruleseq (rule sequence) name
