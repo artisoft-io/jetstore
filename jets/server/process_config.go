@@ -90,6 +90,7 @@ type ProcessMapSlice []ProcessMap
 type ProcessInput struct {
 	key                 int
 	processKey          int
+	inputType           int
 	inputTable          string
 	entityRdfType       string
 	entityRdfTypeResource *bridge.Resource
@@ -190,7 +191,7 @@ func (pc *ProcessConfig) read(dbpool *pgxpool.Pool, pcKey int) error {
 
 // read input table definitions
 func (processInputs *ProcessInputSlice) read(dbpool *pgxpool.Pool, pcKey int) error {
-	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_table, entity_rdf_type, grouping_column, key_column FROM process_input WHERE process_key = $1", *procConfigKey)
+	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column FROM process_input WHERE process_key = $1", *procConfigKey)
 	if err != nil {
 		return err
 	}
@@ -199,7 +200,7 @@ func (processInputs *ProcessInputSlice) read(dbpool *pgxpool.Pool, pcKey int) er
 	// Loop through rows, using Scan to assign column data to struct fields.
 	for rows.Next() {
 		var pi ProcessInput
-		if err := rows.Scan(&pi.key, &pi.processKey, &pi.inputTable, &pi.entityRdfType, &pi.groupingColumn, &pi.keyColumn); err != nil {
+		if err := rows.Scan(&pi.key, &pi.processKey, &pi.inputType, &pi.inputTable, &pi.entityRdfType, &pi.groupingColumn, &pi.keyColumn); err != nil {
 			return err
 		}
 

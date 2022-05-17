@@ -25,7 +25,7 @@ class jets:State {
   $base_classes = [owl:Thing],
   $data_properties = [
     jets:completed as text,
-    jets:loop as int
+    jets:loop as array of int
   ],
   $as_table = false
 };
@@ -34,19 +34,20 @@ class jets:Row {
   $base_classes = [owl:Thing],
   $data_properties = [
     jets:entity_property as text,
-    jets:lookup_multi_rows as text,
+    jets:value_property as text,
+    jets:lookup_multi_rows as array of text,
     jets:lookup_row as text
   ],
   $as_table = false
 };
 
-class aspec:Entity {
+class aspec:Simulator {
   $base_classes = [owl:Thing],
   $data_properties = [
-    aspec:age_group as text,
-    aspec:nbr_patients as int,
-    aspec:patient_key_prefix as text,
-    aspec:patient_persona_lk_key as text
+    aspec:anchor_date as date,
+    aspec:nbr_entities as int,
+    aspec:entity_key_prefix as text,
+    aspec:entity_persona_lk as text
   ],
   $as_table = false
 };
@@ -55,9 +56,22 @@ class asim:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
     asim:persona_key as text,
-    asim:demographic_group as text,
-    asim:claim_group_key as text,
+    asim:demographic_group_key as text,
+    asim:event_group1_lk as text,
     asim:description as text
+  ],
+  $as_table = false
+};
+
+class asim:Event {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    asim:event_key as text,
+    asim:event_type as text,
+    asim:event_rdf_type as text,
+    asim:provider_group_lk as text,
+    asim:service_date_offset as int,
+    asim:service_date_max_days as int
   ],
   $as_table = false
 };
@@ -66,18 +80,8 @@ class hc:Patient {
   $base_classes = [jets:Entity],
   $data_properties = [
     hc:patient_number as text,
-    hc:dob as date
-  ],
-  $as_table = true
-};
-
-class hc:Claim {
-  $base_classes = [jets:Entity],
-  $data_properties = [
-    hc:member_number as text,
-    hc:claim_number as text,
-    hc:zip as text,
-    hc:dos as date
+    hc:dob as date,
+    hc:gender as text
   ],
   $as_table = true
 };
@@ -91,26 +95,55 @@ class hc:SimulatedPatient {
   $as_table = true
 };
 
-class lk:BasePatientPersona {
-  $base_classes = [asim:Entity],
+class hc:Claim {
+  $base_classes = [jets:Entity],
   $data_properties = [
-    asim:age_group as text,
-    asim:claim_group_lk_key as text
+    hc:member_number as text,
+    hc:claim_number as text,
+    hc:npi as text,
+    hc:dos as date
   ],
-  $as_table = false
+  $as_table = true
+};
+
+class hc:SimulatedClaim {
+  $base_classes = [
+    jets:Entity,
+    asim:Event,
+    hc:Claim
+  ],
+  $as_table = true
 };
 
 # =======================================================================================
 # Lookup Tables
 # ---------------------------------------------------------------------------------------
-# csv file have these columns: "KEY,asim:persona_key,asim:age_group,asim:claim_group_lk_key,asim:description"
+# Patient Generation Lookup
+# ---------------------------------------------------------------------------------------
+# csv file have these columns: "key,asim:persona_key,asim:demographic_group_key,asim:event_group1_lk,asim:description"
 lookup_table lk:BasePatientPersona {
   $csv_file = "base_patient_persona_test2.csv",    # csv file location
-  $key = ["KEY"], 
+  $key = ["key"], 
   $columns = [
     "asim:persona_key" as text,
-    "asim:age_group" as text,
-    "asim:claim_group_lk_key" as text,
+    "asim:demographic_group_key" as text,
+    "asim:event_group1_lk" as text,
     "asim:description" as text
+  ]
+};
+# ---------------------------------------------------------------------------------------
+# Claim Generation Lookup
+# ---------------------------------------------------------------------------------------
+# csv file have these columns: "key,asim:event_key,asim:event_type,asim:event_rdf_type,asim:provider_group_lk,asim:service_date_offset,asim:service_date_max_days"
+lookup_table lk:LowRiskEventGroup {
+  $csv_file = "low_risk_group_test2.csv",    # csv file location
+  $key = ["key"], 
+  $columns = [
+    "asim:event_key" as text,
+    "asim:event_type" as text,
+    "asim:event_rdf_type" as resource,
+    "asim:provider_group_lk" as text,
+    "asim:service_date_offset" as int,
+    "asim:service_date_max_days" as int
   ]
 };

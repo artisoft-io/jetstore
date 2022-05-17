@@ -76,7 +76,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	dbpool *pgxpool.Pool,
 	workspaceMgr *workspace.WorkspaceDb,
 	processInput *ProcessInput,
-	dataInputc <-chan [][]sql.NullString,
+	dataInputc <-chan [][]interface{},
 	outputSpecs workspace.OutputTableSpecs,
 	writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
 	var result ExecuteRulesResult
@@ -109,9 +109,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 	for inputRecords := range dataInputc {
 		var groupingKey sql.NullString
-		if len(inputRecords)>0 && inputRecords[0][processInput.groupingPosition].Valid {
-			gp := inputRecords[0][processInput.groupingPosition].String
-			groupingKey = sql.NullString{String: gp, Valid: true}
+		if len(inputRecords) > 0 {
+			groupingKey = inputRecords[0][processInput.groupingPosition].(sql.NullString)
 		}
 		
 		// setup the rdf session for the grouping
@@ -130,12 +129,20 @@ func (rw *ReteWorkspace) ExecuteRules(
 				return &result, fmt.Errorf("while creating rete session: %v", err)
 			}
 			if i == 0 {
-				// log.Println("Asserting input records with ruleset", ruleset)
-				err = ri.assertInputRecords(reteSession, processInput, &inputRecords, &writeOutputc)
+				switch processInput.inputType {
+					// input table (tdv / csv)
+				case 0:
+					// log.Println("Asserting input records with ruleset", ruleset)
+					err = ri.assertInputRecords(reteSession, processInput, &inputRecords, &writeOutputc)
+				case 1:
+					err = ri.assertEntities(reteSession, processInput, &inputRecords, &writeOutputc)
+				default:
+					return &result, fmt.Errorf("error: invalid input_type for process_input key %d", processInput.key)
+				}
 				if err != nil {
-					return &result, fmt.Errorf("while assertInputRecords: %v", err)
+					return &result, fmt.Errorf("while assertInputRecords/assertEntities: %v", err)
 				}	
-			}
+		}
 			// Step 0 of loop is pre loop or no loop
 			// Step 1+ for looping
 			reteSession.Erase(ri.jets__istate, ri.jets__loop, nil)

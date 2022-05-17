@@ -3,11 +3,24 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 )
+
+func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj string) (*bridge.Resource, error) {
+	switch rdfType {
+	case "resource":
+		return reteSession.NewResource(obj)
+	case "text":
+		return reteSession.NewTextLiteral(obj)
+	case "date":
+		return reteSession.NewDateLiteral(obj)
+	case "datetime":
+		return reteSession.NewDatetimeLiteral(obj)
+	default:
+		return nil, fmt.Errorf("ERROR Incorrect type %s for CreateStringLiteral",rdfType)
+	}
+}
 
 // main processing function to execute rules
 func (ri *ReteInputContext) assertEntities(
@@ -34,22 +47,7 @@ func (ri *ReteInputContext) assertEntities(
 		if err != nil {
 			return fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
 		}
-		// jetsKey, err := reteSession.NewTextLiteral(jets__key)
-		// if err != nil {
-		// 	return fmt.Errorf("while creating row's jets:key literal (NewTextLiteral): %v", err)
-		// }
-		// if subject == nil || ri.rdf__type == nil || processInput.entityRdfTypeResource == nil {
-		// 	return fmt.Errorf("ERROR while asserting row rdf type")
-		// }
-		// _, err = reteSession.Insert(subject, ri.rdf__type, processInput.entityRdfTypeResource)
-		// if err != nil {
-		// 	return fmt.Errorf("while asserting row rdf type: %v", err)
-		// }
-		// _, err = reteSession.Insert(subject, ri.jets__key, jetsKey)
-		// if err != nil {
-		// 	return fmt.Errorf("while asserting row jets key: %v", err)
-		// }
-
+		// For Each Column
 		for icol := 0; icol < ri.ncol; icol++ {
 			inputColumnSpec := &processInput.processInputMapping[icol]
 			var object *bridge.Resource
@@ -58,82 +56,115 @@ func (ri *ReteInputContext) assertEntities(
 			if inputColumnSpec.isArray {
 				objectArr = make([]*bridge.Resource, 0)
 			}
-			switch inputColumnSpec.rdfType {
 
+			switch inputColumnSpec.rdfType {
 			// case "null":
 			// 	object, err = ri.rw.js.NewNull()
 			case "resource":
+			case "text":
+			case "date":
+			case "datetime":
 				if inputColumnSpec.isArray {
 					va := row[icol].([]sql.NullString)
-
-				}
-				object, err = reteSession.NewResource(obj)
-			case "int":
-				var v int
-				v, err = strconv.Atoi(obj)
-				if err == nil {
-					object, err = reteSession.NewIntLiteral(v)
-				}
-			case "bool":
-				v := 0
-				if len(obj) > 0 {
-					c := strings.ToLower(obj[0:1])
-					switch c {
-					case "t", "1", "y":
-						v = 1
-					case "f", "0", "n":
-						v = 0
-					default:
-						err = fmt.Errorf("object is not boolean: %s", obj)
+					for _, item := range va {
+						if item.Valid {
+							object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, item.String)
+							if err != nil {
+								goto ERRCHECK
+							}
+							objectArr = append(objectArr, object)
+						}
+					}
+				} else {
+					v := row[icol].(sql.NullString)
+					if v.Valid {
+						object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, v.String)
+						if err != nil {
+							goto ERRCHECK
+						}
 					}
 				}
-				if err == nil {
-					object, err = reteSession.NewIntLiteral(v)
-				}
-			case "uint":
-				var v uint64
-				v, err = strconv.ParseUint(obj, 10, 32)
-				if err == nil {
-					object, err = reteSession.NewUIntLiteral(uint(v))
+			case "bool":
+			case "int":
+				if inputColumnSpec.isArray {
+					va := row[icol].([]sql.NullInt32)
+					for _, item := range va {
+						if item.Valid {
+							object, err = reteSession.NewIntLiteral(int(item.Int32))
+							if err != nil {
+								goto ERRCHECK
+							}
+							objectArr = append(objectArr, object)
+						}
+					}
+				} else {
+					v := row[icol].(sql.NullInt32)
+					if v.Valid {
+						object, err = reteSession.NewIntLiteral(int(v.Int32))
+						if err != nil {
+							goto ERRCHECK
+						}
+					}
 				}
 			case "long":
-				var v int64
-				v, err = strconv.ParseInt(obj, 10, 64)
-				if err == nil {
-					object, err = reteSession.NewLongLiteral(v)
-				}
 			case "ulong":
-				var v uint64
-				v, err = strconv.ParseUint(obj, 10, 64)
-				if err != nil {
-					return fmt.Errorf("while mapping input value: %v", err)
+			case "uint":
+				if inputColumnSpec.isArray {
+					va := row[icol].([]sql.NullInt64)
+					for _, item := range va {
+						if item.Valid {
+							object, err = reteSession.NewLongLiteral(int64(item.Int64))
+							if err != nil {
+								goto ERRCHECK
+							}
+							objectArr = append(objectArr, object)
+						}
+					}
+				} else {
+					v := row[icol].(sql.NullInt64)
+					if v.Valid {
+						object, err = reteSession.NewLongLiteral(int64(v.Int64))
+						if err != nil {
+							goto ERRCHECK
+						}
+					}
 				}
-				object, err = reteSession.NewULongLiteral(v)
 			case "double":
-				var v float64
-				v, err = strconv.ParseFloat(obj, 64)
-				if err == nil {
-					object, err = reteSession.NewDoubleLiteral(v)
+				if inputColumnSpec.isArray {
+					va := row[icol].([]sql.NullFloat64)
+					for _, item := range va {
+						if item.Valid {
+							object, err = reteSession.NewDoubleLiteral(float64(item.Float64))
+							if err != nil {
+								goto ERRCHECK
+							}
+							objectArr = append(objectArr, object)
+						}
+					}
+				} else {
+					v := row[icol].(sql.NullFloat64)
+					if v.Valid {
+						object, err = reteSession.NewDoubleLiteral(float64(v.Float64))
+						if err != nil {
+							goto ERRCHECK
+						}
+					}
 				}
-			case "text":
-				object, err = reteSession.NewTextLiteral(obj)
-			case "date":
-				object, err = reteSession.NewDateLiteral(obj)
-			case "datetime":
-				object, err = reteSession.NewDatetimeLiteral(obj)
 			default:
 				err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn, inputColumnSpec.rdfType)
 			}
+			ERRCHECK:
 			if err != nil {
 				var br BadRow
-				br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
-				if row[processInput.groupingPosition].Valid {
-					br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
+				br.RowJetsKey = sql.NullString{String: jets__key, Valid: true}
+				gp := row[processInput.groupingPosition].(sql.NullString)
+				if gp.Valid {
+					br.GroupingKey = sql.NullString{String: gp.String, Valid: true}
 				}
 				br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
 				br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
 				//*
-				fmt.Println("BAD Input ROW:", br)
+				fmt.Println("BAD Input Entity ROW:", br)
 				br.write2Chan((*writeOutputc)["process_errors"])
 				continue
 			}
@@ -143,7 +174,14 @@ func (ri *ReteInputContext) assertEntities(
 			if object == nil {
 				continue
 			}
-			_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
+			// This is when we insert!....
+			if inputColumnSpec.isArray {
+				for _, obj_ := range objectArr {
+					_, err = reteSession.Insert(subject, inputColumnSpec.predicate, obj_)
+				}
+			} else {
+				_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
+			}
 			if err != nil {
 				return fmt.Errorf("while asserting triple to rete session: %v", err)
 			}
