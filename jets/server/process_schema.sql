@@ -40,10 +40,11 @@ CREATE TABLE IF NOT EXISTS process_run (
     note text  ,
     last_update timestamp without time zone DEFAULT now() NOT NULL
 );
-
+-- input_type: 0:text, 1:entity
 CREATE TABLE IF NOT EXISTS process_input (
     key SERIAL PRIMARY KEY  ,
     process_key integer REFERENCES process_config ON DELETE CASCADE NOT NULL,
+    input_type int  NOT NULL,
     input_table text  NOT NULL,
     entity_rdf_type text NOT NULL,
     grouping_column text NOT NULL,

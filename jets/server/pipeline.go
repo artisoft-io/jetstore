@@ -308,8 +308,8 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 // readInput read the input table and grouping the rows according to the
 // grouping column
-func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *ProcessInput) (<-chan [][]sql.NullString, <-chan readResult) {
-	dataInputc := make(chan [][]sql.NullString)
+func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *ProcessInput) (<-chan [][]interface{}, <-chan readResult) {
+	dataInputc := make(chan [][]interface{})
 	result := make(chan readResult, 1)
 	go func() {
 		defer close(dataInputc)
@@ -327,7 +327,7 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 
 		// loop over all value of the grouping key
 		// A slice to hold data from returned rows.
-		var dataGrps [][]sql.NullString
+		var dataGrps [][]interface{}
 		var groupingValue string
 		// Loop through rows, using Scan to assign column data to struct fields.
 		dataRow := make([]interface{}, nCol)
@@ -352,7 +352,7 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 					// send previous grouping
 					select {
 					case dataInputc <- dataGrps:
-						dataGrps = make([][]sql.NullString, 0)
+						dataGrps = make([][]interface{}, 0)
 					case <-done:
 						result <- readResult{rowCount, errors.New("data load from input table canceled")}
 						return
@@ -362,7 +362,11 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 
 			rowCount += 1
 			// fmt.Println("--row",dataGrp)
-			dataGrps = append(dataGrps, dataGrp)
+			dg := make([]interface{}, len(dataGrp))
+			for i := range dg {
+				dg[i] = dataGrp[i]
+			}
+			dataGrps = append(dataGrps, dg)
 		}
 		// send last grouping
 		dataInputc <- dataGrps

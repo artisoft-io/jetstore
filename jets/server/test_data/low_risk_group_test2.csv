@@ -1,0 +1,4 @@
+key,asim:event_key,asim:event_type,asim:event_rdf_type,asim:provider_group_lk,asim:service_date_offset,asim:service_date_max_days
+0,LR01,MEDICAL,hc:Claim,PG1,20,10
+1,LR02,MEDICAL,hc:Claim,PG1,25,10
+2,LR03,PHARMACY,hc:Claim,PG1,30,20

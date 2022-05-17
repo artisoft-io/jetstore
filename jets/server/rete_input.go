@@ -29,13 +29,17 @@ type ReteInputContext struct {
 func (ri *ReteInputContext) assertInputRecords(
 	reteSession *bridge.ReteSession,
 	processInput *ProcessInput,
-	inputRecords *[][]sql.NullString,
+	inputRecords *[][]interface{},
 	writeOutputc *map[string]chan []interface{}) error {
 
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
-	for _, row := range *inputRecords {
-		if len(row) == 0 {
+	for _, urow := range *inputRecords {
+		if len(urow) == 0 {
 			continue
+		}
+		row := make([]sql.NullString, len(urow))
+		for i := range row {
+			row[i] = urow[i].(sql.NullString)
 		}
 		var jetsKeyStr string
 		if row[processInput.keyPosition].Valid {

@@ -5,8 +5,8 @@ INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALU
   (4, 'TEST3', 'TEST for exist_not', 'hc:Test_3_Claim')
 RETURNING key;
 
-INSERT INTO process_input (key, process_key, input_table, entity_rdf_type, grouping_column, key_column) VALUES
-  (4, 4, 'test3', 'hc:Test_3_Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER')
+INSERT INTO process_input (key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column) VALUES
+  (4, 4, 0, 'test3', 'hc:Test_3_Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER')
 ;
 
 INSERT INTO process_mapping (process_input_key, input_column, data_property, function_name, argument, default_value, error_message) VALUES
