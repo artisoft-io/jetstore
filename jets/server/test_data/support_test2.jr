@@ -16,7 +16,7 @@ class jets:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
     jets:key as text,
-    rdf:type as array of text
+    rdf:type as array of resource
   ],
   $as_table = false
 };
@@ -42,14 +42,14 @@ class jets:Row {
 };
 
 class aspec:Simulator {
-  $base_classes = [owl:Thing],
+  $base_classes = [jets:Entity],
   $data_properties = [
     aspec:anchor_date as date,
     aspec:nbr_entities as int,
     aspec:entity_key_prefix as text,
     aspec:entity_persona_lk as text
   ],
-  $as_table = false
+  $as_table = true
 };
 
 class asim:Entity {
@@ -141,7 +141,7 @@ lookup_table lk:LowRiskEventGroup {
   $columns = [
     "asim:event_key" as text,
     "asim:event_type" as text,
-    "asim:event_rdf_type" as resource,
+    "asim:event_rdf_type" as text,
     "asim:provider_group_lk" as text,
     "asim:service_date_offset" as int,
     "asim:service_date_max_days" as int
