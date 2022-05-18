@@ -24,6 +24,7 @@ FLAGS = flags.FLAGS
 # flags.DEFINE_string("jr", "default useful if required", "JetRule file", required=True)
 flags.DEFINE_string("in_file", None, "JetRule file")
 flags.DEFINE_string("base_path", None, "Base path for in_file, out_file and all imported files")
+flags.DEFINE_bool("save_json", False, "Save JetRule json output file", short_name='s')
 # flags.DEFINE_integer("num_times", 1,
 #                      "Number of times to print greeting.")
 
@@ -334,8 +335,9 @@ def main(argv):
 
   
   in_fname = Path(FLAGS.in_file)
-
   base_path = Path(FLAGS.base_path)
+  save_json = FLAGS.save_json
+
   path = os.path.join(base_path, in_fname)
   path = os.path.abspath(path)
   if not os.path.exists(path) or not os.path.isfile(path):
@@ -355,17 +357,18 @@ def main(argv):
   # Save the JetRule data structure
   # path = os.path.join(base_path, out_fname)
   in_tup = os.path.splitext(in_fname)
-  jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')
-  jetrete_path = os.path.join(base_path, in_tup[0]+'.jrc.json')
-  
-  with open(jetrules_path, 'wt', encoding='utf-8') as f:
-    f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
-  print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
+  if save_json:
+    jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')
+    jetrete_path = os.path.join(base_path, in_tup[0]+'.jrc.json')
+    
+    with open(jetrules_path, 'wt', encoding='utf-8') as f:
+      f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
+    print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
 
-  # Save the JetRete data structure
-  with open(jetrete_path, 'wt', encoding='utf-8') as f:
-    f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
-  print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
+    # Save the JetRete data structure
+    with open(jetrete_path, 'wt', encoding='utf-8') as f:
+      f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+    print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
 
   if error:
     sys.exit(error)
