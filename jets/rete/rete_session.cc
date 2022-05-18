@@ -27,7 +27,7 @@ namespace jets::rete {
     VLOG(2) << "Initialize ReteSession";
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
       auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
-      VLOG(3) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
+      // VLOG(3) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
       auto bn = create_beta_node(meta_node);
       bn->initialize(this);
       if(meta_node->is_head_vertice()) {

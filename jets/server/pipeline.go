@@ -109,10 +109,12 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		outTableFilter[reteWorkspace.outTables[i]] = true
 	}
 	// Add range rdf type to data properties used in mapping spec
-	pm := processInput.processInputMapping // pm: ProcessMapSlice from process_config.go
-	for ipos := range pm {
-		dp := pm[ipos].dataProperty
-		pm[ipos].rdfType, pm[ipos].isArray, err = workspaceMgr.GetRangeDataType(dp)
+	// pm := processInput.processInputMapping // pm: ProcessMapSlice from process_config.go
+	for ipos := range processInput.processInputMapping {
+		dp := processInput.processInputMapping[ipos].dataProperty
+		processInput.processInputMapping[ipos].rdfType, processInput.processInputMapping[ipos].isArray, err = workspaceMgr.GetRangeDataType(dp)
+		//*
+		fmt.Println(processInput.processInputMapping[ipos].dataProperty,"range",processInput.processInputMapping[ipos].rdfType,"array?",processInput.processInputMapping[ipos].isArray)
 		if err != nil {
 			return &result, fmt.Errorf("while adding range type to data property %s: %v", dp, err)
 		}

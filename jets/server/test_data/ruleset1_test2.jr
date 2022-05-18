@@ -7,7 +7,7 @@ import "support_test2.jr"
 # Create Population
 # ---------------------------------------------------------------------------------------
 jetstore_config {
-  $max_looping = 10000
+  $max_looping = 4
 };
 
 # ========================================================================
@@ -20,9 +20,9 @@ volatile_resource patientPersonaRow = "patientPersonaRow";
 volatile_resource claim_group_lk_key = "claim_group_lk_key";
 
 [LOOP020]:
-  (?simspec rdf:type aspec:Entity).
-  (?simspec aspec:nbr_patients ?max).
-  (?simspec aspec:patient_key_prefix ?patient_start_key).
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:nbr_entities ?max).
+  (?simspec aspec:entity_key_prefix ?patient_start_key).
   (?state rdf:type jets:State).
   (?state jets:loop ?i).
   [?i <= ?max]
@@ -33,8 +33,8 @@ volatile_resource claim_group_lk_key = "claim_group_lk_key";
 # Note: Adding +1 to the max loop to ensure when that when jets:completed is set 
 #       all the entities are created and we're ready to do 'pick_one' on local lists
 [LOOP030]:
-  (?simspec rdf:type aspec:Entity).
-  (?simspec aspec:nbr_patients ?max).
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:nbr_entities ?max).
   (?state rdf:type jets:State).
   (?state jets:loop ?i).
   [?i >= (?max + 1)]
@@ -47,8 +47,8 @@ volatile_resource claim_group_lk_key = "claim_group_lk_key";
 # Create Patients & Claims
 # -----------------------------------------------------------------------
 [MEC01]:
-  (?simspec rdf:type aspec:Entity).
-  (?simspec aspec:patient_persona_lk_key ?uri).
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:entity_persona_lk ?uri).
   (?state rdf:type jets:State).
   (?state newPatient ?patient).
   (?patient jets:key ?key)
@@ -63,12 +63,12 @@ volatile_resource claim_group_lk_key = "claim_group_lk_key";
   (?patient rdf:type asim:Entity).
   (?patient patientPersonaRow ?persona_row).
   (?persona_row asim:persona_key ?persona_key).
-  (?persona_row asim:claim_group_lk_key ?claim_grp1_lk_key).
-  (?persona_row asim:age_group ?age_group)
+  (?persona_row asim:event_group1_lk ?event_group1_lk).
+  (?persona_row asim:demographic_group_key ?demo_group)
   (?persona_row asim:description ?desc)
   ->
   (?patient asim:persona_key ?persona_key).
-  (?patient asim:claim_group_key ?claim_grp1_lk_key).
-  (?patient asim:demographic_group ?age_group).
+  (?patient asim:event_group1_lk ?event_group1_lk).
+  (?patient asim:demographic_group_key ?demo_group).
   (?patient asim:description ?desc)
 ;
