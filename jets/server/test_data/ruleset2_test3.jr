@@ -3,18 +3,9 @@
 # ---------------------------------------------------------------------------------------
 import "support_test3.jr"
 
-[Rule1]:
-  (?claim rdf:type hc:Test_3_Claim).
-  (?claim hc:member_zip ?zip).
-  not(?claim hc:is_zip_overwritten 1)
-  ->
-  (?claim hc:rendering_provider_zip ?zip)
-;
-
 [Rule2]:
   (?claim rdf:type hc:Test_3_Claim).
-  (?claim hc:provider_zip ?zip).
-  (?claim hc:is_zip_overwritten 1)
+  not(?claim rdf:type hc:PClaim)
   ->
-  (?claim hc:rendering_provider_zip ?zip)
+  (?claim rdf:type hc:NPClaim)
 ;

@@ -24,8 +24,10 @@ namespace jets::rete {
     }
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
+    VLOG(2) << "Initialize ReteSession";
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
       auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
+      VLOG(3) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
       auto bn = create_beta_node(meta_node);
       bn->initialize(this);
       if(meta_node->is_head_vertice()) {
@@ -185,31 +187,33 @@ namespace jets::rete {
           auto const* parent_row = parent_row_itor->get_row();
           auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
           // Process the returned iterator t3_itor accordingly if AlphaNode is a negation
-          if(cmeta_node->is_negation and t3_itor.is_end()) {
-            // create the beta row
-            auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
-            // initialize the beta row with parent_row and place holder for t3
-            rdf::Triple triple;
-            beta_row->initialize(beta_row_initializer, parent_row, &triple);
+          if(cmeta_node->is_negation) {
+            if(t3_itor.is_end()) {
+              // create the beta row
+              auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+              // initialize the beta row with parent_row and place holder for t3
+              rdf::Triple triple;
+              beta_row->initialize(beta_row_initializer, parent_row, &triple);
 
-            VLOG(5)<<"    Parent Row "<<parent_row<<"  +  not"<<
-              alpha_node->compute_find_triple(parent_row)<<"  =>  Row "<<beta_row;
+              VLOG(5)<<"    Parent Row "<<parent_row<<"  +  not"<<
+                alpha_node->compute_find_triple(parent_row)<<"  =>  Row "<<beta_row;
 
-            // evaluate the current_relation filter if any
-            bool keepit = true;
-            if(cmeta_node->has_expr()) {
-              keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
-              VLOG(5)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
-            }
+              // evaluate the current_relation filter if any
+              bool keepit = true;
+              if(cmeta_node->has_expr()) {
+                keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
+                VLOG(5)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
+              }
 
-            // insert or remove the row from current_relation based on is_inferring
-            if(keepit) {
-              if(is_inferring) {
-                // Add row to current beta relation (current_relation)
-                current_relation->insert_beta_row(this, beta_row);
-              } else {
-                // Remove row from current beta relation (current_relation)
-                current_relation->remove_beta_row(this, beta_row);
+              // insert or remove the row from current_relation based on is_inferring
+              if(keepit) {
+                if(is_inferring) {
+                  // Add row to current beta relation (current_relation)
+                  current_relation->insert_beta_row(this, beta_row);
+                } else {
+                  // Remove row from current beta relation (current_relation)
+                  current_relation->remove_beta_row(this, beta_row);
+                }
               }
             }
           } else {
