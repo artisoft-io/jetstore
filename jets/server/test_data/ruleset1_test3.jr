@@ -5,15 +5,22 @@ import "support_test3.jr"
 
 [Rule1]:
   (?claim rdf:type hc:Test_3_Claim).
-  [?claim exist_not hc:provider_zip]
+  (?claim hc:member_zip ?zip)
   ->
-  (?claim hc:is_zip_overwritten 1)
+  (?claim rdf:type hc:MClaim)
+;
+
+[Rule1b]:
+  (?claim rdf:type hc:Test_3_Claim).
+  (?claim hc:provider_zip ?zip)
+  ->
+  (?claim rdf:type hc:PClaim)
 ;
 
 [Rule2]:
   (?claim rdf:type hc:Test_3_Claim).
-  [?claim exist hc:provider_zip]
+  not(?claim rdf:type hc:MClaim)
   ->
-  (?claim hc:is_zip_overwritten 0)
+  (?claim rdf:type hc:NMClaim)
 ;
 
