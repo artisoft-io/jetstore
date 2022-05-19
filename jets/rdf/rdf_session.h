@@ -296,6 +296,7 @@ class RDFSession {
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     auto o = rmgr()->create_literal(v);
+    if(this->meta_graph()->contains(s, p, o)) return 0;
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(s, p, o);
     }
@@ -312,6 +313,7 @@ class RDFSession {
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     auto o = rmgr()->create_literal(v);
+    if(this->meta_graph()->contains(s, p, o)) return 0;
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(s, p, o);
     }
@@ -327,6 +329,7 @@ class RDFSession {
                  << s << ", " << p << ", " << o <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
+    if(this->meta_graph()->contains(s, p, o)) return 0;
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(s, p, o);
     }
@@ -343,6 +346,7 @@ class RDFSession {
                  << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
+    if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
@@ -359,6 +363,7 @@ class RDFSession {
                  << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
+    if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
@@ -375,6 +380,7 @@ class RDFSession {
                  << t3.subject << ", " << t3.predicate << ", " << t3.object <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
+    if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
@@ -395,6 +401,7 @@ class RDFSession {
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     auto o = rmgr()->create_literal(v);
+    if(this->meta_graph()->contains(s, p, o)) return 0;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
     VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
@@ -411,6 +418,7 @@ class RDFSession {
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     auto o = rmgr()->create_literal(std::forward<L>(v));
+    if(this->meta_graph()->contains(s, p, o)) return 0;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
     VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
@@ -425,6 +433,7 @@ class RDFSession {
                  << s << ", " << p << ", " << o <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
+    if(this->meta_graph()->contains(s, p, o)) return 0;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
     VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
@@ -440,6 +449,7 @@ class RDFSession {
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     // std::cout<<"    RdfSession::insert_inferred "<<t3<<std::endl;
+    if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if(this->asserted_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     VLOG(4)<<"INSERT INFERRED ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
@@ -455,6 +465,7 @@ class RDFSession {
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     // std::cout<<"    RdfSession::insert_inferred&& "<<t3<<std::endl;
+    if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if(this->asserted_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     VLOG(4)<<"INSERT INFERRED ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);

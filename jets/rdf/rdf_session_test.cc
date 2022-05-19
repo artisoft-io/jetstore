@@ -76,11 +76,11 @@ TEST(RDFSessionInsert, TestInsert4)
 {
   auto meta_graph_p = create_rdf_graph();
   auto r_mgr_p = meta_graph_p->get_rmgr();
+  r_mgr_p->initialize();
   auto ms=   r_mgr_p->create_resource("s");
   auto mp=   r_mgr_p->create_resource("p");
   auto mo=   r_mgr_p->create_resource("o");
   meta_graph_p->insert(ms, mp, mo);
-  meta_graph_p->set_locked();
   auto rdf_session_p = create_rdf_session(meta_graph_p);
 
   r_mgr_p = rdf_session_p->get_rmgr();
@@ -92,21 +92,150 @@ TEST(RDFSessionInsert, TestInsert4)
   EXPECT_EQ(o, mo);
 
   EXPECT_EQ(meta_graph_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
 
   rdf_session_p->insert_inferred(s, p, o);
-  rdf_session_p->insert_inferred(s, p, o);
-  EXPECT_EQ(rdf_session_p->size(), 2);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
 
   rdf_session_p->insert(s, p, o);
-  EXPECT_EQ(rdf_session_p->size(), 2);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
 
   rdf_session_p->retract(s, p, o);
-  rdf_session_p->retract(s, p, o);
-  rdf_session_p->retract(s, p, o);
-  EXPECT_EQ(rdf_session_p->size(), 2);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
 
   rdf_session_p->erase(s, p, o);
   EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
+}
+TEST(RDFSessionInsert, TestInsert5)
+{
+  auto meta_graph_p = create_rdf_graph();
+  auto r_mgr_p = meta_graph_p->get_rmgr();
+  r_mgr_p->initialize();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+  // the session
+  r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o=   r_mgr_p->create_resource("o");
+
+  EXPECT_EQ(meta_graph_p->size(), 0);
+  EXPECT_EQ(rdf_session_p->size(), 0);
+
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 1);
+
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 1);
+
+  rdf_session_p->retract(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 1);
+
+  rdf_session_p->retract(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 0);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
+}
+TEST(RDFSessionInsert, TestInsert51)
+{
+  auto meta_graph_p = create_rdf_graph();
+  auto r_mgr_p = meta_graph_p->get_rmgr();
+  r_mgr_p->initialize();
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+
+  // the session
+  r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o=   r_mgr_p->create_resource("o");
+
+  EXPECT_EQ(meta_graph_p->size(), 0);
+  EXPECT_EQ(rdf_session_p->size(), 0);
+
+  rdf_session_p->insert_inferred(s, p, o);
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 1);
+
+  rdf_session_p->erase(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 0);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
+}
+// testing that triples in meta_graph are not duplicated
+// in the asserted and inferred graph
+TEST(RDFSessionInsert, TestInsert6)
+{
+  auto meta_graph_p = create_rdf_graph();
+  auto r_mgr_p = meta_graph_p->get_rmgr();
+  r_mgr_p->initialize();
+  auto ms=   r_mgr_p->create_resource("s");
+  auto mp=   r_mgr_p->create_resource("p");
+  auto mo=   r_mgr_p->create_resource("o");
+  meta_graph_p->insert(ms, mp, mo);
+  auto rdf_session_p = create_rdf_session(meta_graph_p);
+
+  // working with rdf_session and it's r_manager
+  r_mgr_p = rdf_session_p->get_rmgr();
+  auto s=   r_mgr_p->create_resource("s");
+  auto p=   r_mgr_p->create_resource("p");
+  auto o=   r_mgr_p->create_resource("o");
+  auto o1=  r_mgr_p->create_resource("o1");
+  EXPECT_EQ(s, ms);
+  EXPECT_EQ(p, mp);
+  EXPECT_EQ(o, mo);
+
+  EXPECT_EQ(meta_graph_p->size(), 1);
+
+  rdf_session_p->insert_inferred(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+
+  rdf_session_p->insert(s, p, o);
+  EXPECT_EQ(rdf_session_p->size(), 1);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+
+  rdf_session_p->insert_inferred(s, p, o1);
+  EXPECT_EQ(rdf_session_p->size(), 2);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 0);
+
+  rdf_session_p->insert(s, p, o1);
+  EXPECT_EQ(rdf_session_p->size(), 2);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 1);
+
+  rdf_session_p->insert(s, p, o1);
+  EXPECT_EQ(rdf_session_p->size(), 2);
+  EXPECT_EQ(rdf_session_p->meta_graph()->size(), 1);
+  EXPECT_EQ(rdf_session_p->inferred_graph()->size(), 0);
+  EXPECT_EQ(rdf_session_p->asserted_graph()->size(), 1);
 }
 
 TEST(RDFSessionFind, TestFind1)
