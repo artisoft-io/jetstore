@@ -180,14 +180,13 @@ func (rw *ReteWorkspace) ExecuteRules(
 					var br BadRow
 					br.GroupingKey = groupingKey
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
-					//*
-					fmt.Println("BAD ROW:",br)
+					log.Println("BAD ROW:",br)
 					br.write2Chan(writeOutputc["process_errors"])
 					break
 				}
 				// CHECK for jets__terminate and jets__exception
 				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err!=nil {
-					// fmt.Println("Rete Session Looping Completed")
+					// log.Println("Rete Session Looping Completed")
 					break
 				}
 			}
@@ -195,8 +194,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				var br BadRow
 				br.GroupingKey = groupingKey
 				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
-				//*
-				fmt.Println("MAX LOOP REACHED:",br)
+				log.Println("MAX LOOP REACHED:",br)
 				br.write2Chan(writeOutputc["process_errors"])
 				break
 			}
@@ -260,8 +258,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								br.ErrorMessage = sql.NullString {
 									String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
 									Valid: true}
-								//*
-								fmt.Println("BAD EXTRACT:",br)
+								log.Println("BAD EXTRACT:",br)
 								br.write2Chan(writeOutputc["process_errors"])
 							}
 							data = append(data, obj)
@@ -285,8 +282,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								br.ErrorMessage = sql.NullString {
 									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName), 
 									Valid: true}
-								//*
-								fmt.Println("BAD EXTRACT:",br)
+								log.Println("BAD EXTRACT:",br)
 								br.write2Chan(writeOutputc["process_errors"])
 							default:
 							}

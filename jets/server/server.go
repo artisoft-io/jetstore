@@ -63,9 +63,9 @@ func doJob() error {
 	if err != nil {
 		return fmt.Errorf("while reading process_config table: %v", err)
 	}
-	
+	//*	
 	fmt.Println("Got ProcessConfig row:")
-	fmt.Println("  key:", procConfig.key, "client", procConfig.client, "description", procConfig.description, "Main Type", procConfig.mainEntityRdfType)
+	fmt.Println("  key:", procConfig.key, "client", procConfig.client.String, "description", procConfig.description.String, "Main Type", procConfig.mainEntityRdfType)
 	fmt.Println("Got ProcessInput row:")
 	for _, pi := range procConfig.processInputs {
 		fmt.Println("  key:", pi.key, ", processKey", pi.processKey, ", InputTable", pi.inputTable, ", rdf Type", pi.entityRdfType, ", Grouping Column", pi.groupingColumn)
@@ -97,10 +97,10 @@ func doJob() error {
 		return fmt.Errorf("while processing pipeline: %v", err)
 	}
 
-	fmt.Println("Input records count is:",pipelineResult.inputRecordsCount)
-	fmt.Println("Rete sessions count is:",pipelineResult.executeRulesCount)
+	log.Println("Input records count is:",pipelineResult.inputRecordsCount)
+	log.Println("Rete sessions count is:",pipelineResult.executeRulesCount)
 	for rdfType, count := range pipelineResult.outputRecordsCount {
-		fmt.Printf("Output records count for type '%s' is: %d\n",rdfType, count)
+		log.Printf("Output records count for type '%s' is: %d\n",rdfType, count)
 	}
 	reteWorkspace.Release()
 	return nil
@@ -146,22 +146,22 @@ func main() {
 	if hasErr {
 		flag.Usage()
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
 		os.Exit((1))
 	}
-	fmt.Printf("Got procConfigKey: %d\n", *procConfigKey)
-	fmt.Printf("Got poolSize: %d\n", *poolSize)
-	fmt.Printf("Got sessionId: %s\n", *sessionId)
-	fmt.Printf("Got shardId: %d\n", *shardId)
-	fmt.Printf("Got workspaceDb: %s\n", *workspaceDb)
-	fmt.Printf("Got lookupDb: %s\n", *lookupDb)
-	fmt.Printf("Got ruleset: %s\n", *ruleset)
-	fmt.Printf("Got ruleseq: %s\n", *ruleseq)
-	fmt.Printf("Got outTables: %s\n", *outTables)
+	log.Printf("Command Line Argument: procConfigKey: %d\n", *procConfigKey)
+	log.Printf("Command Line Argument: poolSize: %d\n", *poolSize)
+	log.Printf("Command Line Argument: sessionId: %s\n", *sessionId)
+	log.Printf("Command Line Argument: shardId: %d\n", *shardId)
+	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
+	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
+	log.Printf("Command Line Argument: ruleset: %s\n", *ruleset)
+	log.Printf("Command Line Argument: ruleseq: %s\n", *ruleseq)
+	log.Printf("Command Line Argument: outTables: %s\n", *outTables)
 	v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
 	glogv = int(v)
-	fmt.Println("GLOG_v is set to",glogv)
+	log.Println("Command Line Argument: GLOG_v is set to",glogv)
 
 	err := doJob()
 	if err != nil {

@@ -172,7 +172,7 @@ func processFile() error {
 			for i, v := range record {
 				copyRec[i] = v
 			}
-			fmt.Println("COPY REC:",copyRec)
+			// fmt.Println("COPY REC:",copyRec)
 			inputRows = append(inputRows, copyRec)
 		}
 	}
@@ -180,9 +180,9 @@ func processFile() error {
 	if err != nil {
 		return fmt.Errorf("while copy csv to table: %v", err)
 	}
-	fmt.Println("Inserted",copyCount,"rows in database!")
+	log.Println("Inserted",copyCount,"rows in database!")
 	if len(badRowsPos) > 0 {
-		fmt.Println("Got",len(badRowsPos),"bad rows in input file, copying them to the error file.")
+		log.Println("Got",len(badRowsPos),"bad rows in input file, copying them to the error file.")
 		file, err := os.Open(*inFile)
 		if err != nil {
 			return fmt.Errorf("error while re-opening csv file: %v", err)
