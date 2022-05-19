@@ -121,7 +121,7 @@ class hc:SimulatedClaim {
 # Patient Generation Lookup
 # ---------------------------------------------------------------------------------------
 # csv file have these columns: "key,asim:persona_key,asim:demographic_group_key,asim:event_group1_lk,asim:description"
-lookup_table lk:BasePatientPersona {
+lookup_table lk:LookupCode {
   $csv_file = "base_patient_persona_test2.csv",    # csv file location
   $key = ["key"], 
   $columns = [

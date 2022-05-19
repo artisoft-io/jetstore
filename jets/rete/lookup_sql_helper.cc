@@ -33,7 +33,7 @@ namespace jets::rete {
       if(err != SQLITE_ROW) {
         LOG(ERROR) << "LookupTable::lookup: " <<
           "SQL error while reading lookup table '"<<this->lookup_name_<<"': " << err;
-        *out = {};
+        *out = rdf::Null();
         return err;
       }
 
@@ -84,7 +84,7 @@ namespace jets::rete {
     }
     if(not count) {
       // got no row, return null
-      *out = {};
+      *out = rdf::Null();
       return 0;
     }
     rdf_session->insert_inferred(this->cache_uri_, lookup_row, subject);

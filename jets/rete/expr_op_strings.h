@@ -39,7 +39,7 @@ struct RegexVisitor: public boost::static_visitor<RDFTTYPE>
     if(std::regex_search(lhs.data, match, expr_regex)) {
       return rdf::LString(match[1]);
     }
-    return rdf::RDFNull();
+    return rdf::Null();
   }
   ReteSession * rs;
   BetaRow const* br;

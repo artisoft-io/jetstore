@@ -9,6 +9,7 @@ void
 JetsResources::initialize(RManager * rmgr)
 {
   if(this->is_initialized()) return;
+  rmgr->insert_item(mkNull());
   this->jets__completed             = rmgr->create_resource("jets:completed");
   this->jets__entity_property       = rmgr->create_resource("jets:entity_property");
   this->jets__exception             = rmgr->create_resource("jets:exception");

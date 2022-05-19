@@ -29,7 +29,13 @@ using UMapType = UMapStl;
 // ResourceManager Container for all literal data => r_index mapping
 // STL CONTAINERS -- suffix STL
 /////////////////////////////////////////////////////////////////////////////////////////
-using LiteralDataStlMap = std::unordered_map<Rptr, r_index, absl::Hash<Rptr>>;
+struct RdfAstEq {
+  bool operator()( const Rptr& lhs, const Rptr& rhs ) const
+  {
+    return *lhs == *rhs;
+  }
+};
+using LiteralDataStlMap = std::unordered_map<Rptr, r_index, absl::Hash<Rptr>, RdfAstEq>;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // ResourceManager Canonical Container Types - used in ResourceManager class

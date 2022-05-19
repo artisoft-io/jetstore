@@ -371,9 +371,9 @@ ReteCallBackImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o
 inline void
 ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
 {
-  if(this->s_filter_ and this->s_filter_!=s) return;
-  if(this->p_filter_ and this->p_filter_!=p) return;
-  if(this->o_filter_ and this->o_filter_!=o) return;
+  if(this->s_filter_!=nullptr and this->s_filter_!=s) return;
+  if(this->p_filter_!=nullptr and this->p_filter_!=p) return;
+  if(this->o_filter_!=nullptr and this->o_filter_!=o) return;
   // If beta node is not activated yet, ignore the notification
   if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
     return;
