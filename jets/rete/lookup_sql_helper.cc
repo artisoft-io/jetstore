@@ -121,7 +121,7 @@ namespace jets::rete {
     try {
       err = this->lookup_internal_c(rete_session, is_multi, subject, key, lc.stmt1, out);
       this->db_pool_.put_connection(lc);
-      return 0;
+      return err;
     } catch(rete_exception ex) {
       LOG(ERROR)<<"lookup_sql_helper::lookup: ERROR Got Exception: "<<ex;
       this->db_pool_.put_connection(lc);
@@ -131,8 +131,6 @@ namespace jets::rete {
       this->db_pool_.put_connection(lc);
       return -1;
     }
-    this->db_pool_.put_connection(lc);
-    return 0;
   }
 
   int LookupTable::lookup_internal_rand(ReteSession * rete_session, bool is_multi, RDFTTYPE * out)
@@ -178,7 +176,7 @@ namespace jets::rete {
     try {      
       err = this->lookup_internal_c(rete_session, is_multi, subject, key, lc.stmt2, out);
       this->db_pool_.put_connection(lc);
-      return 0;
+      return err;
     } catch(rete_exception ex) {
       LOG(ERROR)<<"lookup_sql_helper::lookup_rand: ERROR Got Exception: "<<ex;
       this->db_pool_.put_connection(lc);
@@ -188,8 +186,6 @@ namespace jets::rete {
       this->db_pool_.put_connection(lc);
       return -1;
     }
-    this->db_pool_.put_connection(lc);
-    return 0;
   }
 
 } // namespace jets::rete
