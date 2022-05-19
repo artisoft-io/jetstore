@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
 	"regexp"
 	"strconv"
@@ -211,8 +212,7 @@ func (ri *ReteInputContext) assertInputRecords(
 						} else {
 							br.ErrorMessage = inputColumnSpec.errorMessage
 						}
-						//*
-						fmt.Println("BAD Input ROW:",br)
+						log.Println("BAD Input ROW:",br)
 						br.write2Chan((*writeOutputc)["process_errors"])
 					}
 					continue
@@ -290,8 +290,7 @@ func (ri *ReteInputContext) assertInputRecords(
 				}
 				br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
 				br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
-				//*
-				fmt.Println("BAD Input ROW:",br)
+				log.Println("BAD Input ROW:",br)
 				br.write2Chan((*writeOutputc)["process_errors"])
 				continue
 			}

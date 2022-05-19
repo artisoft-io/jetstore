@@ -88,7 +88,7 @@ func UpdateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			if !isFirst {
 				buf.WriteString(", ")
 			}
-			fmt.Println("ADDING COLUMN:",col.ColumnName,"range",col.DataType,"is_array?",col.IsArray)
+			log.Println("ADDING COLUMN:",col.ColumnName,"range",col.DataType,"is_array?",col.IsArray)
 			isFirst = false
 			buf.WriteString("ADD COLUMN IF NOT EXISTS ")
 			buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
@@ -160,7 +160,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			return fmt.Errorf("error while droping table: %v", err)
 		}	
 	} else {
-		fmt.Println(stmt)
+		log.Println(stmt)
 	}
 
 	// create stmt
@@ -193,7 +193,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			return fmt.Errorf("error while creating table: %v", err)
 		}
 	} else {
-		fmt.Println(stmt)
+		log.Println(stmt)
 	}
 	
 	// primary index stmt
@@ -206,7 +206,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			return fmt.Errorf("error while creating primary index: %v", err)
 		}
 	} else {
-		fmt.Println(stmt)
+		log.Println(stmt)
 	}
 
 	// shard index stmt
@@ -219,7 +219,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 			return fmt.Errorf("error while creating shard index: %v", err)
 		}
 	} else {
-		fmt.Println(stmt)
+		log.Println(stmt)
 	}
 	return nil
 }

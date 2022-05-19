@@ -138,16 +138,16 @@ func main() {
 	if hasErr {
 		flag.Usage()
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
 		os.Exit((1))
 	}
 
-	fmt.Println("Here's what we got:")
-	fmt.Println("Got -dsn:", *dsn)
-	fmt.Println("Got -workspaceDb:", *workspaceDb)
+	log.Println("Here's what we got:")
+	log.Println("   -dsn:", *dsn)
+	log.Println("   -workspaceDb:", *workspaceDb)
 	for tableName, extColumns := range extTables {
-		fmt.Println("Table:",tableName,"Extended Columns:",strings.Join(extColumns, ","))
+		log.Println("Table:",tableName,"Extended Columns:",strings.Join(extColumns, ","))
 	}
 	//let's do it
 	err := doJob()

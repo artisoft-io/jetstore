@@ -93,12 +93,28 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		log.Println("Error while getting input predicate:", err)
 		return &result, err
 	}
+	// get all tables of the workspace
+	allTables, err := workspaceMgr.GetTableNames()
+	if err != nil {
+		log.Println("Error while getting table names:", err)
+		return &result, err
+	}
 	if out2all {
-		// get all tables of the workspace
-		reteWorkspace.outTables, err = workspaceMgr.GetTableNames()
-		if err != nil {
-			log.Println("Error while getting table names:", err)
-			return &result, err
+		reteWorkspace.outTables = allTables
+	} else {
+		// check that the provided out table exists
+		var ok bool
+		for _, str := range reteWorkspace.outTables {
+			ok = false
+			for _, tbl := range allTables {
+				if str == tbl {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return &result, fmt.Errorf("error: table %s does not exist in workspace", str)
+			}
 		}
 	}
 	// create a filter to retain selected tables
@@ -113,8 +129,6 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	for ipos := range processInput.processInputMapping {
 		dp := processInput.processInputMapping[ipos].dataProperty
 		processInput.processInputMapping[ipos].rdfType, processInput.processInputMapping[ipos].isArray, err = workspaceMgr.GetRangeDataType(dp)
-		//*
-		fmt.Println(processInput.processInputMapping[ipos].dataProperty,"range",processInput.processInputMapping[ipos].rdfType,"array?",processInput.processInputMapping[ipos].isArray)
 		if err != nil {
 			return &result, fmt.Errorf("while adding range type to data property %s: %v", dp, err)
 		}
@@ -132,7 +146,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	dataInputc, readResultc := readInput(dbpool, done, processInput)
 
 	// create the writeOutput channels
-	fmt.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
+	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
 	writeOutputc := make(map[string]chan []interface{})
 	for _, tbl := range reteWorkspace.outTables {
 		log.Println("Creating output channel for out table:", tbl)
@@ -317,8 +331,8 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 		defer close(dataInputc)
 		// prepare the sql stmt
 		stmt, nCol := processInput.makeSqlStmt()
-		fmt.Println("SQL:", stmt)
-		fmt.Println("Grouping key at pos", processInput.groupingPosition)
+		log.Println("SQL:", stmt)
+		log.Println("Grouping key at pos", processInput.groupingPosition)
 		rows, err := dbpool.Query(context.Background(), stmt)
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
