@@ -30,7 +30,6 @@ class RManager {
   inline RManager() 
     : is_locked_(false),
       last_bnode_key_(0),
-      r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
       lmap_(),
       root_mgr_p_(),
       jets_resources_()
@@ -39,7 +38,6 @@ class RManager {
   inline RManager(RManagerPtr root_mgr_p) 
     : is_locked_(false),
       last_bnode_key_(0),
-      r_null_ptr_(std::make_shared<RdfAstType>(RDFNull())),
       lmap_(),
       root_mgr_p_(root_mgr_p),
       jets_resources_()
@@ -113,7 +111,7 @@ class RManager {
   inline r_index 
   get_null() const
   {
-    return r_null_ptr_.get();
+    return gnull();
   }
 
   template<class T>
@@ -235,7 +233,6 @@ class RManager {
  private:
   bool          is_locked_;
   int           last_bnode_key_;
-  Rptr          r_null_ptr_;
   DataMap       lmap_;
   RManagerPtr   root_mgr_p_;
   JetsResources jets_resources_;

@@ -32,6 +32,8 @@ namespace jets::rdf {
  * 
  */
 
+// RDFNull is the default-construct of the RdfAst, see (https://www.boost.org/doc/libs/1_77_0/doc/html/variant/tutorial.html)
+// it must have a default-construct constructor.
 struct RDFNull {
   using is_non_resource = std::true_type;
   using is_non_literal = std::true_type;
@@ -51,8 +53,6 @@ inline std::ostream & operator<<(std::ostream & out, RDFNull bn)
   return out;
 }
 
-// BlankNode is the default-construct of the RdfAst, see (https://www.boost.org/doc/libs/1_77_0/doc/html/variant/tutorial.html)
-// it must have a default-construct constructor.
 struct BlankNode {
   using is_resource = std::true_type;
   using is_non_literal = std::true_type;
@@ -411,7 +411,8 @@ H AbslHashValue(H h, const Rptr& rptr)
 }
 
 inline bool 
-operator==(const Rptr& lhs, const Rptr& rhs) {
+operator==(const Rptr& lhs, const Rptr& rhs) 
+{
   return *lhs == *rhs;
 }
 
@@ -554,8 +555,6 @@ to_bool(RdfAstType v)
 inline RdfAstType True() { return LInt32(1);}
 inline RdfAstType False() { return LInt32(0);}
 
-inline RdfAstType Null() { return RDFNull();}
-
 inline RdfAstType today() { 
   LDate td;
   td.data = boost::gregorian::day_clock::local_day();
@@ -571,7 +570,11 @@ inline RdfAstType now() {
 // ==================================================================================
 // Resource and Literals Factory constructors
 // ----------------------------------------------------------------------------------
-inline Rptr mkNull()                        { return std::make_shared<RdfAstType>(RDFNull()); }
+// Have a rdf::RDFNull singleton returned by Null() function 
+RdfAstType Null();
+Rptr mkNull();
+r_index gnull();
+
 inline Rptr mkBlankNode(int key)            { return std::make_shared<RdfAstType>(BlankNode(key)); }
 
 inline Rptr mkResource(std::string n)       

@@ -125,6 +125,39 @@ TEST(RManagerTest, CreateNulls)
   EXPECT_NE(r1, n1);
 }
 
+TEST(RManagerTest, NullIsASingleton)
+{
+  // rdf resource manager
+  auto rmanager_p = RManager::create();
+  auto rmanager = *rmanager_p;
+  rmanager.initialize();
+
+  // nulls behave the same
+  auto n1 = RdfAstType();
+  auto n2 = RdfAstType();
+  EXPECT_EQ(n1.which(), rdf_null_t);
+  EXPECT_EQ(n2.which(), rdf_null_t);
+  EXPECT_TRUE(n1 == n2);
+  EXPECT_FALSE(n1 != n2);
+
+  // but are different instance, hence different address
+  r_index r1 = &n1;
+  r_index r2 = &n2;
+  void* vr1 = (void*)r1;
+  void* vr2 = (void*)r2;
+  EXPECT_TRUE(vr1 != vr2);
+  // r_index operator== makes it to be equal
+  EXPECT_TRUE(n1 == n2);
+  EXPECT_FALSE(n1 != n2);
+
+  // the resource manager resolve it correctly to the singleton
+  r1 = rmanager.insert_item(std::make_shared<rdf::RdfAstType>(n1));
+  r2 = rmanager.insert_item(std::make_shared<rdf::RdfAstType>(n2));
+  EXPECT_TRUE(r1 == r2);
+  EXPECT_TRUE(r1 == gnull());
+  EXPECT_FALSE(r1 != gnull());
+}
+
 TEST(RManagerTest, MetaManager) 
 {
   // rdf resource meta manager

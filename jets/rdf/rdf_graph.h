@@ -278,9 +278,9 @@ class RDFGraph {
       RDF_EXCEPTION("rdf_graph::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
     bool inserted = spo_graph_.insert(s, p, o);
+    pos_graph_.insert(p, o, s);
+    osp_graph_.insert(o, s, p);
     if(inserted) {
-      pos_graph_.insert(p, o, s);
-      osp_graph_.insert(o, s, p);
       size_+= 1;
       this->graph_callback_mgr_->triple_inserted(s, p, o);
       return 1;

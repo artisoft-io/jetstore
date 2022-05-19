@@ -26,8 +26,8 @@ set(C_INCLUDE_PATH ${PROJECT_SOURCE_DIR}/jets)
 # list of source files
 set(C_LIBRARY_SRC rdf/base_graph_iterator.h  rdf/base_graph.h  rdf/containers_type.h  
   rdf/graph_callback_mgr.h  rdf/other/fcmp.c  rdf/other/fcmp.h  rdf/r_manager.cc rdf/r_manager.h rdf/r_resources.h rdf/r_resources.cc 
-  rdf/rdf_date_time.h  rdf/rdf_date_time.cc  rdf/rdf_ast.h  rdf/rdf_err.h  rdf/rdf_graph.h  rdf/rdf_session_iterator.h  
-  rdf/rdf_session.h  rdf/rdf_types.h  rdf/uuid.cc  rdf/uuid.h  rdf/w_node.h  
+  rdf/rdf_date_time.h  rdf/rdf_date_time.cc  rdf/rdf_ast.h rdf/rdf_ast.cc  rdf/rdf_err.h  rdf/rdf_graph.h  rdf/rdf_session_iterator.h  
+  rdf/rdf_session.h  rdf/rdf_types.h  rdf/uuid.cc  rdf/uuid.h  rdf/w_node.h 
   rete/alpha_functors.h  rete/alpha_node_impl.h  rete/alpha_node.h  
   rete/antecedent_query_visitor.h  rete/beta_relation.h  rete/beta_row_initializer.h  
   rete/beta_row_iterator.h  rete/beta_row.h  rete/expr_impl.h  rete/expr_operator_factory.h  

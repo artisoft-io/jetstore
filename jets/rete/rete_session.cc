@@ -274,7 +274,6 @@ namespace jets::rete {
       BetaRowPtr beta_row = this->pending_beta_rows_.top();
       this->pending_beta_rows_.pop();
       if(beta_row->is_processed()) {
-        //*
         VLOG(5)<<"compute_consequent_triples: row already processed: "<<beta_row<<", skipping";
         continue;
       }
@@ -299,9 +298,9 @@ namespace jets::rete {
           beta_row->set_status(BetaRowStatus::kProcessed);
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
-            //*
-            VLOG(5)<<"    Inferring triple: "<<consequent_node->compute_consequent_triple(this, beta_row.get());
-            this->rdf_session_->insert_inferred(consequent_node->compute_consequent_triple(this, beta_row.get()));
+            auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
+            VLOG(5)<<"    Inferring triple: "<<t3;
+            this->rdf_session_->insert_inferred(std::move(t3));
           }
         } else {
           // beta_row status must be kDeleted, meaning retracting mode
@@ -315,7 +314,6 @@ namespace jets::rete {
           beta_row->set_status(BetaRowStatus::kProcessed);
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
-            //*
             VLOG(5)<<"    Retracting triple: "<<consequent_node->compute_consequent_triple(this, beta_row.get());
             this->rdf_session_->retract(consequent_node->compute_consequent_triple(this, beta_row.get()));
           }
