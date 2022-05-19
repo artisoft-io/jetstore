@@ -53,7 +53,8 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
       RETE_EXCEPTION("Invalid lookup helper! Arguments: ("<<lookup_tbl<<", "<<key<<")");
     }
     if(helper->lookup(this->rs, lookup_tbl, key, &out)) {
-      return {};
+      RETE_EXCEPTION("ERROR while calling lookup with arguments: ("<<lookup_tbl<<", "<<key<<")");
+      return rdf::Null();
     }
     return out;
   }
@@ -81,7 +82,8 @@ struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>
       RETE_EXCEPTION("Invalid lookup helper! Arguments: ("<<lookup_tbl<<")");
     }
     if(helper->lookup_rand(this->rs, lookup_tbl, &out)) {
-      return {};
+      RETE_EXCEPTION("ERROR while calling lookup_rand with arguments: ("<<lookup_tbl<<")");
+      return rdf::Null();
     }
     return out;
   }
@@ -118,7 +120,8 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
       RETE_EXCEPTION("Invalid (multi)lookup helper! Arguments: ("<<lookup_tbl<<", "<<key<<")");
     }
     if(helper->multi_lookup(this->rs, lookup_tbl, key, &out)) {
-      return {};
+      RETE_EXCEPTION("ERROR while calling multi_lookup with arguments: ("<<lookup_tbl<<", "<<key<<")");
+      return rdf::Null();
     }
     return out;
   }
@@ -145,7 +148,8 @@ struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>
       RETE_EXCEPTION("Invalid lookup helper! Arguments: ("<<lookup_tbl<<")");
     }
     if(helper->multi_lookup_rand(this->rs, lookup_tbl, &out)) {
-      return {};
+      RETE_EXCEPTION("ERROR while calling multi_lookup_rand with arguments: ("<<lookup_tbl<<")");
+      return rdf::Null();
     }
     return out;
   }
@@ -176,13 +180,13 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
 {
   CastVisitor(ReteSession * rs, int type): rs(rs), type(type){}
   RDFTTYPE operator()(rdf::RDFNull       const&v)const{return v;}
-  RDFTTYPE operator()(rdf::BlankNode     const&v)const{return type==rdf::rdf_blank_node_t ? v : RDFTTYPE();}
+  RDFTTYPE operator()(rdf::BlankNode     const&v)const{return type==rdf::rdf_blank_node_t ? v : rdf::Null();}
   RDFTTYPE operator()(rdf::NamedResource const&v)const
   {
     switch (this->type) {
     case rdf::rdf_named_resource_t   : return v;
     case rdf::rdf_literal_string_t   : return rdf::LString(v.name);
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LInt32        const&v)const
@@ -194,7 +198,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_int64_t    : return rdf::LInt64(v.data);
     case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
     case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LUInt32       const&v)const
@@ -206,7 +210,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));
     case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
     case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LInt64        const&v)const
@@ -218,7 +222,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_int64_t    : return v;
     case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
     case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LUInt64       const&v)const
@@ -230,7 +234,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));
     case rdf::rdf_literal_uint64_t   : return v;
     case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::numeric_cast<double>(v.data));
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LDouble       const&v)const
@@ -242,7 +246,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::numeric_cast<int64_t>(v.data));
     case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::numeric_cast<uint64_t>(v.data));
     case rdf::rdf_literal_double_t   : return v;
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LString       const&v)const
@@ -262,7 +266,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_int64_t    : return rdf::LInt64(boost::lexical_cast<int64_t>(view));
     case rdf::rdf_literal_uint64_t   : return rdf::LUInt64(boost::lexical_cast<uint64_t>(view));
     case rdf::rdf_literal_double_t   : return rdf::LDouble(boost::lexical_cast<double>(view));
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LDate         const&v)const
@@ -271,7 +275,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_string_t   : return rdf::LString(rdf::to_string(v.data));
     case rdf::rdf_literal_date_t     : return v;
     case rdf::rdf_literal_datetime_t : return rdf::LDatetime(rdf::to_datetime(v.data));
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   RDFTTYPE operator()(rdf::LDatetime     const&v)const
@@ -280,7 +284,7 @@ struct CastVisitor: public boost::static_visitor<RDFTTYPE>
     case rdf::rdf_literal_string_t   : return rdf::LString(rdf::to_string(v.data));
     case rdf::rdf_literal_date_t     : return rdf::LDate(v.data.date());
     case rdf::rdf_literal_datetime_t : return v;
-    default: return RDFTTYPE(); // return null by default
+    default: return rdf::Null(); // return null by default
     }
   }
   ReteSession * rs;
