@@ -79,23 +79,23 @@ class RDFGraph {
  public:
   using Iterator = BaseGraph::Iterator;
 
-  RDFGraph() 
+  RDFGraph(int gtype) 
     : size_(0),
       is_locked_(false),
       r_mgr_p(create_rmanager()), 
-      spo_graph_('s'), 
-      pos_graph_('p'), 
-      osp_graph_('o'),
+      spo_graph_('s', gtype), 
+      pos_graph_('p', gtype), 
+      osp_graph_('o', gtype),
       graph_callback_mgr_(create_graph_callback_mgr())
     {}
 
-  RDFGraph(RManagerPtr meta_mgr) 
+  RDFGraph(RManagerPtr meta_mgr, int gtype) 
     : size_(0),
       is_locked_(false),
       r_mgr_p(create_rmanager(meta_mgr)), 
-      spo_graph_('s'), 
-      pos_graph_('p'), 
-      osp_graph_('o'),
+      spo_graph_('s', gtype), 
+      pos_graph_('p', gtype), 
+      osp_graph_('o', gtype),
       graph_callback_mgr_(create_graph_callback_mgr())
     {}
 
@@ -431,9 +431,15 @@ RDFGraph::find(AllOrRIndex const&s, AllOrRIndex const&p, AllOrRIndex const&o)con
 }
 
 inline RDFGraphPtr 
-create_rdf_graph(RManagerPtr meta_mgr=nullptr)
+create_rdf_graph(RManagerPtr meta_mgr=nullptr, int gtype=0)
 {
-  return std::make_shared<RDFGraph>(meta_mgr);
+  return std::make_shared<RDFGraph>(meta_mgr, gtype);
+}
+
+inline RDFGraphPtr 
+create_rdf_graph(int gtype)
+{
+  return std::make_shared<RDFGraph>(nullptr, gtype);
 }
 
 inline std::ostream & operator<<(std::ostream & out, RDFGraph const* g)

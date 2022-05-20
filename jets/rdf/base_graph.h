@@ -45,17 +45,29 @@ class BaseGraph {
    * values are 's', 'p', and 'o'
    *
    * @param spin indicates spin scheme
+   * @param gtype indicates the type of graph (0: meta_graph, 1:asserted_graph, 2:inferred_graph)
    */
-  inline BaseGraph(char const spin)
+  inline BaseGraph(char const spin, int gtype)
     : spin_(spin),
       umap_data_(),
       v_end_(),
-      w_end_()
+      w_end_(),
+      gtype_(gtype)
   {}
 
   inline void clear() 
   { 
     umap_data_.clear(); 
+  }
+
+  static char const* get_gtype(int gtype)
+  {
+    switch (gtype) {
+    case 0: return "META";
+    case 1: return "ASSERTED";
+    case 2: return "INFERRED";
+    default: return "ERROR";
+    }
   }
 
   /**
@@ -260,10 +272,12 @@ class BaseGraph {
     }
 
 		// If not inserted, then increase the ref_count by 1
+    int rc = 1;
     auto pair = vtor->second.insert(WSetType::value_type{w});
     if (!pair.second) {
-      pair.first->add_ref_count();
+      rc = pair.first->add_ref_count();
     }
+    VLOG(4)<<"INSERT "<<get_gtype(this->gtype_)<<" "<<rc<<" ("<< u <<", "<< v <<", " << w <<")";
     return pair.second;
   }
 
@@ -302,6 +316,9 @@ class BaseGraph {
         umap_data_.erase(u);
       }
     }
+    if(count) {
+      VLOG(4)<<"ERASE "<<get_gtype(this->gtype_)<<" 0 ("<< u <<", "<< v <<", " << w <<")";
+    }
     return count;
   }
 
@@ -335,11 +352,10 @@ class BaseGraph {
     auto vtor = utor->second.find(v);
     if (vtor == utor->second.end()) return 0;
 
-    int count = 0;
     auto wtor = vtor->second.find(WSetType::value_type{w});
     if (wtor == vtor->second.end()) return 0;
-
-    if (wtor->del_ref_count() == 0) {
+    int rc = wtor->del_ref_count();
+    if (rc == 0) {
       vtor->second.erase(wtor);
       if (vtor->second.empty()) {
         utor->second.erase(v);
@@ -347,9 +363,9 @@ class BaseGraph {
           umap_data_.erase(u);
         }
       }
-      count = 1;
     }
-    return count;
+    VLOG(4)<<"RETRACT "<<get_gtype(this->gtype_)<<" "<<rc<<" ("<< u <<", "<< v <<", " << w <<")";
+    return rc == 0;
   }
 
   inline int retract_spo(r_index s, r_index p, r_index o) 
@@ -365,12 +381,13 @@ class BaseGraph {
   // have empty iterators
   VMapType::const_iterator v_end_;
   WSetType::const_iterator w_end_;
+  int gtype_;
 };
 
 inline 
-BaseGraphPtr create_base_graph(char const spin)
+BaseGraphPtr create_base_graph(char const spin, int gtype=0)
 {
-  return std::make_shared<BaseGraph>(spin);
+  return std::make_shared<BaseGraph>(spin, gtype);
 }
 
 }  // namespace jets::rdf
