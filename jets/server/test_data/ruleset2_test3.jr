@@ -1,0 +1,23 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "support_test3.jr"
+
+volatile_resource codeDescription = "codeDescription";
+volatile_resource longDescription = "longDescription";
+
+[Rule1]:
+  (?claim rdf:type hc:TestClaim).
+  (?claim hc:code ?code)
+  ->
+  (?claim codeDescription lk:CodeDescription lookup ?code)
+;
+
+[Rule2]:
+  (?claim rdf:type hc:TestClaim).
+  (?claim hc:code ?code).
+  (?claim codeDescription ?description).
+  [?description != null]
+  ->
+  (?claim longDescription (?code + " ") + ?description)
+;

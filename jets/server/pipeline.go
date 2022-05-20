@@ -140,6 +140,9 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		if err != nil {
 			return &result, fmt.Errorf("while adding ruleset name for ruleseq %s: %v", *ruleseq, err)
 		}
+		if len(reteWorkspace.ruleset) == 0 {
+			return &result, fmt.Errorf("error ruleseq %s does not exist in workspace", reteWorkspace.ruleseq)
+		}
 	}
 
 	// start the read input goroutine
