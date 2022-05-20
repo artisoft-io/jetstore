@@ -74,6 +74,7 @@ dataPropertyType
   | DateType
   | DatetimeType
   | BoolType
+  | ResourceType
 ;
 
 // --------------------------------------------------------------------------------------
