@@ -48,9 +48,9 @@ class RDFSession {
       inferred_graph_()
     {
       auto meta_mgr = meta_graph_->get_rmgr();
-      asserted_graph_ = create_rdf_graph(meta_mgr);
+      asserted_graph_ = create_rdf_graph(meta_mgr, 1);
       auto r_mgr_p = asserted_graph_->get_rmgr();
-      inferred_graph_ = create_rdf_graph();
+      inferred_graph_ = create_rdf_graph(2);
       inferred_graph_->set_rmgr(r_mgr_p);
     }
 
@@ -333,7 +333,6 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(s, p, o);
     }
-    VLOG(4)<<"INSERT ("<< s <<", "<< p <<", " << o <<")";
     return asserted_graph_->insert(s, p, o);
   }
 
@@ -350,7 +349,6 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
-    VLOG(4)<<"INSERT ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
 
@@ -367,7 +365,6 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
-    VLOG(4)<<"INSERT ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
 
@@ -384,7 +381,6 @@ class RDFSession {
     if (this->inferred_graph()) {
       this->inferred_graph()->erase(t3.subject, t3.predicate, t3.object);
     }
-    VLOG(4)<<"INSERT ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return asserted_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
   // ------------------------------------------------------------------------------------
@@ -403,7 +399,6 @@ class RDFSession {
     auto o = rmgr()->create_literal(v);
     if(this->meta_graph()->contains(s, p, o)) return 0;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
-    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
   }
 
@@ -420,7 +415,6 @@ class RDFSession {
     auto o = rmgr()->create_literal(std::forward<L>(v));
     if(this->meta_graph()->contains(s, p, o)) return 0;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
-    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
   }
 
@@ -435,7 +429,6 @@ class RDFSession {
     }
     if(this->meta_graph()->contains(s, p, o)) return 0;
     if(this->asserted_graph()->contains(s, p, o)) return 0;
-    VLOG(4)<<"INSERT INFERRED ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->insert(s, p, o);
   }
 
@@ -451,7 +444,6 @@ class RDFSession {
     // std::cout<<"    RdfSession::insert_inferred "<<t3<<std::endl;
     if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if(this->asserted_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
-    VLOG(4)<<"INSERT INFERRED ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
 
@@ -467,7 +459,6 @@ class RDFSession {
     // std::cout<<"    RdfSession::insert_inferred&& "<<t3<<std::endl;
     if(this->meta_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
     if(this->asserted_graph()->contains(t3.subject, t3.predicate, t3.object)) return 0;
-    VLOG(4)<<"INSERT INFERRED ("<< t3.subject <<", "<< t3.predicate <<", " << t3.object <<")";
     return inferred_graph_->insert(t3.subject, t3.predicate, t3.object);
   }
   // ------------------------------------------------------------------------------------
@@ -481,7 +472,6 @@ class RDFSession {
   erase(r_index s, r_index p, r_index o)
   {
     int res = asserted_graph_->erase(s, p, o) + inferred_graph_->erase(s, p, o);
-    VLOG(4)<<"ERASE ("<< s <<", "<< p <<", " << o <<") result "<<res;
     return res;
   }
 
@@ -495,7 +485,6 @@ class RDFSession {
                  << s << ", " << p << ", " << o <<")";
       RDF_EXCEPTION("RDFSession::insert: trying to insert a triple with a NULL ptr index (see logs)");
     }
-    VLOG(4)<<"RETRACT ("<< s <<", "<< p <<", " << o <<")";
     return inferred_graph_->retract(s, p, o);
   }
 
