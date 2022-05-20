@@ -76,7 +76,7 @@ def serializedATN():
         53,1,53,1,53,1,53,1,53,1,53,1,53,1,53,1,53,0,1,100,54,0,2,4,6,8,
         10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,
         54,56,58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,
-        98,100,102,104,106,0,5,1,0,42,43,1,0,25,33,1,0,42,44,2,0,47,59,62,
+        98,100,102,104,106,0,5,1,0,42,43,1,0,25,34,1,0,42,44,2,0,47,59,62,
         62,2,0,45,46,62,62,803,0,111,1,0,0,0,2,126,1,0,0,0,4,128,1,0,0,0,
         6,134,1,0,0,0,8,152,1,0,0,0,10,172,1,0,0,0,12,174,1,0,0,0,14,215,
         1,0,0,0,16,229,1,0,0,0,18,231,1,0,0,0,20,256,1,0,0,0,22,270,1,0,
@@ -1614,6 +1614,9 @@ class JetRuleParser ( Parser ):
         def BoolType(self):
             return self.getToken(JetRuleParser.BoolType, 0)
 
+        def ResourceType(self):
+            return self.getToken(JetRuleParser.ResourceType, 0)
+
         def getRuleIndex(self):
             return JetRuleParser.RULE_dataPropertyType
 
@@ -1637,7 +1640,7 @@ class JetRuleParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 290
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << JetRuleParser.Int32Type) | (1 << JetRuleParser.UInt32Type) | (1 << JetRuleParser.Int64Type) | (1 << JetRuleParser.UInt64Type) | (1 << JetRuleParser.DoubleType) | (1 << JetRuleParser.StringType) | (1 << JetRuleParser.DateType) | (1 << JetRuleParser.DatetimeType) | (1 << JetRuleParser.BoolType))) != 0)):
+            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << JetRuleParser.Int32Type) | (1 << JetRuleParser.UInt32Type) | (1 << JetRuleParser.Int64Type) | (1 << JetRuleParser.UInt64Type) | (1 << JetRuleParser.DoubleType) | (1 << JetRuleParser.StringType) | (1 << JetRuleParser.DateType) | (1 << JetRuleParser.DatetimeType) | (1 << JetRuleParser.BoolType) | (1 << JetRuleParser.ResourceType))) != 0)):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
