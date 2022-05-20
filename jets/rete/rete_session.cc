@@ -371,6 +371,10 @@ namespace jets::rete {
         keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
       }
 
+      if(not keepit) {
+        VLOG(5)<<"            ...filtered out beta row: "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
+      }
+
       // insert or remove the row from current_relation based on is_inserted
       if(keepit) {
         // Add/Remove row to current beta relation (current_relation)

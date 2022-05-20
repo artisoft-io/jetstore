@@ -16,8 +16,7 @@ volatile_resource longDescription = "longDescription";
 [Rule2]:
   (?claim rdf:type hc:TestClaim).
   (?claim hc:code ?code).
-  (?claim codeDescription ?description).
-  [?description != null]
+  (?claim codeDescription ?description)
   ->
   (?claim longDescription (?code + " ") + ?description)
 ;
