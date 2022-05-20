@@ -3,8 +3,6 @@
 # ---------------------------------------------------------------------------------------
 import "support_test3.jr"
 
-resource RRConfig = "RRConfig";
-resource do_codesInContractExclusion = "do_codesInContractExclusion";
 volatile_resource addlCodesInContractExclusion = "addlCodesInContractExclusion";
 
 [Rule1,s=200]:
@@ -29,7 +27,3 @@ volatile_resource addlCodesInContractExclusion = "addlCodesInContractExclusion";
   ->
   (?claim hc:is_code false)
 ;
-
-## [PEX001,o=false,s=100,flag="o=false"]: (?x1 rdf:type usi_sm:RRConfig).(?x1 usi_sm:do_codesInContractExclusion 1).(?x2 rdf:type hc_usi:USIClaim).(?x2 hc_usi:procedureCode ?x3).not(?x2 _0:addlCodesInContractExclusion 1) -> (?x2 _0:cptInContractInfo (IM_CodeInContract lookup ?x3));
-## [PEX002,o=false,s=60,flag="o=false"]: (?x1 rdf:type hc_usi:USIClaim).not(?x1 _0:cptInContractInfo null) -> (?x1 hc_usi:isCPTContractual 1);
-## [PEX003,o=false,s=60,flag="o=false"]: (?x1 rdf:type hc_usi:USIClaim).(?x1 _0:cptInContractInfo null) -> (?x1 hc_usi:isCPTContractual 0);

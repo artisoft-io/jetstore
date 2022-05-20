@@ -42,6 +42,8 @@ lookup_table lk:CodeDescription {
 # Metadata Triples
 # ---------------------------------------------------------------------------------------
 resource KEY001 = "KEY001";
+resource RRConfig = "RRConfig";
+resource do_codesInContractExclusion = "do_codesInContractExclusion";
 triple(KEY001, rdf:type, RRConfig);
 triple(KEY001, do_codesInContractExclusion, true);
 
