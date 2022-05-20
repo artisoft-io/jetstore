@@ -145,7 +145,12 @@ namespace jets::rete {
     auto key = std::to_string(ikey);
 
     // make the subject resource (lookup result associated to key)
-    rdf::r_index subject = rmgr->create_resource(this->subject_prefix_+key);
+    rdf::r_index subject;
+    if(is_multi) {
+      subject = rmgr->create_resource(this->subject_rand_prefix_+key);
+    } else {
+      subject = rmgr->create_resource(this->subject_prefix_+key);
+    }
     *out = *subject;
     auto lookup_row = rmgr->jets()->jets__lookup_row;
     auto lookup_multi_rows = rmgr->jets()->jets__lookup_multi_rows;

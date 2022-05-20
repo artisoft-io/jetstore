@@ -367,11 +367,15 @@ class JetRuleLookupSQLite:
     else:    
         lookup_df = pd.read_csv(csv_path, dtype=converters_and_dtypes[1], skipinitialspace = True, converters = converters_and_dtypes[0], escapechar='\\')
 
-
+        # add the jets:key for each row, which can be composite key
         if set(key_columns).issubset(set(lookup_df.columns)): 
             lookup_df.insert(0,'jets:key', lookup_df[key_columns].agg(''.join, axis=1))
         else:
             raise Exception(f'Key Columns missing in provided CSV. Expected {str(key_columns)} in header {str(lookup_df.columns)}')    
+
+        # add __key__ with the rowid of each unique jets:jey,
+        # create a dict to associate __key__ with jets:key
+        for jk in 
 
         lookup_df.insert(0, '__key__', range(0, len(lookup_df)))
         return lookup_df

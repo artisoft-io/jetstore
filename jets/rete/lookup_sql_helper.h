@@ -189,6 +189,7 @@ class LookupTable {
     lookup_name_(lookup_name),
     cache_uri_(nullptr),
     subject_prefix_("jets:"),
+    subject_rand_prefix_("jets:rand:"),
     db_pool_(lookup_db_path),
     columns_(),
     max_key_(0),
@@ -197,6 +198,7 @@ class LookupTable {
   {
     this->cache_uri_ = this->meta_graph_->rmgr()->create_resource(this->lookup_name_);
     this->subject_prefix_.append(this->lookup_name_).push_back(':');
+    this->subject_rand_prefix_.append(this->lookup_name_).push_back(':');
   }
 
   int initialize(sqlite3 * workspace_db, sqlite3 * lookup_db)
@@ -310,6 +312,7 @@ class LookupTable {
   std::string                        lookup_name_;
   rdf::r_index                       cache_uri_;
   std::string                        subject_prefix_;
+  std::string                        subject_rand_prefix_;
   DBConnectionPool                   db_pool_;
   LookupInfoV                        columns_;
   int                                max_key_;

@@ -4,6 +4,7 @@
 import "support_test3.jr"
 
 volatile_resource addlCodesInContractExclusion = "addlCodesInContractExclusion";
+volatile_resource addlMultiCodesInContractExclusion = "addlMultiCodesInContractExclusion";
 
 [Rule1,s=200]:
   (?config rdf:type RRConfig).
@@ -11,6 +12,7 @@ volatile_resource addlCodesInContractExclusion = "addlCodesInContractExclusion";
   (?claim rdf:type hc:TestClaim).
   (?claim hc:code ?code)
   ->
+  (?claim addlMultiCodesInContractExclusion lk:CodeDescription multi_lookup ?code).
   (?claim addlCodesInContractExclusion lk:CodeDescription lookup ?code)
 ;
 
