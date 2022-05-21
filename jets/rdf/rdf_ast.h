@@ -491,6 +491,15 @@ get_text(r_index r)
   return boost::get<LString>(*r).data;
 }
 
+inline std::string
+to_string(r_index r)
+{
+  if(not r) return "NULL";
+  std::ostringstream buf;
+  buf << r;
+  return buf.str();
+}
+
 inline bool
 to_bool(std::string_view str_)
 {

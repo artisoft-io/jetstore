@@ -165,8 +165,20 @@ class BetaRelation {
 
  protected:
 
+  // Defined in rete_session.h
+  /**
+   * @brief Remove indexes associated with argument beta_row
+   * 
+   * @param rete_session 
+   * @param beta_row row of this beta node that is being removed
+   * Argument are assumed to be not null
+   */
+  void
+  remove_indexes(ReteSession * rete_session, BetaRowPtr beta_row);
+
  private:
- friend std::ostream & operator<<(std::ostream &, BetaRelation const*);
+  
+  friend std::ostream & operator<<(std::ostream &, BetaRelation const*);
   friend class AlphaNode;
   friend struct AQVIndexBetaRowsVisitor;
   friend struct AQVRemoveIndexBetaRowsVisitor;
