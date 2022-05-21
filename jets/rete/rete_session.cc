@@ -274,10 +274,10 @@ namespace jets::rete {
       BetaRowPtr beta_row = this->pending_beta_rows_.top();
       this->pending_beta_rows_.pop();
       if(beta_row->is_processed()) {
-        VLOG(5)<<"compute_consequent_triples: row already processed: "<<beta_row<<", skipping";
+        VLOG(4)<<"compute_consequent_triples: row already processed for vertex "<<beta_row->get_node_vertex()->vertex<<": "<<beta_row<<", skipping";
         continue;
       }
-      VLOG(5)<<"ReteSession::compute_consequent_triples for vertex "<<beta_row->get_node_vertex()->vertex<<", with row "<<beta_row;
+      VLOG(4)<<"ReteSession::compute_consequent_triples for vertex "<<beta_row->get_node_vertex()->vertex<<", with row "<<beta_row;
 
       // get the beta node and the vertex_node associated with the beta_row
       b_index meta_node = beta_row->get_node_vertex();
@@ -326,7 +326,7 @@ namespace jets::rete {
   int
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
-    VLOG(5)<<"     *  ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted << " reteSession::rule_ms_ "<<this->rule_ms_.get();
+    VLOG(4)<<"     *  ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted << " reteSession::rule_ms_ "<<this->rule_ms_.get();
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
