@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#include <glog/logging.h>
 #include "absl/hash/hash.h"
 
 #include "../rdf/rdf_err.h"
@@ -221,6 +222,25 @@ class RManager {
       return itor->second;
     }
     return nullptr;
+  }
+
+  void
+  dump_resources()const
+  {
+    VLOG(6)<<"The Session Resources:";
+    std::list<std::string> rlist;
+    if(this->root_mgr_p_) {
+      for(auto r: this->root_mgr_p_->lmap_) {
+        rlist.push_back(to_string(r.second) + " ("+rdf::get_type_name(r.second)+")");
+      }
+    }
+    for(auto r: this->lmap_) {
+      rlist.push_back(to_string(r.second) + " ("+rdf::get_type_name(r.second)+")");
+    }
+    rlist.sort();
+    for(auto const& item: rlist) {
+      VLOG(6)<<item;
+    }
   }
 
  protected:
