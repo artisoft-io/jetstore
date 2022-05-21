@@ -182,7 +182,7 @@ inline std::ostream & operator<<(std::ostream & out, BetaRow const& row)
 {
   if(row.get_node_vertex() and row.get_node_vertex()->get_beta_row_initializer()) {
     auto ri = row.get_node_vertex()->get_beta_row_initializer();
-    out << "[";
+    out <<"<"<<row.get_node_vertex()->vertex<<">"<<&row<<"[";
     for(int i=0; i<row.get_size(); i++) {
       if(i > 0) out << ", ";
       out << ri->get_label(i);

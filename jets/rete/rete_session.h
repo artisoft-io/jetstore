@@ -53,7 +53,7 @@ class ReteSession {
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
       beta_relations_(),
-      pending_beta_rows_(),
+      pending_compute_consequent_beta_rows_(),
       err_msg_()
     {}
 
@@ -214,7 +214,7 @@ class ReteSession {
   ReteMetaStorePtr        rule_ms_;
   rdf::RDFSession *       rdf_session_;
   BetaRelationVector      beta_relations_;
-  BetaRowPriorityQueue    pending_beta_rows_;
+  BetaRowPriorityQueue    pending_compute_consequent_beta_rows_;
   std::string             err_msg_;
 };
 
@@ -242,7 +242,9 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
         this->get_node_vertex()->vertex<<", row "<<beta_row<<
         " added, status set to Inserted - scheduled consequent - "<<
         (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
+
     } else {
+
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
       VLOG(5)<<"    BetaRelation::insert_beta_row at vertex "<<
@@ -250,6 +252,8 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
         " added, status set to Processed - no consequents - "<<
         (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
     }
+
+    if(this->get_node_vertex()->child_nodes.empty()) return 0;
 
     // Add row to pending queue to notify child nodes
     this->pending_beta_rows_.push_back(beta_row);
@@ -280,8 +284,9 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     this->get_node_vertex()->vertex<<", row "<<beta_row<<
     ", status "<<beta_row->get_status()<<" - "<<
     (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
+  
+  // Check if row was already deleted
   if(beta_row->is_deleted()) {
-    // Marked deleted already
     VLOG(5)<<"    Marked as deleted already";
     return 0;
   }
@@ -294,12 +299,11 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Cancel row insertion **
       VLOG(5)<<"Row marked kInserted, not inferred yet ** Cancel row insertion **";
       beta_row->set_status(BetaRowStatus::kProcessed);
-      // Put the row in the pending queue to notify children
-      this->pending_beta_rows_.push_back(beta_row);
-      // remove the indexes associated with the beta row
-      for(auto const& child_node_vertex: node_vertex_->child_nodes) {
-        auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
-        alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());
+
+      // Put the row in the pending queue to notify children that this row is being deleted
+      if(not this->get_node_vertex()->child_nodes.empty()) {
+        this->pending_beta_rows_.push_back(beta_row);
+        this->remove_indexes(rete_session, beta_row);
       }
 
       this->all_beta_rows_.erase(beta_row);
@@ -309,24 +313,25 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     VLOG(5)<<"Row marked kProcessed, need to put it for delete/retract";
     // Row must be in kProcessed state -- need to put it for delete/retract
     beta_row->set_status(BetaRowStatus::kDeleted);
-    // Put the row in the pending queue to notify children
-    this->pending_beta_rows_.push_back(beta_row);
-    // remove the indexes associated with the beta row
-    for(auto const& child_node_vertex: node_vertex_->child_nodes) {
-      auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
-      alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());
+
+    // Put the row in the pending queue to notify children that this row is being deleted
+    if(not this->get_node_vertex()->child_nodes.empty()) {
+      this->pending_beta_rows_.push_back(beta_row);
+      this->remove_indexes(rete_session, beta_row);
     }
+
     rete_session->schedule_consequent_terms(beta_row);
 
   } else {
     // No consequent terms, remove and propagate down
     beta_row->set_status(BetaRowStatus::kProcessed);
-    this->pending_beta_rows_.push_back(beta_row);
-    // remove the indexes associated with the beta row
-    for(auto const& child_node_vertex: node_vertex_->child_nodes) {
-      auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
-      alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());
+
+    // Put the row in the pending queue to notify children that this row is being deleted
+    if(not this->get_node_vertex()->child_nodes.empty()) {
+      this->pending_beta_rows_.push_back(beta_row);
+      this->remove_indexes(rete_session, beta_row);
     }
+
     this->all_beta_rows_.erase(beta_row);
   }
   return 0;
@@ -352,6 +357,16 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       child_alpha_node->initialize_indexes(this, child_node_vertex);
     }
     return 0;
+  }
+
+  inline void
+  BetaRelation::remove_indexes(ReteSession * rete_session, BetaRowPtr beta_row)
+  {
+    // remove the indexes associated with the beta row
+    for(auto const& child_node_vertex: this->node_vertex_->child_nodes) {
+      auto alpha_node = rete_session->rule_ms()->get_alpha_node(child_node_vertex->vertex);
+      alpha_node->remove_index_beta_row(this, child_node_vertex, beta_row.get());
+    }
   }
 
 // Declaired in graph_callback_mgr_impl.h

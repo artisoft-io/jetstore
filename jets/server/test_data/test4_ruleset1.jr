@@ -1,0 +1,149 @@
+# =======================================================================================
+# Data Model
+# ---------------------------------------------------------------------------------------
+class jets:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:key as text,
+    rdf:type as array of resource
+  ],
+  $as_table = false
+};
+
+class acme:AIUSIClaim {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    acme:placeOfServiceCode as text,
+    acme:medicareGlobal as double,
+    acme:medicareTC as double,
+    acme:medicare26 as double
+  ],
+  $as_table = true
+};
+
+
+# Medicare Rate & PHYSICIAN_FEE_SCHEDULE_LOOKUP
+# Medicare Rate & PHYSICIAN_FEE_SCHEDULE_LOOKUP
+[fee261,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 _0:medicareRateObj261 ?x2).
+  (?x2 NF_FEE ?x3).
+  (?x2 ONF_FEE ?x4) 
+-> 
+  (?x1 _0:gotRate26 1).
+  (?x1 _0:NF_26 ?x3).
+  (?x1 _0:ONF_26 ?x4)
+;
+
+[fee262,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 _0:medicareRateObj262 ?x2).
+  not(?x1 _0:gotRate26 1).
+  (?x2 NF_FEE ?x3).
+  (?x2 ONF_FEE ?x4) 
+-> 
+  (?x1 _0:NF_26 ?x3).
+  (?x1 _0:ONF_26 ?x4)
+;
+
+[feeTC1,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 _0:medicareRateObjTC1 ?x2).
+  (?x2 NF_FEE ?x3).
+  (?x2 ONF_FEE ?x4) 
+-> 
+  (?x1 _0:gotRateTC 1).
+  (?x1 _0:NF_TC ?x3).
+  (?x1 _0:ONF_TC ?x4)
+;
+
+[feeTC2,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 _0:medicareRateObjTC2 ?x2).
+  not(?x1 _0:gotRateTC 1).
+  (?x2 NF_FEE ?x3).
+  (?x2 ONF_FEE ?x4) 
+-> 
+  (?x1 _0:NF_TC ?x3).
+  (?x1 _0:ONF_TC ?x4)
+;
+
+# ADDENDUMG_LOOKUP
+[lk31,o=false,s=100,flag="o=false"]: (?x1 rdf:type acme:AIUSIClaim).(?x1 _0:addendumGLookup ?x2).(?x2 YEAR ?x3) -> (?x1 _0:procCdeOnAddendumG 1);
+
+# acme:medicare26, acme:medicareTC, acme:medicareGlobal Criteria
+[mg001,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 _0:NF_26 ?x2) 
+-> 
+  (?x1 acme:medicare26 ?x2)
+;
+
+[mg732,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 _0:NF_TC ?x2).
+  (?x1 _0:NF_26 ?x3).
+  (?x1 _0:ONF_TC ?x4).
+  [(?x4 < double(0.01))] 
+-> 
+  (?x1 acme:medicareGlobal (?x2 + ?x3)).
+  (?x1 acme:medicareTC ?x2)
+;
+
+[mg733,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 acme:placeOfServiceCode "11").
+  not(?x1 _0:procCdeOnAddendumG 1).
+  (?x1 _0:NF_TC ?x2).
+  (?x1 _0:NF_26 ?x3).
+  (?x1 _0:ONF_TC ?x4).
+  [(?x4 >= double(0.01))] 
+-> 
+  (?x1 acme:medicareGlobal (?x2 + ?x3)).(?x1 acme:medicareTC ?x2)
+;
+
+[mg734,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 acme:placeOfServiceCode "11").
+  (?x1 _0:procCdeOnAddendumG 1).
+  (?x1 _0:NF_TC ?x2).
+  (?x1 _0:NF_26 ?x3).
+  (?x1 _0:ONF_TC ?x4).
+  [((?x2 <= ?x4) and (?x4 >= double(0.01)))] 
+-> 
+  (?x1 acme:medicareGlobal (?x2 + ?x3)).(?x1 acme:medicareTC ?x2)
+;
+
+[mg735,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 acme:placeOfServiceCode "11").
+  (?x1 _0:procCdeOnAddendumG 1).
+  (?x1 _0:NF_TC ?x2).
+  (?x1 _0:NF_26 ?x3).
+  (?x1 _0:ONF_TC ?x4).
+  [((?x2 > ?x4) and (?x4 >= double(0.01)))] 
+-> 
+  (?x1 acme:medicareGlobal (?x4 + ?x3)).(?x1 acme:medicareTC ?x4)
+;
+
+[mg736,o=false,s=100,flag="o=false"]: 
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?x1 acme:placeOfServiceCode "22").
+  (?x1 _0:NF_26 ?x2).
+  (?x1 _0:ONF_TC ?x3).
+  [(?x3 >= double(0.01))] 
+-> 
+  (?x1 acme:medicareGlobal (?x3 + ?x2)).(?x1 acme:medicareTC ?x3)
+;
+
+resource RRAcme = "RRAcme";
+[ACME1]:
+  (?x1 rdf:type acme:AIUSIClaim).
+  (?rr rdf:type RRAcme).
+  (?rr ?p ?o).
+  [(?p != rdf:type) and (?p != jets:key)]
+ ->
+  (?x1 ?p ?o)
+;
+
+@JetCompilerDirective extract_resources_from_rules = "true";
