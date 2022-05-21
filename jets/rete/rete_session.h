@@ -238,7 +238,7 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       // Flag row as new and pending to infer triples
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
-      VLOG(5)<<"    BetaRelation::insert_beta_row at vertex "<<
+      VLOG(50)<<"    BetaRelation::insert_beta_row at vertex "<<
         this->get_node_vertex()->vertex<<", row "<<beta_row<<
         " added, status set to Inserted - scheduled consequent - "<<
         (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
@@ -247,7 +247,7 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
-      VLOG(5)<<"    BetaRelation::insert_beta_row at vertex "<<
+      VLOG(50)<<"    BetaRelation::insert_beta_row at vertex "<<
         this->get_node_vertex()->vertex<<", row "<<beta_row<<
         " added, status set to Processed - no consequents - "<<
         (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
@@ -275,19 +275,19 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   auto itor = this->all_beta_rows_.find(beta_row);
   if(itor==this->all_beta_rows_.end()) {
     // Already deleted!
-    VLOG(5)<<"BetaRowPtr not found, must be already deleted.(D01)";
+    VLOG(50)<<"BetaRowPtr not found, must be already deleted.(D01)";
     return 0;
   }
   // make sure we point to the right instance
   beta_row = *itor;
-  VLOG(5)<<"    BetaRelation::remove_beta_row at vertex "<<
+  VLOG(50)<<"    BetaRelation::remove_beta_row at vertex "<<
     this->get_node_vertex()->vertex<<", row "<<beta_row<<
     ", status "<<beta_row->get_status()<<" - "<<
     (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
   
   // Check if row was already deleted
   if(beta_row->is_deleted()) {
-    VLOG(5)<<"    Marked as deleted already";
+    VLOG(50)<<"    Marked as deleted already";
     return 0;
   }
 
@@ -297,7 +297,7 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
     if(beta_row->is_inserted()) {
       // Row was marked kInserted, not inferred yet
       // Cancel row insertion **
-      VLOG(5)<<"Row marked kInserted, not inferred yet ** Cancel row insertion **";
+      VLOG(50)<<"Row marked kInserted, not inferred yet ** Cancel row insertion **";
       beta_row->set_status(BetaRowStatus::kProcessed);
 
       // Put the row in the pending queue to notify children that this row is being deleted
@@ -310,7 +310,7 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       return 0;
     }
 
-    VLOG(5)<<"Row marked kProcessed, need to put it for delete/retract";
+    VLOG(50)<<"Row marked kProcessed, need to put it for delete/retract";
     // Row must be in kProcessed state -- need to put it for delete/retract
     beta_row->set_status(BetaRowStatus::kDeleted);
 

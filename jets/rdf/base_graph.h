@@ -278,7 +278,7 @@ class BaseGraph {
       rc = pair.first->add_ref_count();
     }
     if(this->spin_ == 's') {
-      VLOG(4)<<"INSERT "<<get_gtype(this->gtype_)<<" "<<rc<<" ("<< u <<", "<< v <<", " << w <<")";
+      VLOG(40)<<"INSERT "<<get_gtype(this->gtype_)<<" "<<rc<<" ("<< u <<", "<< v <<", " << w <<")";
     }
     return pair.second;
   }
@@ -319,7 +319,7 @@ class BaseGraph {
       }
     }
     if(count and this->spin_=='s') {
-      VLOG(4)<<"ERASE "<<get_gtype(this->gtype_)<<" 0 ("<< u <<", "<< v <<", " << w <<")";
+      VLOG(40)<<"ERASE "<<get_gtype(this->gtype_)<<" 0 ("<< u <<", "<< v <<", " << w <<")";
     }
     return count;
   }
@@ -367,7 +367,7 @@ class BaseGraph {
       }
     }
     if(this->spin_ == 's') {
-      VLOG(4)<<"RETRACT "<<get_gtype(this->gtype_)<<" "<<rc<<" ("<< u <<", "<< v <<", " << w <<")";
+      VLOG(40)<<"RETRACT "<<get_gtype(this->gtype_)<<" "<<rc<<" ("<< u <<", "<< v <<", " << w <<")";
     }
     return rc == 0;
   }
