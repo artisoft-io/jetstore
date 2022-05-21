@@ -227,7 +227,7 @@ class RManager {
   void
   dump_resources()const
   {
-    VLOG(6)<<"The Session Resources:";
+    VLOG(60)<<"The Session Resources:";
     std::list<std::string> rlist;
     if(this->root_mgr_p_) {
       for(auto r: this->root_mgr_p_->lmap_) {
@@ -239,7 +239,7 @@ class RManager {
     }
     rlist.sort();
     for(auto const& item: rlist) {
-      VLOG(6)<<item;
+      VLOG(60)<<item;
     }
   }
 
