@@ -24,10 +24,10 @@ namespace jets::rete {
     }
     beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
     // Initialize BetaRelationVector beta_relations_
-    VLOG(2) << "Initialize ReteSession";
+    VLOG(20) << "Initialize ReteSession";
     for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
       auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
-      // VLOG(3) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
+      // VLOG(30) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
       auto bn = create_beta_node(meta_node);
       bn->initialize(this);
       if(meta_node->is_head_vertice()) {
@@ -116,7 +116,7 @@ namespace jets::rete {
   int 
   ReteSession::execute_rules(int from_vertex, bool is_inferring, bool compute_consequents)
   {
-    VLOG(5)<<"ReteSession::execute_rules called, starting at "<<from_vertex;
+    VLOG(50)<<"ReteSession::execute_rules called, starting at "<<from_vertex;
 
     // Visit the beta nodes
     int err = visit_rete_graph(from_vertex, is_inferring);
@@ -127,7 +127,7 @@ namespace jets::rete {
     }
 
     if(compute_consequents) {
-      VLOG(5)<<"execute_rules: COMPUTING CONSEQUENT TERMS";
+      VLOG(50)<<"execute_rules: COMPUTING CONSEQUENT TERMS";
       err = compute_consequent_triples();
       if(err < 0) {
         LOG(ERROR) << "ReteSession::execute_rules: error returned from "
@@ -141,7 +141,7 @@ namespace jets::rete {
   int 
   ReteSession::visit_rete_graph(int from_vertex, bool is_inferring)
   {
-    VLOG(5)<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring? "<<is_inferring;
+    VLOG(50)<<"ReteSession::visit_rete_graph called, starting at "<<from_vertex<<", is_inferring? "<<is_inferring;
     std::vector<int> stack;
     stack.reserve(rule_ms_->nbr_vertices());
     
@@ -154,7 +154,7 @@ namespace jets::rete {
       b_index parent_meta_node = this->rule_ms_->get_node_vertex(parent_vertex);
       auto * parent_beta_relation = this->get_beta_relation(parent_vertex);
       for(auto const* child_meta_node: parent_meta_node->child_nodes) {
-        VLOG(5)<<"  @ parent node "<<parent_vertex<<" | child node "<<child_meta_node->vertex<<">";
+        VLOG(50)<<"  @ parent node "<<parent_vertex<<" | child node "<<child_meta_node->vertex<<">";
 
         // Compute beta relation between `parent_vertex` and `vertex`
         int current_vertex = child_meta_node->vertex;
@@ -195,14 +195,14 @@ namespace jets::rete {
               rdf::Triple triple;
               beta_row->initialize(beta_row_initializer, parent_row, &triple);
 
-              VLOG(5)<<"    Parent Row "<<parent_row<<"  +  not"<<
+              VLOG(50)<<"    Parent Row "<<parent_row<<"  +  not"<<
                 alpha_node->compute_find_triple(parent_row)<<"  =>  Row "<<beta_row;
 
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
                 keepit = child_meta_node->filter_expr->eval_filter(this, beta_row.get());
-                VLOG(5)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
+                VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
               }
 
               // insert or remove the row from current_relation based on is_inferring
@@ -224,13 +224,13 @@ namespace jets::rete {
               rdf::Triple triple = t3_itor.as_triple();
               beta_row->initialize(beta_row_initializer, parent_row, &triple);
 
-              VLOG(5)<<"    Parent Row "<<parent_row<<"  +  "<<triple<<"  =>  Row "<<beta_row;
+              VLOG(50)<<"    Parent Row "<<parent_row<<"  +  "<<triple<<"  =>  Row "<<beta_row;
 
               // evaluate the current_relation filter if any
               bool keepit = true;
               if(child_meta_node->has_expr()) {
                 keepit = child_meta_node->filter_expr->eval_filter(this, beta_row.get());
-                VLOG(5)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
+                VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
               }
 
               // insert or remove the row from current_relation based on is_inferring
@@ -256,7 +256,7 @@ namespace jets::rete {
       // Clear the pending rows of parent node since we propagated to all it's children
       parent_beta_relation->clear_pending_rows();
     }
-    VLOG(5)<<"OK done for visit_rete_graph";
+    VLOG(50)<<"OK done for visit_rete_graph";
     return 0;
   }
 
@@ -276,13 +276,13 @@ namespace jets::rete {
       BetaRowPtr beta_row = this->pending_compute_consequent_beta_rows_.top();
       this->pending_compute_consequent_beta_rows_.pop();
       if(beta_row->is_processed()) {
-        VLOG(4)<<"compute_consequent_triples: row already processed for vertex "<<beta_row->get_node_vertex()->vertex<<": "<<beta_row<<", skipping";
+        VLOG(40)<<"compute_consequent_triples: row already processed for vertex "<<beta_row->get_node_vertex()->vertex<<": "<<beta_row<<", skipping";
         continue;
       }
       if(beta_row->is_inserted()) {
-        VLOG(4)<<"Infer consequent triples for vertex "<<beta_row->get_node_vertex()->vertex<<", with row "<<beta_row;
+        VLOG(40)<<"Infer consequent triples for vertex "<<beta_row->get_node_vertex()->vertex<<", with row "<<beta_row;
       } else {
-        VLOG(4)<<"Retract consequent triples for vertex "<<beta_row->get_node_vertex()->vertex<<", with row "<<beta_row;
+        VLOG(40)<<"Retract consequent triples for vertex "<<beta_row->get_node_vertex()->vertex<<", with row "<<beta_row;
       }
 
       // get the beta node and the vertex_node associated with the beta_row
@@ -305,7 +305,7 @@ namespace jets::rete {
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
-            VLOG(5)<<"    Inferring triple: "<<t3;
+            VLOG(50)<<"    Inferring triple: "<<t3;
             this->rdf_session_->insert_inferred(std::move(t3));
           }
         } else {
@@ -321,7 +321,7 @@ namespace jets::rete {
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
-            VLOG(5)<<"    Retracting triple: "<<t3;
+            VLOG(50)<<"    Retracting triple: "<<t3;
             this->rdf_session_->retract(std::move(t3));
           }
         }
@@ -333,7 +333,7 @@ namespace jets::rete {
   int
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
-    VLOG(4)<<"     *  ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted << " reteSession::rule_ms_ "<<this->rule_ms_.get();
+    VLOG(40)<<"     *  ReteSession::triple_updated called "<<rdf::Triple(s, p, o)<<", vertex "<<vertex<<", inserted? "<<is_inserted << " reteSession::rule_ms_ "<<this->rule_ms_.get();
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
@@ -365,7 +365,7 @@ namespace jets::rete {
       // initialize the beta row with parent_row and t3
       auto const* parent_row = parent_row_itor->get_row();
 
-      VLOG(5)<<"            Parent Row "<<parent_row<<"  +  "<<t3<<"  =>  Row ..."<</*beta_row<<*/std::endl;
+      VLOG(50)<<"            Parent Row "<<parent_row<<"  +  "<<t3<<"  =>  Row ..."<</*beta_row<<*/std::endl;
 
       beta_row->initialize(beta_row_initializer, parent_row, &t3);
 
@@ -376,7 +376,7 @@ namespace jets::rete {
       }
 
       if(not keepit) {
-        VLOG(5)<<"            ...filtered out beta row: "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
+        VLOG(50)<<"            ...filtered out beta row: "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
       }
 
       // insert or remove the row from current_relation based on is_inserted
@@ -384,7 +384,7 @@ namespace jets::rete {
         // Add/Remove row to current beta relation (current_relation)
         if(is_inserted) {
           if(not cmeta_node->is_negation) {
-            VLOG(5)<<"                1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
+            VLOG(50)<<"                1.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
             current_relation->insert_beta_row(this, beta_row);
             
             // Propagate down the rete network
@@ -393,7 +393,7 @@ namespace jets::rete {
               if(err) return err;
             }
           } else {
-            VLOG(5)<<"                2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
+            VLOG(50)<<"                2.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
             current_relation->remove_beta_row(this, beta_row);
             
             // Propagate down the rete network
@@ -404,7 +404,7 @@ namespace jets::rete {
           }
         } else {
           if(not cmeta_node->is_negation) {
-            VLOG(5)<<"                3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
+            VLOG(50)<<"                3.REMOVING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
             current_relation->remove_beta_row(this, beta_row);
 
             // Propagate down the rete network
@@ -413,7 +413,7 @@ namespace jets::rete {
               if(err) return err;
             }
           } else {
-            VLOG(5)<<"                4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
+            VLOG(50)<<"                4.INSERTING ROW "<<beta_row<<" @ vertex "<<beta_row->get_node_vertex()->vertex;
             current_relation->insert_beta_row(this, beta_row);
             
             // Propagate down the rete network

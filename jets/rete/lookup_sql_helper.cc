@@ -105,10 +105,10 @@ namespace jets::rete {
 
     // Check if the result of the lookup was already put in the rdf_session by a previous call
     if(rdf_session->contains(this->cache_uri_, lookup_row, subject)) {
-      VLOG(3)<<"LOOKUP "<<this->lookup_name_<<" | KEY | "<<key<<" (CACHED)";
+      VLOG(30)<<"LOOKUP "<<this->lookup_name_<<" | KEY | "<<key<<" (CACHED)";
       return 0;
     }
-    VLOG(3)<<"LOOKUP "<<this->lookup_name_<<" | KEY | "<<key;
+    VLOG(30)<<"LOOKUP "<<this->lookup_name_<<" | KEY | "<<key;
 
     // Get the db connection and bind it to the key
     auto lc = this->db_pool_.get_connection();
@@ -157,10 +157,10 @@ namespace jets::rete {
 
     // Check if the result of the lookup was already put in the rdf_session by a previous call
     if(rdf_session->contains(this->cache_uri_, lookup_row, subject)) {
-      VLOG(3)<<"LOOKUP RAND "<<this->lookup_name_<<" | KEY | "<<key<<" (CACHED)";
+      VLOG(30)<<"LOOKUP RAND "<<this->lookup_name_<<" | KEY | "<<key<<" (CACHED)";
       return 0;
     }
-    VLOG(3)<<"LOOKUP RAND "<<this->lookup_name_<<" | KEY | "<<key;
+    VLOG(30)<<"LOOKUP RAND "<<this->lookup_name_<<" | KEY | "<<key;
 
     // Get the db connection and bind it to the key
     auto lc = this->db_pool_.get_connection();

@@ -93,7 +93,7 @@ class DBConnectionPool {
     if(not sql2.empty()) {
       this->sql2_ = std::move(sql2);
     }
-    VLOG(2) << "Lookup Connection Pool initialize with statements " << this->sql1_
+    VLOG(20) << "Lookup Connection Pool initialize with statements " << this->sql1_
       <<" and " << this->sql2_;
     return 0;
   }
@@ -148,7 +148,7 @@ class DBConnectionPool {
   int terminate()
   {
     int err = 0;
-    VLOG(2)<<"DB Pool Terminate called, pool size is "<<this->pool_.size()<<" for statement "<<this->sql1_<<std::endl;
+    VLOG(20)<<"DB Pool Terminate called, pool size is "<<this->pool_.size()<<" for statement "<<this->sql1_<<std::endl;
     for(auto info: this->pool_) {
       if(not this->sql1_.empty()) {
         sqlite3_finalize( info.stmt1 );
@@ -227,7 +227,7 @@ class LookupTable {
       LOG(ERROR) << "LookupTable::initialize: ERROR while getting last key of lookup table "<<lookup_table_name;
       return -1;
     }
-    VLOG(3)<<"Lookup table "<<this->lookup_name_<<" max __key__ is "<<this->max_key_<<std::endl;
+    VLOG(30)<<"Lookup table "<<this->lookup_name_<<" max __key__ is "<<this->max_key_<<std::endl;
 
     // Prepare for random lookup
     this->uniform_dist_ = std::uniform_int_distribution<int>(0, this->max_key_);
