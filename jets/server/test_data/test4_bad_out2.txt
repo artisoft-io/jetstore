@@ -1,0 +1,924 @@
+2022/05/23 15:29:50 Will output to all available tables of the workspace
+2022/05/23 15:29:50 Command Line Argument: procConfigKey: 400
+2022/05/23 15:29:50 Command Line Argument: poolSize: 1
+2022/05/23 15:29:50 Command Line Argument: sessionId: test1
+2022/05/23 15:29:50 Command Line Argument: shardId: 0
+2022/05/23 15:29:50 Command Line Argument: workspaceDb: test_data/test4_workspace.db
+2022/05/23 15:29:50 Command Line Argument: lookupDb: 
+2022/05/23 15:29:50 Command Line Argument: ruleset: test4_ruleset1.jr
+2022/05/23 15:29:50 Command Line Argument: ruleseq: 
+2022/05/23 15:29:50 Command Line Argument: outTables: all
+2022/05/23 15:29:50 Command Line Argument: GLOG_v is set to 60
+Got ProcessConfig row:
+  key: 400 client TEST3 description TEST for not operator Main Type acme:AIUSIClaim
+Got ProcessInput row:
+  key: 401 , processKey 400 , InputTable test4 , rdf Type acme:AIUSIClaim , Grouping Column jets:key
+    InputMapping - key 401 , inputColumn: jets:key , dataProperty: jets:key , function:  , arg:  , default: 
+Got RuleConfig rows:
+    procKey: 400 , subject 77f1b3429fed , predicate _0:medicareRateObj261 , object jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826 , type resource
+    procKey: 400 , subject 77f1b3429fed , predicate _0:medicareRateObj262 , object jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726 , type resource
+    procKey: 400 , subject 77f1b3429fed , predicate _0:medicareRateObjTC1 , object jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC , type resource
+    procKey: 400 , subject 77f1b3429fed , predicate _0:medicareRateObjTC2 , object jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC , type resource
+    procKey: 400 , subject 77f1b3429fed , predicate _0:addendumGLookup , object jets:ADDENDUMG_LOOKUP_CONFIG:737212018 , type resource
+    procKey: 400 , subject 77f1b3429fed , predicate _0:carrierLocality , object 14312:40 , type resource
+    procKey: 400 , subject 77f1b3429fed , predicate _0:carrierLocalityGeoZip , object jets:GEOZIP_CARRIER_LOOKUP_CONFIG:3302018 , type resource
+    procKey: 400 , subject 77f1b3429fed , predicate _0:carrierLocalityZip , object null , type null
+    procKey: 400 , subject 77f1b3429fed , predicate acme:placeOfServiceCode , object 11 , type text
+    procKey: 400 , subject 77f1b3429fed , predicate acme:procedureCode , object 73721 , type text
+    procKey: 400 , subject 77f1b3429fed , predicate acme:procedureCodeModifier , object RT , type text
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726 , predicate NF_FEE , object 70.47 , type double
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726 , predicate ONF_FEE , object 0 , type double
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC , predicate NF_FEE , object 179.27 , type double
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC , predicate ONF_FEE , object 237.76 , type double
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826 , predicate NF_FEE , object 70.81 , type double
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826 , predicate ONF_FEE , object 0 , type double
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC , predicate NF_FEE , object 180.2 , type double
+    procKey: 400 , subject jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC , predicate ONF_FEE , object 243.03 , type double
+    procKey: 400 , subject jets:ADDENDUMG_LOOKUP_CONFIG:737212018 , predicate YEAR , object 2018 , type text
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20220523 15:29:50.091750 2419387 rete_meta_store_factory.cc:36] Current path is "/home/michel/projects/repos/jetstore/jets/server"
+I20220523 15:29:50.092754 2419387 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT type, as_array FROM data_properties WHERE name = ? and 
+I20220523 15:29:50.093394 2419387 rete_meta_store_factory.cc:417] Got 38 NodeVertexes 
+I20220523 15:29:50.093578 2419387 rete_meta_store_factory.cc:157] All Done! Contains 117 resource definitions
+I20220523 15:29:50.093595 2419387 rete_meta_store_factory.cc:158] The meta graph contains:
+---
+I20220523 15:29:50.093677 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:medicareRateObj261, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826)
+I20220523 15:29:50.093721 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:medicareRateObj262, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)
+I20220523 15:29:50.093742 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:medicareRateObjTC1, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC)
+I20220523 15:29:50.093761 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:medicareRateObjTC2, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)
+I20220523 15:29:50.093781 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:addendumGLookup, jets:ADDENDUMG_LOOKUP_CONFIG:737212018)
+I20220523 15:29:50.093799 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:carrierLocality, 14312:40)
+I20220523 15:29:50.093818 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:carrierLocalityGeoZip, jets:GEOZIP_CARRIER_LOOKUP_CONFIG:3302018)
+I20220523 15:29:50.093840 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, _0:carrierLocalityZip, null)
+I20220523 15:29:50.093861 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, acme:placeOfServiceCode, 11)
+I20220523 15:29:50.093880 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, acme:procedureCode, 73721)
+I20220523 15:29:50.093899 2419387 base_graph.h:281] INSERT META 1 (77f1b3429fed, acme:procedureCodeModifier, RT)
+I20220523 15:29:50.093940 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, NF_FEE, 70.47)
+I20220523 15:29:50.093981 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, ONF_FEE, 0)
+I20220523 15:29:50.094031 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, NF_FEE, 179.27)
+I20220523 15:29:50.094055 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, ONF_FEE, 237.76)
+I20220523 15:29:50.094086 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826, NF_FEE, 70.81)
+I20220523 15:29:50.094110 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826, ONF_FEE, 0)
+I20220523 15:29:50.094132 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC, NF_FEE, 180.2)
+I20220523 15:29:50.094156 2419387 base_graph.h:281] INSERT META 1 (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC, ONF_FEE, 243.03)
+I20220523 15:29:50.094177 2419387 base_graph.h:281] INSERT META 1 (jets:ADDENDUMG_LOOKUP_CONFIG:737212018, YEAR, 2018)
+2022/05/23 15:29:50 Opening workspace database...
+2022/05/23 15:29:50 The output tables are:
+2022/05/23 15:29:50    - acme:AIUSIClaim
+2022/05/23 15:29:50 Creating writeOutput channels for output tables: [acme:AIUSIClaim]
+2022/05/23 15:29:50 Creating output channel for out table: acme:AIUSIClaim
+2022/05/23 15:29:50 Reading table acme:AIUSIClaim info...
+2022/05/23 15:29:50 SQL: SELECT "jets:key" FROM "test4" ORDER BY "jets:key" ASC 
+2022/05/23 15:29:50 Grouping key at pos 0
+2022/05/23 15:29:50   - Column: acme:medicare26 , (property acme:medicare26 ), is_array? false
+2022/05/23 15:29:50   - Column: acme:medicareGlobal , (property acme:medicareGlobal ), is_array? false
+2022/05/23 15:29:50   - Column: acme:medicareTC , (property acme:medicareTC ), is_array? false
+2022/05/23 15:29:50   - Column: acme:placeOfServiceCode , (property acme:placeOfServiceCode ), is_array? false
+2022/05/23 15:29:50   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/23 15:29:50   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/23 15:29:50 Got 6 columns
+2022/05/23 15:29:50 Pipeline Preparation Complete, starting Rete Sessions...
+2022/05/23 15:29:50 Checking if data load failed...
+2022/05/23 15:29:50 Write Table Started for acme:AIUSIClaim with 8 columns
+2022/05/23 15:29:50 Execute Rule Started
+2022/05/23 15:29:50 Write Table Started for process_errors with 6 columns
+2022/05/23 15:29:50 Checking results of execute rules...
+2022/05/23 15:29:50 Start Rete Session 1 for ruleset test4_ruleset1.jr with grouping key 77f1b3429fed
+I20220523 15:29:50.095710 2419397 rete_session.cc:27] Initialize ReteSession
+I20220523 15:29:50.095758 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 0, row () added, status set to Processed - no consequents - has children
+I20220523 15:29:50.095780 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 5, antecedent_query_key 0>
+I20220523 15:29:50.095795 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 19, antecedent_query_key 1>
+I20220523 15:29:50.095808 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 18, antecedent_query_key 2>
+I20220523 15:29:50.095820 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 32, antecedent_query_key 3>
+I20220523 15:29:50.095839 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 12, antecedent_query_key 4>
+I20220523 15:29:50.095851 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 9, antecedent_query_key 5>
+I20220523 15:29:50.095865 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 16, antecedent_query_key 6>
+I20220523 15:29:50.095876 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 22, antecedent_query_key 7>
+I20220523 15:29:50.095891 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 1 | Child NodeVertex 2, antecedent_query_key 8>
+I20220523 15:29:50.095904 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 2 | Child NodeVertex 3, antecedent_query_key 0>
+I20220523 15:29:50.095918 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 3 | Child NodeVertex 4, antecedent_query_key 0>
+I20220523 15:29:50.095932 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 5 | Child NodeVertex 6, antecedent_query_key 0>
+I20220523 15:29:50.095947 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 6 | Child NodeVertex 7, antecedent_query_key 0>
+I20220523 15:29:50.095957 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 7 | Child NodeVertex 8, antecedent_query_key 0>
+I20220523 15:29:50.095969 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 9 | Child NodeVertex 10, antecedent_query_key 0>
+I20220523 15:29:50.095981 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 10 | Child NodeVertex 11, antecedent_query_key 0>
+I20220523 15:29:50.095991 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 12 | Child NodeVertex 13, antecedent_query_key 0>
+I20220523 15:29:50.096001 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 13 | Child NodeVertex 14, antecedent_query_key 0>
+I20220523 15:29:50.096011 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 14 | Child NodeVertex 15, antecedent_query_key 0>
+I20220523 15:29:50.096025 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 16 | Child NodeVertex 17, antecedent_query_key 0>
+I20220523 15:29:50.096040 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 19 | Child NodeVertex 20, antecedent_query_key 0>
+I20220523 15:29:50.096052 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 20 | Child NodeVertex 21, antecedent_query_key 0>
+I20220523 15:29:50.096065 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 22 | Child NodeVertex 27, antecedent_query_key 0>
+I20220523 15:29:50.096079 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 22 | Child NodeVertex 23, antecedent_query_key 1>
+I20220523 15:29:50.096091 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 23 | Child NodeVertex 24, antecedent_query_key 0>
+I20220523 15:29:50.096107 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 24 | Child NodeVertex 25, antecedent_query_key 0>
+I20220523 15:29:50.096120 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 25 | Child NodeVertex 26, antecedent_query_key 0>
+I20220523 15:29:50.096133 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 27 | Child NodeVertex 28, antecedent_query_key 0>
+I20220523 15:29:50.096145 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 28 | Child NodeVertex 29, antecedent_query_key 0>
+I20220523 15:29:50.096158 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 29 | Child NodeVertex 31, antecedent_query_key 0>
+I20220523 15:29:50.096171 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 29 | Child NodeVertex 30, antecedent_query_key 1>
+I20220523 15:29:50.096184 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 32 | Child NodeVertex 33, antecedent_query_key 0>
+I20220523 15:29:50.096197 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 33 | Child NodeVertex 34, antecedent_query_key 0>
+I20220523 15:29:50.096210 2419397 antecedent_query_visitor.h:160] Q1 parent beta row vertex 35 | Child NodeVertex 36, antecedent_query_key 0>
+I20220523 15:29:50.096225 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 1 for vertex 1 with pattern (NULL,rdf:type,acme:AIUSIClaim)
+I20220523 15:29:50.096243 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 2 for vertex 2 with pattern (NULL,_0:medicareRateObj261,NULL)
+I20220523 15:29:50.096256 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 3 for vertex 3 with pattern (NULL,NF_FEE,NULL)
+I20220523 15:29:50.096269 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 4 for vertex 4 with pattern (NULL,ONF_FEE,NULL)
+I20220523 15:29:50.096282 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 5 for vertex 5 with pattern (NULL,_0:medicareRateObj262,NULL)
+I20220523 15:29:50.096299 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 6 for vertex 6 with pattern (NULL,_0:gotRate26,1)
+I20220523 15:29:50.096314 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 7 for vertex 7 with pattern (NULL,NF_FEE,NULL)
+I20220523 15:29:50.096328 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 8 for vertex 8 with pattern (NULL,ONF_FEE,NULL)
+I20220523 15:29:50.096339 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 9 for vertex 9 with pattern (NULL,_0:medicareRateObjTC1,NULL)
+I20220523 15:29:50.096352 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 10 for vertex 10 with pattern (NULL,NF_FEE,NULL)
+I20220523 15:29:50.096366 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 11 for vertex 11 with pattern (NULL,ONF_FEE,NULL)
+I20220523 15:29:50.096379 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 12 for vertex 12 with pattern (NULL,_0:medicareRateObjTC2,NULL)
+I20220523 15:29:50.096391 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 13 for vertex 13 with pattern (NULL,_0:gotRateTC,1)
+I20220523 15:29:50.096405 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 14 for vertex 14 with pattern (NULL,NF_FEE,NULL)
+I20220523 15:29:50.096416 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 15 for vertex 15 with pattern (NULL,ONF_FEE,NULL)
+I20220523 15:29:50.096429 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 16 for vertex 16 with pattern (NULL,_0:addendumGLookup,NULL)
+I20220523 15:29:50.096442 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 17 for vertex 17 with pattern (NULL,YEAR,NULL)
+I20220523 15:29:50.096454 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 18 for vertex 18 with pattern (NULL,_0:NF_26,NULL)
+I20220523 15:29:50.096467 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 19 for vertex 19 with pattern (NULL,_0:NF_TC,NULL)
+I20220523 15:29:50.096480 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 20 for vertex 20 with pattern (NULL,_0:NF_26,NULL)
+I20220523 15:29:50.096494 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 21 for vertex 21 with pattern (NULL,_0:ONF_TC,NULL)
+I20220523 15:29:50.096508 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 22 for vertex 22 with pattern (NULL,acme:placeOfServiceCode,11)
+I20220523 15:29:50.096522 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 23 for vertex 23 with pattern (NULL,_0:procCdeOnAddendumG,1)
+I20220523 15:29:50.096537 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 24 for vertex 24 with pattern (NULL,_0:NF_TC,NULL)
+I20220523 15:29:50.096550 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 25 for vertex 25 with pattern (NULL,_0:NF_26,NULL)
+I20220523 15:29:50.096563 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 26 for vertex 26 with pattern (NULL,_0:ONF_TC,NULL)
+I20220523 15:29:50.096576 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 27 for vertex 27 with pattern (NULL,_0:procCdeOnAddendumG,1)
+I20220523 15:29:50.096590 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 28 for vertex 28 with pattern (NULL,_0:NF_TC,NULL)
+I20220523 15:29:50.096601 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 29 for vertex 29 with pattern (NULL,_0:NF_26,NULL)
+I20220523 15:29:50.096617 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 30 for vertex 30 with pattern (NULL,_0:ONF_TC,NULL)
+I20220523 15:29:50.096630 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 31 for vertex 31 with pattern (NULL,_0:ONF_TC,NULL)
+I20220523 15:29:50.096643 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 32 for vertex 32 with pattern (NULL,acme:placeOfServiceCode,22)
+I20220523 15:29:50.096657 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 33 for vertex 33 with pattern (NULL,_0:NF_26,NULL)
+I20220523 15:29:50.096669 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 34 for vertex 34 with pattern (NULL,_0:ONF_TC,NULL)
+I20220523 15:29:50.096683 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 35 for vertex 35 with pattern (NULL,rdf:type,RRAcme)
+I20220523 15:29:50.096696 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 36 for vertex 36 with pattern (NULL,NULL,NULL)
+I20220523 15:29:50.096709 2419397 alpha_node_impl.h:74] AlphaNode::register callback @ alpha node 37 for vertex 37 with pattern (NULL,rdf:type,jets:Entity)
+I20220523 15:29:50.096753 2419397 base_graph.h:281] INSERT ASSERTED 1 (77f1b3429fed, rdf:type, acme:AIUSIClaim)
+I20220523 15:29:50.096773 2419397 base_graph.h:281] INSERT ASSERTED 1 (77f1b3429fed, jets:key, 77f1b3429fed)
+I20220523 15:29:50.096796 2419397 base_graph.h:281] INSERT ASSERTED 2 (77f1b3429fed, jets:key, 77f1b3429fed)
+2022/05/23 15:29:50 Calling Execute Rules, loop: 0 , session count: 1 , for ruleset: test4_ruleset1.jr , with grouping key: 77f1b3429fed
+I20220523 15:29:50.096930 2419397 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220523 15:29:50.096946 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 0, is_inferring? 1
+I20220523 15:29:50.096962 2419397 rete_session.cc:157]   @ parent node 0 | child node 37>
+I20220523 15:29:50.096980 2419397 rete_session.cc:157]   @ parent node 0 | child node 1>
+I20220523 15:29:50.096995 2419397 rete_session.cc:227]     Parent Row ()  +  (77f1b3429fed,rdf:type,acme:AIUSIClaim)  =>  Row <1>0x7f089c006280[?x1](77f1b3429fed)
+I20220523 15:29:50.097014 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 1, row <1>0x7f089c006280[?x1](77f1b3429fed) added, status set to Inserted - scheduled consequent - has children
+I20220523 15:29:50.097036 2419397 rete_session.cc:157]   @ parent node 1 | child node 5>
+I20220523 15:29:50.097049 2419397 rete_session.cc:227]     Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:medicareRateObj262,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)  =>  Row <5>0x7f089c006a00[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)
+I20220523 15:29:50.097062 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 5, row <5>0x7f089c006a00[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097076 2419397 rete_session.cc:157]   @ parent node 1 | child node 19>
+I20220523 15:29:50.097090 2419397 rete_session.cc:157]   @ parent node 1 | child node 18>
+I20220523 15:29:50.097102 2419397 rete_session.cc:157]   @ parent node 1 | child node 32>
+I20220523 15:29:50.097115 2419397 rete_session.cc:157]   @ parent node 1 | child node 12>
+I20220523 15:29:50.097128 2419397 rete_session.cc:227]     Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:medicareRateObjTC2,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)  =>  Row <12>0x7f089c006ba0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)
+I20220523 15:29:50.097143 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 12, row <12>0x7f089c006ba0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097158 2419397 rete_session.cc:157]   @ parent node 1 | child node 35>
+I20220523 15:29:50.097169 2419397 rete_session.cc:157]   @ parent node 1 | child node 9>
+I20220523 15:29:50.097182 2419397 rete_session.cc:227]     Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:medicareRateObjTC1,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC)  =>  Row <9>0x7f089c006d70[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC)
+I20220523 15:29:50.097196 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 9, row <9>0x7f089c006d70[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097210 2419397 rete_session.cc:157]   @ parent node 1 | child node 16>
+I20220523 15:29:50.097223 2419397 rete_session.cc:227]     Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:addendumGLookup,jets:ADDENDUMG_LOOKUP_CONFIG:737212018)  =>  Row <16>0x7f089c006f40[?x1, ?x2](77f1b3429fed, jets:ADDENDUMG_LOOKUP_CONFIG:737212018)
+I20220523 15:29:50.097241 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 16, row <16>0x7f089c006f40[?x1, ?x2](77f1b3429fed, jets:ADDENDUMG_LOOKUP_CONFIG:737212018) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097256 2419397 rete_session.cc:157]   @ parent node 1 | child node 22>
+I20220523 15:29:50.097270 2419397 rete_session.cc:227]     Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,acme:placeOfServiceCode,11)  =>  Row <22>0x7f089c007110[?x1](77f1b3429fed)
+I20220523 15:29:50.097283 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 22, row <22>0x7f089c007110[?x1](77f1b3429fed) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097297 2419397 rete_session.cc:157]   @ parent node 1 | child node 2>
+I20220523 15:29:50.097311 2419397 rete_session.cc:227]     Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:medicareRateObj261,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826)  =>  Row <2>0x7f089c007380[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826)
+I20220523 15:29:50.097324 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 2, row <2>0x7f089c007380[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097339 2419397 rete_session.cc:157]   @ parent node 2 | child node 3>
+I20220523 15:29:50.097352 2419397 rete_session.cc:227]     Parent Row <2>0x7f089c007380[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826,NF_FEE,70.81)  =>  Row <3>0x7f089c007550[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826, 70.81)
+I20220523 15:29:50.097379 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 3, row <3>0x7f089c007550[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826, 70.81) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097396 2419397 rete_session.cc:157]   @ parent node 3 | child node 4>
+I20220523 15:29:50.097410 2419397 rete_session.cc:227]     Parent Row <3>0x7f089c007550[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826, 70.81)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826,ONF_FEE,0)  =>  Row <4>0x7f089c007700[?x1, ?x3, ?x4](77f1b3429fed, 70.81, 0)
+I20220523 15:29:50.097442 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 4, row <4>0x7f089c007700[?x1, ?x3, ?x4](77f1b3429fed, 70.81, 0) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.097460 2419397 rete_session.cc:157]   @ parent node 22 | child node 27>
+I20220523 15:29:50.097473 2419397 rete_session.cc:157]   @ parent node 22 | child node 23>
+I20220523 15:29:50.097486 2419397 rete_session.cc:198]     Parent Row <22>0x7f089c007110[?x1](77f1b3429fed)  +  not(77f1b3429fed,_0:procCdeOnAddendumG,1)  =>  Row <23>0x7f089c007810[?x1](77f1b3429fed)
+I20220523 15:29:50.097502 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 23, row <23>0x7f089c007810[?x1](77f1b3429fed) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097515 2419397 rete_session.cc:157]   @ parent node 23 | child node 24>
+I20220523 15:29:50.097528 2419397 rete_session.cc:157]   @ parent node 24 | child node 25>
+I20220523 15:29:50.097539 2419397 rete_session.cc:157]   @ parent node 25 | child node 26>
+I20220523 15:29:50.097551 2419397 rete_session.cc:157]   @ parent node 27 | child node 28>
+I20220523 15:29:50.097564 2419397 rete_session.cc:157]   @ parent node 28 | child node 29>
+I20220523 15:29:50.097576 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.097589 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.097600 2419397 rete_session.cc:157]   @ parent node 16 | child node 17>
+I20220523 15:29:50.097612 2419397 rete_session.cc:227]     Parent Row <16>0x7f089c006f40[?x1, ?x2](77f1b3429fed, jets:ADDENDUMG_LOOKUP_CONFIG:737212018)  +  (jets:ADDENDUMG_LOOKUP_CONFIG:737212018,YEAR,2018)  =>  Row <17>0x7f089c007990[?x1](77f1b3429fed)
+I20220523 15:29:50.097627 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 17, row <17>0x7f089c007990[?x1](77f1b3429fed) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.097640 2419397 rete_session.cc:157]   @ parent node 9 | child node 10>
+I20220523 15:29:50.097651 2419397 rete_session.cc:227]     Parent Row <9>0x7f089c006d70[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC,NF_FEE,180.2)  =>  Row <10>0x7f089c007ab0[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC, 180.2)
+I20220523 15:29:50.097671 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 10, row <10>0x7f089c007ab0[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC, 180.2) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097688 2419397 rete_session.cc:157]   @ parent node 10 | child node 11>
+I20220523 15:29:50.097700 2419397 rete_session.cc:227]     Parent Row <10>0x7f089c007ab0[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC, 180.2)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC,ONF_FEE,243.03)  =>  Row <11>0x7f089c007c00[?x1, ?x3, ?x4](77f1b3429fed, 180.2, 243.03)
+I20220523 15:29:50.097720 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 11, row <11>0x7f089c007c00[?x1, ?x3, ?x4](77f1b3429fed, 180.2, 243.03) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.097735 2419397 rete_session.cc:157]   @ parent node 35 | child node 36>
+I20220523 15:29:50.097748 2419397 rete_session.cc:157]   @ parent node 12 | child node 13>
+I20220523 15:29:50.097760 2419397 rete_session.cc:198]     Parent Row <12>0x7f089c006ba0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)  +  not(77f1b3429fed,_0:gotRateTC,1)  =>  Row <13>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)
+I20220523 15:29:50.097774 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 13, row <13>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097788 2419397 rete_session.cc:157]   @ parent node 13 | child node 14>
+I20220523 15:29:50.097800 2419397 rete_session.cc:227]     Parent Row <13>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC,NF_FEE,179.27)  =>  Row <14>0x7f089c007e80[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, 179.27)
+I20220523 15:29:50.097816 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 14, row <14>0x7f089c007e80[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, 179.27) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.097834 2419397 rete_session.cc:157]   @ parent node 14 | child node 15>
+I20220523 15:29:50.097847 2419397 rete_session.cc:227]     Parent Row <14>0x7f089c007e80[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, 179.27)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC,ONF_FEE,237.76)  =>  Row <15>0x7f089c008030[?x1, ?x3, ?x4](77f1b3429fed, 179.27, 237.76)
+I20220523 15:29:50.097868 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 15, row <15>0x7f089c008030[?x1, ?x3, ?x4](77f1b3429fed, 179.27, 237.76) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.097884 2419397 rete_session.cc:157]   @ parent node 32 | child node 33>
+I20220523 15:29:50.097896 2419397 rete_session.cc:157]   @ parent node 33 | child node 34>
+I20220523 15:29:50.097908 2419397 rete_session.cc:157]   @ parent node 19 | child node 20>
+I20220523 15:29:50.098032 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.098075 2419397 rete_session.cc:157]   @ parent node 5 | child node 6>
+I20220523 15:29:50.098132 2419397 rete_session.cc:198]     Parent Row <5>0x7f089c006a00[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)  +  not(77f1b3429fed,_0:gotRate26,1)  =>  Row <6>0x7f089c0081a0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)
+I20220523 15:29:50.098179 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 6, row <6>0x7f089c0081a0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.098256 2419397 rete_session.cc:157]   @ parent node 6 | child node 7>
+I20220523 15:29:50.098302 2419397 rete_session.cc:227]     Parent Row <6>0x7f089c0081a0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726,NF_FEE,70.47)  =>  Row <7>0x7f089c008340[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, 70.47)
+I20220523 15:29:50.098364 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 7, row <7>0x7f089c008340[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, 70.47) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.098425 2419397 rete_session.cc:157]   @ parent node 7 | child node 8>
+I20220523 15:29:50.098469 2419397 rete_session.cc:227]     Parent Row <7>0x7f089c008340[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, 70.47)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726,ONF_FEE,0)  =>  Row <8>0x7f089c0084f0[?x1, ?x3, ?x4](77f1b3429fed, 70.47, 0)
+I20220523 15:29:50.098532 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 8, row <8>0x7f089c0084f0[?x1, ?x3, ?x4](77f1b3429fed, 70.47, 0) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.098594 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.098655 2419397 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220523 15:29:50.098701 2419397 rete_session.cc:283] Infer consequent triples for vertex 1, with row <1>0x7f089c006280[?x1](77f1b3429fed)
+I20220523 15:29:50.098767 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,rdf:type,jets:Entity)
+I20220523 15:29:50.098798 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, rdf:type, jets:Entity)
+I20220523 15:29:50.098819 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,rdf:type,jets:Entity), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.098838 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.098855 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,rdf:type,jets:Entity), vertex 37, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.098896 2419397 rete_session.cc:380]             Parent Row ()  +  (77f1b3429fed,rdf:type,jets:Entity)  =>  Row ...
+I20220523 15:29:50.098917 2419397 rete_session.cc:399]                 1.INSERTING ROW <37>0x7f089c008c60[?x1](77f1b3429fed) @ vertex 37
+I20220523 15:29:50.098930 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 37, row <37>0x7f089c008c60[?x1](77f1b3429fed) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.098944 2419397 rete_session.cc:283] Infer consequent triples for vertex 17, with row <17>0x7f089c007990[?x1](77f1b3429fed)
+I20220523 15:29:50.098958 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:procCdeOnAddendumG,1)
+I20220523 15:29:50.098971 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:procCdeOnAddendumG, 1)
+I20220523 15:29:50.098989 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:procCdeOnAddendumG,1), vertex 23, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099002 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 1, index (77f1b3429fed)
+I20220523 15:29:50.099016 2419397 rete_session.cc:380]             Parent Row <22>0x7f089c007110[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:procCdeOnAddendumG,1)  =>  Row ...
+I20220523 15:29:50.099030 2419397 rete_session.cc:408]                 2.REMOVING ROW <23>0x7f089c009200[?x1](77f1b3429fed) @ vertex 23
+I20220523 15:29:50.099043 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 23, row <23>0x7f089c007810[?x1](77f1b3429fed), status 3 - has children
+I20220523 15:29:50.099061 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 23, is_inferring? 0
+I20220523 15:29:50.099074 2419397 rete_session.cc:157]   @ parent node 23 | child node 24>
+I20220523 15:29:50.099089 2419397 rete_session.cc:157]   @ parent node 24 | child node 25>
+I20220523 15:29:50.099103 2419397 rete_session.cc:157]   @ parent node 25 | child node 26>
+I20220523 15:29:50.099115 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.099128 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:procCdeOnAddendumG,1), vertex 27, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099141 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099154 2419397 rete_session.cc:380]             Parent Row <22>0x7f089c007110[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:procCdeOnAddendumG,1)  =>  Row ...
+I20220523 15:29:50.099167 2419397 rete_session.cc:399]                 1.INSERTING ROW <27>0x7f089c009200[?x1](77f1b3429fed) @ vertex 27
+I20220523 15:29:50.099181 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 27, row <27>0x7f089c009200[?x1](77f1b3429fed) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.099195 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 27, is_inferring? 1
+I20220523 15:29:50.099207 2419397 rete_session.cc:157]   @ parent node 27 | child node 28>
+I20220523 15:29:50.099220 2419397 rete_session.cc:157]   @ parent node 28 | child node 29>
+I20220523 15:29:50.099233 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.099246 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.099257 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.099270 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:procCdeOnAddendumG,1), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099283 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099296 2419397 rete_session.cc:283] Infer consequent triples for vertex 8, with row <8>0x7f089c0084f0[?x1, ?x3, ?x4](77f1b3429fed, 70.47, 0)
+I20220523 15:29:50.099314 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:NF_26,70.47)
+I20220523 15:29:50.099329 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:NF_26, 70.47)
+I20220523 15:29:50.099345 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 18, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099360 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 2, index (77f1b3429fed)
+I20220523 15:29:50.099375 2419397 rete_session.cc:380]             Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row ...
+I20220523 15:29:50.099390 2419397 rete_session.cc:399]                 1.INSERTING ROW <18>0x7f089c007810[?x1, ?x2](77f1b3429fed, 70.47) @ vertex 18
+I20220523 15:29:50.099404 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 18, row <18>0x7f089c007810[?x1, ?x2](77f1b3429fed, 70.47) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.099421 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 20, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099434 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099445 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 25, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099458 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099470 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 29, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099484 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099494 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 33, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099506 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099517 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099530 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099541 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:ONF_26,0)
+I20220523 15:29:50.099555 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:ONF_26, 0)
+I20220523 15:29:50.099566 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_26,0), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099578 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099591 2419397 rete_session.cc:283] Infer consequent triples for vertex 37, with row <37>0x7f089c008c60[?x1](77f1b3429fed)
+I20220523 15:29:50.099601 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,rdf:type,owl:Thing)
+I20220523 15:29:50.099613 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, rdf:type, owl:Thing)
+I20220523 15:29:50.099627 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,rdf:type,owl:Thing), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099639 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099654 2419397 rete_session.cc:283] Infer consequent triples for vertex 15, with row <15>0x7f089c008030[?x1, ?x3, ?x4](77f1b3429fed, 179.27, 237.76)
+I20220523 15:29:50.099669 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:ONF_TC,237.76)
+I20220523 15:29:50.099684 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:ONF_TC, 237.76)
+I20220523 15:29:50.099699 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 21, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099711 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099725 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 26, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099738 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099750 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 30, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099763 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 1, index (77f1b3429fed)
+I20220523 15:29:50.099774 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 31, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099787 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099797 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 34, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099805 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099812 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099826 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.099838 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:NF_TC,179.27)
+I20220523 15:29:50.099851 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:NF_TC, 179.27)
+I20220523 15:29:50.099865 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 19, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.099874 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 1, index (77f1b3429fed)
+I20220523 15:29:50.099882 2419397 rete_session.cc:380]             Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_TC,179.27)  =>  Row ...
+I20220523 15:29:50.099893 2419397 rete_session.cc:399]                 1.INSERTING ROW <19>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27) @ vertex 19
+I20220523 15:29:50.099906 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 19, row <19>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.099920 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 19, is_inferring? 1
+I20220523 15:29:50.099932 2419397 rete_session.cc:157]   @ parent node 19 | child node 20>
+I20220523 15:29:50.099946 2419397 rete_session.cc:227]     Parent Row <19>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row <20>0x7f089c00ab60[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)
+I20220523 15:29:50.099967 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 20, row <20>0x7f089c00ab60[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.099984 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.099997 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00ab60[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <21>0x7f089c00ad40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76)
+I20220523 15:29:50.100047 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.100061 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.100072 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 24, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.100086 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.100101 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 28, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.100116 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.100128 2419397 rete_session.cc:380]             Parent Row <27>0x7f089c009200[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_TC,179.27)  =>  Row ...
+I20220523 15:29:50.100142 2419397 rete_session.cc:399]                 1.INSERTING ROW <28>0x7f089c00ad40[?x1, ?x2](77f1b3429fed, 179.27) @ vertex 28
+I20220523 15:29:50.100154 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 28, row <28>0x7f089c00ad40[?x1, ?x2](77f1b3429fed, 179.27) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.100169 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 28, is_inferring? 1
+I20220523 15:29:50.100183 2419397 rete_session.cc:157]   @ parent node 28 | child node 29>
+I20220523 15:29:50.100194 2419397 rete_session.cc:227]     Parent Row <28>0x7f089c00ad40[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)
+I20220523 15:29:50.100212 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 29, row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.100235 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.100250 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <31>0x7f089c00b130[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76)
+I20220523 15:29:50.100275 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.100291 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.100303 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <30>0x7f089c00b130[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76)
+I20220523 15:29:50.100327 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.100342 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c00b130[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.100359 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.100373 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.100387 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.100400 2419397 rete_session.cc:283] Infer consequent triples for vertex 18, with row <18>0x7f089c007810[?x1, ?x2](77f1b3429fed, 70.47)
+I20220523 15:29:50.100417 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicare26,70.47)
+I20220523 15:29:50.100438 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicare26, 70.47)
+I20220523 15:29:50.100454 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicare26,70.47), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.100469 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.100482 2419397 rete_session.cc:283] Infer consequent triples for vertex 11, with row <11>0x7f089c007c00[?x1, ?x3, ?x4](77f1b3429fed, 180.2, 243.03)
+I20220523 15:29:50.100498 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:NF_TC,180.2)
+I20220523 15:29:50.100513 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:NF_TC, 180.2)
+I20220523 15:29:50.100528 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,180.2), vertex 19, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.100544 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 1, index (77f1b3429fed)
+I20220523 15:29:50.100558 2419397 rete_session.cc:380]             Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_TC,180.2)  =>  Row ...
+I20220523 15:29:50.100572 2419397 rete_session.cc:399]                 1.INSERTING ROW <19>0x7f089c00b7b0[?x1, ?x2](77f1b3429fed, 180.2) @ vertex 19
+I20220523 15:29:50.100587 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 19, row <19>0x7f089c00b7b0[?x1, ?x2](77f1b3429fed, 180.2) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.100606 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 19, is_inferring? 1
+I20220523 15:29:50.100617 2419397 rete_session.cc:157]   @ parent node 19 | child node 20>
+I20220523 15:29:50.100631 2419397 rete_session.cc:227]     Parent Row <19>0x7f089c00b7b0[?x1, ?x2](77f1b3429fed, 180.2)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row <20>0x7f089c00b8d0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)
+I20220523 15:29:50.100649 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 20, row <20>0x7f089c00b8d0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.100666 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.100679 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00b8d0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <21>0x7f089c00b9d0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.100700 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.100713 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.100728 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,180.2), vertex 24, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.100741 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.100754 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,180.2), vertex 28, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.100769 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.100782 2419397 rete_session.cc:380]             Parent Row <27>0x7f089c009200[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_TC,180.2)  =>  Row ...
+I20220523 15:29:50.100797 2419397 rete_session.cc:399]                 1.INSERTING ROW <28>0x7f089c00b9d0[?x1, ?x2](77f1b3429fed, 180.2) @ vertex 28
+I20220523 15:29:50.100811 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 28, row <28>0x7f089c00b9d0[?x1, ?x2](77f1b3429fed, 180.2) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.100826 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 28, is_inferring? 1
+I20220523 15:29:50.100839 2419397 rete_session.cc:157]   @ parent node 28 | child node 29>
+I20220523 15:29:50.100852 2419397 rete_session.cc:227]     Parent Row <28>0x7f089c00b9d0[?x1, ?x2](77f1b3429fed, 180.2)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)
+I20220523 15:29:50.100872 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 29, row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.100888 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.100901 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <31>0x7f089c00bb90[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.100924 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.100936 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.100948 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <30>0x7f089c00bb90[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.100970 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.100981 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c00bb90[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.100998 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.101009 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,180.2), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101022 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101034 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:gotRateTC,1)
+I20220523 15:29:50.101047 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:gotRateTC, 1)
+I20220523 15:29:50.101060 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:gotRateTC,1), vertex 13, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101074 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101086 2419397 rete_session.cc:380]             Parent Row <12>0x7f089c006ba0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)  +  (77f1b3429fed,_0:gotRateTC,1)  =>  Row ...
+I20220523 15:29:50.101099 2419397 rete_session.cc:408]                 2.REMOVING ROW <13>0x7f089c00bea0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC) @ vertex 13
+I20220523 15:29:50.101114 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 13, row <13>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC), status 3 - has children
+I20220523 15:29:50.101127 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 13, is_inferring? 0
+I20220523 15:29:50.101140 2419397 rete_session.cc:157]   @ parent node 13 | child node 14>
+I20220523 15:29:50.101153 2419397 rete_session.cc:227]     Parent Row <13>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC,NF_FEE,179.27)  =>  Row <14>0x7f089c00bf30[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, 179.27)
+I20220523 15:29:50.101172 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 14, row <14>0x7f089c007e80[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, 179.27), status 3 - has children
+I20220523 15:29:50.101189 2419397 rete_session.cc:157]   @ parent node 14 | child node 15>
+I20220523 15:29:50.101202 2419397 rete_session.cc:227]     Parent Row <14>0x7f089c007e80[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC, 179.27)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC,ONF_FEE,237.76)  =>  Row <15>0x7f089c007ce0[?x1, ?x3, ?x4](77f1b3429fed, 179.27, 237.76)
+I20220523 15:29:50.101222 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 15, row <15>0x7f089c008030[?x1, ?x3, ?x4](77f1b3429fed, 179.27, 237.76), status 3 - no children
+I20220523 15:29:50.101238 2419397 rete_session.h:313] Row marked kProcessed, need to put it for delete/retract
+I20220523 15:29:50.101251 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.101263 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:gotRateTC,1), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101276 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101289 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:ONF_TC,243.03)
+I20220523 15:29:50.101305 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:ONF_TC, 243.03)
+I20220523 15:29:50.101322 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,243.03), vertex 21, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101338 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101351 2419397 rete_session.cc:380]             Parent Row <20>0x7f089c00b8d0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row ...
+I20220523 15:29:50.101370 2419397 rete_session.cc:391]             ...filtered out beta row: <21>0x7f089c00bea0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03) @ vertex 21
+I20220523 15:29:50.101388 2419397 rete_session.cc:380]             Parent Row <20>0x7f089c00ab60[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row ...
+I20220523 15:29:50.101406 2419397 rete_session.cc:391]             ...filtered out beta row: <21>0x7f089c00bea0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03) @ vertex 21
+I20220523 15:29:50.101423 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,243.03), vertex 26, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101447 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101460 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,243.03), vertex 30, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101476 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 1, index (77f1b3429fed)
+I20220523 15:29:50.101488 2419397 rete_session.cc:380]             Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row ...
+I20220523 15:29:50.101506 2419397 rete_session.cc:399]                 1.INSERTING ROW <30>0x7f089c00bea0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03) @ vertex 30
+I20220523 15:29:50.101523 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c00bea0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.101541 2419397 rete_session.cc:380]             Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row ...
+I20220523 15:29:50.101558 2419397 rete_session.cc:399]                 1.INSERTING ROW <30>0x7f089c007e80[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03) @ vertex 30
+I20220523 15:29:50.101575 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c007e80[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.101593 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,243.03), vertex 31, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101608 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101620 2419397 rete_session.cc:380]             Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row ...
+I20220523 15:29:50.101639 2419397 rete_session.cc:391]             ...filtered out beta row: <31>0x7f089c007ce0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03) @ vertex 31
+I20220523 15:29:50.101656 2419397 rete_session.cc:380]             Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row ...
+I20220523 15:29:50.101673 2419397 rete_session.cc:391]             ...filtered out beta row: <31>0x7f089c007ce0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03) @ vertex 31
+I20220523 15:29:50.101691 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,243.03), vertex 34, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101706 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101722 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,243.03), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101737 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101749 2419397 rete_session.cc:283] Infer consequent triples for vertex 4, with row <4>0x7f089c007700[?x1, ?x3, ?x4](77f1b3429fed, 70.81, 0)
+I20220523 15:29:50.101765 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:NF_26,70.81)
+I20220523 15:29:50.101779 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:NF_26, 70.81)
+I20220523 15:29:50.101795 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.81), vertex 18, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101810 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 2, index (77f1b3429fed)
+I20220523 15:29:50.101823 2419397 rete_session.cc:380]             Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_26,70.81)  =>  Row ...
+I20220523 15:29:50.101838 2419397 rete_session.cc:399]                 1.INSERTING ROW <18>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, 70.81) @ vertex 18
+I20220523 15:29:50.101853 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 18, row <18>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, 70.81) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.101868 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.81), vertex 20, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.101882 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.101895 2419397 rete_session.cc:380]             Parent Row <19>0x7f089c00b7b0[?x1, ?x2](77f1b3429fed, 180.2)  +  (77f1b3429fed,_0:NF_26,70.81)  =>  Row ...
+I20220523 15:29:50.101912 2419397 rete_session.cc:399]                 1.INSERTING ROW <20>0x7f089c00bf30[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81) @ vertex 20
+I20220523 15:29:50.101927 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 20, row <20>0x7f089c00bf30[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.101943 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 20, is_inferring? 1
+I20220523 15:29:50.101955 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.101967 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00bf30[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <21>0x7f089c00c630[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 243.03)
+I20220523 15:29:50.101986 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.101998 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00bf30[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <21>0x7f089c00c630[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 237.76)
+I20220523 15:29:50.102016 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.102028 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.102039 2419397 rete_session.cc:380]             Parent Row <19>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.81)  =>  Row ...
+I20220523 15:29:50.102053 2419397 rete_session.cc:399]                 1.INSERTING ROW <20>0x7f089c00c630[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81) @ vertex 20
+I20220523 15:29:50.102067 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 20, row <20>0x7f089c00c630[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.102082 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 20, is_inferring? 1
+I20220523 15:29:50.102093 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.102105 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00c630[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <21>0x7f089c00c700[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.102123 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.102134 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00c630[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <21>0x7f089c00c700[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 237.76)
+I20220523 15:29:50.102152 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.102164 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.102175 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.81), vertex 25, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.102188 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.102200 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.81), vertex 29, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.102212 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.102224 2419397 rete_session.cc:380]             Parent Row <28>0x7f089c00b9d0[?x1, ?x2](77f1b3429fed, 180.2)  +  (77f1b3429fed,_0:NF_26,70.81)  =>  Row ...
+I20220523 15:29:50.102237 2419397 rete_session.cc:399]                 1.INSERTING ROW <29>0x7f089c00c700[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81) @ vertex 29
+I20220523 15:29:50.102252 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 29, row <29>0x7f089c00c700[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.102267 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 29, is_inferring? 1
+I20220523 15:29:50.102277 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.102289 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c700[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <31>0x7f089c00c800[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 243.03)
+I20220523 15:29:50.102308 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.102319 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c700[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <31>0x7f089c00c800[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 237.76)
+I20220523 15:29:50.102339 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.102350 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.102363 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c700[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <30>0x7f089c00c800[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 243.03)
+I20220523 15:29:50.102382 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.102394 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c00c800[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 243.03) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.102411 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c700[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.81)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <30>0x7f089c00c8a0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 237.76)
+I20220523 15:29:50.102428 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.102440 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c00c8a0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 237.76) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.102455 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.102466 2419397 rete_session.cc:380]             Parent Row <28>0x7f089c00ad40[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.81)  =>  Row ...
+I20220523 15:29:50.102481 2419397 rete_session.cc:399]                 1.INSERTING ROW <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81) @ vertex 29
+I20220523 15:29:50.102494 2419397 rete_session.h:250]     BetaRelation::insert_beta_row at vertex 29, row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81) added, status set to Processed - no consequents - has children
+I20220523 15:29:50.102509 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 29, is_inferring? 1
+I20220523 15:29:50.102520 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.102531 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <31>0x7f089c00ca40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.102550 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.102561 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <31>0x7f089c00ca40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 237.76)
+I20220523 15:29:50.102581 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.102591 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.102603 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <30>0x7f089c00ca40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.102622 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.102633 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c00ca40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.102649 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <30>0x7f089c00cbf0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 237.76)
+I20220523 15:29:50.102669 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.102679 2419397 rete_session.h:241]     BetaRelation::insert_beta_row at vertex 30, row <30>0x7f089c00cbf0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 237.76) added, status set to Inserted - scheduled consequent - no children
+I20220523 15:29:50.102694 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.102705 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.81), vertex 33, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.102720 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.102735 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.81), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.102748 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.102761 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:ONF_26,0)
+I20220523 15:29:50.102772 2419397 base_graph.h:281] INSERT INFERRED 2 (77f1b3429fed, _0:ONF_26, 0)
+I20220523 15:29:50.102787 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,_0:gotRate26,1)
+I20220523 15:29:50.102798 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, _0:gotRate26, 1)
+I20220523 15:29:50.102811 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:gotRate26,1), vertex 6, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.102823 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.102835 2419397 rete_session.cc:380]             Parent Row <5>0x7f089c006a00[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)  +  (77f1b3429fed,_0:gotRate26,1)  =>  Row ...
+I20220523 15:29:50.102849 2419397 rete_session.cc:408]                 2.REMOVING ROW <6>0x7f089c00cf30[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726) @ vertex 6
+I20220523 15:29:50.102862 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 6, row <6>0x7f089c0081a0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726), status 3 - has children
+I20220523 15:29:50.102875 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 6, is_inferring? 0
+I20220523 15:29:50.102887 2419397 rete_session.cc:157]   @ parent node 6 | child node 7>
+I20220523 15:29:50.102898 2419397 rete_session.cc:227]     Parent Row <6>0x7f089c0081a0[?x1, ?x2](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726,NF_FEE,70.47)  =>  Row <7>0x7f089c00cfa0[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, 70.47)
+I20220523 15:29:50.102916 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 7, row <7>0x7f089c008340[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, 70.47), status 3 - has children
+I20220523 15:29:50.102931 2419397 rete_session.cc:157]   @ parent node 7 | child node 8>
+I20220523 15:29:50.102942 2419397 rete_session.cc:227]     Parent Row <7>0x7f089c008340[?x1, ?x2, ?x3](77f1b3429fed, jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726, 70.47)  +  (jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726,ONF_FEE,0)  =>  Row <8>0x7f089c0081a0[?x1, ?x3, ?x4](77f1b3429fed, 70.47, 0)
+I20220523 15:29:50.102958 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 8, row <8>0x7f089c0084f0[?x1, ?x3, ?x4](77f1b3429fed, 70.47, 0), status 3 - no children
+I20220523 15:29:50.102972 2419397 rete_session.h:313] Row marked kProcessed, need to put it for delete/retract
+I20220523 15:29:50.102984 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.102996 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:gotRate26,1), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103008 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103019 2419397 rete_session.cc:283] Infer consequent triples for vertex 30, with row <30>0x7f089c00bb90[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.103039 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareGlobal,250.67)
+I20220523 15:29:50.103055 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicareGlobal, 250.67)
+I20220523 15:29:50.103070 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareGlobal,250.67), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103083 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103096 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareTC,180.2)
+I20220523 15:29:50.103108 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicareTC, 180.2)
+I20220523 15:29:50.103122 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareTC,180.2), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103137 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103147 2419397 rete_session.cc:283] Infer consequent triples for vertex 30, with row <30>0x7f089c007e80[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03)
+I20220523 15:29:50.103163 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareGlobal,249.74)
+I20220523 15:29:50.103178 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicareGlobal, 249.74)
+I20220523 15:29:50.103191 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareGlobal,249.74), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103204 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103216 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareTC,179.27)
+I20220523 15:29:50.103229 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicareTC, 179.27)
+I20220523 15:29:50.103242 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareTC,179.27), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103255 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103267 2419397 rete_session.cc:283] Infer consequent triples for vertex 30, with row <30>0x7f089c00c800[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 243.03)
+I20220523 15:29:50.103283 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareGlobal,251.01)
+I20220523 15:29:50.103296 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicareGlobal, 251.01)
+I20220523 15:29:50.103310 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareGlobal,251.01), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103323 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103335 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareTC,180.2)
+I20220523 15:29:50.103348 2419397 base_graph.h:281] INSERT INFERRED 2 (77f1b3429fed, acme:medicareTC, 180.2)
+I20220523 15:29:50.103363 2419397 rete_session.cc:285] Retract consequent triples for vertex 8, with row <8>0x7f089c0084f0[?x1, ?x3, ?x4](77f1b3429fed, 70.47, 0)
+I20220523 15:29:50.103375 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,_0:NF_26,70.47)
+I20220523 15:29:50.103392 2419397 base_graph.h:370] RETRACT INFERRED 0 (77f1b3429fed, _0:NF_26, 70.47)
+I20220523 15:29:50.103613 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 18, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103633 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 2, index (77f1b3429fed)
+I20220523 15:29:50.103641 2419397 rete_session.cc:380]             Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row ...
+I20220523 15:29:50.103652 2419397 rete_session.cc:419]                 3.REMOVING ROW <18>0x7f089c00cfa0[?x1, ?x2](77f1b3429fed, 70.47) @ vertex 18
+I20220523 15:29:50.103659 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 18, row <18>0x7f089c007810[?x1, ?x2](77f1b3429fed, 70.47), status 3 - no children
+I20220523 15:29:50.103667 2419397 rete_session.h:313] Row marked kProcessed, need to put it for delete/retract
+I20220523 15:29:50.103675 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 20, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103682 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103689 2419397 rete_session.cc:380]             Parent Row <19>0x7f089c00b7b0[?x1, ?x2](77f1b3429fed, 180.2)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row ...
+I20220523 15:29:50.103698 2419397 rete_session.cc:419]                 3.REMOVING ROW <20>0x7f089c00cfa0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47) @ vertex 20
+I20220523 15:29:50.103708 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 20, row <20>0x7f089c00b8d0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47), status 3 - has children
+I20220523 15:29:50.103721 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 20, is_inferring? 0
+I20220523 15:29:50.103734 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.103747 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00b8d0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <21>0x7f089c00de50[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03)
+I20220523 15:29:50.103768 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.103780 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00b8d0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <21>0x7f089c00de50[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.103801 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.103816 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.103829 2419397 rete_session.cc:380]             Parent Row <19>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row ...
+I20220523 15:29:50.103847 2419397 rete_session.cc:419]                 3.REMOVING ROW <20>0x7f089c00cfa0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47) @ vertex 20
+I20220523 15:29:50.103861 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 20, row <20>0x7f089c00ab60[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47), status 3 - has children
+I20220523 15:29:50.103878 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 20, is_inferring? 0
+I20220523 15:29:50.103893 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.103904 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00ab60[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <21>0x7f089c00b8d0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03)
+I20220523 15:29:50.103922 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.103933 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00ab60[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <21>0x7f089c00b8d0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76)
+I20220523 15:29:50.103948 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.103957 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.103965 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 25, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103974 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103982 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 29, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.103991 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.103999 2419397 rete_session.cc:380]             Parent Row <28>0x7f089c00b9d0[?x1, ?x2](77f1b3429fed, 180.2)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row ...
+I20220523 15:29:50.104013 2419397 rete_session.cc:419]                 3.REMOVING ROW <29>0x7f089c00cfa0[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47) @ vertex 29
+I20220523 15:29:50.104025 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 29, row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47), status 3 - has children
+I20220523 15:29:50.104040 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 29, is_inferring? 0
+I20220523 15:29:50.104051 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.104063 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <31>0x7f089c00ab60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03)
+I20220523 15:29:50.104086 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.104102 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <31>0x7f089c00ab60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.104120 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.104131 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.104143 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <30>0x7f089c00ab60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03)
+I20220523 15:29:50.104162 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.104175 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 30, row <30>0x7f089c00bea0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03), status 1 - no children
+I20220523 15:29:50.104192 2419397 rete_session.h:300] Row marked kInserted, not inferred yet ** Cancel row insertion **
+I20220523 15:29:50.104203 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00ba60[?x1, ?x2, ?x3](77f1b3429fed, 180.2, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <30>0x7f089c00ab60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.104220 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.104230 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 30, row <30>0x7f089c00bb90[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76), status 3 - no children
+I20220523 15:29:50.104245 2419397 rete_session.h:313] Row marked kProcessed, need to put it for delete/retract
+I20220523 15:29:50.104259 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.104270 2419397 rete_session.cc:380]             Parent Row <28>0x7f089c00ad40[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.47)  =>  Row ...
+I20220523 15:29:50.104288 2419397 rete_session.cc:419]                 3.REMOVING ROW <29>0x7f089c00cfa0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47) @ vertex 29
+I20220523 15:29:50.104302 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 29, row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47), status 3 - has children
+I20220523 15:29:50.104321 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 29, is_inferring? 0
+I20220523 15:29:50.104332 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.104346 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <31>0x7f089c00ba60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03)
+I20220523 15:29:50.104370 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.104385 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <31>0x7f089c00ba60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76)
+I20220523 15:29:50.104405 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.104418 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.104430 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <30>0x7f089c00ba60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03)
+I20220523 15:29:50.104449 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.104460 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 30, row <30>0x7f089c007e80[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03), status 3 - no children
+I20220523 15:29:50.104468 2419397 rete_session.h:313] Row marked kProcessed, need to put it for delete/retract
+I20220523 15:29:50.104476 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00aeb0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.47)  +  (77f1b3429fed,_0:ONF_TC,237.76)  =>  Row <30>0x7f089c00ba60[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76)
+I20220523 15:29:50.104490 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.104497 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 30, row <30>0x7f089c00b130[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76), status 1 - no children
+I20220523 15:29:50.104511 2419397 rete_session.h:300] Row marked kInserted, not inferred yet ** Cancel row insertion **
+I20220523 15:29:50.104524 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.104535 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 33, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.104545 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.104557 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_26,70.47), vertex 36, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.104564 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.104573 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,_0:ONF_26,0)
+I20220523 15:29:50.104584 2419397 base_graph.h:370] RETRACT INFERRED 1 (77f1b3429fed, _0:ONF_26, 0)
+I20220523 15:29:50.104595 2419397 rete_session.cc:283] Infer consequent triples for vertex 30, with row <30>0x7f089c00cbf0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 237.76)
+I20220523 15:29:50.104615 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareGlobal,250.08)
+I20220523 15:29:50.104626 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicareGlobal, 250.08)
+I20220523 15:29:50.104645 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareGlobal,250.08), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.104657 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.104667 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareTC,179.27)
+I20220523 15:29:50.104676 2419397 base_graph.h:281] INSERT INFERRED 2 (77f1b3429fed, acme:medicareTC, 179.27)
+I20220523 15:29:50.104686 2419397 rete_session.cc:283] Infer consequent triples for vertex 30, with row <30>0x7f089c00ca40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.104696 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareGlobal,250.08)
+I20220523 15:29:50.104703 2419397 base_graph.h:281] INSERT INFERRED 2 (77f1b3429fed, acme:medicareGlobal, 250.08)
+I20220523 15:29:50.104712 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareTC,179.27)
+I20220523 15:29:50.104719 2419397 base_graph.h:281] INSERT INFERRED 3 (77f1b3429fed, acme:medicareTC, 179.27)
+I20220523 15:29:50.104727 2419397 rete_session.cc:283] Infer consequent triples for vertex 30, with row <30>0x7f089c00c8a0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.81, 237.76)
+I20220523 15:29:50.104737 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareGlobal,251.01)
+I20220523 15:29:50.104745 2419397 base_graph.h:281] INSERT INFERRED 2 (77f1b3429fed, acme:medicareGlobal, 251.01)
+I20220523 15:29:50.104754 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicareTC,180.2)
+I20220523 15:29:50.104763 2419397 base_graph.h:281] INSERT INFERRED 3 (77f1b3429fed, acme:medicareTC, 180.2)
+I20220523 15:29:50.104770 2419397 rete_session.cc:285] Retract consequent triples for vertex 30, with row <30>0x7f089c007e80[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 243.03)
+I20220523 15:29:50.104780 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,acme:medicareGlobal,249.74)
+I20220523 15:29:50.104789 2419397 base_graph.h:370] RETRACT INFERRED 0 (77f1b3429fed, acme:medicareGlobal, 249.74)
+I20220523 15:29:50.104799 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareGlobal,249.74), vertex 36, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.104807 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.104815 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,acme:medicareTC,179.27)
+I20220523 15:29:50.104821 2419397 base_graph.h:370] RETRACT INFERRED 2 (77f1b3429fed, acme:medicareTC, 179.27)
+I20220523 15:29:50.104830 2419397 rete_session.cc:285] Retract consequent triples for vertex 30, with row <30>0x7f089c00bb90[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 237.76)
+I20220523 15:29:50.104841 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,acme:medicareGlobal,250.67)
+I20220523 15:29:50.104849 2419397 base_graph.h:370] RETRACT INFERRED 0 (77f1b3429fed, acme:medicareGlobal, 250.67)
+I20220523 15:29:50.104858 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicareGlobal,250.67), vertex 36, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.104866 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.104873 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,acme:medicareTC,180.2)
+I20220523 15:29:50.104882 2419397 base_graph.h:370] RETRACT INFERRED 2 (77f1b3429fed, acme:medicareTC, 180.2)
+I20220523 15:29:50.104890 2419397 rete_session.cc:283] Infer consequent triples for vertex 18, with row <18>0x7f089c007ce0[?x1, ?x2](77f1b3429fed, 70.81)
+I20220523 15:29:50.104899 2419397 rete_session.cc:308]     Inferring triple: (77f1b3429fed,acme:medicare26,70.81)
+I20220523 15:29:50.104909 2419397 base_graph.h:281] INSERT INFERRED 1 (77f1b3429fed, acme:medicare26, 70.81)
+I20220523 15:29:50.104918 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicare26,70.81), vertex 36, inserted? 1 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.104928 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.104934 2419397 rete_session.cc:285] Retract consequent triples for vertex 18, with row <18>0x7f089c007810[?x1, ?x2](77f1b3429fed, 70.47)
+I20220523 15:29:50.104943 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,acme:medicare26,70.47)
+I20220523 15:29:50.104950 2419397 base_graph.h:370] RETRACT INFERRED 0 (77f1b3429fed, acme:medicare26, 70.47)
+I20220523 15:29:50.104959 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,acme:medicare26,70.47), vertex 36, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.104967 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.104974 2419397 rete_session.cc:279] compute_consequent_triples: row already processed for vertex 30: <30>0x7f089c00bea0[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 180.2, 70.47, 243.03), skipping
+I20220523 15:29:50.104984 2419397 rete_session.cc:279] compute_consequent_triples: row already processed for vertex 30: <30>0x7f089c00b130[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.47, 237.76), skipping
+I20220523 15:29:50.104993 2419397 rete_session.cc:285] Retract consequent triples for vertex 15, with row <15>0x7f089c008030[?x1, ?x3, ?x4](77f1b3429fed, 179.27, 237.76)
+I20220523 15:29:50.105005 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,_0:ONF_TC,237.76)
+I20220523 15:29:50.105012 2419397 base_graph.h:370] RETRACT INFERRED 0 (77f1b3429fed, _0:ONF_TC, 237.76)
+I20220523 15:29:50.105027 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 21, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105039 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105047 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 26, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105055 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105062 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 30, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105070 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 1, index (77f1b3429fed)
+I20220523 15:29:50.105078 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 31, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105087 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105093 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 34, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105103 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105111 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:ONF_TC,237.76), vertex 36, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105123 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105135 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,_0:NF_TC,179.27)
+I20220523 15:29:50.105149 2419397 base_graph.h:370] RETRACT INFERRED 0 (77f1b3429fed, _0:NF_TC, 179.27)
+I20220523 15:29:50.105160 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 19, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105175 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 1, index (77f1b3429fed)
+I20220523 15:29:50.105191 2419397 rete_session.cc:380]             Parent Row <1>0x7f089c006280[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_TC,179.27)  =>  Row ...
+I20220523 15:29:50.105208 2419397 rete_session.cc:419]                 3.REMOVING ROW <19>0x7f089c00b130[?x1, ?x2](77f1b3429fed, 179.27) @ vertex 19
+I20220523 15:29:50.105226 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 19, row <19>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27), status 3 - has children
+I20220523 15:29:50.105247 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 19, is_inferring? 0
+I20220523 15:29:50.105257 2419397 rete_session.cc:157]   @ parent node 19 | child node 20>
+I20220523 15:29:50.105273 2419397 rete_session.cc:227]     Parent Row <19>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.81)  =>  Row <20>0x7f089c00bea0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)
+I20220523 15:29:50.105294 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 20, row <20>0x7f089c00c630[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81), status 3 - has children
+I20220523 15:29:50.105309 2419397 rete_session.cc:157]   @ parent node 20 | child node 21>
+I20220523 15:29:50.105320 2419397 rete_session.cc:227]     Parent Row <20>0x7f089c00c630[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <21>0x7f089c00a960[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.105334 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.105342 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.105350 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 24, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105358 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105366 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 28, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105376 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105383 2419397 rete_session.cc:380]             Parent Row <27>0x7f089c009200[?x1](77f1b3429fed)  +  (77f1b3429fed,_0:NF_TC,179.27)  =>  Row ...
+I20220523 15:29:50.105391 2419397 rete_session.cc:419]                 3.REMOVING ROW <28>0x7f089c00a960[?x1, ?x2](77f1b3429fed, 179.27) @ vertex 28
+I20220523 15:29:50.105406 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 28, row <28>0x7f089c00ad40[?x1, ?x2](77f1b3429fed, 179.27), status 3 - has children
+I20220523 15:29:50.105422 2419397 rete_session.cc:144] ReteSession::visit_rete_graph called, starting at 28, is_inferring? 0
+I20220523 15:29:50.105453 2419397 rete_session.cc:157]   @ parent node 28 | child node 29>
+I20220523 15:29:50.105464 2419397 rete_session.cc:227]     Parent Row <28>0x7f089c00ad40[?x1, ?x2](77f1b3429fed, 179.27)  +  (77f1b3429fed,_0:NF_26,70.81)  =>  Row <29>0x7f089c00bea0[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)
+I20220523 15:29:50.105484 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 29, row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81), status 3 - has children
+I20220523 15:29:50.105494 2419397 rete_session.cc:157]   @ parent node 29 | child node 31>
+I20220523 15:29:50.105502 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <31>0x7f089c00ad40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.105516 2419397 rete_session.cc:233]     Applying Filter ... reject row
+I20220523 15:29:50.105528 2419397 rete_session.cc:157]   @ parent node 29 | child node 30>
+I20220523 15:29:50.105541 2419397 rete_session.cc:227]     Parent Row <29>0x7f089c00c940[?x1, ?x2, ?x3](77f1b3429fed, 179.27, 70.81)  +  (77f1b3429fed,_0:ONF_TC,243.03)  =>  Row <30>0x7f089c00ad40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.105557 2419397 rete_session.cc:233]     Applying Filter ... keep row
+I20220523 15:29:50.105567 2419397 rete_session.h:283]     BetaRelation::remove_beta_row at vertex 30, row <30>0x7f089c00ca40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03), status 3 - no children
+I20220523 15:29:50.105584 2419397 rete_session.h:313] Row marked kProcessed, need to put it for delete/retract
+I20220523 15:29:50.105597 2419397 rete_session.cc:259] OK done for visit_rete_graph
+I20220523 15:29:50.105608 2419397 rete_session.cc:348]      *  ReteSession::triple_updated called (77f1b3429fed,_0:NF_TC,179.27), vertex 36, inserted? 0 reteSession::rule_ms_ 0x1699d20
+I20220523 15:29:50.105624 2419397 beta_relation.h:132]         BetaRelation::get_idx1_rows_iterator with key 0, index (77f1b3429fed)
+I20220523 15:29:50.105638 2419397 rete_session.cc:285] Retract consequent triples for vertex 30, with row <30>0x7f089c00ca40[?x1, ?x2, ?x3, ?x4](77f1b3429fed, 179.27, 70.81, 243.03)
+I20220523 15:29:50.105656 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,acme:medicareGlobal,250.08)
+I20220523 15:29:50.105669 2419397 base_graph.h:370] RETRACT INFERRED 1 (77f1b3429fed, acme:medicareGlobal, 250.08)
+I20220523 15:29:50.105684 2419397 rete_session.cc:324]     Retracting triple: (77f1b3429fed,acme:medicareTC,179.27)
+I20220523 15:29:50.105696 2419397 base_graph.h:370] RETRACT INFERRED 1 (77f1b3429fed, acme:medicareTC, 179.27)
++++++++++++ Done computing consequent triple ++++++++++++++++++
+I20220523 15:29:50.105756 2419397 r_manager.h:230] The Session Resources:
+I20220523 15:29:50.105875 2419397 r_manager.h:242] 0 (double)
+I20220523 15:29:50.105883 2419397 r_manager.h:242] 0.01 (double)
+I20220523 15:29:50.105890 2419397 r_manager.h:242] 1 (int)
+I20220523 15:29:50.105896 2419397 r_manager.h:242] 11 (text)
+I20220523 15:29:50.105903 2419397 r_manager.h:242] 14312:40 (resource)
+I20220523 15:29:50.105909 2419397 r_manager.h:242] 179.27 (double)
+I20220523 15:29:50.105916 2419397 r_manager.h:242] 180.2 (double)
+I20220523 15:29:50.105922 2419397 r_manager.h:242] 2018 (text)
+I20220523 15:29:50.105928 2419397 r_manager.h:242] 22 (text)
+I20220523 15:29:50.105935 2419397 r_manager.h:242] 237.76 (double)
+I20220523 15:29:50.105942 2419397 r_manager.h:242] 243.03 (double)
+I20220523 15:29:50.105948 2419397 r_manager.h:242] 249.74 (double)
+I20220523 15:29:50.105954 2419397 r_manager.h:242] 250.08 (double)
+I20220523 15:29:50.105960 2419397 r_manager.h:242] 250.67 (double)
+I20220523 15:29:50.105967 2419397 r_manager.h:242] 251.01 (double)
+I20220523 15:29:50.105973 2419397 r_manager.h:242] 70.47 (double)
+I20220523 15:29:50.105979 2419397 r_manager.h:242] 70.81 (double)
+I20220523 15:29:50.105985 2419397 r_manager.h:242] 73721 (text)
+I20220523 15:29:50.105993 2419397 r_manager.h:242] 77f1b3429fed (resource)
+I20220523 15:29:50.106007 2419397 r_manager.h:242] 77f1b3429fed (text)
+I20220523 15:29:50.106017 2419397 r_manager.h:242] NF_FEE (resource)
+I20220523 15:29:50.106024 2419397 r_manager.h:242] ONF_FEE (resource)
+I20220523 15:29:50.106030 2419397 r_manager.h:242] RRAcme (resource)
+I20220523 15:29:50.106045 2419397 r_manager.h:242] RT (text)
+I20220523 15:29:50.106051 2419397 r_manager.h:242] YEAR (resource)
+I20220523 15:29:50.106058 2419397 r_manager.h:242] _0:NF_26 (resource)
+I20220523 15:29:50.106065 2419397 r_manager.h:242] _0:NF_TC (resource)
+I20220523 15:29:50.106072 2419397 r_manager.h:242] _0:ONF_26 (resource)
+I20220523 15:29:50.106087 2419397 r_manager.h:242] _0:ONF_TC (resource)
+I20220523 15:29:50.106101 2419397 r_manager.h:242] _0:addendumGLookup (resource)
+I20220523 15:29:50.106112 2419397 r_manager.h:242] _0:carrierLocality (resource)
+I20220523 15:29:50.106123 2419397 r_manager.h:242] _0:carrierLocalityGeoZip (resource)
+I20220523 15:29:50.106134 2419397 r_manager.h:242] _0:carrierLocalityZip (resource)
+I20220523 15:29:50.106145 2419397 r_manager.h:242] _0:gotRate26 (resource)
+I20220523 15:29:50.106156 2419397 r_manager.h:242] _0:gotRateTC (resource)
+I20220523 15:29:50.106168 2419397 r_manager.h:242] _0:medicareRateObj261 (resource)
+I20220523 15:29:50.106178 2419397 r_manager.h:242] _0:medicareRateObj262 (resource)
+I20220523 15:29:50.106187 2419397 r_manager.h:242] _0:medicareRateObjTC1 (resource)
+I20220523 15:29:50.106197 2419397 r_manager.h:242] _0:medicareRateObjTC2 (resource)
+I20220523 15:29:50.106207 2419397 r_manager.h:242] _0:procCdeOnAddendumG (resource)
+I20220523 15:29:50.106218 2419397 r_manager.h:242] acme:AIUSIClaim (resource)
+I20220523 15:29:50.106228 2419397 r_manager.h:242] acme:medicare26 (resource)
+I20220523 15:29:50.106240 2419397 r_manager.h:242] acme:medicareGlobal (resource)
+I20220523 15:29:50.106251 2419397 r_manager.h:242] acme:medicareTC (resource)
+I20220523 15:29:50.106261 2419397 r_manager.h:242] acme:placeOfServiceCode (resource)
+I20220523 15:29:50.106269 2419397 r_manager.h:242] acme:procedureCode (resource)
+I20220523 15:29:50.106279 2419397 r_manager.h:242] acme:procedureCodeModifier (resource)
+I20220523 15:29:50.106288 2419397 r_manager.h:242] jets:ADDENDUMG_LOOKUP_CONFIG:737212018 (resource)
+I20220523 15:29:50.106299 2419397 r_manager.h:242] jets:Entity (resource)
+I20220523 15:29:50.106307 2419397 r_manager.h:242] jets:GEOZIP_CARRIER_LOOKUP_CONFIG:3302018 (resource)
+I20220523 15:29:50.106317 2419397 r_manager.h:242] jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726 (resource)
+I20220523 15:29:50.106328 2419397 r_manager.h:242] jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC (resource)
+I20220523 15:29:50.106338 2419397 r_manager.h:242] jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826 (resource)
+I20220523 15:29:50.106346 2419397 r_manager.h:242] jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC (resource)
+I20220523 15:29:50.106356 2419397 r_manager.h:242] jets:State (resource)
+I20220523 15:29:50.106367 2419397 r_manager.h:242] jets:completed (resource)
+I20220523 15:29:50.106376 2419397 r_manager.h:242] jets:entity_property (resource)
+I20220523 15:29:50.106386 2419397 r_manager.h:242] jets:exception (resource)
+I20220523 15:29:50.106396 2419397 r_manager.h:242] jets:iState (resource)
+I20220523 15:29:50.106405 2419397 r_manager.h:242] jets:key (resource)
+I20220523 15:29:50.106415 2419397 r_manager.h:242] jets:lookup_multi_rows (resource)
+I20220523 15:29:50.106424 2419397 r_manager.h:242] jets:lookup_row (resource)
+I20220523 15:29:50.106434 2419397 r_manager.h:242] jets:loop (resource)
+I20220523 15:29:50.106444 2419397 r_manager.h:242] jets:value_property (resource)
+I20220523 15:29:50.106454 2419397 r_manager.h:242] null (null)
+I20220523 15:29:50.106464 2419397 r_manager.h:242] owl:AllDifferent (resource)
+I20220523 15:29:50.106475 2419397 r_manager.h:242] owl:AllDisjointClasses (resource)
+I20220523 15:29:50.106487 2419397 r_manager.h:242] owl:AllDisjointProperties (resource)
+I20220523 15:29:50.106498 2419397 r_manager.h:242] owl:AnnotationProperty (resource)
+I20220523 15:29:50.106508 2419397 r_manager.h:242] owl:AsymmetricProperty (resource)
+I20220523 15:29:50.106519 2419397 r_manager.h:242] owl:Class (resource)
+I20220523 15:29:50.106529 2419397 r_manager.h:242] owl:DataRange (resource)
+I20220523 15:29:50.106540 2419397 r_manager.h:242] owl:DatatypeProperty (resource)
+I20220523 15:29:50.106551 2419397 r_manager.h:242] owl:DeprecatedClass (resource)
+I20220523 15:29:50.106562 2419397 r_manager.h:242] owl:DeprecatedProperty (resource)
+I20220523 15:29:50.106575 2419397 r_manager.h:242] owl:FunctionalProperty (resource)
+I20220523 15:29:50.106585 2419397 r_manager.h:242] owl:InverseFunctionalProperty (resource)
+I20220523 15:29:50.106595 2419397 r_manager.h:242] owl:IrreflexiveProperty (resource)
+I20220523 15:29:50.106606 2419397 r_manager.h:242] owl:NamedIndividual (resource)
+I20220523 15:29:50.106614 2419397 r_manager.h:242] owl:Nothing (resource)
+I20220523 15:29:50.106623 2419397 r_manager.h:242] owl:ObjectProperty (resource)
+I20220523 15:29:50.106632 2419397 r_manager.h:242] owl:Ontology (resource)
+I20220523 15:29:50.106642 2419397 r_manager.h:242] owl:OntologyProperty (resource)
+I20220523 15:29:50.106652 2419397 r_manager.h:242] owl:ReflexiveProperty (resource)
+I20220523 15:29:50.106663 2419397 r_manager.h:242] owl:Restriction (resource)
+I20220523 15:29:50.106673 2419397 r_manager.h:242] owl:SymmetricProperty (resource)
+I20220523 15:29:50.106684 2419397 r_manager.h:242] owl:Thing (resource)
+I20220523 15:29:50.106694 2419397 r_manager.h:242] owl:TransitiveProperty (resource)
+I20220523 15:29:50.106704 2419397 r_manager.h:242] owl:allValuesFrom (resource)
+I20220523 15:29:50.106714 2419397 r_manager.h:242] owl:backwardCompatibleWith (resource)
+I20220523 15:29:50.106725 2419397 r_manager.h:242] owl:cardinality (resource)
+I20220523 15:29:50.106736 2419397 r_manager.h:242] owl:complementOf (resource)
+I20220523 15:29:50.106747 2419397 r_manager.h:242] owl:deprecated (resource)
+I20220523 15:29:50.106758 2419397 r_manager.h:242] owl:differentFrom (resource)
+I20220523 15:29:50.106770 2419397 r_manager.h:242] owl:disjointUnionOf (resource)
+I20220523 15:29:50.106781 2419397 r_manager.h:242] owl:disjointWith (resource)
+I20220523 15:29:50.106791 2419397 r_manager.h:242] owl:distinctMembers (resource)
+I20220523 15:29:50.106803 2419397 r_manager.h:242] owl:equivalentClass (resource)
+I20220523 15:29:50.106814 2419397 r_manager.h:242] owl:equivalentProperty (resource)
+I20220523 15:29:50.106824 2419397 r_manager.h:242] owl:hasSelf (resource)
+I20220523 15:29:50.106834 2419397 r_manager.h:242] owl:hasValue (resource)
+I20220523 15:29:50.106845 2419397 r_manager.h:242] owl:imports (resource)
+I20220523 15:29:50.106856 2419397 r_manager.h:242] owl:incompatibleWith (resource)
+I20220523 15:29:50.106868 2419397 r_manager.h:242] owl:intersectionOf (resource)
+I20220523 15:29:50.106879 2419397 r_manager.h:242] owl:inverseOf (resource)
+I20220523 15:29:50.106891 2419397 r_manager.h:242] owl:maxCardinality (resource)
+I20220523 15:29:50.106902 2419397 r_manager.h:242] owl:maxQualifiedCardinality (resource)
+I20220523 15:29:50.106914 2419397 r_manager.h:242] owl:members (resource)
+I20220523 15:29:50.106925 2419397 r_manager.h:242] owl:minCardinality (resource)
+I20220523 15:29:50.106936 2419397 r_manager.h:242] owl:minQualifiedCardinality (resource)
+I20220523 15:29:50.106947 2419397 r_manager.h:242] owl:onClass (resource)
+I20220523 15:29:50.106958 2419397 r_manager.h:242] owl:onDataRange (resource)
+I20220523 15:29:50.106969 2419397 r_manager.h:242] owl:onProperty (resource)
+I20220523 15:29:50.106981 2419397 r_manager.h:242] owl:oneOf (resource)
+I20220523 15:29:50.106992 2419397 r_manager.h:242] owl:priorVersion (resource)
+I20220523 15:29:50.107003 2419397 r_manager.h:242] owl:propertyChainAxiom (resource)
+I20220523 15:29:50.107014 2419397 r_manager.h:242] owl:propertyDisjointWith (resource)
+I20220523 15:29:50.107025 2419397 r_manager.h:242] owl:qualifiedCardinality (resource)
+I20220523 15:29:50.107036 2419397 r_manager.h:242] owl:sameAs (resource)
+I20220523 15:29:50.107048 2419397 r_manager.h:242] owl:someValuesFrom (resource)
+I20220523 15:29:50.107059 2419397 r_manager.h:242] owl:topDataProperty (resource)
+I20220523 15:29:50.107070 2419397 r_manager.h:242] owl:topObjectProperty (resource)
+I20220523 15:29:50.107080 2419397 r_manager.h:242] owl:unionOf (resource)
+I20220523 15:29:50.107090 2419397 r_manager.h:242] owl:versionIRI (resource)
+I20220523 15:29:50.107101 2419397 r_manager.h:242] owl:versionInfo (resource)
+I20220523 15:29:50.107113 2419397 r_manager.h:242] rdf:Description (resource)
+I20220523 15:29:50.107125 2419397 r_manager.h:242] rdf:Property (resource)
+I20220523 15:29:50.107136 2419397 r_manager.h:242] rdf:type (resource)
+I20220523 15:29:50.107146 2419397 r_manager.h:242] rdfs:Class (resource)
+I20220523 15:29:50.107157 2419397 r_manager.h:242] rdfs:Datatype (resource)
+I20220523 15:29:50.107168 2419397 r_manager.h:242] rdfs:comment (resource)
+I20220523 15:29:50.107180 2419397 r_manager.h:242] rdfs:domain (resource)
+I20220523 15:29:50.107192 2419397 r_manager.h:242] rdfs:label (resource)
+I20220523 15:29:50.107203 2419397 r_manager.h:242] rdfs:range (resource)
+I20220523 15:29:50.107213 2419397 r_manager.h:242] rdfs:subClassOf (resource)
+I20220523 15:29:50.107223 2419397 r_manager.h:242] rdfs:subPropertyOf (resource)
+RDF Session Contains:
+(77f1b3429fed,_0:NF_26,70.81)
+(77f1b3429fed,_0:NF_TC,180.2)
+(77f1b3429fed,_0:ONF_26,0)
+(77f1b3429fed,_0:ONF_TC,243.03)
+(77f1b3429fed,_0:addendumGLookup,jets:ADDENDUMG_LOOKUP_CONFIG:737212018)
+(77f1b3429fed,_0:carrierLocality,14312:40)
+(77f1b3429fed,_0:carrierLocalityGeoZip,jets:GEOZIP_CARRIER_LOOKUP_CONFIG:3302018)
+(77f1b3429fed,_0:carrierLocalityZip,null)
+(77f1b3429fed,_0:gotRate26,1)
+(77f1b3429fed,_0:gotRateTC,1)
+(77f1b3429fed,_0:medicareRateObj261,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826)
+(77f1b3429fed,_0:medicareRateObj262,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726)
+(77f1b3429fed,_0:medicareRateObjTC1,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC)
+(77f1b3429fed,_0:medicareRateObjTC2,jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC)
+(77f1b3429fed,_0:procCdeOnAddendumG,1)
+(77f1b3429fed,acme:medicare26,70.81)
+(77f1b3429fed,acme:medicareGlobal,250.08)
+(77f1b3429fed,acme:medicareGlobal,251.01)
+(77f1b3429fed,acme:medicareTC,179.27)
+(77f1b3429fed,acme:medicareTC,180.2)
+(77f1b3429fed,acme:placeOfServiceCode,11)
+(77f1b3429fed,acme:procedureCode,73721)
+(77f1b3429fed,acme:procedureCodeModifier,RT)
+(77f1b3429fed,jets:key,77f1b3429fed)
+(77f1b3429fed,rdf:type,acme:AIUSIClaim)
+(77f1b3429fed,rdf:type,jets:Entity)
+(77f1b3429fed,rdf:type,owl:Thing)
+(jets:ADDENDUMG_LOOKUP_CONFIG:737212018,YEAR,2018)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726,NF_FEE,70.47)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201726,ONF_FEE,0)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC,NF_FEE,179.27)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212017TC,ONF_FEE,237.76)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826,NF_FEE,70.81)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:4073721201826,ONF_FEE,0)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC,NF_FEE,180.2)
+(jets:PHYSICIAN_FEE_SCHEDULE_LOOKUP_CONFIG:14312:40737212018TC,ONF_FEE,243.03)
+---
+2022/05/23 15:29:50 BAD EXTRACT: test1 | 77f1b3429fed | 77f1b3429fed | NULL | error getting multiple values from graph for functional column acme:medicareGlobal
+2022/05/23 15:29:50 BAD EXTRACT: test1 | 77f1b3429fed | 77f1b3429fed | NULL | error getting multiple values from graph for functional column acme:medicareTC
+2022/05/23 15:29:50 Close all writeOutputc channels...
+2022/05/23 15:29:50 ...done closing writeOutputc
+2022/05/23 15:29:50 Checking results of write2tables...
+2022/05/23 15:29:50 Input records count is: 1
+2022/05/23 15:29:50 Rete sessions count is: 1
+2022/05/23 15:29:50 Output records count for type 'acme:AIUSIClaim' is: 1
+2022/05/23 15:29:50 Output records count for type 'process_errors' is: 2

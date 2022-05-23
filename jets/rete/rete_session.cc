@@ -165,6 +165,9 @@ namespace jets::rete {
           return -1;
         }
 
+        // Clear the pending rows in current_relation, since they were for the last pass
+        current_relation->clear_pending_rows();
+
         // Get an iterator over all applicable rows from the parent beta node
         BetaRowIteratorPtr parent_row_itor;
         bool need_all_rows = !current_relation->is_activated();
@@ -253,8 +256,8 @@ namespace jets::rete {
         if(need_all_rows) current_relation->set_activated(true);
         stack.push_back(current_vertex);
       }
-      // Clear the pending rows of parent node since we propagated to all it's children
-      parent_beta_relation->clear_pending_rows();
+      // // Clear the pending rows of parent node since we propagated to all it's children
+      // parent_beta_relation->clear_pending_rows();
     }
     VLOG(50)<<"OK done for visit_rete_graph";
     return 0;
