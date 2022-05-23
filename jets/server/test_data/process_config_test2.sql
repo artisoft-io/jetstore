@@ -36,9 +36,12 @@ INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALU
 DROP TABLE IF EXISTS public."aspec:Simulator";
 CREATE TABLE IF NOT EXISTS public."aspec:Simulator" (
   "rdf:type" text ARRAY NOT NULL,
+  "session_id" text  ,
+  "shard_id" INTEGER  ,
+  "last_update" TIMESTAMP  ,
   "jets:key" text  ,
   "aspec:anchor_date" text  ,
-  "aspec:nbr_entities" integer  ,
+  "aspec:nbr_entities" INTEGER  ,
   "aspec:entity_key_prefix" text  ,
   "aspec:entity_persona_lk" text  ,
   PRIMARY KEY ("jets:key")
@@ -47,7 +50,8 @@ CREATE TABLE IF NOT EXISTS public."aspec:Simulator" (
 INSERT INTO "aspec:Simulator" (
   "rdf:type","jets:key","aspec:anchor_date","aspec:nbr_entities","aspec:entity_key_prefix",
   "aspec:entity_persona_lk") VALUES
-  ('{"aspec:Simulator"}', 'K:001', '2020-12-31', 2, '01001', 'lk:BasePatientPersona')
+  ('{"aspec:Simulator"}', 'K:001', '2020-12-31', 2, '01001', 'lk:BasePatientPersona'),
+  ('{"aspec:Simulator"}', 'K:002', '2020-12-31', 2, '01002', 'lk:BasePatientPersona')
 ;
 -- INSERT INTO process_merge (process_key, entity_rdf_type, query_rdf_property_list, grouping_rdf_property) VALUES
 --   (2, 'm2c:Claim', 'm2c:P1,m2c:P2', 'm2c:P2')

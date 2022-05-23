@@ -110,7 +110,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	for inputRecords := range dataInputc {
 		var groupingKey sql.NullString
 		if len(inputRecords) > 0 {
-			groupingKey = inputRecords[0][processInput.groupingPosition].(sql.NullString)
+			groupingKey = *inputRecords[0][processInput.groupingPosition].(*sql.NullString)
 		}
 		
 		// setup the rdf session for the grouping
@@ -132,11 +132,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 				switch processInput.inputType {
 					// input table (tdv / csv)
 				case 0:
-					// log.Println("Asserting input records with ruleset", ruleset)
 					err = ri.assertInputRecords(reteSession, processInput, &inputRecords, &writeOutputc)
 				case 1:
 					err = ri.assertEntities(reteSession, processInput, &inputRecords, &writeOutputc)
 				default:
+					log.Println("ERROR invalid input type for ruleset", ruleset)
 					return &result, fmt.Errorf("error: invalid input_type for process_input key %d", processInput.key)
 				}
 				if err != nil {

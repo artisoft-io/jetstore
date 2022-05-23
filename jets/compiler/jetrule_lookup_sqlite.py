@@ -249,17 +249,9 @@ class JetRuleLookupSQLite:
       DROP TABLE IF EXISTS "{table_name}"; 
    """
 
-    create_table__strict_statement = f"""
-      CREATE TABLE "{table_name}" (
-        __key__            INTEGER PRIMARY KEY, 
-        "jets:key"         TEXT NOT NULL,
-        {column_schema}
-      ) STRICT;
-   """ # currently not supported by apsw and sqlite browser
-
     create_table_statement = f"""
       CREATE TABLE "{table_name}" (
-        __key__            INTEGER PRIMARY KEY, 
+        __key__            INTEGER, 
         "jets:key"         TEXT NOT NULL,
         {column_schema}
       );
@@ -271,6 +263,9 @@ class JetRuleLookupSQLite:
     cursor.execute(drop_table_statement)
     cursor.execute(create_table_statement)
     cursor.execute(create_index_statement)
+    cursor.execute(f"""
+      CREATE INDEX IF NOT EXISTS "{table_name}_key_idx" 
+      ON "{table_name}" ("__key__"); """)
     cursor = None      
 
 
@@ -375,9 +370,13 @@ class JetRuleLookupSQLite:
 
         # add __key__ with the rowid of each unique jets:jey,
         # create a dict to associate __key__ with jets:key
-        for jk in 
+        jkdict = dict()
+        for jk in lookup_df['jets:key']:
+          jkdict[jk] = len(jkdict)
 
+        # put the __key__ in the lookup df
         lookup_df.insert(0, '__key__', range(0, len(lookup_df)))
+        lookup_df['__key__'] = lookup_df['jets:key'].apply(lambda jk: jkdict.get(jk))
         return lookup_df
 
 

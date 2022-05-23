@@ -16,7 +16,7 @@ class jets:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
     jets:key as text,
-    rdf:type as array of text
+    rdf:type as array of resource
   ],
   $as_table = false
 };
@@ -68,7 +68,7 @@ class asim:Event {
   $data_properties = [
     asim:event_key as text,
     asim:event_type as text,
-    asim:event_rdf_type as text,
+    asim:event_rdf_type as resource,
     asim:provider_group_lk as text,
     asim:service_date_offset as int,
     asim:service_date_max_days as int
@@ -121,7 +121,7 @@ class hc:SimulatedClaim {
 # Patient Generation Lookup
 # ---------------------------------------------------------------------------------------
 # csv file have these columns: "key,asim:persona_key,asim:demographic_group_key,asim:event_group1_lk,asim:description"
-lookup_table lk:LookupCode {
+lookup_table lk:BasePatientPersona {
   $csv_file = "base_patient_persona_test2.csv",    # csv file location
   $key = ["key"], 
   $columns = [
