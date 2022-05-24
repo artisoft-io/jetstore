@@ -36,7 +36,12 @@ using AlphaNodeVector = std::vector<AlphaNodePtr>;
 struct BetaRowPriorityCompare {
   inline bool
   operator()(BetaRowPtr const& lhs, BetaRowPtr const& rhs) {
-    return lhs->get_node_vertex()->salience < rhs->get_node_vertex()->salience;
+    auto const& lv = lhs->get_node_vertex();
+    auto const& rv = rhs->get_node_vertex();
+    if(lv->salience == rv->salience) {
+      return lv->vertex < rv->vertex;
+    }
+    return lv->salience < rv->salience;
   }
 };
 using BetaRowPriorityQueue = std::priority_queue<BetaRowPtr, std::vector<BetaRowPtr>, BetaRowPriorityCompare>;
