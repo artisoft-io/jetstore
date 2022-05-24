@@ -254,7 +254,9 @@ namespace jets::rete {
 
         // mark current beta node as activated and push it on the stack so to visit it's childrens
         if(need_all_rows) current_relation->set_activated(true);
-        stack.push_back(current_vertex);
+        if(current_relation->has_pending_rows()) {
+          stack.push_back(current_vertex);
+        }
       }
       // // Clear the pending rows of parent node since we propagated to all it's children
       // parent_beta_relation->clear_pending_rows();
