@@ -227,7 +227,7 @@ namespace jets::rete {
               rdf::Triple triple = t3_itor.as_triple();
               beta_row->initialize(beta_row_initializer, parent_row, &triple);
 
-              // VLOG(50)<<"    Parent Row "<<parent_row<<"  +  "<<triple<<"  =>  Row "<<beta_row;
+              VLOG(50)<<"  **  Parent Row "<<parent_row<<"  +  "<<triple<<"  =>  Row "<<beta_row;
 
               // evaluate the current_relation filter if any
               bool keepit = true;
@@ -258,8 +258,8 @@ namespace jets::rete {
           stack.push_back(current_vertex);
         // }
       }
-      // // Clear the pending rows of parent node since we propagated to all it's children
-      // parent_beta_relation->clear_pending_rows();
+      // Clear the pending rows of parent node since we propagated to all it's children
+      parent_beta_relation->clear_pending_rows();
     }
     VLOG(39)<<"OK done for visit_rete_graph";
     return 0;
@@ -373,9 +373,9 @@ namespace jets::rete {
       // initialize the beta row with parent_row and t3
       auto const* parent_row = parent_row_itor->get_row();
 
-      // VLOG(50)<<"            Parent Row "<<parent_row<<"  +  "<<t3<<"  =>  Row ..."<</*beta_row<<*/std::endl;
-
       beta_row->initialize(beta_row_initializer, parent_row, &t3);
+
+      VLOG(56)<<"   **  Parent Row "<<parent_row<<"  +  "<<t3<<"  =>  Row "<<beta_row<<std::endl;
 
       // evaluate the current_relation filter if any
       bool keepit = true;

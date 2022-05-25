@@ -31,19 +31,17 @@ class acme:AIUSIClaim {
   (?x2 ONF_FEE ?x4) 
 -> 
   (?x1 _0:gotRate26 1).
-  (?x1 _0:NF_26 ?x3).
-  (?x1 _0:ONF_26 ?x4)
+  (?x1 _0:NF_26 ?x3)
 ;
 
-[fee262,o=false,s=50,flag="o=false"]: 
+[fee262,o=false,s=500,flag="o=false"]: 
   (?x1 rdf:type acme:AIUSIClaim).
   (?x1 _0:medicareRateObj262 ?x2).
   not(?x1 _0:gotRate26 1).
   (?x2 NF_FEE ?x3).
   (?x2 ONF_FEE ?x4) 
 -> 
-  (?x1 _0:NF_26 ?x3).
-  (?x1 _0:ONF_26 ?x4)
+  (?x1 _0:NF_26 ?x3)
 ;
 
 [feeTC1,o=false,s=100,flag="o=false"]: 
@@ -57,7 +55,7 @@ class acme:AIUSIClaim {
   (?x1 _0:ONF_TC ?x4)
 ;
 
-[feeTC2,o=false,s=50,flag="o=false"]: 
+[feeTC2,o=false,s=500,flag="o=false"]: 
   (?x1 rdf:type acme:AIUSIClaim).
   (?x1 _0:medicareRateObjTC2 ?x2).
   not(?x1 _0:gotRateTC 1).
@@ -96,7 +94,7 @@ class acme:AIUSIClaim {
   (?x1 acme:medicareTC ?x2)
 ;
 
-[mg733,o=false,s=50,flag="o=false"]: 
+[mg733,o=false,s=100,flag="o=false"]: 
   (?x1 rdf:type acme:AIUSIClaim).
   (?x1 acme:placeOfServiceCode "11").
   not(?x1 _0:procCdeOnAddendumG 1).
