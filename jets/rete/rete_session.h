@@ -289,10 +289,6 @@ BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   // make sure we point to the right instance
   beta_row = *itor;
   VLOG(56)<<"BetaRow remove row "<<beta_row;
-  // VLOG(50)<<"    BetaRelation::remove_beta_row at vertex "<<
-  //   this->get_node_vertex()->vertex<<", row "<<beta_row<<
-  //   ", status "<<beta_row->get_status()<<" - "<<
-  //   (this->get_node_vertex()->child_nodes.empty()?"no children":"has children");
   
   // Check if row was already deleted
   if(beta_row->is_deleted()) {
