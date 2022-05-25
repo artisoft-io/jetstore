@@ -32,22 +32,26 @@ enum BetaRowStatus {
 // BetaRow is a row in the BetaRelation table
 class BetaRow {
  public:
-  using const_iterator = rdf::r_index const*;
+  using r_index_array = std::vector<rdf::r_index>;
+  using const_iterator = r_index_array::const_iterator;
+  using iterator = r_index_array::iterator;
 
-  BetaRow() : data_(nullptr), size_(0), node_vertex_(nullptr) {}
+  BetaRow() : data_(), size_(0), node_vertex_(nullptr) {}
   BetaRow(b_index node_vertex, int size) 
     : status_(kNone),
-      data_(nullptr),
+      tid_("0"),
+      data_(),
       size_(size),
       node_vertex_(node_vertex)
   {
-    if(size_ > 0) data_ = new rdf::r_index[size_ + 1]; // +1 for end()
+    if(size_ > 0) {
+      data_.resize(size_);
+    }
   }
 
   virtual inline
   ~BetaRow()
   {
-    if(data_) delete [] data_;
   }
 
   BetaRow(BetaRow const&) = delete;
@@ -59,6 +63,12 @@ class BetaRow {
     return size_;
   }
 
+  inline std::string const&
+  get_tid()const
+  {
+    return this->tid_;
+  }
+
   inline void
   set_status(BetaRowStatus status);
 
@@ -66,6 +76,17 @@ class BetaRow {
   get_status()const
   {
     return status_;
+  }
+
+  inline std::string
+  get_status_str()const
+  {
+    switch(status_) {
+      case kInserted: return "Inserted";
+      case kDeleted: return "Deleted";
+      case kProcessed: return "Processed";
+      default: return "";
+    }
   }
 
   inline bool
@@ -113,6 +134,11 @@ class BetaRow {
       }
       pos++;
     }
+    if(this->node_vertex_) {
+      std::ostringstream buf;
+      buf << parent_node->get_tid() <<":"<<this->node_vertex_->vertex;
+      this->tid_ = buf.str();
+    }
     return 0;
   }
 
@@ -139,15 +165,13 @@ class BetaRow {
   inline const_iterator
   begin()const
   {
-    if(data_) return &data_[0];
-    return nullptr;
+    return data_.begin();
   }
 
   inline const_iterator
   end()const
   {
-    if(data_) return &data_[size_];
-    return nullptr;
+    return data_.end();
   }
 
 
@@ -168,7 +192,8 @@ operator==(BetaRow const& rhs)const
  private:
   // To track when rows get inferred and then retracted
   BetaRowStatus   status_;
-  rdf::r_index *  data_;
+  std::string     tid_;
+  r_index_array   data_;
   int             size_;
   b_index         node_vertex_;
 };
@@ -182,7 +207,7 @@ inline std::ostream & operator<<(std::ostream & out, BetaRow const& row)
 {
   if(row.get_node_vertex() and row.get_node_vertex()->get_beta_row_initializer()) {
     auto ri = row.get_node_vertex()->get_beta_row_initializer();
-    out <<"<"<<row.get_node_vertex()->vertex<<">"<<&row<<"[";
+    out <<"<"<<row.get_node_vertex()->vertex<<">"<<"("<<row.get_tid()<<")"<<"[";
     for(int i=0; i<row.get_size(); i++) {
       if(i > 0) out << ", ";
       out << ri->get_label(i);
@@ -229,6 +254,7 @@ inline void
 BetaRow::set_status(BetaRowStatus status)
 {
   status_ = status;
+  VLOG(55)<<"Set Row Status "<<this->get_status_str() << "  "<<this;
 }
 
 // Compute the hash and equality of BetaRow

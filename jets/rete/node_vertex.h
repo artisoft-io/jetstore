@@ -6,7 +6,7 @@
 #include <memory>
 #include <list>
 
-#include "absl/container/flat_hash_set.h"
+#include "absl/container/btree_set.h"
 
 #include "../rete/beta_row_initializer.h"
 
@@ -31,11 +31,11 @@ using NodeVertexPtr = std::shared_ptr<NodeVertex>;
 using b_index = NodeVertex const *;
 
 // Reversed lookup for descendent nodes to speed up insert/delete in indexes struct
-using b_index_set = absl::flat_hash_set<b_index>;
+using b_index_set = absl::btree_set<b_index>;
 
 // Set<int> representing the set of consequent AlphaNode's vertex for each NodeVertex
 // This is set by the ReteMetaStore::initialize() method
-using consequent_set = absl::flat_hash_set<int>;
+using consequent_set = absl::btree_set<int>;
 
 /**
  * @brief NodeVertex holding metadata information about a BetaRelation node
@@ -78,7 +78,8 @@ struct NodeVertex {
       filter_expr(filter_expr),
       normalized_label(normalized_label),
       beta_row_initializer(beta_row_initializer),
-      antecedent_query_key(0)
+      antecedent_query_key(0),
+      tid_(0)
   {}
 
   inline bool
@@ -112,6 +113,12 @@ struct NodeVertex {
     return not consequent_alpha_vertexes.empty();
   }
 
+  inline int
+  get_next_tid()const
+  {
+    return ++this->tid_;
+  }
+
   int                      key;
   b_index                  parent_node_vertex;
   b_index_set              child_nodes;
@@ -123,6 +130,7 @@ struct NodeVertex {
   std::string              normalized_label;
   BetaRowInitializerPtr    beta_row_initializer;
   mutable int              antecedent_query_key;
+  mutable int              tid_;
 };
 
 inline std::ostream & operator<<(std::ostream & out, b_index node)
