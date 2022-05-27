@@ -172,7 +172,10 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   // inline           6  BOOL,
   // source_file_key  7  INTEGER NOT NULL,
   // vertex           8  INTEGER,  -- for var type only, var for vertex
-  // row_pos          9  INTEGER   -- for var type only, pos in beta row
+  // row_pos          9  INTEGER   -- for var type only, pos in beta row 
+  // Note: table column `row_pos` should be called `seq` 
+  //       since it is the var seq in the beta_row (seq column of table beta_row_config)
+  //       This is taken into consideration in sql stmt of load_resources()
   //
   int key = std::stoi(argv[0]);
   char * type     =  argv[1];
@@ -445,7 +448,7 @@ ReteMetaStoreFactory::load_alpha_nodes(int file_key, NodeVertexVector const& nod
   if ( res != SQLITE_OK ) {
     return res;
   }
-  // The query retains only antecedent node, add head node manually
+  // Add head node manually
   // Also make sure alpha_nodes is clean
   alpha_nodes.clear();
   alpha_nodes.push_back(create_alpha_node<F_var, F_var, F_var>(node_vertexes[0].get(), 0, true, "(* * *)",

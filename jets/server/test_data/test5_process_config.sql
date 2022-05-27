@@ -22,7 +22,7 @@ INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALU
 (500, 'RR_ACME001','acme:c','C', 'text'),
 (500, 'RR_ACME001','acme:d','D', 'text'),
 (500, 'RR_ACME001','acme:e','E', 'text'),
-(500, 'RR_ACME001','acme:f','F', 'text'),
+(500, 'RR_ACME001','acme:f','E', 'text'),
 (500, 'jets:YN:1','YES','Y', 'text'),
 (500, 'jets:YN:1','NO','N', 'text'),
 (500, 'jets:A:1','UPPER_A','A','text')
