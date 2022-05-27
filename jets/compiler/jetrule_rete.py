@@ -2,6 +2,7 @@ from logging import raiseExceptions
 from jetrule_context import JetRuleContext
 from typing import Any, Sequence, Set
 from typing import Dict
+from operator import itemgetter
 
 class JetRuleRete:
   def __init__(self, ctx: JetRuleContext):
@@ -143,7 +144,6 @@ class JetRuleRete:
       antecedent_node = self.ctx.rete_nodes[vertex]['antecedent_node']
       parent_vertex = antecedent_node['parent_vertex']
       beta_var_nodes = []
-      antecedent_node['beta_var_nodes'] = beta_var_nodes
       if parent_vertex:
         parent_beta_var_nodes = self.ctx.rete_nodes[parent_vertex]['antecedent_node']['beta_var_nodes'] 
         for i in range(len(parent_beta_var_nodes)):
@@ -166,6 +166,7 @@ class JetRuleRete:
           elm['var_pos'] = pos
           beta_var_nodes.append(elm)
 
+      antecedent_node['beta_var_nodes'] = sorted(beta_var_nodes, key=itemgetter('id'))
 
     # Perform validation on jetrule beta relation config
     for rete_node in self.ctx.rete_nodes:

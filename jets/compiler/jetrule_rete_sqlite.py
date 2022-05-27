@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Sequence, Set
 from typing import Dict
 import itertools
-from operator import itemgetter
 import apsw
 import traceback
 import os
@@ -567,7 +566,6 @@ class JetRuleReteSQLite:
   def _save_beta_row_config(self, rete_node: object):
     # print('Saving beta_row_configs. . .')
     beta_var_nodes = rete_node.get('beta_var_nodes', [])
-    beta_var_nodes = sorted(beta_var_nodes, key=itemgetter('id')) 
     for seq in range(len(beta_var_nodes)):
       bvnode = beta_var_nodes[seq]
 

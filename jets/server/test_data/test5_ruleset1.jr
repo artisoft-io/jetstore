@@ -40,7 +40,8 @@ class acme:Claim {
   (?yn   NO              "N").
   (?c1   _0:A_ROWS       ?ar).
   (?ar   UPPER_A         ?a).
-  (?c2   rdf:type acme:Claim)
+  (?c2   rdf:type acme:Claim).
+  (?c2   acme:d          ?d)
 -> 
   (?c1   acme:eCopy      ?e).
   (?c1   acme:fCopy      ?f).
