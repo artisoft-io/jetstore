@@ -47,8 +47,13 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 
 	recCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{domainTable.TableName}, columns, wt)
 	if err != nil {
-		if wt.count > 0 {
-			log.Println("Last pending row:")
+		switch {
+		case wt.count == 0:
+			log.Println("No rows were sent to database")
+		case  wt.count > 0 && len(wt.pending)==0:
+			log.Println("Last pending row is not available")
+		case  wt.count > 0 && len(wt.pending)==len(columns):
+			log.Println("Last pending row is:")
 			for i := range columns {
 				if i > 0 {
 					fmt.Print(",")
@@ -58,8 +63,6 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 				}
 			}
 			fmt.Println()
-		} else {
-			log.Println("No rows were sent to database")
 		}
 		return &result, fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)
 	}

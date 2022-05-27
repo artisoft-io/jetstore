@@ -20,7 +20,7 @@ type JetStore struct {
 }
 
 type RDFSession struct {
-	hdl           C.HJRDF
+	hdl C.HJRDF
 }
 
 type ReteSession struct {
@@ -37,11 +37,11 @@ type Resource struct {
 }
 
 var (
-	ErrNotValidDate     = errors.New("not a valid date")
-	ErrNotValidDateTime = errors.New("not a valid datetime")
-	ErrNullValue        = errors.New("null value")
+	ErrNotValidDate      = errors.New("not a valid date")
+	ErrNotValidDateTime  = errors.New("not a valid datetime")
+	ErrNullValue         = errors.New("null value")
 	ErrUnexpectedRdfType = errors.New("value with unexpected rdf type")
-	ErrLookupTable      = errors.New("error loading lookup tables")
+	ErrLookupTable       = errors.New("error loading lookup tables")
 )
 
 // ResourceType
@@ -128,7 +128,7 @@ func (rs *ReteSession) ReleaseReteSession() error {
 // create resources and literals from meta_graph
 func (js *JetStore) NewNull() (*Resource, error) {
 	var r Resource
-	ret := int(C.create_null(js.hdl, &r.hdl))
+	ret := int(C.create_meta_null(js.hdl, &r.hdl))
 	if ret != 0 {
 		fmt.Println("Yikes got error in mete_graph.createResource ret code", ret)
 		return &r, errors.New("ERROR calling meta createResource(), ret code: " + fmt.Sprint(ret))
@@ -265,6 +265,15 @@ func (js *JetStore) InsertRuleConfig(s *Resource, p *Resource, o *Resource) (int
 }
 
 // New session-based Resource & Literals
+func (rs *ReteSession) NewNull() (*Resource, error) {
+	var r Resource
+	ret := int(C.create_null(rs.rdfs.hdl, &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewResource ret code", ret)
+		return &r, errors.New("ERROR calling NewResource(), ret code: " + fmt.Sprint(ret))
+	}
+	return &r, nil
+}
 func (rs *ReteSession) NewResource(resource_name string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(resource_name)
@@ -436,7 +445,7 @@ func (r *Resource) GetDateIsoString() (string, error) {
 	ret := int(cret)
 	if ret == -2 {
 		return "", ErrNotValidDate
-	} 
+	}
 	if ret != 0 {
 		fmt.Println("ERROR getting date in iso str format", ret)
 		return "", fmt.Errorf("error while date in iso str format: %v", ret)
@@ -454,7 +463,7 @@ func (r *Resource) GetDatetimeIsoString() (string, error) {
 	ret := int(cret)
 	if ret == -2 {
 		return "", ErrNotValidDateTime
-	} 
+	}
 	if ret != 0 {
 		fmt.Println("ERROR getting datetime in iso str format", ret)
 		return "", fmt.Errorf("error while datetime in iso str format: %v", ret)
@@ -558,7 +567,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting name of resource for AsInterface: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR getting resource name for column type",columnType)
+			fmt.Println("ERROR getting resource name for column type", columnType)
 			return ret, fmt.Errorf("error using resource name in column type %s: %v", columnType, err)
 		}
 		return v, nil
@@ -569,7 +578,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
 		}
 		if columnType != "integer" {
-			fmt.Println("ERROR should have integer for column type, got",columnType)
+			fmt.Println("ERROR should have integer for column type, got", columnType)
 			return ret, fmt.Errorf("error have int for column type %s: %v", columnType, err)
 		}
 		return v, nil
@@ -580,7 +589,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting double value of literal for AsInterface: %v", err)
 		}
 		if columnType != "double precision" {
-			fmt.Println("ERROR should have double precision for column type, got",columnType)
+			fmt.Println("ERROR should have double precision for column type, got", columnType)
 			return ret, fmt.Errorf("error have double for column type %s: %v", columnType, err)
 		}
 		return v, nil
@@ -591,7 +600,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting text of literal for AsInterface: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR have text for column type",columnType)
+			fmt.Println("ERROR have text for column type", columnType)
 			return ret, fmt.Errorf("error have text for column type %s: %v", columnType, err)
 		}
 		return v, nil
@@ -601,7 +610,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting date details: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR have text (date) for column type",columnType)
+			fmt.Println("ERROR have text (date) for column type", columnType)
 			return ret, fmt.Errorf("error have text (date) for column type %s: %v", columnType, err)
 		}
 		return fmt.Sprintf("%d-%d-%d", y, m, d), nil
@@ -611,7 +620,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting datetime literal for AsInterface: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR have text (datetime) for column type",columnType)
+			fmt.Println("ERROR have text (datetime) for column type", columnType)
 			return ret, fmt.Errorf("error have text (datetime) for column type %s: %v", columnType, err)
 		}
 		return v, nil

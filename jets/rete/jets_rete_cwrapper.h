@@ -28,7 +28,7 @@ typedef void const* HJR;
 
 // Creating meta resources and literals
 // ------------------------------------
-int create_null(HJETS js_hdl, HJR * handle);
+int create_meta_null(HJETS js_hdl, HJR * handle);
 int create_meta_blanknode(HJETS js_hdl, int v, HJR * handle);
 int create_meta_resource(HJETS js_hdl, char const * name, HJR * handle);
 int get_meta_resource(HJETS js_hdl, char const * name, HJR * handle);
@@ -46,6 +46,7 @@ int insert_meta_graph(HJETS js_hdl, HJR s, HJR p, HJR o);
 // rdf session methods
 // -------------------
 // Creating resources and literals
+int create_null(HJRDF hdl, HJR * handle);
 int create_blanknode(HJRDF hdl, int v, HJR * handle);
 int create_resource(HJRDF hdl, char const * name, HJR * handle);
 int get_resource(HJRDF hdl, char const * name, HJR * handle);

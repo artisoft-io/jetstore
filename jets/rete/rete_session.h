@@ -245,6 +245,7 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
       beta_row->set_status(BetaRowStatus::kInserted);
       rete_session->schedule_consequent_terms(beta_row);
     } else {
+
       // Mark row as done
       beta_row->set_status(BetaRowStatus::kProcessed);
     }

@@ -3,72 +3,38 @@
 # ---------------------------------------------------------------------------------------
 import "support_test2.jr"
 
-# =======================================================================================
-# Create Claims for Population
-# ---------------------------------------------------------------------------------------
-jetstore_config {
-  $max_looping = 10000
-};
-
 # ========================================================================
-# Loop Control
+# Create Claim for Patient
 # -----------------------------------------------------------------------
-# Create Member / Patient
-# -----------------------------------------------------------------------
-volatile_resource newPatient = "newPatient";
-volatile_resource patientPersonaRow = "patientPersonaRow";
-volatile_resource claim_group_lk_key = "claim_group_lk_key";
-
-[LOOP020]:
-  (?simspec rdf:type aspec:Entity).
-  (?simspec aspec:nbr_patients ?max).
-  (?simspec aspec:patient_key_prefix ?patient_start_key).
-  (?state rdf:type jets:State).
-  (?state jets:loop ?i).
-  [?i <= ?max]
-  ->
-  (?state newPatient (create_entity (?patient_start_key + (?i apply_format "%03u"))))
-;
-
-# Note: Adding +1 to the max loop to ensure when that when jets:completed is set 
-#       all the entities are created and we're ready to do 'pick_one' on local lists
-[LOOP030]:
-  (?simspec rdf:type aspec:Entity).
-  (?simspec aspec:nbr_patients ?max).
-  (?state rdf:type jets:State).
-  (?state jets:loop ?i).
-  [?i >= (?max + 1)]
-  ->
-  (?state jets:completed true)
-;
-
-
-# ========================================================================
-# Create Patients & Claims
-# -----------------------------------------------------------------------
-[MEC01]:
-  (?simspec rdf:type aspec:Entity).
-  (?simspec aspec:patient_persona_lk_key ?uri).
-  (?state rdf:type jets:State).
-  (?state newPatient ?patient).
-  (?patient jets:key ?key)
-  ->
-  (?patient rdf:type asim:Entity).
+# Pick a claim profile from each claim_group_lookup_key
+[MEC310]:
   (?patient rdf:type hc:SimulatedPatient).
-  (?patient patientPersonaRow (lookup_rand ?uri)).
-  (?patient hc:patient_number ?key)
+  (?patient hc:patient_number ?key).
+  (?patient asim:claim_group_lk_key ?uri)
+  ->
+  (?patient asim:claim_profile (multi_lookup_rand ?uri))
 ;
 
-[MEC210]:
-  (?patient rdf:type asim:Entity).
-  (?patient patientPersonaRow ?persona_row).
-  (?persona_row asim:persona_key ?persona_key).
-  (?persona_row asim:claim_group_lk_key ?claim_grp1_lk_key).
-  (?persona_row asim:age_group ?age_group)
-  (?persona_row asim:description ?desc)
-  ->
-  (?patient asim:persona_key ?persona_key).
-  (?patient asim:claim_group_key ?claim_grp1_lk_key).
-  (?patient asim:demographic_group ?age_group).
-  (?patient asim:description ?desc)
-;
+## # For each asim:claim_profile row create a corresponding claim entity
+## [MEC410]:
+##   (?patient rdf:type hc:SimulatedPatient).
+##   (?patient hc:patient_number ?key).
+##   (?patient asim:claim_profile ?multi_row).
+##   (?multi_row jets:lookup_multi_rows ?row).
+##   (?row asim:event_key ?ekey)
+##   ->
+##   (?patient ?row create_entity (("C" + ?key) + ("E" + ?ekey)))
+## ;
+## 
+## [MEC510]:
+##   (?patient rdf:type hc:SimulatedPatient).
+##   (?patient asim:claim_profile ?multi_row).
+##   (?multi_row jets:lookup_multi_rows ?row).
+##   (?row asim:event_key ?ekey).
+##   (?patient hc:patient_number ?pnbr).
+##   (?patient ?row ?claim).
+##   ->
+##   (?claim rdf:type hc:SimulatedClaim).
+##   (?claim hc:member_number ?pnbr)
+##   (?claim asim:claim_row ?row)
+## ;
