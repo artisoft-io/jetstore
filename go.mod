@@ -4,6 +4,8 @@ go 1.18
 
 require github.com/jackc/pgx/v4 v4.16.0
 
+require gopkg.in/yaml.v3 v3.0.0
+
 require (
 	github.com/google/uuid v1.3.0
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
