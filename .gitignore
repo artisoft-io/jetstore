@@ -60,3 +60,8 @@ jets/update_db/update_db
 jets/server/test_data/scratch_pad.sql
 jets/compiler/test_data/rule_sequence_test1.db
 jets/compiler/test_data/rule_sequence_test2.db
+jets/server/test_data/test5_out.txt
+jets/server/test_data/test5_ruleset1.jr
+jets/server/test_data/test5_ruleset1.jr.json
+jets/server/test_data/test5_ruleset1.jrc.json
+jets/server/test_data/test5_workspace.db
