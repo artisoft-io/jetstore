@@ -196,7 +196,7 @@ class AlphaNodeImpl: public AlphaNode {
    * So far, this is used for diagnostics and printing.
    * This function is an alternative to find_matching_triples
    * Applicable to antecedent terms only,
-   * Will throw if called on an antecedent term
+   * Will throw if called on an consequent term
    * @param parent_row BetaRow from parent beta node
    * @return SearchTriple 
    */

@@ -462,7 +462,7 @@ class JetRuleRete:
       elm['arg'] = self._map_expr(state, elm['arg'])
       return elm
     
-    # type must be literal, meaning we can use _map_elm
+    # type must be literal or var, meaning we can use _map_elm
     # that returns the key
     return self._map_elm(state, elm, type)
 
