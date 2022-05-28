@@ -256,40 +256,52 @@ struct ApplyMinMaxVisitor
 {
   ApplyMinMaxVisitor(ReteSession * rs, bool is_min): rs(rs), is_min(is_min) {}
 
-  // Apply the visitor to fins the min/max value for the triple (s, objp, ?o).(?o, datap, ?v)
-  // if datap == null, then return ?o otherwise return ?v
+  // Apply the visitor to find the min/max value.
+  //  - case datap == nullptr: return ?o such that min/max ?o in (s, objp, ?o)
+  //  - case datap != nullptr: return ?o such that min/max ?v in (s, objp, ?o).(?o datap ?v)
+  // Below in implementation we have:
+  //  ?o is currentObj and ?v is currentValue with
+  //  (s, objp, currentObj).(currentObj, datap, currentValue), with currentObj = currentValue if datap==nullptr
   RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap=nullptr)const
   {
     GtVisitor visitor;
     auto itor = rs->rdf_session()->find(s, objp);
     bool is_first = true;
-    RDFTTYPE res;
+    rdf::r_index resultObj = rdf::gnull();
+    rdf::r_index resultValue = rdf::gnull();
     rdf::r_index lhs, rhs;
     while(!itor.is_end()) {
-      auto obj = itor.get_object();
-      auto val = obj;
+      rdf::r_index currentObj = itor.get_object();
+      if(not currentObj) {
+        RETE_EXCEPTION("BUG in ApplyMinMaxVisitor: unexpected null value");
+      }
+      rdf::r_index currentValue = currentObj;
       if(datap) {
-        val = rs->rdf_session()->get_object(obj, datap);
+        currentValue = rs->rdf_session()->get_object(currentObj, datap);
       }
       if(is_first) {
-        res = *val;
+        resultObj = currentObj;
+        resultValue = currentValue;
         is_first = false;
       } else {
         // visitor is for: lhs > rhs
-        // to have min, do if res > val, then res = val 
-        // to have max, do if val > res, then res = val 
+        // to have min, do if resultValue > currentValue, then resultValue = currentValue
+        // to have max, do if currentValue > resultValue, then resultValue = currentValue
         if(this->is_min) {
-          lhs = &res;
-          rhs = val;
+          lhs = resultValue;
+          rhs = currentValue;
         } else {
-          lhs = val;
-          rhs = &res;
+          lhs = currentValue;
+          rhs = resultValue;
         }
-        if(rdf::to_bool(boost::apply_visitor(visitor, *lhs, *rhs))) res = *val; 
+        if(rdf::to_bool(boost::apply_visitor(visitor, *lhs, *rhs))) {
+          resultObj = currentObj;
+          resultValue = currentValue; 
+        }
       }
       itor.next();
     }
-    return res;
+    return *resultObj;
   }
 
   ReteSession * rs;
@@ -347,11 +359,40 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>
   {
     auto * sess = this->rs->rdf_session();
     auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) return rdf::Null();
-    ApplyMinMaxVisitor av(this->rs, false);
+    if(not pr.first or not pr.second) {
+      RETE_EXCEPTION(
+        "Invalid argument for sorted_head, must lhs and rhs must "
+        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
+        pr.first<<", and "<<pr.second
+      );
+    }
     auto const* jr = sess->rmgr()->jets();
-    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
+    auto objp  = sess->get_object(pr.second, jr->jets__entity_property);
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
+    auto op    = sess->get_object(pr.second, jr->jets__operator);
+    // op must be text literal with value "<" or ">"
+    bool err = objp==nullptr or datap==nullptr;
+    bool is_min = true;
+    if(op->which() == rdf::rdf_literal_string_t) {
+      auto const& opv = boost::get<rdf::LString>(op)->data;
+      if(opv == "<") {
+        is_min = true;
+      } else if(opv == ">") {
+        is_min = false;
+      } else {
+        err = true;
+      }
+    } else {
+      err = true;
+    }
+    if(err) {
+      RETE_EXCEPTION(
+        "Invalid config for sorted_head, must have "
+        "jets:operator, jets:entity_property, and jets:data_property set, and "
+        "jets:operator must be a text literal with value '<' or '>' (single char text)"
+      );
+    }
+    ApplyMinMaxVisitor av(this->rs, is_min);
     return av(pr.first, objp, datap);
   }
 
@@ -365,30 +406,50 @@ struct ApplySumValuesVisitor
 {
   ApplySumValuesVisitor(ReteSession * rs): rs(rs) {}
 
-  // Apply the visitor to fins the min/max value for the triple (s, objp, ?o).(?o, datap, ?v)
-  // if datap == null, then return ?o otherwise return ?v
-  RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap=nullptr)const
+  // Apply the visitor to find:
+  //  - case datap is nullptr: the sum of ?v in (s, objp, ?v)
+  //  - case datap is not nullptr: the sum of ?v in (s, objp, ?o).(?o, datap, ?v)
+  RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap)const
   {
     AddVisitor visitor;
-    auto itor = rs->rdf_session()->find(s, objp);
-    bool is_first = true;
     RDFTTYPE res;
-    while(!itor.is_end()) {
-      auto obj = itor.get_object();
-      auto val = obj;
-      if(datap) {
-        val = rs->rdf_session()->get_object(obj, datap);
+    if(not datap) {
+      RETE_EXCEPTION("Invalid arguments for ApplySumValuesVisitor, cannot have null datap");
+    }
+    if(objp == nullptr) {
+      // make sum ?v: (s, datap, ?v)
+      auto itor = rs->rdf_session()->find(s, datap);
+      bool is_first = true;
+      while(!itor.is_end()) {
+        auto val = itor.get_object();
+        if(not val) {
+          RETE_EXCEPTION("BUG in ApplySumValuesVisitor: unexpected null value");
+        }
+        if(is_first) {
+          res = *val;
+          is_first = false;
+        } else {
+          res = boost::apply_visitor(visitor, res, *val);
+        }
+        itor.next();
       }
-      if(is_first) {
-        res = *val;
-        is_first = false;
-      } else {
-        // visitor is for: lhs > rhs
-        // to have min, do if res > val, then res = val 
-        // to have max, do if val > res, then res = val 
-        res = boost::apply_visitor(visitor, res, *val);
+    } else {
+      // make sum ?v: (s, objp, ?o).(?o, datap, ?v)
+      auto itor = rs->rdf_session()->find(s, objp);
+      bool is_first = true;
+      while(!itor.is_end()) {
+        auto val = rs->rdf_session()->get_object(itor.get_object(), datap);
+        if(not val) {
+          RETE_EXCEPTION("Invalid arguments for sum_values in the form (s, objp, ?o).(?o, datap, ?v), missing datap");
+        }
+        if(is_first) {
+          res = *val;
+          is_first = false;
+        } else {
+          res = boost::apply_visitor(visitor, res, *val);
+        }
+        itor.next();
       }
-      itor.next();
     }
     return res;
   }
@@ -407,11 +468,20 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
   {
     auto * sess = this->rs->rdf_session();
     auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) return rdf::Null();
+    if(not pr.first or not pr.second) {
+      RETE_EXCEPTION(
+        "Invalid argument for sum_values, must lhs and rhs must "
+        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
+        pr.first<<", and "<<pr.second
+      );
+    }
     ApplySumValuesVisitor av(this->rs);
     auto const* jr = sess->rmgr()->jets();
-    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
+    if(not datap) {
+      RETE_EXCEPTION("Invalid config obj for sum_values, it must have jets:value_property");
+    }
+    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
     return av(pr.first, objp, datap);
   }
 
