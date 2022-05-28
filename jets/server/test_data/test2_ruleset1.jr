@@ -1,7 +1,7 @@
 # ///////////////////////////////////////////////////////////////////////////////////////
 # Unit Test JetStore server process
 # ---------------------------------------------------------------------------------------
-import "support_test2.jr"
+import "test2_support.jr"
 
 # =======================================================================================
 # Create Population
@@ -13,26 +13,23 @@ jetstore_config {
 # ========================================================================
 # Loop Control
 # -----------------------------------------------------------------------
-# Create Member / Patient
-# -----------------------------------------------------------------------
-volatile_resource newPatient = "newPatient";
-volatile_resource patientPersonaRow = "patientPersonaRow";
-volatile_resource claim_group_lk_key = "claim_group_lk_key";
+volatile_resource newEntity = "newEntity";
+volatile_resource personaRow = "personaRow";
 
-[LOOP020]:
+[LOOP010]:
   (?simspec rdf:type aspec:Simulator).
   (?simspec aspec:nbr_entities ?max).
-  (?simspec aspec:entity_key_prefix ?patient_start_key).
+  (?simspec aspec:entity_key_prefix ?entity_key_prefix).
   (?state rdf:type jets:State).
   (?state jets:loop ?i).
   [?i <= ?max]
   ->
-  (?state newPatient (create_entity (?patient_start_key + (?i apply_format "%03u"))))
+  (?state newEntity (create_entity (?entity_key_prefix + (?i apply_format "%03u"))))
 ;
 
 # Note: Adding +1 to the max loop to ensure when that when jets:completed is set 
 #       all the entities are created and we're ready to do 'pick_one' on local lists
-[LOOP030]:
+[LOOP020]:
   (?simspec rdf:type aspec:Simulator).
   (?simspec aspec:nbr_entities ?max).
   (?state rdf:type jets:State).
@@ -42,33 +39,54 @@ volatile_resource claim_group_lk_key = "claim_group_lk_key";
   (?state jets:completed true)
 ;
 
-
 # ========================================================================
-# Create Patients & Claims
+# Create Entity
 # -----------------------------------------------------------------------
-[MEC01]:
+
+[JSIM010]:
   (?simspec rdf:type aspec:Simulator).
   (?simspec aspec:entity_persona_lk ?uri).
   (?state rdf:type jets:State).
-  (?state newPatient ?patient).
-  (?patient jets:key ?key)
+  (?state newEntity ?entity)
   ->
-  (?patient rdf:type asim:Entity).
-  (?patient rdf:type hc:SimulatedPatient).
-  (?patient patientPersonaRow (lookup_rand ?uri)).
-  (?patient hc:patient_number ?key)
+  (?entity rdf:type asim:Entity).
+  (?entity personaRow (lookup_rand ?uri)).
 ;
 
-[MEC210]:
-  (?patient rdf:type asim:Entity).
-  (?patient patientPersonaRow ?persona_row).
-  (?persona_row asim:persona_key ?persona_key).
-  (?persona_row asim:event_group1_lk ?event_group1_lk).
-  (?persona_row asim:demographic_group_key ?demo_group)
-  (?persona_row asim:description ?desc)
-  ->
-  (?patient asim:persona_key ?persona_key).
-  (?patient asim:event_group1_lk ?event_group1_lk).
-  (?patient asim:demographic_group_key ?demo_group).
-  (?patient asim:description ?desc)
+[JSIM020]:
+  (?state rdf:type jets:State).
+  (?state newEntity ?entity).
+  (?entity personaRow ?row).
+  (?row ?p ?o).
+  [(?p != rdf:type) and (?p != jets:key)]
+ ->
+  (?entity ?p ?o)
+;
+
+# ========================================================================
+# Create Patient
+# -----------------------------------------------------------------------
+volatile_resource demographicRow = "demographicRow";
+
+[JSIMHC010]:
+  (?entity rdf:type asim:Entity).
+  (?entity jets:key ?key).
+  (?entity asim:demographic_group_key ?demo_key)
+ ->
+  (?entity rdf:type hc:SimulatedPatient).
+  (?entity hc:patient_number ?key).
+  (?entity demographicRow (lk:PatientDemographic lookup ?demo_key))
+;
+
+[JSIMHC015]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:anchor_date ?anchor_date).
+  (?entity rdf:type asim:Entity).
+  (?entity demographicRow ?row).
+  (?row lk:gender ?gender).
+  (?row lk:age_min ?age_min).
+  (?row lk:age_max ?age_max)
+ ->
+  (?entity hc:gender ?gender).
+  (?entity hc:dob (?anchor_date - ((?age_min + (?age_max/2)) * 365) ))
 ;

@@ -12,6 +12,9 @@ jetstore_config {
 # =======================================================================================
 # Data Model
 # ---------------------------------------------------------------------------------------
+# JetStore Base Model
+# ---------------------------------------------------------------------------------------
+
 class jets:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
@@ -41,6 +44,11 @@ class jets:Row {
   $as_table = false
 };
 
+# ---------------------------------------------------------------------------------------
+# JetStore Simulator Model
+# ---------------------------------------------------------------------------------------
+
+# Simulator Spec - defines the asim:Entity generation
 class aspec:Simulator {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -52,6 +60,7 @@ class aspec:Simulator {
   $as_table = true
 };
 
+# Class to simulate master entities
 class asim:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
@@ -63,8 +72,7 @@ class asim:Entity {
   $as_table = false
 };
 
-# Class simulated transactional entity
-# such as hc:Claim
+# Class to simulate events or transactional entities
 class asim:Event {
   $base_classes = [owl:Thing],
   $data_properties = [
@@ -78,15 +86,9 @@ class asim:Event {
   $as_table = false
 };
 
-[JRE010]:
-  (?evc rdf:type asim:Event).
-  (?cc asim:claim_row ?evc).
-  (?evc ?p ?o).
-  [(?p != rdf:type) and (?p != jets:key)]
- ->
-  (?cc ?p ?o)
-;
-
+# ---------------------------------------------------------------------------------------
+# JetStore Healthcare Model
+# ---------------------------------------------------------------------------------------
 class hc:Patient {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -99,7 +101,6 @@ class hc:Patient {
 
 class hc:SimulatedPatient {
   $base_classes = [
-    jets:Entity,
     asim:Entity,
     hc:Patient
   ],
@@ -138,10 +139,10 @@ class hc:SimulatedClaim {
 # ---------------------------------------------------------------------------------------
 # Patient Generation Lookup
 # ---------------------------------------------------------------------------------------
-# csv file have these columns: "key,asim:persona_key,asim:demographic_group_key,asim:event_group1_lk,asim:description"
+# csv file have these columns: "asim:persona_key,asim:demographic_group_key,asim:event_group1_lk,asim:description"
 lookup_table lk:BasePatientPersona {
-  $csv_file = "base_patient_persona_test2.csv",    # csv file location
-  $key = ["key"], 
+  $csv_file = "test2_base_patient_persona.csv",    # csv file location
+  $key = ["asim:persona_key"], 
   $columns = [
     "asim:persona_key" as text,
     "asim:demographic_group_key" as text,
@@ -150,11 +151,24 @@ lookup_table lk:BasePatientPersona {
   ]
 };
 # ---------------------------------------------------------------------------------------
+# Patient Demographic Lookup
+# ---------------------------------------------------------------------------------------
+# csv file have these columns: "lk:demographic_key,lk:gender,lk:age_min,lk:age_max"
+lookup_table lk:PatientDemographic {
+  $csv_file = "test2_patient_demographic.csv",    # csv file location
+  $key = ["lk:demographic_key"], 
+  $columns = [
+    "lk:gender" as text,
+    "lk:age_min" as int,
+    "lk:age_max" as int
+  ]
+};
+# ---------------------------------------------------------------------------------------
 # Claim Generation Lookup
 # ---------------------------------------------------------------------------------------
 # csv file have these columns: "key,asim:event_key,asim:event_type,asim:event_rdf_type,asim:provider_group_lk,asim:service_date_offset,asim:service_date_max_days"
 lookup_table lk:LowRiskEventGroup {
-  $csv_file = "low_risk_group_test2.csv",    # csv file location
+  $csv_file = "test2_low_risk_group.csv",    # csv file location
   $key = ["key"], 
   $columns = [
     "asim:event_key" as text,

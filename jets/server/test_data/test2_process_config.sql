@@ -48,8 +48,7 @@ CREATE TABLE IF NOT EXISTS public."aspec:Simulator" (
 );
 
 INSERT INTO "aspec:Simulator" (
-  "rdf:type","jets:key","aspec:anchor_date","aspec:nbr_entities","aspec:entity_key_prefix",
-  "aspec:entity_persona_lk") VALUES
+  "rdf:type","jets:key","aspec:anchor_date","aspec:nbr_entities","aspec:entity_key_prefix", "aspec:entity_persona_lk") VALUES
   ('{"aspec:Simulator"}', 'K:001', '2020-12-31', 2, '01001', 'lk:BasePatientPersona'),
   ('{"aspec:Simulator"}', 'K:002', '2020-12-31', 2, '01002', 'lk:BasePatientPersona')
 ;

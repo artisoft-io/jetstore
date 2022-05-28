@@ -1,0 +1,306 @@
+2022/05/27 13:13:47 Command Line Argument: procConfigKey: 201
+2022/05/27 13:13:47 Command Line Argument: poolSize: 1
+2022/05/27 13:13:47 Command Line Argument: sessionId: session1
+2022/05/27 13:13:47 Command Line Argument: shardId: 0
+2022/05/27 13:13:47 Command Line Argument: workspaceDb: ./test_data/test2_workspace.db
+2022/05/27 13:13:47 Command Line Argument: lookupDb: test_data/test2_lookup.db
+2022/05/27 13:13:47 Command Line Argument: ruleset: test2_ruleset1.jr
+2022/05/27 13:13:47 Command Line Argument: ruleseq: 
+2022/05/27 13:13:47 Command Line Argument: outTables: hc:SimulatedPatient
+2022/05/27 13:13:47 Command Line Argument: GLOG_v is set to 37
+Got ProcessConfig row:
+  key: 201 client ACME description Entity from aspec:Simulator Main Type aspec:Simulator
+Got ProcessInput row:
+  key: 221 , processKey 201 , InputTable aspec:Simulator , rdf Type aspec:Simulator , Grouping Column jets:key
+    InputMapping - key 221 , inputColumn: aspec:anchor_date , dataProperty: aspec:anchor_date , function:  , arg:  , default: 
+    InputMapping - key 221 , inputColumn: aspec:nbr_entities , dataProperty: aspec:nbr_entities , function:  , arg:  , default: 
+    InputMapping - key 221 , inputColumn: aspec:entity_key_prefix , dataProperty: aspec:entity_key_prefix , function:  , arg:  , default: 
+    InputMapping - key 221 , inputColumn: aspec:entity_persona_lk , dataProperty: aspec:entity_persona_lk , function:  , arg:  , default: 
+    InputMapping - key 221 , inputColumn: jets:key , dataProperty: jets:key , function:  , arg:  , default: 
+    InputMapping - key 221 , inputColumn: rdf:type , dataProperty: rdf:type , function:  , arg:  , default: 
+Got RuleConfig rows:
+    procKey: 201 , subject jets:iState , predicate rdf:type , object jets:State , type resource
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20220527 13:13:47.520678 488265 rete_meta_store_factory.cc:36] Current path is "/home/michel/projects/repos/jetstore/jets/server"
+I20220527 13:13:47.522475 488265 lookup_sql_helper.h:230] Lookup table lk:BasePatientPersona max __key__ is 3
+I20220527 13:13:47.522580 488265 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT "asim:demographic_group_key", "asim:description", "asim:event_group1_lk", "asim:persona_key" FROM "lk:BasePatientPersona" WHERE "jets:key" = ? and SELECT "asim:demographic_group_key", "asim:description", "asim:event_group1_lk", "asim:persona_key" FROM "lk:BasePatientPersona" WHERE __key__ = ?
+I20220527 13:13:47.522794 488265 lookup_sql_helper.h:256] LookupTable 'lk:BasePatientPersona' initialized
+I20220527 13:13:47.522934 488265 lookup_sql_helper.h:230] Lookup table lk:LowRiskEventGroup max __key__ is 3
+I20220527 13:13:47.522950 488265 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT "asim:event_key", "asim:event_rdf_type", "asim:event_type", "asim:provider_group_lk", "asim:service_date_max_days", "asim:service_date_offset" FROM "lk:LowRiskEventGroup" WHERE "jets:key" = ? and SELECT "asim:event_key", "asim:event_rdf_type", "asim:event_type", "asim:provider_group_lk", "asim:service_date_max_days", "asim:service_date_offset" FROM "lk:LowRiskEventGroup" WHERE __key__ = ?
+I20220527 13:13:47.523267 488265 lookup_sql_helper.h:256] LookupTable 'lk:LowRiskEventGroup' initialized
+I20220527 13:13:47.523342 488265 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT type, as_array FROM data_properties WHERE name = ? and 
+I20220527 13:13:47.524097 488265 rete_meta_store_factory.cc:420] Got 28 NodeVertexes 
+I20220527 13:13:47.524297 488265 rete_meta_store_factory.cc:157] All Done! Contains 122 resource definitions
+I20220527 13:13:47.524312 488265 rete_meta_store_factory.cc:158] The meta graph contains:
+---
+2022/05/27 13:13:47 Opening workspace database...
+2022/05/27 13:13:47 The output tables are:
+2022/05/27 13:13:47    - hc:SimulatedPatient
+2022/05/27 13:13:47 Creating writeOutput channels for output tables: [hc:SimulatedPatient]
+2022/05/27 13:13:47 Creating output channel for out table: hc:SimulatedPatient
+2022/05/27 13:13:47 Reading table hc:SimulatedPatient info...
+2022/05/27 13:13:47 SQL: SELECT "aspec:anchor_date", "aspec:nbr_entities", "aspec:entity_key_prefix", "aspec:entity_persona_lk", "jets:key", "rdf:type" FROM "aspec:Simulator" ORDER BY "jets:key" ASC 
+2022/05/27 13:13:47 Grouping key at pos 4
+2022/05/27 13:13:47   - Column: asim:claim_group_lk_key , (property asim:claim_group_lk_key ), is_array? false
+2022/05/27 13:13:47   - Column: asim:demographic_group_key , (property asim:demographic_group_key ), is_array? false
+2022/05/27 13:13:47   - Column: asim:description , (property asim:description ), is_array? false
+2022/05/27 13:13:47   - Column: asim:event_group1_lk , (property asim:event_group1_lk ), is_array? false
+2022/05/27 13:13:47   - Column: asim:persona_key , (property asim:persona_key ), is_array? false
+2022/05/27 13:13:47   - Column: hc:dob , (property hc:dob ), is_array? false
+2022/05/27 13:13:47   - Column: hc:gender , (property hc:gender ), is_array? false
+2022/05/27 13:13:47   - Column: hc:patient_number , (property hc:patient_number ), is_array? false
+2022/05/27 13:13:47   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/27 13:13:47   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/27 13:13:47 Got 10 columns
+2022/05/27 13:13:47 Pipeline Preparation Complete, starting Rete Sessions...
+2022/05/27 13:13:47 Checking if data load failed...
+2022/05/27 13:13:47 Execute Rule Started
+2022/05/27 13:13:47 Write Table Started for process_errors with 6 columns
+2022/05/27 13:13:47 Write Table Started for hc:SimulatedPatient with 12 columns
+2022/05/27 13:13:47 Got input entity with grouping key K:001
+2022/05/27 13:13:47 Got input entity with grouping key K:002
+2022/05/27 13:13:47 Start Rete Session 1 for ruleset test2_ruleset1.jr with grouping key K:001
+I20220527 13:13:47.527473 488268 rete_session.cc:27] Initialize ReteSession
+2022/05/27 13:13:47 Asserting Entity with jets:key K:001
+2022/05/27 13:13:47 Calling Execute Rules, loop: 0 , session count: 1 , for ruleset: test2_ruleset1.jr , with grouping key: K:001
+I20220527 13:13:47.528009 488268 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.528081 488268 rete_session.cc:274]     Schedule consequent, Vertex 4, for INFER row <4>(0:4)[?x1](K:001)
+I20220527 13:13:47.528120 488268 rete_session.cc:274]     Schedule consequent, Vertex 22, for INFER row <22>(0:22)[?x1](jets:iState)
+I20220527 13:13:47.528173 488268 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.528194 488268 rete_session.cc:314] INFER Vertex 4: (K:001,rdf:type,jets:Entity) from row <4>(0:4)[?x1](K:001)
+I20220527 13:13:47.528239 488268 rete_session.cc:274]     Schedule consequent, Vertex 21, for INFER row <21>(0:21)[?x1](K:001)
+I20220527 13:13:47.528250 488268 rete_session.cc:314] INFER Vertex 21: (K:001,rdf:type,owl:Thing) from row <21>(0:21)[?x1](K:001)
+I20220527 13:13:47.528261 488268 rete_session.cc:314] INFER Vertex 22: (jets:iState,rdf:type,owl:Thing) from row <22>(0:22)[?x1](jets:iState)
+2022/05/27 13:13:47 Calling Execute Rules, loop: 1 , session count: 1 , for ruleset: test2_ruleset1.jr , with grouping key: K:001
+I20220527 13:13:47.528486 488268 rete_session.cc:274]     Schedule consequent, Vertex 8, for INFER row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01001, jets:iState, 1)
+I20220527 13:13:47.528512 488268 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.528528 488268 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.528584 488268 rete_session.cc:314] INFER Vertex 8: (jets:iState,_0:newPatient,01001001) from row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01001, jets:iState, 1)
+I20220527 13:13:47.528597 488268 rete_session.cc:274]     Schedule consequent, Vertex 14, for INFER row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001001, 01001001)
+I20220527 13:13:47.528606 488268 rete_session.cc:314] INFER Vertex 14: (01001001,rdf:type,asim:Entity) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001001, 01001001)
+I20220527 13:13:47.528615 488268 rete_session.cc:274]     Schedule consequent, Vertex 15, for INFER row <15>(0:15)[?x1](01001001)
+I20220527 13:13:47.528622 488268 rete_session.cc:314] INFER Vertex 14: (01001001,rdf:type,hc:SimulatedPatient) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001001, 01001001)
+I20220527 13:13:47.528632 488268 rete_session.cc:274]     Schedule consequent, Vertex 25, for INFER row <25>(0:25)[?x1](01001001)
+I20220527 13:13:47.528651 488268 lookup_sql_helper.cc:163] LOOKUP RAND lk:BasePatientPersona | KEY | 0
+I20220527 13:13:47.528705 488268 rete_session.cc:314] INFER Vertex 14: (01001001,_0:patientPersonaRow,jets:lk:BasePatientPersona:0) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001001, 01001001)
+I20220527 13:13:47.528724 488268 rete_session.cc:274]     Schedule consequent, Vertex 20, for INFER row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001001, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.528733 488268 rete_session.cc:314] INFER Vertex 14: (01001001,hc:patient_number,01001001) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001001, 01001001)
+I20220527 13:13:47.528741 488268 rete_session.cc:314] INFER Vertex 15: (01001001,rdf:type,owl:Thing) from row <15>(0:15)[?x1](01001001)
+I20220527 13:13:47.528748 488268 rete_session.cc:314] INFER Vertex 20: (01001001,asim:persona_key,P01) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001001, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.528756 488268 rete_session.cc:314] INFER Vertex 20: (01001001,asim:event_group1_lk,lk:LowRiskEventGroup) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001001, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.528764 488268 rete_session.cc:314] INFER Vertex 20: (01001001,asim:demographic_group_key,A01) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001001, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.528771 488268 rete_session.cc:314] INFER Vertex 20: (01001001,asim:description,Persona P01 A01 with Claim G1 LowRisk) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001001, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.528779 488268 rete_session.cc:314] INFER Vertex 25: (01001001,rdf:type,jets:Entity) from row <25>(0:25)[?x1](01001001)
+I20220527 13:13:47.528787 488268 rete_session.cc:274]     Schedule consequent, Vertex 21, for INFER row <21>(0:21)[?x1](01001001)
+I20220527 13:13:47.528795 488268 rete_session.cc:314] INFER Vertex 25: (01001001,rdf:type,asim:Entity) from row <25>(0:25)[?x1](01001001)
+I20220527 13:13:47.528800 488268 rete_session.cc:314] INFER Vertex 25: (01001001,rdf:type,hc:Patient) from row <25>(0:25)[?x1](01001001)
+I20220527 13:13:47.528810 488268 rete_session.cc:274]     Schedule consequent, Vertex 24, for INFER row <24>(0:24)[?x1](01001001)
+I20220527 13:13:47.528822 488268 rete_session.cc:314] INFER Vertex 21: (01001001,rdf:type,owl:Thing) from row <21>(0:21)[?x1](01001001)
+I20220527 13:13:47.528833 488268 rete_session.cc:314] INFER Vertex 24: (01001001,rdf:type,jets:Entity) from row <24>(0:24)[?x1](01001001)
+2022/05/27 13:13:47 Calling Execute Rules, loop: 2 , session count: 1 , for ruleset: test2_ruleset1.jr , with grouping key: K:001
+I20220527 13:13:47.528968 488268 rete_session.cc:274]     Schedule consequent, Vertex 8, for INFER row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01001, jets:iState, 2)
+I20220527 13:13:47.528990 488268 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.529003 488268 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.529021 488268 rete_session.cc:314] INFER Vertex 8: (jets:iState,_0:newPatient,01001002) from row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01001, jets:iState, 2)
+I20220527 13:13:47.529042 488268 rete_session.cc:274]     Schedule consequent, Vertex 14, for INFER row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001002, 01001002)
+I20220527 13:13:47.529057 488268 rete_session.cc:314] INFER Vertex 14: (01001002,rdf:type,asim:Entity) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001002, 01001002)
+I20220527 13:13:47.529078 488268 rete_session.cc:274]     Schedule consequent, Vertex 15, for INFER row <15>(0:15)[?x1](01001002)
+I20220527 13:13:47.529091 488268 rete_session.cc:314] INFER Vertex 14: (01001002,rdf:type,hc:SimulatedPatient) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001002, 01001002)
+I20220527 13:13:47.529107 488268 rete_session.cc:274]     Schedule consequent, Vertex 25, for INFER row <25>(0:25)[?x1](01001002)
+I20220527 13:13:47.529125 488268 lookup_sql_helper.cc:160] LOOKUP RAND lk:BasePatientPersona | KEY | 0 (CACHED)
+I20220527 13:13:47.529140 488268 rete_session.cc:314] INFER Vertex 14: (01001002,_0:patientPersonaRow,jets:lk:BasePatientPersona:0) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001002, 01001002)
+I20220527 13:13:47.529160 488268 rete_session.cc:274]     Schedule consequent, Vertex 20, for INFER row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001002, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.529170 488268 rete_session.cc:314] INFER Vertex 14: (01001002,hc:patient_number,01001002) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01001002, 01001002)
+I20220527 13:13:47.529181 488268 rete_session.cc:314] INFER Vertex 15: (01001002,rdf:type,owl:Thing) from row <15>(0:15)[?x1](01001002)
+I20220527 13:13:47.529192 488268 rete_session.cc:314] INFER Vertex 20: (01001002,asim:persona_key,P01) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001002, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.529206 488268 rete_session.cc:314] INFER Vertex 20: (01001002,asim:event_group1_lk,lk:LowRiskEventGroup) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001002, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.529215 488268 rete_session.cc:314] INFER Vertex 20: (01001002,asim:demographic_group_key,A01) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001002, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.529227 488268 rete_session.cc:314] INFER Vertex 20: (01001002,asim:description,Persona P01 A01 with Claim G1 LowRisk) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01001002, P01, lk:LowRiskEventGroup, A01, Persona P01 A01 with Claim G1 LowRisk)
+I20220527 13:13:47.529243 488268 rete_session.cc:314] INFER Vertex 25: (01001002,rdf:type,jets:Entity) from row <25>(0:25)[?x1](01001002)
+I20220527 13:13:47.529258 488268 rete_session.cc:274]     Schedule consequent, Vertex 21, for INFER row <21>(0:21)[?x1](01001002)
+I20220527 13:13:47.529268 488268 rete_session.cc:314] INFER Vertex 25: (01001002,rdf:type,asim:Entity) from row <25>(0:25)[?x1](01001002)
+I20220527 13:13:47.529278 488268 rete_session.cc:314] INFER Vertex 25: (01001002,rdf:type,hc:Patient) from row <25>(0:25)[?x1](01001002)
+I20220527 13:13:47.529294 488268 rete_session.cc:274]     Schedule consequent, Vertex 24, for INFER row <24>(0:24)[?x1](01001002)
+I20220527 13:13:47.529304 488268 rete_session.cc:314] INFER Vertex 21: (01001002,rdf:type,owl:Thing) from row <21>(0:21)[?x1](01001002)
+I20220527 13:13:47.529316 488268 rete_session.cc:314] INFER Vertex 24: (01001002,rdf:type,jets:Entity) from row <24>(0:24)[?x1](01001002)
+2022/05/27 13:13:47 Calling Execute Rules, loop: 3 , session count: 1 , for ruleset: test2_ruleset1.jr , with grouping key: K:001
+I20220527 13:13:47.529476 488268 rete_session.cc:274]     Schedule consequent, Vertex 10, for INFER row <10>(0:4:5:9:10)[?x2, ?x3, ?x4](2, jets:iState, 3)
+I20220527 13:13:47.529492 488268 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.529507 488268 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.529518 488268 rete_session.cc:314] INFER Vertex 10: (jets:iState,jets:completed,1) from row <10>(0:4:5:9:10)[?x2, ?x3, ?x4](2, jets:iState, 3)
+RDF Session Contains:
+(01001001,_0:patientPersonaRow,jets:lk:BasePatientPersona:0)
+(01001001,asim:demographic_group_key,A01)
+(01001001,asim:description,Persona P01 A01 with Claim G1 LowRisk)
+(01001001,asim:event_group1_lk,lk:LowRiskEventGroup)
+(01001001,asim:persona_key,P01)
+(01001001,hc:patient_number,01001001)
+(01001001,jets:key,01001001)
+(01001001,rdf:type,asim:Entity)
+(01001001,rdf:type,hc:Patient)
+(01001001,rdf:type,hc:SimulatedPatient)
+(01001001,rdf:type,jets:Entity)
+(01001001,rdf:type,owl:Thing)
+(01001002,_0:patientPersonaRow,jets:lk:BasePatientPersona:0)
+(01001002,asim:demographic_group_key,A01)
+(01001002,asim:description,Persona P01 A01 with Claim G1 LowRisk)
+(01001002,asim:event_group1_lk,lk:LowRiskEventGroup)
+(01001002,asim:persona_key,P01)
+(01001002,hc:patient_number,01001002)
+(01001002,jets:key,01001002)
+(01001002,rdf:type,asim:Entity)
+(01001002,rdf:type,hc:Patient)
+(01001002,rdf:type,hc:SimulatedPatient)
+(01001002,rdf:type,jets:Entity)
+(01001002,rdf:type,owl:Thing)
+(K:001,aspec:anchor_date,2020-Dec-31)
+(K:001,aspec:entity_key_prefix,01001)
+(K:001,aspec:entity_persona_lk,lk:BasePatientPersona)
+(K:001,aspec:nbr_entities,2)
+(K:001,jets:key,K:001)
+(K:001,rdf:type,aspec:Simulator)
+(K:001,rdf:type,jets:Entity)
+(K:001,rdf:type,owl:Thing)
+(jets:iState,_0:newPatient,01001001)
+(jets:iState,_0:newPatient,01001002)
+(jets:iState,jets:completed,1)
+(jets:iState,jets:loop,1)
+(jets:iState,jets:loop,2)
+(jets:iState,jets:loop,3)
+(jets:iState,rdf:type,jets:State)
+(jets:iState,rdf:type,owl:Thing)
+(jets:lk:BasePatientPersona:0,asim:demographic_group_key,A01)
+(jets:lk:BasePatientPersona:0,asim:description,Persona P01 A01 with Claim G1 LowRisk)
+(jets:lk:BasePatientPersona:0,asim:event_group1_lk,lk:LowRiskEventGroup)
+(jets:lk:BasePatientPersona:0,asim:persona_key,P01)
+(lk:BasePatientPersona,jets:lookup_row,jets:lk:BasePatientPersona:0)
+---
+2022/05/27 13:13:47 Start Rete Session 2 for ruleset test2_ruleset1.jr with grouping key K:002
+2022/05/27 13:13:47 Checking results of execute rules...
+I20220527 13:13:47.534852 488270 rete_session.cc:27] Initialize ReteSession
+2022/05/27 13:13:47 Asserting Entity with jets:key K:002
+2022/05/27 13:13:47 Calling Execute Rules, loop: 0 , session count: 2 , for ruleset: test2_ruleset1.jr , with grouping key: K:002
+I20220527 13:13:47.535084 488270 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.535101 488270 rete_session.cc:274]     Schedule consequent, Vertex 4, for INFER row <4>(0:4)[?x1](K:002)
+I20220527 13:13:47.535112 488270 rete_session.cc:274]     Schedule consequent, Vertex 22, for INFER row <22>(0:22)[?x1](jets:iState)
+I20220527 13:13:47.535154 488270 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.535162 488270 rete_session.cc:314] INFER Vertex 4: (K:002,rdf:type,jets:Entity) from row <4>(0:4)[?x1](K:002)
+I20220527 13:13:47.535173 488270 rete_session.cc:274]     Schedule consequent, Vertex 21, for INFER row <21>(0:21)[?x1](K:002)
+I20220527 13:13:47.535181 488270 rete_session.cc:314] INFER Vertex 21: (K:002,rdf:type,owl:Thing) from row <21>(0:21)[?x1](K:002)
+I20220527 13:13:47.535207 488270 rete_session.cc:314] INFER Vertex 22: (jets:iState,rdf:type,owl:Thing) from row <22>(0:22)[?x1](jets:iState)
+2022/05/27 13:13:47 Calling Execute Rules, loop: 1 , session count: 2 , for ruleset: test2_ruleset1.jr , with grouping key: K:002
+I20220527 13:13:47.535349 488270 rete_session.cc:274]     Schedule consequent, Vertex 8, for INFER row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01002, jets:iState, 1)
+I20220527 13:13:47.535383 488270 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.535392 488270 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.535415 488270 rete_session.cc:314] INFER Vertex 8: (jets:iState,_0:newPatient,01002001) from row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01002, jets:iState, 1)
+I20220527 13:13:47.535427 488270 rete_session.cc:274]     Schedule consequent, Vertex 14, for INFER row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002001, 01002001)
+I20220527 13:13:47.535452 488270 rete_session.cc:314] INFER Vertex 14: (01002001,rdf:type,asim:Entity) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002001, 01002001)
+I20220527 13:13:47.535485 488270 rete_session.cc:274]     Schedule consequent, Vertex 15, for INFER row <15>(0:15)[?x1](01002001)
+I20220527 13:13:47.535495 488270 rete_session.cc:314] INFER Vertex 14: (01002001,rdf:type,hc:SimulatedPatient) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002001, 01002001)
+I20220527 13:13:47.535504 488270 rete_session.cc:274]     Schedule consequent, Vertex 25, for INFER row <25>(0:25)[?x1](01002001)
+I20220527 13:13:47.535513 488270 lookup_sql_helper.cc:163] LOOKUP RAND lk:BasePatientPersona | KEY | 3
+I20220527 13:13:47.535583 488270 rete_session.cc:314] INFER Vertex 14: (01002001,_0:patientPersonaRow,jets:lk:BasePatientPersona:3) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002001, 01002001)
+I20220527 13:13:47.535602 488270 rete_session.cc:274]     Schedule consequent, Vertex 20, for INFER row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002001, P03, lk:LowRiskEventGroup, A03, Persona P03 A03 with Claim G1 LowRisk)
+I20220527 13:13:47.535610 488270 rete_session.cc:314] INFER Vertex 14: (01002001,hc:patient_number,01002001) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002001, 01002001)
+I20220527 13:13:47.535636 488270 rete_session.cc:314] INFER Vertex 15: (01002001,rdf:type,owl:Thing) from row <15>(0:15)[?x1](01002001)
+I20220527 13:13:47.535642 488270 rete_session.cc:314] INFER Vertex 20: (01002001,asim:persona_key,P03) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002001, P03, lk:LowRiskEventGroup, A03, Persona P03 A03 with Claim G1 LowRisk)
+I20220527 13:13:47.535670 488270 rete_session.cc:314] INFER Vertex 20: (01002001,asim:event_group1_lk,lk:LowRiskEventGroup) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002001, P03, lk:LowRiskEventGroup, A03, Persona P03 A03 with Claim G1 LowRisk)
+I20220527 13:13:47.535676 488270 rete_session.cc:314] INFER Vertex 20: (01002001,asim:demographic_group_key,A03) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002001, P03, lk:LowRiskEventGroup, A03, Persona P03 A03 with Claim G1 LowRisk)
+I20220527 13:13:47.535683 488270 rete_session.cc:314] INFER Vertex 20: (01002001,asim:description,Persona P03 A03 with Claim G1 LowRisk) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002001, P03, lk:LowRiskEventGroup, A03, Persona P03 A03 with Claim G1 LowRisk)
+I20220527 13:13:47.535691 488270 rete_session.cc:314] INFER Vertex 25: (01002001,rdf:type,jets:Entity) from row <25>(0:25)[?x1](01002001)
+I20220527 13:13:47.535717 488270 rete_session.cc:274]     Schedule consequent, Vertex 21, for INFER row <21>(0:21)[?x1](01002001)
+I20220527 13:13:47.535722 488270 rete_session.cc:314] INFER Vertex 25: (01002001,rdf:type,asim:Entity) from row <25>(0:25)[?x1](01002001)
+I20220527 13:13:47.535748 488270 rete_session.cc:314] INFER Vertex 25: (01002001,rdf:type,hc:Patient) from row <25>(0:25)[?x1](01002001)
+I20220527 13:13:47.535756 488270 rete_session.cc:274]     Schedule consequent, Vertex 24, for INFER row <24>(0:24)[?x1](01002001)
+I20220527 13:13:47.535764 488270 rete_session.cc:314] INFER Vertex 21: (01002001,rdf:type,owl:Thing) from row <21>(0:21)[?x1](01002001)
+I20220527 13:13:47.535770 488270 rete_session.cc:314] INFER Vertex 24: (01002001,rdf:type,jets:Entity) from row <24>(0:24)[?x1](01002001)
+2022/05/27 13:13:47 Calling Execute Rules, loop: 2 , session count: 2 , for ruleset: test2_ruleset1.jr , with grouping key: K:002
+I20220527 13:13:47.535859 488270 rete_session.cc:274]     Schedule consequent, Vertex 8, for INFER row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01002, jets:iState, 2)
+I20220527 13:13:47.535871 488270 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.535879 488270 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.535890 488270 rete_session.cc:314] INFER Vertex 8: (jets:iState,_0:newPatient,01002002) from row <8>(0:4:5:6:7:8)[?x2, ?x3, ?x4, ?x5](2, 01002, jets:iState, 2)
+I20220527 13:13:47.535902 488270 rete_session.cc:274]     Schedule consequent, Vertex 14, for INFER row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002002, 01002002)
+I20220527 13:13:47.535909 488270 rete_session.cc:314] INFER Vertex 14: (01002002,rdf:type,asim:Entity) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002002, 01002002)
+I20220527 13:13:47.535918 488270 rete_session.cc:274]     Schedule consequent, Vertex 15, for INFER row <15>(0:15)[?x1](01002002)
+I20220527 13:13:47.535926 488270 rete_session.cc:314] INFER Vertex 14: (01002002,rdf:type,hc:SimulatedPatient) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002002, 01002002)
+I20220527 13:13:47.535934 488270 rete_session.cc:274]     Schedule consequent, Vertex 25, for INFER row <25>(0:25)[?x1](01002002)
+I20220527 13:13:47.535943 488270 lookup_sql_helper.cc:163] LOOKUP RAND lk:BasePatientPersona | KEY | 1
+I20220527 13:13:47.535970 488270 rete_session.cc:314] INFER Vertex 14: (01002002,_0:patientPersonaRow,jets:lk:BasePatientPersona:1) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002002, 01002002)
+I20220527 13:13:47.535985 488270 rete_session.cc:274]     Schedule consequent, Vertex 20, for INFER row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002002, P02, lk:LowRiskEventGroup, A02, Persona P02 A02 with Claim G1 LowRisk)
+I20220527 13:13:47.535993 488270 rete_session.cc:314] INFER Vertex 14: (01002002,hc:patient_number,01002002) from row <14>(0:4:11:12:13:14)[?x2, ?x4, ?x5](lk:BasePatientPersona, 01002002, 01002002)
+I20220527 13:13:47.536000 488270 rete_session.cc:314] INFER Vertex 15: (01002002,rdf:type,owl:Thing) from row <15>(0:15)[?x1](01002002)
+I20220527 13:13:47.536007 488270 rete_session.cc:314] INFER Vertex 20: (01002002,asim:persona_key,P02) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002002, P02, lk:LowRiskEventGroup, A02, Persona P02 A02 with Claim G1 LowRisk)
+I20220527 13:13:47.536015 488270 rete_session.cc:314] INFER Vertex 20: (01002002,asim:event_group1_lk,lk:LowRiskEventGroup) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002002, P02, lk:LowRiskEventGroup, A02, Persona P02 A02 with Claim G1 LowRisk)
+I20220527 13:13:47.536021 488270 rete_session.cc:314] INFER Vertex 20: (01002002,asim:demographic_group_key,A02) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002002, P02, lk:LowRiskEventGroup, A02, Persona P02 A02 with Claim G1 LowRisk)
+I20220527 13:13:47.536028 488270 rete_session.cc:314] INFER Vertex 20: (01002002,asim:description,Persona P02 A02 with Claim G1 LowRisk) from row <20>(0:15:16:17:18:19:20)[?x1, ?x3, ?x4, ?x5, ?x6](01002002, P02, lk:LowRiskEventGroup, A02, Persona P02 A02 with Claim G1 LowRisk)
+I20220527 13:13:47.536036 488270 rete_session.cc:314] INFER Vertex 25: (01002002,rdf:type,jets:Entity) from row <25>(0:25)[?x1](01002002)
+I20220527 13:13:47.536046 488270 rete_session.cc:274]     Schedule consequent, Vertex 21, for INFER row <21>(0:21)[?x1](01002002)
+I20220527 13:13:47.536051 488270 rete_session.cc:314] INFER Vertex 25: (01002002,rdf:type,asim:Entity) from row <25>(0:25)[?x1](01002002)
+I20220527 13:13:47.536057 488270 rete_session.cc:314] INFER Vertex 25: (01002002,rdf:type,hc:Patient) from row <25>(0:25)[?x1](01002002)
+I20220527 13:13:47.536064 488270 rete_session.cc:274]     Schedule consequent, Vertex 24, for INFER row <24>(0:24)[?x1](01002002)
+I20220527 13:13:47.536070 488270 rete_session.cc:314] INFER Vertex 21: (01002002,rdf:type,owl:Thing) from row <21>(0:21)[?x1](01002002)
+I20220527 13:13:47.536077 488270 rete_session.cc:314] INFER Vertex 24: (01002002,rdf:type,jets:Entity) from row <24>(0:24)[?x1](01002002)
+2022/05/27 13:13:47 Calling Execute Rules, loop: 3 , session count: 2 , for ruleset: test2_ruleset1.jr , with grouping key: K:002
+I20220527 13:13:47.536178 488270 rete_session.cc:274]     Schedule consequent, Vertex 10, for INFER row <10>(0:4:5:9:10)[?x2, ?x3, ?x4](2, jets:iState, 3)
+I20220527 13:13:47.536190 488270 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220527 13:13:47.536197 488270 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220527 13:13:47.536203 488270 rete_session.cc:314] INFER Vertex 10: (jets:iState,jets:completed,1) from row <10>(0:4:5:9:10)[?x2, ?x3, ?x4](2, jets:iState, 3)
+RDF Session Contains:
+(01002001,_0:patientPersonaRow,jets:lk:BasePatientPersona:3)
+(01002001,asim:demographic_group_key,A03)
+(01002001,asim:description,Persona P03 A03 with Claim G1 LowRisk)
+(01002001,asim:event_group1_lk,lk:LowRiskEventGroup)
+(01002001,asim:persona_key,P03)
+(01002001,hc:patient_number,01002001)
+(01002001,jets:key,01002001)
+(01002001,rdf:type,asim:Entity)
+(01002001,rdf:type,hc:Patient)
+(01002001,rdf:type,hc:SimulatedPatient)
+(01002001,rdf:type,jets:Entity)
+(01002001,rdf:type,owl:Thing)
+(01002002,_0:patientPersonaRow,jets:lk:BasePatientPersona:1)
+(01002002,asim:demographic_group_key,A02)
+(01002002,asim:description,Persona P02 A02 with Claim G1 LowRisk)
+(01002002,asim:event_group1_lk,lk:LowRiskEventGroup)
+(01002002,asim:persona_key,P02)
+(01002002,hc:patient_number,01002002)
+(01002002,jets:key,01002002)
+(01002002,rdf:type,asim:Entity)
+(01002002,rdf:type,hc:Patient)
+(01002002,rdf:type,hc:SimulatedPatient)
+(01002002,rdf:type,jets:Entity)
+(01002002,rdf:type,owl:Thing)
+(K:002,aspec:anchor_date,2020-Dec-31)
+(K:002,aspec:entity_key_prefix,01002)
+(K:002,aspec:entity_persona_lk,lk:BasePatientPersona)
+(K:002,aspec:nbr_entities,2)
+(K:002,jets:key,K:002)
+(K:002,rdf:type,aspec:Simulator)
+(K:002,rdf:type,jets:Entity)
+(K:002,rdf:type,owl:Thing)
+(jets:iState,_0:newPatient,01002001)
+(jets:iState,_0:newPatient,01002002)
+(jets:iState,jets:completed,1)
+(jets:iState,jets:loop,1)
+(jets:iState,jets:loop,2)
+(jets:iState,jets:loop,3)
+(jets:iState,rdf:type,jets:State)
+(jets:iState,rdf:type,owl:Thing)
+(jets:lk:BasePatientPersona:1,asim:demographic_group_key,A02)
+(jets:lk:BasePatientPersona:1,asim:description,Persona P02 A02 with Claim G1 LowRisk)
+(jets:lk:BasePatientPersona:1,asim:event_group1_lk,lk:LowRiskEventGroup)
+(jets:lk:BasePatientPersona:1,asim:persona_key,P02)
+(jets:lk:BasePatientPersona:3,asim:demographic_group_key,A03)
+(jets:lk:BasePatientPersona:3,asim:description,Persona P03 A03 with Claim G1 LowRisk)
+(jets:lk:BasePatientPersona:3,asim:event_group1_lk,lk:LowRiskEventGroup)
+(jets:lk:BasePatientPersona:3,asim:persona_key,P03)
+(lk:BasePatientPersona,jets:lookup_row,jets:lk:BasePatientPersona:1)
+(lk:BasePatientPersona,jets:lookup_row,jets:lk:BasePatientPersona:3)
+---
+2022/05/27 13:13:47 Close all writeOutputc channels...
+2022/05/27 13:13:47 ...done closing writeOutputc
+2022/05/27 13:13:47 Checking results of write2tables...
+2022/05/27 13:13:47 Input records count is: 2
+2022/05/27 13:13:47 Rete sessions count is: 2
+2022/05/27 13:13:47 Output records count for type 'process_errors' is: 0
+2022/05/27 13:13:47 Output records count for type 'hc:SimulatedPatient' is: 4

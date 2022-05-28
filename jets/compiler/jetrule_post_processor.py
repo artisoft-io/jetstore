@@ -157,7 +157,7 @@ class JetRulesPostProcessor:
     if not text[0].isalpha():
       return False
     for c in text:
-      if not c.isalnum() and c != '_':
+      if not c.isalnum() and c != '_' and c != ':':
         return False
     return True
   
