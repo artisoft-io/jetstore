@@ -18,6 +18,7 @@ JetsResources::initialize(RManager * rmgr)
   this->jets__lookup_multi_rows     = rmgr->create_resource("jets:lookup_multi_rows");
   this->jets__lookup_row            = rmgr->create_resource("jets:lookup_row");
   this->jets__loop                  = rmgr->create_resource("jets:loop");
+  this->jets__operator              = rmgr->create_resource("jets:operator");
   this->jets__state                 = rmgr->create_resource("jets:State");
   this->jets__value_property        = rmgr->create_resource("jets:value_property");
   this->rdf__type                   = rmgr->create_resource("rdf:type");
