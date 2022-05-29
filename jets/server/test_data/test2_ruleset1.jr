@@ -63,6 +63,14 @@ volatile_resource personaRow = "personaRow";
   (?entity ?p ?o)
 ;
 
+[JSIM030]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:anchor_date ?anchor_date).
+  (?entity rdf:type asim:Entity)
+ ->
+  (?entity asim:anchor_date ?anchor_date)
+;
+
 # ========================================================================
 # Create Patient
 # -----------------------------------------------------------------------
@@ -76,6 +84,13 @@ volatile_resource demographicRow = "demographicRow";
   (?entity rdf:type hc:SimulatedPatient).
   (?entity hc:patient_number ?key).
   (?entity demographicRow (lk:PatientDemographic lookup ?demo_key))
+;
+
+[JSIMHC020]:
+  (?entity rdf:type hc:SimulatedPatient).
+  (?entity asim:event_group1_lk ?key).
+ ->
+  (?entity asim:claim_group_lk ?key)
 ;
 
 [JSIMHC015]:

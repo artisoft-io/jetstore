@@ -84,6 +84,7 @@ namespace jets::rete {
     }
     if(not count) {
       // got no row, return null
+      VLOG(30)<<"LOOKUP "<<this->lookup_name_<<" | KEY | "<<key<<" | NO ROW RETURNED";
       *out = rdf::Null();
       return 0;
     }

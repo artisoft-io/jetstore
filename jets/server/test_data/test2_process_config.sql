@@ -18,6 +18,7 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
   (221, 'aspec:entity_persona_lk', 'aspec:entity_persona_lk', NULL, NULL, NULL, NULL),
   (221, 'jets:key', 'jets:key', NULL, NULL, NULL, NULL),
   (221, 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL),
+  (222, 'asim:anchor_date', 'asim:anchor_date', NULL, NULL, NULL, NULL),
   (222, 'asim:persona_key', 'asim:persona_key', NULL, NULL, NULL, NULL),
   (222, 'asim:demographic_group_key', 'asim:demographic_group_key', NULL, NULL, NULL, NULL),
   (222, 'asim:event_group1_lk', 'asim:event_group1_lk', NULL, NULL, NULL, NULL),
@@ -25,6 +26,7 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
   (222, 'hc:patient_number', 'hc:patient_number', NULL, NULL, NULL, NULL),
   (222, 'hc:dob', 'hc:dob', NULL, NULL, NULL, NULL),
   (222, 'hc:gender', 'hc:gender', NULL, NULL, NULL, NULL),
+  (222, 'asim:claim_group_lk', 'asim:claim_group_lk', NULL, NULL, NULL, NULL),
   (222, 'jets:key', 'jets:key', NULL, NULL, NULL, NULL),
   (222, 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL)
 ;
@@ -35,10 +37,10 @@ INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALU
 
 DROP TABLE IF EXISTS public."aspec:Simulator";
 CREATE TABLE IF NOT EXISTS public."aspec:Simulator" (
-  "rdf:type" text ARRAY NOT NULL,
-  "session_id" text  ,
-  "shard_id" INTEGER  ,
-  "last_update" TIMESTAMP  ,
+  "rdf:type" text ARRAY DEFAULT '{"aspec:Simulator"}' NOT NULL,
+  "session_id" text DEFAULT '' NOT NULL  ,
+  "shard_id" INTEGER DEFAULT 0 NOT NULL ,
+  "last_update" TIMESTAMP without time zone DEFAULT now() NOT NULL,
   "jets:key" text  ,
   "aspec:anchor_date" text  ,
   "aspec:nbr_entities" INTEGER  ,
@@ -48,9 +50,9 @@ CREATE TABLE IF NOT EXISTS public."aspec:Simulator" (
 );
 
 INSERT INTO "aspec:Simulator" (
-  "rdf:type","jets:key","aspec:anchor_date","aspec:nbr_entities","aspec:entity_key_prefix", "aspec:entity_persona_lk") VALUES
-  ('{"aspec:Simulator"}', 'K:001', '2020-12-31', 2, '01001', 'lk:BasePatientPersona'),
-  ('{"aspec:Simulator"}', 'K:002', '2020-12-31', 2, '01002', 'lk:BasePatientPersona')
+  "jets:key","aspec:anchor_date","aspec:nbr_entities","aspec:entity_key_prefix", "aspec:entity_persona_lk") VALUES
+  ('K:001', '2020-12-31', 2, '01001', 'lk:BasePatientPersona'),
+  ('K:002', '2020-12-31', 2, '01002', 'lk:BasePatientPersona')
 ;
 -- INSERT INTO process_merge (process_key, entity_rdf_type, query_rdf_property_list, grouping_rdf_property) VALUES
 --   (2, 'm2c:Claim', 'm2c:P1,m2c:P2', 'm2c:P2')

@@ -61,27 +61,15 @@ class aspec:Simulator {
 };
 
 # Class to simulate master entities
+# transactional entity are generate via lookup (see lk:LowRiskEventGroup)
 class asim:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
+    asim:anchor_date as date,
     asim:persona_key as text,
     asim:demographic_group_key as text,
     asim:event_group1_lk as text,
     asim:description as text
-  ],
-  $as_table = false
-};
-
-# Class to simulate events or transactional entities
-class asim:Event {
-  $base_classes = [owl:Thing],
-  $data_properties = [
-    asim:event_key as text,
-    asim:event_type as text,
-    asim:event_rdf_type as resource,
-    asim:provider_group_lk as text,
-    asim:service_date_offset as int,
-    asim:service_date_max_days as int
   ],
   $as_table = false
 };
@@ -105,7 +93,7 @@ class hc:SimulatedPatient {
     hc:Patient
   ],
   $data_properties = [
-    asim:claim_group_lk_key as text
+    asim:claim_group_lk as resource
   ],
   $as_table = true
 };
@@ -115,6 +103,7 @@ class hc:Claim {
   $data_properties = [
     hc:member_number as text,
     hc:claim_number as text,
+    hc:claim_type as text,
     hc:npi as text,
     hc:dos as date
   ],
@@ -124,12 +113,11 @@ class hc:Claim {
 class hc:SimulatedClaim {
   $base_classes = [
     jets:Entity,
-    asim:Event,
     hc:Claim
   ],
   $data_properties = [
     asim:claim_profile as text,
-    asim:claim_row as resource
+    asim:provider_group_key as text
   ],
   $as_table = true
 };
@@ -146,7 +134,7 @@ lookup_table lk:BasePatientPersona {
   $columns = [
     "asim:persona_key" as text,
     "asim:demographic_group_key" as text,
-    "asim:event_group1_lk" as text,
+    "asim:event_group1_lk" as resource,
     "asim:description" as text
   ]
 };
@@ -173,7 +161,7 @@ lookup_table lk:LowRiskEventGroup {
   $columns = [
     "asim:event_key" as text,
     "asim:event_type" as text,
-    "asim:event_rdf_type" as text,
+    "asim:event_rdf_type" as resource,
     "asim:provider_group_lk" as text,
     "asim:service_date_offset" as int,
     "asim:service_date_max_days" as int

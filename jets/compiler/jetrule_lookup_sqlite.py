@@ -168,7 +168,7 @@ class JetRuleLookupSQLite:
 
   def _convert_jetrule_type(self, jr_type: str) -> str:
 
-    if jr_type in  ['text', 'date', 'datetime'] :
+    if jr_type in  ['text', 'resource', 'date', 'datetime'] :
         sqlite_type = 'TEXT'
     elif jr_type in ['int','bool','uint', 'long', 'ulong']:
          sqlite_type = 'INTEGER'         
@@ -368,11 +368,12 @@ class JetRuleLookupSQLite:
         else:
             raise Exception(f'Key Columns missing in provided CSV. Expected {str(key_columns)} in header {str(lookup_df.columns)}')    
 
-        # add __key__ with the rowid of each unique jets:jey,
+        # add __key__ with the rowid of each unique jets:key,
         # create a dict to associate __key__ with jets:key
         jkdict = dict()
         for jk in lookup_df['jets:key']:
-          jkdict[jk] = len(jkdict)
+          if jk not in jkdict:
+            jkdict[jk] = len(jkdict)
 
         # put the __key__ in the lookup df
         lookup_df.insert(0, '__key__', range(0, len(lookup_df)))

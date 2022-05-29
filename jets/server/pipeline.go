@@ -336,7 +336,7 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 		stmt, nCol := processInput.makeSqlStmt()
 		log.Println("SQL:", stmt)
 		log.Println("Grouping key at pos", processInput.groupingPosition)
-		rows, err := dbpool.Query(context.Background(), stmt)
+		rows, err := dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
 			return

@@ -22,6 +22,8 @@ var ruleseq = flag.String("ruleseq", "", "rule set sequence (required or -rulese
 var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
 var sessionId = flag.String("sessionId", "", "Process session ID used to link entitied processed together.")
+var inSessionId = flag.String("inSessionId", "", "Session ID for input domain table, default is sessionId.")
+var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
 var shardId = flag.Int("shardId", 0, "Shard id for the processing node.")
 var outTables = flag.String("outTables", "", "Comma-separed list of output tables (required).")
 var outTableSlice []string
@@ -153,6 +155,8 @@ func main() {
 	log.Printf("Command Line Argument: procConfigKey: %d\n", *procConfigKey)
 	log.Printf("Command Line Argument: poolSize: %d\n", *poolSize)
 	log.Printf("Command Line Argument: sessionId: %s\n", *sessionId)
+	log.Printf("Command Line Argument: inSessionId: %s\n", *inSessionId)
+	log.Printf("Command Line Argument: limit: %d\n", *limit)
 	log.Printf("Command Line Argument: shardId: %d\n", *shardId)
 	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
 	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
