@@ -1,0 +1,169 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+
+# =======================================================================================
+# Base configuration for JetStore
+# ---------------------------------------------------------------------------------------
+jetstore_config {
+  $max_rule_exec = 100000
+};
+
+# =======================================================================================
+# Data Model
+# ---------------------------------------------------------------------------------------
+# JetStore Base Model
+# ---------------------------------------------------------------------------------------
+
+class jets:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:key as text,
+    rdf:type as array of resource
+  ],
+  $as_table = false
+};
+
+class jets:State {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:completed as text,
+    jets:loop as array of int
+  ],
+  $as_table = false
+};
+
+class jets:Row {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:entity_property as text,
+    jets:value_property as text,
+    jets:lookup_multi_rows as array of resource,
+    jets:lookup_row as resource
+  ],
+  $as_table = false
+};
+
+# ---------------------------------------------------------------------------------------
+# JetStore Simulator Model
+# ---------------------------------------------------------------------------------------
+
+# Simulator Spec - defines the asim:Entity generation
+class aspec:Simulator {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    aspec:anchor_date as date,
+    aspec:nbr_entities as int,
+    aspec:entity_key_prefix as text,
+    aspec:entity_persona_lk as text
+  ],
+  $as_table = true
+};
+
+# Class to simulate master entities
+# transactional entity are generate via lookup (see lk:LowRiskEventGroup)
+class asim:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    asim:anchor_date as date,
+    asim:persona_key as text,
+    asim:demographic_group_key as text,
+    asim:event_group1_lk as text,
+    asim:description as text
+  ],
+  $as_table = false
+};
+
+# ---------------------------------------------------------------------------------------
+# JetStore Healthcare Model
+# ---------------------------------------------------------------------------------------
+class hc:Patient {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    hc:patient_number as text,
+    hc:dob as date,
+    hc:gender as text
+  ],
+  $as_table = true
+};
+
+class hc:SimulatedPatient {
+  $base_classes = [
+    asim:Entity,
+    hc:Patient
+  ],
+  $data_properties = [
+    asim:claim_group_lk as resource
+  ],
+  $as_table = true
+};
+
+class hc:Claim {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    hc:member_number as text,
+    hc:claim_number as text,
+    hc:claim_type as text,
+    hc:npi as text,
+    hc:dos as date
+  ],
+  $as_table = true
+};
+
+class hc:SimulatedClaim {
+  $base_classes = [
+    jets:Entity,
+    hc:Claim
+  ],
+  $data_properties = [
+    asim:claim_profile as text,
+    asim:provider_group_key as text
+  ],
+  $as_table = true
+};
+
+# =======================================================================================
+# Lookup Tables
+# ---------------------------------------------------------------------------------------
+# Patient Generation Lookup
+# ---------------------------------------------------------------------------------------
+# csv file have these columns: "asim:persona_key,asim:demographic_group_key,asim:event_group1_lk,asim:description"
+lookup_table lk:BasePatientPersona {
+  $csv_file = "test2_base_patient_persona.csv",    # csv file location
+  $key = ["asim:persona_key"], 
+  $columns = [
+    "asim:persona_key" as text,
+    "asim:demographic_group_key" as text,
+    "asim:event_group1_lk" as resource,
+    "asim:description" as text
+  ]
+};
+# ---------------------------------------------------------------------------------------
+# Patient Demographic Lookup
+# ---------------------------------------------------------------------------------------
+# csv file have these columns: "lk:demographic_key,lk:gender,lk:age_min,lk:age_max"
+lookup_table lk:PatientDemographic {
+  $csv_file = "test2_patient_demographic.csv",    # csv file location
+  $key = ["lk:demographic_key"], 
+  $columns = [
+    "lk:gender" as text,
+    "lk:age_min" as int,
+    "lk:age_max" as int
+  ]
+};
+# ---------------------------------------------------------------------------------------
+# Claim Generation Lookup
+# ---------------------------------------------------------------------------------------
+# csv file have these columns: "key,asim:event_key,asim:event_type,asim:event_rdf_type,asim:provider_group_lk,asim:service_date_offset,asim:service_date_max_days"
+lookup_table lk:LowRiskEventGroup {
+  $csv_file = "test2_low_risk_group.csv",    # csv file location
+  $key = ["key"], 
+  $columns = [
+    "asim:event_key" as text,
+    "asim:event_type" as text,
+    "asim:event_rdf_type" as resource,
+    "asim:provider_group_lk" as text,
+    "asim:service_date_offset" as int,
+    "asim:service_date_max_days" as int
+  ]
+};

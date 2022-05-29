@@ -1,5 +1,0 @@
-key,asim:persona_key,asim:demographic_group_key,asim:event_group1_lk,asim:description
-0,P01,A01,lk:LowRiskEventGroup,Persona P01 A01 with Claim G1 LowRisk
-1,P02,A02,lk:LowRiskEventGroup,Persona P02 A02 with Claim G1 LowRisk
-2,P02,A01,lk:LowRiskEventGroup,Persona P02 A01 with Claim G1 LowRisk
-3,P03,A03,lk:LowRiskEventGroup,Persona P03 A03 with Claim G1 LowRisk

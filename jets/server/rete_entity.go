@@ -3,14 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 )
 
 func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj string) (*bridge.Resource, error) {
-	//*
-	fmt.Println("CreateStringLiteral called with",obj,"of type",rdfType)
 	switch rdfType {
 	case "resource":
 		return reteSession.NewResource(obj)
@@ -44,17 +43,13 @@ func (ri *ReteInputContext) assertEntities(
 			continue
 		}
 		// get the jets:key and create the subject for the row
-		var jets__key string
-		jk := row[processInput.keyPosition].(sql.NullString)
-		if jk.Valid {
-			jets__key = jk.String
-		} else {
-			fmt.Println("ERROR entity with null jets:key")
-			return fmt.Errorf("ERROR entity with null jets:key")
-		}
-		subject, err := reteSession.NewResource(jets__key)
-		if err != nil {
+		jets__key := row[processInput.keyPosition].(*sql.NullString)
+		subject, err := reteSession.NewResource(jets__key.String)
+		if !jets__key.Valid || err != nil {
 			return fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
+		}
+		if glogv > 0 {
+			log.Printf("Asserting Entity with jets:key %s",jets__key.String)
 		}
 		// For Each Column
 		for icol := 0; icol < ri.ncol; icol++ {
@@ -65,55 +60,42 @@ func (ri *ReteInputContext) assertEntities(
 			if inputColumnSpec.isArray {
 				objectArr = make([]*bridge.Resource, 0)
 			}
-			fmt.Println("Conversion",inputColumnSpec.rdfType,"on",inputColumnSpec.inputColumn)
 
 			switch inputColumnSpec.rdfType {
-			// case "null":
-			// 	object, err = ri.rw.js.NewNull()
-			case "resource", "text", "date", "datetime", "int":
-				// if inputColumnSpec.isArray {
-				// 	//*
-				// 	fmt.Println("~~Got array for",inputColumnSpec.inputColumn)
-				// 	va := row[icol].([]sql.NullString)
-				// 	for _, item := range va {
-				// 		if item.Valid {
-				// 			object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, item.String)
-				// 			if err != nil {
-				// 				goto ERRCHECK
-				// 			}
-				// 			objectArr = append(objectArr, object)
-				// 		}
-				// 	}
-				// } else {
-					v := row[icol].(sql.NullString)
+			case "null":
+				object, err = reteSession.NewNull()
+			case "resource", "text", "date", "datetime":
+				if inputColumnSpec.isArray {
+					va := row[icol].(*[]string)
+					for _, item := range *va {
+						object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, item)
+						if err != nil {
+							goto ERRCHECK
+						}
+						objectArr = append(objectArr, object)
+					}
+				} else {
+					v := row[icol].(*sql.NullString)
 					if v.Valid {
 						object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, v.String)
 						if err != nil {
 							fmt.Printf("ERROR::%v\n",err)
 							goto ERRCHECK
 						}
-						str, _ := object.AsText()
-						fmt.Println("###### We are here object",str,"of type",object.GetType())
-					} else {
-						//*
-						fmt.Println("**Got null for",inputColumnSpec.inputColumn)
 					}
-				// }
-			case "bool":
-			// case "int":
+				}
+			case "int", "bool":
 				if inputColumnSpec.isArray {
-					va := row[icol].([]sql.NullInt32)
-					for _, item := range va {
-						if item.Valid {
-							object, err = reteSession.NewIntLiteral(int(item.Int32))
-							if err != nil {
-								goto ERRCHECK
-							}
-							objectArr = append(objectArr, object)
+					va := row[icol].(*[]int)
+					for _, item := range *va {
+						object, err = reteSession.NewIntLiteral(int(item))
+						if err != nil {
+							goto ERRCHECK
 						}
+						objectArr = append(objectArr, object)
 					}
 				} else {
-					v := row[icol].(sql.NullInt32)
+					v := row[icol].(*sql.NullInt32)
 					if v.Valid {
 						object, err = reteSession.NewIntLiteral(int(v.Int32))
 						if err != nil {
@@ -123,18 +105,16 @@ func (ri *ReteInputContext) assertEntities(
 				}
 			case "long", "ulong", "uint":
 				if inputColumnSpec.isArray {
-					va := row[icol].([]sql.NullInt64)
-					for _, item := range va {
-						if item.Valid {
-							object, err = reteSession.NewLongLiteral(int64(item.Int64))
-							if err != nil {
-								goto ERRCHECK
-							}
-							objectArr = append(objectArr, object)
+					va := row[icol].(*[]int64)
+					for _, item := range *va {
+						object, err = reteSession.NewLongLiteral(int64(item))
+						if err != nil {
+							goto ERRCHECK
 						}
+						objectArr = append(objectArr, object)
 					}
 				} else {
-					v := row[icol].(sql.NullInt64)
+					v := row[icol].(*sql.NullInt64)
 					if v.Valid {
 						object, err = reteSession.NewLongLiteral(int64(v.Int64))
 						if err != nil {
@@ -144,18 +124,16 @@ func (ri *ReteInputContext) assertEntities(
 				}
 			case "double":
 				if inputColumnSpec.isArray {
-					va := row[icol].([]sql.NullFloat64)
-					for _, item := range va {
-						if item.Valid {
-							object, err = reteSession.NewDoubleLiteral(float64(item.Float64))
-							if err != nil {
-								goto ERRCHECK
-							}
-							objectArr = append(objectArr, object)
+					va := row[icol].(*[]float64)
+					for _, item := range *va {
+						object, err = reteSession.NewDoubleLiteral(float64(item))
+						if err != nil {
+							goto ERRCHECK
 						}
+						objectArr = append(objectArr, object)
 					}
 				} else {
-					v := row[icol].(sql.NullFloat64)
+					v := row[icol].(*sql.NullFloat64)
 					if v.Valid {
 						object, err = reteSession.NewDoubleLiteral(float64(v.Float64))
 						if err != nil {
@@ -169,15 +147,13 @@ func (ri *ReteInputContext) assertEntities(
 			ERRCHECK:
 			if err != nil {
 				var br BadRow
-				br.RowJetsKey = sql.NullString{String: jets__key, Valid: true}
-				gp := row[processInput.groupingPosition].(sql.NullString)
+				br.RowJetsKey = *jets__key
+				gp := row[processInput.groupingPosition].(*sql.NullString)
 				if gp.Valid {
 					br.GroupingKey = sql.NullString{String: gp.String, Valid: true}
 				}
 				br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
 				br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
-				//*
-				fmt.Println("BAD Input Entity ROW:", br)
 				br.write2Chan((*writeOutputc)["process_errors"])
 				continue
 			}
@@ -185,8 +161,7 @@ func (ri *ReteInputContext) assertEntities(
 				return fmt.Errorf("ERROR predicate is null")
 			}
 			if object == nil {
-				//*
-				fmt.Println("**Object is nil nothing to assert")
+				log.Println("** Object is nil nothing to assert")
 				continue
 			}
 			// This is when we insert!....

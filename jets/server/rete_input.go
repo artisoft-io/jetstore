@@ -40,7 +40,7 @@ func (ri *ReteInputContext) assertInputRecords(
 		}
 		row := make([]sql.NullString, len(urow))
 		for i := range row {
-			row[i] = urow[i].(sql.NullString)
+			row[i] = *urow[i].(*sql.NullString)
 		}
 		var jetsKeyStr string
 		if row[processInput.keyPosition].Valid {

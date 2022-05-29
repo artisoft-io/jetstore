@@ -1,0 +1,68 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "test2_support.jr"
+
+# ========================================================================
+# Create Claim for Patient specialization of 
+# Create Event for Entity Use Case
+# -----------------------------------------------------------------------
+# Pick a claim profile
+# -----------------------------------------------------------------------
+volatile_resource claimProfile = "claimProfile";
+[JSIM110]:
+  (?patient rdf:type hc:SimulatedPatient).
+  (?patient hc:patient_number ?key).
+  (?patient asim:claim_group_lk ?uri)
+  ->
+  (?patient claimProfile (multi_lookup_rand ?uri))
+;
+# ========================================================================
+# Create Claim
+# -----------------------------------------------------------------------
+# For each claimProfile row create a corresponding claim entity
+volatile_resource claimRow = "claimRow";
+[JSIM120]:
+  (?patient rdf:type hc:SimulatedPatient).
+  (?patient hc:patient_number ?key).
+  (?patient claimProfile ?multi_row).
+  (?multi_row jets:lookup_multi_rows ?row).
+  (?row asim:event_key ?ekey)
+  ->
+  (?patient ?row create_entity (("C" + ?key) + ("E" + ?ekey)))
+;
+
+[JSIM130]:
+  (?patient rdf:type hc:SimulatedPatient).
+  (?patient claimProfile ?multi_row).
+  (?multi_row jets:lookup_multi_rows ?row).
+  (?row asim:event_key ?ekey).
+  (?patient hc:patient_number ?pnbr).
+  (?patient ?row ?claim).
+  ->
+  (?claim rdf:type hc:SimulatedClaim).
+  (?claim hc:member_number ?pnbr).
+  (?claim asim:claim_profile ?multi_row).
+  (?claim claimRow ?row)
+;
+
+[JSIM140]:
+  (?claim rdf:type hc:SimulatedClaim).
+  (?claim jets:key ?key).
+  (?claim hc:member_number ?pnbr).
+  (?patient hc:patient_number ?pnbr).
+  (?patient asim:anchor_date ?anchor_date).
+  (?claim claimRow ?row).
+  (?row asim:event_type ?etype).
+  (?row asim:event_rdf_type ?rdf_type).
+  (?row asim:provider_group_lk ?pkey).
+  (?row asim:service_date_offset ?sd_offset).
+  (?row asim:service_date_max_days ?max_days).
+  ->
+  (?claim rdf:type ?rdf_type).
+  (?claim hc:claim_number ?key).
+  (?claim asim:event_type ?etype).
+  (?claim hc:claim_type ?etype).
+  (?claim asim:provider_group_key ?pkey).
+  (?claim hc:dos (?anchor_date - (?sd_offset + (?max_days/2)) ))
+;

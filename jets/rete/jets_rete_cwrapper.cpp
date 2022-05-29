@@ -89,7 +89,7 @@ int delete_rete_session(HJRETE rete_session_hdl )
 }
 
 // Creating meta resources and literals
-int create_null(HJETS js_hdl, HJR * handle)
+int create_meta_null(HJETS js_hdl, HJR * handle)
 {
   if(not js_hdl) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
@@ -243,6 +243,13 @@ int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
 }
 
 // Creating resources and literals
+int create_null(HJRDF hdl, HJR * handle)
+{
+  if(not hdl) return -1;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  * handle = rdf_session->meta_graph()->get_rmgr()->get_null();
+  return 0;
+}
 int create_blanknode(HJRDF hdl, int v, HJR * handle)
 {
   if(not hdl) return -1;

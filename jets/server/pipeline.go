@@ -146,7 +146,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}
 
 	// start the read input goroutine
-	dataInputc, readResultc := readInput(dbpool, done, processInput)
+	dataInputc, readResultc := readInput(dbpool, done, processInput, reteWorkspace)
 
 	// create the writeOutput channels
 	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
@@ -327,7 +327,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 
 // readInput read the input table and grouping the rows according to the
 // grouping column
-func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *ProcessInput) (<-chan [][]interface{}, <-chan readResult) {
+func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *ProcessInput, reteWorkspace *ReteWorkspace) (<-chan [][]interface{}, <-chan readResult) {
 	dataInputc := make(chan [][]interface{})
 	result := make(chan readResult, 1)
 	go func() {
@@ -336,7 +336,7 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 		stmt, nCol := processInput.makeSqlStmt()
 		log.Println("SQL:", stmt)
 		log.Println("Grouping key at pos", processInput.groupingPosition)
-		rows, err := dbpool.Query(context.Background(), stmt)
+		rows, err := dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
 			return
@@ -349,24 +349,82 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 		var dataGrps [][]interface{}
 		var groupingValue string
 		// Loop through rows, using Scan to assign column data to struct fields.
-		dataRow := make([]interface{}, nCol)
+		isTextInput := processInput.inputType == 0
 		for rows.Next() {
-			dataGrp := make([]sql.NullString, nCol)
-			for i := 0; i < nCol; i++ {
-				dataRow[i] = &dataGrp[i]
+			dataRow := make([]interface{}, nCol)
+			if isTextInput {
+				dataGrp := make([]sql.NullString, nCol)
+				for i := 0; i < nCol; i++ {
+					dataRow[i] = &dataGrp[i]
+				}	
+			} else {
+				// input type base on model, 
+				for i := 0; i < nCol; i++ {
+					inputColumnSpec := &processInput.processInputMapping[i]
+					rdfType := inputColumnSpec.rdfType
+					switch rdfType {
+					case "resource", "null", "text":
+						if inputColumnSpec.isArray {
+							dataRow[i] = &[]string{}
+						} else {
+							dataRow[i] = &sql.NullString{}
+					  }
+		
+					case "int", "bool":
+						if inputColumnSpec.isArray {
+							dataRow[i] = &[]int{}
+						} else {
+							dataRow[i] = &sql.NullInt32{}
+					  }
+
+					case "uint", "long", "ulong":
+						if inputColumnSpec.isArray {
+							dataRow[i] = &[]int64{}
+						} else {
+							dataRow[i] = &sql.NullInt64{}
+					  }
+
+					case "double":
+						if inputColumnSpec.isArray {
+							dataRow[i] = &[]float64{}
+						} else {
+							dataRow[i] = &sql.NullFloat64{}
+					  }
+
+					case "date", "datetime":
+						if inputColumnSpec.isArray {
+							dataRow[i] = &[]string{}
+						} else {
+							dataRow[i] = &sql.NullString{}
+					  }
+
+					default:
+						dataRow[i] = &sql.NullString{}
+					}
+				}	
 			}
+
 			if err := rows.Scan(dataRow...); err != nil {
+				log.Printf("error while scanning dataRow: %v", err)
 				result <- readResult{rowCount, err}
 				return
 			}
 			// check if grouping change
-			if !dataGrp[processInput.groupingPosition].Valid {
+			dataGrp := dataRow[processInput.groupingPosition].(*sql.NullString)
+			if !dataGrp.Valid {
 				result <- readResult{rowCount, errors.New("error while reading input table, got row with null in grouping column")}
 				return
 			}
-			if rowCount == 0 || groupingValue != dataGrp[processInput.groupingPosition].String {
+			if glogv > 0 {
+				if isTextInput {
+					log.Printf("Got text-based input record with grouping key %s",dataGrp.String)
+				} else {
+					log.Printf("Got input entity with grouping key %s",dataGrp.String)
+				}
+			}
+			if rowCount == 0 || groupingValue != dataGrp.String {
 				// start grouping
-				groupingValue = dataGrp[processInput.groupingPosition].String
+				groupingValue = dataGrp.String
 				if rowCount > 0 {
 					// send previous grouping
 					select {
@@ -380,12 +438,7 @@ func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *Process
 			}
 
 			rowCount += 1
-			// fmt.Println("--row",dataGrp)
-			dg := make([]interface{}, len(dataGrp))
-			for i := range dg {
-				dg[i] = dataGrp[i]
-			}
-			dataGrps = append(dataGrps, dg)
+			dataGrps = append(dataGrps, dataRow)
 		}
 		// send last grouping
 		dataInputc <- dataGrps

@@ -1,0 +1,5 @@
+lk:demographic_key,lk:gender,lk:age_min,lk:age_max
+D01,male,0,15
+D02,male,16,35
+D03,female,0,15
+D04,female,16,35

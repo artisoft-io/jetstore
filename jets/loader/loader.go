@@ -68,18 +68,34 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	buf.WriteString("CREATE TABLE IF NOT EXISTS ")
 	buf.WriteString(pgx.Identifier{*tblName}.Sanitize())
 	buf.WriteString("(")
-	for i, header := range headers {
-		if i > 0 {
-			buf.WriteString(", ")
-		}
+	for _, header := range headers {
+		// if i > 0 {
+		// 	buf.WriteString(", ")
+		// }
 		buf.WriteString(pgx.Identifier{header}.Sanitize())
-		buf.WriteString(" TEXT")
+		buf.WriteString(" TEXT, ")
 	}
+	buf.WriteString(" \"jets:key\" TEXT DEFAULT '' NOT NULL,")
+	buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL,")
+	buf.WriteString(" shard_id integer DEFAULT 0 NOT NULL, ")
+	buf.WriteString(" last_update timestamp without time zone DEFAULT now() NOT NULL ")
 	buf.WriteString(");")
 	stmt = buf.String()
+	log.Println(stmt)
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating table: %v", err)
+	}
+	// primary index stmt
+	stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  ("jets:key", session_id, last_update DESC);`, 
+		pgx.Identifier{*tblName+"_primary_idx"}.Sanitize(),
+		pgx.Identifier{*tblName}.Sanitize())
+	log.Println(stmt)
+	if dbpool != nil {
+		_, err := dbpool.Exec(context.Background(), stmt)
+		if err != nil {
+			return fmt.Errorf("error while creating primary index: %v", err)
+		}
 	}
 	return err
 }

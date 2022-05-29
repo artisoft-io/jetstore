@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
@@ -124,9 +125,20 @@ type RuleConfig struct {
 
 // utility methods
 // prepare the sql statement for reading from input table (csv)
+//
+// SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) 
+//		rdf__type, hc__adjudication_date, hc__claim_number, hc__days_of_supplies, hc__drug_qty, hc__is_hmo, hc__service_date, hc__tag, rdv_core__domainkey, rdv_core__key, rdv_core__persisted_data_type, rdv_core__sessionid, last_update
+// FROM hc__claim
+// ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC;
+// ---
+// err = dbpool.QueryRow(context.Background(), "SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    
+//                                              FROM {{table_name}}    
+//                                              WHERE rdv_core__sessionid = '{{input_session_id}}' AND shard_id = {{shard_id}}    
+//                                              ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}})", *tblName).Scan(&exists)
+//
 func (processInput *ProcessInput) makeSqlStmt() (string, int) {
 	var buf strings.Builder
-	buf.WriteString("SELECT ")
+	buf.WriteString("SELECT DISTINCT ON (\"jets:key\", session_id) ")
 	for i, spec := range processInput.processInputMapping {
 		if i > 0 {
 			buf.WriteString(", ")
@@ -137,10 +149,15 @@ func (processInput *ProcessInput) makeSqlStmt() (string, int) {
 	buf.WriteString(" FROM ")
 	tbl := pgx.Identifier{processInput.inputTable}
 	buf.WriteString(tbl.Sanitize())
-	buf.WriteString(" ORDER BY ")
+	buf.WriteString(" WHERE session_id=$1 AND shard_id=$2 ")
+	buf.WriteString(" ORDER BY \"jets:key\", session_id, last_update DESC, ")
 	col := pgx.Identifier{processInput.groupingColumn}
 	buf.WriteString(col.Sanitize())
 	buf.WriteString(" ASC ")
+	if *limit > 0 {
+		buf.WriteString(" LIMIT ")
+		buf.WriteString(strconv.Itoa(*limit))
+	}
 
 	return buf.String(), len(processInput.processInputMapping)
 }
@@ -167,7 +184,6 @@ func (processInput *ProcessInput) setKeyPos() error {
 
 // main read function
 func (pc *ProcessConfig) read(dbpool *pgxpool.Pool, pcKey int) error {
-	// err = dbpool.QueryRow(context.Background(), "SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    FROM {{table_name}}    WHERE rdv_core__sessionid = '{{input_session_id}}' AND shard_id = {{shard_id}}    ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}})", *tblName).Scan(&exists)
 	err := dbpool.QueryRow(context.Background(), "SELECT key , client , description , main_entity_rdf_type   FROM process_config   WHERE key = $1", pcKey).Scan(&pc.key, &pc.client, &pc.description, &pc.mainEntityRdfType)
 	if err != nil {
 		err = fmt.Errorf("read process_config table failed: %v", err)
