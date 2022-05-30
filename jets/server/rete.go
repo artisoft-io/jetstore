@@ -72,11 +72,11 @@ func (rw *ReteWorkspace) Release() error {
 
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
-	workspaceMgr *workspace.WorkspaceDb,
-	processInput *ProcessInput,
-	dataInputc <-chan inputBundle,
-	outputSpecs workspace.OutputTableSpecs,
-	writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
+		workspaceMgr *workspace.WorkspaceDb,
+		dataInputc <-chan inputBundle,
+		outputSpecs workspace.OutputTableSpecs,
+		writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
+
 	var result ExecuteRulesResult
 	// for each msg in dataInput:
 	// 	- start a rete session,
@@ -90,7 +90,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 	log.Println("Execute Rule Started")
 	var ri ReteInputContext
 	var err error
-	ri.ncol = len(processInput.processInputMapping)
 	// cache pre-defined resources
 	ri.jets__completed, err = rw.js.GetResource("jets:completed"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
 	ri.jets__istate, err = rw.js.GetResource("jets:iState"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
@@ -114,7 +113,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
 
-		for i, ruleset := range rw.ruleset {
+		for _, ruleset := range rw.ruleset {
 			if glogv > 0 {
 				log.Println("Start Rete Session", session_count,"for ruleset",ruleset, "with grouping key", inBundle.groupingValue)
 			}
@@ -122,21 +121,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if err != nil {
 				return &result, fmt.Errorf("while creating rete session: %v", err)
 			}
-			if i == 0 {
-				switch processInput.inputType {
-					// input table (tdv / csv)
-				case 0:
-					err = ri.assertInputRecords(reteSession, &inBundle, &writeOutputc)
-				case 1:
-					err = ri.assertEntities(reteSession, &inBundle, &writeOutputc)
-				default:
-					log.Println("ERROR invalid input type for ruleset", ruleset)
-					return &result, fmt.Errorf("error: invalid input_type for process_input key %d", processInput.key)
-				}
-				if err != nil {
-					return &result, fmt.Errorf("while assertInputRecords/assertEntities: %v", err)
-				}	
-		}
+			err = ri.assertInputBundle(reteSession, &inBundle, &writeOutputc)
+			if err != nil {
+				return &result, fmt.Errorf("while asserting input bundle for session: %v", err)
+			}	
 			// Step 0 of loop is pre loop or no loop
 			// Step 1+ for looping
 			reteSession.Erase(ri.jets__istate, ri.jets__loop, nil)

@@ -50,45 +50,57 @@ type writeResult struct {
 // Main pipeline processing function
 func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	var result pipelineResult
+	var err error
 	done := make(chan struct{})
 	defer close(done)
 
-	// setup to read the primary input table
-	var processInput *ProcessInput
-	for _, pi := range reteWorkspace.procConfig.processInputs {
-		if pi.entityRdfType == reteWorkspace.procConfig.mainEntityRdfType {
-			processInput = &pi
-			break
-		}
-	}
-	if processInput == nil {
-		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the ProcessConfig")
-	}
+	// Open connection to workspaceDb
 	workspaceMgr, err := workspace.OpenWorkspaceDb(reteWorkspace.workspaceDb)
 	if err != nil {
 		return &result, fmt.Errorf("while opening workspace db: %v", err)
 	}
 	defer workspaceMgr.Close()
 
+	// setup to read the primary input table
+	var mainProcessInput *ProcessInput
+	// Configure all ProcessInput while identifying the main input table
+	for i := range reteWorkspace.procConfig.processInputs {
+		processInput := &reteWorkspace.procConfig.processInputs[i]
+		err = processInput.setGroupingPos()
+		if err != nil {
+			return &result, err
+		}
+		err = processInput.setKeyPos()
+		if err != nil {
+			return &result, err
+		}
+		err = reteWorkspace.addEntityRdfType(processInput)
+		if err != nil {
+			log.Println("Error while getting adding entity rdf type:", err)
+			return &result, err
+		}
+		err = reteWorkspace.addInputPredicate(processInput.processInputMapping)
+		if err != nil {
+			log.Println("Error while getting input predicate:", err)
+			return &result, err
+		}
+		// Add range rdf type to data properties used in mapping spec
+		for ipos := range processInput.processInputMapping {
+			pim := &processInput.processInputMapping[ipos]
+			pim.rdfType, pim.isArray, err = workspaceMgr.GetRangeDataType(pim.dataProperty)
+			if err != nil {
+				return &result, fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
+			}
+		}	
+		if processInput.entityRdfType == reteWorkspace.procConfig.mainEntityRdfType {
+			mainProcessInput = processInput
+		}
+	}
+	if mainProcessInput == nil {
+		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the ProcessConfig")
+	}
+
 	// some bookeeping
-	err = processInput.setGroupingPos()
-	if err != nil {
-		return &result, err
-	}
-	err = processInput.setKeyPos()
-	if err != nil {
-		return &result, err
-	}
-	err = reteWorkspace.addEntityRdfType(processInput)
-	if err != nil {
-		log.Println("Error while getting adding entity rdf type:", err)
-		return &result, err
-	}
-	err = reteWorkspace.addInputPredicate(processInput.processInputMapping)
-	if err != nil {
-		log.Println("Error while getting input predicate:", err)
-		return &result, err
-	}
 	// get all tables of the workspace
 	allTables, err := workspaceMgr.GetTableNames()
 	if err != nil {
@@ -120,15 +132,6 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 		log.Printf("   - %s\n",reteWorkspace.outTables[i])
 		outTableFilter[reteWorkspace.outTables[i]] = true
 	}
-	// Add range rdf type to data properties used in mapping spec
-	// pm := processInput.processInputMapping // pm: ProcessMapSlice from process_config.go
-	for ipos := range processInput.processInputMapping {
-		dp := processInput.processInputMapping[ipos].dataProperty
-		processInput.processInputMapping[ipos].rdfType, processInput.processInputMapping[ipos].isArray, err = workspaceMgr.GetRangeDataType(dp)
-		if err != nil {
-			return &result, fmt.Errorf("while adding range type to data property %s: %v", dp, err)
-		}
-	}
 
 	// Get ruleset name if case of ruleseq - rule sequence
 	if len(reteWorkspace.ruleseq) > 0 {
@@ -142,7 +145,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	}
 
 	// start the read input goroutine
-	dataInputc, readResultc := readInput(done, processInput, reteWorkspace)
+	dataInputc, readResultc := readInput(done, mainProcessInput, reteWorkspace)
 
 	// create the writeOutput channels
 	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
@@ -155,16 +158,16 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	// Add one chanel for the BadRow notification
 	writeOutputc["process_errors"] = make(chan []interface{})
 
-	// fmt.Println("processInputMapping is complete, len is", len(processInput.processInputMapping))
-	// for icol := range processInput.processInputMapping {
+	// fmt.Println("processInputMapping is complete, len is", len(mainProcessInput.processInputMapping))
+	// for icol := range mainProcessInput.processInputMapping {
 	// 	fmt.Println(
-	// 		"inputColumn:", processInput.processInputMapping[icol].inputColumn,
-	// 		"dataProperty:", processInput.processInputMapping[icol].dataProperty,
-	// 		"predicate:", processInput.processInputMapping[icol].predicate,
-	// 		"rdfType:", processInput.processInputMapping[icol].rdfType,
-	// 		"functionName:", processInput.processInputMapping[icol].functionName.String,
-	// 		"argument:", processInput.processInputMapping[icol].argument.String,
-	// 		"defaultValue:", processInput.processInputMapping[icol].defaultValue.String)
+	// 		"inputColumn:", mainProcessInput.processInputMapping[icol].inputColumn,
+	// 		"dataProperty:", mainProcessInput.processInputMapping[icol].dataProperty,
+	// 		"predicate:", mainProcessInput.processInputMapping[icol].predicate,
+	// 		"rdfType:", mainProcessInput.processInputMapping[icol].rdfType,
+	// 		"functionName:", mainProcessInput.processInputMapping[icol].functionName.String,
+	// 		"argument:", mainProcessInput.processInputMapping[icol].argument.String,
+	// 		"defaultValue:", mainProcessInput.processInputMapping[icol].defaultValue.String)
 	// }
 
 	// Output domain table's columns specs (map[table name]columns' spec)
@@ -226,7 +229,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	for i := 0; i < ps; i++ {
 		go func() {
 			// Start the execute rules workers
-			result, err := reteWorkspace.ExecuteRules(workspaceMgr, processInput, dataInputc, outputMapping, writeOutputc)
+			result, err := reteWorkspace.ExecuteRules(workspaceMgr, dataInputc, outputMapping, writeOutputc)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)

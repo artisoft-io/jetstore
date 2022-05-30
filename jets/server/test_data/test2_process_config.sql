@@ -1,5 +1,5 @@
 -- TRUNCATE TABLE process_config, process_input, process_mapping, rule_config, process_merge;
-DELETE FROM process_config WHERE key in (201, 202);
+DELETE FROM process_config WHERE key in (201, 202, 203);
 
 INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALUES
   (201, 'ACME', 'Entity from aspec:Simulator', 'aspec:Simulator'),

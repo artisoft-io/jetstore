@@ -1,0 +1,175 @@
+2022/05/30 18:54:46 Command Line Argument: procConfigKey: 203
+2022/05/30 18:54:46 Command Line Argument: poolSize: 1
+2022/05/30 18:54:46 Command Line Argument: sessionId: session1
+2022/05/30 18:54:46 Command Line Argument: inSessionId: session1
+2022/05/30 18:54:46 Command Line Argument: limit: 1
+2022/05/30 18:54:46 Command Line Argument: shardId: 0
+2022/05/30 18:54:46 Command Line Argument: workspaceDb: ./test_data/test2_workspace.db
+2022/05/30 18:54:46 Command Line Argument: lookupDb: test_data/test2_lookup.db
+2022/05/30 18:54:46 Command Line Argument: ruleset: test2_ruleset3.jr
+2022/05/30 18:54:46 Command Line Argument: ruleseq: 
+2022/05/30 18:54:46 Command Line Argument: outTables: hc:PatientAdum
+2022/05/30 18:54:46 Command Line Argument: GLOG_v is set to 35
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20220530 18:54:46.733752 1397872 rete_meta_store_factory.cc:36] Current path is "/home/michel/projects/repos/jetstore/jets/server"
+I20220530 18:54:46.735244 1397872 lookup_sql_helper.h:230] Lookup table lk:BasePatientPersona max __key__ is 3
+I20220530 18:54:46.735270 1397872 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT "asim:demographic_group_key", "asim:description", "asim:event_group1_lk", "asim:persona_key" FROM "lk:BasePatientPersona" WHERE "jets:key" = ? and SELECT "asim:demographic_group_key", "asim:description", "asim:event_group1_lk", "asim:persona_key" FROM "lk:BasePatientPersona" WHERE __key__ = ?
+I20220530 18:54:46.735412 1397872 lookup_sql_helper.h:256] LookupTable 'lk:BasePatientPersona' initialized
+I20220530 18:54:46.735472 1397872 lookup_sql_helper.h:230] Lookup table lk:LowRiskEventGroup max __key__ is 2
+I20220530 18:54:46.735486 1397872 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT "asim:event_key", "asim:event_rdf_type", "asim:event_type", "asim:provider_group_lk", "asim:service_date_max_days", "asim:service_date_offset" FROM "lk:LowRiskEventGroup" WHERE "jets:key" = ? and SELECT "asim:event_key", "asim:event_rdf_type", "asim:event_type", "asim:provider_group_lk", "asim:service_date_max_days", "asim:service_date_offset" FROM "lk:LowRiskEventGroup" WHERE __key__ = ?
+I20220530 18:54:46.735620 1397872 lookup_sql_helper.h:256] LookupTable 'lk:LowRiskEventGroup' initialized
+I20220530 18:54:46.735671 1397872 lookup_sql_helper.h:230] Lookup table lk:PatientDemographic max __key__ is 3
+I20220530 18:54:46.735683 1397872 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT "lk:age_max", "lk:age_min", "lk:gender" FROM "lk:PatientDemographic" WHERE "jets:key" = ? and SELECT "lk:age_max", "lk:age_min", "lk:gender" FROM "lk:PatientDemographic" WHERE __key__ = ?
+I20220530 18:54:46.735814 1397872 lookup_sql_helper.h:256] LookupTable 'lk:PatientDemographic' initialized
+I20220530 18:54:46.735843 1397872 lookup_sql_helper.h:96] Lookup Connection Pool initialize with statements SELECT type, as_array FROM data_properties WHERE name = ? and 
+I20220530 18:54:46.736239 1397872 rete_meta_store_factory.cc:420] Got 19 NodeVertexes 
+I20220530 18:54:46.736670 1397872 rete_meta_store_factory.cc:420] Got 33 NodeVertexes 
+I20220530 18:54:46.737159 1397872 rete_meta_store_factory.cc:420] Got 34 NodeVertexes 
+I20220530 18:54:46.737259 1397872 rete_meta_store_factory.cc:157] All Done! Contains 149 resource definitions
+I20220530 18:54:46.737272 1397872 rete_meta_store_factory.cc:158] The meta graph contains:
+---
+2022/05/30 18:54:46 *** ProcessConfig:  {203 {ACME true} {Entity Merge from hc:SimulatedPatient true} hc:SimulatedPatient [{230 203 1 hc:SimulatedPatient hc:SimulatedPatient <nil> jets:key 0 jets:key 0 [{230 hc:patient_number hc:patient_number <nil>  false { false} { false} { false} { false}} {230 hc:dob hc:dob <nil>  false { false} { false} { false} { false}} {230 hc:gender hc:gender <nil>  false { false} { false} { false} { false}} {230 jets:key jets:key <nil>  false { false} { false} { false} { false}} {230 rdf:type rdf:type <nil>  false { false} { false} { false} { false}}]} {231 203 1 hc:ProfessionalClaim hc:ProfessionalClaim <nil> hc:member_number 0 jets:key 0 [{231 hc:member_number hc:member_number <nil>  false { false} { false} { false} { false}} {231 hc:claim_number hc:claim_number <nil>  false { false} { false} { false} { false}} {231 jets:key jets:key <nil>  false { false} { false} { false} { false}} {231 rdf:type rdf:type <nil>  false { false} { false} { false} { false}}]} {232 203 1 hc:InstitutionalClaim hc:InstitutionalClaim <nil> hc:member_number 0 jets:key 0 [{232 hc:member_number hc:member_number <nil>  false { false} { false} { false} { false}} {232 hc:claim_number hc:claim_number <nil>  false { false} { false} { false} { false}} {232 jets:key jets:key <nil>  false { false} { false} { false} { false}} {232 rdf:type rdf:type <nil>  false { false} { false} { false} { false}}]}] []}
+2022/05/30 18:54:46 Opening workspace database...
+2022/05/30 18:54:46 *** CONFIGURING ProcessInput key  230
+2022/05/30 18:54:46 ***  hc:patient_number  range  text
+2022/05/30 18:54:46 ***  hc:dob  range  date
+2022/05/30 18:54:46 ***  hc:gender  range  text
+2022/05/30 18:54:46 ***  jets:key  range  text
+2022/05/30 18:54:46 ***  rdf:type  range  resource
+2022/05/30 18:54:46 *** CONFIGURING ProcessInput key  231
+2022/05/30 18:54:46 ***  hc:member_number  range  text
+2022/05/30 18:54:46 ***  hc:claim_number  range  text
+2022/05/30 18:54:46 ***  jets:key  range  text
+2022/05/30 18:54:46 ***  rdf:type  range  resource
+2022/05/30 18:54:46 *** CONFIGURING ProcessInput key  232
+2022/05/30 18:54:46 ***  hc:member_number  range  text
+2022/05/30 18:54:46 ***  hc:claim_number  range  text
+2022/05/30 18:54:46 ***  jets:key  range  text
+2022/05/30 18:54:46 ***  rdf:type  range  resource
+2022/05/30 18:54:46 The output tables are:
+2022/05/30 18:54:46    - hc:PatientAdum
+2022/05/30 18:54:46 Creating writeOutput channels for output tables: [hc:PatientAdum]
+2022/05/30 18:54:46 Creating output channel for out table: hc:PatientAdum
+2022/05/30 18:54:46 Reading table hc:PatientAdum info...
+2022/05/30 18:54:46 SQL: SELECT DISTINCT ON ("jets:key", session_id) "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type" FROM "hc:SimulatedPatient" WHERE session_id=$1 AND shard_id=$2  ORDER BY "jets:key", session_id, last_update DESC, "jets:key" ASC  LIMIT 1
+2022/05/30 18:54:46 Grouping key at pos 3
+2022/05/30 18:54:46   - Column: hcdm:claim_number , (property hcdm:claim_number ), is_array? true
+2022/05/30 18:54:46   - Column: hcdm:has_claims , (property hcdm:has_claims ), is_array? true
+2022/05/30 18:54:46   - Column: hcdm:has_patient , (property hcdm:has_patient ), is_array? false
+2022/05/30 18:54:46   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/30 18:54:46   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/30 18:54:46 Got 5 columns
+2022/05/30 18:54:46 Pipeline Preparation Complete, starting Rete Sessions...
+2022/05/30 18:54:46 Checking if data load failed...
+2022/05/30 18:54:46 Execute Rule Started
+2022/05/30 18:54:46 Write Table Started for process_errors with 6 columns
+2022/05/30 18:54:46 Write Table Started for hc:PatientAdum with 7 columns
+2022/05/30 18:54:46 Got input entity with grouping key 01001001
+*** START Grouping  01001001
+2022/05/30 18:54:46 JOIN SQL: SELECT DISTINCT ON ("jets:key", session_id) "hc:member_number", "hc:claim_number", "jets:key", "rdf:type" FROM "hc:ProfessionalClaim" WHERE session_id=$1 AND "hc:member_number" >= $2  ORDER BY "jets:key", session_id, last_update DESC, "hc:member_number" ASC  LIMIT 1
+2022/05/30 18:54:46 Grouping key at pos 0
+2022/05/30 18:54:46 Grouping key starting value 01001001
+2022/05/30 18:54:46 JOIN SQL: SELECT DISTINCT ON ("jets:key", session_id) "hc:member_number", "hc:claim_number", "jets:key", "rdf:type" FROM "hc:InstitutionalClaim" WHERE session_id=$1 AND "hc:member_number" >= $2  ORDER BY "jets:key", session_id, last_update DESC, "hc:member_number" ASC  LIMIT 1
+2022/05/30 18:54:46 Grouping key at pos 0
+2022/05/30 18:54:46 Grouping key starting value 01001001
+2022/05/30 18:54:46 Got join input record with grouping key 01001001
+2022/05/30 18:54:46 GOT Join ROW:
+2022/05/30 18:54:46      hc:member_number   =   &{01001001 true}
+2022/05/30 18:54:46      hc:claim_number   =   &{C01001001ELR201 true}
+2022/05/30 18:54:46      jets:key   =   &{C01001001ELR201 true}
+2022/05/30 18:54:46      rdf:type   =   &[owl:Thing hc:ProfessionalClaim hc:Claim jets:Entity hc:SimulatedClaim]
+2022/05/30 18:54:46 Got join input record with grouping key 01001001
+2022/05/30 18:54:46 GOT Join ROW:
+2022/05/30 18:54:46      hc:member_number   =   &{01001001 true}
+2022/05/30 18:54:46      hc:claim_number   =   &{C01001001ELR202 true}
+2022/05/30 18:54:46      jets:key   =   &{C01001001ELR202 true}
+2022/05/30 18:54:46      rdf:type   =   &[owl:Thing hc:InstitutionalClaim hc:Claim jets:Entity hc:SimulatedClaim]
+2022/05/30 18:54:46 Checking results of execute rules...
+2022/05/30 18:54:46 Start Rete Session 1 for ruleset test2_ruleset3.jr with grouping key 
+I20220530 18:54:46.751261 1397872 rete_session.cc:27] Initialize ReteSession
+2022/05/30 18:54:46 ASSERT ENTITY:
+2022/05/30 18:54:46      hc:member_number   =   &{01001001 true} , range  text , array? false
+2022/05/30 18:54:46      hc:claim_number   =   &{C01001001ELR201 true} , range  text , array? false
+2022/05/30 18:54:46      jets:key   =   &{C01001001ELR201 true} , range  text , array? false
+2022/05/30 18:54:46      rdf:type   =   &[owl:Thing hc:ProfessionalClaim hc:Claim jets:Entity hc:SimulatedClaim] , range  resource , array? true
+2022/05/30 18:54:46 Asserting Entity with jets:key C01001001ELR201
+2022/05/30 18:54:46 ASSERT ENTITY:
+2022/05/30 18:54:46      hc:member_number   =   &{01001001 true} , range  text , array? false
+2022/05/30 18:54:46      hc:claim_number   =   &{C01001001ELR202 true} , range  text , array? false
+2022/05/30 18:54:46      jets:key   =   &{C01001001ELR202 true} , range  text , array? false
+2022/05/30 18:54:46      rdf:type   =   &[owl:Thing hc:InstitutionalClaim hc:Claim jets:Entity hc:SimulatedClaim] , range  resource , array? true
+2022/05/30 18:54:46 Asserting Entity with jets:key C01001001ELR202
+2022/05/30 18:54:46 ASSERT ENTITY:
+2022/05/30 18:54:46      hc:patient_number   =   &{01001001 true} , range  text , array? false
+2022/05/30 18:54:46      hc:dob   =   &{2014-1-2 true} , range  date , array? false
+2022/05/30 18:54:46      hc:gender   =   &{male true} , range  text , array? false
+2022/05/30 18:54:46      jets:key   =   &{01001001 true} , range  text , array? false
+2022/05/30 18:54:46      rdf:type   =   &[hc:SimulatedPatient hc:Patient owl:Thing jets:Entity asim:Entity] , range  resource , array? true
+2022/05/30 18:54:46 Asserting Entity with jets:key 01001001
+2022/05/30 18:54:46 Calling Execute Rules, loop: 0 , session count: 1 , for ruleset: test2_ruleset3.jr , with grouping key: 
+I20220530 18:54:46.751834 1397872 rete_session.cc:119] ReteSession::execute_rules called, starting at 0
+I20220530 18:54:46.751950 1397872 rete_session.cc:130] execute_rules: COMPUTING CONSEQUENT TERMS
+I20220530 18:54:46.751977 1397872 rete_session.cc:314] INFER Vertex 1: (01001001,rdf:type,jets:Entity) from row <1>(0:1)[?x1](01001001)
+I20220530 18:54:46.752044 1397872 rete_session.cc:314] INFER Vertex 2: (01001001,_0:patientAdum,ADUM01001001) from row <2>(0:1:2)[?x1, ?x2](01001001, 01001001)
+I20220530 18:54:46.752071 1397872 rete_session.cc:314] INFER Vertex 3: (ADUM01001001,hcdm:has_patient,01001001) from row <3>(0:1:2:3)[?x1, ?x3](01001001, ADUM01001001)
+I20220530 18:54:46.752082 1397872 rete_session.cc:314] INFER Vertex 7: (ADUM01001001,hcdm:claim_number,C01001001ELR202) from row <7>(0:1:2:4:5:6:7)[?x1, ?x3, ?x4, ?x5](01001001, C01001001ELR202, ADUM01001001, C01001001ELR202)
+I20220530 18:54:46.752110 1397872 rete_session.cc:314] INFER Vertex 7: (ADUM01001001,hcdm:has_patient,01001001) from row <7>(0:1:2:4:5:6:7)[?x1, ?x3, ?x4, ?x5](01001001, C01001001ELR202, ADUM01001001, C01001001ELR202)
+I20220530 18:54:46.752120 1397872 rete_session.cc:314] INFER Vertex 7: (ADUM01001001,hcdm:has_claims,C01001001ELR202) from row <7>(0:1:2:4:5:6:7)[?x1, ?x3, ?x4, ?x5](01001001, C01001001ELR202, ADUM01001001, C01001001ELR202)
+I20220530 18:54:46.752159 1397872 rete_session.cc:314] INFER Vertex 7: (ADUM01001001,hcdm:claim_number,C01001001ELR201) from row <7>(0:1:2:4:5:6:7)[?x1, ?x3, ?x4, ?x5](01001001, C01001001ELR201, ADUM01001001, C01001001ELR201)
+I20220530 18:54:46.752169 1397872 rete_session.cc:314] INFER Vertex 7: (ADUM01001001,hcdm:has_patient,01001001) from row <7>(0:1:2:4:5:6:7)[?x1, ?x3, ?x4, ?x5](01001001, C01001001ELR201, ADUM01001001, C01001001ELR201)
+I20220530 18:54:46.752177 1397872 rete_session.cc:314] INFER Vertex 7: (ADUM01001001,hcdm:has_claims,C01001001ELR201) from row <7>(0:1:2:4:5:6:7)[?x1, ?x3, ?x4, ?x5](01001001, C01001001ELR201, ADUM01001001, C01001001ELR201)
+I20220530 18:54:46.752184 1397872 rete_session.cc:314] INFER Vertex 8: (C01001001ELR202,rdf:type,owl:Thing) from row <8>(0:8)[?x1](C01001001ELR202)
+I20220530 18:54:46.752194 1397872 rete_session.cc:314] INFER Vertex 8: (01001001,rdf:type,owl:Thing) from row <8>(0:8)[?x1](01001001)
+I20220530 18:54:46.752219 1397872 rete_session.cc:314] INFER Vertex 8: (C01001001ELR201,rdf:type,owl:Thing) from row <8>(0:8)[?x1](C01001001ELR201)
+I20220530 18:54:46.752226 1397872 rete_session.cc:314] INFER Vertex 12: (01001001,rdf:type,owl:Thing) from row <12>(0:12)[?x1](01001001)
+I20220530 18:54:46.752235 1397872 rete_session.cc:314] INFER Vertex 14: (01001001,rdf:type,asim:Entity) from row <14>(0:14)[?x1](01001001)
+I20220530 18:54:46.752243 1397872 rete_session.cc:314] INFER Vertex 14: (01001001,rdf:type,hc:Patient) from row <14>(0:14)[?x1](01001001)
+I20220530 18:54:46.752282 1397872 rete_session.cc:314] INFER Vertex 15: (C01001001ELR202,rdf:type,jets:Entity) from row <15>(0:15)[?x1](C01001001ELR202)
+I20220530 18:54:46.752290 1397872 rete_session.cc:314] INFER Vertex 15: (C01001001ELR201,rdf:type,jets:Entity) from row <15>(0:15)[?x1](C01001001ELR201)
+I20220530 18:54:46.752298 1397872 rete_session.cc:314] INFER Vertex 16: (C01001001ELR201,rdf:type,hc:Claim) from row <16>(0:16)[?x1](C01001001ELR201)
+I20220530 18:54:46.752305 1397872 rete_session.cc:314] INFER Vertex 17: (C01001001ELR202,rdf:type,hc:Claim) from row <17>(0:17)[?x1](C01001001ELR202)
+I20220530 18:54:46.752313 1397872 rete_session.cc:314] INFER Vertex 18: (C01001001ELR202,rdf:type,jets:Entity) from row <18>(0:18)[?x1](C01001001ELR202)
+I20220530 18:54:46.752321 1397872 rete_session.cc:314] INFER Vertex 18: (C01001001ELR202,rdf:type,hc:Claim) from row <18>(0:18)[?x1](C01001001ELR202)
+I20220530 18:54:46.752328 1397872 rete_session.cc:314] INFER Vertex 18: (C01001001ELR201,rdf:type,jets:Entity) from row <18>(0:18)[?x1](C01001001ELR201)
+I20220530 18:54:46.752334 1397872 rete_session.cc:314] INFER Vertex 18: (C01001001ELR201,rdf:type,hc:Claim) from row <18>(0:18)[?x1](C01001001ELR201)
+RDF Session Contains:
+(01001001,_0:patientAdum,ADUM01001001)
+(01001001,hc:dob,2014-Jan-02)
+(01001001,hc:gender,male)
+(01001001,hc:patient_number,01001001)
+(01001001,jets:key,01001001)
+(01001001,rdf:type,asim:Entity)
+(01001001,rdf:type,hc:Patient)
+(01001001,rdf:type,hc:SimulatedPatient)
+(01001001,rdf:type,jets:Entity)
+(01001001,rdf:type,owl:Thing)
+(ADUM01001001,hcdm:claim_number,C01001001ELR201)
+(ADUM01001001,hcdm:claim_number,C01001001ELR202)
+(ADUM01001001,hcdm:has_claims,C01001001ELR201)
+(ADUM01001001,hcdm:has_claims,C01001001ELR202)
+(ADUM01001001,hcdm:has_patient,01001001)
+(ADUM01001001,jets:key,ADUM01001001)
+(C01001001ELR201,hc:claim_number,C01001001ELR201)
+(C01001001ELR201,hc:member_number,01001001)
+(C01001001ELR201,jets:key,C01001001ELR201)
+(C01001001ELR201,rdf:type,hc:Claim)
+(C01001001ELR201,rdf:type,hc:ProfessionalClaim)
+(C01001001ELR201,rdf:type,hc:SimulatedClaim)
+(C01001001ELR201,rdf:type,jets:Entity)
+(C01001001ELR201,rdf:type,owl:Thing)
+(C01001001ELR202,hc:claim_number,C01001001ELR202)
+(C01001001ELR202,hc:member_number,01001001)
+(C01001001ELR202,jets:key,C01001001ELR202)
+(C01001001ELR202,rdf:type,hc:Claim)
+(C01001001ELR202,rdf:type,hc:InstitutionalClaim)
+(C01001001ELR202,rdf:type,hc:SimulatedClaim)
+(C01001001ELR202,rdf:type,jets:Entity)
+(C01001001ELR202,rdf:type,owl:Thing)
+---
+2022/05/30 18:54:46 Close all writeOutputc channels...
+2022/05/30 18:54:46 ...done closing writeOutputc
+2022/05/30 18:54:46 Checking results of write2tables...
+2022/05/30 18:54:46 Input records count is: 3
+2022/05/30 18:54:46 Rete sessions count is: 1
+2022/05/30 18:54:46 Output records count for type 'process_errors' is: 0
+2022/05/30 18:54:46 Output records count for type 'hc:PatientAdum' is: 0

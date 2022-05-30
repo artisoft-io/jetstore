@@ -22,6 +22,7 @@ volatile_resource patientAdum = "patientAdum";
   (?patient patientAdum ?padum)
   ->
   (?padum hcdm:has_patient ?patient).
+  (?padum rdf:type hc:PatientAdum)
 ;
 
 [JDEMO50]:

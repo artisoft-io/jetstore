@@ -199,9 +199,9 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 							inputRows: joinQueries[iqr].pendingRow})			
 					}
 					for joinQueries[iqr].rows.Next() {
-						joinQueries[iqr].pendingRow, err = readRow(&joinQueries[iqr].rows, mainInput)
+						joinQueries[iqr].pendingRow, err = readRow(&joinQueries[iqr].rows, joinQueries[iqr].processInput)
 						if err != nil {
-							log.Printf("error while scanning dataRow: %v", err)
+							log.Printf("error while scanning joinQuery dataRow: %v", err)
 							result <- readResult{rowCount, err}
 							return
 						}
@@ -222,7 +222,12 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 						rowCount += 1
 						dataGrps.inputRows = append(dataGrps.inputRows, bundleRow{
 							processInput: joinQueries[iqr].processInput, 
-							inputRows: joinQueries[iqr].pendingRow})			
+							inputRows: joinQueries[iqr].pendingRow})
+						// //*
+						// log.Println("GOT Join ROW:")
+						// for ipos := range joinQueries[iqr].pendingRow {
+						// 	log.Println("    ",joinQueries[iqr].processInput.processInputMapping[ipos].dataProperty,"  =  ",joinQueries[iqr].pendingRow[ipos])
+						// }
 					}
 				}
 			}
