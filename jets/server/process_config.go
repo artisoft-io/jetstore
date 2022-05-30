@@ -131,12 +131,12 @@ type RuleConfig struct {
 // FROM hc__claim
 // ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC;
 // ---
-// err = dbpool.QueryRow(context.Background(), "SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    
-//                                              FROM {{table_name}}    
-//                                              WHERE rdv_core__sessionid = '{{input_session_id}}' AND shard_id = {{shard_id}}    
-//                                              ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}})", *tblName).Scan(&exists)
+// "SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    
+//  FROM {{table_name}}    
+//  WHERE rdv_core__sessionid = '{{input_session_id}}' AND shard_id = {{shard_id}}    
+//  ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}})", *tblName).Scan(&exists)
 //
-func (processInput *ProcessInput) makeSqlStmt() (string, int) {
+func (processInput *ProcessInput) makeSqlStmt() string {
 	var buf strings.Builder
 	buf.WriteString("SELECT DISTINCT ON (\"jets:key\", session_id) ")
 	for i, spec := range processInput.processInputMapping {
@@ -159,8 +159,43 @@ func (processInput *ProcessInput) makeSqlStmt() (string, int) {
 		buf.WriteString(strconv.Itoa(*limit))
 	}
 
-	return buf.String(), len(processInput.processInputMapping)
+	return buf.String()
 }
+
+//  SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    
+//	FROM {{table_name}}    
+//	WHERE rdv_core__sessionid = '{{input_session_id}}' AND {{grouping_key}} >= {{grouping_value}}    
+//	ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}}",
+//
+func (processInput *ProcessInput) makeJoinSqlStmt() string {
+	var buf strings.Builder
+	buf.WriteString("SELECT DISTINCT ON (\"jets:key\", session_id) ")
+	for i, spec := range processInput.processInputMapping {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		col := pgx.Identifier{spec.inputColumn}
+		buf.WriteString(col.Sanitize())
+	}
+	buf.WriteString(" FROM ")
+	tbl := pgx.Identifier{processInput.inputTable}
+	buf.WriteString(tbl.Sanitize())
+	col := pgx.Identifier{processInput.groupingColumn}
+	gcs := col.Sanitize()
+	buf.WriteString(" WHERE session_id=$1 AND ")
+	buf.WriteString(gcs)
+	buf.WriteString(" >= $2 ")
+	buf.WriteString(" ORDER BY \"jets:key\", session_id, last_update DESC, ")
+	buf.WriteString(gcs)
+	buf.WriteString(" ASC ")
+	if *limit > 0 {
+		buf.WriteString(" LIMIT ")
+		buf.WriteString(strconv.Itoa(*limit))
+	}
+
+	return buf.String()
+}
+
 // sets the grouping position
 func (processInput *ProcessInput) setGroupingPos() error {
 	for i, v := range processInput.processInputMapping {

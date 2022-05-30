@@ -18,9 +18,10 @@ import (
 
 // Command line arguments
 var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
-var dropExisting = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
-var dsn = flag.String("dsn", "", "database connection string (ommit to write sql to stdout)")
-var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required)")
+var dropExisting  = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
+// var dsn           = flag.String("dsn", "", "database connection string (ommit to write sql to stdout)")
+var dsnList       = flag.String("dsn", "", "comma-separated list of database connection string (required)")
+var workspaceDb   = flag.String("workspaceDb", "", "workspace db path (required)")
 var extTables schema.ExtTableInfo = make(map[string][]string)
 
 func init() {
@@ -49,14 +50,25 @@ func doJob() error {
 	}
 	defer workspaceMgr.Close()
 
-	var dbpool *pgxpool.Pool
-	if len(*dsn) > 0 {
-		// open db connection
-		dbpool, err = pgxpool.Connect(context.Background(), *dsn)
+
+	// var dbpool *pgxpool.Pool
+	// if len(*dsn) > 0 {
+	// 	// open db connection
+	// 	dbpool, err = pgxpool.Connect(context.Background(), *dsn)
+	// 	if err != nil {
+	// 		return fmt.Errorf("while opening db connection: %v", err)
+	// 	}
+	// 	defer dbpool.Close()
+	// }
+	// open db connections
+	dsnSplit := strings.Split(*dsnList, ",")
+	dbPool := make([]*pgxpool.Pool, len(dsnSplit))
+	for i := range dsnSplit {
+		dbPool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
 		if err != nil {
-			return fmt.Errorf("while opening db connection: %v", err)
+			return fmt.Errorf("while opening db connection on %s: %v", dsnSplit[i], err)
 		}
-		defer dbpool.Close()
+		defer dbPool[i].Close()
 	}
 
 	// get the set of volatile resources
@@ -113,10 +125,12 @@ func doJob() error {
 
 	// process tables
 	for tableName, tableSpec := range tableSpecs {
-		log.Println("Processing table",tableName)
-		err = schema.UpdateTableSchema(dbpool, tableName, tableSpec, *dropExisting, extTables[tableName])
-		if err != nil {
-			return fmt.Errorf("while updating table schema for table %s: %v", tableName, err)
+		for i, dbpool := range dbPool {
+			log.Println("Processing table",tableName,"on dsn",dsnSplit[i])
+			err = schema.UpdateTableSchema(dbpool, tableName, tableSpec, *dropExisting, extTables[tableName])
+			if err != nil {
+				return fmt.Errorf("while updating table schema for table %s: %v", tableName, err)
+			}
 		}
 	}
 	return nil
@@ -128,8 +142,9 @@ func main() {
 	// validate command line arguments
 	hasErr := false
 	var errMsg []string
-	if *dsn == "" {
-		errMsg = append(errMsg, "Connection string (-dsn) not provided, sql will be written to stdout.")
+	if *dsnList == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Connection string (-dsn) must be provided.")
 	}
 	if *workspaceDb == "" {
 		hasErr = true
@@ -144,7 +159,7 @@ func main() {
 	}
 
 	log.Println("Here's what we got:")
-	log.Println("   -dsn:", *dsn)
+	log.Println("   -dsn:", *dsnList)
 	log.Println("   -workspaceDb:", *workspaceDb)
 	for tableName, extColumns := range extTables {
 		log.Println("Table:",tableName,"Extended Columns:",strings.Join(extColumns, ","))

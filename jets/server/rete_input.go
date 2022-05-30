@@ -29,22 +29,22 @@ type ReteInputContext struct {
 // main processing function to execute rules
 func (ri *ReteInputContext) assertInputRecords(
 	reteSession *bridge.ReteSession,
-	processInput *ProcessInput,
-	inputRecords *[][]interface{},
+	inBundle *inputBundle,
 	writeOutputc *map[string]chan []interface{}) error {
 
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
-	for _, urow := range *inputRecords {
-		if len(urow) == 0 {
+	for _, bunRow := range inBundle.inputRows {
+		rowl := len(bunRow.inputRows)
+		if rowl == 0 {
 			continue
 		}
-		row := make([]sql.NullString, len(urow))
+		row := make([]sql.NullString, rowl)
 		for i := range row {
-			row[i] = *urow[i].(*sql.NullString)
+			row[i] = *bunRow.inputRows[i].(*sql.NullString)
 		}
 		var jetsKeyStr string
-		if row[processInput.keyPosition].Valid {
-			jetsKeyStr = row[processInput.keyPosition].String
+		if row[bunRow.processInput.keyPosition].Valid {
+			jetsKeyStr = row[bunRow.processInput.keyPosition].String
 		} else {
 			jetsKeyStr = uuid.New().String()
 		}
@@ -56,10 +56,10 @@ func (ri *ReteInputContext) assertInputRecords(
 		if err != nil {
 			return fmt.Errorf("while creating row's jets:key literal (NewTextLiteral): %v", err)
 		}
-		if subject == nil || ri.rdf__type == nil || processInput.entityRdfTypeResource == nil {
+		if subject == nil || ri.rdf__type == nil || bunRow.processInput.entityRdfTypeResource == nil {
 			return fmt.Errorf("ERROR while asserting row rdf type")
 		}
-		_, err = reteSession.Insert(subject, ri.rdf__type, processInput.entityRdfTypeResource)
+		_, err = reteSession.Insert(subject, ri.rdf__type, bunRow.processInput.entityRdfTypeResource)
 		if err != nil {
 			return fmt.Errorf("while asserting row rdf type: %v", err)
 		}
@@ -69,7 +69,7 @@ func (ri *ReteInputContext) assertInputRecords(
 		}
 		for icol := 0; icol < ri.ncol; icol++ {
 			// asserting input row with mapping spec
-			inputColumnSpec := &processInput.processInputMapping[icol]
+			inputColumnSpec := &bunRow.processInput.processInputMapping[icol]
 			var obj string
 			var err error
 			sz := len(row[icol].String)
@@ -203,8 +203,8 @@ func (ri *ReteInputContext) assertInputRecords(
 						// report error
 						var br BadRow
 						br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-						if row[processInput.groupingPosition].Valid {
-							br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
+						if row[bunRow.processInput.groupingPosition].Valid {
+							br.GroupingKey = sql.NullString{String: row[bunRow.processInput.groupingPosition].String, Valid: true}
 						}
 						br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
 						if err != nil {
@@ -285,8 +285,8 @@ func (ri *ReteInputContext) assertInputRecords(
 			if err != nil {
 				var br BadRow
 				br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
-				if row[processInput.groupingPosition].Valid {
-					br.GroupingKey = sql.NullString{String: row[processInput.groupingPosition].String, Valid: true}
+				if row[bunRow.processInput.groupingPosition].Valid {
+					br.GroupingKey = sql.NullString{String: row[bunRow.processInput.groupingPosition].String, Valid: true}
 				}
 				br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
 				br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
