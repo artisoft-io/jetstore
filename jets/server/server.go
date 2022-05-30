@@ -80,32 +80,17 @@ func doJob() error {
 		defer dbc.joinNodes[i].dbpool.Close()
 	}
 	dbpool = dbc.mainNode.dbpool
-	var procConfig ProcessConfig
-
-	err = procConfig.read(dbpool, *procConfigKey)
+	procConfig, err := readProcessConfig(dbpool, *procConfigKey)
 	if err != nil {
 		return fmt.Errorf("while reading process_config table: %v", err)
 	}
-	//*	
-	fmt.Println("Got ProcessConfig row:")
-	fmt.Println("  key:", procConfig.key, "client", procConfig.client.String, "description", procConfig.description.String, "Main Type", procConfig.mainEntityRdfType)
-	fmt.Println("Got ProcessInput row:")
-	for _, pi := range procConfig.processInputs {
-		fmt.Println("  key:", pi.key, ", processKey", pi.processKey, ", InputTable", pi.inputTable, ", rdf Type", pi.entityRdfType, ", Grouping Column", pi.groupingColumn)
-		for _, pm := range pi.processInputMapping {
-			fmt.Println("    InputMapping - key", pm.processInputKey, ", inputColumn:", pm.inputColumn, ", dataProperty:", pm.dataProperty, ", function:", pm.functionName.String, ", arg:", pm.argument.String, ", default:", pm.defaultValue.String)
-		}
-	}
-	fmt.Println("Got RuleConfig rows:")
-	for _, rc := range procConfig.ruleConfigs {
-		fmt.Println("    procKey:", rc.processKey, ", subject", rc.subject, ", predicate", rc.predicate, ", object", rc.object, ", type", rc.rdfType)
-	}
 
 	// let's do it!
-	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, *ruleseq, &procConfig, outTableSlice, extTables)
+	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, *ruleseq, procConfig, outTableSlice, extTables)
 	if err != nil {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
+
 	pipelineResult, err := ProcessData(reteWorkspace)
 	if err != nil {
 		reteWorkspace.Release()

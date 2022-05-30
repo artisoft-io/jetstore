@@ -13,9 +13,6 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-type ProcessInputSlice []ProcessInput
-type RuleConfigSlice []RuleConfig
-
 // Main data entity
 type ProcessConfig struct {
 	key         int
@@ -24,8 +21,8 @@ type ProcessConfig struct {
 	// righ now mainEntityRdfType must be in processInputs
 	// and we're supporting a single processInputs at the moment!
 	mainEntityRdfType string
-	processInputs     ProcessInputSlice
-	ruleConfigs       RuleConfigSlice
+	processInputs     []ProcessInput
+	ruleConfigs       []RuleConfig
 }
 
 type BadRow struct {
@@ -86,8 +83,6 @@ func (br BadRow) write2Chan(ch chan<- []interface{}) {
 	ch <- brout
 }
 
-type ProcessMapSlice []ProcessMap
-
 type ProcessInput struct {
 	key                 int
 	processKey          int
@@ -99,7 +94,7 @@ type ProcessInput struct {
 	groupingPosition    int
 	keyColumn           string
 	keyPosition         int
-	processInputMapping ProcessMapSlice
+	processInputMapping []ProcessMap
 }
 
 type ProcessMap struct {
@@ -249,90 +244,94 @@ func (processInput *ProcessInput) setKeyPos() error {
 }
 
 // main read function
-func (pc *ProcessConfig) read(dbpool *pgxpool.Pool, pcKey int) error {
+func readProcessConfig(dbpool *pgxpool.Pool, pcKey int) (*ProcessConfig, error) {
+	var pc ProcessConfig
 	err := dbpool.QueryRow(context.Background(), "SELECT key , client , description , main_entity_rdf_type   FROM process_config   WHERE key = $1", pcKey).Scan(&pc.key, &pc.client, &pc.description, &pc.mainEntityRdfType)
 	if err != nil {
 		err = fmt.Errorf("read process_config table failed: %v", err)
-		return err
+		return &pc, err
 	}
 
-	err = pc.processInputs.read(dbpool, pcKey)
+	pc.processInputs, err = readProcessInputs(dbpool, pcKey)
 	if err != nil {
 		err = fmt.Errorf("read process_input table failed: %v", err)
-		return err
+		return &pc, err
 	}
 
-	err = pc.ruleConfigs.read(dbpool, pcKey)
+	pc.ruleConfigs, err = readRuleConfig(dbpool, pcKey)
 	if err != nil {
 		err = fmt.Errorf("read rule_config table failed: %v", err)
-		return err
+		return &pc, err
 	}
 
-	return nil
+	return &pc, nil
 }
 
 // read input table definitions
-func (processInputs *ProcessInputSlice) read(dbpool *pgxpool.Pool, pcKey int) error {
-	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column FROM process_input WHERE process_key = $1", *procConfigKey)
+func readProcessInputs(dbpool *pgxpool.Pool, pcKey int) ([]ProcessInput, error) {
+	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column FROM process_input WHERE process_key = $1", pcKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
 	// Loop through rows, using Scan to assign column data to struct fields.
+	result := make([]ProcessInput, 0)
 	for rows.Next() {
 		var pi ProcessInput
 		if err := rows.Scan(&pi.key, &pi.processKey, &pi.inputType, &pi.inputTable, &pi.entityRdfType, &pi.groupingColumn, &pi.keyColumn); err != nil {
-			return err
+			return result, err
 		}
 
 		// read the column to fiefd mapping definitions
-		if err = pi.processInputMapping.read(dbpool, pi.key); err!=nil {
-			return err
+		pi.processInputMapping, err = readProcessInputMapping(dbpool, pi.key)
+		if err != nil {
+			return result, err
 		}
-
-		*processInputs = append(*processInputs, pi)
+		result = append(result, pi)
 	}
 	if err = rows.Err(); err != nil {
-		return err
+		return result, err
 	}
-	return nil
+	return result, nil
 }
 
 // read mapping definitions
-func (processMapping *ProcessMapSlice) read(dbpool *pgxpool.Pool, processInputKey int) error {
+func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]ProcessMap, error) {
 	rows, err := dbpool.Query(context.Background(), "SELECT process_input_key, input_column, data_property, function_name, argument, default_value, error_message FROM process_mapping WHERE process_input_key = $1", processInputKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
 	// Loop through rows, using Scan to assign column data to struct fields.
+	result := make([]ProcessMap, 0)
 	for rows.Next() {
 		var pm ProcessMap
 		if err := rows.Scan(&pm.processInputKey, &pm.inputColumn, &pm.dataProperty, &pm.functionName, &pm.argument, &pm.defaultValue, &pm.errorMessage); err != nil {
-			return err
+			return result, err
 		}
 
 		// validate that we don't have both a default and an error message
 		if pm.errorMessage.Valid && pm.defaultValue.Valid {
 			if len(pm.defaultValue.String)>0 && len(pm.errorMessage.String)>0 {
-				return fmt.Errorf("error: cannot have both a default value and an error message in table process_mapping")
+				return nil, fmt.Errorf("error: cannot have both a default value and an error message in table process_mapping")
 			}
 		}
-		*processMapping = append(*processMapping, pm)
+		result = append(result, pm)
 	}
 	if err = rows.Err(); err != nil {
-		return err
+		return result, err
 	}
-	return nil
+	return result, nil
 }
 
 // Read rule config triples
-func (ruleConfigs *RuleConfigSlice) read(dbpool *pgxpool.Pool, pcKey int) error {
+func readRuleConfig(dbpool *pgxpool.Pool, pcKey int) ([]RuleConfig, error) {
+	result := make([]RuleConfig, 0)
 	rows, err := dbpool.Query(context.Background(), "SELECT process_key, subject, predicate, object, rdf_type FROM rule_config WHERE process_key = $1", pcKey)
 	if err != nil {
-		return err
+		return result, err
 	}
 	defer rows.Close()
 
@@ -340,12 +339,12 @@ func (ruleConfigs *RuleConfigSlice) read(dbpool *pgxpool.Pool, pcKey int) error 
 	for rows.Next() {
 		var rc RuleConfig
 		if err := rows.Scan(&rc.processKey, &rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
-			return err
+			return result, err
 		}
-		*ruleConfigs = append(*ruleConfigs, rc)
+		result = append(result, rc)
 	}
 	if err = rows.Err(); err != nil {
-		return err
+		return result, err
 	}
-	return nil
+	return result, nil
 }
