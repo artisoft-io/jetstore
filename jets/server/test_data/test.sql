@@ -1,1 +1,0 @@
-SELECT DISTINCT ON ("jets:key", session_id) "MEMBER_NUMBER", "CLAIM_NUMBER", "DOS", "SERVICE_CODE", "MODIFIER", "NDAYS", "SUBMITTED_AMT", "ALLOWED_AMT" FROM "test1" WHERE session_id='' AND shard_id=0  ORDER BY "jets:key", session_id, last_update DESC, "MEMBER_NUMBER" ASC 

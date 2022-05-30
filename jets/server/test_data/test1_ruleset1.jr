@@ -1,7 +1,7 @@
 # ///////////////////////////////////////////////////////////////////////////////////////
 # Unit Test JetStore server process
 # ---------------------------------------------------------------------------------------
-import "support_test1.jr"
+import "test1_support.jr"
 
 # config resource used in process config (start msg)
 resource lk:withModifier = "lk:withModifier";
