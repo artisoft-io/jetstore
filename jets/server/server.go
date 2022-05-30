@@ -31,7 +31,7 @@ var ruleseq       = flag.String("ruleseq", "", "rule set sequence (required or -
 var procConfigKey = flag.Int   ("pcKey", 0, "Process config key (required)")
 var poolSize      = flag.Int   ("poolSize", 10, "Pool size constraint")
 var sessionId     = flag.String("sessionId", "", "Process session ID used to link entitied processed together.")
-var inSessionId   = flag.String("inSessionId", "", "Session ID for input domain table, default is sessionId.")
+var inSessionId   = flag.String("inSessionId", "", "Session ID for input domain table, default is ''.")
 var limit         = flag.Int   ("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
 var shardId       = flag.Int   ("shardId", 0, "Shard id for the processing node.")
 var outTables     = flag.String("outTables", "", "Comma-separed list of output tables (required).")
@@ -99,14 +99,6 @@ func doJob() error {
 	fmt.Println("Got RuleConfig rows:")
 	for _, rc := range procConfig.ruleConfigs {
 		fmt.Println("    procKey:", rc.processKey, ", subject", rc.subject, ", predicate", rc.predicate, ", object", rc.object, ", type", rc.rdfType)
-	}
-
-	// validation
-	if len(procConfig.processInputs) != 1 {
-		return fmt.Errorf("while reading ProcessInput table, currently we're supporting a single input table")
-	}
-	if procConfig.mainEntityRdfType != procConfig.processInputs[0].entityRdfType {
-		return fmt.Errorf("while reading ProcessInput table, mainEntityRdfType must match the ProcessInput entityRdfType")
 	}
 
 	// let's do it!

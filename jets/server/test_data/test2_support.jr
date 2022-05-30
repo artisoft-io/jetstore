@@ -87,6 +87,16 @@ class hc:Patient {
   $as_table = true
 };
 
+class hc:PatientAdum {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    hcdm:has_patient as resource,
+    hcdm:has_claims as array of resource,
+    hcdm:claim_number as array of text
+  ],
+  $as_table = true
+};
+
 class hc:SimulatedPatient {
   $base_classes = [
     asim:Entity,

@@ -94,10 +94,24 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 	go func() {
 		defer close(dataInputc)
 		// prepare the sql stmt
-		stmt := mainInput.makeSqlStmt()
+		var stmt string
+		var rows pgx.Rows
+		var err error
+		if mainInput.inputType == 0 {
+			stmt = mainInput.makeInputSqlStmt()
+		} else if mainInput.inputType == 1 {
+			stmt = mainInput.makeSqlStmt()
+		} else {
+			result <- readResult{err: fmt.Errorf("error: unknown input_type for the input table %d", mainInput.inputType)}
+			return
+		}
 		log.Println("SQL:", stmt)
 		log.Println("Grouping key at pos", mainInput.groupingPosition)
-		rows, err := dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
+		if mainInput.inputType == 0 {
+			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt)
+		} else if mainInput.inputType == 1 {
+			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
+		}
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
 			return
