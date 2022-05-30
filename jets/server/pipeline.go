@@ -1,15 +1,11 @@
 package main
 
 import (
-	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // This file contains the components for coordinating
@@ -52,7 +48,7 @@ type writeResult struct {
 }
 
 // Main pipeline processing function
-func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
+func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	var result pipelineResult
 	done := make(chan struct{})
 	defer close(done)
@@ -146,7 +142,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}
 
 	// start the read input goroutine
-	dataInputc, readResultc := readInput(dbpool, done, processInput, reteWorkspace)
+	dataInputc, readResultc := readInput(done, processInput, reteWorkspace)
 
 	// create the writeOutput channels
 	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
@@ -230,7 +226,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	for i := 0; i < ps; i++ {
 		go func() {
 			// Start the execute rules workers
-			result, err := reteWorkspace.ExecuteRules(dbpool, workspaceMgr, processInput, dataInputc, outputMapping, writeOutputc)
+			result, err := reteWorkspace.ExecuteRules(workspaceMgr, processInput, dataInputc, outputMapping, writeOutputc)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)
@@ -276,7 +272,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 		go func(tableName string, tableSpec *workspace.DomainTable) {
 			// Start the write table workers
 			source := WriteTableSource{source: writeOutputc[tableName]}
-			result, err := source.writeTable(dbpool, tableSpec)
+			result, err := source.writeTable(dbc.mainNode.dbpool, tableSpec)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)
@@ -323,132 +319,4 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*pipelineR
 	}
 
 	return &result, nil
-}
-
-// readInput read the input table and grouping the rows according to the
-// grouping column
-func readInput(dbpool *pgxpool.Pool, done <-chan struct{}, processInput *ProcessInput, reteWorkspace *ReteWorkspace) (<-chan [][]interface{}, <-chan readResult) {
-	dataInputc := make(chan [][]interface{})
-	result := make(chan readResult, 1)
-	go func() {
-		defer close(dataInputc)
-		// prepare the sql stmt
-		stmt, nCol := processInput.makeSqlStmt()
-		log.Println("SQL:", stmt)
-		log.Println("Grouping key at pos", processInput.groupingPosition)
-		rows, err := dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
-		if err != nil {
-			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
-			return
-		}
-		defer rows.Close()
-		rowCount := 0
-
-		// loop over all value of the grouping key
-		// A slice to hold data from returned rows.
-		var dataGrps [][]interface{}
-		var groupingValue string
-		// Loop through rows, using Scan to assign column data to struct fields.
-		isTextInput := processInput.inputType == 0
-		for rows.Next() {
-			dataRow := make([]interface{}, nCol)
-			if isTextInput {
-				dataGrp := make([]sql.NullString, nCol)
-				for i := 0; i < nCol; i++ {
-					dataRow[i] = &dataGrp[i]
-				}	
-			} else {
-				// input type base on model, 
-				for i := 0; i < nCol; i++ {
-					inputColumnSpec := &processInput.processInputMapping[i]
-					rdfType := inputColumnSpec.rdfType
-					switch rdfType {
-					case "resource", "null", "text":
-						if inputColumnSpec.isArray {
-							dataRow[i] = &[]string{}
-						} else {
-							dataRow[i] = &sql.NullString{}
-					  }
-		
-					case "int", "bool":
-						if inputColumnSpec.isArray {
-							dataRow[i] = &[]int{}
-						} else {
-							dataRow[i] = &sql.NullInt32{}
-					  }
-
-					case "uint", "long", "ulong":
-						if inputColumnSpec.isArray {
-							dataRow[i] = &[]int64{}
-						} else {
-							dataRow[i] = &sql.NullInt64{}
-					  }
-
-					case "double":
-						if inputColumnSpec.isArray {
-							dataRow[i] = &[]float64{}
-						} else {
-							dataRow[i] = &sql.NullFloat64{}
-					  }
-
-					case "date", "datetime":
-						if inputColumnSpec.isArray {
-							dataRow[i] = &[]string{}
-						} else {
-							dataRow[i] = &sql.NullString{}
-					  }
-
-					default:
-						dataRow[i] = &sql.NullString{}
-					}
-				}	
-			}
-
-			if err := rows.Scan(dataRow...); err != nil {
-				log.Printf("error while scanning dataRow: %v", err)
-				result <- readResult{rowCount, err}
-				return
-			}
-			// check if grouping change
-			dataGrp := dataRow[processInput.groupingPosition].(*sql.NullString)
-			if !dataGrp.Valid {
-				result <- readResult{rowCount, errors.New("error while reading input table, got row with null in grouping column")}
-				return
-			}
-			if glogv > 0 {
-				if isTextInput {
-					log.Printf("Got text-based input record with grouping key %s",dataGrp.String)
-				} else {
-					log.Printf("Got input entity with grouping key %s",dataGrp.String)
-				}
-			}
-			if rowCount == 0 || groupingValue != dataGrp.String {
-				// start grouping
-				groupingValue = dataGrp.String
-				if rowCount > 0 {
-					// send previous grouping
-					select {
-					case dataInputc <- dataGrps:
-						dataGrps = make([][]interface{}, 0)
-					case <-done:
-						result <- readResult{rowCount, errors.New("data load from input table canceled")}
-						return
-					}
-				}
-			}
-
-			rowCount += 1
-			dataGrps = append(dataGrps, dataRow)
-		}
-		// send last grouping
-		dataInputc <- dataGrps
-
-		if err = rows.Err(); err != nil {
-			result <- readResult{rowCount, err}
-			return
-		}
-
-		result <- readResult{rowCount, nil}
-	}()
-	return dataInputc, result
 }

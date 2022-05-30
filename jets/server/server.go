@@ -13,23 +13,33 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+type dbNode struct {
+	dbpool *pgxpool.Pool
+	dsn string
+}
+type dbConnections struct {
+	mainNode dbNode
+	joinNodes []dbNode
+}
+
 // Command Line Arguments
-var dsn = flag.String("dsn", "", "database connection string (required)")
-var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required)")
-var lookupDb = flag.String("lookupDb", "", "lookup data path")
-var ruleset = flag.String("ruleset", "", "main rule set name (required or -ruleseq)")
-var ruleseq = flag.String("ruleseq", "", "rule set sequence (required or -ruleset)")
-var procConfigKey = flag.Int("pcKey", 0, "Process config key (required)")
-var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
-var sessionId = flag.String("sessionId", "", "Process session ID used to link entitied processed together.")
-var inSessionId = flag.String("inSessionId", "", "Session ID for input domain table, default is sessionId.")
-var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
-var shardId = flag.Int("shardId", 0, "Shard id for the processing node.")
-var outTables = flag.String("outTables", "", "Comma-separed list of output tables (required).")
+var dsnList       = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
+var workspaceDb   = flag.String("workspaceDb", "", "workspace db path (required)")
+var lookupDb      = flag.String("lookupDb", "", "lookup data path")
+var ruleset       = flag.String("ruleset", "", "main rule set name (required or -ruleseq)")
+var ruleseq       = flag.String("ruleseq", "", "rule set sequence (required or -ruleset)")
+var procConfigKey = flag.Int   ("pcKey", 0, "Process config key (required)")
+var poolSize      = flag.Int   ("poolSize", 10, "Pool size constraint")
+var sessionId     = flag.String("sessionId", "", "Process session ID used to link entitied processed together.")
+var inSessionId   = flag.String("inSessionId", "", "Session ID for input domain table, default is sessionId.")
+var limit         = flag.Int   ("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
+var shardId       = flag.Int   ("shardId", 0, "Shard id for the processing node.")
+var outTables     = flag.String("outTables", "", "Comma-separed list of output tables (required).")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int 	// taken from env GLOG_v
 var out2all bool
+var dbc dbConnections
 
 func init() {
 	extTables = make(map[string][]string)
@@ -52,13 +62,24 @@ func init() {
 // doJob main function
 func doJob() error {
 
-	// open db connection
-	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	// open db connections
+	dsnSplit := strings.Split(*dsnList, ",")
+	dsn := dsnSplit[*shardId % len(dsnSplit)]
+	dbpool, err := pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
+		return fmt.Errorf("while opening db connection on %s: %v", dsn, err)
 	}
-	defer dbpool.Close()
-
+	dbc = dbConnections{mainNode: dbNode{dsn: dsn, dbpool: dbpool }, joinNodes: make([]dbNode, len(dsnSplit))}
+	defer dbc.mainNode.dbpool.Close()
+	for i, dsn := range dsnSplit {
+		dbpool, err = pgxpool.Connect(context.Background(), dsn)
+		if err != nil {
+			return fmt.Errorf("while opening db connection on %s: %v", dsn, err)
+		}
+		dbc.joinNodes[i] = dbNode{dbpool: dbpool, dsn: dsn}
+		defer dbc.joinNodes[i].dbpool.Close()
+	}
+	dbpool = dbc.mainNode.dbpool
 	var procConfig ProcessConfig
 
 	err = procConfig.read(dbpool, *procConfigKey)
@@ -93,7 +114,7 @@ func doJob() error {
 	if err != nil {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
-	pipelineResult, err := ProcessData(dbpool, reteWorkspace)
+	pipelineResult, err := ProcessData(reteWorkspace)
 	if err != nil {
 		reteWorkspace.Release()
 		return fmt.Errorf("while processing pipeline: %v", err)
@@ -118,7 +139,7 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Process config key value (-pcKey) must be provided.")
 	}
-	if *dsn == "" {
+	if *dsnList == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Connection string (-dsn) must be provided.")
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type ReteWorkspace struct {
@@ -73,10 +72,9 @@ func (rw *ReteWorkspace) Release() error {
 
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
-	dbpool *pgxpool.Pool,
 	workspaceMgr *workspace.WorkspaceDb,
 	processInput *ProcessInput,
-	dataInputc <-chan [][]interface{},
+	dataInputc <-chan inputBundle,
 	outputSpecs workspace.OutputTableSpecs,
 	writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
 	var result ExecuteRulesResult
@@ -107,11 +105,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	ri.argdMap = make(map[string]float64)
 	var session_count int64
 
-	for inputRecords := range dataInputc {
-		var groupingKey sql.NullString
-		if len(inputRecords) > 0 {
-			groupingKey = *inputRecords[0][processInput.groupingPosition].(*sql.NullString)
-		}
+	for inBundle := range dataInputc {
 		
 		// setup the rdf session for the grouping
 		session_count += 1
@@ -122,7 +116,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		for i, ruleset := range rw.ruleset {
 			if glogv > 0 {
-				log.Println("Start Rete Session", session_count,"for ruleset",ruleset, "with grouping key", groupingKey.String)
+				log.Println("Start Rete Session", session_count,"for ruleset",ruleset, "with grouping key", inBundle.groupingValue)
 			}
 			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
@@ -132,9 +126,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 				switch processInput.inputType {
 					// input table (tdv / csv)
 				case 0:
-					err = ri.assertInputRecords(reteSession, processInput, &inputRecords, &writeOutputc)
+					err = ri.assertInputRecords(reteSession, &inBundle, &writeOutputc)
 				case 1:
-					err = ri.assertEntities(reteSession, processInput, &inputRecords, &writeOutputc)
+					err = ri.assertEntities(reteSession, &inBundle, &writeOutputc)
 				default:
 					log.Println("ERROR invalid input type for ruleset", ruleset)
 					return &result, fmt.Errorf("error: invalid input_type for process_input key %d", processInput.key)
@@ -166,7 +160,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			// do for iloop <= maxloop (since loop start at one!)
 			for iloop=0; iloop <= nloop; iloop++ {
 				if glogv > 1 {
-					log.Println("Calling Execute Rules, loop:",iloop,", session count:", session_count,", for ruleset:",ruleset, ", with grouping key:", groupingKey.String)
+					log.Println("Calling Execute Rules, loop:",iloop,", session count:", session_count,", for ruleset:",ruleset, ", with grouping key:", inBundle.groupingValue)
 				}
 				if iloop > 0 {
 					r, err := reteSession.NewIntLiteral(int(iloop))
@@ -178,7 +172,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				msg, err := reteSession.ExecuteRules()
 				if err != nil {
 					var br BadRow
-					br.GroupingKey = groupingKey
+					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
 					log.Println("BAD ROW:",br)
 					br.write2Chan(writeOutputc["process_errors"])
@@ -192,7 +186,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			if nloop>0 && iloop >= nloop {
 				var br BadRow
-				br.GroupingKey = groupingKey
+				br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
 				log.Println("MAX LOOP REACHED:",br)
 				br.write2Chan(writeOutputc["process_errors"])
@@ -254,7 +248,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								if err == nil {
 									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 								}
-								br.GroupingKey = groupingKey
+								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 								br.ErrorMessage = sql.NullString {
 									String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
 									Valid: true}
@@ -278,7 +272,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								if err == nil {
 									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 								}
-								br.GroupingKey = groupingKey
+								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 								br.ErrorMessage = sql.NullString {
 									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName), 
 									Valid: true}
