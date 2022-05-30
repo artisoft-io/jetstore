@@ -3,12 +3,16 @@ DELETE FROM process_config WHERE key in (201, 202);
 
 INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALUES
   (201, 'ACME', 'Entity from aspec:Simulator', 'aspec:Simulator'),
-  (202, 'ACME', 'Entity from hc:SimulatedPatient', 'hc:SimulatedPatient')
+  (202, 'ACME', 'Entity from hc:SimulatedPatient', 'hc:SimulatedPatient'),
+  (203, 'ACME', 'Entity Merge from hc:SimulatedPatient', 'hc:SimulatedPatient')
 ;
 
 INSERT INTO process_input (key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column) VALUES
   (221, 201, 1, 'aspec:Simulator', 'aspec:Simulator', 'jets:key', 'jets:key'),
-  (222, 202, 1, 'hc:SimulatedPatient', 'hc:SimulatedPatient', 'jets:key', 'jets:key')
+  (222, 202, 1, 'hc:SimulatedPatient', 'hc:SimulatedPatient', 'jets:key', 'jets:key'),
+  (230, 203, 1, 'hc:SimulatedPatient', 'hc:SimulatedPatient', 'jets:key', 'jets:key'),
+  (231, 203, 1, 'hc:ProfessionalClaim', 'hc:ProfessionalClaim', 'hc:member_number', 'jets:key'),
+  (232, 203, 1, 'hc:InstitutionalClaim', 'hc:InstitutionalClaim', 'hc:member_number', 'jets:key')
 ;
 
 INSERT INTO process_mapping (process_input_key, input_column, data_property, function_name, argument, default_value, error_message) VALUES
@@ -28,7 +32,20 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
   (222, 'hc:gender', 'hc:gender', NULL, NULL, NULL, NULL),
   (222, 'asim:claim_group_lk', 'asim:claim_group_lk', NULL, NULL, NULL, NULL),
   (222, 'jets:key', 'jets:key', NULL, NULL, NULL, NULL),
-  (222, 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL)
+  (222, 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL),
+  (230, 'hc:patient_number', 'hc:patient_number', NULL, NULL, NULL, NULL),
+  (230, 'hc:dob', 'hc:dob', NULL, NULL, NULL, NULL),
+  (230, 'hc:gender', 'hc:gender', NULL, NULL, NULL, NULL),
+  (230, 'jets:key', 'jets:key', NULL, NULL, NULL, NULL),
+  (230, 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL),
+  (231, 'hc:member_number', 'hc:member_number', NULL, NULL, NULL, NULL),
+  (231, 'hc:claim_number', 'hc:claim_number', NULL, NULL, NULL, NULL),
+  (231, 'jets:key', 'jets:key', NULL, NULL, NULL, NULL),
+  (231, 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL),
+  (232, 'hc:member_number', 'hc:member_number', NULL, NULL, NULL, NULL),
+  (232, 'hc:claim_number', 'hc:claim_number', NULL, NULL, NULL, NULL),
+  (232, 'jets:key', 'jets:key', NULL, NULL, NULL, NULL),
+  (232, 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL)
 ;
 
 INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALUES

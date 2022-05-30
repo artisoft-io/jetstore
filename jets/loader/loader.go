@@ -75,7 +75,7 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 		buf.WriteString(pgx.Identifier{header}.Sanitize())
 		buf.WriteString(" TEXT, ")
 	}
-	buf.WriteString(" \"jets:key\" TEXT DEFAULT '' NOT NULL,")
+	buf.WriteString(" \"jets:key\" TEXT DEFAULT gen_random_uuid ()::text NOT NULL,")
 	buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL,")
 	buf.WriteString(" shard_id integer DEFAULT 0 NOT NULL, ")
 	buf.WriteString(" last_update timestamp without time zone DEFAULT now() NOT NULL ")

@@ -125,6 +125,37 @@ type RuleConfig struct {
 
 // utility methods
 // prepare the sql statement for reading from input table (csv)
+// "SELECT  {{column_names}}    
+//  FROM {{table_name}}    
+//  ORDER BY {{grouping_key}})
+//
+func (processInput *ProcessInput) makeInputSqlStmt() string {
+	var buf strings.Builder
+	buf.WriteString("SELECT ")
+	for i, spec := range processInput.processInputMapping {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		col := pgx.Identifier{spec.inputColumn}
+		buf.WriteString(col.Sanitize())
+	}
+	buf.WriteString(" FROM ")
+	tbl := pgx.Identifier{processInput.inputTable}
+	buf.WriteString(tbl.Sanitize())
+	buf.WriteString(" ORDER BY ")
+	col := pgx.Identifier{processInput.groupingColumn}
+	buf.WriteString(col.Sanitize())
+	buf.WriteString(" ASC ")
+	if *limit > 0 {
+		buf.WriteString(" LIMIT ")
+		buf.WriteString(strconv.Itoa(*limit))
+	}
+
+	return buf.String()
+}
+
+// utility methods
+// prepare the sql statement for reading from domain table (persisted type)
 //
 // SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) 
 //		rdf__type, hc__adjudication_date, hc__claim_number, hc__days_of_supplies, hc__drug_qty, hc__is_hmo, hc__service_date, hc__tag, rdv_core__domainkey, rdv_core__key, rdv_core__persisted_data_type, rdv_core__sessionid, last_update

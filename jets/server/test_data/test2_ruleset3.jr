@@ -1,0 +1,38 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "test2_support.jr"
+
+# ========================================================================
+# Create hc:PatientAdum from hc:Patient augmented with
+# hc:ProfessionalClaim and hc:InstitutionalClaim
+# -----------------------------------------------------------------------
+volatile_resource patientAdum = "patientAdum";
+
+[JDEMO10]:
+  (?patient rdf:type hc:Patient).
+  (?patient hc:patient_number ?pnum)
+  ->
+  (?patient patientAdum create_entity("ADUM" + ?pnum))
+;
+
+[JDEMO20]:
+  (?patient rdf:type hc:Patient).
+  (?patient hc:patient_number ?pnum).
+  (?patient patientAdum ?padum)
+  ->
+  (?padum hcdm:has_patient ?patient).
+;
+
+[JDEMO50]:
+  (?patient rdf:type hc:Patient).
+  (?patient hc:patient_number ?pnum).
+  (?patient patientAdum ?padum)
+  (?claim  hc:member_number ?pnum).
+  (?claim rdf:type hc:Claim).
+  (?claim hc:claim_number ?cnum).
+  ->
+  (?padum hcdm:claim_number ?cnum).
+  (?padum hcdm:has_patient ?patient).
+  (?padum hcdm:has_claims ?claim)
+;
