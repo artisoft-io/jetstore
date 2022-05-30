@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------------------------
 rule_sequence step1 {
   $main_rule_sets = [
-    "ruleset1_test1.jr",
-    "ruleset2_test1.jr"
+    "test1_ruleset1.jr",
+    "test1_ruleset2.jr"
   ]
 };

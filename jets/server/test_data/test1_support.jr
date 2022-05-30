@@ -16,7 +16,7 @@ class jets:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
     jets:key as text,
-    rdf:type as array of text
+    rdf:type as array of resource
   ],
   $as_table = false
 };
@@ -46,7 +46,7 @@ class hc:Claim {
 # csv file have these columns: "CODE, MODIFIER, DESCRIPTION"
 # Using composite key: CODE+MODIFIER
 lookup_table lk:CodeDescription {
-  $csv_file = "code_description_test1.csv",    # csv file location
+  $csv_file = "test1_code_description.csv",    # csv file location
   $key = ["CODE","MODIFIER"], 
   $columns = [
     "DESCRIPTION" as text
