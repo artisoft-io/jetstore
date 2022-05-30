@@ -101,11 +101,36 @@ class hc:SimulatedPatient {
 class hc:Claim {
   $base_classes = [jets:Entity],
   $data_properties = [
-    hc:member_number as text,
     hc:claim_number as text,
     hc:claim_type as text,
+    hc:dos as date,
+    hc:member_number as text,
     hc:npi as text,
-    hc:dos as date
+    hc:primary_diagnosis_code as text,
+    hc:procedure_code as text,
+    hc:procedure_code_modif1 as text,
+    hc:secondary_diagnosis_code1 as text
+  ],
+  $as_table = true
+};
+
+class hc:ProfessionalClaim {
+  $base_classes = [
+    hc:Claim
+  ],
+  $data_properties = [
+    hc:attending_npi as text
+  ],
+  $as_table = true
+};
+
+class hc:InstitutionalClaim {
+  $base_classes = [
+    hc:Claim
+  ],
+  $data_properties = [
+    hc:dos_start as date,
+    hc:dos_end as date
   ],
   $as_table = true
 };

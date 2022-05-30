@@ -1,10 +1,10 @@
 key,asim:event_key,asim:event_type,asim:event_rdf_type,asim:provider_group_lk,asim:service_date_offset,asim:service_date_max_days
-0,LR001,MEDICAL,hc:Claim,PG1,20,10
-0,LR002,MEDICAL,hc:Claim,PG1,25,10
+0,LR001,MEDICAL,hc:ProfessionalClaim,PG1,20,10
+0,LR002,INSTITUTIONAL,hc:InstitutionalClaim,PG1,25,10
 0,LR003,PHARMACY,hc:Claim,PG1,30,20
-1,LR101,MEDICAL,hc:Claim,PG1,20,10
-1,LR102,MEDICAL,hc:Claim,PG1,25,10
+1,LR101,MEDICAL,hc:ProfessionalClaim,PG1,20,10
+1,LR102,INSTITUTIONAL,hc:InstitutionalClaim,PG1,25,10
 1,LR103,LABORATORY,hc:Claim,PG1,30,20
-2,LR201,MEDICAL,hc:Claim,PG1,20,10
-2,LR202,MEDICAL,hc:Claim,PG1,25,10
-2,LR203,INSTITUTIONAL,hc:Claim,PG1,30,20
+2,LR201,MEDICAL,hc:ProfessionalClaim,PG1,20,10
+2,LR202,INSTITUTIONAL,hc:InstitutionalClaim,PG1,25,10
+2,LR203,INSTITUTIONAL,hc:InstitutionalClaim,PG1,30,20
