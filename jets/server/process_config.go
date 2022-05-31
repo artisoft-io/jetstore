@@ -151,16 +151,11 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 
 // utility methods
 // prepare the sql statement for reading from domain table (persisted type)
-//
-// SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) 
-//		rdf__type, hc__adjudication_date, hc__claim_number, hc__days_of_supplies, hc__drug_qty, hc__is_hmo, hc__service_date, hc__tag, rdv_core__domainkey, rdv_core__key, rdv_core__persisted_data_type, rdv_core__sessionid, last_update
-// FROM hc__claim
-// ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC;
-// ---
-// "SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    
-//  FROM {{table_name}}    
-//  WHERE rdv_core__sessionid = '{{input_session_id}}' AND shard_id = {{shard_id}}    
-//  ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}})", *tblName).Scan(&exists)
+// Example from test2 of server unit tests:
+//   SELECT DISTINCT ON ("jets:key", session_id) "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type" 
+//   FROM "hc:SimulatedPatient" 
+//   WHERE session_id=$1 AND shard_id=$2  
+//   ORDER BY "jets:key", session_id, last_update DESC, "jets:key" ASC 
 //
 func (processInput *ProcessInput) makeSqlStmt() string {
 	var buf strings.Builder
@@ -188,14 +183,27 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 	return buf.String()
 }
 
-//  SELECT DISTINCT ON (rdv_core__key, rdv_core__sessionid) {{column_names}}    
-//	FROM {{table_name}}    
-//	WHERE rdv_core__sessionid = '{{input_session_id}}' AND {{grouping_key}} >= {{grouping_value}}    
-//	ORDER BY rdv_core__key, rdv_core__sessionid, last_update DESC, {{grouping_key}}",
+// Generate query for merged-in table
+// Example from test2 of server unit tests:
+//  case join using hc:member_number as grouping column:
+//     SELECT DISTINCT ON ("hc:member_number", "jets:key", session_id) "hc:member_number", session_id, "hc:claim_number", "jets:key", "rdf:type" 
+//     FROM "hc:ProfessionalClaim" 
+//     WHERE session_id=$1 AND "hc:member_number" >= $2  
+//     ORDER BY "hc:member_number" ASC, "jets:key", session_id, last_update DESC
 //
 func (processInput *ProcessInput) makeJoinSqlStmt() string {
+	tbl := pgx.Identifier{processInput.inputTable}
+	tbl_name := tbl.Sanitize()
+	col := pgx.Identifier{processInput.groupingColumn}
+	grouping_col_name := col.Sanitize()
 	var buf strings.Builder
-	buf.WriteString("SELECT DISTINCT ON (\"jets:key\", session_id) ")
+
+	buf.WriteString("SELECT DISTINCT ON ( ")
+	if grouping_col_name != "jets:key" {
+		buf.WriteString(grouping_col_name)
+		buf.WriteString(", ")	
+	}
+	buf.WriteString(" \"jets:key\", session_id) ")
 	for i, spec := range processInput.processInputMapping {
 		if i > 0 {
 			buf.WriteString(", ")
@@ -204,16 +212,16 @@ func (processInput *ProcessInput) makeJoinSqlStmt() string {
 		buf.WriteString(col.Sanitize())
 	}
 	buf.WriteString(" FROM ")
-	tbl := pgx.Identifier{processInput.inputTable}
-	buf.WriteString(tbl.Sanitize())
-	col := pgx.Identifier{processInput.groupingColumn}
-	gcs := col.Sanitize()
+	buf.WriteString(tbl_name)
 	buf.WriteString(" WHERE session_id=$1 AND ")
-	buf.WriteString(gcs)
+	buf.WriteString(grouping_col_name)
 	buf.WriteString(" >= $2 ")
-	buf.WriteString(" ORDER BY \"jets:key\", session_id, last_update DESC, ")
-	buf.WriteString(gcs)
-	buf.WriteString(" ASC ")
+	buf.WriteString(" ORDER BY ")
+	if grouping_col_name != "jets:key" {
+		buf.WriteString(grouping_col_name)
+		buf.WriteString(" ASC, ")	
+	}
+	buf.WriteString(" \"jets:key\", session_id, last_update DESC ")
 	if *limit > 0 {
 		buf.WriteString(" LIMIT ")
 		buf.WriteString(strconv.Itoa(*limit))
