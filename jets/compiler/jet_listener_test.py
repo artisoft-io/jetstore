@@ -430,13 +430,16 @@ class JetListenerTest(absltest.TestCase):
           jets:key as int,            # comment 3
           diagnosis as array of text  # comment 4
         ],                            # comment 5
+        $grouping_properties = [      # comment 12
+          diagnosis                   # comment 13
+        ],                            # comment 15
         # comment here                # comment 6
         $as_table = true              # comment 7
       };
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "as_array": "false"}, {"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true"}]}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "classes": [{"type": "class", "name": "jets:Entity", "base_classes": ["owl:Thing"], "data_properties": [{"name": "jets:key", "type": "int", "as_array": "false"}, {"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true", "grouping_properties": ["diagnosis"]}]}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))

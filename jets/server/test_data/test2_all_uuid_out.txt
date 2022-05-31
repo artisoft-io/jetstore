@@ -1,0 +1,152 @@
+2022/05/31 18:48:20 Command Line Argument: procConfigKey: 201
+2022/05/31 18:48:20 Command Line Argument: poolSize: 10
+2022/05/31 18:48:20 Command Line Argument: sessionId: session101
+2022/05/31 18:48:20 Command Line Argument: inSessionId: 
+2022/05/31 18:48:20 Command Line Argument: limit: -1
+2022/05/31 18:48:20 Command Line Argument: shardId: 0
+2022/05/31 18:48:20 Command Line Argument: workspaceDb: ./test_data/test2_workspace.db
+2022/05/31 18:48:20 Command Line Argument: lookupDb: test_data/test2_lookup.db
+2022/05/31 18:48:20 Command Line Argument: ruleset: 
+2022/05/31 18:48:20 Command Line Argument: ruleseq: all_uuid
+2022/05/31 18:48:20 Command Line Argument: outTables: hc:PatientAdum,hc:SimulatedClaim,hc:Claim,hc:ProfessionalClaim,hc:InstitutionalClaim,hc:SimulatedPatient
+2022/05/31 18:48:20 Command Line Argument: GLOG_v is set to 0
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20220531 18:48:20.496594 1630472 lookup_sql_helper.h:256] LookupTable 'lk:BasePatientPersona' initialized
+I20220531 18:48:20.496867 1630472 lookup_sql_helper.h:256] LookupTable 'lk:LowRiskEventGroup' initialized
+I20220531 18:48:20.497112 1630472 lookup_sql_helper.h:256] LookupTable 'lk:PatientDemographic' initialized
+2022/05/31 18:48:20 Opening workspace database...
+2022/05/31 18:48:20 The output tables are:
+2022/05/31 18:48:20    - hc:PatientAdum
+2022/05/31 18:48:20    - hc:SimulatedClaim
+2022/05/31 18:48:20    - hc:Claim
+2022/05/31 18:48:20    - hc:ProfessionalClaim
+2022/05/31 18:48:20    - hc:InstitutionalClaim
+2022/05/31 18:48:20    - hc:SimulatedPatient
+2022/05/31 18:48:20   - rs_name: test2_ruleset1.jr
+2022/05/31 18:48:20   - rs_name: test2_ruleset2uuid.jr
+2022/05/31 18:48:20   - rs_name: test2_ruleset3.jr
+2022/05/31 18:48:20 Creating writeOutput channels for output tables: [hc:PatientAdum hc:SimulatedClaim hc:Claim hc:ProfessionalClaim hc:InstitutionalClaim hc:SimulatedPatient]
+2022/05/31 18:48:20 Creating output channel for out table: hc:PatientAdum
+2022/05/31 18:48:20 Creating output channel for out table: hc:SimulatedClaim
+2022/05/31 18:48:20 Creating output channel for out table: hc:Claim
+2022/05/31 18:48:20 Creating output channel for out table: hc:ProfessionalClaim
+2022/05/31 18:48:20 Creating output channel for out table: hc:InstitutionalClaim
+2022/05/31 18:48:20 Creating output channel for out table: hc:SimulatedPatient
+2022/05/31 18:48:20 Reading table hc:Claim info...
+2022/05/31 18:48:20 SQL: SELECT DISTINCT ON ("jets:key", session_id) "aspec:anchor_date", "aspec:nbr_entities", "aspec:entity_key_prefix", "aspec:entity_persona_lk", "jets:key", "rdf:type" FROM "aspec:Simulator" WHERE session_id=$1 AND shard_id=$2  ORDER BY "jets:key", session_id, last_update DESC, "jets:key" ASC 
+2022/05/31 18:48:20 Grouping key at pos 4
+2022/05/31 18:48:20   - Column: asim:claim_profile , (property asim:claim_profile ), is_array? false
+2022/05/31 18:48:20   - Column: asim:provider_group_key , (property asim:provider_group_key ), is_array? false
+2022/05/31 18:48:20   - Column: hc:attending_npi , (property hc:attending_npi ), is_array? false
+2022/05/31 18:48:20   - Column: hc:claim_number , (property hc:claim_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:claim_type , (property hc:claim_type ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos , (property hc:dos ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos_end , (property hc:dos_end ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos_start , (property hc:dos_start ), is_array? false
+2022/05/31 18:48:20   - Column: hc:member_number , (property hc:member_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:npi , (property hc:npi ), is_array? false
+2022/05/31 18:48:20   - Column: hc:primary_diagnosis_code , (property hc:primary_diagnosis_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code , (property hc:procedure_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code_modif1 , (property hc:procedure_code_modif1 ), is_array? false
+2022/05/31 18:48:20   - Column: hc:secondary_diagnosis_code1 , (property hc:secondary_diagnosis_code1 ), is_array? false
+2022/05/31 18:48:20   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/31 18:48:20   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/31 18:48:20 Got 16 columns
+2022/05/31 18:48:20 Reading table hc:InstitutionalClaim info...
+2022/05/31 18:48:20   - Column: hc:claim_number , (property hc:claim_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:claim_type , (property hc:claim_type ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos , (property hc:dos ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos_end , (property hc:dos_end ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos_start , (property hc:dos_start ), is_array? false
+2022/05/31 18:48:20   - Column: hc:member_number , (property hc:member_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:npi , (property hc:npi ), is_array? false
+2022/05/31 18:48:20   - Column: hc:primary_diagnosis_code , (property hc:primary_diagnosis_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code , (property hc:procedure_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code_modif1 , (property hc:procedure_code_modif1 ), is_array? false
+2022/05/31 18:48:20   - Column: hc:secondary_diagnosis_code1 , (property hc:secondary_diagnosis_code1 ), is_array? false
+2022/05/31 18:48:20   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/31 18:48:20   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/31 18:48:20 Got 13 columns
+2022/05/31 18:48:20 Reading table hc:PatientAdum info...
+2022/05/31 18:48:20   - Column: hcdm:claim_number , (property hcdm:claim_number ), is_array? true
+2022/05/31 18:48:20   - Column: hcdm:has_claims , (property hcdm:has_claims ), is_array? true
+2022/05/31 18:48:20   - Column: hcdm:has_patient , (property hcdm:has_patient ), is_array? false
+2022/05/31 18:48:20   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/31 18:48:20   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/31 18:48:20 Got 5 columns
+2022/05/31 18:48:20 Reading table hc:ProfessionalClaim info...
+2022/05/31 18:48:20   - Column: hc:attending_npi , (property hc:attending_npi ), is_array? false
+2022/05/31 18:48:20   - Column: hc:claim_number , (property hc:claim_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:claim_type , (property hc:claim_type ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos , (property hc:dos ), is_array? false
+2022/05/31 18:48:20   - Column: hc:member_number , (property hc:member_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:npi , (property hc:npi ), is_array? false
+2022/05/31 18:48:20   - Column: hc:primary_diagnosis_code , (property hc:primary_diagnosis_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code , (property hc:procedure_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code_modif1 , (property hc:procedure_code_modif1 ), is_array? false
+2022/05/31 18:48:20   - Column: hc:secondary_diagnosis_code1 , (property hc:secondary_diagnosis_code1 ), is_array? false
+2022/05/31 18:48:20   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/31 18:48:20   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/31 18:48:20 Got 12 columns
+2022/05/31 18:48:20 Reading table hc:SimulatedClaim info...
+2022/05/31 18:48:20   - Column: asim:claim_profile , (property asim:claim_profile ), is_array? false
+2022/05/31 18:48:20   - Column: asim:provider_group_key , (property asim:provider_group_key ), is_array? false
+2022/05/31 18:48:20   - Column: hc:claim_number , (property hc:claim_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:claim_type , (property hc:claim_type ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dos , (property hc:dos ), is_array? false
+2022/05/31 18:48:20   - Column: hc:member_number , (property hc:member_number ), is_array? false
+2022/05/31 18:48:20   - Column: hc:npi , (property hc:npi ), is_array? false
+2022/05/31 18:48:20   - Column: hc:primary_diagnosis_code , (property hc:primary_diagnosis_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code , (property hc:procedure_code ), is_array? false
+2022/05/31 18:48:20   - Column: hc:procedure_code_modif1 , (property hc:procedure_code_modif1 ), is_array? false
+2022/05/31 18:48:20   - Column: hc:secondary_diagnosis_code1 , (property hc:secondary_diagnosis_code1 ), is_array? false
+2022/05/31 18:48:20   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/31 18:48:20   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/31 18:48:20 Got 13 columns
+2022/05/31 18:48:20 Reading table hc:SimulatedPatient info...
+2022/05/31 18:48:20   - Column: asim:anchor_date , (property asim:anchor_date ), is_array? false
+2022/05/31 18:48:20   - Column: asim:claim_group_lk , (property asim:claim_group_lk ), is_array? false
+2022/05/31 18:48:20   - Column: asim:demographic_group_key , (property asim:demographic_group_key ), is_array? false
+2022/05/31 18:48:20   - Column: asim:description , (property asim:description ), is_array? false
+2022/05/31 18:48:20   - Column: asim:event_group1_lk , (property asim:event_group1_lk ), is_array? false
+2022/05/31 18:48:20   - Column: asim:persona_key , (property asim:persona_key ), is_array? false
+2022/05/31 18:48:20   - Column: hc:dob , (property hc:dob ), is_array? false
+2022/05/31 18:48:20   - Column: hc:gender , (property hc:gender ), is_array? false
+2022/05/31 18:48:20   - Column: hc:patient_number , (property hc:patient_number ), is_array? false
+2022/05/31 18:48:20   - Column: jets:key , (property jets:key ), is_array? false
+2022/05/31 18:48:20   - Column: rdf:type , (property rdf:type ), is_array? true
+2022/05/31 18:48:20 Got 11 columns
+2022/05/31 18:48:20 Pipeline Preparation Complete, starting Rete Sessions...
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Checking if data load failed...
+2022/05/31 18:48:20 Write Table Started for hc:SimulatedPatient with 13 columns
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Write Table Started for hc:SimulatedClaim with 15 columns
+2022/05/31 18:48:20 Execute Rule Started
+2022/05/31 18:48:20 Write Table Started for hc:ProfessionalClaim with 14 columns
+2022/05/31 18:48:20 Write Table Started for process_errors with 6 columns
+2022/05/31 18:48:20 Write Table Started for hc:InstitutionalClaim with 15 columns
+2022/05/31 18:48:20 Write Table Started for hc:Claim with 18 columns
+2022/05/31 18:48:20 Write Table Started for hc:PatientAdum with 7 columns
+*** START Grouping  K:001
+*** START Grouping  K:002
+2022/05/31 18:48:20 Checking results of execute rules...
+2022/05/31 18:48:20 Close all writeOutputc channels...
+2022/05/31 18:48:20 Checking results of write2tables...
+2022/05/31 18:48:20 ...done closing writeOutputc
+2022/05/31 18:48:20 Input records count is: 2
+2022/05/31 18:48:20 Rete sessions count is: 2
+2022/05/31 18:48:20 Output records count for type 'hc:SimulatedClaim' is: 32
+2022/05/31 18:48:20 Output records count for type 'hc:InstitutionalClaim' is: 16
+2022/05/31 18:48:20 Output records count for type 'hc:ProfessionalClaim' is: 16
+2022/05/31 18:48:20 Output records count for type 'hc:Claim' is: 32
+2022/05/31 18:48:20 Output records count for type 'hc:SimulatedPatient' is: 4
+2022/05/31 18:48:20 Output records count for type 'process_errors' is: 0
+2022/05/31 18:48:20 Output records count for type 'hc:PatientAdum' is: 4

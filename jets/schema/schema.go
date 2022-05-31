@@ -82,7 +82,8 @@ func UpdateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 	buf.WriteString(pgx.Identifier{tableName}.Sanitize())
 	buf.WriteString(" ")
 	isFirst := true
-	for _, col := range columns {
+	for icol := range columns {
+		col := &columns[icol]
 		_, ok := existingColumns[col.ColumnName]
 		if !ok {
 			if !isFirst {
@@ -154,13 +155,14 @@ func ToPgType(dt string) string {
 func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.DomainColumn, extCols []string) error {
 	// drop stmt
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableName}.Sanitize())
+	log.Println(stmt)
 	if dbpool != nil {
 		_, err := dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			return fmt.Errorf("error while droping table: %v", err)
 		}	
 	} else {
-		log.Println(stmt)
+		return fmt.Errorf("error: database connection not available")
 	}
 
 	// create stmt
@@ -168,7 +170,8 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 	buf.WriteString("CREATE TABLE IF NOT EXISTS ")
 	buf.WriteString(pgx.Identifier{tableName}.Sanitize())
 	buf.WriteString("(")
-	for _,col := range columns {
+	for icol := range columns {
+		col := &columns[icol]
 		buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 		buf.WriteString(" ")
 		buf.WriteString(ToPgType(col.DataType))
@@ -187,26 +190,48 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 	buf.WriteString("last_update timestamp without time zone DEFAULT now() NOT NULL ")
 	buf.WriteString(");")
 	stmt = buf.String()
+	log.Println(stmt)
 	if dbpool != nil {
 		_, err := dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			return fmt.Errorf("error while creating table: %v", err)
 		}
 	} else {
-		log.Println(stmt)
+		return fmt.Errorf("error: database connection not available")
 	}
 	
 	// primary index stmt
 	stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  ("jets:key", session_id, last_update DESC);`, 
 		pgx.Identifier{tableName+"_primary_idx"}.Sanitize(),
 		pgx.Identifier{tableName}.Sanitize())
+  log.Println(stmt)
 	if dbpool != nil {
 		_, err := dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			return fmt.Errorf("error while creating primary index: %v", err)
 		}
 	} else {
-		log.Println(stmt)
+		return fmt.Errorf("error: database connection not available")
+	}
+	
+	// indexes on grouping columns
+	for icol := range columns {
+		col := &columns[icol]
+		if col.IsGrouping {
+			stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC, "jets:key", session_id, last_update DESC);`, 
+				pgx.Identifier{tableName+"_"+col.ColumnName+"_idx"}.Sanitize(),
+				pgx.Identifier{tableName}.Sanitize(),
+			  pgx.Identifier{col.ColumnName}.Sanitize())
+			log.Println(stmt)
+			if dbpool != nil {
+				_, err := dbpool.Exec(context.Background(), stmt)
+				if err != nil {
+					return fmt.Errorf("error while creating grouping index: %v", err)
+				}
+			} else {
+				return fmt.Errorf("error: database connection not available")
+				}	
+		}
 	}
 
 	// shard index stmt

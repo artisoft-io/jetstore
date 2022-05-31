@@ -48,24 +48,20 @@ jetstoreConfigItem
 // Define Class Statements
 // --------------------------------------------------------------------------------------
 defineClassStmt: CLASS className=declIdentifier '{' 
-    COMMENT*
-    BaseClasses ASSIGN '[' COMMENT* subClassOfSeq COMMENT* ']'
-    (dataPropertiesStmt)?
-    (asTableStmt)?
+    COMMENT* 
+    classStmt (',' COMMENT* classStmt)*
     COMMENT*
   '}' SEMICOLON;
 
+classStmt
+  : BaseClasses ASSIGN '[' COMMENT* subClassOfStmt (',' COMMENT* subClassOfStmt)* COMMENT* ']'
+  | DataProperties ASSIGN '[' COMMENT* dataPropertyDefinitions (','COMMENT* dataPropertyDefinitions)* COMMENT* ']'
+  | GroupingProperties ASSIGN '[' COMMENT* groupingPropertyStmt (',' COMMENT* groupingPropertyStmt)* COMMENT* ']'
+  | asTableStmt
+  ;
 
-
-subClassOfSeq: subClassOfStmt (',' COMMENT* subClassOfStmt)* ;
 subClassOfStmt: baseClassName=declIdentifier;
-
-dataPropertiesStmt: ',' COMMENT* DataProperties ASSIGN '[' COMMENT* dataPropertySeq COMMENT* ']';
-dataPropertySeq: dataPropertyDefinitions (','COMMENT* dataPropertyDefinitions)* ;
 dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType;
-
-asTableStmt: ',' COMMENT* AsTable ASSIGN asTable=asTableFlag;
-asTableFlag: TRUE | FALSE;
 dataPropertyType
   : Int32Type
   | UInt32Type
@@ -78,6 +74,9 @@ dataPropertyType
   | BoolType
   | ResourceType
 ;
+groupingPropertyStmt: groupingPropertyName=declIdentifier;
+asTableStmt: AsTable ASSIGN asTable=asTableFlag;
+asTableFlag: TRUE | FALSE;
 
 // --------------------------------------------------------------------------------------
 // Define Rule Sequence Statements
@@ -276,6 +275,7 @@ BaseClasses: '$base_classes';
 AsTable: '$as_table';
 DataProperties: '$data_properties';
 ARRAY: 'array of';
+GroupingProperties: '$grouping_properties';
 
 // JetStore Config
 JETSCONFIG: 'jetstore_config';

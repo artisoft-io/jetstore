@@ -468,26 +468,40 @@ class JetRulesPostProcessorTest(absltest.TestCase):
     #   print(k)
     # print()
 
-  # def test_fixrcvar1(self):
-  #   data = """
-  #     resource rdf:type = "rdf:type";
-  #     resource acme:Claim = "acme:Claim";
-  #     [RuleRC1]: 
-  #       (?clm01 rdf:type _1)
-  #       ->
-  #       (?clm01 rdf:type acme:Claim)
-  #     ;
-  #   """
-  #   jetrule_ctx =  self._process_data(data)
-  #   # print('GOT:',json.dumps(jetrule_ctx.jetRules, indent=2))
-  #   # print('COMPACT:',json.dumps(jetrule_ctx.jetRules))
-  #   expected = """{"literals": [], "resources": [{"type": "resource", "id": "rdf:type", "value": "rdf:type"}, {"type": "resource", "id": "acme:Claim", "value": "acme:Claim"}], "lookup_tables": [], "jet_rules": [{"name": "RuleRC1", "properties": {}, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "var", "value": "?v1", "id": "?x2", "label": "?v1"}], "normalizedLabel": "(?x1 rdf:type ?x2)", "label": "(?clm01 rdf:type ?v1)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?clm01", "id": "?x1", "label": "?clm01"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "acme:Claim"}], "normalizedLabel": "(?x1 rdf:type acme:Claim)", "label": "(?clm01 rdf:type acme:Claim)"}], "optimization": true, "salience": 100, "normalizedLabel": "[RuleRC1]:(?x1 rdf:type ?x2) -> (?x1 rdf:type acme:Claim);", "label": "[RuleRC1]:(?clm01 rdf:type ?v1) -> (?clm01 rdf:type acme:Claim);"}]}"""
-  #   self.assertEqual(jetrule_ctx.ERROR, False)
-  #   self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
-  #   # print('GOT')
-  #   # for k in jetrule_ctx.errors:
-  #   #   print(k)
-  #   # print()
+  def test_class1(self):
+    data = """
+      # =======================================================================================
+      # Jet Rules with class definition
+      class hc:Claim {
+        $base_classes = [owl:Thing],
+        $data_properties = [
+          hc:member_key as text
+        ],
+        $grouping_properties = [
+          hc:member_key
+        ]
+      };
+      class hc:MedicalClaim {
+        $base_classes = [
+          hc:Claim
+        ],
+        $data_properties = [
+          diagnosis as array of text
+        ],
+        $as_table = true
+      };
+    """
+    jetrule_ctx =  self._process_data(data)
+    # print('@@@ GOT jetRules',json.dumps(jetrule_ctx.jetRules, indent=2))
+    # print('@@@ GOT jetRules:')
+    # print(json.dumps(jetrule_ctx.jetRules))
+    expected = """{"literals": [], "resources": [{"id": "hc:Claim", "type": "resource", "value": "hc:Claim"}, {"id": "owl:Thing", "type": "resource", "value": "owl:Thing", "source_file_name": "predefined"}, {"id": "hc:member_key", "type": "resource", "value": "hc:member_key"}, {"id": "hc:MedicalClaim", "type": "resource", "value": "hc:MedicalClaim"}, {"id": "hc:Claim", "type": "resource", "value": "hc:Claim"}, {"id": "diagnosis", "type": "resource", "value": "diagnosis"}], "lookup_tables": [], "jet_rules": [{"name": "hc:Claim:1", "properties": {"i": "true"}, "source_file_name": null, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?s1", "id": "?x1", "label": "?s1"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "hc:Claim"}], "normalizedLabel": "(?x1 rdf:type hc:Claim)", "label": "(?s1 rdf:type hc:Claim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?s1", "id": "?x1", "label": "?s1"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "owl:Thing"}], "normalizedLabel": "(?x1 rdf:type owl:Thing)", "label": "(?s1 rdf:type owl:Thing)"}], "optimization": true, "salience": 100, "normalizedLabel": "[hc:Claim:1, i=true]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type owl:Thing);", "label": "[hc:Claim:1, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type owl:Thing);"}, {"name": "hc:MedicalClaim:2", "properties": {"i": "true"}, "source_file_name": null, "antecedents": [{"type": "antecedent", "isNot": false, "triple": [{"type": "var", "value": "?s1", "id": "?x1", "label": "?s1"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "hc:MedicalClaim"}], "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)", "label": "(?s1 rdf:type hc:MedicalClaim)"}], "consequents": [{"type": "consequent", "triple": [{"type": "var", "value": "?s1", "id": "?x1", "label": "?s1"}, {"type": "identifier", "value": "rdf:type"}, {"type": "identifier", "value": "hc:Claim"}], "normalizedLabel": "(?x1 rdf:type hc:Claim)", "label": "(?s1 rdf:type hc:Claim)"}], "optimization": true, "salience": 100, "normalizedLabel": "[hc:MedicalClaim:2, i=true]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);", "label": "[hc:MedicalClaim:2, i=true]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"}], "classes": [{"type": "class", "name": "hc:Claim", "base_classes": ["owl:Thing"], "data_properties": [{"name": "hc:member_key", "type": "text", "as_array": "false", "is_grouping": true}], "grouping_properties": ["hc:member_key"], "sub_classes": ["hc:MedicalClaim"]}, {"type": "class", "name": "hc:MedicalClaim", "base_classes": ["hc:Claim"], "data_properties": [{"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true", "sub_classes": []}]}"""
+    self.assertEqual(jetrule_ctx.ERROR, False)
+    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+    # print('GOT ERRORS')
+    # for k in jetrule_ctx.errors:
+    #   print(k)
+    # print()
 
 if __name__ == '__main__':
   absltest.main()
