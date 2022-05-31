@@ -113,7 +113,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
 
-		for _, ruleset := range rw.ruleset {
+		for iset, ruleset := range rw.ruleset {
 			if glogv > 0 {
 				log.Println("Start Rete Session", session_count,"for ruleset",ruleset, "with grouping key", inBundle.groupingValue)
 			}
@@ -121,10 +121,12 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if err != nil {
 				return &result, fmt.Errorf("while creating rete session: %v", err)
 			}
-			err = ri.assertInputBundle(reteSession, &inBundle, &writeOutputc)
-			if err != nil {
-				return &result, fmt.Errorf("while asserting input bundle for session: %v", err)
-			}	
+			if iset == 0 {
+				err = ri.assertInputBundle(reteSession, &inBundle, &writeOutputc)
+				if err != nil {
+					return &result, fmt.Errorf("while asserting input bundle for session: %v", err)
+				}	
+			}
 			// Step 0 of loop is pre loop or no loop
 			// Step 1+ for looping
 			reteSession.Erase(ri.jets__istate, ri.jets__loop, nil)
