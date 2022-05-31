@@ -84,6 +84,9 @@ class hc:Patient {
     hc:dob as date,
     hc:gender as text
   ],
+  $grouping_properties = [
+    hc:patient_number
+  ],
   $as_table = true
 };
 
@@ -120,6 +123,9 @@ class hc:Claim {
     hc:procedure_code as text,
     hc:procedure_code_modif1 as text,
     hc:secondary_diagnosis_code1 as text
+  ],
+  $grouping_properties = [
+    hc:member_number
   ],
   $as_table = true
 };

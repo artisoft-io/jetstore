@@ -55,6 +55,8 @@ defineClassStmt: CLASS className=declIdentifier '{'
     COMMENT*
   '}' SEMICOLON;
 
+
+
 subClassOfSeq: subClassOfStmt (',' COMMENT* subClassOfStmt)* ;
 subClassOfStmt: baseClassName=declIdentifier;
 
