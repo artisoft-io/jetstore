@@ -35,8 +35,9 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
     expected_key_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] 
     double_list = [] 
     expected_double_list = [0.5, 0.5, 1.0, 1.1, None, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1]   
+    ipos = 0
     for row in basic_table:
-      self.assertEqual(row['jets:key'],'0')
+      self.assertEqual(row['jets:key'], str(ipos))
       self.assertEqual(row['BASIC_TEST_DATE'],'1-1-2022')
       self.assertEqual(abs(int(row['BASIC_TEST_INT'])),42)
       self.assertEqual(abs(int(row['BASIC_TEST_LONG'])),1549251913000)      
@@ -46,6 +47,7 @@ class JetRulesLookupLoaderTest(absltest.TestCase):
       bool_list.append(row['BASIC_TEST_BOOL']) 
       double_list.append(row['BASIC_TEST_DOUBLE']) 
       key_list.append(row['__key__']) 
+      ipos += 1
 
     self.assertEqual(expected_bool_list, bool_list)
     self.assertEqual(expected_double_list, double_list)

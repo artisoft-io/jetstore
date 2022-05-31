@@ -15,9 +15,13 @@ class hc:Claim {
   $base_classes = [jets:Entity],
   $data_properties = [
     claim_number as long,
+    member_number as text,
     date_of_service as date,
-     primary_diagnosis as text,
-     secondary_diagnosis as array of text
+    primary_diagnosis as text,
+    secondary_diagnosis as array of text
+  ],
+  $grouping_properties = [
+    member_number
   ],
   $as_table = false
 };
@@ -25,6 +29,7 @@ class hc:Claim {
 class hc:MedicalClaim {
   $base_classes = [hc:Claim],
   $data_properties = [procedure_code as text],
+  $grouping_properties = [procedure_code],
   $as_table = true
 };
 

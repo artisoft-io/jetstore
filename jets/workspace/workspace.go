@@ -24,6 +24,7 @@ type DomainColumn struct {
 	Predicate    *bridge.Resource
 	DataType     string
 	IsArray      bool
+	IsGrouping   bool
 }
 
 type DomainTable struct {
@@ -142,7 +143,7 @@ func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(allTbl bool, outTableFil
 		if allTbl || outTableFilter[tableName] {
 			log.Println("Reading table", tableName, "info...")
 			domainColumnsRow, err := workspaceDb.db.Query(
-				"SELECT dc.name, dp.name, dc.type, dc.as_array FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
+				"SELECT dc.name, dp.name, dc.type, dc.as_array, dc.is_grouping FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
 			if err != nil {
 				return columnMap, fmt.Errorf("while loading domain table columns info from workspace db: %v", err)
 			}
@@ -150,8 +151,8 @@ func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(allTbl bool, outTableFil
 			domainColumns := DomainTable{TableName: tableName, Columns: make([]DomainColumn, 0)}
 			for domainColumnsRow.Next() { // Iterate and fetch the records from result cursor
 				var domainColumn DomainColumn
-				domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray)
-				log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray)
+				domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray, &domainColumn.IsGrouping)
+				log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray, ", is_grouping?", domainColumn.IsGrouping)
 				domainColumns.Columns = append(domainColumns.Columns, domainColumn)
 			}
 			log.Println("Got", len(domainColumns.Columns), "columns")

@@ -337,8 +337,8 @@ class JetRuleReteSQLite:
           pkey = self.data_properties_last_key
           self.data_properties_last_key += 1
           property['db_key'] = pkey                  # keep the globaly unique key for insertion in other tables
-          row = [pkey, key, property['name'], property['type'], property.get('as_array', False)]
-          self.write_cursor.execute("INSERT INTO data_properties (key, domain_class_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)", row)
+          row = [pkey, key, property['name'], property['type'], property.get('as_array', False), property.get('is_grouping', False)]
+          self.write_cursor.execute("INSERT INTO data_properties (key, domain_class_key, name, type, as_array, is_grouping) VALUES (?, ?, ?, ?, ?, ?)", row)
 
       else:
         # file with skey already in db, get the resource 'db_key' from the db;
@@ -373,8 +373,8 @@ class JetRuleReteSQLite:
         for column in tbl['columns']:
           domain_table_key = key
           data_property_key = self._get_key('data_properties', 'name', column['property_name'])
-          row = [domain_table_key, data_property_key, column['column_name'], column['type'], column.get('as_array', False)]
-          self.write_cursor.execute("INSERT INTO domain_columns (domain_table_key, data_property_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)", row)
+          row = [domain_table_key, data_property_key, column['column_name'], column['type'], column.get('as_array', False), column.get('is_grouping', False)]
+          self.write_cursor.execute("INSERT INTO domain_columns (domain_table_key, data_property_key, name, type, as_array, is_grouping) VALUES (?, ?, ?, ?, ?, ?)", row)
 
       else:
         # file with skey already in db, get the resource 'db_key' from the db;
@@ -713,6 +713,7 @@ class JetRuleReteSQLite:
         name               STRING NOT NULL,
         type               STRING NOT NULL,
         as_array           BOOL DEFAULT FALSE,
+        is_grouping        BOOL DEFAULT FALSE,
         -- domain property name must be unique in workspace
         UNIQUE (name)
       );
@@ -735,6 +736,7 @@ class JetRuleReteSQLite:
         name               STRING NOT NULL,
         type               STRING NOT NULL,
         as_array           BOOL DEFAULT FALSE,
+        is_grouping        BOOL DEFAULT FALSE,
         -- a column must appear only once in a table
         UNIQUE (domain_table_key, data_property_key),
         -- a column name must be unique for a table

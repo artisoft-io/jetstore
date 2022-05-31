@@ -17,8 +17,16 @@ class JetRulesPostProcessor:
   # Main Function
   def process_classes(self):
     if self.ctx.classes:
+      # setup a dict to access the classes
       for cls in self.ctx.classes:
+        cls['sub_classes'] = []
         self.classes_dict[cls['name']] = cls
+      # add sub classes to classes (needed for domain_table to columns of sub classes)      
+      for cls in self.ctx.classes:
+        for base_cls_name in cls['base_classes']:
+          base_class = self.classes_dict.get(base_cls_name, {'sub_classes':[]})
+          base_class['sub_classes'].append(cls['name'])
+
       self.createResourcesForClasses()
       self.createInherithanceRulesForClasses()
       self.createTablesForClasses()
@@ -31,9 +39,12 @@ class JetRulesPostProcessor:
       self.ctx.addResource(name, name, source_file_name)
       for bc in item['base_classes']:
         self.ctx.addResource(bc, bc, source_file_name)
+      grouping_properties = item.get('grouping_properties', [])      
       for p in item['data_properties']:
         name = p['name']
         self.ctx.addResource(name, name, source_file_name)
+        if name in grouping_properties:
+          p['is_grouping'] = True
 
   # visit classes and create rules for class inheritance axioms
   def createInherithanceRulesForClasses(self):
@@ -125,7 +136,29 @@ class JetRulesPostProcessor:
     # do base classes recursivelly
     for base_class_name in class_item['base_classes']:
       if base_class_name not in visited_classes:
-        self.add_columns(columns, visited_classes, self.classes_dict[base_class_name])
+        self.add_base_classes_columns(columns, visited_classes, self.classes_dict[base_class_name])
+    # do sub classes recursivelly
+    for sub_class_name in class_item['sub_classes']:
+      if sub_class_name not in visited_classes:
+        self.add_sub_classes_columns(columns, visited_classes, self.classes_dict[sub_class_name])
+
+  def add_base_classes_columns(self, columns, visited_classes, class_item):
+    visited_classes.append(class_item['name'])
+    for column in class_item['data_properties']:
+      columns[column['name']] = column.copy()
+    # do base classes recursivelly
+    for base_class_name in class_item['base_classes']:
+      if base_class_name not in visited_classes:
+        self.add_base_classes_columns(columns, visited_classes, self.classes_dict[base_class_name])
+
+  def add_sub_classes_columns(self, columns, visited_classes, class_item):
+    visited_classes.append(class_item['name'])
+    for column in class_item['data_properties']:
+      columns[column['name']] = column.copy()
+    # do sub classes recursivelly
+    for sub_class_name in class_item['sub_classes']:
+      if sub_class_name not in visited_classes:
+        self.add_sub_classes_columns(columns, visited_classes, self.classes_dict[sub_class_name])
 
   # =====================================================================================
   # createResourcesForLookupTables

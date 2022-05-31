@@ -379,6 +379,36 @@ class JetRulesCompilerTest(absltest.TestCase):
       print('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err)))
     self.assertEqual(err, None)
 
+  def test_class1(self):
+    data = """
+      # =======================================================================================
+      # Jet Rules with class definition
+      class hc:Claim {
+        $base_classes = [owl:Thing],
+        $data_properties = [
+          hc:member_key as text
+        ],
+        $grouping_properties = [
+          hc:member_key
+        ]
+      };
+      class hc:MedicalClaim {
+        $base_classes = [
+          hc:Claim
+        ],
+        $data_properties = [
+          diagnosis as array of text
+        ],
+        $as_table = true
+      };
+    """
+    jetrule_ctx =  self._get_augmented_data(data)
+    # print('@@@ GOT jetRules',json.dumps(jetrule_ctx.jetRules, indent=2))
+    # print('@@@ GOT COMPACT:',json.dumps(jetrule_ctx.jetRules))
+    expected = """{"resources": [{"id": "hc:Claim", "type": "resource", "value": "hc:Claim", "key": 0}, {"id": "owl:Thing", "type": "resource", "value": "owl:Thing", "source_file_name": "predefined", "key": 1}, {"id": "hc:member_key", "type": "resource", "value": "hc:member_key", "key": 2}, {"id": "hc:MedicalClaim", "type": "resource", "value": "hc:MedicalClaim", "key": 3}, {"id": "diagnosis", "type": "resource", "value": "diagnosis", "key": 4}, {"id": "rdf:type", "type": "resource", "value": "rdf:type", "source_file_name": "predefined", "key": 5}, {"type": "var", "id": "?x1", "is_binded": false, "var_pos": 0, "vertex": 1, "key": 6, "source_file_name": null}, {"type": "var", "id": "?x1", "is_binded": false, "var_pos": 0, "vertex": 2, "key": 7, "source_file_name": null}, {"type": "var", "id": "?x1", "is_binded": true, "vertex": 1, "is_antecedent": false, "var_pos": 0, "key": 8, "source_file_name": null}, {"type": "var", "id": "?x1", "is_binded": true, "vertex": 2, "is_antecedent": false, "var_pos": 0, "key": 9, "source_file_name": null}], "lookup_tables": [], "jet_rules": [{"name": "hc:Claim:1", "properties": {"i": "true"}, "optimization": true, "salience": 100, "antecedents": [{"type": "antecedent", "isNot": false, "normalizedLabel": "(?x1 rdf:type hc:Claim)", "vertex": 1, "parent_vertex": 0, "beta_relation_vars": ["?x1"], "pruned_var": [], "beta_var_nodes": [{"type": "var", "id": "?x1", "is_binded": false, "var_pos": 0, "vertex": 1, "key": 6, "source_file_name": null}], "children_vertexes": [], "rules": ["hc:Claim:1"], "salience": [100], "subject_key": 6, "predicate_key": 5, "object_key": 0}], "consequents": [{"type": "consequent", "normalizedLabel": "(?x1 rdf:type owl:Thing)", "vertex": 1, "consequent_seq": 0, "consequent_for_rule": "hc:Claim:1", "consequent_salience": 100, "subject_key": 8, "predicate_key": 5, "object_key": 1}], "authoredLabel": "[hc:Claim:1, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type owl:Thing);", "source_file_name": null, "normalizedLabel": "[hc:Claim:1, i=true]:(?x1 rdf:type hc:Claim) -> (?x1 rdf:type owl:Thing);", "label": "[hc:Claim:1, i=true]:(?s1 rdf:type hc:Claim) -> (?s1 rdf:type owl:Thing);"}, {"name": "hc:MedicalClaim:2", "properties": {"i": "true"}, "optimization": true, "salience": 100, "antecedents": [{"type": "antecedent", "isNot": false, "normalizedLabel": "(?x1 rdf:type hc:MedicalClaim)", "vertex": 2, "parent_vertex": 0, "beta_relation_vars": ["?x1"], "pruned_var": [], "beta_var_nodes": [{"type": "var", "id": "?x1", "is_binded": false, "var_pos": 0, "vertex": 2, "key": 7, "source_file_name": null}], "children_vertexes": [], "rules": ["hc:MedicalClaim:2"], "salience": [100], "subject_key": 7, "predicate_key": 5, "object_key": 3}], "consequents": [{"type": "consequent", "normalizedLabel": "(?x1 rdf:type hc:Claim)", "vertex": 2, "consequent_seq": 0, "consequent_for_rule": "hc:MedicalClaim:2", "consequent_salience": 100, "subject_key": 9, "predicate_key": 5, "object_key": 0}], "authoredLabel": "[hc:MedicalClaim:2, i=true]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);", "source_file_name": null, "normalizedLabel": "[hc:MedicalClaim:2, i=true]:(?x1 rdf:type hc:MedicalClaim) -> (?x1 rdf:type hc:Claim);", "label": "[hc:MedicalClaim:2, i=true]:(?s1 rdf:type hc:MedicalClaim) -> (?s1 rdf:type hc:Claim);"}], "imports": {}, "classes": [{"type": "class", "name": "hc:Claim", "base_classes": ["owl:Thing"], "data_properties": [{"name": "hc:member_key", "type": "text", "as_array": "false", "is_grouping": true}], "grouping_properties": ["hc:member_key"], "sub_classes": ["hc:MedicalClaim"]}, {"type": "class", "name": "hc:MedicalClaim", "base_classes": ["hc:Claim"], "data_properties": [{"name": "diagnosis", "type": "text", "as_array": "true"}], "as_table": "true", "sub_classes": []}], "tables": [{"type": "table", "table_name": "hc:MedicalClaim", "class_name": "hc:MedicalClaim", "columns": [{"type": "text", "as_array": "true", "property_name": "diagnosis", "column_name": "diagnosis"}, {"type": "text", "as_array": "false", "is_grouping": true, "property_name": "hc:member_key", "column_name": "hc:member_key"}]}]}"""
+    self.assertEqual(jetrule_ctx.ERROR, False)
+    self.assertEqual(json.dumps(jetrule_ctx.jetRules), expected)
+
 
 if __name__ == '__main__':
   absltest.main()

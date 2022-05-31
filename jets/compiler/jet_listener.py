@@ -24,6 +24,7 @@ class JetListener(JetRuleListener):
     self.classes = []
     self.base_classes = []
     self.data_properties = []
+    self.grouping_properties = []
     self.as_table = None
 
     self.literals = []
@@ -109,6 +110,7 @@ class JetListener(JetRuleListener):
     # Entering a class definition
     self.base_classes = []
     self.data_properties = []
+    self.grouping_properties = []
     self.as_table = None
 
   # Exit a parse tree produced by JetRuleParser#defineClassStmt.
@@ -127,6 +129,8 @@ class JetListener(JetRuleListener):
       class_def['source_file_name'] = self.current_file_name
     if self.as_table:
       class_def['as_table'] = self.as_table
+    if self.grouping_properties:
+      class_def['grouping_properties'] = self.grouping_properties
     self.classes.append(class_def)
 
   # Exit a parse tree produced by JetRuleParser#subClassOfStmt.
@@ -137,6 +141,11 @@ class JetListener(JetRuleListener):
   # Exit a parse tree produced by JetRuleParser#asTableStmt.
   def exitAsTableStmt(self, ctx:JetRuleParser.AsTableStmtContext):
     self.as_table = ctx.asTable.getText()
+
+  # Exit a parse tree produced by JetRuleParser#groupingPropertyStmt.
+  def exitGroupingPropertyStmt(self, ctx:JetRuleParser.GroupingPropertyStmtContext):
+    if ctx.groupingPropertyName:
+      self.grouping_properties.append(self.escape(ctx.groupingPropertyName.getText()))
 
   # Exit a parse tree produced by JetRuleParser#dataPropertyDefinitions.
   def exitDataPropertyDefinitions(self, ctx:JetRuleParser.DataPropertyDefinitionsContext):

@@ -71,12 +71,12 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by JetRuleParser#subClassOfSeq.
-    def enterSubClassOfSeq(self, ctx:JetRuleParser.SubClassOfSeqContext):
+    # Enter a parse tree produced by JetRuleParser#classStmt.
+    def enterClassStmt(self, ctx:JetRuleParser.ClassStmtContext):
         pass
 
-    # Exit a parse tree produced by JetRuleParser#subClassOfSeq.
-    def exitSubClassOfSeq(self, ctx:JetRuleParser.SubClassOfSeqContext):
+    # Exit a parse tree produced by JetRuleParser#classStmt.
+    def exitClassStmt(self, ctx:JetRuleParser.ClassStmtContext):
         pass
 
 
@@ -89,30 +89,30 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by JetRuleParser#dataPropertiesStmt.
-    def enterDataPropertiesStmt(self, ctx:JetRuleParser.DataPropertiesStmtContext):
-        pass
-
-    # Exit a parse tree produced by JetRuleParser#dataPropertiesStmt.
-    def exitDataPropertiesStmt(self, ctx:JetRuleParser.DataPropertiesStmtContext):
-        pass
-
-
-    # Enter a parse tree produced by JetRuleParser#dataPropertySeq.
-    def enterDataPropertySeq(self, ctx:JetRuleParser.DataPropertySeqContext):
-        pass
-
-    # Exit a parse tree produced by JetRuleParser#dataPropertySeq.
-    def exitDataPropertySeq(self, ctx:JetRuleParser.DataPropertySeqContext):
-        pass
-
-
     # Enter a parse tree produced by JetRuleParser#dataPropertyDefinitions.
     def enterDataPropertyDefinitions(self, ctx:JetRuleParser.DataPropertyDefinitionsContext):
         pass
 
     # Exit a parse tree produced by JetRuleParser#dataPropertyDefinitions.
     def exitDataPropertyDefinitions(self, ctx:JetRuleParser.DataPropertyDefinitionsContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#dataPropertyType.
+    def enterDataPropertyType(self, ctx:JetRuleParser.DataPropertyTypeContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#dataPropertyType.
+    def exitDataPropertyType(self, ctx:JetRuleParser.DataPropertyTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by JetRuleParser#groupingPropertyStmt.
+    def enterGroupingPropertyStmt(self, ctx:JetRuleParser.GroupingPropertyStmtContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#groupingPropertyStmt.
+    def exitGroupingPropertyStmt(self, ctx:JetRuleParser.GroupingPropertyStmtContext):
         pass
 
 
@@ -131,15 +131,6 @@ class JetRuleListener(ParseTreeListener):
 
     # Exit a parse tree produced by JetRuleParser#asTableFlag.
     def exitAsTableFlag(self, ctx:JetRuleParser.AsTableFlagContext):
-        pass
-
-
-    # Enter a parse tree produced by JetRuleParser#dataPropertyType.
-    def enterDataPropertyType(self, ctx:JetRuleParser.DataPropertyTypeContext):
-        pass
-
-    # Exit a parse tree produced by JetRuleParser#dataPropertyType.
-    def exitDataPropertyType(self, ctx:JetRuleParser.DataPropertyTypeContext):
         pass
 
 
