@@ -9,8 +9,8 @@ INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALU
 
 INSERT INTO process_input (key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column) VALUES
   (221, 201, 1, 'aspec:Simulator', 'aspec:Simulator', 'jets:key', 'jets:key'),
-  (222, 202, 1, 'hc:SimulatedPatient', 'hc:SimulatedPatient', 'jets:key', 'jets:key'),
-  (230, 203, 1, 'hc:SimulatedPatient', 'hc:SimulatedPatient', 'jets:key', 'jets:key'),
+  (222, 202, 1, 'hc:SimulatedPatient', 'hc:SimulatedPatient', 'hc:patient_number', 'jets:key'),
+  (230, 203, 1, 'hc:SimulatedPatient', 'hc:SimulatedPatient', 'hc:patient_number', 'jets:key'),
   (231, 203, 1, 'hc:ProfessionalClaim', 'hc:ProfessionalClaim', 'hc:member_number', 'jets:key'),
   (232, 203, 1, 'hc:InstitutionalClaim', 'hc:InstitutionalClaim', 'hc:member_number', 'jets:key')
 ;

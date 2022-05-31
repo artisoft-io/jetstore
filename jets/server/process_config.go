@@ -152,14 +152,23 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 // utility methods
 // prepare the sql statement for reading from domain table (persisted type)
 // Example from test2 of server unit tests:
-//   SELECT DISTINCT ON ("jets:key", session_id) "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type" 
+//   SELECT DISTINCT ON ("hc:patient_number", "jets:key", session_id) "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type" 
 //   FROM "hc:SimulatedPatient" 
 //   WHERE session_id=$1 AND shard_id=$2  
-//   ORDER BY "jets:key", session_id, last_update DESC, "jets:key" ASC 
+//   ORDER BY "hc:patient_number" ASC, "jets:key", session_id, last_update DESC
 //
 func (processInput *ProcessInput) makeSqlStmt() string {
+	tbl := pgx.Identifier{processInput.inputTable}
+	tbl_name := tbl.Sanitize()
+	col := pgx.Identifier{processInput.groupingColumn}
+	grouping_col_name := col.Sanitize()
 	var buf strings.Builder
-	buf.WriteString("SELECT DISTINCT ON (\"jets:key\", session_id) ")
+	buf.WriteString("SELECT DISTINCT ON ( ")
+	if grouping_col_name != "jets:key" {
+		buf.WriteString(grouping_col_name)
+		buf.WriteString(", ")	
+	}
+	buf.WriteString(" \"jets:key\", session_id) ")
 	for i, spec := range processInput.processInputMapping {
 		if i > 0 {
 			buf.WriteString(", ")
@@ -168,13 +177,14 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 		buf.WriteString(col.Sanitize())
 	}
 	buf.WriteString(" FROM ")
-	tbl := pgx.Identifier{processInput.inputTable}
-	buf.WriteString(tbl.Sanitize())
+	buf.WriteString(tbl_name)
 	buf.WriteString(" WHERE session_id=$1 AND shard_id=$2 ")
-	buf.WriteString(" ORDER BY \"jets:key\", session_id, last_update DESC, ")
-	col := pgx.Identifier{processInput.groupingColumn}
-	buf.WriteString(col.Sanitize())
-	buf.WriteString(" ASC ")
+	buf.WriteString(" ORDER BY ")
+	if grouping_col_name != "jets:key" {
+		buf.WriteString(grouping_col_name)
+		buf.WriteString(" ASC, ")	
+	}
+	buf.WriteString(" \"jets:key\", session_id, last_update DESC ")
 	if *limit > 0 {
 		buf.WriteString(" LIMIT ")
 		buf.WriteString(strconv.Itoa(*limit))
@@ -197,7 +207,6 @@ func (processInput *ProcessInput) makeJoinSqlStmt() string {
 	col := pgx.Identifier{processInput.groupingColumn}
 	grouping_col_name := col.Sanitize()
 	var buf strings.Builder
-
 	buf.WriteString("SELECT DISTINCT ON ( ")
 	if grouping_col_name != "jets:key" {
 		buf.WriteString(grouping_col_name)

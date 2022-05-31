@@ -15,6 +15,7 @@ jetstore_config {
 # -----------------------------------------------------------------------
 volatile_resource newEntity = "newEntity";
 volatile_resource personaRow = "personaRow";
+volatile_resource simKey = "simKey";
 
 [LOOP010]:
   (?simspec rdf:type aspec:Simulator).
@@ -24,7 +25,19 @@ volatile_resource personaRow = "personaRow";
   (?state jets:loop ?i).
   [?i <= ?max]
   ->
-  (?state newEntity (create_entity (?entity_key_prefix + (?i apply_format "%03u"))))
+  (?state ?i create_entity 0)
+;
+
+[LOOP011]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:nbr_entities ?max).
+  (?simspec aspec:entity_key_prefix ?entity_key_prefix).
+  (?state rdf:type jets:State).
+  (?state jets:loop ?i).
+  (?state ?i ?entity)
+  ->
+  (?state newEntity ?entity).
+  (?entity simKey (?entity_key_prefix + (?i apply_format "%03u")))
 ;
 
 # Note: Adding +1 to the max loop to ensure when that when jets:completed is set 
@@ -78,11 +91,11 @@ volatile_resource demographicRow = "demographicRow";
 
 [JSIMHC010]:
   (?entity rdf:type asim:Entity).
-  (?entity jets:key ?key).
+  (?entity simKey ?simkey).
   (?entity asim:demographic_group_key ?demo_key)
  ->
   (?entity rdf:type hc:SimulatedPatient).
-  (?entity hc:patient_number ?key).
+  (?entity hc:patient_number ?simkey).
   (?entity demographicRow (lk:PatientDemographic lookup ?demo_key))
 ;
 
