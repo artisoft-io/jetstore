@@ -1,0 +1,18 @@
+
+# =======================================================================================
+# Rule Sequence
+# ---------------------------------------------------------------------------------------
+ rule_sequence all_uuid {
+   $main_rule_sets = [
+     "test2_ruleset1.jr",
+     "test2_ruleset2uuid.jr",
+     "test2_ruleset3.jr"
+   ]
+ };
+rule_sequence all_set {
+  $main_rule_sets = [
+    "test2_ruleset1.jr",
+    "test2_ruleset2.jr",
+    "test2_ruleset3.jr"
+  ]
+};
