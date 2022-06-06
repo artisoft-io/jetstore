@@ -44,6 +44,15 @@ class JetRuleListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by JetRuleParser#jetstoreConfig.
+    def enterJetstoreConfig(self, ctx:JetRuleParser.JetstoreConfigContext):
+        pass
+
+    # Exit a parse tree produced by JetRuleParser#jetstoreConfig.
+    def exitJetstoreConfig(self, ctx:JetRuleParser.JetstoreConfigContext):
+        pass
+
+
     # Enter a parse tree produced by JetRuleParser#jetstoreConfigSeq.
     def enterJetstoreConfigSeq(self, ctx:JetRuleParser.JetstoreConfigSeqContext):
         pass

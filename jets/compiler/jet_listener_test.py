@@ -517,7 +517,7 @@ class JetListenerTest(absltest.TestCase):
         $max_rule_exec = 5000,
         $max_looping = 5
       };
-      jetstore_config { $max_looping = 50 };
+      main { $max_looping = 50 };
     """
     jetRules = self._get_listener_data(data)
     

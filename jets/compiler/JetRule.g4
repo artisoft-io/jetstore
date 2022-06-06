@@ -32,12 +32,13 @@ jetCompilerDirectiveStmt:
 // --------------------------------------------------------------------------------------
 // Define JetStore Config Statements
 // --------------------------------------------------------------------------------------
-defineJetStoreConfigStmt: JETSCONFIG '{'
+defineJetStoreConfigStmt: jetstoreConfig '{'
     COMMENT*
     jetstoreConfigSeq
     COMMENT*
   '}' SEMICOLON;
 
+jetstoreConfig: JETSCONFIG | MAIN;
 jetstoreConfigSeq: jetstoreConfigItem (',' COMMENT* jetstoreConfigItem)* ;
 jetstoreConfigItem
   : configKey=MaxLooping ASSIGN configValue=uintExpr
@@ -278,6 +279,7 @@ ARRAY: 'array of';
 GroupingProperties: '$grouping_properties';
 
 // JetStore Config
+MAIN: 'main';
 JETSCONFIG: 'jetstore_config';
 MaxLooping: '$max_looping';        // Rule looping, default is 0, no looping
 MaxRuleExec: '$max_rule_exec';     // Max number of times a rule can fire, default 10,000
