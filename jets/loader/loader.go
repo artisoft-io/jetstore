@@ -7,11 +7,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -35,11 +39,12 @@ func (s *chartype) Set(value string) error {
 	return nil
 }
 
-var inFile = flag.String("in_file", "/work/input.csv", "the input csv file name")
-var dsn = flag.String("dsn", "", "database connection string (required)")
-var tblName = flag.String("table", "", "table name to load the data into, must not exist unless -a or -d is provided (required)")
-var appendTable = flag.Bool("a", false, "append file to existing table, default is false")
-var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
+var inFile             = flag.String("in_file", "/work/input.csv", "the input csv file name")
+var dsnList            = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
+var tblName            = flag.String("table", "", "table name to load the data into (required)")
+var shardingColumn     = flag.String("shardingColumn", "", "input column name use for sharding, must be either key column or grouping column of the main process")
+var nbrShards          = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the input file")
+var sessionId          = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var sep_flag chartype = '|'
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator, default is pipe ('|')")
@@ -47,6 +52,14 @@ func init() {
 
 // Support Functions
 // --------------------------------------------------------------------------------------
+func compute_shard_id(str string, nbuckets int) int32 {
+	h := fnv.New32a()
+	h.Write([]byte(str))
+	res := int32(h.Sum32() % uint32(nbuckets))
+	// log.Println("COMPUTE SHARD for ",str,"on",nbuckets,"buckets =",res)
+	return res
+}
+
 func tableExists(dbpool *pgxpool.Pool) ( exists bool, err error) {
 	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = 'public' and tablename = $1)", *tblName).Scan(&exists)
 	if err != nil {
@@ -54,6 +67,7 @@ func tableExists(dbpool *pgxpool.Pool) ( exists bool, err error) {
 	}
 	return exists, err
 }
+
 func isValidName(name string) bool {
 	return !strings.ContainsAny(name, "=;\t\n ")
 }
@@ -69,11 +83,10 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	buf.WriteString(pgx.Identifier{*tblName}.Sanitize())
 	buf.WriteString("(")
 	for _, header := range headers {
-		// if i > 0 {
-		// 	buf.WriteString(", ")
-		// }
-		buf.WriteString(pgx.Identifier{header}.Sanitize())
-		buf.WriteString(" TEXT, ")
+		if header!="session_id" && header!="shard_id" {
+			buf.WriteString(pgx.Identifier{header}.Sanitize())
+			buf.WriteString(" TEXT, ")
+		}
 	}
 	buf.WriteString(" \"jets:key\" TEXT DEFAULT gen_random_uuid ()::text NOT NULL,")
 	buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL,")
@@ -97,7 +110,30 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 			return fmt.Errorf("error while creating primary index: %v", err)
 		}
 	}
-	return err
+	if dbpool == nil {
+		return nil
+	}
+	// the registry table
+	stmt = `CREATE TABLE IF NOT EXISTS input_registry (table_name TEXT NOT NULL, session_id TEXT NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (table_name, session_id));` 
+	_, err = dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		return fmt.Errorf("error while creating input_registry table: %v", err)
+	}
+	return nil
+}
+
+func registerCurrentLoad(dbpool *pgxpool.Pool) error {
+	stmt := `INSERT INTO input_registry (table_name, session_id) VALUES ($1, $2)`
+	_, err := dbpool.Exec(context.Background(), stmt, *tblName, *sessionId)
+	if err != nil {
+		return fmt.Errorf("error inserting in input_registry table: %v", err)
+	}
+	return nil
+}
+
+type writeResult struct {
+	count int64
+	errMsg string
 }
 
 // processFile
@@ -123,51 +159,67 @@ func processFile() error {
 	defer badRowsWriter.Flush()
 
 	// read the headers, put them in err file and make them valid for db
-	rawHeaders, err := reader.Read()
+	headers, err := reader.Read()
 	if err == io.EOF {
 		return errors.New("input csv file is empty")
 	} else if err != nil {
 		return fmt.Errorf("while reading csv headers: %v", err)
 	}
-	var headers []string
-	for i, header := range rawHeaders {
+	// Add sessionId and shardId to the headers
+	sessionIdPos := len(headers)
+	headers = append(headers, "session_id")
+	shardIdPos := len(headers)
+	headers = append(headers, "shard_id")
+	// check which column we are using for sharding, if any
+	shardingPos := -1
+	for i := range headers {
 		if i > 0 {
 			badRowsWriter.WriteRune(reader.Comma)
 		}
-		badRowsWriter.WriteString(header)
-		headers = append(headers, header)
+		if *shardingColumn == headers[i] {
+			shardingPos = i
+		}
+		badRowsWriter.WriteString(headers[i])
 	}
 	_, err = badRowsWriter.WriteRune('\n')
 	if err != nil {
 		return fmt.Errorf("while writing csv headers to err file: %v", err)
 	}
-
-	// open db connection
-	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
-	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
-	}
-	defer dbpool.Close()
-
-	// validate table name
-	tblExists, err := tableExists(dbpool)
-	if err != nil {
-		return fmt.Errorf("while validating table name: %v", err)
-	}
-	if tblExists && !(*appendTable || *dropTable) {
-			return fmt.Errorf("table already exist, must specify -a or -d option")
+	if len(*shardingColumn)>0 && shardingPos<0 {
+		return fmt.Errorf("error: sharding column %s not found in the input",*shardingColumn)
 	}
 
-	if !tblExists || *dropTable {
-		err = createTable(dbpool, headers)
+	// open db connections
+	dsnSplit := strings.Split(*dsnList, ",")
+	nbrNodes := len(dsnSplit)
+	dbpool := make([]*pgxpool.Pool, nbrNodes)
+	for i := range dsnSplit {
+		dbpool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
 		if err != nil {
-			return fmt.Errorf("while creating table: %v", err)
+			return fmt.Errorf("while opening db connection: %v", err)
 		}
+		defer dbpool[i].Close()	
+
+		// validate table name
+		tblExists, err := tableExists(dbpool[i])
+		if err != nil {
+			return fmt.Errorf("while validating table name: %v", err)
+		}
+		if !tblExists {
+			err = createTable(dbpool[i], headers)
+			if err != nil {
+				return fmt.Errorf("while creating table: %v", err)
+			}
+		}
+	}
+	if nbrNodes>1 && shardingPos<0 {
+		log.Println("Warning: have more than 1 database node but sharding column is not specified")
 	}
 
 	// read the rest of the file
 	var badRowsPos []int
-	var inputRows [][]interface{}
+	// var inputRows [][]interface{}
+	inputRows := make([][][]interface{}, nbrNodes)
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -184,19 +236,74 @@ func processFile() error {
 				return fmt.Errorf("unknown error while reading csv records: %v", err)
 			}
 		} else {
-			copyRec := make([]interface{}, len(record))
-			for i, v := range record {
-				copyRec[i] = v
+			copyRec := make([]interface{}, len(headers))
+			for i := range record {
+				copyRec[i] = record[i]
 			}
+			// Set the session_id and shard_id
+			var nodeId int
+			copyRec[sessionIdPos] = *sessionId
+			if shardingPos < 0 {
+				copyRec[shardIdPos] = 0
+				nodeId = 0
+			} else {
+				shardId := compute_shard_id(record[shardingPos], *nbrShards)
+				copyRec[shardIdPos] = shardId
+				nodeId = int(shardId) % nbrNodes
+			}
+
 			// fmt.Println("COPY REC:",copyRec)
-			inputRows = append(inputRows, copyRec)
+			inputRows[nodeId] = append(inputRows[nodeId], copyRec)
 		}
 	}
-	copyCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(inputRows))
-	if err != nil {
-		return fmt.Errorf("while copy csv to table: %v", err)
+
+	// write the sharded rows to the db using go routines...
+	var copyCount int64
+	hasErrors := false
+	if shardingPos<0 || nbrNodes==1 {
+		// everything is in shard 0
+		copyCount, err = dbpool[0].CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(inputRows[0]))
+		if err != nil {
+			return fmt.Errorf("while copy csv to table: %v", err)
+		}
+	} else {
+		// create a channel to writing the insert row results
+		var wg sync.WaitGroup
+		resultsChan := make(chan writeResult, nbrNodes)
+		wg.Add(nbrNodes)
+		for i:=0; i<nbrNodes; i++ {
+			go func(c chan writeResult, dbpool *pgxpool.Pool, data *[][]interface{}) {
+				var errMsg string
+				copyCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(*data))
+				if err != nil {
+					errMsg = fmt.Sprintf("%v", err)
+				}
+				c <- writeResult{count: copyCount, errMsg: errMsg}
+				wg.Done()
+			}(resultsChan, dbpool[i], &inputRows[i])
+		}
+		wg.Wait()
+		log.Println("Writing to database nodes completed.")
+		close(resultsChan)
+		for res := range resultsChan {
+			copyCount += res.count
+			if len(res.errMsg)>0 {
+				log.Println("Error writing to db node: ", res.errMsg)
+				hasErrors = true
+			}
+		}
+	}
+	if hasErrors {
+		return fmt.Errorf("error(s) while writing to database nodes")
 	}
 	log.Println("Inserted",copyCount,"rows in database!")
+	// registering the load
+	for i:=0; i<nbrNodes; i++ {
+		err = registerCurrentLoad(dbpool[i])
+		if err != nil {
+			return fmt.Errorf("error while registering the load: %v", err)
+		}
+	}
 	if len(badRowsPos) > 0 {
 		log.Println("Got",len(badRowsPos),"bad rows in input file, copying them to the error file.")
 		file, err := os.Open(*inFile)
@@ -242,13 +349,12 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Table name is not valid.")
 	}
-	if *dsn == "" {
+	if *dsnList == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Connection string must be provided.")
 	}
-	if *appendTable && *dropTable {
-		hasErr = true
-		errMsg = append(errMsg, "Cannot specify both -a and -d options.")
+	if len(*shardingColumn)>0 && *nbrShards==1 {
+		log.Println("Warning: sharding column is specified but the number of shards is 1, did you forget to set -nbrShards?")
 	}
 	if hasErr {
 		flag.Usage()
@@ -256,6 +362,12 @@ func main() {
 			fmt.Println("**",msg)
 		}
 		os.Exit((1))
+	}
+	sessId := ""
+	if *sessionId == "" {
+		sessId = strconv.FormatInt(time.Now().Unix(), 10)
+		sessionId = &sessId
+		log.Println("sessionId is set to", *sessionId)
 	}
 	// fmt.Printf("Got sep: %#U\n",sep_flag)
 	// fmt.Println("Got input file name:", *inFile)
