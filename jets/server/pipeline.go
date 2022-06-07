@@ -21,10 +21,10 @@ import (
 //	- Setup the executeRules:
 //		- Start a pool of goroutines, reading from dataInputc channel
 //		- done channel is closed when the pipeline is stopped prematurely
-//		- map[string]chan channels, one for each output table, key is table name, are populated with []string; output records for table
+//		- map[string][]chan channels, one for each output table, for each db node, key of map is table name, db node is array pos, are populated with []interface{}; output records for table
 //		- execResult channel capture the result of execute_rules on the input data (struct with counts and err flag)
 //	- Setup the writeOutputc channels:
-//		- Start a pool of goroutines, each reading from a map[string]chan, where the key is the table name
+//		- Start a pool of goroutines, each reading from a map[string][]chan, where the key is the table name and then db node id
 //		- done channel is closed when the pipeline is stopped prematurely
 //		- map[string]chan channels, one for each output table, are populated with []string; output records for table
 //		- writeResult channel capture the result of writeOutput to the database (struct with counts and err flag)
@@ -149,14 +149,18 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 
 	// create the writeOutput channels
 	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
-	writeOutputc := make(map[string]chan []interface{})
+	writeOutputc := make(map[string][]chan []interface{})
 	for _, tbl := range reteWorkspace.outTables {
 		log.Println("Creating output channel for out table:", tbl)
-		writeOutputc[tbl] = make(chan []interface{})
+		writeOutputc[tbl] = make([]chan []interface{}, nbrDbNodes)
+		for i:=0; i<nbrDbNodes; i++ {
+			writeOutputc[tbl][i] = make(chan []interface{})
+		}
 	}
 
-	// Add one chanel for the BadRow notification
-	writeOutputc["process_errors"] = make(chan []interface{})
+	// Add one chanel for the BadRow notification, this is written to primary node (first dsn in provided list)
+	writeOutputc["process_errors"] = make([]chan []interface{}, 1)
+	writeOutputc["process_errors"][0] = make(chan []interface{})
 
 	// fmt.Println("processInputMapping is complete, len is", len(mainProcessInput.processInputMapping))
 	// for icol := range mainProcessInput.processInputMapping {
@@ -243,7 +247,9 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 		log.Println("Close all writeOutputc channels...")
 		close(errc)
 		for _, c := range writeOutputc {
-			close(c)
+			for i := range c {
+				close(c[i])
+			}
 		}
 		log.Println("...done closing writeOutputc")
 	}()
@@ -268,21 +274,21 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	var wg2 sync.WaitGroup
 	// wtrc: Write Table Result Chanel, worker's result status
 	wtrc := make(chan writeResult)
-	ps2 := len(outputMapping)
-	wg2.Add(ps2)
-	// for i := 0; i < ps2; i++ {
 	for tblName, tblSpec := range outputMapping {
-		go func(tableName string, tableSpec *workspace.DomainTable) {
-			// Start the write table workers
-			source := WriteTableSource{source: writeOutputc[tableName]}
-			result, err := source.writeTable(dbc.mainNode.dbpool, tableSpec)
-			if err != nil {
-				err = fmt.Errorf("while execute rules: %v", err)
-				log.Println(err)
-			}
-			wtrc <- writeResult{result: *result, err: err}
-			wg2.Done()
-		}(tblName, tblSpec)
+		for idb := range writeOutputc[tblName] {
+			wg2.Add(1)
+			go func(tableName string, tableSpec *workspace.DomainTable, idb int) {
+				// Start the write table workers
+				source := WriteTableSource{source: writeOutputc[tableName][idb]}
+				result, err := source.writeTable(dbc.joinNodes[idb].dbpool, tableSpec)
+				if err != nil {
+					err = fmt.Errorf("while write table: %v", err)
+					log.Println(err)
+				}
+				wtrc <- writeResult{result: *result, err: err}
+				wg2.Done()
+			}(tblName, tblSpec, idb)	
+		}
 	}
 	go func() {
 		wg2.Wait()
@@ -300,6 +306,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	result.executeRulesCount = 0
 	for execResult := range errc {
 		if execResult.err != nil {
+			log.Printf("Execute Rule terminated with error: %v", execResult.err)
 			return &result, fmt.Errorf("while execute rules: %v", execResult.err)
 		}
 		result.executeRulesCount += execResult.result.executeRulesCount
@@ -308,13 +315,14 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	// check the result of write2tables
 	log.Println("Checking results of write2tables...")
 	result.outputRecordsCount = make(map[string]int64)
-	//*TODO read from result chan
+	// read from result chan
 	for writerResult := range wtrc {
 		if writerResult.err != nil {
 			return &result, fmt.Errorf("while writing table: %v", writerResult.err)
 		}
 		result.outputRecordsCount[writerResult.result.tableName] += writerResult.result.recordCount
 	}
+	log.Println("Done checking results of write2tables.")
 
 	if readResult.err != nil {
 		log.Println(fmt.Errorf("data load failed: %v", readResult.err))

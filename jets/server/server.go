@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"os"
 	"strconv"
@@ -30,16 +31,18 @@ var ruleset       = flag.String("ruleset", "", "main rule set name (required or 
 var ruleseq       = flag.String("ruleseq", "", "rule set sequence (required or -ruleset)")
 var procConfigKey = flag.Int   ("pcKey", 0, "Process config key (required)")
 var poolSize      = flag.Int   ("poolSize", 10, "Pool size constraint")
-var sessionId     = flag.String("sessionId", "", "Process session ID used to link entitied processed together.")
-var inSessionId   = flag.String("inSessionId", "", "Session ID for input domain table, default is ''.")
+var sessionId     = flag.String("sessionId", "", "Process session ID used to link entitied processed together. (required)")
+var inSessionId   = flag.String("inSessionId", "", "Session ID for input domain table, default is same as -sessionId.")
 var limit         = flag.Int   ("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
-var shardId       = flag.Int   ("shardId", 0, "Shard id for the processing node.")
+var nodeId        = flag.Int   ("nodeId", 0, "DB node id associated to this processing node.")
+var nbrShards     = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the created output entities")
 var outTables     = flag.String("outTables", "", "Comma-separed list of output tables (required).")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int 	// taken from env GLOG_v
 var out2all bool
 var dbc dbConnections
+var nbrDbNodes int
 
 func init() {
 	extTables = make(map[string][]string)
@@ -59,19 +62,55 @@ func init() {
 	})
 }
 
+//* TODO move this utility fnc somewhere
+func compute_shard_id(key string) int {
+	h := fnv.New32a()
+	h.Write([]byte(key))
+	res := int(h.Sum32()) % *nbrShards
+	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
+	return res
+}
+func compute_node_id(key string) int {
+	return compute_shard_id(key) % nbrDbNodes
+}
+func compute_node_id_from_shard_id(shard int) int {
+	res := shard % nbrDbNodes
+	// log.Println("COMPUTE NODE for shard ",shard,"on",nbrDbNodes,"nodes, node id =",res)
+	return res
+}
+
 // doJob main function
 func doJob() error {
 
 	// open db connections
 	dsnSplit := strings.Split(*dsnList, ",")
-	dsn := dsnSplit[*shardId % len(dsnSplit)]
+	nbrDbNodes = len(dsnSplit)
+	if *nodeId >= nbrDbNodes {
+		return fmt.Errorf("error: nodeId is %d (-nodeId), we have %d nodes (-dsn): nodeId must be one of the db nodes", *nodeId, nbrDbNodes)
+	}
+	log.Printf("Command Line Argument: inSessionId: %s\n", *inSessionId)
+	log.Printf("Command Line Argument: limit: %d\n", *limit)
+	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
+	log.Printf("Command Line Argument: nbrDbNodes: %d\n", nbrDbNodes)
+	log.Printf("Command Line Argument: nbrShards: %d\n", *nbrShards)
+	log.Printf("Command Line Argument: nodeId: %d\n", *nodeId)
+	log.Printf("Command Line Argument: outTables: %s\n", *outTables)
+	log.Printf("Command Line Argument: poolSize: %d\n", *poolSize)
+	log.Printf("Command Line Argument: procConfigKey: %d\n", *procConfigKey)
+	log.Printf("Command Line Argument: ruleseq: %s\n", *ruleseq)
+	log.Printf("Command Line Argument: ruleset: %s\n", *ruleset)
+	log.Printf("Command Line Argument: sessionId: %s\n", *sessionId)
+	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
+	log.Printf("Command Line Argument: GLOG_v is set to %d\n",glogv)
+	dsn := dsnSplit[*nodeId % nbrDbNodes]
 	dbpool, err := pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection on %s: %v", dsn, err)
 	}
-	dbc = dbConnections{mainNode: dbNode{dsn: dsn, dbpool: dbpool }, joinNodes: make([]dbNode, len(dsnSplit))}
+	dbc = dbConnections{mainNode: dbNode{dsn: dsn, dbpool: dbpool }, joinNodes: make([]dbNode, nbrDbNodes)}
 	defer dbc.mainNode.dbpool.Close()
 	for i, dsn := range dsnSplit {
+		log.Printf("db node %d is %s\n",i, dsn)
 		dbpool, err = pgxpool.Connect(context.Background(), dsn)
 		if err != nil {
 			return fmt.Errorf("while opening db connection on %s: %v", dsn, err)
@@ -132,6 +171,21 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Output type must be specified using comma-separated list of table names (-outTables)  must be provided.")
 	}
+	if *nodeId < 0 {
+		hasErr = true
+		errMsg = append(errMsg, "The db node id (-nodeId) must be an index in the list of -dsn.")
+	}
+	if *nbrShards < 1 {
+		hasErr = true
+		errMsg = append(errMsg, "The number of shards (-nbrShards) for the output entities must at least be 1.")
+	}
+	if *sessionId == "" {
+		hasErr = true
+		errMsg = append(errMsg, "The session id (-seesionId) must be provided.")
+	}
+	if *inSessionId == "" {
+		inSessionId = sessionId
+	}
 	if *outTables == "all" {
 		// output to all tables
 		out2all = true
@@ -150,20 +204,8 @@ func main() {
 		}
 		os.Exit((1))
 	}
-	log.Printf("Command Line Argument: procConfigKey: %d\n", *procConfigKey)
-	log.Printf("Command Line Argument: poolSize: %d\n", *poolSize)
-	log.Printf("Command Line Argument: sessionId: %s\n", *sessionId)
-	log.Printf("Command Line Argument: inSessionId: %s\n", *inSessionId)
-	log.Printf("Command Line Argument: limit: %d\n", *limit)
-	log.Printf("Command Line Argument: shardId: %d\n", *shardId)
-	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
-	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
-	log.Printf("Command Line Argument: ruleset: %s\n", *ruleset)
-	log.Printf("Command Line Argument: ruleseq: %s\n", *ruleseq)
-	log.Printf("Command Line Argument: outTables: %s\n", *outTables)
 	v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
 	glogv = int(v)
-	log.Println("Command Line Argument: GLOG_v is set to",glogv)
 
 	err := doJob()
 	if err != nil {
