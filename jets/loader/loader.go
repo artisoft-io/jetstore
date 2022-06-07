@@ -114,7 +114,7 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 		return nil
 	}
 	// the registry table
-	stmt = `CREATE TABLE IF NOT EXISTS input_registry (table_name TEXT NOT NULL, session_id TEXT NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (table_name, session_id));` 
+	stmt = `CREATE TABLE IF NOT EXISTS input_registry (file_name TEXT NOT NULL, table_name TEXT NOT NULL, session_id TEXT NOT NULL, load_count INTEGER, bad_row_count INTEGER, node_id INTEGER DEFAULT 0 NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (table_name, session_id));` 
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating input_registry table: %v", err)
@@ -122,9 +122,9 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	return nil
 }
 
-func registerCurrentLoad(dbpool *pgxpool.Pool) error {
-	stmt := `INSERT INTO input_registry (table_name, session_id) VALUES ($1, $2)`
-	_, err := dbpool.Exec(context.Background(), stmt, *tblName, *sessionId)
+func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, nodeId int) error {
+	stmt := `INSERT INTO input_registry (file_name, table_name, session_id, load_count, bad_row_count, node_id) VALUES ($1, $2, $3, $4, $5, $6)`
+	_, err := dbpool.Exec(context.Background(), stmt, *inFile, *tblName, *sessionId, copyCount, badRowCount, nodeId)
 	if err != nil {
 		return fmt.Errorf("error inserting in input_registry table: %v", err)
 	}
@@ -259,6 +259,7 @@ func processFile() error {
 
 	// write the sharded rows to the db using go routines...
 	var copyCount int64
+	var badRowCount int
 	hasErrors := false
 	if shardingPos<0 || nbrNodes==1 {
 		// everything is in shard 0
@@ -297,13 +298,7 @@ func processFile() error {
 		return fmt.Errorf("error(s) while writing to database nodes")
 	}
 	log.Println("Inserted",copyCount,"rows in database!")
-	// registering the load
-	for i:=0; i<nbrNodes; i++ {
-		err = registerCurrentLoad(dbpool[i])
-		if err != nil {
-			return fmt.Errorf("error while registering the load: %v", err)
-		}
-	}
+	badRowCount = len(badRowsPos)
 	if len(badRowsPos) > 0 {
 		log.Println("Got",len(badRowsPos),"bad rows in input file, copying them to the error file.")
 		file, err := os.Open(*inFile)
@@ -332,6 +327,13 @@ func processFile() error {
 				return fmt.Errorf("error while writing a bad csv row to err file: %v", err)
 			}
 		}	
+	}
+	// registering the load
+	for i:=0; i<nbrNodes; i++ {
+		err = registerCurrentLoad(copyCount, badRowCount, dbpool[i], i)
+		if err != nil {
+			return fmt.Errorf("error while registering the load: %v", err)
+		}
 	}
 
 	return nil
@@ -365,7 +367,7 @@ func main() {
 	}
 	sessId := ""
 	if *sessionId == "" {
-		sessId = strconv.FormatInt(time.Now().Unix(), 10)
+		sessId = strconv.FormatInt(time.Now().UnixMilli(), 10)
 		sessionId = &sessId
 		log.Println("sessionId is set to", *sessionId)
 	}
