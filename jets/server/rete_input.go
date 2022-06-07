@@ -26,7 +26,7 @@ type ReteInputContext struct {
 }
 
 // main processing function to execute rules
-func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, inBundle *inputBundle,	writeOutputc *map[string]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, inBundle *inputBundle,	writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
 	for _, bunRow := range inBundle.inputRows {
 		rowl := len(bunRow.inputRows)
@@ -47,7 +47,7 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 }
 
 // main function for asserting input text row (from csv files)
-func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession,	inBundleRow *bundleRow, writeOutputc *map[string]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession,	inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key	
 	ncol := len(inBundleRow.inputRows)
 	row := make([]sql.NullString, ncol)
@@ -225,7 +225,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						br.ErrorMessage = inputColumnSpec.errorMessage
 					}
 					log.Println("BAD Input ROW:",br)
-					br.write2Chan((*writeOutputc)["process_errors"])
+					br.write2Chan((*writeOutputc)["process_errors"][0])
 				}
 				continue
 			}
@@ -303,7 +303,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
 			br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
 			log.Println("BAD Input ROW:",br)
-			br.write2Chan((*writeOutputc)["process_errors"])
+			br.write2Chan((*writeOutputc)["process_errors"][0])
 			continue
 		}
 		if inputColumnSpec.predicate == nil {

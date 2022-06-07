@@ -75,7 +75,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 		workspaceMgr *workspace.WorkspaceDb,
 		dataInputc <-chan inputBundle,
 		outputSpecs workspace.OutputTableSpecs,
-		writeOutputc map[string]chan []interface{}) (*ExecuteRulesResult, error) {
+		writeOutputc map[string][]chan []interface{}) (*ExecuteRulesResult, error) {
 
 	var result ExecuteRulesResult
 	// for each msg in dataInput:
@@ -165,7 +165,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
 					log.Println("BAD ROW:",br)
-					br.write2Chan(writeOutputc["process_errors"])
+					br.write2Chan(writeOutputc["process_errors"][0])
 					break
 				}
 				// CHECK for jets__terminate and jets__exception
@@ -179,23 +179,15 @@ func (rw *ReteWorkspace) ExecuteRules(
 				br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
 				log.Println("MAX LOOP REACHED:",br)
-				br.write2Chan(writeOutputc["process_errors"])
+				br.write2Chan(writeOutputc["process_errors"][0])
 				break
 			}
 			reteSession.ReleaseReteSession()			
 		}
 
-		// log.Println("ExecuteRule() Completed sucessfully")
 		if *ps {
+			log.Println("ExecuteRule() Completed sucessfully, the rdf sesion contains:")
 			rdfSession.DumpRdfGraph()
-		}
-		var sid string
-		if sessionId!=nil && len(*sessionId)>0 {
-			sid = *sessionId
-		}
-		shard := 0
-		if shardId != nil {
-			shard = *shardId
 		}
 
 		// pulling the data out of the rete session
@@ -213,7 +205,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 				subject := ctor.GetSubject()
 				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
 				ncol := len(tableSpec.Columns)
-				// stxt,_ := subject.AsText()
+				jetsKey,_ := subject.AsText()
+				shard := compute_shard_id(jetsKey)
 				// log.Println("Found entity with subject:",stxt, "with",ncol,"columns")
 				entityRow := make([]interface{}, ncol)
 				for i:=0; i<ncol; i++ {
@@ -221,7 +214,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 					switch domainColumn.ColumnName {
 					case "session_id":
-						entityRow[i] = sid
+						entityRow[i] = *sessionId
 					case "shard_id":
 						entityRow[i] = shard
 					default:
@@ -243,7 +236,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 									String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
 									Valid: true}
 								log.Println("BAD EXTRACT:",br)
-								br.write2Chan(writeOutputc["process_errors"])
+								br.write2Chan(writeOutputc["process_errors"][0])
 							}
 							data = append(data, obj)
 							itor.Next()
@@ -267,7 +260,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName), 
 									Valid: true}
 								log.Println("BAD EXTRACT:",br)
-								br.write2Chan(writeOutputc["process_errors"])
+								br.write2Chan(writeOutputc["process_errors"][0])
 							default:
 							}
 						}
@@ -275,7 +268,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					}
 				}
 				// entityRow is complete
-				writeOutputc[tableName] <- entityRow
+				writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
 				ctor.Next()
 			}
 			ctor.ReleaseIterator()

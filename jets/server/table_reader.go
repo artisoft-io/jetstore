@@ -107,11 +107,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		}
 		log.Println("SQL:", stmt)
 		log.Println("Grouping key at pos", mainInput.groupingPosition)
-		if mainInput.inputType == 0 {
-			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt)
-		} else if mainInput.inputType == 1 {
-			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
-		}
+		rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId)
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
 			return
@@ -161,8 +157,9 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 				}
 				// start grouping
 				groupingValue = dataGrp.String
-				//*
-				fmt.Println("*** START Grouping ",groupingValue)
+				if glogv > 0 {
+					fmt.Println("*** START Grouping ",groupingValue)
+				}
 
 				// read the join tables
 				if rowCount == 0 {
@@ -235,12 +232,20 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 			rowCount += 1
 			dataGrps.inputRows = append(dataGrps.inputRows, mainBundleRow)
 		}
-		// send last grouping
-		dataInputc <- dataGrps
+		
+		if rowCount == 0 {
+			// got nothing from input
+			log.Println("No row read from input table")
+		} else {
+			// send last grouping
+			if len(dataGrps.inputRows) > 0 {
+				dataInputc <- dataGrps
+			}
 
-		if err = rows.Err(); err != nil {
-			result <- readResult{rowCount, err}
-			return
+			if err = rows.Err(); err != nil {
+				result <- readResult{rowCount, err}
+				return
+			}
 		}
 
 		result <- readResult{rowCount, nil}

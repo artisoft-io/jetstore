@@ -31,7 +31,7 @@ func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj st
 }
 
 // main function for asserting input entity row (from persisted entities)
-func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSession, inBundleRow *bundleRow, writeOutputc *map[string]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSession, inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
 	// //*
 	// log.Println("ASSERT ENTITY:")
 	// for ipos := range inBundleRow.inputRows {
@@ -150,7 +150,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			}
 			br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
 			br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
-			br.write2Chan((*writeOutputc)["process_errors"])
+			br.write2Chan((*writeOutputc)["process_errors"][0])
 			continue
 		}
 		if inputColumnSpec.predicate == nil {

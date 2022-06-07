@@ -94,7 +94,7 @@ class DBConnectionPool {
       this->sql2_ = std::move(sql2);
     }
     VLOG(20) << "Lookup Connection Pool initialize with statements " << this->sql1_
-      <<" and " << this->sql2_;
+      <<(this->sql2_.empty()?"":" and ") << this->sql2_ ;
     return 0;
   }
 
