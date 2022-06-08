@@ -42,7 +42,6 @@ func (s *chartype) Set(value string) error {
 var inFile             = flag.String("in_file", "/work/input.csv", "the input csv file name")
 var dsnList            = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
 var tblName            = flag.String("table", "", "table name to load the data into (required)")
-var shardingColumn     = flag.String("shardingColumn", "", "input column name use for sharding, must be either key column or grouping column of the main process")
 var nbrShards          = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId          = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var sep_flag chartype = '|'
@@ -186,23 +185,15 @@ func processFile() error {
 	headers = append(headers, "session_id")
 	shardIdPos := len(headers)
 	headers = append(headers, "shard_id")
-	// check which column we are using for sharding, if any
-	shardingPos := -1
-	for i := range headers {
+	for i := range rawHeaders {
 		if i > 0 {
 			badRowsWriter.WriteRune(reader.Comma)
-		}
-		if *shardingColumn == headers[i] {
-			shardingPos = i
 		}
 		badRowsWriter.WriteString(headers[i])
 	}
 	_, err = badRowsWriter.WriteRune('\n')
 	if err != nil {
 		return fmt.Errorf("while writing csv headers to err file: %v", err)
-	}
-	if len(*shardingColumn)>0 && shardingPos<0 {
-		return fmt.Errorf("error: sharding column %s not found in the input",*shardingColumn)
 	}
 
 	// open db connections
@@ -228,13 +219,11 @@ func processFile() error {
 			}
 		}
 	}
-	if nbrNodes>1 && shardingPos<0 {
-		log.Println("Warning: have more than 1 database node but sharding column is not specified")
-	}
 
 	// read the rest of the file
 	var badRowsPos []int
-	// var inputRows [][]interface{}
+	var rowid int64
+	nshards64 := int64(*nbrShards)	
 	inputRows := make([][][]interface{}, nbrNodes)
 	for {
 		record, err := reader.Read()
@@ -251,34 +240,26 @@ func processFile() error {
 			} else {
 				return fmt.Errorf("unknown error while reading csv records: %v", err)
 			}
-		} else {
-			copyRec := make([]interface{}, len(headers))
-			for i, ipos := range headerPos {
-				copyRec[i] = record[headerPos[ipos]]
-			}
-			// Set the file_name, session_id, and shard_id
-			var nodeId int
-			copyRec[fileNamePos] = *inFile
-			copyRec[sessionIdPos] = *sessionId
-			if shardingPos < 0 {
-				copyRec[shardIdPos] = 0
-				nodeId = 0
-			} else {
-				shardId := compute_shard_id(record[shardingPos], *nbrShards)
-				copyRec[shardIdPos] = shardId
-				nodeId = int(shardId) % nbrNodes
-			}
-
-			// fmt.Println("COPY REC:",copyRec)
-			inputRows[nodeId] = append(inputRows[nodeId], copyRec)
 		}
+		copyRec := make([]interface{}, len(headers))
+		for i, ipos := range headerPos {
+			copyRec[i] = record[headerPos[ipos]]
+		}
+		// Set the file_name, session_id, and shard_id
+		var nodeId int
+		copyRec[fileNamePos] = *inFile
+		copyRec[sessionIdPos] = *sessionId
+		shardId := int(rowid % nshards64)
+		copyRec[shardIdPos] = shardId
+		nodeId = shardId % nbrNodes
+		inputRows[nodeId] = append(inputRows[nodeId], copyRec)
 	}
 
 	// write the sharded rows to the db using go routines...
 	var copyCount int64
 	var badRowCount int
 	hasErrors := false
-	if shardingPos<0 || nbrNodes==1 {
+	if nbrNodes == 1 {
 		// everything is in shard 0
 		copyCount, err = dbpool[0].CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(inputRows[0]))
 		if err != nil {
@@ -371,9 +352,6 @@ func main() {
 	if *dsnList == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Connection string must be provided.")
-	}
-	if len(*shardingColumn)>0 && *nbrShards==1 {
-		log.Println("Warning: sharding column is specified but the number of shards is 1, did you forget to set -nbrShards?")
 	}
 	if hasErr {
 		flag.Usage()
