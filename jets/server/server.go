@@ -34,9 +34,10 @@ var poolSize      = flag.Int   ("poolSize", 10, "Pool size constraint")
 var sessionId     = flag.String("sessionId", "", "Process session ID used to link entitied processed together. (required)")
 var inSessionId   = flag.String("inSessionId", "", "Session ID for input domain table, default is same as -sessionId.")
 var limit         = flag.Int   ("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
-var nodeId        = flag.Int   ("nodeId", 0, "DB node id associated to this processing node.")
+var nodeId        = flag.Int   ("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
 var nbrShards     = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the created output entities")
 var outTables     = flag.String("outTables", "", "Comma-separed list of output tables (required).")
+var shardId       = flag.Int   ("shardId", -1, "Run the server process for this single shard, overrides -nodeId.")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int 	// taken from env GLOG_v
@@ -85,6 +86,9 @@ func doJob() error {
 	// open db connections
 	dsnSplit := strings.Split(*dsnList, ",")
 	nbrDbNodes = len(dsnSplit)
+	if *shardId >= 0 {
+		*nodeId = *shardId % nbrDbNodes
+	}
 	if *nodeId >= nbrDbNodes {
 		return fmt.Errorf("error: nodeId is %d (-nodeId), we have %d nodes (-dsn): nodeId must be one of the db nodes", *nodeId, nbrDbNodes)
 	}
@@ -100,6 +104,7 @@ func doJob() error {
 	log.Printf("Command Line Argument: ruleseq: %s\n", *ruleseq)
 	log.Printf("Command Line Argument: ruleset: %s\n", *ruleset)
 	log.Printf("Command Line Argument: sessionId: %s\n", *sessionId)
+	log.Printf("Command Line Argument: shardId: %d\n", *shardId)
 	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n",glogv)
 	dsn := dsnSplit[*nodeId % nbrDbNodes]

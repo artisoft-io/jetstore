@@ -107,7 +107,11 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		}
 		log.Println("SQL:", stmt)
 		log.Println("Grouping key at pos", mainInput.groupingPosition)
-		rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId)
+		if *shardId >= 0 {
+			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
+		} else {
+			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId)
+		}
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
 			return

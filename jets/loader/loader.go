@@ -254,6 +254,7 @@ func processFile() error {
 		copyRec[shardIdPos] = shardId
 		nodeId = shardId % nbrNodes
 		inputRows[nodeId] = append(inputRows[nodeId], copyRec)
+		rowid += 1
 	}
 
 	// write the sharded rows to the db using go routines...
