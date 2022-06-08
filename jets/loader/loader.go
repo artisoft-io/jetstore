@@ -91,17 +91,6 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	if err != nil {
 		return fmt.Errorf("error while creating table: %v", err)
 	}
-	// primary index stmt
-	stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  ("jets:key", session_id, last_update DESC);`, 
-		pgx.Identifier{*tblName+"_primary_idx"}.Sanitize(),
-		pgx.Identifier{*tblName}.Sanitize())
-	log.Println(stmt)
-	if dbpool != nil {
-		_, err := dbpool.Exec(context.Background(), stmt)
-		if err != nil {
-			return fmt.Errorf("error while creating primary index: %v", err)
-		}
-	}
 	if dbpool == nil {
 		return nil
 	}
