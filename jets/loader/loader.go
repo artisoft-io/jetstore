@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"log"
 	"os"
@@ -40,6 +39,7 @@ func (s *chartype) Set(value string) error {
 }
 
 var inFile             = flag.String("in_file", "/work/input.csv", "the input csv file name")
+var dropTable          = flag.Bool("d", false, "drop table if it exists, default is false")
 var dsnList            = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
 var tblName            = flag.String("table", "", "table name to load the data into (required)")
 var nbrShards          = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the input file")
@@ -51,14 +51,6 @@ func init() {
 
 // Support Functions
 // --------------------------------------------------------------------------------------
-func compute_shard_id(str string, nbuckets int) int32 {
-	h := fnv.New32a()
-	h.Write([]byte(str))
-	res := int32(h.Sum32() % uint32(nbuckets))
-	// log.Println("COMPUTE SHARD for ",str,"on",nbuckets,"buckets =",res)
-	return res
-}
-
 func tableExists(dbpool *pgxpool.Pool) ( exists bool, err error) {
 	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = 'public' and tablename = $1)", *tblName).Scan(&exists)
 	if err != nil {
@@ -212,7 +204,7 @@ func processFile() error {
 		if err != nil {
 			return fmt.Errorf("while validating table name: %v", err)
 		}
-		if !tblExists {
+		if !tblExists || *dropTable {
 			err = createTable(dbpool[i], headers)
 			if err != nil {
 				return fmt.Errorf("while creating table: %v", err)
