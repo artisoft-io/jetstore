@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"os"
@@ -52,6 +53,13 @@ func init() {
 
 // Support Functions
 // --------------------------------------------------------------------------------------
+func compute_shard_id(key string) int {
+	h := fnv.New32a()
+	h.Write([]byte(key))
+	res := int(h.Sum32()) % *nbrShards
+	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
+	return res
+}
 func tableExists(dbpool *pgxpool.Pool) ( exists bool, err error) {
 	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = 'public' and tablename = $1)", *tblName).Scan(&exists)
 	if err != nil {
@@ -162,10 +170,10 @@ func processFile() error {
 	// drop input column matching one of the reserve column name
 	headers := make([]string, 0, len(rawHeaders)+5)
 	headerPos := make([]int, 0, len(rawHeaders)+5)
-	haveGroupingColumn := false
+	groupingColumnPos := -1
 	for ipos := range rawHeaders {
 		if rawHeaders[ipos] == *groupingColumn {
-			haveGroupingColumn = true
+			groupingColumnPos = ipos
 		}
 		switch rawHeaders[ipos] {
 		case "file_name", "jets:key", "last_update", "session_id", "shard_id":
@@ -176,7 +184,7 @@ func processFile() error {
 		}
 	}
 	// Check if we have grouping column if we should
-	if *groupingColumn!="" && !haveGroupingColumn {
+	if *groupingColumn!="" && groupingColumnPos<0 {
 		return fmt.Errorf("error: grouping column '%s' not found in input file %s", *groupingColumn, *inFile)
 	}
 	// Adding reserve columns
@@ -250,7 +258,12 @@ func processFile() error {
 		var nodeId int
 		copyRec[fileNamePos] = *inFile
 		copyRec[sessionIdPos] = *sessionId
-		shardId := int(rowid % nshards64)
+		shardId := 0
+		if groupingColumnPos >= 0 {
+			shardId = compute_shard_id(record[groupingColumnPos])
+		} else {
+			shardId = int(rowid % nshards64)
+		}
 		copyRec[shardIdPos] = shardId
 		nodeId = shardId % nbrNodes
 		inputRows[nodeId] = append(inputRows[nodeId], copyRec)
