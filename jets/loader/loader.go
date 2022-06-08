@@ -42,6 +42,7 @@ var inFile             = flag.String("in_file", "/work/input.csv", "the input cs
 var dropTable          = flag.Bool("d", false, "drop table if it exists, default is false")
 var dsnList            = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
 var tblName            = flag.String("table", "", "table name to load the data into (required)")
+var groupingColumn     = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the input_table for that column")
 var nbrShards          = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId          = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var sep_flag chartype = '|'
@@ -74,9 +75,11 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	buf.WriteString(pgx.Identifier{*tblName}.Sanitize())
 	buf.WriteString("(")
 	for _, header := range headers {
-		if header!="session_id" && header!="shard_id" {
+		switch header {
+		case "session_id", "shard_id", "file_name":
+		default:
 			buf.WriteString(pgx.Identifier{header}.Sanitize())
-			buf.WriteString(" TEXT, ")
+			buf.WriteString(" TEXT, ")			
 		}
 	}
 	buf.WriteString(" file_name TEXT,")
@@ -91,8 +94,17 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	if err != nil {
 		return fmt.Errorf("error while creating table: %v", err)
 	}
-	if dbpool == nil {
-		return nil
+	// Add grouping column index
+	if *groupingColumn != "" {
+		stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC);`, 
+		pgx.Identifier{*tblName+"_grouping_idx"}.Sanitize(),
+		pgx.Identifier{*tblName}.Sanitize(),
+		pgx.Identifier{*groupingColumn}.Sanitize())
+		log.Println(stmt)
+		_, err := dbpool.Exec(context.Background(), stmt)
+		if err != nil {
+			return fmt.Errorf("error while creating primary index: %v", err)
+		}
 	}
 	// the registry table
 	stmt = `CREATE TABLE IF NOT EXISTS input_registry (file_name TEXT NOT NULL, table_name TEXT NOT NULL, session_id TEXT NOT NULL, load_count INTEGER, bad_row_count INTEGER, node_id INTEGER DEFAULT 0 NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (file_name, table_name, session_id));` 
@@ -150,7 +162,11 @@ func processFile() error {
 	// drop input column matching one of the reserve column name
 	headers := make([]string, 0, len(rawHeaders)+5)
 	headerPos := make([]int, 0, len(rawHeaders)+5)
+	haveGroupingColumn := false
 	for ipos := range rawHeaders {
+		if rawHeaders[ipos] == *groupingColumn {
+			haveGroupingColumn = true
+		}
 		switch rawHeaders[ipos] {
 		case "file_name", "jets:key", "last_update", "session_id", "shard_id":
 			log.Printf("Input file contains column named '%s', this is a reserve name. Droping the column", rawHeaders[ipos])
@@ -158,6 +174,10 @@ func processFile() error {
 			headers = append(headers, rawHeaders[ipos])
 			headerPos = append(headerPos, ipos)			
 		}
+	}
+	// Check if we have grouping column if we should
+	if *groupingColumn!="" && !haveGroupingColumn {
+		return fmt.Errorf("error: grouping column '%s' not found in input file %s", *groupingColumn, *inFile)
 	}
 	// Adding reserve columns
 	fileNamePos := len(headers)
