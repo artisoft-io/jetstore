@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS input_registry (
   bad_row_count INTEGER, 
   node_id INTEGER DEFAULT 0 NOT NULL, 
   last_update timestamp without time zone DEFAULT now() NOT NULL, 
-  UNIQUE (table_name, session_id)
+  UNIQUE (file_name, table_name, session_id)
 );

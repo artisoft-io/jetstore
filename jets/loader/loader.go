@@ -114,7 +114,7 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 		return nil
 	}
 	// the registry table
-	stmt = `CREATE TABLE IF NOT EXISTS input_registry (file_name TEXT NOT NULL, table_name TEXT NOT NULL, session_id TEXT NOT NULL, load_count INTEGER, bad_row_count INTEGER, node_id INTEGER DEFAULT 0 NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (table_name, session_id));` 
+	stmt = `CREATE TABLE IF NOT EXISTS input_registry (file_name TEXT NOT NULL, table_name TEXT NOT NULL, session_id TEXT NOT NULL, load_count INTEGER, bad_row_count INTEGER, node_id INTEGER DEFAULT 0 NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (file_name, table_name, session_id));` 
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating input_registry table: %v", err)
