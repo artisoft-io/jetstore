@@ -122,7 +122,7 @@ type RuleConfig struct {
 // prepare the sql statement for reading from input table (csv)
 // "SELECT  {{column_names}}    
 //  FROM {{table_name}}    
-//  WHERE session_id=$1
+//  WHERE session_id=$1 AND shard_id=$2
 //  ORDER BY {{grouping_key}})
 //
 func (processInput *ProcessInput) makeInputSqlStmt() string {
@@ -139,6 +139,9 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 	tbl := pgx.Identifier{processInput.inputTable}
 	buf.WriteString(tbl.Sanitize())
 	buf.WriteString(" WHERE session_id=$1 ")
+	if *shardId >= 0 {
+		buf.WriteString(" AND shard_id=$2 ")
+	}
 	buf.WriteString(" ORDER BY ")
 	col := pgx.Identifier{processInput.groupingColumn}
 	buf.WriteString(col.Sanitize())
@@ -156,7 +159,7 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 // Example from test2 of server unit tests:
 //   SELECT DISTINCT ON ("hc:patient_number", "jets:key", session_id) "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type" 
 //   FROM "hc:SimulatedPatient" 
-//   WHERE session_id=$1
+//   WHERE session_id=$1 AND shard_id=$2
 //   ORDER BY "hc:patient_number" ASC, "jets:key", session_id, last_update DESC
 //
 func (processInput *ProcessInput) makeSqlStmt() string {
@@ -181,6 +184,9 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 	buf.WriteString(" FROM ")
 	buf.WriteString(tbl_name)
 	buf.WriteString(" WHERE session_id=$1 ")
+	if *shardId >= 0 {
+		buf.WriteString(" AND shard_id=$2 ")
+	}
 	buf.WriteString(" ORDER BY ")
 	if processInput.groupingColumn != "jets:key" {
 		buf.WriteString(grouping_col_name)
