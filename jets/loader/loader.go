@@ -88,6 +88,7 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 			buf.WriteString(" TEXT, ")
 		}
 	}
+	buf.WriteString(" file_name TEXT,")
 	buf.WriteString(" \"jets:key\" TEXT DEFAULT gen_random_uuid ()::text NOT NULL,")
 	buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL,")
 	buf.WriteString(" shard_id integer DEFAULT 0 NOT NULL, ")
@@ -159,13 +160,28 @@ func processFile() error {
 	defer badRowsWriter.Flush()
 
 	// read the headers, put them in err file and make them valid for db
-	headers, err := reader.Read()
+	rawHeaders, err := reader.Read()
 	if err == io.EOF {
 		return errors.New("input csv file is empty")
 	} else if err != nil {
 		return fmt.Errorf("while reading csv headers: %v", err)
 	}
-	// Add sessionId and shardId to the headers
+	// Add sessionId and shardId to the headers,
+	// drop input column matching one of the reserve column name
+	headers := make([]string, 0, len(rawHeaders)+5)
+	headerPos := make([]int, 0, len(rawHeaders)+5)
+	for ipos := range rawHeaders {
+		switch rawHeaders[ipos] {
+		case "file_name", "jets:key", "last_update", "session_id", "shard_id":
+			log.Printf("Input file contains column named '%s', this is a reserve name. Droping the column", rawHeaders[ipos])
+		default:
+			headers = append(headers, rawHeaders[ipos])
+			headerPos = append(headerPos, ipos)			
+		}
+	}
+	// Adding reserve columns
+	fileNamePos := len(headers)
+	headers = append(headers, "file_name")
 	sessionIdPos := len(headers)
 	headers = append(headers, "session_id")
 	shardIdPos := len(headers)
@@ -237,11 +253,12 @@ func processFile() error {
 			}
 		} else {
 			copyRec := make([]interface{}, len(headers))
-			for i := range record {
-				copyRec[i] = record[i]
+			for i, ipos := range headerPos {
+				copyRec[i] = record[headerPos[ipos]]
 			}
-			// Set the session_id and shard_id
+			// Set the file_name, session_id, and shard_id
 			var nodeId int
+			copyRec[fileNamePos] = *inFile
 			copyRec[sessionIdPos] = *sessionId
 			if shardingPos < 0 {
 				copyRec[shardIdPos] = 0
