@@ -5,18 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
-
 func (server *Server) Home(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, "Welcome To This Awesome API")
 }
-
 
 func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
@@ -48,15 +46,11 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) SignIn(email, password string) (string, error) {
 
-	var err error
-	user := User{}
-
-	// err = server.DB.Debug().Model(User{}).Where("email = ?", email).Take(&user).Error
-	// if err != nil {
-	// 	return "", err
-	// }
-	//* Get user password from storage
-	// --
+	user := User{Email: email}
+	err := user.GetUserByEmail(server.dbpool)
+	if err != nil {
+		return "", err
+	}
 	err = VerifyPassword(user.Password, password)
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
 		return "", err
@@ -66,21 +60,21 @@ func (server *Server) SignIn(email, password string) (string, error) {
 
 func FormatError(err string) error {
 
-	if strings.Contains(err, "nickname") {
-		return errors.New("Nickname Already Taken")
-	}
+	// if strings.Contains(err, "name") {
+	// 	return errors.New("Name Already Taken")
+	// }
 
-	if strings.Contains(err, "email") {
-		return errors.New("Email Already Taken")
-	}
+	// if strings.Contains(err, "email") {
+	// 	return errors.New("Email Already Taken")
+	// }
 
-	if strings.Contains(err, "title") {
-		return errors.New("Title Already Taken")
-	}
-	if strings.Contains(err, "hashedPassword") {
-		return errors.New("Incorrect Password")
-	}
-	return errors.New("Incorrect Details")
+	// if strings.Contains(err, "title") {
+	// 	return errors.New("Title Already Taken")
+	// }
+	// if strings.Contains(err, "hashedPassword") {
+	// 	return errors.New("Incorrect Password")
+	// }
+	return fmt.Errorf("%v (is that too much details?)", err)
 }
 
 // User Management Functions
@@ -103,17 +97,15 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	userCreated, err := user.SaveUser(server)
-
+	// Perform the insert
+	err = user.InsertUser(server.dbpool)
 	if err != nil {
-
 		formattedError := FormatError(err.Error())
-
 		ERROR(w, http.StatusInternalServerError, formattedError)
 		return
 	}
-	w.Header().Set("Location", fmt.Sprintf("%s%s/%d", r.Host, r.RequestURI, userCreated.ID))
-	JSON(w, http.StatusCreated, userCreated)
+	w.Header().Set("Location", fmt.Sprintf("%s%s/%d", r.Host, r.RequestURI, user.ID))
+	JSON(w, http.StatusCreated, user)
 }
 
 func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {
@@ -138,14 +130,31 @@ func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := User{ID: uint32(uid)}
-	//* TODO FindUserByID
-	// userGotten, err := user.FindUserByID(server.DB, uint32(uid))
-	// if err != nil {
-	// 	ERROR(w, http.StatusBadRequest, err)
-	// 	return
-	// }
-	userGotten := user
-	JSON(w, http.StatusOK, userGotten)
+	err = user.GetUserByID(server.dbpool)
+	if err != nil {
+		log.Println("error while get user by ID:",err)
+		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
+		return
+	}
+	JSON(w, http.StatusOK, user)
+}
+
+func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
+
+	tokenID, err := ExtractTokenID(r)
+	if err != nil {
+		log.Println("error while extracting user ID from jwt token:",err)
+		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
+		return
+	}
+	user := User{ID: tokenID}
+	err = user.GetUserByID(server.dbpool)
+	if err != nil {
+		log.Println("error while get user by ID:",err)
+		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
+		return
+	}
+	JSON(w, http.StatusOK, user)
 }
 
 func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {

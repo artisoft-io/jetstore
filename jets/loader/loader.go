@@ -382,11 +382,17 @@ func main() {
 		sessionId = &sessId
 		log.Println("sessionId is set to", *sessionId)
 	}
-	// fmt.Printf("Got sep: %#U\n",sep_flag)
-	// fmt.Println("Got input file name:", *inFile)
-	// fmt.Println("Got table name:", *tblName)
-	// fmt.Println("Got append file to table:", *appendTable)
-	// fmt.Println("Got drop table:", *dropTable)
+
+	fmt.Println("Loader argument:")
+	fmt.Println("----------------")
+	fmt.Println("Got argument: inFile",*inFile)
+	fmt.Println("Got argument: dropTable",*dropTable)
+	fmt.Println("Got argument: dsnList",*dsnList)
+	fmt.Println("Got argument: tblName",*tblName)
+	fmt.Println("Got argument: groupingColumn",*groupingColumn)
+	fmt.Println("Got argument: nbrShards",*nbrShards)
+	fmt.Println("Got argument: sessionId",*sessionId)
+	fmt.Println("Got argument: sep_flag",sep_flag)
 
 	err := processFile()
 	if err != nil {
