@@ -198,7 +198,7 @@ func processFile() error {
 		if i > 0 {
 			badRowsWriter.WriteRune(reader.Comma)
 		}
-		badRowsWriter.WriteString(headers[i])
+		badRowsWriter.WriteString(rawHeaders[i])
 	}
 	_, err = badRowsWriter.WriteRune('\n')
 	if err != nil {
@@ -249,25 +249,26 @@ func processFile() error {
 			} else {
 				return fmt.Errorf("unknown error while reading csv records: %v", err)
 			}
-		}
-		copyRec := make([]interface{}, len(headers))
-		for i, ipos := range headerPos {
-			copyRec[i] = record[headerPos[ipos]]
-		}
-		// Set the file_name, session_id, and shard_id
-		var nodeId int
-		copyRec[fileNamePos] = *inFile
-		copyRec[sessionIdPos] = *sessionId
-		shardId := 0
-		if groupingColumnPos >= 0 {
-			shardId = compute_shard_id(record[groupingColumnPos])
 		} else {
-			shardId = int(rowid % nshards64)
+			copyRec := make([]interface{}, len(headers))
+			for i, ipos := range headerPos {
+				copyRec[i] = record[ipos]
+			}
+			// Set the file_name, session_id, and shard_id
+			var nodeId int
+			copyRec[fileNamePos] = *inFile
+			copyRec[sessionIdPos] = *sessionId
+			shardId := 0
+			if groupingColumnPos >= 0 {
+				shardId = compute_shard_id(record[groupingColumnPos])
+			} else {
+				shardId = int(rowid % nshards64)
+			}
+			copyRec[shardIdPos] = shardId
+			nodeId = shardId % nbrNodes
+			inputRows[nodeId] = append(inputRows[nodeId], copyRec)
+			rowid += 1
 		}
-		copyRec[shardIdPos] = shardId
-		nodeId = shardId % nbrNodes
-		inputRows[nodeId] = append(inputRows[nodeId], copyRec)
-		rowid += 1
 	}
 
 	// write the sharded rows to the db using go routines...
