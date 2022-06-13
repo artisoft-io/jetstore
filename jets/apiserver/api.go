@@ -12,10 +12,13 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// Home ------------------------------------------------------------
 func (server *Server) Home(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, "Welcome To This Awesome API")
 }
 
+// Login ------------------------------------------------------------
 func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -79,6 +82,7 @@ func FormatError(err string) error {
 
 // User Management Functions
 
+// CreateUser ------------------------------------------------------
 func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -121,6 +125,7 @@ func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, users)
 }
 
+// GetUser ------------------------------------------------------
 func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
@@ -139,6 +144,7 @@ func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, user)
 }
 
+// GetUserDetails ------------------------------------------------------
 func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 
 	tokenID, err := ExtractTokenID(r)
@@ -157,6 +163,7 @@ func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, user)
 }
 
+// UpdateUser ------------------------------------------------------
 func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
@@ -202,6 +209,7 @@ func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, updatedUser)
 }
 
+// DeleteUser ------------------------------------------------------
 func (server *Server) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)

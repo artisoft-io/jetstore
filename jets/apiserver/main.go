@@ -42,6 +42,29 @@ func authh(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
+// Middleware Function for allowing selected cors client
+func corsh(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("*** Origin Header:", r.Header.Get("Origin"))
+		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+		next(w, r)
+	}
+}
+
+// Options ------------------------------------------------------------
+func options(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Options Called:", r.URL, "method:",r.Method)
+	for k,v := range r.Header {
+		fmt.Println("    header:",k,"values:",v)
+	}
+	// write cors headers
+	//* check that origin is what we expect
+	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	//
+	w.WriteHeader(http.StatusOK)
+}
 
 // processFile
 // --------------------------------------------------------------------------------------
@@ -69,7 +92,8 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/", jsonh(server.Home)).Methods("GET")
 
 	// Login Route
-	server.Router.HandleFunc("/login", jsonh(server.Login)).Methods("POST")
+	server.Router.HandleFunc("/login", jsonh(corsh(server.Login))).Methods("POST")
+	server.Router.HandleFunc("/login", options).Methods("OPTIONS")
 
 	//Users routes
 	server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
