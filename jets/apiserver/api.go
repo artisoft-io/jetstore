@@ -153,6 +153,7 @@ func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
 		return
 	}
+	user.Password = ""
 	JSON(w, http.StatusOK, user)
 }
 
@@ -172,6 +173,7 @@ func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
 		return
 	}
+	user.Password = ""
 	JSON(w, http.StatusOK, user)
 }
 
