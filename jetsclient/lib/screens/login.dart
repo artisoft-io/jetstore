@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/models/user.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,12 +14,54 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   UserModel formData = UserModel();
+  void _doLogin() async {
+    // Use a JSON encoded string to send
+    try {
+      var client = context.read<HttpClient>();
+      var user = context.read<UserModel>();
+      var result = await client.httpClient.post(
+          client.serverAdd.replace(path: '/login'),
+          body: json.encode(formData.toJson()),
+          headers: {'Content-Type': 'application/json'});
+      // print('Response status: ${result.statusCode}');
+      // print('Response body: ${result.body}');
+      if (result.statusCode == 200) {
+        // update the [UserModel]
+        user.email = formData.email;
+        // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
+        user.token = jsonDecode(result.body) as String;
+        // Inform the user and transition
+        const snackBar = SnackBar(
+          content: Text('Login Successful!'),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        Navigator.pushReplacementNamed(context, '/');
+      } else if (result.statusCode == 401 || result.statusCode == 422) {
+        _showDialog('Invalid email and/or password.');
+      } else {
+        _showDialog('Something went wrong. Please try again.');
+      }
+    } on Exception catch (e) {
+      print('Exception details\n$e');
+      _showDialog('OOps error: $e');
+    } catch (e) {
+      print('Unknown exception $e of type ${e.runtimeType}.');
+      _showDialog('OOps Unknown exception $e of type ${e.runtimeType}');
+    }
+  }
+
+  void _doRegister() async {
+    // Navigator.pushNamed(context, '/register').then((value) => _doLogin());
+    Navigator.pushNamed(context, '/register');
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sign in Form'),
+        automaticallyImplyLeading: false,
+        title: const Text('Please Sign In'),
       ),
       body: Form(
         child: Scrollbar(
@@ -35,6 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       filled: true,
                       hintText: 'Your email address',
                       labelText: 'Email',
+                      
                     ),
                     onChanged: (value) {
                       formData.email = value;
@@ -50,47 +93,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       formData.password = value;
                     },
                   ),
-                  TextButton(
-                    child: const Text('Sign in'),
-                    onPressed: () async {
-                      // Use a JSON encoded string to send
-                      try {
-                        var httpClient = context.read<http.Client>();
-                        var result = await httpClient.post(
-                            Uri.parse('http://localhost:8080/login'),
-                            body: json.encode(formData.toJson()),
-                            headers: {'Content-Type': 'application/json'});
-
-                        print('Response status: ${result.statusCode}');
-                        print('Response body: ${result.body}');
-                        if (result.statusCode == 200) {
-                          //* update the [UserModel]
-                          //
-                          // We are using context.read() here because the callback
-                          // is executed whenever the user taps the button. In other
-                          // words, it is executed outside the build method.
-                          // Get a hold of the [UserModel] before making the async
-                          // call
-                          var user = context.read<UserModel>();
-                          user.email = formData.email;
-                          // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
-                          user.token = jsonDecode(result.body) as String;
-                          _showDialog('Successfully signed in ${user.email} with token ${user.token}');
-                        } else if (result.statusCode == 401) {
-                          _showDialog('Unable to sign in.');
-                        } else {
-                          _showDialog(
-                              'Something went wrong. Please try again.');
-                        }
-                      } on Exception catch (e) {
-                        print('Exception details\n$e');
-                        _showDialog('OOps error: $e');
-                      } catch (e) {
-                        print('Unknown exception $e of type ${e.runtimeType}.');
-                        _showDialog(
-                            'OOps Unknown exception $e of type ${e.runtimeType}');
-                      }
-                    },
+                  Center(
+                    child: Row(
+                      children: <Widget>[
+                        TextButton(
+                          onPressed: _doLogin,
+                          child: const Text('Sign in')),
+                        const SizedBox(
+                          height: 24,
+                        ),
+                        TextButton(
+                            onPressed: _doRegister, 
+                            child: const Text('Register')),
+                      ],
+                    ),
                   ),
                 ].expand(
                   (widget) => [

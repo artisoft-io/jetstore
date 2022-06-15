@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
@@ -61,23 +62,23 @@ func (server *Server) SignIn(email, password string) (string, error) {
 	return CreateToken(user.ID)
 }
 
+func IsDuplicateUserError(err string) bool {
+	return strings.Contains(err, "users_email_key")
+}
+
 func FormatError(err string) error {
 
-	// if strings.Contains(err, "name") {
-	// 	return errors.New("Name Already Taken")
-	// }
+	if strings.Contains(err, "name") {
+		return errors.New("Name Already Taken")
+	}
 
-	// if strings.Contains(err, "email") {
-	// 	return errors.New("Email Already Taken")
-	// }
-
-	// if strings.Contains(err, "title") {
-	// 	return errors.New("Title Already Taken")
-	// }
-	// if strings.Contains(err, "hashedPassword") {
-	// 	return errors.New("Incorrect Password")
-	// }
-	return fmt.Errorf("%v (is that too much details?)", err)
+	if strings.Contains(err, "email") {
+		return errors.New("Email Already Taken")
+	}
+	if strings.Contains(err, "hashedPassword") {
+		return errors.New("Incorrect Password")
+	}
+	return errors.New("Unknown Error")
 }
 
 // User Management Functions
@@ -98,18 +99,29 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	user.Prepare()
 	err = user.Validate("")
 	if err != nil {
-		ERROR(w, http.StatusUnprocessableEntity, err)
+		ERROR(w, http.StatusNotAcceptable, err)
 		return
 	}
 	// Perform the insert
+	userPwd := user.Password
 	err = user.InsertUser(server.dbpool)
 	if err != nil {
-		formattedError := FormatError(err.Error())
+		errstr := err.Error()
+		if IsDuplicateUserError(errstr) {
+			ERROR(w, http.StatusConflict, errors.New("User Already Exists"))
+			return
+		}
+		formattedError := FormatError(errstr)
 		ERROR(w, http.StatusInternalServerError, formattedError)
 		return
 	}
-	w.Header().Set("Location", fmt.Sprintf("%s%s/%d", r.Host, r.RequestURI, user.ID))
-	JSON(w, http.StatusCreated, user)
+	token, err := server.SignIn(user.Email, userPwd)
+	if err != nil {
+		formattedError := FormatError(err.Error())
+		ERROR(w, http.StatusUnprocessableEntity, formattedError)
+		return
+	}
+	JSON(w, http.StatusOK, token)
 }
 
 func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {

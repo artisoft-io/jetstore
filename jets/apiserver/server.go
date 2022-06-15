@@ -38,7 +38,8 @@ func authh(next http.HandlerFunc) http.HandlerFunc {
 // Middleware Function for allowing selected cors client
 func corsh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("*** Origin Header:", r.Header.Get("Origin"))
+		// fmt.Println("*** cors for ",r.URL.Path,", Origin Header:", r.Header.Get("Origin"))
+		//* check that origin is what we expect
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 		next(w, r)
 	}
@@ -51,11 +52,10 @@ type OptionConfig struct {
 	AllowedHeaders string
 }
 func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Options Called:", r.URL, "method:",r.Method)
-	for k,v := range r.Header {
-		fmt.Println("    header:",k,"values:",v)
-	}
-	// write cors headers
+	// fmt.Println("Options Called:", r.URL, "method:",r.Method)
+	// for k,v := range r.Header {
+	// 	fmt.Println("    header:",k,"values:",v)
+	// }
 	// write cors headers
 	//* check that origin is what we expect
 	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
@@ -105,7 +105,7 @@ func listenAndServe() error {
 		AllowedMethods: "POST, OPTIONS",
 		AllowedHeaders: "Content-Type"	}
 	server.Router.HandleFunc("/register", registerOptions.options).Methods("OPTIONS")
-	server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
+	server.Router.HandleFunc("/register", jsonh(corsh(server.CreateUser))).Methods("POST")
 
 	//Users routes
 	server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")

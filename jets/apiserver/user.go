@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"regexp"
 	"strings"
 	"time"
 
@@ -104,6 +105,13 @@ func (u *User) Validate(action string) error {
 		}
 		if u.Password == "" {
 			return errors.New("Required Password")
+		}
+		//* check that password pass test
+		hasDigit, _ := regexp.MatchString("[0-9]", u.Password)
+		hasUpper, _ := regexp.MatchString("[A-Z]", u.Password)
+		hasLower, _ := regexp.MatchString("[a-z]", u.Password)
+		if !hasDigit || !hasUpper || !hasLower {
+			return errors.New("Invalid Password")
 		}
 		if u.Email == "" {
 			return errors.New("Required Email")
