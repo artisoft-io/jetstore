@@ -19,7 +19,6 @@ class JetsClient extends StatefulWidget {
 }
 
 class JetsClientState extends State<JetsClient> {
-
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
@@ -71,10 +70,35 @@ class JetsClientState extends State<JetsClient> {
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('JetStore Workspace'),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.dark_mode_sharp),
+            tooltip: 'Toggle Theme',
+            onPressed: () {
+              AdaptiveTheme.of(context).toggleThemeMode();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_sharp),
+            tooltip: 'Log Out',
+            onPressed: () {
+              var user = context.read<UserModel>();
+              user.name = "";
+              user.email = "";
+              user.password = "";
+              user.token = "";
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
+      ),
       body: Center(
         child: Text('Welcome!', style: Theme.of(context).textTheme.headline2),
       ),
