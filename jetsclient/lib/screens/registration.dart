@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
@@ -63,6 +64,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text('Registration'),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.dark_mode_sharp),
+            tooltip: 'Toggle Theme',
+            onPressed: () {
+              AdaptiveTheme.of(context).toggleThemeMode();
+            },
+          ),
+          TextButton(
+            onPressed: () {
+              AdaptiveTheme.of(context).toggleThemeMode();
+            },
+            child: const Text(''),
+          )
+        ],
       ),
       body: Form(
         key: _formKey,
