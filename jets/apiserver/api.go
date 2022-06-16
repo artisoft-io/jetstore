@@ -220,6 +220,7 @@ func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 	updatedUser := user
+	updatedUser.Password = ""
 	JSON(w, http.StatusOK, updatedUser)
 }
 

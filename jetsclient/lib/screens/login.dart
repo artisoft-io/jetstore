@@ -4,6 +4,8 @@ import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
+import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/models/user.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,7 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
     // Use a JSON encoded string to send
     try {
       var client = context.read<HttpClient>();
-      var user = context.read<UserModel>();
+
+      var user = UserModel();
       var result = await client.httpClient.post(
           client.serverAdd.replace(path: '/login'),
           body: json.encode(formData.toJson()),
@@ -28,16 +31,18 @@ class _LoginScreenState extends State<LoginScreen> {
       // print('Response body: ${result.body}');
       if (result.statusCode == 200) {
         // update the [UserModel]
+        user.name = "";
         user.email = formData.email;
         // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
         user.token = jsonDecode(result.body) as String;
+        JetsRouterDelegate().user = user;
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Login Successful!'),
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        Navigator.pushReplacementNamed(context, '/');
+        JetsRouterDelegate()(JetsRouteData("/"));
       } else if (result.statusCode == 401 || result.statusCode == 422) {
         _showDialog('Invalid email and/or password.');
       } else {
@@ -54,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _doRegister() async {
     // Navigator.pushNamed(context, '/register').then((value) => _doLogin());
-    Navigator.pushNamed(context, '/register');
+    JetsRouterDelegate()(JetsRouteData("/register"));
   }
 
   @override
@@ -93,7 +98,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       filled: true,
                       hintText: 'Your email address',
                       labelText: 'Email',
-                      
                     ),
                     onChanged: (value) {
                       formData.email = value;
@@ -113,13 +117,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Row(
                       children: <Widget>[
                         TextButton(
-                          onPressed: _doLogin,
-                          child: const Text('Sign in')),
+                            onPressed: _doLogin, child: const Text('Sign in')),
                         const SizedBox(
                           height: 24,
                         ),
                         TextButton(
-                            onPressed: _doRegister, 
+                            onPressed: _doRegister,
                             child: const Text('Register')),
                       ],
                     ),
