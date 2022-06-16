@@ -27,17 +27,18 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   @override
   JetsRouteData? get currentConfiguration => routeData;
 
-  void call(JetsRouteData appRoute) {
-    routeData = appRoute;
-    //*
-    print(
-        "call called authRequired is ${appRoute.authRequired} and token is ${user.token}");
-    if (appRoute.authRequired && (user.token == null || user.token!.isEmpty)) {
-      _pages = routesPagesMap["/login"]!;
+  void _setRoutePages(JetsRouteData routeData) {
+    this.routeData = routeData;
+    if (!routeData.authRequired || user.isAuthenticated) {
+      _pages = routesPagesMap[routeData.path]!;
     } else {
-      _pages = routesPagesMap[appRoute.path]!;
+      this.routeData = JetsRouteData(loginPath);
+      _pages = routesPagesMap[loginPath]!;
     }
+  }
 
+  void call(JetsRouteData appRoute) {
+    _setRoutePages(appRoute);
     notifyListeners();
   }
 
@@ -59,10 +60,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
 
   @override
   Future<void> setNewRoutePath(JetsRouteData configuration) async {
-    routeData = configuration;
-    print(
-        "*** setNewRoutePath called with path ${configuration.path}, authRequired? ${configuration.authRequired}");
-    _pages = routesPagesMap[configuration.path]!;
+    _setRoutePages(configuration);
   }
 
   void _onpop() {
@@ -81,7 +79,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
     }
 
     routeData = jetsRoutesParser(pathString);
-    _pages = routesPagesMap[routeData.path]!;
+    _setRoutePages(routeData);
   }
 
   void _buildListPages() {

@@ -21,6 +21,7 @@ final Map<String, Widget> jetsRoutesMap = {
   jobDetailsPath: const MessageScreen(message: "Detailed Welcome!"),
   pageNotFoundPath: const MessageScreen(message: "Opps 404!")
 };
+const noAuthRequiredPaths = {loginPath, registerPath, pageNotFoundPath};
 
 class MessageScreen extends StatelessWidget {
   final String message;
@@ -50,7 +51,7 @@ class MessageScreen extends StatelessWidget {
               user.password = "";
               user.token = "";
               JetsRouterDelegate().user = user;
-              JetsRouterDelegate()(JetsRouteData("/login"));
+              JetsRouterDelegate()(JetsRouteData(loginPath));
             },
           ),
         ],
