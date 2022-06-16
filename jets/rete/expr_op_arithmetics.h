@@ -254,11 +254,11 @@ struct AbsVisitor: public boost::static_visitor<RDFTTYPE>
 
 struct ApplyMinMaxVisitor
 {
-  ApplyMinMaxVisitor(ReteSession * rs, bool is_min): rs(rs), is_min(is_min) {}
+  ApplyMinMaxVisitor(ReteSession * rs, bool is_min, bool ret_obj): rs(rs), is_min(is_min), ret_obj(ret_obj) {}
 
   // Apply the visitor to find the min/max value.
   //  - case datap == nullptr: return ?o such that min/max ?o in (s, objp, ?o)
-  //  - case datap != nullptr: return ?o such that min/max ?v in (s, objp, ?o).(?o datap ?v)
+  //  - case datap != nullptr: return ?o or ?v such that min/max ?v in (s, objp, ?o).(?o datap ?v)
   // Below in implementation we have:
   //  ?o is currentObj and ?v is currentValue with
   //  (s, objp, currentObj).(currentObj, datap, currentValue), with currentObj = currentValue if datap==nullptr
@@ -301,15 +301,34 @@ struct ApplyMinMaxVisitor
       }
       itor.next();
     }
+    if(datap and not this->ret_obj) return *resultValue;
     return *resultObj;
   }
 
   ReteSession * rs;
   bool is_min;
+  bool ret_obj;
 };
 
 // MaxOfVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
+inline RDFTTYPE
+doMinMaxOf(ReteSession * rs, rdf::r_index lhs, rdf::r_index rhs, bool doMin)
+{
+  // Determine which mode the operator is to be used
+  auto * sess = rs->rdf_session();
+  auto const* jr = sess->rmgr()->jets();
+  auto objp  = sess->get_object(rhs, jr->jets__entity_property);
+  // if objp == null then mode is min/max of a multi value property
+  if (objp == nullptr) {
+    ApplyMinMaxVisitor av(rs, doMin, true);
+    return av(lhs, rhs);
+  }
+  // Mode is min/max of multi value obj property based on values of datap
+  auto datap = sess->get_object(rhs, jr->jets__value_property);
+  ApplyMinMaxVisitor av(rs, doMin, false);
+  return av(lhs, objp, datap);
+}
 struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
   MaxOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -317,11 +336,11 @@ struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
+    if(not this->rs) return rdf::Null();
     auto * sess = this->rs->rdf_session();
     auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
     if(not pr.first or not pr.second) return rdf::Null();
-    ApplyMinMaxVisitor av(this->rs, false);
-    return av(pr.first, pr.second);
+    return doMinMaxOf(this->rs, pr.first, pr.second, false);
   }
 
   ReteSession * rs;
@@ -337,11 +356,11 @@ struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
+    if(not this->rs) return rdf::Null();
     auto * sess = this->rs->rdf_session();
     auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
     if(not pr.first or not pr.second) return rdf::Null();
-    ApplyMinMaxVisitor av(this->rs, true);
-    return av(pr.first, pr.second);
+    return doMinMaxOf(this->rs, pr.first, pr.second, true);
   }
 
   ReteSession * rs;
@@ -392,7 +411,7 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>
         "jets:operator must be a text literal with value '<' or '>' (single char text)"
       );
     }
-    ApplyMinMaxVisitor av(this->rs, is_min);
+    ApplyMinMaxVisitor av(this->rs, is_min, true);
     return av(pr.first, objp, datap);
   }
 
