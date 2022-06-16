@@ -59,6 +59,11 @@ class ExprOpSpecialtyTest : public ::testing::Test {
     rdf::r_index values = rmgr->create_resource("values");
     rdf::r_index name = rmgr->create_resource("name");
 
+    // config for min/max
+    rdf::r_index config1 = rmgr->create_resource("config1");
+    this->rdf_session->insert(config1, jets->jets__entity_property, has);
+    this->rdf_session->insert(config1, jets->jets__value_property, value);
+
     // instance
     rdf::r_index main1 = rmgr->create_resource("main1");
     this->rdf_session->insert(main1, jets->rdf__type, me);
@@ -103,6 +108,14 @@ TEST_F(ExprOpSpecialtyTest, MinOfVisitor1) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(10)));
 }
+TEST_F(ExprOpSpecialtyTest, MinOfVisitor2) {
+  // test min ?v in (s, objp, ?o).(?o, datap, ?v)
+  MinOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("main1");
+  rdf::NamedResource rhs("config1");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(1)));
+}
 TEST_F(ExprOpSpecialtyTest, MaxOfVisitor1) {
   // test max ?v in (s, p, ?v)
   MaxOfVisitor op(this->rete_session.get(), nullptr);
@@ -110,6 +123,14 @@ TEST_F(ExprOpSpecialtyTest, MaxOfVisitor1) {
   rdf::NamedResource rhs("values");
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(30)));
+}
+TEST_F(ExprOpSpecialtyTest, MaxOfVisitor2) {
+  // test max ?v in (s, objp, ?o).(?o, datap, ?v)
+  MaxOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("main1");
+  rdf::NamedResource rhs("config1");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(3)));
 }
 
 TEST_F(ExprOpSpecialtyTest, SortedHeadVisitor1) {
