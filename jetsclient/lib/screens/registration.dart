@@ -4,6 +4,8 @@ import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
+import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/models/user.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -24,7 +26,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     // Use a JSON encoded string to send
     try {
       var client = context.read<HttpClient>();
-      var user = context.read<UserModel>();
+      var user = UserModel();
       var result = await client.httpClient.post(
           client.serverAdd.replace(path: '/register'),
           body: json.encode(formData.toJson()),
@@ -35,13 +37,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         user.name = formData.name;
         user.email = formData.email;
         user.token = jsonDecode(result.body) as String;
+        JetsRouterDelegate().user = user;
+
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Registration Successful, you are now signed in'),
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        Navigator.pushReplacementNamed(context, '/');
+        JetsRouterDelegate()(JetsRouteData("/"));
       } else if (result.statusCode == 406 || result.statusCode == 422) {
         // http Not Acceptable / Unprocessable
         _showDialog('Invalid email or password.');

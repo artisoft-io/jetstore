@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:provider/provider.dart';
-import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/screens/login.dart';
-import 'package:jetsclient/screens/registration.dart';
+
+import 'package:jetsclient/routes/jets_route_information_parser.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
+
+final jetsRouteDelegate = JetsRouterDelegate();
+final jetsRouteInformationParser = JetsRouteInformationParser();
 
 void main() {
   runApp(const JetsClient(serverOrigin: 'http://localhost:8080'));
@@ -46,62 +49,62 @@ class JetsClientState extends State<JetsClient> {
           //     return cart;
           //   },
           // ),
-          // User model for login
-          Provider(create: (context) => UserModel()),
           // http Client
           Provider(create: (context) => HttpClient(widget.serverOrigin)),
         ],
-        child: MaterialApp(
+        child: MaterialApp.router(
           title: 'JetStore Client',
           theme: theme,
-          initialRoute: '/login',
-          routes: {
-            '/': (context) => const WelcomeScreen(),
-            '/login': (context) => const LoginScreen(),
-            '/register': (context) => const RegistrationScreen(),
-            // '/catalog': (context) => const MyCatalog(),
-            // '/cart': (context) => const MyCart(),
-          },
+          routerDelegate: jetsRouteDelegate,
+          routeInformationParser: jetsRouteInformationParser,
+          // initialRoute: '/login',
+          // routes: {
+          //   '/': (context) => const WelcomeScreen(),
+          //   '/login': (context) => const LoginScreen(),
+          //   '/register': (context) => const RegistrationScreen(),
+          //   // '/catalog': (context) => const MyCatalog(),
+          //   // '/cart': (context) => const MyCart(),
+          // },
         ),
       ),
     );
   }
 }
 
-class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key});
+// class WelcomeScreen extends StatelessWidget {
+//   const WelcomeScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('JetStore Workspace'),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.dark_mode_sharp),
-            tooltip: 'Toggle Theme',
-            onPressed: () {
-              AdaptiveTheme.of(context).toggleThemeMode();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_sharp),
-            tooltip: 'Log Out',
-            onPressed: () {
-              var user = context.read<UserModel>();
-              user.name = "";
-              user.email = "";
-              user.password = "";
-              user.token = "";
-              Navigator.pushReplacementNamed(context, '/login');
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Text('Welcome!', style: Theme.of(context).textTheme.headline2),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         automaticallyImplyLeading: false,
+//         title: const Text('JetStore Workspace'),
+//         actions: <Widget>[
+//           IconButton(
+//             icon: const Icon(Icons.dark_mode_sharp),
+//             tooltip: 'Toggle Theme',
+//             onPressed: () {
+//               AdaptiveTheme.of(context).toggleThemeMode();
+//             },
+//           ),
+//           IconButton(
+//             icon: const Icon(Icons.logout_sharp),
+//             tooltip: 'Log Out',
+//             onPressed: () {
+//               var user = context.read<UserModel>();
+//               user.name = "";
+//               user.email = "";
+//               user.password = "";
+//               user.token = "";
+//               Navigator.pushReplacementNamed(context, '/login');
+//             },
+//           ),
+//         ],
+//       ),
+//       body: Center(
+//         child: Text('Welcome!', style: Theme.of(context).textTheme.headline2),
+//       ),
+//     );
+//   }
+// }

@@ -18,6 +18,8 @@ class UserModel {
 
   UserModel({this.name, this.email, this.token, this.password});
 
+  bool isAuthenticated() => token != null && token!.isNotEmpty;
+
   factory UserModel.fromJson(Map<String, dynamic> json) =>
       _$UserModelFromJson(json);
 
