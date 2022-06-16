@@ -2,10 +2,9 @@ import 'dart:convert';
 
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/export_routes.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/routes/jets_router_delegate.dart';
-import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/models/user.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -24,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       var user = UserModel();
       var result = await client.httpClient.post(
-          client.serverAdd.replace(path: '/login'),
+          client.serverAdd.replace(path: loginPath),
           body: json.encode(formData.toJson()),
           headers: {'Content-Type': 'application/json'});
       // print('Response status: ${result.statusCode}');
@@ -58,8 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _doRegister() async {
-    // Navigator.pushNamed(context, '/register').then((value) => _doLogin());
-    JetsRouterDelegate()(JetsRouteData("/register"));
+    JetsRouterDelegate()(JetsRouteData(registerPath));
   }
 
   @override

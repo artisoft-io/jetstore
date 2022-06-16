@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -32,11 +33,24 @@ func TokenValid(r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	//* Must return err if token not valid!!
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		Pretty(claims)
+	// Token should be valid at this point, otherwise Parse would
+	// have returned an error. To be safe though we still validate...
+	if !token.Valid {
+		return errors.New("Invalid Token")
 	}
 	return nil
+}
+
+func TokenClaims(token *jwt.Token) (jwt.MapClaims, error) {
+	if token == nil || !token.Valid {
+		return nil, errors.New("Invalid Token")
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if ok {
+		Pretty(claims)
+		return claims, nil
+	}
+	return nil, errors.New("Invalid Token")
 }
 
 func ExtractToken(r *http.Request) string {

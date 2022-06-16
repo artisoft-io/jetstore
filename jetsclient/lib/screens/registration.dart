@@ -2,10 +2,9 @@ import 'dart:convert';
 
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/export_routes.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/routes/jets_router_delegate.dart';
-import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/models/user.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -28,7 +27,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       var client = context.read<HttpClient>();
       var user = UserModel();
       var result = await client.httpClient.post(
-          client.serverAdd.replace(path: '/register'),
+          client.serverAdd.replace(path: registerPath),
           body: json.encode(formData.toJson()),
           headers: {'Content-Type': 'application/json'});
 

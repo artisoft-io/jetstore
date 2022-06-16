@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'jets_routes_app.dart';
-import 'jets_router_delegate.dart';
 import 'jets_route_data.dart';
 
 JetsRouteData jetsRoutesParser(String pathFromUrl) {
   final List<String> pathUriList = Uri.parse(pathFromUrl).pathSegments;
 
   if (pathUriList.isEmpty) {
-    if (JetsRouterDelegate().user.isAuthenticated()) {
-      return JetsRouteData(homePath);
-    }
-    return JetsRouteData(loginPath);
+    return JetsRouteData(homePath);
   }
 
   for (var route in jetsRoutesMap.keys) {
@@ -31,11 +27,7 @@ JetsRouteData jetsRoutesParser(String pathFromUrl) {
       }
 
       if (diff == 0) {
-        var routeData = JetsRouteData(route, params: params);
-        if(!routeData.authRequired || JetsRouterDelegate().user.isAuthenticated()) {
-          return routeData;
-        }
-        return JetsRouteData(loginPath);        
+        return JetsRouteData(route, params: params);
       }
     }
   }
