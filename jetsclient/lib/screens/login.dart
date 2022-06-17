@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/models/user.dart';
+import 'package:jetsclient/screens/components/app_bar.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        JetsRouterDelegate()(JetsRouteData("/"));
+        JetsRouterDelegate()(JetsRouteData(homePath));
       } else if (result.statusCode == 401 || result.statusCode == 422) {
         _showDialog('Invalid email and/or password.');
       } else {
@@ -63,25 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Please Sign In'),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.dark_mode_sharp),
-            tooltip: 'Toggle Theme',
-            onPressed: () {
-              AdaptiveTheme.of(context).toggleThemeMode();
-            },
-          ),
-          TextButton(
-            onPressed: () {
-              AdaptiveTheme.of(context).toggleThemeMode();
-            },
-            child: const Text(''),
-          )
-        ],
-      ),
+      appBar: appBar('Please Sign In', context),
       body: Form(
         child: Scrollbar(
           child: SingleChildScrollView(
@@ -115,7 +97,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Row(
                       children: <Widget>[
                         TextButton(
-                            onPressed: _doLogin, child: const Text('Sign in')),
+                            onPressed: _doLogin, 
+                            child: const Text('Sign in')),
                         const SizedBox(
                           height: 24,
                         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
+// import 'package:url_strategy/url_strategy.dart';
 
 import 'package:jetsclient/routes/jets_route_information_parser.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
@@ -10,6 +11,7 @@ final jetsRouteDelegate = JetsRouterDelegate();
 final jetsRouteInformationParser = JetsRouteInformationParser();
 
 void main() {
+  // setPathUrlStrategy();
   runApp(const JetsClient(serverOrigin: 'http://localhost:8080'));
 }
 
@@ -39,7 +41,7 @@ class JetsClientState extends State<JetsClient> {
           Provider(create: (context) => HttpClient(widget.serverOrigin)),
         ],
         child: MaterialApp.router(
-          title: 'JetStore Client',
+          title: 'JetStore',
           theme: theme,
           routerDelegate: jetsRouteDelegate,
           routeInformationParser: jetsRouteInformationParser,
