@@ -178,6 +178,9 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 		if col.IsArray {
 			buf.WriteString(" ARRAY")
 		}
+		if col.ColumnName == "jets:key" {
+			buf.WriteString(" NOT NULL ")
+		}
 		buf.WriteString(", ")
 	}
 	// add ext columns
@@ -185,7 +188,7 @@ func CreateTable(dbpool *pgxpool.Pool, tableName string, columns []workspace.Dom
 		buf.WriteString(pgx.Identifier{vr}.Sanitize())
 		buf.WriteString(" TEXT ARRAY, ")
 	}
-	buf.WriteString("session_id TEXT, ")
+	buf.WriteString("session_id TEXT NOT NULL, ")
 	buf.WriteString("shard_id integer DEFAULT 0 NOT NULL, ")
 	buf.WriteString("last_update timestamp without time zone DEFAULT now() NOT NULL ")
 	buf.WriteString(");")
