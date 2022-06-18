@@ -58,6 +58,23 @@ var (
 //   case rdf_literal_date_t     :9 return rdf_literal_date_t;
 //   case rdf_literal_datetime_t :10 return rdf_literal_datetime_t;
 
+func getTypeName(dtype int) string {
+	switch (dtype) {
+		case 0  : return "null";
+		case 1  : return "blank_node";
+		case 2  : return "named_resource";
+		case 3  : return "int32";
+		case 4  : return "uint32";
+		case 5  : return "int64";
+		case 6  : return "uint64";
+		case 7  : return "double";
+		case 8  : return "string";
+		case 9  : return "date";
+		case 10 : return "datetime";
+	}
+	return "unknown";
+}
+
 func LoadJetRules(rete_db_path string, lookup_db_path string) (*JetStore, error) {
 	var js JetStore
 	cstr := C.CString(rete_db_path)
@@ -393,6 +410,15 @@ func (r *Resource) GetType() int {
 	return ret
 }
 
+func (r *Resource) GetTypeName() string {
+	ret := int(C.get_resource_type(r.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR calling GetType(), ret code:", ret)
+		return ""
+	}
+	return getTypeName(ret)
+}
+
 func (r *Resource) GetName() (string, error) {
 	// rdf_named_resource_t
 	if r.GetType() != 2 {
@@ -551,6 +577,14 @@ func (r *Resource) AsText() (string, error) {
 	}
 }
 
+func reportTypeError(r *Resource, columnType string) (ret interface{}, err error) {
+	err = fmt.Errorf(
+		"error: while saving entity, got a data property of type %s but the db schema is expecting %s",
+		r.GetTypeName(), columnType)
+	fmt.Println(err)
+	return
+}
+
 func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	if r == nil {
 		return ret, fmt.Errorf("error: null resource call AsInterface{}")
@@ -567,8 +601,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting name of resource for AsInterface: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR getting resource name for column type", columnType)
-			return ret, fmt.Errorf("error using resource name in column type %s: %v", columnType, err)
+			return reportTypeError(r, columnType)
 		}
 		return v, nil
 	case 3:
@@ -578,8 +611,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
 		}
 		if columnType != "integer" {
-			fmt.Println("ERROR should have integer for column type, got", columnType)
-			return ret, fmt.Errorf("error have int for column type %s: %v", columnType, err)
+			return reportTypeError(r, columnType)
 		}
 		return v, nil
 	case 7:
@@ -589,8 +621,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting double value of literal for AsInterface: %v", err)
 		}
 		if columnType != "double precision" {
-			fmt.Println("ERROR should have double precision for column type, got", columnType)
-			return ret, fmt.Errorf("error have double for column type %s: %v", columnType, err)
+			return reportTypeError(r, columnType)
 		}
 		return v, nil
 	case 8:
@@ -600,8 +631,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting text of literal for AsInterface: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR have text for column type", columnType)
-			return ret, fmt.Errorf("error have text for column type %s: %v", columnType, err)
+			return reportTypeError(r, columnType)
 		}
 		return v, nil
 	case 9:
@@ -610,8 +640,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting date details: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR have text (date) for column type", columnType)
-			return ret, fmt.Errorf("error have text (date) for column type %s: %v", columnType, err)
+			return reportTypeError(r, columnType)
 		}
 		return fmt.Sprintf("%d-%d-%d", y, m, d), nil
 	case 10:
@@ -620,8 +649,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return ret, fmt.Errorf("while getting datetime literal for AsInterface: %v", err)
 		}
 		if columnType != "text" {
-			fmt.Println("ERROR have text (datetime) for column type", columnType)
-			return ret, fmt.Errorf("error have text (datetime) for column type %s: %v", columnType, err)
+			return reportTypeError(r, columnType)
 		}
 		return v, nil
 	default:
