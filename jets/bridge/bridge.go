@@ -563,7 +563,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
-			fmt.Println("ERROR Can't resource name", err)
+			fmt.Println("ERROR Can't get resource name", err)
 			return ret, fmt.Errorf("while getting name of resource for AsInterface: %v", err)
 		}
 		if columnType != "text" {

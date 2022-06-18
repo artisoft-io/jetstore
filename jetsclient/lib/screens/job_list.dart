@@ -31,10 +31,13 @@ class _JobListScreenState extends State<JobListScreen> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          Flexible(
+            flex: 1,
+            fit: FlexFit.tight,
             child: Column(children: [
               const SizedBox(height: defaultPadding),
               Expanded(
+                flex: 1,
                 child: Image.asset('assets/logo.png'),
               ),
               const SizedBox(height: defaultPadding),
@@ -44,7 +47,16 @@ class _JobListScreenState extends State<JobListScreen> {
                     padding: const EdgeInsets.all(defaultPadding),
                     itemCount: menuEntries.length,
                     itemBuilder: (BuildContext context, int index) {
-                      return TextButton(
+                      return ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          // Foreground color
+                          onPrimary: Theme.of(context)
+                              .colorScheme
+                              .onSecondaryContainer,
+                          // Background color
+                          primary:
+                              Theme.of(context).colorScheme.secondaryContainer,
+                        ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
                         onPressed: menuActions[index],
                         child: Center(child: Text(menuEntries[index])),
                       );
@@ -54,47 +66,26 @@ class _JobListScreenState extends State<JobListScreen> {
                   ))
             ]),
           ),
-          Expanded(
+          Flexible(
             flex: 5,
+            fit: FlexFit.tight,
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const SizedBox(height: 2 * defaultPadding),
-              Text(
-                'Data Pipelines',
-                style: Theme.of(context).textTheme.headline4,
+              Flexible(
+                flex: 1,
+                fit: FlexFit.tight,
+                child: Text(
+                  'Data Pipelines',
+                  style: Theme.of(context).textTheme.headline4,
+                ),
               ),
-              const SizedBox(height: defaultPadding),
-              const MyDataTableSampleWidget(),
-              const SizedBox(height: defaultPadding),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                TextButton(
-                  onPressed: (() => _showDialog('Comming Soon!')),
-                  child: const Text("New Pipeline",
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-                )
-              ])
+              const Flexible (
+                flex: 8,
+                fit: FlexFit.tight,
+                child: MyDataTableSampleWidget(),
+              ),
             ]),
-            // child: Center(
-            //   child: Text('Welcome',
-            //       style: Theme.of(context).textTheme.headline2),
-            // ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDialog(String message) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(message),
-        actions: [
-          TextButton(
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),
