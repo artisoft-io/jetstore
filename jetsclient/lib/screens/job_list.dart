@@ -83,7 +83,7 @@ class _JobListScreenState extends State<JobListScreen> {
               const Flexible (
                 flex: 8,
                 fit: FlexFit.tight,
-                child: MyDataTableSampleWidget(),
+                child: JetsDataTableWidget(),
               ),
             ]),
           ),
