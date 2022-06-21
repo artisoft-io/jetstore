@@ -5,4 +5,8 @@ class HttpClient {
   final Uri serverAdd;
 
   HttpClient(String serverOrigin) : serverAdd = Uri.parse(serverOrigin);
+
+  // Domain methods to crud on domain model
+  // Some objects are cacheable obj like static config obj
+
 }
