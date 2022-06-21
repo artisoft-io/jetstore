@@ -29,12 +29,13 @@ class JetsClientState extends State<JetsClient> {
       light: ThemeData(
           brightness: Brightness.light,
           // colorSchemeSeed: const Color.fromRGBO(118, 219, 21, 1.0)),
-          colorSchemeSeed: const Color.fromARGB(125, 11, 137, 215)),
-          // colorSchemeSeed: const Color.fromARGB(255, 137, 28, 63)),
+          colorSchemeSeed: const Color.fromARGB(125, 11, 137, 215),
+          fontFamily: 'Roboto'),
       dark: ThemeData(
           brightness: Brightness.dark,
           // colorSchemeSeed: const Color.fromARGB(255, 137, 28, 63)),
-          colorSchemeSeed: const Color.fromRGBO(53, 69, 79, 1.0)),
+          colorSchemeSeed: const Color.fromRGBO(53, 69, 79, 1.0),
+          fontFamily: 'Roboto'),
           // colorSchemeSeed: const Color.fromRGBO(118, 219, 21, 1.0)),
       initial: AdaptiveThemeMode.light,
       builder: (theme, darkTheme) => MultiProvider(

@@ -1,53 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/utils/data_table_config.dart';
-import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/screens/job_list.dart';
 
 //* examples
 typedef FncBool = void Function(bool?);
 typedef OnSelectCB = void Function(bool value, int index);
 
 class JetsDataTableWidget extends StatefulWidget {
-  const JetsDataTableWidget({super.key, required this.tableConfig});
-  final String tableConfig;
+  const JetsDataTableWidget({super.key});
 
   @override
   State<JetsDataTableWidget> createState() => _JetsDataTableState();
 }
 
 class _JetsDataTableState extends State<JetsDataTableWidget> {
-  @override
-  void initState() {
-    super.initState();
-    tableConfig = getTableConfig(widget.tableConfig);
-    sortColumnIndex = tableConfig!.sortColumnIndex;
-    sortAscending = tableConfig!.sortAscending;
-    rowsPerPage = tableConfig!.rowsPerPage;
-    selectedRows = List<bool>.filled(tableConfig!.rowsPerPage, false);
-  }
-
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
   static const int numItems = 10;
-  var selectedRows = <bool>[];
-  bool isTableEditable = false;
-  TableConfig? tableConfig;
-  int sortColumnIndex = 0;
-  bool sortAscending = false;
-  int rowsPerPage = 10;
+  List<bool> selected = List<bool>.generate(numItems, (int index) => false);
+  ValueNotifier<bool> tableEditable = ValueNotifier(false);
 
-  List<DataColumn> get dataColumns {
-    return tableConfig!.columns
-        .map((e) => DataColumn(
-            label: Text(e.label),
-            numeric: e.isNumeric,
-            tooltip: e.tooltips,
-            onSort: ((columnIndex, ascending) =>
-                _sortTable(columnIndex, ascending))))
-        .toList();
-  }
-
-  void _sortTable(int columnIndex, bool ascending) {
-    //* TODO
+  @override
+  void dispose() {
+    tableEditable.dispose();
+    super.dispose();
   }
 
   @override
@@ -100,55 +75,55 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
                 // Background color
                 primary: Theme.of(context).colorScheme.secondaryContainer,
               ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-              onPressed: () {
-                setState(() {
-                  isTableEditable = !isTableEditable;
-                });
-              },
+              onPressed: () => tableEditable.value = !tableEditable.value,
               child: const Text('Edit Table'),
             ),
           ],
         ),
-        DataTable(
-          columns: List<DataColumn>.generate(
-              numItems,
-              (int index) => DataColumn(
-                    label: Text('Item $index'),
-                  )),
-          rows: List<DataRow>.generate(
-            numItems,
-            (int index) => DataRow.byIndex(
-              index: index,
-              color: MaterialStateProperty.resolveWith<Color?>(
-                  (Set<MaterialState> states) {
-                // All rows will have the same selected color.
-                if (states.contains(MaterialState.selected)) {
-                  return Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withOpacity(0.08);
-                }
-                // Even rows will have a grey color.
-                if (index.isEven) {
-                  return Colors.grey.withOpacity(0.3);
-                }
-                return null; // Use default value for other states and odd rows.
-              }),
-              cells: List<DataCell>.generate(
+        ValueListenableBuilder(
+            valueListenable: tableEditable,
+            builder: (BuildContext context, bool isTableEditable, Widget? child) {
+              return DataTable(
+                columns: List<DataColumn>.generate(
+                    numItems,
+                    (int index) => DataColumn(
+                          label: Text('Item $index'),
+                        )),
+                rows: List<DataRow>.generate(
                   numItems,
-                  (int colIndex) =>
-                      DataCell(Text('Cell row $index, col $colIndex'))),
-              selected: selectedRows[index],
-              onSelectChanged: isTableEditable
-                  ? (bool? value) {
-                      setState(() {
-                        selectedRows[index] = value!;
-                      });
-                    }
-                  : null,
-            ),
-          ),
-        ),
+                  (int index) => DataRow.byIndex(
+                    index: index,
+                    color: MaterialStateProperty.resolveWith<Color?>(
+                        (Set<MaterialState> states) {
+                      // All rows will have the same selected color.
+                      if (states.contains(MaterialState.selected)) {
+                        return Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.08);
+                      }
+                      // Even rows will have a grey color.
+                      if (index.isEven) {
+                        return Colors.grey.withOpacity(0.3);
+                      }
+                      return null; // Use default value for other states and odd rows.
+                    }),
+                    cells: List<DataCell>.generate(
+                        numItems,
+                        (int colIndex) =>
+                            DataCell(Text('Cell row $index, col $colIndex'))),
+                    selected: selected[index],
+                    onSelectChanged: isTableEditable
+                        ? (bool? value) {
+                            setState(() {
+                              selected[index] = value!;
+                            });
+                          }
+                        : null,
+                  ),
+                ),
+              );
+            }),
       ],
     );
   }

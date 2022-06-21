@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
+import 'package:jetsclient/utils/constants.dart';
 
-const defaultPadding = 16.0;
 final List<String> menuEntries = <String>[
   'Input Files',
   'Mapping Configurations',
@@ -38,7 +38,7 @@ class _JobListScreenState extends State<JobListScreen> {
               const SizedBox(height: defaultPadding),
               Expanded(
                 flex: 1,
-                child: Image.asset('assets/logo.png'),
+                child: Image.asset('assets/images/logo.png'),
               ),
               const SizedBox(height: defaultPadding),
               Expanded(
@@ -83,7 +83,7 @@ class _JobListScreenState extends State<JobListScreen> {
               const Flexible (
                 flex: 8,
                 fit: FlexFit.tight,
-                child: JetsDataTableWidget(),
+                child: JetsDataTableWidget(tableConfig: "joblist"),
               ),
             ]),
           ),
