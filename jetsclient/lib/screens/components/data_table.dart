@@ -63,10 +63,8 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
       case 'newRow':
         return ElevatedButton(
           style: ElevatedButton.styleFrom(
-            // Foreground color
-            onPrimary: Theme.of(context).colorScheme.onSecondaryContainer,
-            // Background color
-            primary: Theme.of(context).colorScheme.secondaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer, 
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
           ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
           onPressed: () => _showDialog('New Row!'),
           child: const Text('New Row'),
@@ -74,10 +72,8 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
       case 'editTable':
         return ElevatedButton(
           style: ElevatedButton.styleFrom(
-            // Foreground color
-            onPrimary: Theme.of(context).colorScheme.onSecondaryContainer,
-            // Background color
-            primary: Theme.of(context).colorScheme.secondaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer, 
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
           ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
           onPressed: () => _showDialog('Edit Table!'),
           child: const Text('Edit Table'),
@@ -85,10 +81,8 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
       case 'saveChanges':
         return ElevatedButton(
           style: ElevatedButton.styleFrom(
-            // Foreground color
-            onPrimary: Theme.of(context).colorScheme.onSecondaryContainer,
-            // Background color
-            primary: Theme.of(context).colorScheme.secondaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer, 
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
           ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
           onPressed: null,
           child: const Text('Save Changes'),
@@ -96,10 +90,8 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
       case 'deleteRows':
         return ElevatedButton(
           style: ElevatedButton.styleFrom(
-            // Foreground color
-            onPrimary: Theme.of(context).colorScheme.onSecondaryContainer,
-            // Background color
-            primary: Theme.of(context).colorScheme.secondaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer, 
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
           ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
           onPressed: null,
           child: const Text('Delete Selected'),
@@ -107,10 +99,8 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
       case 'cancelChanges':
         return ElevatedButton(
           style: ElevatedButton.styleFrom(
-            // Foreground color
-            onPrimary: Theme.of(context).colorScheme.onSecondaryContainer,
-            // Background color
-            primary: Theme.of(context).colorScheme.secondaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer, 
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
           ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
           onPressed: null,
           child: const Text('Cancel'),
@@ -215,10 +205,8 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
           children: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                // Foreground color
-                onPrimary: Theme.of(context).colorScheme.onSecondaryContainer,
-                // Background color
-                primary: Theme.of(context).colorScheme.secondaryContainer,
+                foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer, 
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
               ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
               onPressed: () => _showDialog('Coming Soon!'),
               child: const Text('New Pipeline'),
@@ -226,10 +214,8 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
             const SizedBox(width: defaultPadding),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                // Foreground color
-                onPrimary: Theme.of(context).colorScheme.onSecondaryContainer,
-                // Background color
-                primary: Theme.of(context).colorScheme.secondaryContainer,
+                foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer, 
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
               ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
               onPressed: () {
                 setState(() {

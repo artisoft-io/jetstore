@@ -16,43 +16,30 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   UserModel formData = UserModel();
-  void _doLogin() async {
+  void _doLogin() async {    
     // Use a JSON encoded string to send
-    try {
-      var client = context.read<HttpClient>();
-
-      var user = UserModel();
-      var result = await client.httpClient.post(
-          client.serverAdd.replace(path: loginPath),
-          body: json.encode(formData.toJson()),
-          headers: {'Content-Type': 'application/json'});
-      // print('Response status: ${result.statusCode}');
-      // print('Response body: ${result.body}');
-      if (result.statusCode == 200) {
-        // update the [UserModel]
-        user.name = "";
-        user.email = formData.email;
-        // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
-        user.token = jsonDecode(result.body) as String;
-        JetsRouterDelegate().user = user;
-        // Inform the user and transition
-        const snackBar = SnackBar(
-          content: Text('Login Successful!'),
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        JetsRouterDelegate()(JetsRouteData(homePath));
-      } else if (result.statusCode == 401 || result.statusCode == 422) {
-        _showDialog('Invalid email and/or password.');
-      } else {
-        _showDialog('Something went wrong. Please try again.');
-      }
-    } on Exception catch (e) {
-      print('Exception details\n$e');
-      _showDialog('OOps error: $e');
-    } catch (e) {
-      print('Unknown exception $e of type ${e.runtimeType}.');
-      _showDialog('OOps Unknown exception $e of type ${e.runtimeType}');
+    var client = context.read<HttpClient>();
+    var user = UserModel();
+    var result = await client.sendRequest(
+      loginPath,
+      json.encode(formData.toJson()));
+    if (result.statusCode == 200) {
+      // update the [UserModel]
+      user.name = "";
+      user.email = formData.email;
+      user.token = result.body as String;
+      JetsRouterDelegate().user = user;
+      // Inform the user and transition
+      const snackBar = SnackBar(
+        content: Text('Login Successful!'),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      JetsRouterDelegate()(JetsRouteData(homePath));
+    } else if (result.statusCode == 401 || result.statusCode == 422) {
+      _showDialog('Invalid email and/or password.');
+    } else {
+      _showDialog('Something went wrong. Please try again.');
     }
   }
 
