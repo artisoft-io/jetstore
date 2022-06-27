@@ -23,41 +23,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
     // Use a JSON encoded string to send
-    try {
-      var client = context.read<HttpClient>();
-      var user = UserModel();
-      var result = await client.httpClient.post(
-          client.serverAdd.replace(path: registerPath),
-          body: json.encode(formData.toJson()),
-          headers: {'Content-Type': 'application/json'});
-
-      if (result.statusCode == 200 || result.statusCode == 201) {
-        // update the [UserModel]
-        user.name = formData.name;
-        user.email = formData.email;
-        user.token = jsonDecode(result.body) as String;
-        JetsRouterDelegate().user = user;
-
-        // Inform the user and transition
-        const snackBar = SnackBar(
-          content: Text('Registration Successful, you are now signed in'),
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        JetsRouterDelegate()(JetsRouteData("/"));
-      } else if (result.statusCode == 406 || result.statusCode == 422) {
-        // http Not Acceptable / Unprocessable
-        _showDialog('Invalid email or password.');
-      } else if (result.statusCode == 409) {
-        // http Conflict
-        _showDialog('User already exist please signed in.');
-      } else {
-        _showDialog('Something went wrong. Please try again.');
-      }
-    } on Exception catch (e) {
-      _showDialog('OOps error: $e');
-    } catch (e) {
-      _showDialog('OOps Unknown exception $e of type ${e.runtimeType}');
+    var client = context.read<HttpClient>();
+    var user = UserModel();
+    var result = await client.sendRequest(
+        registerPath,
+        json.encode(formData.toJson()));
+    if (result.statusCode == 200 || result.statusCode == 201) {
+      // update the [UserModel]
+      user.name = formData.name;
+      user.email = formData.email;
+      user.token = result.body as String;
+      JetsRouterDelegate().user = user;
+      // Inform the user and transition
+      const snackBar = SnackBar(
+        content: Text('Registration Successful, you are now signed in'),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      JetsRouterDelegate()(JetsRouteData("/"));
+    } else if (result.statusCode == 406 || result.statusCode == 422) {
+      // http Not Acceptable / Unprocessable
+      _showDialog('Invalid email or password.');
+    } else if (result.statusCode == 409) {
+      // http Conflict
+      _showDialog('User already exist please signed in.');
+    } else {
+      _showDialog('Something went wrong. Please try again.');
     }
   }
 
