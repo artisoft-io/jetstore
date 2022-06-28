@@ -38,8 +38,12 @@ final Map<String, TableConfig> _tableConfigurations = {
         'cancelChanges'
       ],
       columns: [
-        ColumnConfig(domainKey: "key",label: 'Key', tooltips: 'Key', isNumeric: true),
+        ColumnConfig(domainKey: "key", label: 'Key', tooltips: 'Key', isNumeric: false),
+        ColumnConfig(domainKey: "user", label: 'Submitted By', tooltips: 'Submitted By', isNumeric: false),
         ColumnConfig(domainKey: "client",label: 'Client', tooltips: 'Client', isNumeric: false),
+        ColumnConfig(domainKey: "process",label: 'Process', tooltips: 'Process', isNumeric: false),
+        ColumnConfig(domainKey: "status",label: 'Status', tooltips: 'Execution Status', isNumeric: false),
+        ColumnConfig(domainKey: "submitted_at",label: 'Submitted At', tooltips: 'Submitted At', isNumeric: false),
       ],
       sortColumnIndex: 0,
       sortAscending: false,
