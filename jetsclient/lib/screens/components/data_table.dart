@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/http_client.dart';
+import 'package:provider/provider.dart';
 
 import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/utils/constants.dart';
-import 'package:provider/provider.dart';
+import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/screens/components/app_bar.dart';
+import 'package:jetsclient/screens/components/data_table_source.dart';
 
 //* examples
 typedef FncBool = void Function(bool?);
@@ -14,37 +16,15 @@ class JetsDataTableWidget extends StatefulWidget {
   final String tableConfig;
 
   @override
-  State<JetsDataTableWidget> createState() => _JetsDataTableState();
+  State<JetsDataTableWidget> createState() => JetsDataTableState();
 }
 
-class _JetsDataTableState extends State<JetsDataTableWidget> {
-  @override
-  void initState() {
-    super.initState();
-    tableConfig = getTableConfig(widget.tableConfig);
-    sortColumnIndex = tableConfig!.sortColumnIndex;
-    sortAscending = tableConfig!.sortAscending;
-    rowsPerPage = tableConfig!.rowsPerPage;
-    dataSource = _JetsDataTableSource(
-        this, Provider.of<HttpClient>(context, listen: false));
-    dataSource!.getModelDataSync();
-    // dataSource!.addListener(() {
-    //   setState(() {});
-    // });
-  }
-
-  @override
-  void dispose() {
-    if (dataSource != null) {
-      dataSource!.dispose();
-    }
-    super.dispose();
-  }
+class JetsDataTableState extends State<JetsDataTableWidget> {
 
   // State Data
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
-  _JetsDataTableSource? dataSource;
+  JetsDataTableSource? dataSource;
   bool isTableEditable = false;
   TableConfig? tableConfig;
   int sortColumnIndex = 0;
@@ -55,10 +35,28 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
 
-  // // sentinel variable used only to trigger the widget build
-  // // when the dataSource is modified
-  // bool _triggerBuild = true;
+  @override
+  void initState() {
+    super.initState();
+    tableConfig = getTableConfig(widget.tableConfig);
+    sortColumnIndex = tableConfig!.sortColumnIndex;
+    sortAscending = tableConfig!.sortAscending;
+    rowsPerPage = tableConfig!.rowsPerPage;
+    dataSource = JetsDataTableSource(
+        this, Provider.of<HttpClient>(context, listen: false));
+    // Get the first batch of data
+    dataSource!.getModelDataSync();
+  }
 
+  @override
+  void dispose() {
+    if (dataSource != null) {
+      dataSource!.dispose();
+    }
+    super.dispose();
+  }
+
+  // Utility Function for the build
   List<DataColumn> get dataColumns {
     return tableConfig!.columns
         .map((e) => DataColumn(
@@ -78,7 +76,7 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
             foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
             backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
           ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-          onPressed: () => _showDialog('New Row!'),
+          onPressed: () => showAlertDialog(context, 'New Row!'),
           child: const Text('New Row'),
         );
       case 'editTable':
@@ -87,7 +85,7 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
             foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
             backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
           ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-          onPressed: () => _showDialog('Edit Table!'),
+          onPressed: () => showAlertDialog(context, 'Edit Table!'),
           child: const Text('Edit Table'),
         );
       case 'saveChanges':
@@ -130,109 +128,10 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // return _buildJetsDataTableWithScrollbars2(context);
-    return _buildJetsDataTable2(context);
-  }
-
-  Widget _buildJetsDataTableWithScrollbars_back(BuildContext context) {
-    return Scrollbar(
-      thumbVisibility: true,
-      trackVisibility: true,
-      controller: _verticalController,
-      child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          controller: _verticalController,
-          child: Scrollbar(
-            thumbVisibility: true,
-            trackVisibility: true,
-            controller: _horizontalController,
-            child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                controller: _horizontalController,
-                padding: const EdgeInsets.all(defaultPadding),
-                child: PaginatedDataTable(
-                  header: Text(tableConfig!.title),
-                  actions:
-                      tableConfig!.actions.map((e) => _makeActions(e)).toList(),
-                  // controller: _verticalController,
-                  columns: dataColumns,
-                  sortColumnIndex: sortColumnIndex,
-                  sortAscending: sortAscending,
-                  onPageChanged: (value) =>
-                      print("onPageChange with value $value"),
-                  rowsPerPage: rowsPerPage,
-                  onRowsPerPageChanged: (value) => setState(() {
-                    rowsPerPage = value ?? rowsPerPage;
-                  }),
-                  source: dataSource!,
-                )),
-          )),
-    );
-  }
-
-  Widget _buildJetsDataTableWithScrollbars(BuildContext context) {
-    return Scrollbar(
-      thumbVisibility: true,
-      trackVisibility: true,
-      controller: _verticalController,
-      child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          controller: _verticalController,
-          child: Scrollbar(
-            thumbVisibility: true,
-            trackVisibility: true,
-            controller: _horizontalController,
-            child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                controller: _horizontalController,
-                padding: const EdgeInsets.all(defaultPadding),
-                child: _buildJetsDataTable(context)),
-          )),
-    );
-  }
-
-  Widget _buildJetsDataTableWithScrollbars2(BuildContext context) {
-    return Scrollbar(
-      thumbVisibility: true,
-      trackVisibility: true,
-      controller: _verticalController,
-      child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          controller: _verticalController,
-          child: Scrollbar(
-            thumbVisibility: true,
-            trackVisibility: true,
-            controller: _horizontalController,
-            child: _buildJetsDataTable(context),
-          )),
-    );
-  }
-
-  // Main widget
-  Widget _buildJetsDataTable(BuildContext context) {
-    return PaginatedDataTable(
-      header: Text(tableConfig!.title),
-      //*TEST
-      actions: tableConfig!.actions.map((e) => _makeActions(e)).toList(),
-      columns: dataColumns,
-      sortColumnIndex: sortColumnIndex,
-      sortAscending: sortAscending,
-      onPageChanged: (value) => print("onPageChange called with value $value"),
-      rowsPerPage: rowsPerPage,
-      onRowsPerPageChanged: (value) => setState(() {
-        print("onRowsPerPageChanged called with value $value");
-        rowsPerPage = value ?? rowsPerPage;
-      }),
-      source: dataSource!,
-      controller: _horizontalController,
-    );
-  }
-
-//TEST
-  Widget _buildJetsDataTable2(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // HEADER ROW
         Row(
           children: [
             ElevatedButton(
@@ -242,7 +141,7 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
                 backgroundColor:
                     Theme.of(context).colorScheme.secondaryContainer,
               ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-              onPressed: () => _showDialog('Coming Soon!'),
+              onPressed: () => showAlertDialog(context, 'Coming Soon!'),
               child: const Text('New Pipeline'),
             ),
             const SizedBox(width: defaultPadding),
@@ -262,6 +161,7 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
             ),
           ],
         ),
+        // MAIN TABLE SECTION
         const SizedBox(height: defaultPadding),
         Expanded(
           flex: 8,
@@ -269,14 +169,15 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
           thumbVisibility: true,
           trackVisibility: true,
           controller: _verticalController,
-          child: SingleChildScrollView(
+          child: Scrollbar(
+            thumbVisibility: true,
+            trackVisibility: true,
+            controller: _horizontalController,
+            notificationPredicate: (e) => e.depth == 1,
+            child: SingleChildScrollView(
               scrollDirection: Axis.vertical,
               controller: _verticalController,
-              child: Scrollbar(
-                thumbVisibility: true,
-                trackVisibility: true,
-                controller: _horizontalController,
-                child: SingleChildScrollView(
+              child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     controller: _horizontalController,
                     padding: const EdgeInsets.all(defaultPadding),
@@ -312,8 +213,10 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
                         ),
                       ),
                     )),
-              )),
+            ),
+          ),
         )),
+        // FOOTER ROW
         const SizedBox(height: defaultPadding),
         Expanded(
           flex: 1,
@@ -326,7 +229,7 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
                   backgroundColor:
                       Theme.of(context).colorScheme.secondaryContainer,
                 ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-                onPressed: () => _showDialog('Coming Soon!'),
+                onPressed: () => showAlertDialog(context, 'Coming Soon!'),
                 child: const Text('Footer New Pipeline'),
               ),
               const SizedBox(width: defaultPadding),
@@ -349,99 +252,5 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
         )
       ],
     );
-  }
-
-  void _showDialog(String message) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(message),
-        actions: [
-          TextButton(
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-typedef JetsDataModel = List<List<dynamic>>;
-
-class _JetsDataTableSource extends DataTableSource {
-  _JetsDataTableSource(this.state, this.httpClient);
-  final _JetsDataTableState state;
-  final HttpClient httpClient;
-  JetsDataModel? model;
-  List<bool> selectedRows = <bool>[];
-  int _selectedRowCount = 0;
-
-  @override
-  int get rowCount => model != null ? model!.length : 0;
-
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
-  int get selectedRowCount => _selectedRowCount;
-
-  @override
-  DataRow? getRow(int index) {
-    print("JetsDataTableSource.getRow called with index $index");
-    if (model == null || index < state.indexOffset || index >= state.maxIndex)
-      return null;
-    return DataRow.byIndex(
-      index: index,
-      color: MaterialStateProperty.resolveWith<Color?>(
-          (Set<MaterialState> states) {
-        // All rows will have the same selected color.
-        if (states.contains(MaterialState.selected)) {
-          return Theme.of(state.context).colorScheme.primary.withOpacity(0.08);
-        }
-        // Even rows will have a grey color.
-        if (index.isEven) {
-          return Colors.grey.withOpacity(0.3);
-        }
-        return null; // Use default value for other states and odd rows.
-      }),
-      cells: List<DataCell>.generate(
-          model![0].length,
-          (int colIndex) =>
-              DataCell(Text(model![index - state.indexOffset][colIndex]))),
-      selected: selectedRows[index],
-      onSelectChanged: state.isTableEditable
-          ? (bool? value) {
-              if (value == null) return;
-              if (value && !selectedRows[index]) _selectedRowCount++;
-              if (!value && selectedRows[index]) _selectedRowCount--;
-              selectedRows[index] = value;
-              notifyListeners();
-            }
-          : null,
-    );
-  }
-
-  Future<int> getModelData() async {
-    print(
-        "getModelData from index ${state.indexOffset} to ${state.maxIndex}) called (simulated)");
-    selectedRows = List<bool>.filled(state.rowsPerPage, false);
-    _selectedRowCount = 0;
-    model = List<List<dynamic>>.generate(
-        state.rowsPerPage,
-        (index) => [
-              "$index",
-              "User $index",
-              "ACME",
-              "P$index",
-              "completed",
-              "2022-06-27 15:51:22"
-            ]);
-    return 0;
-  }
-
-  void getModelDataSync() async {
-    var res = await getModelData();
-    print("getModelDataSync got result $res");
   }
 }
