@@ -74,12 +74,11 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
           );
         }
       }
-      debugPrint("Controller listener called for ${_config.key}");
+      // debugPrint("Controller listener called for ${_config.key}");
     });
     _config = widget.inputFieldConfig;
     _node = FocusNode(debugLabel: _config.key);
     _node.addListener(_handleFocusChange);
-    debugPrint('Widget got config: $_config');
   }
 
   @override
