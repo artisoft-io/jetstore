@@ -5,7 +5,7 @@ import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 
-AppBar appBar(String title, BuildContext context) {
+AppBar appBar(BuildContext context, String title, {bool showLogout = false}) {
   return AppBar(
     automaticallyImplyLeading: false,
     title: Text(title),
@@ -17,19 +17,35 @@ AppBar appBar(String title, BuildContext context) {
           AdaptiveTheme.of(context).toggleThemeMode();
         },
       ),
-      IconButton(
-        icon: const Icon(Icons.logout_sharp),
-        tooltip: 'Log Out',
-        onPressed: () {
-          var user = UserModel();
-          user.name = "";
-          user.email = "";
-          user.password = "";
-          user.token = "";
-          JetsRouterDelegate().user = user;
-          JetsRouterDelegate()(JetsRouteData(loginPath));
-        },
-      ),
+      if (showLogout)
+        IconButton(
+          icon: const Icon(Icons.logout_sharp),
+          tooltip: 'Log Out',
+          onPressed: () {
+            var user = UserModel();
+            user.name = "";
+            user.email = "";
+            user.password = "";
+            user.token = "";
+            JetsRouterDelegate().user = user;
+            JetsRouterDelegate()(JetsRouteData(loginPath));
+          },
+        ),
     ],
+  );
+}
+
+void showAlertDialog(BuildContext context, String message) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(message),
+      actions: [
+        TextButton(
+          child: const Text('OK'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    ),
   );
 }

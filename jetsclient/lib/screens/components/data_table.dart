@@ -213,7 +213,7 @@ class _JetsDataTableState extends State<JetsDataTableWidget> {
     return PaginatedDataTable(
       header: Text(tableConfig!.title),
       //*TEST
-      // actions: tableConfig!.actions.map((e) => _makeActions(e)).toList(),
+      actions: tableConfig!.actions.map((e) => _makeActions(e)).toList(),
       columns: dataColumns,
       sortColumnIndex: sortColumnIndex,
       sortAscending: sortAscending,

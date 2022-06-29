@@ -27,10 +27,10 @@ class _JobListScreenState extends State<JobListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: appBar('JetStore Workspace', context),
-      body: 
-      // const JetsDataTableWidget(tableConfig: "joblist"),
-      Row(
+      appBar: appBar(context, 'JetStore Workspace', showLogout: true),
+      body:
+          // const JetsDataTableWidget(tableConfig: "joblist"),
+          Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Flexible(
@@ -51,12 +51,10 @@ class _JobListScreenState extends State<JobListScreen> {
                     itemBuilder: (BuildContext context, int index) {
                       return ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          // Foreground color
-                          onPrimary: Theme.of(context)
+                          foregroundColor: Theme.of(context)
                               .colorScheme
                               .onSecondaryContainer,
-                          // Background color
-                          primary:
+                          backgroundColor:
                               Theme.of(context).colorScheme.secondaryContainer,
                         ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
                         onPressed: menuActions[index],
@@ -82,7 +80,7 @@ class _JobListScreenState extends State<JobListScreen> {
                   style: Theme.of(context).textTheme.headline4,
                 ),
               ),
-              const Flexible (
+              const Flexible(
                 flex: 8,
                 fit: FlexFit.tight,
                 child: JetsDataTableWidget(tableConfig: "joblist"),
