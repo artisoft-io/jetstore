@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: appBar('Please Sign In', context),
+      appBar: appBar(context, 'Please Sign In'),
       body: Form(
         child: Scrollbar(
           child: SingleChildScrollView(
@@ -60,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ...[
                   TextFormField(
                     autofocus: true,
-                    textInputAction: TextInputAction.next,
+                    // textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       filled: true,
                       hintText: 'Your email address',
@@ -71,6 +71,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   TextFormField(
+                    autofocus: false,
+                    // textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       filled: true,
                       labelText: 'Password',
