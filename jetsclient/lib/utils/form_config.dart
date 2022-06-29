@@ -65,7 +65,7 @@ final Map<String, FormConfig> _formConfigurations = {
           hint: "Your email address",
           autofocus: true,
           obscureText: false,
-          textRestriction: TextRestriction.none,
+          textRestriction: TextRestriction.allLower,
           maxLength: 80),
       FormInputFieldConfig(
           key: "password",
