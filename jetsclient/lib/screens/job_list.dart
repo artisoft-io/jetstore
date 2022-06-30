@@ -29,7 +29,7 @@ class _JobListScreenState extends State<JobListScreen> {
     return Scaffold(
       appBar: appBar(context, 'JetStore Workspace', showLogout: true),
       body:
-          // const JetsDataTableWidget(tableConfig: "joblist"),
+          // const JetsDataTableWidget(tableConfig: "pipelineTable"),
           Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -83,7 +83,7 @@ class _JobListScreenState extends State<JobListScreen> {
               const Flexible(
                 flex: 8,
                 fit: FlexFit.tight,
-                child: JetsDataTableWidget(tableConfig: "joblist"),
+                child: JetsDataTableWidget(tableConfig: "pipelineTable"),
               ),
             ]),
           ),
