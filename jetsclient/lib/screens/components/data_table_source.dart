@@ -4,29 +4,23 @@ import 'package:jetsclient/screens/components/data_table.dart';
 
 typedef JetsDataModel = List<List<dynamic>>;
 
-class JetsDataTableSource extends DataTableSource {
+class JetsDataTableSource extends ChangeNotifier {
   JetsDataTableSource(this.state, this.httpClient);
   final JetsDataTableState state;
   final HttpClient httpClient;
   JetsDataModel? model;
+  int _totalRowCount = 0;
   List<bool> selectedRows = <bool>[];
   int _selectedRowCount = 0;
 
-  @override
   int get rowCount => model != null ? model!.length : 0;
+  int get totalRowCount => _totalRowCount;
 
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
   int get selectedRowCount => _selectedRowCount;
 
-  @override
-  DataRow? getRow(int index) {
-    print("JetsDataTableSource.getRow called with index $index");
-    if (model == null || index < state.indexOffset || index >= state.maxIndex) {
-      return null;
-    }
+  DataRow getRow(int index) {
+    assert(model != null);
+    debugPrint("JetsDataTableSource.getRow called with index $index");
     return DataRow.byIndex(
       index: index,
       color: MaterialStateProperty.resolveWith<Color?>(
@@ -41,10 +35,8 @@ class JetsDataTableSource extends DataTableSource {
         }
         return null; // Use default value for other states and odd rows.
       }),
-      cells: List<DataCell>.generate(
-          model![0].length,
-          (int colIndex) =>
-              DataCell(Text(model![index - state.indexOffset][colIndex]))),
+      cells: List<DataCell>.generate(model![0].length,
+          (int colIndex) => DataCell(Text(model![index][colIndex]))),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable
           ? (bool? value) {
@@ -59,25 +51,39 @@ class JetsDataTableSource extends DataTableSource {
   }
 
   Future<int> getModelData() async {
-    print(
+    debugPrint(
         "getModelData from index ${state.indexOffset} to ${state.maxIndex}) called (simulated)");
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
     _selectedRowCount = 0;
     model = List<List<dynamic>>.generate(
         state.rowsPerPage,
         (index) => [
-              "$index",
-              "User $index",
+              "${state.indexOffset + index}",
+              "User $index on Page ${state.currentDataPage}",
               "ACME",
               "P$index",
               "completed",
               "2022-06-27 15:51:22"
             ]);
+    _totalRowCount = 50;
     return 0;
   }
 
   void getModelDataSync() async {
     var res = await getModelData();
-    print("getModelDataSync got result $res");
+    debugPrint("getModelDataSync got result $res");
+  }
+
+  void sortModelData(int columnIndex, bool ascending) {
+    if (model == null) return;
+    var sortSign = ascending ? 1 : -1;
+    model!.sort((l, r) {
+      if (l == r) return 0;
+      // Always put null last
+      if (l[columnIndex] == null) return 1;
+      if (r[columnIndex] == null) return -1;
+      return sortSign *
+          l[columnIndex].toString().compareTo(r[columnIndex].toString());
+    });
   }
 }
