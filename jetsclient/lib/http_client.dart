@@ -14,11 +14,15 @@ class HttpClient {
 
   HttpClient(String serverOrigin) : serverAdd = Uri.parse(serverOrigin);
 
-  Future<HttpResponse> sendRequest(String path, String encodedJsonBody) async {
+  Future<HttpResponse> sendRequest(
+      {required String path, String? token, String? encodedJsonBody}) async {
     try {
+      var h = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) {
+        h['Authorization'] = 'token $token';
+      }
       var response = await httpClient.post(serverAdd.replace(path: path),
-          headers: {'Content-Type': 'application/json'},
-          body: encodedJsonBody);
+          headers: h, body: encodedJsonBody);
       // print('Response status: ${result.statusCode}');
       // print('Response body: ${result.body}');
       if (response.statusCode >= 200 && response.statusCode < 207) {
