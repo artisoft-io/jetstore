@@ -52,8 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
     var client = context.read<HttpClient>();
     var user = UserModel();
     var result = await client.sendRequest(
-      loginPath,
-      json.encode(formData));
+      path: loginPath,
+      encodedJsonBody: json.encode(formData));
 
     if (!mounted) return;
     if (result.statusCode == 200) {

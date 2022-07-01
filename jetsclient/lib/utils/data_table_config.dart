@@ -4,11 +4,11 @@ enum ActionStyle { primary, secondary, danger }
 
 class ColumnConfig {
   ColumnConfig(
-      {required this.domainKey,
+      {required this.name,
       required this.label,
       required this.tooltips,
       required this.isNumeric});
-  final String domainKey;
+  final String name;
   final String label;
   final String tooltips;
   final bool isNumeric;
@@ -69,7 +69,7 @@ class ActionConfig {
           backgroundColor: td.colorScheme.primaryContainer,
         ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
 
-      default:  // primary
+      default: // primary
         return ElevatedButton.styleFrom(
           foregroundColor: td.colorScheme.onSecondaryContainer,
           backgroundColor: td.colorScheme.secondaryContainer,
@@ -114,29 +114,29 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       columns: [
         ColumnConfig(
-            domainKey: "key", label: 'Key', tooltips: 'Key', isNumeric: false),
+            name: "key", label: 'Key', tooltips: 'Key', isNumeric: false),
         ColumnConfig(
-            domainKey: "user",
+            name: "user",
             label: 'Submitted By',
             tooltips: 'Submitted By',
             isNumeric: false),
         ColumnConfig(
-            domainKey: "client",
+            name: "client",
             label: 'Client',
             tooltips: 'Client',
             isNumeric: false),
         ColumnConfig(
-            domainKey: "process",
+            name: "process",
             label: 'Process',
             tooltips: 'Process',
             isNumeric: false),
         ColumnConfig(
-            domainKey: "status",
+            name: "status",
             label: 'Status',
             tooltips: 'Execution Status',
             isNumeric: false),
         ColumnConfig(
-            domainKey: "submitted_at",
+            name: "submitted_at",
             label: 'Submitted At',
             tooltips: 'Submitted At',
             isNumeric: false),

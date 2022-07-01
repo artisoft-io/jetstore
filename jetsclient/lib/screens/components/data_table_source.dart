@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 
 typedef JetsDataModel = List<List<dynamic>>;
@@ -50,22 +53,63 @@ class JetsDataTableSource extends ChangeNotifier {
     );
   }
 
+  dynamic _makeQuery() {
+    var tableName = state.tableConfig.key;
+    var columns = state.tableConfig.columns;
+    var columnNames =
+        List<String>.generate(columns.length, (index) => columns[index].name);
+    var msg = <String, dynamic>{};
+    msg[tableName] = columnNames;
+    return msg;
+  }
+
+  Future<Map<String, dynamic>?> fetchData() async {
+    var result = await httpClient.sendRequest(
+        path: '/dataTable',
+        token: JetsRouterDelegate().user.token,
+        encodedJsonBody: json.encode(_makeQuery()));
+
+    if (!state.mounted) return null;
+    if (result.statusCode == 200) {
+      // update the [model]
+      return json.decode(result.body);
+    } else if (result.statusCode == 401 || result.statusCode == 422) {
+      const snackBar = SnackBar(
+        content: Text('Error reading data from table'),
+      );
+      ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
+      return null;
+    } else {
+      const snackBar = SnackBar(
+        content: Text('Unknown Error reading data from table'),
+      );
+      ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
+      return null;
+    }
+  }
+
   Future<int> getModelData() async {
     debugPrint(
         "getModelData from index ${state.indexOffset} to ${state.maxIndex}) called (simulated)");
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
     _selectedRowCount = 0;
-    model = List<List<dynamic>>.generate(
-        state.rowsPerPage,
-        (index) => [
-              "${state.indexOffset + index}",
-              "User $index on Page ${state.currentDataPage}",
-              "ACME",
-              "P$index",
-              "completed",
-              "2022-06-27 15:51:22"
-            ]);
-    _totalRowCount = 50;
+
+    var data = await fetchData();
+    if (data != null) {
+      model = data['rows'];
+      _totalRowCount = data['totalRowCount'];
+    }
+    // model = List<List<dynamic>>.generate(
+    //     state.rowsPerPage,
+    //     (index) => [
+    //           "${state.indexOffset + index}",
+    //           "User $index on Page ${state.currentDataPage}",
+    //           "ACME",
+    //           "P$index",
+    //           "completed",
+    //           "2022-06-27 15:51:22"
+    //         ]);
+    // _totalRowCount = 50;
     return 0;
   }
 

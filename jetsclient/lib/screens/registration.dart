@@ -73,7 +73,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
     var user = UserModel();
-    var result = await client.sendRequest(registerPath, json.encode(formData));
+    var result = await client.sendRequest(
+        path: registerPath, encodedJsonBody: json.encode(formData));
     if (!mounted) return;
     if (result.statusCode == 200 || result.statusCode == 201) {
       // update the [UserModel]
