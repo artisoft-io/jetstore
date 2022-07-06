@@ -5,7 +5,8 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 
-typedef JetsDataModel = List<List<dynamic>>;
+// typedef JetsDataModel = List<List<dynamic>>;
+typedef JetsDataModel = List<dynamic>;
 
 class JetsDataTableSource extends ChangeNotifier {
   JetsDataTableSource(this.state, this.httpClient);
@@ -39,7 +40,7 @@ class JetsDataTableSource extends ChangeNotifier {
         return null; // Use default value for other states and odd rows.
       }),
       cells: List<DataCell>.generate(model![0].length,
-          (int colIndex) => DataCell(Text(model![index][colIndex]))),
+          (int colIndex) => DataCell(Text(model![index][colIndex] ?? 'null') )),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable
           ? (bool? value) {
@@ -54,12 +55,19 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   dynamic _makeQuery() {
-    var tableName = state.tableConfig.key;
+    var schemaName = state.tableConfig.schemaName;
+    var tableName = state.tableConfig.tableName;
     var columns = state.tableConfig.columns;
     var columnNames =
         List<String>.generate(columns.length, (index) => columns[index].name);
-    var msg = <String, dynamic>{};
-    msg[tableName] = columnNames;
+    var msg = <String, dynamic>{'action': 'read'};
+    msg['schema'] = schemaName;
+    msg['table'] = tableName;
+    msg['columns'] = columnNames;
+    msg['offset'] = state.indexOffset;
+    msg['limit'] = state.rowsPerPage;
+    msg['sortColumn'] = columnNames[state.sortColumnIndex];
+    msg['sortAscending'] = state.sortAscending;
     return msg;
   }
 
@@ -72,7 +80,7 @@ class JetsDataTableSource extends ChangeNotifier {
     if (!state.mounted) return null;
     if (result.statusCode == 200) {
       // update the [model]
-      return json.decode(result.body);
+      return result.body;
     } else if (result.statusCode == 401 || result.statusCode == 422) {
       const snackBar = SnackBar(
         content: Text('Error reading data from table'),
@@ -90,7 +98,7 @@ class JetsDataTableSource extends ChangeNotifier {
 
   Future<int> getModelData() async {
     debugPrint(
-        "getModelData from index ${state.indexOffset} to ${state.maxIndex}) called (simulated)");
+        "getModelData from index ${state.indexOffset} to ${state.maxIndex}) called");
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
     _selectedRowCount = 0;
 
@@ -98,6 +106,7 @@ class JetsDataTableSource extends ChangeNotifier {
     if (data != null) {
       model = data['rows'];
       _totalRowCount = data['totalRowCount'];
+      notifyListeners();
     }
     // model = List<List<dynamic>>.generate(
     //     state.rowsPerPage,
@@ -126,6 +135,11 @@ class JetsDataTableSource extends ChangeNotifier {
       // Always put null last
       if (l[columnIndex] == null) return 1;
       if (r[columnIndex] == null) return -1;
+      // Check data type
+      if(state.tableConfig.columns[columnIndex].isNumeric) {
+        return sortSign *
+            double.parse(l[columnIndex]).compareTo(double.parse(r[columnIndex]));
+      }
       return sortSign *
           l[columnIndex].toString().compareTo(r[columnIndex].toString());
     });

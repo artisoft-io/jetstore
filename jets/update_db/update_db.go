@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -22,7 +21,7 @@ var dropExisting  = flag.Bool("drop", false, "drop existing table (ALL TABLE CON
 // var dsn           = flag.String("dsn", "", "database connection string (ommit to write sql to stdout)")
 var dsnList       = flag.String("dsn", "", "comma-separated list of database connection string (required)")
 var workspaceDb   = flag.String("workspaceDb", "", "workspace db path (required)")
-var extTables schema.ExtTableInfo = make(map[string][]string)
+var extTables workspace.ExtTableInfo = make(map[string][]string)
 
 func init() {
 	flag.Func("extTable", "Table to extend with volatile resources, format: 'table_name+resource1,resource2'", func(flagValue string) error {
@@ -87,7 +86,7 @@ func doJob() error {
 			log.Println("  ",vresources[i])
 		} 
 		log.Println("List of tables in workspace:")
-		for tableName, _ := range tableSpecs {
+		for tableName := range tableSpecs {
 			log.Println("  ",tableName)
 		}
 		return nil
@@ -127,7 +126,7 @@ func doJob() error {
 	for tableName, tableSpec := range tableSpecs {
 		for i, dbpool := range dbPool {
 			log.Println("Processing table",tableName,"on dsn",dsnSplit[i])
-			err = schema.UpdateTableSchema(dbpool, tableName, tableSpec, *dropExisting, extTables[tableName])
+			err = tableSpec.UpdateDomainTableSchema(dbpool, *dropExisting, extTables[tableName])
 			if err != nil {
 				return fmt.Errorf("while updating table schema for table %s: %v", tableName, err)
 			}

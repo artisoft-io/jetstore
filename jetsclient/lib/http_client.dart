@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class HttpResponse {
@@ -23,18 +24,14 @@ class HttpClient {
       }
       var response = await httpClient.post(serverAdd.replace(path: path),
           headers: h, body: encodedJsonBody);
-      // print('Response status: ${result.statusCode}');
-      // print('Response body: ${result.body}');
-      if (response.statusCode >= 200 && response.statusCode < 207) {
-        // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
-        return HttpResponse(response.statusCode, jsonDecode(response.body));
-      }
-      return HttpResponse(response.statusCode, null);
+      // print('Response body: ${response.body}');
+      // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
+      return HttpResponse(response.statusCode, jsonDecode(response.body));
     } on Exception catch (e) {
-      print('HTTP Exception details\n$e');
+      debugPrint('HTTP Exception details\n$e');
       return HttpResponse(999, null);
     } catch (e) {
-      print('Unknown HTTP exception $e of type ${e.runtimeType}.');
+      debugPrint('Unknown HTTP exception $e of type ${e.runtimeType}.');
       return HttpResponse(999, null);
     }
   }

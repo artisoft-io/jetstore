@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -17,7 +18,12 @@ final List<VoidCallback> menuActions = <VoidCallback>[
 ];
 
 class JobListScreen extends StatefulWidget {
-  const JobListScreen({super.key});
+  const JobListScreen({
+    super.key,
+    required this.tablePath
+  });
+
+  final JetsRouteData tablePath;
 
   @override
   State<JobListScreen> createState() => _JobListScreenState();
@@ -80,10 +86,10 @@ class _JobListScreenState extends State<JobListScreen> {
                   style: Theme.of(context).textTheme.headline4,
                 ),
               ),
-              const Flexible(
+              Flexible(
                 flex: 8,
                 fit: FlexFit.tight,
-                child: JetsDataTableWidget(tableConfig: "pipelineTable"),
+                child: JetsDataTableWidget(tablePath: widget.tablePath, tableConfig: "pipelineTable"),
               ),
             ]),
           ),
