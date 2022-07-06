@@ -415,6 +415,34 @@ int get_date_details(HJR hdl, int* year, int* month, int* day)
   default: return -1;
   }
 }
+
+// frac part is in nanosecond to match go's time resolution
+int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr, int* min, int* sec, int* frac)
+{
+  if(not hdl or not year or not month or not day) return -1;
+  if(not hr or not min or not sec or not frac) return -1;
+  auto const* r =  static_cast<r_index>(hdl);
+  switch (r->which()) {
+  case rdf_literal_datetime_t: 
+    {
+      datetime const& dt = boost::get<LDatetime>(r)->data;       
+      if(dt.is_not_a_date_time()) return -2;
+      date dd = dt.date();
+      date::ymd_type ymd = dd.year_month_day();
+      *year = ymd.year;
+      *month = ymd.month;
+      *day = ymd.day;
+      auto dur = dt.time_of_day();
+      *hr = dur.hours();
+      *min = dur.minutes();
+      *sec = dur.seconds();
+      *frac= dur.fractional_seconds()*pow(10, 9-time_duration::num_fractional_digits());
+    }
+    return 0;
+  default: return -1;
+  }
+}
+
 int get_date_iso_string(HJR handle, HSTR*v)
 {
   if(not handle or not v) return -1;

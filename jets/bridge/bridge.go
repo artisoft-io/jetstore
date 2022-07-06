@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	// "strings"
 	"unsafe"
@@ -515,6 +516,29 @@ func (r *Resource) GetDateDetails() (y int, m int, d int, err error) {
 	d = int(cd)
 	return
 }
+
+func (r *Resource) GetDatetimeDetails() (y, m, d, hr, min, sec, frac int, err error) {
+	// rdf_literal_datetime_t
+	if r.GetType() != 10 {
+		err = ErrNotValidDateTime
+		return
+	}
+	var cy, cm, cd, chr, cmin, csec, cfrac C.int
+	ret := int(C.get_datetime_details(r.hdl, &cy, &cm, &cd, &chr, &cmin, &csec, &cfrac))
+	if ret == -2 {
+		// fmt.Println("ERROR in GetDatetimeDetails: date is not a valid date")
+		err = ErrNotValidDate
+		return
+	}
+	y = int(cy)
+	m = int(cm)
+	d = int(cd)
+	hr = int(hr)
+	min = int(cmin)
+	sec = int(csec)
+	frac = int(cfrac)
+	return
+}
 func (r *Resource) GetText() (string, error) {
 	// rdf_literal_string_t
 	if r.GetType() != 8 {
@@ -639,19 +663,29 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 		if err != nil {
 			return ret, fmt.Errorf("while getting date details: %v", err)
 		}
-		if columnType != "text" {
-			return reportTypeError(r, columnType)
+		if columnType == "text" {
+			return fmt.Sprintf("%d-%d-%d", y, m, d), nil
 		}
-		return fmt.Sprintf("%d-%d-%d", y, m, d), nil
+		if columnType == "date" {
+			return time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC), nil
+		}
+		return reportTypeError(r, columnType)
 	case 10:
-		v, err := r.GetDatetimeIsoString()
-		if err != nil {
-			return ret, fmt.Errorf("while getting datetime literal for AsInterface: %v", err)
+		if columnType == "text" {
+			v, err := r.GetDatetimeIsoString()
+			if err != nil {
+				return ret, fmt.Errorf("while getting datetime literal for AsInterface: %v", err)
+			}
+			return v, nil
 		}
-		if columnType != "text" {
-			return reportTypeError(r, columnType)
+		if columnType == "datetime" {
+			y, m, d, hr, min, sec, frac, err := r.GetDatetimeDetails()
+			if err != nil {
+				return ret, fmt.Errorf("while getting datetime details: %v", err)
+			}
+			return time.Date(y, time.Month(m), d, hr, min, sec, frac, time.UTC), nil
 		}
-		return v, nil
+		return reportTypeError(r, columnType)
 	default:
 		fmt.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
 		return ret, fmt.Errorf("error, unexpected resource type: %d", rtype)
