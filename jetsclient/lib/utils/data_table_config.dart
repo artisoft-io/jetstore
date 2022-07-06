@@ -17,6 +17,8 @@ class ColumnConfig {
 class TableConfig {
   TableConfig(
       {required this.key,
+      required this.schemaName,
+      required this.tableName,
       required this.title,
       required this.actions,
       required this.columns,
@@ -24,6 +26,8 @@ class TableConfig {
       required this.sortAscending,
       required this.rowsPerPage});
   final String key;
+  final String schemaName;
+  final String tableName;
   final String title;
   final List<ActionConfig> actions;
   final List<ColumnConfig> columns;
@@ -81,6 +85,8 @@ class ActionConfig {
 final Map<String, TableConfig> _tableConfigurations = {
   'pipelineTable': TableConfig(
       key: 'pipelineTable',
+      schemaName: 'jetsapi',
+      tableName: 'pipelines',
       title: 'Data Pipeline',
       actions: [
         ActionConfig(
@@ -114,9 +120,9 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       columns: [
         ColumnConfig(
-            name: "key", label: 'Key', tooltips: 'Key', isNumeric: false),
+            name: "key", label: 'Key', tooltips: 'Process Session ID', isNumeric: true),
         ColumnConfig(
-            name: "user",
+            name: "user_name",
             label: 'Submitted By',
             tooltips: 'Submitted By',
             isNumeric: false),
@@ -142,7 +148,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             isNumeric: false),
       ],
       sortColumnIndex: 0,
-      sortAscending: false,
+      sortAscending: true,
       rowsPerPage: 10)
 };
 

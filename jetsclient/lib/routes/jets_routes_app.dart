@@ -16,7 +16,7 @@ const jobDetailsPath = '/job/:id';
 const pageNotFoundPath = '/404';
 
 final Map<String, Widget> jetsRoutesMap = {
-  jobListPath: const JobListScreen(),
+  jobListPath: JobListScreen(tablePath: jetsRoutesParser(jobListPath)),
   loginPath: const LoginScreen(),
   registerPath: const RegistrationScreen(),
   jobDetailsPath: const MessageScreen(message: "Detailed Welcome!"),

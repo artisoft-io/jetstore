@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:provider/provider.dart';
 
 import 'package:jetsclient/utils/data_table_config.dart';
@@ -12,7 +14,9 @@ typedef FncBool = void Function(bool?);
 typedef OnSelectCB = void Function(bool value, int index);
 
 class JetsDataTableWidget extends StatefulWidget {
-  const JetsDataTableWidget({super.key, required this.tableConfig});
+  const JetsDataTableWidget(
+      {super.key, required this.tablePath, required this.tableConfig});
+  final JetsRouteData tablePath;
   final String tableConfig;
 
   @override
@@ -67,8 +71,13 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     dataSource.addListener(() {
       setState(() {});
     });
-    // Get the first batch of data
-    dataSource.getModelDataSync();
+    // Get the first batch of data when navigated to tablePath
+    JetsRouterDelegate().addListener(() {
+      if (JetsRouterDelegate().currentConfiguration?.path ==
+          widget.tablePath.path) {
+        dataSource.getModelDataSync();
+      }
+    });
   }
 
   @override
@@ -78,6 +87,12 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
 
   @override
   void dispose() {
+    JetsRouterDelegate().removeListener(() {
+      if (JetsRouterDelegate().currentConfiguration?.path ==
+          widget.tablePath.path) {
+        dataSource.getModelDataSync();
+      }
+    });
     dataSource.removeListener(() {
       setState(() {});
     });
@@ -249,22 +264,21 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
         // HEADER ROW
         Row(
           children: tableConfig.actions
-        .where((ac) => ac.predicate(isTableEditable))
-        .expand((ac) => [
-              const SizedBox(width: defaultPadding),
-              ElevatedButton(
-                style: ac.buttonStyle(themeData),
-                onPressed: () => actionDispatcher(ac),
-                child: Text(ac.label),
-              )
-            ])
-        .toList()
-            ,
+              .where((ac) => ac.predicate(isTableEditable))
+              .expand((ac) => [
+                    const SizedBox(width: defaultPadding),
+                    ElevatedButton(
+                      style: ac.buttonStyle(themeData),
+                      onPressed: () => actionDispatcher(ac),
+                      child: Text(ac.label),
+                    )
+                  ])
+              .toList(),
         ),
         // MAIN TABLE SECTION
         const SizedBox(height: defaultPadding),
         Expanded(
-          child: Scrollbar(
+            child: Scrollbar(
           thumbVisibility: true,
           trackVisibility: true,
           controller: _verticalController,

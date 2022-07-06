@@ -29,16 +29,21 @@ func authh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := TokenValid(r)
 		if err != nil {
+			//*
+			log.Println("*** authh for",r.URL.Path,", Unauthorized")
 			ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 			return
 		}
+		//*
+		log.Println("* authh for",r.URL.Path,", Authorized")
 		next(w, r)
 	}
 }
 // Middleware Function for allowing selected cors client
 func corsh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// fmt.Println("*** cors for ",r.URL.Path,", Origin Header:", r.Header.Get("Origin"))
+		//*
+		log.Println("* cors for",r.URL.Path,", Origin Header:", r.Header.Get("Origin"))
 		//* check that origin is what we expect
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 		next(w, r)
@@ -52,12 +57,14 @@ type OptionConfig struct {
 	AllowedHeaders string
 }
 func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) {
-	// fmt.Println("Options Called:", r.URL, "method:",r.Method)
-	// for k,v := range r.Header {
-	// 	fmt.Println("    header:",k,"values:",v)
-	// }
+	//*
+	log.Println("* Options for", r.URL, "method:",r.Method)
 	// write cors headers
-	//* check that origin is what we expect
+	//* TODO check that origin is what we expect
+	// //*
+	// for key, value := range r.Header {
+	// 	log.Println("OptionConfig: ",key,value)
+	// }
 	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	if len(optionConfig.AllowedMethods) > 0 {
 		w.Header().Set("Access-Control-Allow-Methods", optionConfig.AllowedMethods)
@@ -66,6 +73,10 @@ func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Access-Control-Allow-Headers", optionConfig.AllowedHeaders)
 	}
 	w.WriteHeader(http.StatusOK)
+	// //*
+	// for key, value := range w.Header() {
+	// 	log.Println("Output Header: ",key,value)
+	// }
 }
 
 // processFile
@@ -100,15 +111,22 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/login", loginOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/login", jsonh(corsh(server.Login))).Methods("POST")
 
-	//Register route
+	// Register route
 	registerOptions := OptionConfig{	Origin: "", 
 		AllowedMethods: "POST, OPTIONS",
 		AllowedHeaders: "Content-Type"	}
 	server.Router.HandleFunc("/register", registerOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/register", jsonh(corsh(server.CreateUser))).Methods("POST")
 
+	// DataTable route
+	dataTableOptions := OptionConfig{	Origin: "", 
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"	}
+	server.Router.HandleFunc("/dataTable", dataTableOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/dataTable", jsonh(authh(corsh(server.DataTableAction)))).Methods("POST")
+
 	//Users routes
-	server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
+	// server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
 	server.Router.HandleFunc("/users", jsonh(authh(server.GetUsers))).Methods("GET")
 	server.Router.HandleFunc("/users/info", jsonh(authh(server.GetUserDetails))).Methods("GET")
 	server.Router.HandleFunc("/users/{id}", jsonh(authh(server.GetUser))).Methods("GET")
