@@ -70,6 +70,7 @@ int get_double_literal(HJR handle, double*);
 int get_text_literal(HJR handle, HSTR*);
 char const* get_text_literal2(HJR handle, int*);
 int get_date_details(HJR hdl, int* year, int* month, int* day);
+int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr, int* min, int* sec, int* frac);
 int get_date_iso_string(HJR handle, HSTR*);
 int get_datetime_iso_string(HJR handle, HSTR*);
 char const* get_date_iso_string2(HJR handle, int*);

@@ -137,6 +137,8 @@ TEST(RdfAstTest, ToBool)
 
 TEST(RdfAstTest, DateTime)
 {
+  EXPECT_EQ(time_duration::num_fractional_digits(), 6);
+
   auto d00 = date(2019, 3, 7);
   EXPECT_EQ(parse_date("2019-03-07"), d00);
 
