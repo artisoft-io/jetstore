@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/routes/jets_router_delegate.dart';
+import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
+
+import '../../utils/data_table_config.dart';
 
 // typedef JetsDataModel = List<List<dynamic>>;
 typedef JetsDataModel = List<dynamic>;
@@ -24,7 +26,6 @@ class JetsDataTableSource extends ChangeNotifier {
 
   DataRow getRow(int index) {
     assert(model != null);
-    debugPrint("JetsDataTableSource.getRow called with index $index");
     return DataRow.byIndex(
       index: index,
       color: MaterialStateProperty.resolveWith<Color?>(
@@ -40,7 +41,7 @@ class JetsDataTableSource extends ChangeNotifier {
         return null; // Use default value for other states and odd rows.
       }),
       cells: List<DataCell>.generate(model![0].length,
-          (int colIndex) => DataCell(Text(model![index][colIndex] ?? 'null') )),
+          (int colIndex) => DataCell(Text(model![index][colIndex] ?? 'null'))),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable
           ? (bool? value) {
@@ -58,15 +59,33 @@ class JetsDataTableSource extends ChangeNotifier {
     var schemaName = state.tableConfig.schemaName;
     var tableName = state.tableConfig.tableName;
     var columns = state.tableConfig.columns;
-    var columnNames =
-        List<String>.generate(columns.length, (index) => columns[index].name);
+    List<String> columnNames = [];
+    if (columns.isNotEmpty) {
+      columnNames =
+          List<String>.generate(columns.length, (index) => columns[index].name);
+    }
     var msg = <String, dynamic>{'action': 'read'};
     msg['schema'] = schemaName;
-    msg['table'] = tableName;
-    msg['columns'] = columnNames;
+    if (tableName.isEmpty) {
+      String name = JetsRouterDelegate().currentConfiguration?.params['table'];
+      msg['table'] = name;
+    } else {
+      msg['table'] = tableName;
+    }
     msg['offset'] = state.indexOffset;
     msg['limit'] = state.rowsPerPage;
-    msg['sortColumn'] = columnNames[state.sortColumnIndex];
+    if (columns.isNotEmpty) {
+      msg['columns'] = columnNames;
+      msg['sortColumn'] = columnNames[state.sortColumnIndex];
+    } else {
+      if(state.columnNames.isNotEmpty) {
+        msg['columns'] = state.columnNames;
+        msg['sortColumn'] = state.columnNames[state.sortColumnIndex];
+      } else {
+        msg['columns'] = [];
+        msg['sortColumn'] = '';
+      }
+    }
     msg['sortAscending'] = state.sortAscending;
     return msg;
   }
@@ -81,7 +100,14 @@ class JetsDataTableSource extends ChangeNotifier {
     if (result.statusCode == 200) {
       // update the [model]
       return result.body;
-    } else if (result.statusCode == 401 || result.statusCode == 422) {
+    } else if (result.statusCode == 401) {
+      const snackBar = SnackBar(
+        content: Text('Session Expired, please login'),
+      );
+      ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
+      JetsRouterDelegate()(JetsRouteData(loginPath));
+      return null;
+    } else if (result.statusCode == 422) {
       const snackBar = SnackBar(
         content: Text('Error reading data from table'),
       );
@@ -97,34 +123,33 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   Future<int> getModelData() async {
-    debugPrint(
-        "getModelData from index ${state.indexOffset} to ${state.maxIndex}) called");
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
     _selectedRowCount = 0;
 
     var data = await fetchData();
     if (data != null) {
+      // Check if we got columnDef back
+      var columnDef = data['columnDef'] as List<dynamic>?;
+      if (columnDef != null) {
+        state.dataColumns = columnDef
+          .map((m1) => ColumnConfig(
+              name: m1['name'],
+              label: m1['label'],
+              tooltips: m1['tooltips'],
+              isNumeric: m1['isnumeric']))
+          .map((e) => state.makeDataColumn(e))
+          .toList();
+        state.columnNames = columnDef.map((e) => e['name'] as String).toList();
+      }
       model = data['rows'];
       _totalRowCount = data['totalRowCount'];
       notifyListeners();
     }
-    // model = List<List<dynamic>>.generate(
-    //     state.rowsPerPage,
-    //     (index) => [
-    //           "${state.indexOffset + index}",
-    //           "User $index on Page ${state.currentDataPage}",
-    //           "ACME",
-    //           "P$index",
-    //           "completed",
-    //           "2022-06-27 15:51:22"
-    //         ]);
-    // _totalRowCount = 50;
     return 0;
   }
 
   void getModelDataSync() async {
-    var res = await getModelData();
-    debugPrint("getModelDataSync got result $res");
+    await getModelData();
   }
 
   void sortModelData(int columnIndex, bool ascending) {
@@ -136,9 +161,10 @@ class JetsDataTableSource extends ChangeNotifier {
       if (l[columnIndex] == null) return 1;
       if (r[columnIndex] == null) return -1;
       // Check data type
-      if(state.tableConfig.columns[columnIndex].isNumeric) {
+      if (state.tableConfig.columns[columnIndex].isNumeric) {
         return sortSign *
-            double.parse(l[columnIndex]).compareTo(double.parse(r[columnIndex]));
+            double.parse(l[columnIndex])
+                .compareTo(double.parse(r[columnIndex]));
       }
       return sortSign *
           l[columnIndex].toString().compareTo(r[columnIndex].toString());

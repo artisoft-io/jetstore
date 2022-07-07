@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class HttpResponse {
@@ -28,10 +27,10 @@ class HttpClient {
       // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
       return HttpResponse(response.statusCode, jsonDecode(response.body));
     } on Exception catch (e) {
-      debugPrint('HTTP Exception details\n$e');
+      // print('HTTP Exception details\n$e');
       return HttpResponse(999, null);
     } catch (e) {
-      debugPrint('Unknown HTTP exception $e of type ${e.runtimeType}.');
+      // print('Unknown HTTP exception $e of type ${e.runtimeType}.');
       return HttpResponse(999, null);
     }
   }

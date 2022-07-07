@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
-import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:provider/provider.dart';
 
 import 'package:jetsclient/utils/data_table_config.dart';
@@ -17,7 +16,7 @@ class JetsDataTableWidget extends StatefulWidget {
   const JetsDataTableWidget(
       {super.key, required this.tablePath, required this.tableConfig});
   final JetsRouteData tablePath;
-  final String tableConfig;
+  final TableConfig tableConfig;
 
   @override
   State<JetsDataTableWidget> createState() => JetsDataTableState();
@@ -28,7 +27,6 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
   late final JetsDataTableSource dataSource;
-  late final TableConfig tableConfig;
   bool isTableEditable = false;
   int sortColumnIndex = 0;
   bool sortAscending = false;
@@ -38,15 +36,16 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
   int rowsPerPage = 10;
   late final List<int> availableRowsPerPage;
 
-  late final List<DataColumn> dataColumns;
+  List<DataColumn> dataColumns=[];
+  List<String> columnNames=[];
 
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
+  TableConfig get tableConfig => widget.tableConfig;
 
   @override
   void initState() {
     super.initState();
-    tableConfig = getTableConfig(widget.tableConfig);
     sortColumnIndex = tableConfig.sortColumnIndex;
     sortAscending = tableConfig.sortAscending;
     rowsPerPage = tableConfig.rowsPerPage;
@@ -58,26 +57,39 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     ];
 
     dataColumns = tableConfig.columns
-        .map((e) => DataColumn(
-            label: Text(e.label),
-            numeric: e.isNumeric,
-            tooltip: e.tooltips,
-            onSort: ((columnIndex, ascending) =>
-                _sortTable(columnIndex, ascending))))
+        .map((e) => makeDataColumn(e))
         .toList();
 
     dataSource = JetsDataTableSource(
         this, Provider.of<HttpClient>(context, listen: false));
-    dataSource.addListener(() {
-      setState(() {});
-    });
-    // Get the first batch of data when navigated to tablePath
-    JetsRouterDelegate().addListener(() {
-      if (JetsRouterDelegate().currentConfiguration?.path ==
-          widget.tablePath.path) {
-        dataSource.getModelDataSync();
-      }
-    });
+    dataSource.addListener(triggetRefreshListner);
+
+    if (widget.tablePath.path == homePath) {
+      // Get the first batch of data when navigated to tablePath
+      JetsRouterDelegate().addListener(navListener);
+    } else {
+      dataSource.getModelDataSync();
+    }
+  }
+
+  DataColumn makeDataColumn(ColumnConfig e) {
+    return DataColumn(
+        label: Text(e.label),
+        numeric: e.isNumeric,
+        tooltip: e.tooltips,
+        onSort: ((columnIndex, ascending) =>
+            _sortTable(columnIndex, ascending)));
+  }
+
+  void navListener() {
+    if (JetsRouterDelegate().currentConfiguration?.path ==
+        widget.tablePath.path) {
+      dataSource.getModelDataSync();
+    }
+  }
+
+  void triggetRefreshListner() {
+    setState(() {});
   }
 
   @override
@@ -87,15 +99,8 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
 
   @override
   void dispose() {
-    JetsRouterDelegate().removeListener(() {
-      if (JetsRouterDelegate().currentConfiguration?.path ==
-          widget.tablePath.path) {
-        dataSource.getModelDataSync();
-      }
-    });
-    dataSource.removeListener(() {
-      setState(() {});
-    });
+    JetsRouterDelegate().removeListener(navListener);
+    dataSource.removeListener(triggetRefreshListner);
     dataSource.dispose();
     super.dispose();
   }
@@ -269,7 +274,9 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
                     const SizedBox(width: defaultPadding),
                     ElevatedButton(
                       style: ac.buttonStyle(themeData),
-                      onPressed: () => actionDispatcher(ac),
+                      onPressed: () => ac.isEnabled(isTableEditable)
+                          ? actionDispatcher(ac)
+                          : null,
                       child: Text(ac.label),
                     )
                   ])
@@ -295,7 +302,7 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
                   controller: _horizontalController,
                   padding: const EdgeInsets.all(defaultPadding),
                   child: DataTable(
-                    columns: dataColumns,
+                    columns: dataColumns.isNotEmpty ? dataColumns :[const DataColumn(label: Text(' '))],
                     rows: List<DataRow>.generate(
                       dataSource.rowCount,
                       (int index) => dataSource.getRow(index),
