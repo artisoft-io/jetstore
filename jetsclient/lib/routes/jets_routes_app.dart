@@ -1,22 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/screens/components/screen_one.dart';
 import 'package:jetsclient/screens/login.dart';
 import 'package:jetsclient/screens/registration.dart';
-import 'package:jetsclient/screens/job_list.dart';
 import 'package:jetsclient/models/user.dart';
+import 'package:jetsclient/utils/screen_config.dart';
 
 const PARAM_CHAR = ':';
 
-const homePath = jobListPath;
-const jobListPath = '/';
+const homePath = '/';
+const jobListPath = '/dataPipelines';
+const fileRegistryPath = '/fileRegistry';
+const fileRegistryTablePath = '/fileRegistry/table/:table';
 const loginPath = '/login';
 const registerPath = '/register';
 const jobDetailsPath = '/job/:id';
 const pageNotFoundPath = '/404';
 
 final Map<String, Widget> jetsRoutesMap = {
-  jobListPath: JobListScreen(tablePath: jetsRoutesParser(jobListPath)),
+  homePath: ScreenOne(
+      key: const Key('homeScreen'),
+      tablePath: JetsRouteData(homePath),
+      screenConfig: getScreenConfig('homeScreen')),
+  jobListPath: ScreenOne(
+      key: const Key('jobListScreen'),
+      tablePath: JetsRouteData(jobListPath),
+      screenConfig: getScreenConfig('jobListScreen')),
+  fileRegistryPath: ScreenOne(
+      key: const Key('fileRegistryScreen'),
+      tablePath: JetsRouteData(fileRegistryPath),
+      screenConfig: getScreenConfig('fileRegistryScreen')),
+  fileRegistryTablePath: ScreenOne(
+      key: const Key('fileRegistryTableScreen'),
+      tablePath: JetsRouteData(fileRegistryTablePath),
+      screenConfig: getScreenConfig('fileRegistryTableScreen')),
   loginPath: const LoginScreen(),
   registerPath: const RegistrationScreen(),
   jobDetailsPath: const MessageScreen(message: "Detailed Welcome!"),

@@ -41,6 +41,7 @@ class ActionConfig {
       {required this.key,
       required this.label,
       this.isTableEditablePrecondition,
+      this.isEnabledWhenTableEditablePrecondition,
       required this.style,
       this.configTable,
       this.configForm,
@@ -48,13 +49,22 @@ class ActionConfig {
   final String key;
   final String label;
   final bool? isTableEditablePrecondition;
+  final bool? isEnabledWhenTableEditablePrecondition;
   final ActionStyle style;
   final String? configTable;
   final String? configForm;
   final String? apiKey;
+
   bool predicate(bool isTableEditable) {
     if (isTableEditablePrecondition != null) {
       return isTableEditablePrecondition == isTableEditable;
+    }
+    return true;
+  }
+
+  bool isEnabled(bool isTableEditable) {
+    if (isEnabledWhenTableEditablePrecondition != null) {
+      return isEnabledWhenTableEditablePrecondition == isTableEditable;
     }
     return true;
   }
@@ -120,7 +130,10 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       columns: [
         ColumnConfig(
-            name: "key", label: 'Key', tooltips: 'Process Session ID', isNumeric: true),
+            name: "key",
+            label: 'Key',
+            tooltips: 'Process Session ID',
+            isNumeric: true),
         ColumnConfig(
             name: "user_name",
             label: 'Submitted By',
@@ -149,7 +162,152 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       sortColumnIndex: 0,
       sortAscending: true,
-      rowsPerPage: 10)
+      rowsPerPage: 10),
+  'registryTable': TableConfig(
+      key: 'registryTable',
+      schemaName: 'public',
+      tableName: 'input_registry',
+      title: 'Input File Registry',
+      actions: [
+        ActionConfig(
+            key: 'new',
+            label: 'Load New File',
+            style: ActionStyle.primary,
+            configTable: "processConfigTable",
+            configForm: "newPipeline"),
+        ActionConfig(
+            key: 'edit',
+            label: 'Edit Table',
+            style: ActionStyle.secondary,
+            isTableEditablePrecondition: false),
+        ActionConfig(
+            key: 'save',
+            label: 'Save Changes',
+            style: ActionStyle.primary,
+            isTableEditablePrecondition: true,
+            apiKey: 'updatePipeline'),
+        ActionConfig(
+            key: 'delete',
+            label: 'Delete Rows',
+            style: ActionStyle.danger,
+            isTableEditablePrecondition: true,
+            apiKey: 'deletePipelines'),
+        ActionConfig(
+            key: 'cancel',
+            label: 'Cancel Changes',
+            style: ActionStyle.primary,
+            isTableEditablePrecondition: true),
+      ],
+      columns: [
+        ColumnConfig(
+            name: "file_name",
+            label: 'File Name',
+            tooltips: 'Input File Name',
+            isNumeric: false),
+        ColumnConfig(
+            name: "table_name",
+            label: 'Table Name',
+            tooltips: 'Table where the file was loaded',
+            isNumeric: false),
+        ColumnConfig(
+            name: "session_id",
+            label: 'Session ID',
+            tooltips: 'Data Pipeline Job Key',
+            isNumeric: false),
+        ColumnConfig(
+            name: "load_count",
+            label: 'Records Count',
+            tooltips: 'Number of records loaded',
+            isNumeric: true),
+        ColumnConfig(
+            name: "bad_row_count",
+            label: 'Bad Records',
+            tooltips: 'Number of Bad Records',
+            isNumeric: true),
+        ColumnConfig(
+            name: "node_id",
+            label: 'Node ID',
+            tooltips: 'Node ID containing there records',
+            isNumeric: true),
+        ColumnConfig(
+            name: "last_update",
+            label: 'Loaded At',
+            tooltips: 'Indicates when the file was loaded',
+            isNumeric: false),
+      ],
+      sortColumnIndex: 6,
+      sortAscending: false,
+      rowsPerPage: 10),
+  'userTable': TableConfig(
+      key: 'userTable',
+      schemaName: 'jetsapi',
+      tableName: 'users',
+      title: 'User Registry',
+      actions: [
+        ActionConfig(
+            key: 'new',
+            label: 'Load New File',
+            style: ActionStyle.primary,
+            configTable: "processConfigTable",
+            configForm: "newPipeline"),
+        ActionConfig(
+            key: 'edit',
+            label: 'Edit Table',
+            style: ActionStyle.secondary,
+            isTableEditablePrecondition: false),
+        ActionConfig(
+            key: 'save',
+            label: 'Save Changes',
+            style: ActionStyle.primary,
+            isTableEditablePrecondition: true,
+            apiKey: 'updatePipeline'),
+        ActionConfig(
+            key: 'delete',
+            label: 'Delete Rows',
+            style: ActionStyle.danger,
+            isTableEditablePrecondition: true,
+            apiKey: 'deletePipelines'),
+        ActionConfig(
+            key: 'cancel',
+            label: 'Cancel Changes',
+            style: ActionStyle.primary,
+            isTableEditablePrecondition: true),
+      ],
+      columns: [
+        ColumnConfig(
+            name: "user_id",
+            label: 'UserID',
+            tooltips: 'User ID',
+            isNumeric: true),
+        ColumnConfig(
+            name: "name",
+            label: 'Name',
+            tooltips: 'User Name',
+            isNumeric: false),
+        ColumnConfig(
+            name: "email",
+            label: 'Email',
+            tooltips: 'User Email',
+            isNumeric: false),
+        ColumnConfig(
+            name: "last_update",
+            label: 'Last Updated',
+            tooltips: 'Last Updated',
+            isNumeric: false),
+      ],
+      sortColumnIndex: 0,
+      sortAscending: true,
+      rowsPerPage: 10),
+  'inputTable': TableConfig(
+      key: 'inputTable',
+      schemaName: 'public',
+      tableName: '',
+      title: 'Input Data',
+      actions: [],
+      columns: [],
+      sortColumnIndex: 0,
+      sortAscending: true,
+      rowsPerPage: 10),
 };
 
 TableConfig getTableConfig(String key) {

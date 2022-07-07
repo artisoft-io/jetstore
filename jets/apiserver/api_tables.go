@@ -9,13 +9,16 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 
-	_ "github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/schema"
+
 	// lru "github.com/hashicorp/golang-lru"
 	"github.com/jackc/pgx/v4"
 )
 type DataTableQuery struct {
+	Action         string      `json:"action"`
 	Schema         string      `json:"schema"`
 	Table          string      `json:"table"`
 	Columns        []string    `json:"columns"`
@@ -23,6 +26,21 @@ type DataTableQuery struct {
 	SortAscending   bool       `json:"sortAscending"`
 	Offset         int         `json:"offset"`
 	Limit          int         `json:"limit"`
+}
+type DataTableColumnDef struct {
+	Name             string      `json:"name"`
+	Label            string      `json:"label"`
+	Tooltips         string      `json:"tooltips"`
+	IsNumeric        bool        `json:"isnumeric"`
+}
+
+func isNumeric(dtype string) bool {
+	switch dtype {
+	case "int", "long", "uint", "ulong", "double":
+		return true
+	default:
+		return false
+	}
 }
 
 // var tableSchemaCache *lru.Cache
@@ -49,6 +67,37 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
+	}
+	// to package up the result
+	results := make(map[string]interface{}, 5)
+
+	var columnsDef []DataTableColumnDef
+	if len(dataTableQuery.Columns) == 0 {
+		// Get table column definition
+		log.Println("LOOKING UP COLUMN DEF")
+		//* TODO use cache
+		tableSchema, err := schema.GetTableSchema(server.dbpool, dataTableQuery.Schema, dataTableQuery.Table)
+		if err != nil {
+			log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableQuery.Schema, dataTableQuery.Table, err)
+			ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
+		}
+		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))		
+		for _,colDef := range tableSchema.Columns {
+			columnsDef = append(columnsDef, DataTableColumnDef{
+			Name: colDef.ColumnName, 
+			Label: colDef.ColumnName,
+			Tooltips: colDef.ColumnName,
+			IsNumeric: isNumeric(colDef.DataType),})
+			dataTableQuery.Columns = append(dataTableQuery.Columns, colDef.ColumnName)
+		}
+		sort.Slice(columnsDef, func(l, r int) bool {return columnsDef[l].Name < columnsDef[r].Name})
+		dataTableQuery.Columns = make([]string, 0, len(tableSchema.Columns))
+		for i := range columnsDef {
+			dataTableQuery.Columns = append(dataTableQuery.Columns, columnsDef[i].Name)
+		}
+
+		dataTableQuery.SortColumn = columnsDef[0].Name
+		results["columnDef"] = columnsDef
 	}
 
 	// Get table schema
@@ -142,8 +191,6 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while getting table's total row count"))	
 	}
 
-	// package up the result
-	results := make(map[string]interface{}, 2)
 	results["totalRowCount"] = totalRowCount
 	results["rows"] = resultRows
 	JSON(w, http.StatusOK, results)
