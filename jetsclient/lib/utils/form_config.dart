@@ -1,21 +1,50 @@
-enum InputFieldType { text, numeric }
+import 'package:flutter/material.dart';
+import 'package:jetsclient/screens/components/text_form_field.dart';
+
+import '../screens/components/dropdown_form_field.dart';
 
 enum TextRestriction { none, allLower, allUpper, digitsOnly }
 
 enum ButtonStyle { primary, secondary, other }
 
-class FormInputFieldConfig {
+typedef FormStateMap = List<Map<String, dynamic>>;
+typedef ValidatorDelegate = String? Function(int, String, String?);
+
+abstract class FormFieldConfig {
+  FormFieldConfig({
+    required this.key,
+    this.group = 0,
+  });
+  final String key;
+  final int group;
+  Widget makeFormField({
+    required FormStateMap state,
+    required ValidatorDelegate validator,
+  });
+}
+
+class TextFieldConfig extends FormFieldConfig {
+  TextFieldConfig({super.key = '', required this.label});
+  final String label;
+
+  @override
+  Widget makeFormField({
+    required FormStateMap state,
+    required ValidatorDelegate validator,
+  }) {
+    return Text(label);
+  }
+}
+
+class FormInputFieldConfig extends FormFieldConfig {
   FormInputFieldConfig(
-      {required this.key,
-      required this.type,
+      {required super.key,
       required this.label,
       required this.hint,
       required this.autofocus,
-      required this.obscureText,
+      this.obscureText = false,
       required this.textRestriction,
       required this.maxLength});
-  final String key;
-  final InputFieldType type;
   final String label;
   final String hint;
   final bool autofocus;
@@ -23,6 +52,49 @@ class FormInputFieldConfig {
   final TextRestriction textRestriction;
   // 0 for unbound
   final int maxLength;
+
+  @override
+  Widget makeFormField({
+    required FormStateMap state,
+    required ValidatorDelegate validator,
+  }) {
+    return JetsTextFormField(
+      inputFieldConfig: this,
+      onChanged: (p0) => state[group][key] = p0,
+      validatorDelegate: validator,
+    );
+  }
+}
+
+class DropdownItemConfig {
+  DropdownItemConfig({
+    required this.label,
+    this.value,
+  });
+  final String label;
+  final String? value;
+}
+
+class FormDropdownFieldConfig extends FormFieldConfig {
+  FormDropdownFieldConfig({
+    required super.key,
+    this.defaultItemPos = 0,
+    required this.items,
+  });
+  final int defaultItemPos;
+  final List<DropdownItemConfig> items;
+
+  @override
+  Widget makeFormField({
+    required FormStateMap state,
+    required ValidatorDelegate validator,
+  }) {
+    return JetsDropdownButtonFormField(
+      inputFieldConfig: this,
+      onChanged: (p0) => state[group][key] = p0,
+      validatorDelegate: validator,
+    );
+  }
 }
 
 class FormActionConfig {
@@ -41,8 +113,30 @@ class FormConfig {
       required this.actions});
   final String key;
   final String? title;
-  final List<FormInputFieldConfig> inputFields;
+  final List<List<FormFieldConfig>> inputFields;
   final List<FormActionConfig> actions;
+
+  int groupCount() {
+    var unique = <int>{};
+    for (int i = 0; i < inputFields.length; i++) {
+      for (int j = 0; j < inputFields[i].length; j++) {
+        unique.add(inputFields[i][j].group);
+      }
+    }
+    return unique.length;
+  }
+
+  dynamic findFirst(FormStateMap formData, String key) {
+    for (int i = 0; i < formData.length; i++) {
+      if (formData[i].containsKey(key)) {
+        return formData[i][key];
+      }
+    }
+  }
+
+  FormStateMap makeFormData() {
+    return FormStateMap.filled(groupCount(), <String, dynamic>{});
+  }
 }
 
 final Map<String, FormConfig> _formConfigurations = {
@@ -58,24 +152,26 @@ final Map<String, FormConfig> _formConfigurations = {
           buttonStyle: ButtonStyle.secondary),
     ],
     inputFields: [
-      FormInputFieldConfig(
-          key: "email",
-          type: InputFieldType.text,
-          label: "Email",
-          hint: "Your email address",
-          autofocus: true,
-          obscureText: false,
-          textRestriction: TextRestriction.allLower,
-          maxLength: 80),
-      FormInputFieldConfig(
-          key: "password",
-          type: InputFieldType.text,
-          label: "Password",
-          hint: "Your password",
-          autofocus: false,
-          obscureText: true,
-          textRestriction: TextRestriction.none,
-          maxLength: 80),
+      [
+        FormInputFieldConfig(
+            key: "email",
+            label: "Email",
+            hint: "Your email address",
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.allLower,
+            maxLength: 80)
+      ],
+      [
+        FormInputFieldConfig(
+            key: "password",
+            label: "Password",
+            hint: "Your password",
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 80)
+      ],
     ],
   ),
   'register': FormConfig(
@@ -83,45 +179,61 @@ final Map<String, FormConfig> _formConfigurations = {
     title: 'Welcome, Please Register',
     actions: [
       FormActionConfig(
-        key: "register", label: "Register", buttonStyle: ButtonStyle.primary),
+          key: "register", label: "Register", buttonStyle: ButtonStyle.primary),
     ],
     inputFields: [
-      FormInputFieldConfig(
-          key: "name",
-          type: InputFieldType.text,
-          label: "Name",
-          hint: "Enter your name",
-          autofocus: true,
-          obscureText: false,
-          textRestriction: TextRestriction.none,
-          maxLength: 80),
-      FormInputFieldConfig(
-          key: "email",
-          type: InputFieldType.text,
-          label: "Email",
-          hint: "Your email address",
-          autofocus: false,
-          obscureText: false,
-          textRestriction: TextRestriction.allLower,
-          maxLength: 80),
-      FormInputFieldConfig(
-          key: "password",
-          type: InputFieldType.text,
-          label: "Password",
-          hint: "Your password",
-          autofocus: false,
-          obscureText: true,
-          textRestriction: TextRestriction.none,
-          maxLength: 80),
-      FormInputFieldConfig(
-          key: "passwordConfirmation",
-          type: InputFieldType.text,
-          label: "Password Confirmation",
-          hint: "Re-enter your password",
-          autofocus: false,
-          obscureText: true,
-          textRestriction: TextRestriction.none,
-          maxLength: 80),
+      [
+        FormInputFieldConfig(
+            key: "name",
+            label: "Name",
+            hint: "Enter your name",
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80)
+      ],
+      [
+        FormInputFieldConfig(
+            key: "email",
+            label: "Email",
+            hint: "Your email address",
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.allLower,
+            maxLength: 80)
+        // , FormDropdownFieldConfig(
+        //   key: 'emailType',
+        //   items: [
+        //   DropdownItemConfig(label: 'Work', value: 'work'),
+        //   DropdownItemConfig(label: 'Home', value: 'home'),
+        // ]),
+      ],
+      [
+        FormInputFieldConfig(
+            key: "password",
+            label: "Password",
+            hint: "Your password",
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 80)
+      ],
+      [
+        FormInputFieldConfig(
+            key: "passwordConfirmation",
+            label: "Password Confirmation",
+            hint: "Re-enter your password",
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 80)
+        // , FormDropdownFieldConfig(
+        //   key: 'emailType',
+        //   items: [
+        //   DropdownItemConfig(label: 'Work', value: 'work'),
+        //   DropdownItemConfig(label: 'Home', value: 'home'),
+        // ]),
+      ],
     ],
   ),
 };

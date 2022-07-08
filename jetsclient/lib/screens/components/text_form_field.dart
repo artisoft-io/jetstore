@@ -11,7 +11,7 @@ class JetsTextFormField extends StatefulWidget {
       : super(key: key);
   final FormInputFieldConfig inputFieldConfig;
   final void Function(String) onChanged;
-  final String? Function(String, String?) validatorDelegate;
+  final ValidatorDelegate validatorDelegate;
 
   @override
   State<JetsTextFormField> createState() => _JetsTextFormFieldState();
@@ -91,23 +91,25 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
-      child: TextFormField(
-        autofocus: _config.autofocus,
-        controller: _controller,
-        focusNode: _node,
-        showCursor: _focused,
-        obscureText: _config.obscureText,
-        maxLength: _config.maxLength,
-        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-        decoration: InputDecoration(
-          hintText: _config.hint,
-          labelText: _config.label,
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
+        child: TextFormField(
+          autofocus: _config.autofocus,
+          controller: _controller,
+          focusNode: _node,
+          showCursor: _focused,
+          obscureText: _config.obscureText,
+          maxLength: _config.maxLength,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          decoration: InputDecoration(
+            hintText: _config.hint,
+            labelText: _config.label,
+          ),
+          onChanged: widget.onChanged,
+          validator: (String? value) =>
+              widget.validatorDelegate(_config.group, _config.key, value),
         ),
-        onChanged: widget.onChanged,
-        validator: (String? value) =>
-            widget.validatorDelegate(_config.key, value),
       ),
     );
   }

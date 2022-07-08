@@ -19,7 +19,7 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
-  final formData = <String, dynamic>{};
+  late final FormStateMap formData;
   final formKey = GlobalKey<FormState>();
   late final FormConfig formConfig;
 
@@ -27,9 +27,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   void initState() {
     super.initState();
     formConfig = getFormConfig(widget.formConfig);
+    formData = formConfig.makeFormData();
   }
 
-  String? validatorDelegate(String key, String? value) {
+  String? validatorDelegate(int group, String key, String? value) {
     switch (key) {
       case 'name':
         if (value != null && value.characters.length > 1) {
@@ -53,9 +54,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         }
         return "Password must have at least 4 charaters and contain at least one of: upper and lower case letter, and number.";
       case 'passwordConfirmation':
-        if (formData['password'] != null &&
-            formData['password']!.isNotEmpty &&
-            formData['password'] == value) {
+        if (formData[group]['password'] != null &&
+            formData[group]['password']!.isNotEmpty &&
+            formData[group]['password'] == value) {
           return null;
         }
         return "Passwords does not match.";
@@ -74,12 +75,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     var client = context.read<HttpClient>();
     var user = UserModel();
     var result = await client.sendRequest(
-        path: registerPath, encodedJsonBody: json.encode(formData));
+        path: registerPath, encodedJsonBody: json.encode(formData[0]));
     if (!mounted) return;
     if (result.statusCode == 200 || result.statusCode == 201) {
       // update the [UserModel]
-      user.name = formData['name'] as String?;
-      user.email = formData['email'] as String?;
+      user.name = formData[0]['name'] as String?;
+      user.email = formData[0]['email'] as String?;
       user.token = result.body as String;
       JetsRouterDelegate().user = user;
       // Inform the user and transition

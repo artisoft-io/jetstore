@@ -19,7 +19,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final formData = <String, dynamic>{};
+  late final FormStateMap formData;
   final formKey = GlobalKey<FormState>();
   late final FormConfig formConfig;
 
@@ -27,9 +27,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     formConfig = getFormConfig(widget.formConfig);
+    formData = formConfig.makeFormData();
   }
 
-  String? validatorDelegate(String key, String? value) {
+  String? validatorDelegate(int group, String key, String? value) {
     switch (key) {
       case 'email':
         if (value != null && value.characters.length > 3) {
@@ -47,19 +48,18 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _doLogin() async {    
+  void _doLogin() async {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
     var user = UserModel();
     var result = await client.sendRequest(
-      path: loginPath,
-      encodedJsonBody: json.encode(formData));
+        path: loginPath, encodedJsonBody: json.encode(formData[0]));
 
     if (!mounted) return;
     if (result.statusCode == 200) {
       // update the [UserModel]
       user.name = "";
-      user.email = formData['email'] as String?;
+      user.email = formData[0]['email'] as String?;
       user.token = result.body as String;
       JetsRouterDelegate().user = user;
       // Inform the user and transition
@@ -88,7 +88,10 @@ class _LoginScreenState extends State<LoginScreen> {
           formKey: formKey,
           formConfig: formConfig,
           validatorDelegate: validatorDelegate,
-          actions: <String, VoidCallback>{'login': _doLogin, 'register': _doRegister}),
+          actions: <String, VoidCallback>{
+            'login': _doLogin,
+            'register': _doRegister
+          }),
     );
   }
 }
