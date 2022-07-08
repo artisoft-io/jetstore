@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/screens/components/text_form_field.dart';
+import 'package:jetsclient/screens/components/input_text_form_field.dart';
+import 'package:jetsclient/screens/components/text_field.dart';
 
 import '../screens/components/dropdown_form_field.dart';
 
@@ -14,9 +15,11 @@ abstract class FormFieldConfig {
   FormFieldConfig({
     required this.key,
     this.group = 0,
+    this.flex = 1,
   });
   final String key;
   final int group;
+  final int flex;
   Widget makeFormField({
     required FormStateMap state,
     required ValidatorDelegate validator,
@@ -24,7 +27,7 @@ abstract class FormFieldConfig {
 }
 
 class TextFieldConfig extends FormFieldConfig {
-  TextFieldConfig({super.key = '', required this.label});
+  TextFieldConfig({super.key = '', required this.label, super.flex});
   final String label;
 
   @override
@@ -32,7 +35,10 @@ class TextFieldConfig extends FormFieldConfig {
     required FormStateMap state,
     required ValidatorDelegate validator,
   }) {
-    return Text(label);
+    return JetsTextField(
+      fieldConfig: this,
+      flex: flex,
+    );
   }
 }
 
@@ -44,7 +50,8 @@ class FormInputFieldConfig extends FormFieldConfig {
       required this.autofocus,
       this.obscureText = false,
       required this.textRestriction,
-      required this.maxLength});
+      required this.maxLength,
+      super.flex});
   final String label;
   final String hint;
   final bool autofocus;
@@ -62,6 +69,7 @@ class FormInputFieldConfig extends FormFieldConfig {
       inputFieldConfig: this,
       onChanged: (p0) => state[group][key] = p0,
       validatorDelegate: validator,
+      flex: flex,
     );
   }
 }
@@ -80,6 +88,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     required super.key,
     this.defaultItemPos = 0,
     required this.items,
+    super.flex,
   });
   final int defaultItemPos;
   final List<DropdownItemConfig> items;
@@ -93,6 +102,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
       inputFieldConfig: this,
       onChanged: (p0) => state[group][key] = p0,
       validatorDelegate: validator,
+      flex: flex,
     );
   }
 }
@@ -183,56 +193,57 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     inputFields: [
       [
+        TextFieldConfig(label: 'This is the First Item'),
         FormInputFieldConfig(
             key: "name",
             label: "Name",
             hint: "Enter your name",
+            flex: 2,
             autofocus: true,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 80)
-      ],
-      [
+            maxLength: 80), // ],
+        // [
         FormInputFieldConfig(
             key: "email",
             label: "Email",
             hint: "Your email address",
+            flex: 2,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.allLower,
-            maxLength: 80)
-        // , FormDropdownFieldConfig(
-        //   key: 'emailType',
-        //   items: [
-        //   DropdownItemConfig(label: 'Work', value: 'work'),
-        //   DropdownItemConfig(label: 'Home', value: 'home'),
-        // ]),
+            maxLength: 80),
+        FormDropdownFieldConfig(key: 'emailType', items: [
+          DropdownItemConfig(label: 'Work', value: 'work'),
+          DropdownItemConfig(label: 'Home', value: 'home'),
+        ]),
       ],
       [
+        TextFieldConfig(label: 'This is the Second Item'),
         FormInputFieldConfig(
             key: "password",
             label: "Password",
             hint: "Your password",
+            flex: 2,
             autofocus: false,
             obscureText: true,
             textRestriction: TextRestriction.none,
-            maxLength: 80)
-      ],
-      [
+            maxLength: 80), // ],
+        // [
         FormInputFieldConfig(
             key: "passwordConfirmation",
             label: "Password Confirmation",
             hint: "Re-enter your password",
+            flex: 2,
             autofocus: false,
             obscureText: true,
             textRestriction: TextRestriction.none,
-            maxLength: 80)
-        // , FormDropdownFieldConfig(
-        //   key: 'emailType',
-        //   items: [
-        //   DropdownItemConfig(label: 'Work', value: 'work'),
-        //   DropdownItemConfig(label: 'Home', value: 'home'),
-        // ]),
+            maxLength: 80),
+        FormDropdownFieldConfig(key: 'emailType', items: [
+          DropdownItemConfig(label: ''),
+          DropdownItemConfig(label: 'Work', value: 'work'),
+          DropdownItemConfig(label: 'Home', value: 'home'),
+        ]),
       ],
     ],
   ),

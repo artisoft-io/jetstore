@@ -32,13 +32,17 @@ class JetsForm extends StatelessWidget {
                   );
                 }
                 // case last: row of buttons
-                return Center(
-                  child: Row(
-                      children: List<Widget>.from(
-                    formConfig.actions.map((e) => TextButton(
-                        onPressed: actions[e.key], child: Text(e.label))),
-                    growable: false,
-                  )),
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 0, 0),
+                  child: Center(
+                    child: Row(
+                        children: List<Widget>.from(
+                      formConfig.actions.map((e) => TextButton(
+                          onPressed: actions[e.key], 
+                          child: Text(e.label))),
+                      growable: false,
+                    )),
+                  ),
                 );
               },
               itemCount: formConfig.inputFields.length + 1)),
