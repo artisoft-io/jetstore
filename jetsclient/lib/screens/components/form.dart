@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/utils/form_config.dart';
-import 'text_form_field.dart';
 
 class JetsForm extends StatelessWidget {
   const JetsForm(
@@ -12,10 +11,10 @@ class JetsForm extends StatelessWidget {
       required this.actions})
       : super(key: key);
 
-  final Map<String, dynamic> formData;
+  final List<Map<String, dynamic>> formData;
   final GlobalKey<FormState> formKey;
   final FormConfig formConfig;
-  final String? Function(String, String?) validatorDelegate;
+  final String? Function(int group, String, String?) validatorDelegate;
   final Map<String, VoidCallback> actions;
 
   @override
@@ -23,27 +22,26 @@ class JetsForm extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       child: Form(
-        key: formKey,
-        child: ListView.builder(
-          itemBuilder: (BuildContext context, int index) {
-            if(index < formConfig.inputFields.length) {
-              var fc = formConfig.inputFields[index];
-              return JetsTextFormField(inputFieldConfig: fc, 
-                onChanged: (p0) => formData[fc.key] = p0,
-                validatorDelegate: validatorDelegate);
-            }
-            // case last: row of buttons
-            return Center(
-                    child: Row(
-                      children: List<Widget>.from(
-                        formConfig.actions.map((e) =>TextButton(
-                            onPressed: actions[e.key], 
-                            child: Text(e.label))), growable: false,
-                    )),
+          key: formKey,
+          child: ListView.builder(
+              itemBuilder: (BuildContext context, int index) {
+                if (index < formConfig.inputFields.length) {
+                  var fc = formConfig.inputFields[index];
+                  return Row(
+                    children: fc.map((e) => e.makeFormField(state: formData, validator: validatorDelegate)).toList(),
                   );
-          }, 
-          itemCount: formConfig.inputFields.length+1)
-      ),
+                }
+                // case last: row of buttons
+                return Center(
+                  child: Row(
+                      children: List<Widget>.from(
+                    formConfig.actions.map((e) => TextButton(
+                        onPressed: actions[e.key], child: Text(e.label))),
+                    growable: false,
+                  )),
+                );
+              },
+              itemCount: formConfig.inputFields.length + 1)),
     );
   }
 }
