@@ -60,6 +60,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           return null;
         }
         return "Passwords does not match.";
+      case 'emailType':
+        if (value == null) {
+          return "Please select an email type";
+        }
+        return null;
       default:
         throw Exception(
             'ERROR: Invalid program configuration: No validator configured for form field $key');

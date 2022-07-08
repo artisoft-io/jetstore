@@ -3,15 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 class JetsTextFormField extends StatefulWidget {
-  const JetsTextFormField(
-      {Key? key,
-      required this.inputFieldConfig,
-      required this.onChanged,
-      required this.validatorDelegate})
-      : super(key: key);
+  const JetsTextFormField({
+    Key? key,
+    required this.inputFieldConfig,
+    required this.onChanged,
+    required this.validatorDelegate,
+    this.flex = 1,
+  }) : super(key: key);
   final FormInputFieldConfig inputFieldConfig;
   final void Function(String) onChanged;
   final ValidatorDelegate validatorDelegate;
+  final int flex;
 
   @override
   State<JetsTextFormField> createState() => _JetsTextFormFieldState();
@@ -65,11 +67,11 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
           }
         }
         final String text = buf.toString();
-        if(text != _controller.text) {
+        if (text != _controller.text) {
           _controller.value = _controller.value.copyWith(
             text: text,
-            selection:
-              TextSelection(baseOffset: text.length, extentOffset: text.length),
+            selection: TextSelection(
+                baseOffset: text.length, extentOffset: text.length),
             composing: TextRange.empty,
           );
         }
@@ -92,6 +94,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
   @override
   Widget build(BuildContext context) {
     return Expanded(
+      flex: widget.flex,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
         child: TextFormField(
