@@ -28,6 +28,7 @@ type DataTableQuery struct {
 	Limit          int         `json:"limit"`
 }
 type DataTableColumnDef struct {
+	Index            int         `json:"index"`
 	Name             string      `json:"name"`
 	Label            string      `json:"label"`
 	Tooltips         string      `json:"tooltips"`
@@ -80,13 +81,16 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 			log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableQuery.Schema, dataTableQuery.Table, err)
 			ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
 		}
-		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))		
+		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
+		colIndex := 0
 		for _,colDef := range tableSchema.Columns {
 			columnsDef = append(columnsDef, DataTableColumnDef{
-			Name: colDef.ColumnName, 
-			Label: colDef.ColumnName,
-			Tooltips: colDef.ColumnName,
-			IsNumeric: isNumeric(colDef.DataType),})
+				Index: colIndex,
+				Name: colDef.ColumnName, 
+				Label: colDef.ColumnName,
+				Tooltips: colDef.ColumnName,
+				IsNumeric: isNumeric(colDef.DataType),})
+			colIndex++
 			dataTableQuery.Columns = append(dataTableQuery.Columns, colDef.ColumnName)
 		}
 		sort.Slice(columnsDef, func(l, r int) bool {return columnsDef[l].Name < columnsDef[r].Name})
