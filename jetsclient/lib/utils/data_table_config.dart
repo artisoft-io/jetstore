@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 enum ActionStyle { primary, secondary, danger }
 
 class ColumnConfig {
-  ColumnConfig(
-      {required this.name,
-      required this.label,
-      required this.tooltips,
-      required this.isNumeric});
+  ColumnConfig({
+    required this.index,
+    required this.name,
+    required this.label,
+    required this.tooltips,
+    required this.isNumeric,
+  });
+  final int index;
   final String name;
   final String label;
   final String tooltips;
@@ -130,31 +133,37 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       columns: [
         ColumnConfig(
+          index: 0,
             name: "key",
             label: 'Key',
             tooltips: 'Process Session ID',
             isNumeric: true),
         ColumnConfig(
+          index: 1,
             name: "user_name",
             label: 'Submitted By',
             tooltips: 'Submitted By',
             isNumeric: false),
         ColumnConfig(
+          index: 2,
             name: "client",
             label: 'Client',
             tooltips: 'Client',
             isNumeric: false),
         ColumnConfig(
+          index: 3,
             name: "process",
             label: 'Process',
             tooltips: 'Process',
             isNumeric: false),
         ColumnConfig(
+          index: 4,
             name: "status",
             label: 'Status',
             tooltips: 'Execution Status',
             isNumeric: false),
         ColumnConfig(
+          index: 5,
             name: "submitted_at",
             label: 'Submitted At',
             tooltips: 'Submitted At',
@@ -200,36 +209,43 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       columns: [
         ColumnConfig(
+          index: 0,
             name: "file_name",
             label: 'File Name',
             tooltips: 'Input File Name',
             isNumeric: false),
         ColumnConfig(
+          index: 1,
             name: "table_name",
             label: 'Table Name',
             tooltips: 'Table where the file was loaded',
             isNumeric: false),
         ColumnConfig(
+          index: 2,
             name: "session_id",
             label: 'Session ID',
             tooltips: 'Data Pipeline Job Key',
             isNumeric: false),
         ColumnConfig(
+          index: 3,
             name: "load_count",
             label: 'Records Count',
             tooltips: 'Number of records loaded',
             isNumeric: true),
         ColumnConfig(
+          index: 4,
             name: "bad_row_count",
             label: 'Bad Records',
             tooltips: 'Number of Bad Records',
             isNumeric: true),
         ColumnConfig(
+          index: 5,
             name: "node_id",
             label: 'Node ID',
             tooltips: 'Node ID containing there records',
             isNumeric: true),
         ColumnConfig(
+          index: 6,
             name: "last_update",
             label: 'Loaded At',
             tooltips: 'Indicates when the file was loaded',
@@ -275,21 +291,25 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       columns: [
         ColumnConfig(
+          index: 0,
             name: "user_id",
             label: 'UserID',
             tooltips: 'User ID',
             isNumeric: true),
         ColumnConfig(
+          index: 1,
             name: "name",
             label: 'Name',
             tooltips: 'User Name',
             isNumeric: false),
         ColumnConfig(
+          index: 2,
             name: "email",
             label: 'Email',
             tooltips: 'User Email',
             isNumeric: false),
         ColumnConfig(
+          index: 3,
             name: "last_update",
             label: 'Last Updated',
             tooltips: 'Last Updated',

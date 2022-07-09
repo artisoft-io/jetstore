@@ -26,6 +26,7 @@ class JetsDataTableSource extends ChangeNotifier {
 
   DataRow getRow(int index) {
     assert(model != null);
+    // print("getRow Called with index $index which has key ${model![index][0]} ");
     return DataRow.byIndex(
       index: index,
       color: MaterialStateProperty.resolveWith<Color?>(
@@ -78,7 +79,7 @@ class JetsDataTableSource extends ChangeNotifier {
       msg['columns'] = columnNames;
       msg['sortColumn'] = columnNames[state.sortColumnIndex];
     } else {
-      if(state.columnNames.isNotEmpty) {
+      if (state.columnNames.isNotEmpty) {
         msg['columns'] = state.columnNames;
         msg['sortColumn'] = state.columnNames[state.sortColumnIndex];
       } else {
@@ -121,7 +122,7 @@ class JetsDataTableSource extends ChangeNotifier {
     }
   }
 
-  Future<int> getModelData() async {
+  void getModelData() async {
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
     _selectedRowCount = 0;
 
@@ -130,26 +131,25 @@ class JetsDataTableSource extends ChangeNotifier {
       // Check if we got columnDef back
       var columnDef = data['columnDef'] as List<dynamic>?;
       if (columnDef != null) {
-        state.dataColumns = columnDef
-          .map((m1) => ColumnConfig(
-              name: m1['name'],
-              label: m1['label'],
-              tooltips: m1['tooltips'],
-              isNumeric: m1['isnumeric']))
-          .map((e) => state.makeDataColumn(e))
-          .toList();
+        state.columnsConfig = columnDef
+            .map((m1) => ColumnConfig(
+                index: m1['index'],
+                name: m1['name'],
+                label: m1['label'],
+                tooltips: m1['tooltips'],
+                isNumeric: m1['isnumeric']))
+            .toList();
         state.columnNames = columnDef.map((e) => e['name'] as String).toList();
       }
       model = data['rows'];
       _totalRowCount = data['totalRowCount'];
       notifyListeners();
     }
-    return 0;
   }
 
-  void getModelDataSync() async {
-    await getModelData();
-  }
+  // void getModelDataSync() async {
+  //   getModelData();
+  // }
 
   void sortModelData(int columnIndex, bool ascending) {
     if (model == null) return;

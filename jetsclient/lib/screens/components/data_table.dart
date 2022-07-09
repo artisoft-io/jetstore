@@ -36,8 +36,8 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
   int rowsPerPage = 10;
   late final List<int> availableRowsPerPage;
 
-  List<DataColumn> dataColumns=[];
-  List<String> columnNames=[];
+  List<ColumnConfig> columnsConfig = [];
+  List<String> columnNames = [];
 
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
@@ -56,19 +56,18 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
       rowsPerPage * 10
     ];
 
-    dataColumns = tableConfig.columns
-        .map((e) => makeDataColumn(e))
-        .toList();
-
     dataSource = JetsDataTableSource(
         this, Provider.of<HttpClient>(context, listen: false));
     dataSource.addListener(triggetRefreshListner);
+
+    // this may be an empty list if table is a domain table
+    columnsConfig = tableConfig.columns;
 
     if (widget.tablePath.path == homePath) {
       // Get the first batch of data when navigated to tablePath
       JetsRouterDelegate().addListener(navListener);
     } else {
-      dataSource.getModelDataSync();
+      dataSource.getModelData();
     }
   }
 
@@ -81,10 +80,10 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
             _sortTable(columnIndex, ascending)));
   }
 
-  void navListener() {
+  void navListener() async {
     if (JetsRouterDelegate().currentConfiguration?.path ==
         widget.tablePath.path) {
-      dataSource.getModelDataSync();
+      dataSource.getModelData();
     }
   }
 
@@ -135,11 +134,19 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     }
   }
 
-  void _sortTable(int columnIndex, bool ascending) {
-    dataSource.sortModelData(columnIndex, ascending);
+  void _sortTable(int columnIndex, bool ascending) async {
+    //* TODO add sort on client side with time-based order from server
+    // dataSource.sortModelData(columnIndex, ascending);
     setState(() {
-      sortColumnIndex = columnIndex;
-      sortAscending = ascending;
+      currentDataPage = 0;
+      if(columnIndex != sortColumnIndex) {
+        sortColumnIndex = columnIndex;
+        sortAscending = true;
+      } else {
+        sortColumnIndex = columnIndex;
+        sortAscending = !sortAscending;
+      }
+      dataSource.getModelData();
     });
   }
 
@@ -154,7 +161,7 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     dataSource.getModelData();
   }
 
-  void _gotoFirstPressed() {
+  void _gotoFirstPressed() async {
     currentDataPage = 0;
     dataSource.getModelData();
   }
@@ -189,6 +196,8 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
               child: Text('$e'),
             ))
         .toList();
+    final List<DataColumn> dataColumns =
+        columnsConfig.map((e) => makeDataColumn(e)).toList();
     var footerWidgets = <Widget>[
       Container(
           width:
@@ -287,11 +296,15 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
                   controller: _horizontalController,
                   padding: const EdgeInsets.all(defaultPadding),
                   child: DataTable(
-                    columns: dataColumns.isNotEmpty ? dataColumns :[const DataColumn(label: Text(' '))],
+                    columns: dataColumns.isNotEmpty
+                        ? dataColumns
+                        : [const DataColumn(label: Text(' '))],
                     rows: List<DataRow>.generate(
                       dataSource.rowCount,
                       (int index) => dataSource.getRow(index),
                     ),
+                    sortColumnIndex: sortColumnIndex,
+                    sortAscending: sortAscending,
                   )),
             ),
           ),
