@@ -11,6 +11,7 @@ var apiSecret          = flag.String("API_SECRET", "", "Secret used for signing 
 var dropTable          = flag.Bool  ("d", false, "drop users table if it exists, default is false")
 var dsn                = flag.String("dsn", "", "primary database connection string (required)")
 var serverAddr         = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
+var tokenExpiration    = flag.Int("tokenExpiration", 3600, "Token expiration in min, must be more than 5 min (default 3600)")
 
 func main() {
 	flag.Parse()
@@ -28,6 +29,10 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Server address (-serverAddr) must be provided.")
 	}
+	if *tokenExpiration < 5 {
+		hasErr = true
+		errMsg = append(errMsg, "Token expiration must be 5 min or more. (-tokenExpiration)")
+	}
 	if hasErr {
 		flag.Usage()
 		for _, msg := range errMsg {
@@ -42,6 +47,7 @@ func main() {
 	fmt.Println("Got argument: dropTable",*dropTable)
 	fmt.Println("Got argument: dsn",*dsn)
 	fmt.Println("Got argument: serverAddr",*serverAddr)
+	fmt.Println("Got argument: tokenExpiration",*tokenExpiration)
 
 	log.Fatal(listenAndServe())
 }

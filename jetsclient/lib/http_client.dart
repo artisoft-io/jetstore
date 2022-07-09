@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:jetsclient/routes/jets_route_data.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
+import 'package:jetsclient/routes/jets_routes_app.dart';
 
 class HttpResponse {
   final int statusCode;
@@ -23,15 +26,24 @@ class HttpClient {
       }
       var response = await httpClient.post(serverAdd.replace(path: path),
           headers: h, body: encodedJsonBody);
-      // print('Response body: ${response.body}');
-      // user.token = jsonDecode(utf8.decode(result.bodyBytes)) as String;
-      return HttpResponse(response.statusCode, jsonDecode(response.body));
+      // print('Response status: ${response.statusCode} body: ${response.body}');
+      // print('Response headers: ${response.headers}');
+      if (response.statusCode == 401) {
+        // redirect to login page
+        JetsRouterDelegate()(JetsRouteData(loginPath));
+      }
+      var data = jsonDecode(response.body) as Map<String, dynamic>;
+      token = data['token'];
+      if(token != null) {
+        JetsRouterDelegate().user.token = token;
+      }
+      return HttpResponse(response.statusCode, data);
     } on Exception catch (e) {
       // print('HTTP Exception details\n$e');
-      return HttpResponse(999, null);
+      return HttpResponse(400, "Exception while communicating");
     } catch (e) {
       // print('Unknown HTTP exception $e of type ${e.runtimeType}.');
-      return HttpResponse(999, null);
+      return HttpResponse(400, "Exception while communicating");
     }
   }
 }

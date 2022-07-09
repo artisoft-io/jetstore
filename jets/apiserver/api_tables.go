@@ -74,7 +74,6 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 	var columnsDef []DataTableColumnDef
 	if len(dataTableQuery.Columns) == 0 {
 		// Get table column definition
-		log.Println("LOOKING UP COLUMN DEF")
 		//* TODO use cache
 		tableSchema, err := schema.GetTableSchema(server.dbpool, dataTableQuery.Schema, dataTableQuery.Table)
 		if err != nil {
@@ -149,7 +148,6 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 
 	// Perform the query
 	//*
-	log.Println("dataTableQuery:",dataTableQuery)
 	log.Println("Query:",buf.String())
 	resultRows := make([][]interface{}, 0, dataTableQuery.Limit)
 	rows, err := server.dbpool.Query(context.Background(), buf.String())
@@ -191,6 +189,10 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while getting table's total row count"))	
 	}
 
+	token, ok := r.Header["Token"]
+	if ok {
+		results["token"] = token[0]
+	}
 	results["totalRowCount"] = totalRowCount
 	results["rows"] = resultRows
 	JSON(w, http.StatusOK, results)

@@ -17,12 +17,13 @@ func CreateToken(user_id uint32) (string, error) {
 	claims := jwt.MapClaims{}
 	claims["authorized"] = true
 	claims["user_id"] = user_id
-	claims["exp"] = time.Now().Add(time.Hour * 1).Unix() //Token expires after 1 hour
+	// claims["exp"] = time.Now().Add(time.Hour * 1).Unix() //Token expires after 1 hour
+	claims["exp"] = time.Now().Add(time.Minute * time.Duration(*tokenExpiration)).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("API_SECRET")))
 }
 
-func TokenValid(r *http.Request) error {
+func TokenValid(r *http.Request) (uint32, error) {
 	tokenString := ExtractToken(r)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -31,14 +32,16 @@ func TokenValid(r *http.Request) error {
 		return []byte(os.Getenv("API_SECRET")), nil
 	})
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// Token should be valid at this point, otherwise Parse would
 	// have returned an error. To be safe though we still validate...
 	if !token.Valid {
-		return errors.New("Invalid Token")
+		return 0, errors.New("Invalid Token")
 	}
-	return nil
+	claims := token.Claims.(jwt.MapClaims)
+
+	return uint32(claims["user_id"].(float64)), nil
 }
 
 func TokenClaims(token *jwt.Token) (jwt.MapClaims, error) {
