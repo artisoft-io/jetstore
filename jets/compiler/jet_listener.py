@@ -97,8 +97,16 @@ class JetListener(JetRuleListener):
   # JetStore Config
   # -------------------------------------------------------------------------------------
   # Exit a parse tree produced by JetRuleParser#jetstoreConfigItem.
-  def exitJetstoreConfigItem(self, ctx:JetRuleParser.JetstoreConfigItemContext):
-    if not ctx.configKey or not ctx.configValue:
+  def exitJetstoreConfigItem(self, ctx:JetRuleParser.JetstoreConfigItemContext):      
+    if not ctx.configKey:
+      return
+    keys = []
+    for v in ctx.rdfTypeList:
+      keys.append(self.escapeString(v.getText()))
+    if len(keys) > 0:
+      self.jetstore_config[ctx.configKey.text] = keys
+      return
+    if not ctx.configValue:
       return
     self.jetstore_config[ctx.configKey.text] = ctx.configValue.getText()
 
