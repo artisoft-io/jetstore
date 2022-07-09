@@ -527,6 +527,23 @@ class JetListenerTest(absltest.TestCase):
     # print('COMPACT:',json.dumps(jetRules))
     self.assertEqual(json.dumps(jetRules), expected)
 
+  def test_jetstore_main1(self):
+    data = """
+      # =======================================================================================
+      main {
+        $max_rule_exec = 5000,
+        $max_looping = 5,
+        $input_type = [rdf:DomainClass, ace:BaseProduct, owl:Thing]
+      };
+    """
+    jetRules = self._get_listener_data(data)
+    
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "jetstore_config": {"$input_type": ["rdf:DomainClass", "ace:BaseProduct", "owl:Thing"], "$max_looping": "5", "$max_rule_exec": "5000", "type": "jsconfig"}}"""
+    # print('GOT:',json.dumps(jetRules, indent=2))
+    # print()
+    # print('COMPACT:',json.dumps(jetRules))
+    self.assertEqual(json.dumps(jetRules), expected)
+
 
 if __name__ == '__main__':
   absltest.main()

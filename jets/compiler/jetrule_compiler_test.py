@@ -57,7 +57,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     
     self.assertEqual(jetrule_ctx.ERROR, True)
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test21.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
-    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test2.jr' line 5:1 extraneous input 'bad' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'main', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
     self.assertEqual(len(jetrule_ctx.errors), 2)
 
   def test_import3(self):
@@ -72,8 +72,8 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test3.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test31.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test32.jr' line 5:8 mismatched input ':' expecting {',', ']'}")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
-    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test32.jr' line 9:1 extraneous input ';' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'main', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[4], "Error in file 'import_test3.jr' line 16:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'main', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
 
     self.assertEqual(len(jetrule_ctx.errors), 5)
 
@@ -89,7 +89,7 @@ class JetRulesCompilerTest(absltest.TestCase):
     self.assertEqual(jetrule_ctx.errors[0], "Error in file 'import_test4.jr' line 8:5 mismatched input 'true' expecting Identifier")
     self.assertEqual(jetrule_ctx.errors[1], "Error in file 'import_test41.jr' line 8:19 no viable alternative at input 'acme:lookup_table'")
     self.assertEqual(jetrule_ctx.errors[2], "Error in file 'import_test42.jr' line 7:10 mismatched input 'lookup_table' expecting Identifier")
-    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
+    self.assertEqual(jetrule_ctx.errors[3], "Error in file 'import_test4.jr' line 17:1 extraneous input 'ztext' expecting {<EOF>, '[', '@JetCompilerDirective', 'class', 'main', 'jetstore_config', 'rule_sequence', 'triple', 'int', 'uint', 'long', 'ulong', 'double', 'text', 'date', 'datetime', 'bool', 'resource', 'volatile_resource', 'lookup_table', COMMENT}")
  
     self.assertEqual(len(jetrule_ctx.errors), 4)
 

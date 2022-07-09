@@ -43,6 +43,7 @@ jetstoreConfigSeq: jetstoreConfigItem (',' COMMENT* jetstoreConfigItem)* ;
 jetstoreConfigItem
   : configKey=MaxLooping ASSIGN configValue=uintExpr
   | configKey=MaxRuleExec ASSIGN configValue=uintExpr
+  | configKey=InputType ASSIGN '[' COMMENT* rdfTypeList+=declIdentifier (','COMMENT* rdfTypeList+=declIdentifier)* COMMENT* ']'
   ;
 
 // --------------------------------------------------------------------------------------
@@ -283,6 +284,7 @@ MAIN: 'main';
 JETSCONFIG: 'jetstore_config';
 MaxLooping: '$max_looping';        // Rule looping, default is 0, no looping
 MaxRuleExec: '$max_rule_exec';     // Max number of times a rule can fire, default 10,000
+InputType: '$input_type';          // RDF type of input record to rule set. rdf:Thing means any rdf type.
 
 // Rule Sequence
 RULESEQ: 'rule_sequence';
