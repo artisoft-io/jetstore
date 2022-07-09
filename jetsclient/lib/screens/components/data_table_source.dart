@@ -105,7 +105,6 @@ class JetsDataTableSource extends ChangeNotifier {
         content: Text('Session Expired, please login'),
       );
       ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
-      JetsRouterDelegate()(JetsRouteData(loginPath));
       return null;
     } else if (result.statusCode == 422) {
       const snackBar = SnackBar(

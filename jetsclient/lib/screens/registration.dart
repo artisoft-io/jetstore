@@ -78,16 +78,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
-    var user = UserModel();
     var result = await client.sendRequest(
         path: registerPath, encodedJsonBody: json.encode(formData[0]));
     if (!mounted) return;
     if (result.statusCode == 200 || result.statusCode == 201) {
       // update the [UserModel]
-      user.name = formData[0]['name'] as String?;
-      user.email = formData[0]['email'] as String?;
-      user.token = result.body as String;
-      JetsRouterDelegate().user = user;
+      JetsRouterDelegate().user.name = result.body['name'];
+      JetsRouterDelegate().user.email = result.body['email'];
       // Inform the user and transition
       const snackBar = SnackBar(
         content: Text('Registration Successful, you are now signed in'),

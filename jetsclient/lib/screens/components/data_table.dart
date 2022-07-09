@@ -148,47 +148,32 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     return (currentDataPage + 1) * rowsPerPage >= dataSource.totalRowCount;
   }
 
-  void _rowPerPageChanged(int? value) {
+  void _rowPerPageChanged(int? value) async {
     if (value == null) return;
-    setState(() {
-      rowsPerPage = value;
-    });
-    //* TODO dot it asynch
-    dataSource.getModelDataSync();
+    rowsPerPage = value;
+    dataSource.getModelData();
   }
 
   void _gotoFirstPressed() {
-    setState(() {
-      currentDataPage = 0;
-    });
-    //* TODO dot it asynch
-    dataSource.getModelDataSync();
+    currentDataPage = 0;
+    dataSource.getModelData();
   }
 
-  void _previousPressed() {
-    setState(() {
-      currentDataPage--;
-    });
-    //* TODO dot it asynch
-    dataSource.getModelDataSync();
+  void _previousPressed() async {
+    currentDataPage--;
+    dataSource.getModelData();
   }
 
-  void _nextPressed() {
-    setState(() {
-      currentDataPage++;
-    });
-    //* TODO dot it asynch
-    dataSource.getModelDataSync();
+  void _nextPressed() async {
+    currentDataPage++;
+    dataSource.getModelData();
   }
 
-  void _lastPressed() {
+  void _lastPressed() async {
     var n = dataSource.totalRowCount ~/ rowsPerPage;
     var r = dataSource.totalRowCount % n;
-    setState(() {
-      currentDataPage = r == 0 ? n - 1 : n;
-    });
-    //* TODO dot it asynch
-    dataSource.getModelDataSync();
+    currentDataPage = r == 0 ? n - 1 : n;
+    dataSource.getModelData();
   }
 
   @override

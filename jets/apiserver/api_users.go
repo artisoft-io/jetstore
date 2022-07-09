@@ -18,43 +18,42 @@ import (
 func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		ERROR(w, http.StatusUnprocessableEntity, err)
+		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
 	user := User{}
 	err = json.Unmarshal(body, &user)
 	if err != nil {
-		ERROR(w, http.StatusUnprocessableEntity, err)
+		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
 
 	user.Prepare()
 	err = user.Validate("login")
 	if err != nil {
-		ERROR(w, http.StatusUnprocessableEntity, err)
+		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
-	token, err := server.SignIn(user.Email, user.Password)
+	// provided password
+	password := user.Password
+	// get user details including pwd for verification from db
+	err = user.GetUserByEmail(server.dbpool)
 	if err != nil {
-		formattedError := FormatError(err.Error())
-		ERROR(w, http.StatusUnprocessableEntity, formattedError)
+		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
-	}
-	JSON(w, http.StatusOK, token)
-}
-
-func (server *Server) SignIn(email, password string) (string, error) {
-
-	user := User{Email: email}
-	err := user.GetUserByEmail(server.dbpool)
-	if err != nil {
-		return "", err
 	}
 	err = VerifyPassword(user.Password, password)
+	user.Password = ""
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
-		return "", err
+		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
+		return
 	}
-	return CreateToken(user.ID)
+	user.Token, err = CreateToken(user.ID)
+	if err != nil {
+		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
+		return
+	}
+	JSON(w, http.StatusOK, user)
 }
 
 func IsDuplicateUserError(err string) bool {
@@ -98,7 +97,6 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Perform the insert
-	userPwd := user.Password
 	err = user.InsertUser(server.dbpool)
 	if err != nil {
 		errstr := err.Error()
@@ -110,13 +108,14 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusInternalServerError, formattedError)
 		return
 	}
-	token, err := server.SignIn(user.Email, userPwd)
+	user.Password = ""
+	user.Token, err = CreateToken(user.ID)
 	if err != nil {
 		formattedError := FormatError(err.Error())
 		ERROR(w, http.StatusUnprocessableEntity, formattedError)
 		return
 	}
-	JSON(w, http.StatusOK, token)
+	JSON(w, http.StatusOK, user)
 }
 
 func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {

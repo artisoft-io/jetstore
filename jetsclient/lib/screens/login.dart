@@ -51,17 +51,14 @@ class _LoginScreenState extends State<LoginScreen> {
   void _doLogin() async {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
-    var user = UserModel();
     var result = await client.sendRequest(
         path: loginPath, encodedJsonBody: json.encode(formData[0]));
 
     if (!mounted) return;
     if (result.statusCode == 200) {
       // update the [UserModel]
-      user.name = "";
-      user.email = formData[0]['email'] as String?;
-      user.token = result.body as String;
-      JetsRouterDelegate().user = user;
+      JetsRouterDelegate().user.name = result.body['name'];
+      JetsRouterDelegate().user.email = result.body['email'];
       // Inform the user and transition
       const snackBar = SnackBar(
         content: Text('Login Successful!'),
