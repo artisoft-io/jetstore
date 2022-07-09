@@ -16,17 +16,17 @@ import (
 
 type ReteInputContext struct {
 	jets__completed *bridge.Resource
-	jets__istate *bridge.Resource
-	jets__key *bridge.Resource
-	jets__loop *bridge.Resource
-	jets__state *bridge.Resource
-	rdf__type *bridge.Resource
-	reMap map[string]*regexp.Regexp
-	argdMap map[string]float64
+	jets__istate    *bridge.Resource
+	jets__key       *bridge.Resource
+	jets__loop      *bridge.Resource
+	jets__state     *bridge.Resource
+	rdf__type       *bridge.Resource
+	reMap           map[string]*regexp.Regexp
+	argdMap         map[string]float64
 }
 
 // main processing function to execute rules
-func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, inBundle *inputBundle,	writeOutputc *map[string][]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, inBundle *inputBundle, writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
 	for _, bunRow := range inBundle.inputRows {
 		rowl := len(bunRow.inputRows)
@@ -47,8 +47,8 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 }
 
 // main function for asserting input text row (from csv files)
-func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession,	inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
-	// Each row in inputRecords is a jets:Entity, with it's own jets:key	
+func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession, inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
+	// Each row in inputRecords is a jets:Entity, with it's own jets:key
 	ncol := len(inBundleRow.inputRows)
 	row := make([]sql.NullString, ncol)
 	for i := range row {
@@ -85,7 +85,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		var obj string
 		var err error
 		sz := len(row[icol].String)
-		if row[icol].Valid && sz>0 {
+		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
 				switch inputColumnSpec.functionName.String {
 				case "to_upper":
@@ -100,7 +100,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						}
 					case sz == 5:
 						obj = row[icol].String
-					case sz>5 && sz<9:
+					case sz > 5 && sz < 9:
 						var v int
 						v, err = strconv.Atoi(row[icol].String)
 						if err == nil {
@@ -157,7 +157,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 							var unit float64
 							unit, err = strconv.ParseFloat(row[icol].String, 64)
 							if err == nil {
-								obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))	
+								obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))
 							}
 						}
 					} else {
@@ -168,10 +168,10 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 					// clean up the amount
 					var buf strings.Builder
 					var c rune
-					for _,c = range row[icol].String {
-						if c=='(' || c=='-' {
+					for _, c = range row[icol].String {
+						if c == '(' || c == '-' {
 							buf.WriteRune('-')
-						} else if unicode.IsDigit(c) || c=='.' {
+						} else if unicode.IsDigit(c) || c == '.' {
 							buf.WriteRune(c)
 						}
 					}
@@ -193,7 +193,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 								var amt float64
 								amt, err = strconv.ParseFloat(obj, 64)
 								if err == nil {
-									obj = fmt.Sprintf("%f", amt/divisor)	
+									obj = fmt.Sprintf("%f", amt/divisor)
 								}
 							}
 						}
@@ -205,8 +205,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			} else {
 				obj = row[icol].String
 			}
-		} 
-		if err!=nil || len(obj) == 0 {
+		}
+		if err != nil || len(obj) == 0 {
 			// get the default or report error or ignore the filed if no default or error message is avail
 			if inputColumnSpec.defaultValue.Valid {
 				obj = inputColumnSpec.defaultValue.String
@@ -214,18 +214,18 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 				if inputColumnSpec.errorMessage.Valid {
 					// report error
 					var br BadRow
-					br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
+					br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
 					if row[inBundleRow.processInput.groupingPosition].Valid {
 						br.GroupingKey = sql.NullString{String: row[inBundleRow.processInput.groupingPosition].String, Valid: true}
 					}
-					br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
+					br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
 					if err != nil {
 						br.ErrorMessage = sql.NullString{String: fmt.Sprintf("%v", err), Valid: true}
 					} else {
 						br.ErrorMessage = inputColumnSpec.errorMessage
 					}
-					log.Println("BAD Input ROW:",br)
-					br.write2Chan((*writeOutputc)["process_errors"][0])
+					log.Println("BAD Input ROW:", br)
+					br.write2Chan((*writeOutputc)["jetsapi.process_errors"][0])
 				}
 				continue
 			}
@@ -296,14 +296,14 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		}
 		if err != nil {
 			var br BadRow
-			br.RowJetsKey = sql.NullString{String:jetsKeyStr, Valid: true}
+			br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
 			if row[inBundleRow.processInput.groupingPosition].Valid {
 				br.GroupingKey = sql.NullString{String: row[inBundleRow.processInput.groupingPosition].String, Valid: true}
 			}
-			br.InputColumn = sql.NullString{String:inputColumnSpec.inputColumn, Valid: true}
+			br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
 			br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
-			log.Println("BAD Input ROW:",br)
-			br.write2Chan((*writeOutputc)["process_errors"][0])
+			log.Println("BAD Input ROW:", br)
+			br.write2Chan((*writeOutputc)["jetsapi.process_errors"][0])
 			continue
 		}
 		if inputColumnSpec.predicate == nil {

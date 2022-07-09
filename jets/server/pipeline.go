@@ -91,7 +91,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 			if err != nil {
 				return &result, fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
 			}
-		}	
+		}
 		if processInput.entityRdfType == reteWorkspace.procConfig.mainEntityRdfType {
 			mainProcessInput = processInput
 		}
@@ -129,7 +129,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	outTableFilter := make(map[string]bool)
 	log.Println("The output tables are:")
 	for i := range reteWorkspace.outTables {
-		log.Printf("   - %s\n",reteWorkspace.outTables[i])
+		log.Printf("   - %s\n", reteWorkspace.outTables[i])
 		outTableFilter[reteWorkspace.outTables[i]] = true
 	}
 
@@ -153,14 +153,14 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	for _, tbl := range reteWorkspace.outTables {
 		log.Println("Creating output channel for out table:", tbl)
 		writeOutputc[tbl] = make([]chan []interface{}, nbrDbNodes)
-		for i:=0; i<nbrDbNodes; i++ {
+		for i := 0; i < nbrDbNodes; i++ {
 			writeOutputc[tbl][i] = make(chan []interface{})
 		}
 	}
 
 	// Add one chanel for the BadRow notification, this is written to primary node (first dsn in provided list)
-	writeOutputc["process_errors"] = make([]chan []interface{}, 1)
-	writeOutputc["process_errors"][0] = make(chan []interface{})
+	writeOutputc["jetsapi.process_errors"] = make([]chan []interface{}, 1)
+	writeOutputc["jetsapi.process_errors"][0] = make(chan []interface{})
 
 	// fmt.Println("processInputMapping is complete, len is", len(mainProcessInput.processInputMapping))
 	// for icol := range mainProcessInput.processInputMapping {
@@ -179,7 +179,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	outputMapping, err := workspaceMgr.LoadDomainColumnMapping(false, outTableFilter)
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
-	}	
+	}
 	// add class rdf type to output table (to select triples from graph)
 	// add predicate to DomainColumn for each output table
 	// add table extensions (extTable): Add DomainColumn corresponding to the volatile resources added to tables
@@ -197,7 +197,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 		if err != nil {
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
-		
+
 		sessionCol := workspace.DomainColumn{ColumnName: "session_id", DataType: "text", IsArray: false}
 		domainTable.Columns = append(domainTable.Columns, sessionCol)
 		shardCol := workspace.DomainColumn{ColumnName: "shard_id", DataType: "int", IsArray: false}
@@ -260,9 +260,10 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	// each worker is assigned to an output table
 	// create a chanel for executor's result
 	// NOTE: Add to outputMapping the table information for writing BadRows
-	// notifications to the database is included in 
-	outputMapping["process_errors"] = &workspace.DomainTable{
-		TableName: "process_errors", 
+	// notifications to the database. Note that we put the schema name with
+	// the table name since the process_errors table is not in the public schema
+	outputMapping["jetsapi.process_errors"] = &workspace.DomainTable{
+		TableName: "jetsapi.process_errors",
 		Columns: []workspace.DomainColumn{
 			{ColumnName: "session_id"},
 			{ColumnName: "grouping_key"},
@@ -287,7 +288,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 				}
 				wtrc <- writeResult{result: *result, err: err}
 				wg2.Done()
-			}(tblName, tblSpec, idb)	
+			}(tblName, tblSpec, idb)
 		}
 	}
 	go func() {

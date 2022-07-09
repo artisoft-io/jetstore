@@ -26,7 +26,7 @@ func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj st
 		}
 		return reteSession.NewIntLiteral(v)
 	default:
-		return nil, fmt.Errorf("ERROR Incorrect type %s for CreateStringLiteral",rdfType)
+		return nil, fmt.Errorf("ERROR Incorrect type %s for CreateStringLiteral", rdfType)
 	}
 }
 
@@ -44,7 +44,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		return fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
 	}
 	if glogv > 0 {
-		log.Printf("Asserting Entity with jets:key %s",jets__key.String)
+		log.Printf("Asserting Entity with jets:key %s", jets__key.String)
 	}
 	// For Each Column
 	ncol := len(inBundleRow.inputRows)
@@ -75,7 +75,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 				if v.Valid {
 					object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, v.String)
 					if err != nil {
-						fmt.Printf("ERROR::%v\n",err)
+						fmt.Printf("ERROR::%v\n", err)
 						goto ERRCHECK
 					}
 				}
@@ -140,7 +140,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		default:
 			err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn, inputColumnSpec.rdfType)
 		}
-		ERRCHECK:
+	ERRCHECK:
 		if err != nil {
 			var br BadRow
 			br.RowJetsKey = *jets__key
@@ -150,7 +150,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			}
 			br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
 			br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
-			br.write2Chan((*writeOutputc)["process_errors"][0])
+			br.write2Chan((*writeOutputc)["jetsapi.process_errors"][0])
 			continue
 		}
 		if inputColumnSpec.predicate == nil {

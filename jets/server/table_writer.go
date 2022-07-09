@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4"
@@ -45,7 +46,21 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 	}
 	log.Println("Write Table Started for", domainTable.TableName, "with", len(columns), "columns")
 
-	recCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{domainTable.TableName}, columns, wt)
+	// Check if we have a special table (namelly process_errors) which is not in the public schema
+	splitTableName := strings.Split(domainTable.TableName, ".")
+	var tableIdentifier pgx.Identifier
+	switch len(splitTableName) {
+	case 1:
+		tableIdentifier = pgx.Identifier{splitTableName[0]}
+	case 2:
+		tableIdentifier = pgx.Identifier{
+			splitTableName[0],
+			splitTableName[1],
+		}
+	default:
+		return nil, fmt.Errorf("error: invalid domain table name: %s",domainTable.TableName)
+	}
+	recCount, err := dbpool.CopyFrom(context.Background(), tableIdentifier, columns, wt)
 	if err != nil {
 		switch {
 		case wt.count == 0:

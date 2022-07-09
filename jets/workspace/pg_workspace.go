@@ -4,7 +4,6 @@ package workspace
 // for creating domain table and their extensions
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -79,36 +78,35 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 		Default: "now()",
 		IsNotNull: true,
 	}
-	// Add index definitions
+	// Primary index definitions
 	idxname := tableSpec.TableName + "_primary_idx"
 	tableDefinition.Indexes[idxname] = schema.IndexDefinition{
 		IndexName: idxname,
-		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  ("jets:key", session_id, last_update DESC);`,
-		pgx.Identifier{idxname}.Sanitize(),
-		pgx.Identifier{tableSpec.TableName}.Sanitize()),
+		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  ("jets:key", session_id, last_update DESC)`,
+			pgx.Identifier{idxname}.Sanitize(),
+			pgx.Identifier{tableSpec.TableName}.Sanitize()),
 	}
-	// indexes on grouping columns
+	// Indexes on grouping columns
 	for icol := range tableSpec.Columns {
 		col := &tableSpec.Columns[icol]
 		if col.IsGrouping {
 			idxname := tableSpec.TableName+"_"+col.ColumnName+"_idx"
-			stmt := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC, "jets:key", session_id, last_update DESC);`, 
-				pgx.Identifier{idxname}.Sanitize(),
-				pgx.Identifier{tableSpec.TableName}.Sanitize(),
-				pgx.Identifier{col.ColumnName}.Sanitize())
-			_, err := dbpool.Exec(context.Background(), stmt)
-			if err != nil {
-				return fmt.Errorf("error while creating grouping index: %v", err)
+			tableDefinition.Indexes[idxname] = schema.IndexDefinition{
+				IndexName: idxname,
+				IndexDef: fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC, "jets:key", session_id, last_update DESC)`,
+					pgx.Identifier{idxname}.Sanitize(),
+					pgx.Identifier{tableSpec.TableName}.Sanitize(),
+					pgx.Identifier{col.ColumnName}.Sanitize()),
 			}
 		}
 	}	
-	// shard index
+	// Shard index
 	idxname = tableSpec.TableName + "_shard_idx"
 	tableDefinition.Indexes[idxname] = schema.IndexDefinition {
 		IndexName: idxname,
-		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  (shard_id);`,
-		pgx.Identifier{idxname}.Sanitize(),
-		pgx.Identifier{tableSpec.TableName}.Sanitize()),
+		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  (shard_id)`,
+			pgx.Identifier{idxname}.Sanitize(),
+			pgx.Identifier{tableSpec.TableName}.Sanitize()),
 	}
 
 	tableExists := false

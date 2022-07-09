@@ -196,11 +196,11 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 			buf.WriteString(" NOT NULL ")
 		}
 	}
-	buf.WriteString(");")
+	buf.WriteString(");\n")
 	// index defs 
 	for icol := range tableDefinition.Indexes {
 		buf.WriteString(tableDefinition.Indexes[icol].IndexDef)
-		buf.WriteString(" ;")
+		buf.WriteString(" ;\n")
 	}
 	// Execute the statements
 	stmt = buf.String()
@@ -234,13 +234,13 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString(" ARRAY")
 		}
 	}
-	buf.WriteString(" ;")
+	buf.WriteString(" ;\n")
 	// index defs
 	for _, idx := range tableDefinition.Indexes {
 		_, ok := existingSchema.Indexes[idx.IndexName]
 		if !ok {
 			buf.WriteString(idx.IndexDef)
-			buf.WriteString(" ;")
+			buf.WriteString(" ;\n")
 		}
 	}
 	// Execute the statements

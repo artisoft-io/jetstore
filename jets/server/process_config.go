@@ -271,21 +271,21 @@ func (processInput *ProcessInput) setKeyPos() error {
 // main read function
 func readProcessConfig(dbpool *pgxpool.Pool, pcKey int) (*ProcessConfig, error) {
 	var pc ProcessConfig
-	err := dbpool.QueryRow(context.Background(), "SELECT key , client , description , main_entity_rdf_type   FROM process_config   WHERE key = $1", pcKey).Scan(&pc.key, &pc.client, &pc.description, &pc.mainEntityRdfType)
+	err := dbpool.QueryRow(context.Background(), "SELECT key , client , description , main_entity_rdf_type   FROM jetsapi.process_config   WHERE key = $1", pcKey).Scan(&pc.key, &pc.client, &pc.description, &pc.mainEntityRdfType)
 	if err != nil {
-		err = fmt.Errorf("read process_config table failed: %v", err)
+		err = fmt.Errorf("read jetsapi.process_config table failed: %v", err)
 		return &pc, err
 	}
 
 	pc.processInputs, err = readProcessInputs(dbpool, pcKey)
 	if err != nil {
-		err = fmt.Errorf("read process_input table failed: %v", err)
+		err = fmt.Errorf("read jetsapi.process_input table failed: %v", err)
 		return &pc, err
 	}
 
 	pc.ruleConfigs, err = readRuleConfig(dbpool, pcKey)
 	if err != nil {
-		err = fmt.Errorf("read rule_config table failed: %v", err)
+		err = fmt.Errorf("read jetsapi.rule_config table failed: %v", err)
 		return &pc, err
 	}
 
@@ -294,7 +294,7 @@ func readProcessConfig(dbpool *pgxpool.Pool, pcKey int) (*ProcessConfig, error) 
 
 // read input table definitions
 func readProcessInputs(dbpool *pgxpool.Pool, pcKey int) ([]ProcessInput, error) {
-	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column FROM process_input WHERE process_key = $1", pcKey)
+	rows, err := dbpool.Query(context.Background(), "SELECT key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column FROM jetsapi.process_input WHERE process_key = $1", pcKey)
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +323,7 @@ func readProcessInputs(dbpool *pgxpool.Pool, pcKey int) ([]ProcessInput, error) 
 
 // read mapping definitions
 func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]ProcessMap, error) {
-	rows, err := dbpool.Query(context.Background(), "SELECT process_input_key, input_column, data_property, function_name, argument, default_value, error_message FROM process_mapping WHERE process_input_key = $1", processInputKey)
+	rows, err := dbpool.Query(context.Background(), "SELECT process_input_key, input_column, data_property, function_name, argument, default_value, error_message FROM jetsapi.process_mapping WHERE process_input_key = $1", processInputKey)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +340,7 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]Proce
 		// validate that we don't have both a default and an error message
 		if pm.errorMessage.Valid && pm.defaultValue.Valid {
 			if len(pm.defaultValue.String)>0 && len(pm.errorMessage.String)>0 {
-				return nil, fmt.Errorf("error: cannot have both a default value and an error message in table process_mapping")
+				return nil, fmt.Errorf("error: cannot have both a default value and an error message in table jetsapi.process_mapping")
 			}
 		}
 		result = append(result, pm)
@@ -354,7 +354,7 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]Proce
 // Read rule config triples
 func readRuleConfig(dbpool *pgxpool.Pool, pcKey int) ([]RuleConfig, error) {
 	result := make([]RuleConfig, 0)
-	rows, err := dbpool.Query(context.Background(), "SELECT process_key, subject, predicate, object, rdf_type FROM rule_config WHERE process_key = $1", pcKey)
+	rows, err := dbpool.Query(context.Background(), "SELECT process_key, subject, predicate, object, rdf_type FROM jetsapi.rule_config WHERE process_key = $1", pcKey)
 	if err != nil {
 		return result, err
 	}

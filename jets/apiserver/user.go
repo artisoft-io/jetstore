@@ -34,13 +34,13 @@ func VerifyPassword(hashedPassword, password string) error {
 
 func updateUserSchema(dbpool *pgxpool.Pool, dropTable bool) error {
 	if dropTable {
-		stmt := `DROP TABLE IF EXISTS users;`
+		stmt := `DROP TABLE IF EXISTS jetsapi.users;`
 		_, err := dbpool.Exec(context.Background(), stmt)
 		if err != nil {
-			return fmt.Errorf("error while droping users table: %v", err)
+			return fmt.Errorf("error while droping jetsapi.users table: %v", err)
 		}	
 	}
-	stmt := `CREATE TABLE IF NOT EXISTS users (
+	stmt := `CREATE TABLE IF NOT EXISTS jetsapi.users (
 		user_id SERIAL PRIMARY KEY, 
 		name TEXT NOT NULL, 
 		email TEXT NOT NULL, 
@@ -49,7 +49,7 @@ func updateUserSchema(dbpool *pgxpool.Pool, dropTable bool) error {
 	);`
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
-		return fmt.Errorf("error while creating users table: %v", err)
+		return fmt.Errorf("error while creating jetsapi.users table: %v", err)
 	}
 	return nil
 }
@@ -117,7 +117,7 @@ func (u *User) InsertUser(dbpool *pgxpool.Pool) error {
 		return fmt.Errorf("while hashing user's password before save in db: %v", err)
 	}
 	// insert in db
-	stmt := `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING user_id`
+	stmt := `INSERT INTO jetsapi.users (name, email, password) VALUES ($1, $2, $3) RETURNING user_id`
 	err = dbpool.QueryRow(context.Background(), stmt, u.Name, u.Email, u.Password).Scan(&u.ID)
 	if err != nil {
 		fmt.Println("while inserting in db:", err)
@@ -128,7 +128,7 @@ func (u *User) InsertUser(dbpool *pgxpool.Pool) error {
 
 func (u *User) GetUserByEmail(dbpool *pgxpool.Pool) error {
 	// select from db
-	stmt := `SELECT user_id, name, password FROM users WHERE email = $1`
+	stmt := `SELECT user_id, name, password FROM jetsapi.users WHERE email = $1`
 	err := dbpool.QueryRow(context.Background(), stmt, u.Email).Scan(&u.ID, &u.Name, &u.Password)
 	if err != nil {
 		fmt.Println("while select user by email from db:", err)
@@ -139,7 +139,7 @@ func (u *User) GetUserByEmail(dbpool *pgxpool.Pool) error {
 
 func (u *User) GetUserByID(dbpool *pgxpool.Pool) error {
 	// select from db
-	stmt := `SELECT name, email, password FROM users WHERE user_id = $1`
+	stmt := `SELECT name, email, password FROM jetsapi.users WHERE user_id = $1`
 	err := dbpool.QueryRow(context.Background(), stmt, u.ID).Scan(&u.Name, &u.Email, &u.Password)
 	if err != nil {
 		fmt.Println("while select user by id from db:", err)
