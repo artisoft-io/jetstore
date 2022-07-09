@@ -23,7 +23,7 @@ null
 'jetstore_config'
 '$max_looping'
 '$max_rule_exec'
-'$input_type'
+'$input_types'
 'rule_sequence'
 '$main_rule_sets'
 'triple'

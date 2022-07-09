@@ -324,7 +324,7 @@ class JetRuleParser ( Parser ):
                      "'.'", "':'", "'->'", "'('", "')'", "'?'", "'@JetCompilerDirective'", 
                      "'class'", "'$base_classes'", "'$as_table'", "'$data_properties'", 
                      "'array of'", "'$grouping_properties'", "'main'", "'jetstore_config'", 
-                     "'$max_looping'", "'$max_rule_exec'", "'$input_type'", 
+                     "'$max_looping'", "'$max_rule_exec'", "'$input_types'", 
                      "'rule_sequence'", "'$main_rule_sets'", "'triple'", 
                      "'int'", "'uint'", "'long'", "'ulong'", "'double'", 
                      "'text'", "'date'", "'datetime'", "'bool'", "'resource'", 
