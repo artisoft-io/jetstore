@@ -533,12 +533,12 @@ class JetListenerTest(absltest.TestCase):
       main {
         $max_rule_exec = 5000,
         $max_looping = 5,
-        $input_type = [rdf:DomainClass, ace:BaseProduct, owl:Thing]
+        $input_types = [rdf:DomainClass, ace:BaseProduct, owl:Thing]
       };
     """
     jetRules = self._get_listener_data(data)
     
-    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "jetstore_config": {"$input_type": ["rdf:DomainClass", "ace:BaseProduct", "owl:Thing"], "$max_looping": "5", "$max_rule_exec": "5000", "type": "jsconfig"}}"""
+    expected = """{"literals": [], "resources": [], "lookup_tables": [], "jet_rules": [], "jetstore_config": {"$input_types": ["rdf:DomainClass", "ace:BaseProduct", "owl:Thing"], "$max_looping": "5", "$max_rule_exec": "5000", "type": "jsconfig"}}"""
     # print('GOT:',json.dumps(jetRules, indent=2))
     # print()
     # print('COMPACT:',json.dumps(jetRules))
