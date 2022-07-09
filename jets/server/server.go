@@ -126,7 +126,7 @@ func doJob() error {
 	dbpool = dbc.mainNode.dbpool
 	procConfig, err := readProcessConfig(dbpool, *procConfigKey)
 	if err != nil {
-		return fmt.Errorf("while reading process_config table: %v", err)
+		return fmt.Errorf("while reading jetsapi.process_config table: %v", err)
 	}
 
 	// let's do it!

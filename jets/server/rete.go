@@ -33,11 +33,11 @@ var ps = flag.Bool("ps", false, "Print the rete session for each session (very v
 
 // Load the rete workspace database via cgo
 func LoadReteWorkspace(
-	workspaceDb string, 
-	lookupDb string, 
-	ruleset string, 
-	ruleseq string, 
-	procConfig *ProcessConfig, 
+	workspaceDb string,
+	lookupDb string,
+	ruleset string,
+	ruleseq string,
+	procConfig *ProcessConfig,
 	outTables []string,
 	extTables map[string][]string) (*ReteWorkspace, error) {
 
@@ -53,7 +53,7 @@ func LoadReteWorkspace(
 	var err error
 	// case invoking single ruleset, in pipeline for case ruleseq
 	if len(ruleset) > 0 {
-		reteWorkspace.ruleset = []string {ruleset}
+		reteWorkspace.ruleset = []string{ruleset}
 	}
 	reteWorkspace.js, err = bridge.LoadJetRules(workspaceDb, lookupDb)
 	if err != nil {
@@ -72,10 +72,10 @@ func (rw *ReteWorkspace) Release() error {
 
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
-		workspaceMgr *workspace.WorkspaceDb,
-		dataInputc <-chan inputBundle,
-		outputSpecs workspace.OutputTableSpecs,
-		writeOutputc map[string][]chan []interface{}) (*ExecuteRulesResult, error) {
+	workspaceMgr *workspace.WorkspaceDb,
+	dataInputc <-chan inputBundle,
+	outputSpecs workspace.OutputTableSpecs,
+	writeOutputc map[string][]chan []interface{}) (*ExecuteRulesResult, error) {
 
 	var result ExecuteRulesResult
 	// for each msg in dataInput:
@@ -91,12 +91,30 @@ func (rw *ReteWorkspace) ExecuteRules(
 	var ri ReteInputContext
 	var err error
 	// cache pre-defined resources
-	ri.jets__completed, err = rw.js.GetResource("jets:completed"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
-	ri.jets__istate, err = rw.js.GetResource("jets:iState"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
-	ri.jets__key, err = rw.js.GetResource("jets:key"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
-	ri.jets__loop, err = rw.js.GetResource("jets:loop"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
-	ri.jets__state, err = rw.js.GetResource("jets:State"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
-	ri.rdf__type, err = rw.js.GetResource("rdf:type"); if err != nil {return &result, fmt.Errorf("while get resource: %v", err)}
+	ri.jets__completed, err = rw.js.GetResource("jets:completed")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__istate, err = rw.js.GetResource("jets:iState")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__key, err = rw.js.GetResource("jets:key")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__loop, err = rw.js.GetResource("jets:loop")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__state, err = rw.js.GetResource("jets:State")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.rdf__type, err = rw.js.GetResource("rdf:type")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 
 	// keep a map of compiled regex, keyed by the regex pattern
 	ri.reMap = make(map[string]*regexp.Regexp)
@@ -105,17 +123,17 @@ func (rw *ReteWorkspace) ExecuteRules(
 	var session_count int64
 
 	for inBundle := range dataInputc {
-		
+
 		// setup the rdf session for the grouping
 		session_count += 1
-		rdfSession,err := rw.js.NewRDFSession()
+		rdfSession, err := rw.js.NewRDFSession()
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
 
 		for iset, ruleset := range rw.ruleset {
 			if glogv > 0 {
-				log.Println("Start Rete Session", session_count,"for ruleset",ruleset, "with grouping key", inBundle.groupingValue)
+				log.Println("Start Rete Session", session_count, "for ruleset", ruleset, "with grouping key", inBundle.groupingValue)
 			}
 			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
@@ -125,7 +143,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				err = ri.assertInputBundle(reteSession, &inBundle, &writeOutputc)
 				if err != nil {
 					return &result, fmt.Errorf("while asserting input bundle for session: %v", err)
-				}	
+				}
 			}
 			// Step 0 of loop is pre loop or no loop
 			// Step 1+ for looping
@@ -148,15 +166,15 @@ func (rw *ReteWorkspace) ExecuteRules(
 				rdfSession.Insert(ri.jets__istate, ri.rdf__type, ri.jets__state)
 			}
 			// do for iloop <= maxloop (since loop start at one!)
-			for iloop=0; iloop <= nloop; iloop++ {
+			for iloop = 0; iloop <= nloop; iloop++ {
 				if glogv > 1 {
-					log.Println("Calling Execute Rules, loop:",iloop,", session count:", session_count,", for ruleset:",ruleset, ", with grouping key:", inBundle.groupingValue)
+					log.Println("Calling Execute Rules, loop:", iloop, ", session count:", session_count, ", for ruleset:", ruleset, ", with grouping key:", inBundle.groupingValue)
 				}
 				if iloop > 0 {
 					r, err := reteSession.NewIntLiteral(int(iloop))
 					if err != nil {
 						return &result, fmt.Errorf("while NewIntLiteral for loop %s: %v", ruleset, err)
-					}		
+					}
 					rdfSession.Insert(ri.jets__istate, ri.jets__loop, r)
 				}
 				msg, err := reteSession.ExecuteRules()
@@ -164,25 +182,25 @@ func (rw *ReteWorkspace) ExecuteRules(
 					var br BadRow
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
-					log.Println("BAD ROW:",br)
-					br.write2Chan(writeOutputc["process_errors"][0])
+					log.Println("BAD ROW:", br)
+					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 					break
 				}
 				// CHECK for jets__terminate and jets__exception
-				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err!=nil {
+				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err != nil {
 					// log.Println("Rete Session Looping Completed")
 					break
 				}
 			}
-			if nloop>0 && iloop >= nloop {
+			if nloop > 0 && iloop >= nloop {
 				var br BadRow
 				br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
-				log.Println("MAX LOOP REACHED:",br)
-				br.write2Chan(writeOutputc["process_errors"][0])
+				log.Println("MAX LOOP REACHED:", br)
+				br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 				break
 			}
-			reteSession.ReleaseReteSession()			
+			reteSession.ReleaseReteSession()
 		}
 
 		if *ps {
@@ -193,7 +211,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 		// pulling the data out of the rete session
 		for tableName, tableSpec := range outputSpecs {
 			// check if this tableSpec is for the process_errors table
-			if tableName == "process_errors" {
+			if tableName == "jetsapi.process_errors" {
 				continue
 			}
 			// extract entities by rdf type
@@ -205,11 +223,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 				subject := ctor.GetSubject()
 				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
 				ncol := len(tableSpec.Columns)
-				jetsKey,_ := subject.AsText()
+				jetsKey, _ := subject.AsText()
 				shard := compute_shard_id(jetsKey)
 				// log.Println("Found entity with subject:",stxt, "with",ncol,"columns")
 				entityRow := make([]interface{}, ncol)
-				for i:=0; i<ncol; i++ {
+				for i := 0; i < ncol; i++ {
 					domainColumn := &tableSpec.Columns[i]
 					// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 					switch domainColumn.ColumnName {
@@ -232,11 +250,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 								}
 								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
-								br.ErrorMessage = sql.NullString {
+								br.ErrorMessage = sql.NullString{
 									String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
-									Valid: true}
-								log.Println("BAD EXTRACT:",br)
-								br.write2Chan(writeOutputc["process_errors"][0])
+									Valid:  true}
+								log.Println("BAD EXTRACT:", br)
+								br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 							}
 							data = append(data, obj)
 							itor.Next()
@@ -256,11 +274,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 								}
 								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
-								br.ErrorMessage = sql.NullString {
-									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName), 
-									Valid: true}
-								log.Println("BAD EXTRACT:",br)
-								br.write2Chan(writeOutputc["process_errors"][0])
+								br.ErrorMessage = sql.NullString{
+									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName),
+									Valid:  true}
+								log.Println("BAD EXTRACT:", br)
+								br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 							default:
 							}
 						}
@@ -282,13 +300,13 @@ func (rw *ReteWorkspace) ExecuteRules(
 // addExtTablesInfo: Add columns corresponding to volatile resources added to output tables
 func (rw *ReteWorkspace) addExtTablesInfo(tableSpecs *workspace.OutputTableSpecs) error {
 	for tableName, vrs := range rw.extTables {
-		outTable,ok := (*tableSpecs)[tableName]
+		outTable, ok := (*tableSpecs)[tableName]
 		if !ok {
 			return fmt.Errorf("error: -extTable table %s does not found in output table specs", tableName)
 		}
 		for _, vr := range vrs {
-			outTable.Columns = append(outTable.Columns, 
-				workspace.DomainColumn{PropertyName: "_0:"+vr, ColumnName: strings.ToLower(vr), DataType: "text", IsArray: true})
+			outTable.Columns = append(outTable.Columns,
+				workspace.DomainColumn{PropertyName: "_0:" + vr, ColumnName: strings.ToLower(vr), DataType: "text", IsArray: true})
 		}
 	}
 	return nil
@@ -303,6 +321,7 @@ func (rw *ReteWorkspace) addOutputClassResource(domainTable *workspace.DomainTab
 	}
 	return nil
 }
+
 // addOutputPredicate: add meta graph resource corresponding to output column names
 func (rw *ReteWorkspace) addOutputPredicate(domainColumns []workspace.DomainColumn) error {
 	for ipos := range domainColumns {

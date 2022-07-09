@@ -1,17 +1,17 @@
--- TRUNCATE TABLE process_config, process_input, process_mapping, rule_config, process_merge;
-DELETE FROM process_config WHERE key in (101, 102);
+-- TRUNCATE TABLE jetsapi.process_config, jetsapi.process_input, jetsapi.process_mapping, jetsapi.rule_config, jetsapi.process_merge;
+DELETE FROM jetsapi.process_config WHERE key in (101, 102);
 
-INSERT INTO process_config (key, client, description, main_entity_rdf_type) VALUES
+INSERT INTO jetsapi.process_config (key, client, description, main_entity_rdf_type) VALUES
   (101, 'ACME', 'Lookup ACME Service Code with Modifier', 'hc:Claim'),
   (102, 'ACME', 'Lookup ACME Service Code without Modifier', 'hc:Claim')
 RETURNING key;
 
-INSERT INTO process_input (key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column) VALUES
+INSERT INTO jetsapi.process_input (key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column) VALUES
   (110, 101, 0, 'test1', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER'),
   (120, 102, 0, 'test1', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER')
 ;
 
-INSERT INTO process_mapping (process_input_key, input_column, data_property, function_name, argument, default_value, error_message) VALUES
+INSERT INTO jetsapi.process_mapping (process_input_key, input_column, data_property, function_name, argument, default_value, error_message) VALUES
   (110, 'MEMBER_NUMBER', 'hc:member_number', NULL, NULL, NULL, NULL),
   (110, 'CLAIM_NUMBER', 'hc:claim_number', NULL, NULL, NULL, NULL),
   (110, 'DOS', 'hc:date_of_service', NULL, NULL, NULL, NULL),
@@ -30,7 +30,7 @@ INSERT INTO process_mapping (process_input_key, input_column, data_property, fun
   (120, 'ALLOWED_AMT'  , 'hc:allowed_amount', 'parse_amount', '1', NULL, 'Input amounts cannot be null')
 ;
 
-INSERT INTO rule_config (process_key, subject, predicate, object, rdf_type) VALUES
+INSERT INTO jetsapi.rule_config (process_key, subject, predicate, object, rdf_type) VALUES
   (101, 'jets:iState', 'lk:withModifier', 'true', 'bool'),
   (102, 'jets:iState', 'lk:withModifier', 'false', 'bool')
 ;

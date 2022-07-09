@@ -1,14 +1,15 @@
 -- initial schema for server process
+CREATE SCHEMA IF NOT EXISTS jetsapi;
 
-DROP TABLE IF EXISTS process_merge;
-DROP TABLE IF EXISTS rule_config;
-DROP TABLE IF EXISTS process_mapping;
-DROP TABLE IF EXISTS process_input;
+DROP TABLE IF EXISTS jetsapi.process_merge;
+DROP TABLE IF EXISTS jetsapi.rule_config;
+DROP TABLE IF EXISTS jetsapi.process_mapping;
+DROP TABLE IF EXISTS jetsapi.process_input;
 
-DROP TABLE IF EXISTS process_config;
+DROP TABLE IF EXISTS jetsapi.process_config;
 
-DROP TABLE IF EXISTS process_errors;
-CREATE TABLE IF NOT EXISTS process_errors (
+DROP TABLE IF EXISTS jetsapi.process_errors;
+CREATE TABLE IF NOT EXISTS jetsapi.process_errors (
     key SERIAL PRIMARY KEY  ,
     session_id TEXT,
     grouping_key TEXT,
@@ -19,8 +20,8 @@ CREATE TABLE IF NOT EXISTS process_errors (
     last_update timestamp without time zone DEFAULT now() NOT NULL
 );
 
-DROP TABLE IF EXISTS process_config;
-CREATE TABLE IF NOT EXISTS process_config (
+DROP TABLE IF EXISTS jetsapi.process_config;
+CREATE TABLE IF NOT EXISTS jetsapi.process_config (
     key SERIAL PRIMARY KEY  ,
     client text  ,
     description text  ,
@@ -30,8 +31,8 @@ CREATE TABLE IF NOT EXISTS process_config (
 
 -- not used yet, front end must create record and server to update with status
 -- this is a place holder, need more analysis
-DROP TABLE IF EXISTS process_run;
-CREATE TABLE IF NOT EXISTS process_run (
+DROP TABLE IF EXISTS jetsapi.process_run;
+CREATE TABLE IF NOT EXISTS jetsapi.process_run (
     key SERIAL PRIMARY KEY  ,
     process_config_key int NOT NULL ,
     workspace_db text NOT NULL ,
@@ -41,9 +42,9 @@ CREATE TABLE IF NOT EXISTS process_run (
     last_update timestamp without time zone DEFAULT now() NOT NULL
 );
 -- input_type: 0:text, 1:entity
-CREATE TABLE IF NOT EXISTS process_input (
+CREATE TABLE IF NOT EXISTS jetsapi.process_input (
     key SERIAL PRIMARY KEY  ,
-    process_key integer REFERENCES process_config ON DELETE CASCADE NOT NULL,
+    process_key integer REFERENCES jetsapi.process_config ON DELETE CASCADE NOT NULL,
     input_type int  NOT NULL,
     input_table text  NOT NULL,
     entity_rdf_type text NOT NULL,
@@ -51,10 +52,10 @@ CREATE TABLE IF NOT EXISTS process_input (
     key_column text ,
     UNIQUE (process_key, input_table)
 );
-CREATE INDEX IF NOT EXISTS process_input_process_key_idx ON process_input (process_key);
+CREATE INDEX IF NOT EXISTS process_input_process_key_idx ON jetsapi.process_input (process_key);
 
-CREATE TABLE IF NOT EXISTS process_mapping (
-    process_input_key integer REFERENCES process_input ON DELETE CASCADE NOT NULL,
+CREATE TABLE IF NOT EXISTS jetsapi.process_mapping (
+    process_input_key integer REFERENCES jetsapi.process_input ON DELETE CASCADE NOT NULL,
     input_column text  NOT NULL,
     data_property text  NOT NULL,
     function_name text  ,
@@ -63,22 +64,22 @@ CREATE TABLE IF NOT EXISTS process_mapping (
     error_message text,  -- error message to report if input is null or empty and should not be
     PRIMARY KEY (process_input_key, input_column, data_property)
 );
-CREATE INDEX IF NOT EXISTS process_mapping_process_input_key_idx ON process_mapping (process_input_key);
+CREATE INDEX IF NOT EXISTS process_mapping_process_input_key_idx ON jetsapi.process_mapping (process_input_key);
 
-CREATE TABLE IF NOT EXISTS rule_config (
-    process_key integer REFERENCES process_config ON DELETE CASCADE NOT NULL,
+CREATE TABLE IF NOT EXISTS jetsapi.rule_config (
+    process_key integer REFERENCES jetsapi.process_config ON DELETE CASCADE NOT NULL,
     subject text  NOT NULL,
     predicate text  NOT NULL,
     object text  NOT NULL,
     rdf_type text NOT NULL
 );
-CREATE INDEX IF NOT EXISTS rule_config_process_key_idx ON rule_config (process_key);
+CREATE INDEX IF NOT EXISTS rule_config_process_key_idx ON jetsapi.rule_config (process_key);
 
 -- not implemented yet
-CREATE TABLE IF NOT EXISTS process_merge (
-    process_key integer REFERENCES process_config ON DELETE CASCADE ,
+CREATE TABLE IF NOT EXISTS jetsapi.process_merge (
+    process_key integer REFERENCES jetsapi.process_config ON DELETE CASCADE ,
     entity_rdf_type text  NOT NULL,
     query_rdf_property_list text NOT NULL,
     grouping_rdf_property text NOT NULL
 );
-CREATE INDEX IF NOT EXISTS process_merge_process_key_idx ON process_merge (process_key);
+CREATE INDEX IF NOT EXISTS process_merge_process_key_idx ON jetsapi.process_merge (process_key);

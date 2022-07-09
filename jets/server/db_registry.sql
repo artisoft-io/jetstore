@@ -1,8 +1,9 @@
 -- initial schema for database registry tables
+CREATE SCHEMA IF NOT EXISTS jetsapi;
 
-DROP TABLE IF EXISTS input_registry;
+DROP TABLE IF EXISTS jetsapi.input_registry;
 
-CREATE TABLE IF NOT EXISTS input_registry (
+CREATE TABLE IF NOT EXISTS jetsapi.input_registry (
   file_name TEXT NOT NULL, 
   table_name TEXT NOT NULL, 
   session_id TEXT NOT NULL, 
