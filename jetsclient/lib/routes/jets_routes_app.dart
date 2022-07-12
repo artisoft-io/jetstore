@@ -35,8 +35,8 @@ final Map<String, Widget> jetsRoutesMap = {
       key: const Key('fileRegistryTableScreen'),
       tablePath: JetsRouteData(fileRegistryTablePath),
       screenConfig: getScreenConfig('fileRegistryTableScreen')),
-  loginPath: const LoginScreen(),
-  registerPath: const RegistrationScreen(),
+  loginPath: LoginScreen(screenPath: JetsRouteData(loginPath),),
+  registerPath: RegistrationScreen(screenPath: JetsRouteData(registerPath),),
   jobDetailsPath: const MessageScreen(message: "Detailed Welcome!"),
   pageNotFoundPath: const MessageScreen(message: "Opps 404!")
 };

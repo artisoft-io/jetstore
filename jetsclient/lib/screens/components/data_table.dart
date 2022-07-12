@@ -60,6 +60,8 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
         this, Provider.of<HttpClient>(context, listen: false));
     dataSource.addListener(triggetRefreshListner);
 
+    isTableEditable = tableConfig.isCheckboxVisible;
+
     // this may be an empty list if table is a domain table
     columnsConfig = tableConfig.columns;
 

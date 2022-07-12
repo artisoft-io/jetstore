@@ -6,13 +6,16 @@ import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    required this.screenPath,
+  });
 
   final String formConfig = 'login';
+  final JetsRouteData screenPath;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -81,6 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: appBar(context, 'Please Sign In'),
       body: JetsForm(
+        formPath: widget.screenPath,
           formData: formData,
           formKey: formKey,
           formConfig: formConfig,

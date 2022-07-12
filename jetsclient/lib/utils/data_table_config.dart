@@ -23,6 +23,8 @@ class TableConfig {
       required this.schemaName,
       required this.tableName,
       required this.title,
+      required this.isCheckboxVisible,
+      required this.isCheckboxSingleSelect,      
       required this.actions,
       required this.columns,
       required this.sortColumnIndex,
@@ -32,6 +34,8 @@ class TableConfig {
   final String schemaName;
   final String tableName;
   final String title;
+  final bool isCheckboxVisible;
+  final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
   final List<ColumnConfig> columns;
   final int sortColumnIndex;
@@ -101,6 +105,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       schemaName: 'jetsapi',
       tableName: 'pipelines',
       title: 'Data Pipeline',
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
       actions: [
         ActionConfig(
             key: 'new',
@@ -177,6 +183,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       schemaName: 'public',
       tableName: 'input_registry',
       title: 'Input File Registry',
+      isCheckboxVisible: true,
+      isCheckboxSingleSelect: true,
       actions: [
         ActionConfig(
             key: 'new',
@@ -259,6 +267,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       schemaName: 'jetsapi',
       tableName: 'users',
       title: 'User Registry',
+      isCheckboxVisible: true,
+      isCheckboxSingleSelect: false,
       actions: [
         ActionConfig(
             key: 'new',
@@ -323,6 +333,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       schemaName: 'public',
       tableName: '',
       title: 'Input Data',
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
       actions: [],
       columns: [],
       sortColumnIndex: 0,
