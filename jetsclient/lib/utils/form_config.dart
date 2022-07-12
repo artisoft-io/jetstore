@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/screens/components/input_text_form_field.dart';
 import 'package:jetsclient/screens/components/text_field.dart';
+import 'package:jetsclient/utils/data_table_config.dart';
 
+import '../routes/jets_route_data.dart';
 import '../screens/components/dropdown_form_field.dart';
 
 enum TextRestriction { none, allLower, allUpper, digitsOnly }
@@ -21,6 +24,7 @@ abstract class FormFieldConfig {
   final int group;
   final int flex;
   Widget makeFormField({
+    required JetsRouteData formPath,
     required FormStateMap state,
     required ValidatorDelegate validator,
   });
@@ -32,6 +36,7 @@ class TextFieldConfig extends FormFieldConfig {
 
   @override
   Widget makeFormField({
+    required JetsRouteData formPath,
     required FormStateMap state,
     required ValidatorDelegate validator,
   }) {
@@ -62,6 +67,7 @@ class FormInputFieldConfig extends FormFieldConfig {
 
   @override
   Widget makeFormField({
+    required JetsRouteData formPath,
     required FormStateMap state,
     required ValidatorDelegate validator,
   }) {
@@ -95,6 +101,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
 
   @override
   Widget makeFormField({
+    required JetsRouteData formPath,
     required FormStateMap state,
     required ValidatorDelegate validator,
   }) {
@@ -106,6 +113,27 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     );
   }
 }
+
+// class FormDataTableFieldConfig extends FormFieldConfig {
+//   FormDataTableFieldConfig({
+//     required super.key, 
+//     required this.dataTableConfig,
+//   });
+//   final String dataTableConfig;
+
+//   @override
+//   Widget makeFormField({
+//     required JetsRouteData formPath,
+//     required FormStateMap state,
+//     required ValidatorDelegate validator,
+//   }) {
+//     return JetsDataTableWidget(
+//       tablePath: formPath,
+//       tableConfig: getTableConfig(dataTableConfig),
+//       state passing is missing!
+//     );
+//   }
+// }
 
 class FormActionConfig {
   FormActionConfig(

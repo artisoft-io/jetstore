@@ -5,14 +5,17 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/form.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({super.key});
+  const RegistrationScreen({
+    super.key,
+    required this.screenPath,
+  });
 
   final String formConfig = 'register';
+  final JetsRouteData screenPath;
 
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
@@ -107,6 +110,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return Scaffold(
       appBar: appBar(context, 'Registration'),
       body: JetsForm(
+          formPath: widget.screenPath,
           formData: formData,
           formKey: formKey,
           formConfig: formConfig,

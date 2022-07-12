@@ -147,10 +147,7 @@ class JetsDataTableSource extends ChangeNotifier {
     }
   }
 
-  // void getModelDataSync() async {
-  //   getModelData();
-  // }
-
+  //* TODO currently not used, do we need local sort?
   void sortModelData(int columnIndex, bool ascending) {
     if (model == null) return;
     var sortSign = ascending ? 1 : -1;
