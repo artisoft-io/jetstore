@@ -46,15 +46,22 @@ const (
 	e_start_struct
 	e_end_struct
 	e_string
+	e_number
 )
 
-// type Record struct {
-// 	billingCode string
-// 	npi []string
-// 	tinType string
-// 	tinValue string
-// }
+var eTok []string
 
+func init() {
+	eTok = []string{
+		"none",
+		"[",
+		"]",
+		"{",
+		"}",
+		"string",
+		"number",
+	}
+}
 
 func readToken(dec *json.Decoder) (int, json.Token, error) {
 	t, err := dec.Token()
@@ -78,6 +85,8 @@ func readToken(dec *json.Decoder) (int, json.Token, error) {
 		}
 		case string:
 			return e_string, t, nil
+		case float64:
+			return e_number, t, nil
 		default:
 			return e_none, t, fmt.Errorf("error, unexpected type %T in json", v)
 		} 
@@ -99,37 +108,184 @@ func skipTo(dec *json.Decoder, keyName string) error {
 	}
 }
 
-func expectStartStruct(dec *json.Decoder) error {
+func expectDelimitToken(dec *json.Decoder, tok int) error {
 	d, t, err := readToken(dec)
 	if err != nil {
 		return err
 	}
-	if d != e_start_struct {
-		return fmt.Errorf("error, expecting '{' got '%v'", t)
+	if d != tok {
+		return fmt.Errorf("error, expecting '%s' got '%v'", eTok[tok], t)
 	}
 	return nil
 }
 
-func expectStartArray(dec *json.Decoder) error {
-	d, t, err := readToken(dec)
+func ToArray(dec *json.Decoder, number_format string) ([]string, error) {
+	result := make([]string, 0)
+	for dec.More() {
+		str, err := expectString(dec, number_format)
+		if err != nil {
+			return result, err
+		}
+		result = append(result, str)
+	}
+	err := expectDelimitToken(dec, e_end_array)
 	if err != nil {
-		return err
+		return result, err
 	}
-	if d != e_start_array {
-		return fmt.Errorf("error, expecting '[' got '%v'", t)
-	}
-	return nil
+	return result, nil
 }
 
-func expectString(dec *json.Decoder) (string, error) {
+func ToString(token_type int, tok json.Token, number_format string) (string, error) {
+	switch token_type {
+	case e_number:
+		return fmt.Sprintf(number_format, tok), nil
+	case e_string:
+		return tok.(string), nil
+	default:
+		return "", fmt.Errorf("error, expecting a string got '%v'", tok)
+	}
+}
+
+func expectString(dec *json.Decoder, number_formatter string) (string, error) {
 	d, t, err := readToken(dec)
 	if err != nil {
 		return "", err
 	}
-	if d != e_string {
-		return "", fmt.Errorf("error, expecting a string got '%v'", t)
+	return ToString(d, t, number_formatter)
+}
+
+// Skip next entity: string, struct and array
+// error otherwise
+func skipEntity(dec *json.Decoder) error {
+	d, _, err := readToken(dec)
+	if err != nil {
+		return err
 	}
-	return t.(string), nil
+	switch d {
+	case e_start_array, e_start_struct:
+		// skip the whole array/struct
+		for dec.More() {
+			skipEntity(dec)
+		}
+		dd := e_end_array
+		if d == e_start_struct {
+			dd = e_end_struct
+		}
+		err = expectDelimitToken(dec, dd)
+		if err != nil {
+			return err
+		}
+		return nil
+	case e_end_array, e_end_struct:
+		return fmt.Errorf("error while skipping entity, unexpected %s",eTok[d])
+	default:
+		return nil
+	}
+}
+
+type Path struct {
+	components []string
+}
+func (p *Path) isMatch (basePath []string, token string) bool {
+	// fmt.Println("IsMatch(",basePath,token,") on p",p)
+	l := len(basePath)
+	if l < len(p.components) {
+		for i := range basePath {
+			if p.components[i] != basePath[i] {
+				return false
+			}
+		}
+		if p.components[l] == token {
+			return true
+		}
+	}
+	return false
+}
+func (p *Path) isComplete (level int) bool {
+	return level == len(p.components) -1 
+}
+
+type PathExtractor struct {
+	paths []Path
+}
+// basePath indicate segments of path between root and current position
+func (pe *PathExtractor) extractPaths(dec *json.Decoder, basePath []string, cb func (int, int, json.Token, error) ) error {
+	level := len(basePath)
+	for dec.More() {
+		key, err := expectString(dec, "%.f")
+		if err != nil {
+			return err
+		}
+		// fmt.Println("\npathExtractor on:",key)
+		matchFound := false
+		matchConsumed := false	// indicated value consumed, no need to skip or visit
+		for i := range pe.paths {
+			if pe.paths[i].isMatch(basePath, key) {
+				matchFound = true
+				if pe.paths[i].isComplete(level) {
+					matchConsumed = true
+					// fmt.Println("match on",key, "extracting value")
+					d, t, err := readToken(dec)
+					cb(i, d, t, err)
+				}
+				break
+			}
+		}
+		if !matchConsumed {
+			if matchFound {
+				// fmt.Println("match on",key, "going in...")
+				d, _, err := readToken(dec)
+				if err != nil {
+					return err
+				}
+				newBasePath := append(basePath, key)
+				if d == e_start_array {
+					// visit each elm
+					for dec.More() {
+						err = expectDelimitToken(dec, e_start_struct)
+						if err != nil {
+							return err
+						}
+						err = pe.extractPaths(dec, newBasePath, cb)
+						if err != nil {
+							return err
+						}
+					}
+					err := expectDelimitToken(dec, e_end_array)
+					if err != nil {
+						return err
+					}
+				} else {
+					err = pe.extractPaths(dec, newBasePath, cb)
+					if err != nil {
+						return err
+					}
+				}
+			} else {
+				// fmt.Println("No match on",key,"skipping token/entity")
+				err = skipEntity(dec)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	err := expectDelimitToken(dec, e_end_struct)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Data structure to hold the extracted information
+type Record struct {
+	billingCode string
+	providerGroups []ProviderGroup
+}
+type ProviderGroup struct {
+	npi []string
+	tinType string
+	tinValue string
 }
 
 // processFile
@@ -141,40 +297,90 @@ func processFile() error {
 		return fmt.Errorf("error while opening json file: %v", err)
 	}
 	defer file.Close()
-
 	// open and read first token
 	dec := json.NewDecoder(file)
-	err = expectStartStruct(dec)
+	err = expectDelimitToken(dec, e_start_struct)
 	if err != nil {
 			return err
 	}
-
-	err = skipTo(dec, "in_network")
-	if err != nil {
-		return err
+	// Allocated the data structure to hold the extracted data
+	records := make([]Record, 0)
+	record := Record{
+		providerGroups: make([]ProviderGroup, 0),
 	}
-	err = expectStartArray(dec)
-	if err != nil {
-			return err
+	providerGroup := ProviderGroup{
 	}
-	fmt.Println("OK, got to in-network and ready to process the array!")
-  // while the array contains values
-	for dec.More() {
-		err = expectStartStruct(dec)
-		if err != nil {
-				return err
-		}	
-		err = skipTo(dec, "billing_code")
-		if err != nil {
-			return err
+	// The paths of interest
+	pe := PathExtractor{
+		paths: []Path{
+			{components: []string{"in_network", "billing_code"}},
+			{components: []string{"in_network", "negotiated_rates", "provider_groups", "npi"}},
+			{components: []string{"in_network", "negotiated_rates", "provider_groups", "tin", "type"}},
+			{components: []string{"in_network", "negotiated_rates", "provider_groups", "tin", "value"}},
+		},
+	}
+	pe.extractPaths(dec, []string{}, func (path_index int, token_type int, token json.Token, err error) {
+		switch path_index {
+		case 0:
+			if token_type != e_string {
+				fmt.Println("error, expecting string for billing_code, got", eTok[token_type])
+			}
+			str, err := ToString(token_type, token, "%.f")
+			if err != nil {
+				fmt.Println("Error while ToString on billing_code:",err)
+			} else {
+				// fmt.Println("Got billing_code:",str)
+				if len(record.providerGroups) > 0 {
+					records = append(records, record)
+					record = Record{
+						providerGroups: make([]ProviderGroup, 0),
+					}
+				}
+				record.billingCode = str
+			}
+		case 1:
+			if token_type != e_start_array {
+				fmt.Println("error, expecting array for npi, got", eTok[token_type])
+			}
+			values, err := ToArray(dec, "%.f")
+			if err != nil {
+				fmt.Println("Error while ToArray on npi:",err)
+			} else {
+				// fmt.Println("Got npi:",values)
+				if(len(providerGroup.npi) > 0) {
+					record.providerGroups = append(record.providerGroups, providerGroup)
+					providerGroup = ProviderGroup{}
+				} 
+				providerGroup.npi = values
+			}
+		case 2:
+			if token_type != e_string {
+				fmt.Println("error, expecting string for tin.type, got", eTok[token_type])
+			}
+			str, err := ToString(token_type, token, "%.f")
+			if err != nil {
+				fmt.Println("Error while ToString on tin.type:",err)
+			} else {
+				// fmt.Println("Got tin_type:",str)
+				providerGroup.tinType = str
+			}
+		case 3:
+			if token_type != e_string {
+				fmt.Println("error, expecting string for tin.value, got", eTok[token_type])
+			}
+			str, err := ToString(token_type, token, "%.f")
+			if err != nil {
+				fmt.Println("Error while ToString on tin.value:",err)
+			} else {
+				// fmt.Println("Got tin_value:",str)
+				providerGroup.tinValue = str
+			}
 		}
-		val, err := expectString(dec)
-		if err != nil {
-			return err
-		}
-		fmt.Println("Finally we got billing_code:", val)
+	})
+	fmt.Println("That's it!")
+	for i := range records {
+		fmt.Println(records[i])
 	}
-
 	return nil
 }
 
