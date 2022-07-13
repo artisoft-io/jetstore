@@ -62,3 +62,4 @@ jets/server/test_data/*.db
 jets/server/test_data/*.jr.json
 jets/server/test_data/*.jrc.json
 jets/apiserver/apiserver
+jets/jloader/jloader
