@@ -303,7 +303,7 @@ func processFile() error {
 	if err != nil {
 			return err
 	}
-	// Allocated the data structure to hold the extracted data
+	// Allocate the data structure to hold the extracted data
 	records := make([]Record, 0)
 	record := Record{
 		providerGroups: make([]ProviderGroup, 0),
@@ -321,7 +321,7 @@ func processFile() error {
 	}
 	pe.extractPaths(dec, []string{}, func (path_index int, token_type int, token json.Token, err error) {
 		switch path_index {
-		case 0:
+		case 0:		// billing_code
 			if token_type != e_string {
 				fmt.Println("error, expecting string for billing_code, got", eTok[token_type])
 			}
@@ -338,7 +338,7 @@ func processFile() error {
 				}
 				record.billingCode = str
 			}
-		case 1:
+		case 1:		// npi
 			if token_type != e_start_array {
 				fmt.Println("error, expecting array for npi, got", eTok[token_type])
 			}
@@ -353,7 +353,7 @@ func processFile() error {
 				} 
 				providerGroup.npi = values
 			}
-		case 2:
+		case 2:		// tin type
 			if token_type != e_string {
 				fmt.Println("error, expecting string for tin.type, got", eTok[token_type])
 			}
@@ -364,7 +364,7 @@ func processFile() error {
 				// fmt.Println("Got tin_type:",str)
 				providerGroup.tinType = str
 			}
-		case 3:
+		case 3:		// tin value
 			if token_type != e_string {
 				fmt.Println("error, expecting string for tin.value, got", eTok[token_type])
 			}
