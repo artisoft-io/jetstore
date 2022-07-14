@@ -377,10 +377,10 @@ func processFile() error {
 			}
 		}
 	})
-	fmt.Println("That's it!")
 	for i := range records {
 		fmt.Println(records[i])
 	}
+	fmt.Println("That's it for",len(records))
 	return nil
 }
 
