@@ -39,75 +39,75 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 	tableDefinition := schema.TableDefinition{
 		SchemaName: "public",
 		TableName: tableSpec.TableName,
-		Columns: make(map[string]schema.ColumnDefinition),
-		Indexes: make(map[string]schema.IndexDefinition),
+		Columns: make([]schema.ColumnDefinition, 0),
+		Indexes: make([]schema.IndexDefinition, 0),
 	}
 	// Add column definitions
 	for icol := range tableSpec.Columns {
 		col := tableSpec.Columns[icol]
-		tableDefinition.Columns[col.ColumnName] = schema.ColumnDefinition{
+		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 			ColumnName: col.ColumnName,
 			DataType: col.DataType,
 			IsArray: col.IsArray,
 			IsNotNull: col.ColumnName == "jets:key",
-		}
+		})
 	}
 	// Add extension columns
 	for _, extc := range extCols {
-		tableDefinition.Columns[extc] = schema.ColumnDefinition{
+		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 			ColumnName: extc,
 			DataType: "text",
 			IsArray: true,
-		}
+		})
 	}
 	// Add jetstore engine columns
-	tableDefinition.Columns["session_id"] = schema.ColumnDefinition{
+	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "session_id",
 		DataType: "text",
 		IsNotNull: true,
-	}
-	tableDefinition.Columns["shard_id"] = schema.ColumnDefinition{
+	})
+	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "shard_id",
 		DataType: "int",
 		Default: "0",
 		IsNotNull: true,
-	}
-	tableDefinition.Columns["last_update"] = schema.ColumnDefinition{
+	})
+	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "last_update",
 		DataType: "datetime",
 		Default: "now()",
 		IsNotNull: true,
-	}
+	})
 	// Primary index definitions
 	idxname := tableSpec.TableName + "_primary_idx"
-	tableDefinition.Indexes[idxname] = schema.IndexDefinition{
+	tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
 		IndexName: idxname,
 		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  ("jets:key", session_id, last_update DESC)`,
 			pgx.Identifier{idxname}.Sanitize(),
 			pgx.Identifier{tableSpec.TableName}.Sanitize()),
-	}
+	})
 	// Indexes on grouping columns
 	for icol := range tableSpec.Columns {
 		col := &tableSpec.Columns[icol]
 		if col.IsGrouping {
 			idxname := tableSpec.TableName+"_"+col.ColumnName+"_idx"
-			tableDefinition.Indexes[idxname] = schema.IndexDefinition{
+			tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
 				IndexName: idxname,
 				IndexDef: fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC, "jets:key", session_id, last_update DESC)`,
 					pgx.Identifier{idxname}.Sanitize(),
 					pgx.Identifier{tableSpec.TableName}.Sanitize(),
 					pgx.Identifier{col.ColumnName}.Sanitize()),
-			}
+			})
 		}
 	}	
 	// Shard index
 	idxname = tableSpec.TableName + "_shard_idx"
-	tableDefinition.Indexes[idxname] = schema.IndexDefinition {
+	tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition {
 		IndexName: idxname,
 		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  (shard_id)`,
 			pgx.Identifier{idxname}.Sanitize(),
 			pgx.Identifier{tableSpec.TableName}.Sanitize()),
-	}
+	})
 
 	tableExists := false
 	if !dropExisting {

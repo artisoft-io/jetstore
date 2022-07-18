@@ -17,22 +17,23 @@ import (
 // Define Database Table Structure
 // This table/column definition structure is used by the api services and by update_db.
 type TableDefinition struct {
-	SchemaName string
-	TableName  string
-	Columns    map[string]ColumnDefinition
-	Indexes    map[string]IndexDefinition
+	SchemaName       string               `json:"schemaName"`
+	TableName        string               `json:"tableName"`
+	Columns          []ColumnDefinition   `json:"columns"`
+	Indexes          []IndexDefinition    `json:"indexes"`
+	TableConstraints []string             `json:"tableConstraints"`
 }
 type ColumnDefinition struct {
-	ColumnName string
-	DataType   string
-	Default    string
-	IsArray    bool
-	IsNotNull  bool
-	IsPK       bool
+	ColumnName string  `json:"columnName"`
+	DataType   string  `json:"dataType"`
+	Default    string  `json:"default"`
+	IsArray    bool    `json:"isArray"`
+	IsNotNull  bool    `json:"isNotNull"`
+	IsPK       bool    `json:"isPK"`
 }
 type IndexDefinition struct {
-	IndexName string
-	IndexDef  string
+	IndexName string    `json:"indexName"`
+	IndexDef  string    `json:"indexDef"`
 }
 
 func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDefinition, error) {
@@ -41,7 +42,7 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 	}
 	result := TableDefinition{SchemaName: schema, TableName: table}
 	// Get the column definitions
-	result.Columns = make(map[string]ColumnDefinition)
+	result.Columns = make([]ColumnDefinition, 0)
 	rows, err := dbpool.Query(context.Background(), 
 		`SELECT column_name, data_type, udt_name 
 		 	FROM information_schema.columns 
@@ -72,10 +73,10 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 		}
 		// Note: we're not setting IsNotNull and IsPk as it's not needed on read.
 		//       It's required when create table only
-		result.Columns[cd.ColumnName] = cd
+		result.Columns = append(result.Columns, cd)
 	}
 	// Get the index definitions
-	result.Indexes = make(map[string]IndexDefinition)
+	result.Indexes = make([]IndexDefinition, 0)
 	rows, err = dbpool.Query(context.Background(), 
 		`SELECT indexname, indexdef 
 		 	FROM pg_catalog.pg_indexes 
@@ -87,7 +88,7 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 	for rows.Next() { // Iterate and fetch the records from result cursor
 		var idxdef IndexDefinition
 		rows.Scan(&idxdef.IndexName, &idxdef.IndexDef)
-		result.Indexes[idxdef.IndexName] = idxdef
+		result.Indexes = append(result.Indexes, idxdef)
 	}
 
 	return &result, nil
@@ -132,6 +133,14 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 	if dbpool == nil || len(tableDefinition.Columns) == 0 {
 		return errors.New("error: arguments dbpool and tableDefinition are required")
 	}
+	// make sure the table schema exists
+	stmt := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", pgx.Identifier{tableDefinition.SchemaName}.Sanitize())
+	log.Println(stmt)
+	_, err = dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		return fmt.Errorf("error while creating schema: %v", err)
+	}
+
 	tableExists := false
 	if !dropExisting {
 		tableExists, err = DoesTableExists(dbpool, tableDefinition.SchemaName, tableDefinition.TableName)
@@ -153,7 +162,7 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 		if err != nil {
 			return fmt.Errorf("while UpdateTableSchema called CreateTable: %w", err)
 		}
-	}
+	}	
 	return nil
 }
 
@@ -176,30 +185,41 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 	// colon defs 
 	buf.WriteString("(")
 	isFirst := true
-	for icol := range tableDefinition.Columns {
-		col := tableDefinition.Columns[icol]
+	for _, col := range tableDefinition.Columns {
 		if !isFirst {
 			buf.WriteString(", ")	
 		}
 		isFirst = false
 		buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 		buf.WriteString(" ")
-		buf.WriteString(ToPgType(col.DataType))
-		if col.IsArray {
-			buf.WriteString(" ARRAY ")
+		ctype := ToPgType(col.DataType)
+		if ctype == "integer" && col.IsPK && !col.IsArray {
+			buf.WriteString(" SERIAL PRIMARY KEY ")
+		} else {
+			buf.WriteString(ctype)
+			if col.IsArray {
+				buf.WriteString(" ARRAY ")
+			}
+			if len(col.Default) > 0 {
+				buf.WriteString(" DEFAULT ")
+				buf.WriteString(col.Default)
+			}
+			if col.IsNotNull {
+				buf.WriteString(" NOT NULL ")
+			}	
+			if col.IsPK {
+				buf.WriteString(" PRIMARY KEY ")
+			}	
 		}
-		if len(col.Default) > 0 {
-			buf.WriteString(" DEFAULT ")
-			buf.WriteString(col.Default)
-		}
-		if col.IsNotNull {
-			buf.WriteString(" NOT NULL ")
-		}
+	}
+	for iconst := range tableDefinition.TableConstraints {
+		buf.WriteString(", ")
+		buf.WriteString(tableDefinition.TableConstraints[iconst])
 	}
 	buf.WriteString(");\n")
 	// index defs 
-	for icol := range tableDefinition.Indexes {
-		buf.WriteString(tableDefinition.Indexes[icol].IndexDef)
+	for _, idx := range tableDefinition.Indexes {
+		buf.WriteString(idx.IndexDef)
 		buf.WriteString(" ;\n")
 	}
 	// Execute the statements
@@ -237,12 +257,19 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 	buf.WriteString(" ;\n")
 	// index defs
 	for _, idx := range tableDefinition.Indexes {
-		_, ok := existingSchema.Indexes[idx.IndexName]
-		if !ok {
+		foundIt := false
+		for i := range existingSchema.Indexes {
+			if idx.IndexName == existingSchema.Indexes[i].IndexName {
+				foundIt = true
+				break
+			}
+		}
+		if !foundIt {
 			buf.WriteString(idx.IndexDef)
 			buf.WriteString(" ;\n")
 		}
 	}
+	//* TODO Add consideration for change in some of tableDefinition.TableConstraints
 	// Execute the statements
 	stmt := buf.String()
 	log.Println(stmt)

@@ -15,18 +15,18 @@ import (
 )
 
 type ReteWorkspace struct {
-	js          *bridge.JetStore
-	workspaceDb string
-	lookupDb    string
-	ruleset     []string
-	ruleseq     string
-	outTables   []string
-	extTables   map[string][]string
-	procConfig  *ProcessConfig
+	js             *bridge.JetStore
+	workspaceDb    string
+	lookupDb       string
+	ruleset        []string
+	ruleseq        string
+	outTables      []string
+	extTables      map[string][]string
+	pipelineConfig *PipelineConfig
 }
 
 type ExecuteRulesResult struct {
-	executeRulesCount int
+	ExecuteRulesCount int
 }
 
 var ps = flag.Bool("ps", false, "Print the rete session for each session (very verbose)")
@@ -37,18 +37,18 @@ func LoadReteWorkspace(
 	lookupDb string,
 	ruleset string,
 	ruleseq string,
-	procConfig *ProcessConfig,
+	pipelineConfig *PipelineConfig,
 	outTables []string,
 	extTables map[string][]string) (*ReteWorkspace, error) {
 
 	// load the workspace db
 	reteWorkspace := ReteWorkspace{
-		workspaceDb: workspaceDb,
-		lookupDb:    lookupDb,
-		ruleseq:     ruleseq,
-		procConfig:  procConfig,
-		outTables:   outTables,
-		extTables:   extTables,
+		workspaceDb:    workspaceDb,
+		lookupDb:       lookupDb,
+		ruleseq:        ruleseq,
+		pipelineConfig: pipelineConfig,
+		outTables:      outTables,
+		extTables:      extTables,
 	}
 	var err error
 	// case invoking single ruleset, in pipeline for case ruleseq
@@ -291,7 +291,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			ctor.ReleaseIterator()
 		}
-		result.executeRulesCount += 1
+		result.ExecuteRulesCount += 1
 		rdfSession.ReleaseRDFSession()
 	}
 	return &result, nil
@@ -358,7 +358,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")
 	}
-	for _, t3 := range rw.procConfig.ruleConfigs {
+	for _, t3 := range rw.pipelineConfig.ruleConfigs {
 		subject, err := rw.js.NewResource(t3.subject)
 		if err != nil {
 			return fmt.Errorf("while asserting rule config (NewResource): %v", err)
