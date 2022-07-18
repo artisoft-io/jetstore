@@ -1,11 +1,11 @@
--- TRUNCATE TABLE jetsapi.process_config, jetsapi.process_input, jetsapi.process_mapping, jetsapi.rule_config, jetsapi.process_merge;
-DELETE FROM jetsapi.process_config WHERE key in (301);
+-- TRUNCATE TABLE jetsapi.pipeline_config, jetsapi.process_input, jetsapi.process_mapping, jetsapi.rule_config, jetsapi.process_merge;
+DELETE FROM jetsapi.pipeline_config WHERE key in (301);
 
-INSERT INTO jetsapi.process_config (key, client, description, main_entity_rdf_type) VALUES
+INSERT INTO jetsapi.pipeline_config (key, client, description, main_entity_rdf_type) VALUES
   (301, 'TEST3', 'TEST for not operator', 'hc:TestClaim')
 RETURNING key;
 
-INSERT INTO jetsapi.process_input (key, process_key, input_type, input_table, entity_rdf_type, grouping_column, key_column) VALUES
+INSERT INTO jetsapi.process_input (key, process_key, input_type, table_name, entity_rdf_type, grouping_column, key_column) VALUES
   (321, 301, 0, 'test3', 'hc:TestClaim', 'MEMBER_NUMBER', 'CLAIM_NUMBER')
 ;
 

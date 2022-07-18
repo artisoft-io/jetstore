@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // This file contains the components for coordinating
@@ -29,13 +31,16 @@ import (
 //		- map[string]chan channels, one for each output table, are populated with []string; output records for table
 //		- writeResult channel capture the result of writeOutput to the database (struct with counts and err flag)
 
-type pipelineResult struct {
-	inputRecordsCount  int
-	executeRulesCount  int
-	outputRecordsCount map[string]int64
+type PipelineResult struct {
+	ReteWorkspace      *ReteWorkspace
+	Status             string
+	InputRecordsCount  int
+	ExecuteRulesCount  int
+	OutputRecordsCount map[string]int64
+	TotalOutputCount   int64
 }
 type readResult struct {
-	inputRecordsCount int
+	InputRecordsCount int
 	err               error
 }
 type execResult struct {
@@ -47,9 +52,25 @@ type writeResult struct {
 	err    error
 }
 
+// PipelineResult Method to update status and execution count to
+// jetsapi.pipeline_execution table
+func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
+	log.Printf("Inserting status '%s' and results counts to pipeline_execution table", pr.Status)
+	stmt := `INSERT INTO jetsapi.pipeline_execution (pipeline_config_key, client, process_name, main_table_name, input_session_id, session_id, shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+	_, err := dbpool.Exec(context.Background(), stmt, *pipelineConfigKey, 
+		pr.ReteWorkspace.pipelineConfig.clientName, 
+		pr.ReteWorkspace.pipelineConfig.processConfig.processName, 
+		pr.ReteWorkspace.pipelineConfig.mainTableName, *inSessionId, *sessionId, *shardId, 
+		pr.Status, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, *userEmail)
+	if err != nil {
+		return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+	}
+	return nil
+}
+
 // Main pipeline processing function
-func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
-	var result pipelineResult
+func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
+	result := PipelineResult{ReteWorkspace: reteWorkspace}
 	var err error
 	done := make(chan struct{})
 	defer close(done)
@@ -64,8 +85,8 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	// setup to read the primary input table
 	var mainProcessInput *ProcessInput
 	// Configure all ProcessInput while identifying the main input table
-	for i := range reteWorkspace.procConfig.processInputs {
-		processInput := &reteWorkspace.procConfig.processInputs[i]
+	for i := range reteWorkspace.pipelineConfig.processInputs {
+		processInput := &reteWorkspace.pipelineConfig.processInputs[i]
 		err = processInput.setGroupingPos()
 		if err != nil {
 			return &result, err
@@ -92,12 +113,12 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 				return &result, fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
 			}
 		}
-		if processInput.entityRdfType == reteWorkspace.procConfig.mainEntityRdfType {
+		if processInput.tableName == reteWorkspace.pipelineConfig.mainTableName.String {
 			mainProcessInput = processInput
 		}
 	}
 	if mainProcessInput == nil {
-		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the ProcessConfig")
+		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the PipelineConfig")
 	}
 
 	// some bookeeping
@@ -107,22 +128,23 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 		log.Println("Error while getting table names:", err)
 		return &result, err
 	}
-	if out2all {
-		reteWorkspace.outTables = allTables
-	} else {
-		// check that the provided out table exists
-		var ok bool
-		for _, str := range reteWorkspace.outTables {
-			ok = false
-			for _, tbl := range allTables {
-				if str == tbl {
-					ok = true
-					break
-				}
+	// check if output table are overriden on command line
+	if len(reteWorkspace.outTables) == 0 {
+		reteWorkspace.outTables = append(reteWorkspace.outTables,
+			reteWorkspace.pipelineConfig.processConfig.outputTables...)
+	}
+	// check that the provided out table exists
+	var ok bool
+	for _, str := range reteWorkspace.outTables {
+		ok = false
+		for _, tbl := range allTables {
+			if str == tbl {
+				ok = true
+				break
 			}
-			if !ok {
-				return &result, fmt.Errorf("error: table %s does not exist in workspace", str)
-			}
+		}
+		if !ok {
+			return &result, fmt.Errorf("error: table %s does not exist in workspace", str)
 		}
 	}
 	// create a filter to retain selected tables
@@ -300,33 +322,33 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*pipelineResult, error) {
 	// check if the data load failed
 	log.Println("Checking if data load failed...")
 	readResult := <-readResultc
-	result.inputRecordsCount = readResult.inputRecordsCount
+	result.InputRecordsCount = readResult.InputRecordsCount
 
 	// check the result of the execute rules
 	log.Println("Checking results of execute rules...")
-	result.executeRulesCount = 0
+	result.ExecuteRulesCount = 0
 	for execResult := range errc {
 		if execResult.err != nil {
 			log.Printf("Execute Rule terminated with error: %v", execResult.err)
 			return &result, fmt.Errorf("while execute rules: %v", execResult.err)
 		}
-		result.executeRulesCount += execResult.result.executeRulesCount
+		result.ExecuteRulesCount += execResult.result.ExecuteRulesCount
 	}
 
 	// check the result of write2tables
 	log.Println("Checking results of write2tables...")
-	result.outputRecordsCount = make(map[string]int64)
+	result.OutputRecordsCount = make(map[string]int64)
 	// read from result chan
 	for writerResult := range wtrc {
 		if writerResult.err != nil {
 			return &result, fmt.Errorf("while writing table: %v", writerResult.err)
 		}
-		result.outputRecordsCount[writerResult.result.tableName] += writerResult.result.recordCount
+		result.OutputRecordsCount[writerResult.result.tableName] += writerResult.result.recordCount
 	}
 	log.Println("Done checking results of write2tables.")
 
 	if readResult.err != nil {
-		log.Println(fmt.Errorf("data load failed: %v", readResult.err))
+		log.Println(fmt.Errorf("data load failed: %v", readResult.err))		
 		return &result, readResult.err
 	}
 

@@ -39,14 +39,18 @@ func (s *chartype) Set(value string) error {
 	return nil
 }
 
-var inFile             = flag.String("in_file", "/work/input.csv", "the input csv file name")
-var dropTable          = flag.Bool("d", false, "drop table if it exists, default is false")
-var dsnList            = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
-var tblName            = flag.String("table", "", "table name to load the data into (required)")
-var groupingColumn     = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the input_table for that column")
-var nbrShards          = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the input file")
-var sessionId          = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
+var inFile = flag.String("in_file", "/work/input.csv", "the input csv file name")
+var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
+var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
+var tblName = flag.String("table", "", "table name to load the data into (required)")
+var client = flag.String("client", "", "Client associated with the source location (required)")
+var sourceLoc = flag.String("sourceLoc", "", "Source location of the file (required)")
+var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
+var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column")
+var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
+var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var sep_flag chartype = '|'
+
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator, default is pipe ('|')")
 }
@@ -60,7 +64,7 @@ func compute_shard_id(key string) int {
 	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
 	return res
 }
-func tableExists(dbpool *pgxpool.Pool) ( exists bool, err error) {
+func tableExists(dbpool *pgxpool.Pool) (exists bool, err error) {
 	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = 'public' and tablename = $1)", *tblName).Scan(&exists)
 	if err != nil {
 		err = fmt.Errorf("QueryRow failed: %v", err)
@@ -87,7 +91,7 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 		case "session_id", "shard_id", "file_name":
 		default:
 			buf.WriteString(pgx.Identifier{header}.Sanitize())
-			buf.WriteString(" TEXT, ")			
+			buf.WriteString(" TEXT, ")
 		}
 	}
 	buf.WriteString(" file_name TEXT,")
@@ -104,10 +108,10 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	}
 	// Add grouping column index
 	if *groupingColumn != "" {
-		stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC);`, 
-		pgx.Identifier{*tblName+"_grouping_idx"}.Sanitize(),
-		pgx.Identifier{*tblName}.Sanitize(),
-		pgx.Identifier{*groupingColumn}.Sanitize())
+		stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC);`,
+			pgx.Identifier{*tblName + "_grouping_idx"}.Sanitize(),
+			pgx.Identifier{*tblName}.Sanitize(),
+			pgx.Identifier{*groupingColumn}.Sanitize())
 		log.Println(stmt)
 		_, err := dbpool.Exec(context.Background(), stmt)
 		if err != nil {
@@ -116,7 +120,7 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	}
 	// the registry table
 	//* TODO provide a schema update function
-	stmt = `CREATE TABLE IF NOT EXISTS jetsapi.input_registry (file_name TEXT NOT NULL, table_name TEXT NOT NULL, session_id TEXT NOT NULL, load_count INTEGER, bad_row_count INTEGER, node_id INTEGER DEFAULT 0 NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (file_name, table_name, session_id));` 
+	stmt = `CREATE TABLE IF NOT EXISTS jetsapi.input_registry (file_name TEXT NOT NULL, table_name TEXT NOT NULL, session_id TEXT NOT NULL, load_count INTEGER, bad_row_count INTEGER, node_id INTEGER DEFAULT 0 NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (file_name, table_name, session_id));`
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating jetsapi.input_registry table: %v", err)
@@ -125,8 +129,8 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 }
 
 func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, nodeId int) error {
-	stmt := `INSERT INTO jetsapi.input_registry (file_name, table_name, session_id, load_count, bad_row_count, node_id) VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := dbpool.Exec(context.Background(), stmt, *inFile, *tblName, *sessionId, copyCount, badRowCount, nodeId)
+	stmt := `INSERT INTO jetsapi.input_registry (source_loc, table_name, client, file_name, session_id, load_count, bad_row_count, node_id, user_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err := dbpool.Exec(context.Background(), stmt, *sourceLoc, *tblName, *client, *inFile, *sessionId, copyCount, badRowCount, nodeId, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 	}
@@ -134,7 +138,7 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 }
 
 type writeResult struct {
-	count int64
+	count  int64
 	errMsg string
 }
 
@@ -152,7 +156,7 @@ func processFile() error {
 
 	// open err file where we'll put the bad rows
 	dp, fn := filepath.Split(*inFile)
-	badRowsfile, err := os.Create(dp + "err_"+fn)
+	badRowsfile, err := os.Create(dp + "err_" + fn)
 	if err != nil {
 		return fmt.Errorf("error while opening output csv err file: %v", err)
 	}
@@ -181,11 +185,11 @@ func processFile() error {
 			log.Printf("Input file contains column named '%s', this is a reserve name. Droping the column", rawHeaders[ipos])
 		default:
 			headers = append(headers, rawHeaders[ipos])
-			headerPos = append(headerPos, ipos)			
+			headerPos = append(headerPos, ipos)
 		}
 	}
 	// Check if we have grouping column if we should
-	if *groupingColumn!="" && groupingColumnPos<0 {
+	if *groupingColumn != "" && groupingColumnPos < 0 {
 		return fmt.Errorf("error: grouping column '%s' not found in input file %s", *groupingColumn, *inFile)
 	}
 	// Adding reserve columns
@@ -215,7 +219,7 @@ func processFile() error {
 		if err != nil {
 			return fmt.Errorf("while opening db connection: %v", err)
 		}
-		defer dbpool[i].Close()	
+		defer dbpool[i].Close()
 
 		// validate table name
 		tblExists, err := tableExists(dbpool[i])
@@ -233,7 +237,7 @@ func processFile() error {
 	// read the rest of the file
 	var badRowsPos []int
 	var rowid int64
-	nshards64 := int64(*nbrShards)	
+	nshards64 := int64(*nbrShards)
 	inputRows := make([][][]interface{}, nbrNodes)
 	for {
 		record, err := reader.Read()
@@ -244,7 +248,7 @@ func processFile() error {
 			var details *csv.ParseError
 			if errors.As(err, &details) {
 				log.Printf("while reading csv records: %v", err)
-				for i:=details.StartLine; i<=details.Line; i++ {
+				for i := details.StartLine; i <= details.Line; i++ {
 					badRowsPos = append(badRowsPos, i)
 				}
 			} else {
@@ -287,7 +291,7 @@ func processFile() error {
 		var wg sync.WaitGroup
 		resultsChan := make(chan writeResult, nbrNodes)
 		wg.Add(nbrNodes)
-		for i:=0; i<nbrNodes; i++ {
+		for i := 0; i < nbrNodes; i++ {
 			go func(c chan writeResult, dbpool *pgxpool.Pool, data *[][]interface{}) {
 				var errMsg string
 				copyCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(*data))
@@ -303,7 +307,7 @@ func processFile() error {
 		close(resultsChan)
 		for res := range resultsChan {
 			copyCount += res.count
-			if len(res.errMsg)>0 {
+			if len(res.errMsg) > 0 {
 				log.Println("Error writing to db node: ", res.errMsg)
 				hasErrors = true
 			}
@@ -312,10 +316,10 @@ func processFile() error {
 	if hasErrors {
 		return fmt.Errorf("error(s) while writing to database nodes")
 	}
-	log.Println("Inserted",copyCount,"rows in database!")
+	log.Println("Inserted", copyCount, "rows in database!")
 	badRowCount = len(badRowsPos)
 	if len(badRowsPos) > 0 {
-		log.Println("Got",len(badRowsPos),"bad rows in input file, copying them to the error file.")
+		log.Println("Got", len(badRowsPos), "bad rows in input file, copying them to the error file.")
 		file, err := os.Open(*inFile)
 		if err != nil {
 			return fmt.Errorf("error while re-opening csv file: %v", err)
@@ -341,10 +345,10 @@ func processFile() error {
 			if err != nil {
 				return fmt.Errorf("error while writing a bad csv row to err file: %v", err)
 			}
-		}	
+		}
 	}
 	// registering the load
-	for i:=0; i<nbrNodes; i++ {
+	for i := 0; i < nbrNodes; i++ {
 		err = registerCurrentLoad(copyCount, badRowCount, dbpool[i], i)
 		if err != nil {
 			return fmt.Errorf("error while registering the load: %v", err)
@@ -358,6 +362,18 @@ func main() {
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
+	if *client == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Client name must be provided (-client).")
+	}
+	if *userEmail == "" {
+		hasErr = true
+		errMsg = append(errMsg, "User email must be provided (-userEmail).")
+	}
+	if *sourceLoc == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Source location must be provided (-sourceLoc).")
+	}
 	if *tblName == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Table name must be provided.")
@@ -373,7 +389,7 @@ func main() {
 	if hasErr {
 		flag.Usage()
 		for _, msg := range errMsg {
-			fmt.Println("**",msg)
+			fmt.Println("**", msg)
 		}
 		os.Exit((1))
 	}
@@ -386,14 +402,17 @@ func main() {
 
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
-	fmt.Println("Got argument: inFile",*inFile)
-	fmt.Println("Got argument: dropTable",*dropTable)
-	fmt.Println("Got argument: dsnList",*dsnList)
-	fmt.Println("Got argument: tblName",*tblName)
-	fmt.Println("Got argument: groupingColumn",*groupingColumn)
-	fmt.Println("Got argument: nbrShards",*nbrShards)
-	fmt.Println("Got argument: sessionId",*sessionId)
-	fmt.Println("Got argument: sep_flag",sep_flag)
+	fmt.Println("Got argument: inFile", *inFile)
+	fmt.Println("Got argument: dropTable", *dropTable)
+	fmt.Println("Got argument: dsnList", *dsnList)
+	fmt.Println("Got argument: client", *client)
+	fmt.Println("Got argument: sourceLoc", *sourceLoc)
+	fmt.Println("Got argument: userEmail", *userEmail)
+	fmt.Println("Got argument: tblName", *tblName)
+	fmt.Println("Got argument: groupingColumn", *groupingColumn)
+	fmt.Println("Got argument: nbrShards", *nbrShards)
+	fmt.Println("Got argument: sessionId", *sessionId)
+	fmt.Println("Got argument: sep_flag", sep_flag)
 
 	err := processFile()
 	if err != nil {

@@ -21,6 +21,7 @@ var dropExisting  = flag.Bool("drop", false, "drop existing table (ALL TABLE CON
 // var dsn           = flag.String("dsn", "", "database connection string (ommit to write sql to stdout)")
 var dsnList       = flag.String("dsn", "", "comma-separated list of database connection string (required)")
 var workspaceDb   = flag.String("workspaceDb", "", "workspace db path (required)")
+var migrateDb     = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version (default: false)")
 var extTables workspace.ExtTableInfo = make(map[string][]string)
 
 func init() {
@@ -43,32 +44,32 @@ func init() {
 // Main function
 func doJob() error {
 	var err error
+
+	dsnSplit := strings.Split(*dsnList, ",")
+	dbslice := make([]*pgxpool.Pool, len(dsnSplit))
+	for i := range dsnSplit {
+		dbslice[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
+		if err != nil {
+			return fmt.Errorf("while opening db connection on %s: %v", dsnSplit[i], err)
+		}
+		defer dbslice[i].Close()
+	}
+	// JetStore system table migration
+	if *migrateDb {
+		err = migrate_db(dbslice)
+		if err != nil {
+			return err
+		}
+	}
+	if *workspaceDb == "" {
+		return nil
+	}
+	
 	workspaceMgr, err := workspace.OpenWorkspaceDb(*workspaceDb)
 	if err != nil {
 		return fmt.Errorf("while opening workspace db: %v", err)
 	}
 	defer workspaceMgr.Close()
-
-
-	// var dbpool *pgxpool.Pool
-	// if len(*dsn) > 0 {
-	// 	// open db connection
-	// 	dbpool, err = pgxpool.Connect(context.Background(), *dsn)
-	// 	if err != nil {
-	// 		return fmt.Errorf("while opening db connection: %v", err)
-	// 	}
-	// 	defer dbpool.Close()
-	// }
-	// open db connections
-	dsnSplit := strings.Split(*dsnList, ",")
-	dbPool := make([]*pgxpool.Pool, len(dsnSplit))
-	for i := range dsnSplit {
-		dbPool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
-		if err != nil {
-			return fmt.Errorf("while opening db connection on %s: %v", dsnSplit[i], err)
-		}
-		defer dbPool[i].Close()
-	}
 
 	// get the set of volatile resources
 	vresources, err := workspaceMgr.GetVolatileResources()
@@ -124,7 +125,7 @@ func doJob() error {
 
 	// process tables
 	for tableName, tableSpec := range tableSpecs {
-		for i, dbpool := range dbPool {
+		for i, dbpool := range dbslice {
 			log.Println("Processing table",tableName,"on dsn",dsnSplit[i])
 			err = tableSpec.UpdateDomainTableSchema(dbpool, *dropExisting, extTables[tableName])
 			if err != nil {
@@ -145,7 +146,7 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Connection string (-dsn) must be provided.")
 	}
-	if *workspaceDb == "" {
+	if *workspaceDb == "" && !*migrateDb {
 		hasErr = true
 		errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")
 	}
@@ -160,6 +161,7 @@ func main() {
 	log.Println("Here's what we got:")
 	log.Println("   -dsn:", *dsnList)
 	log.Println("   -workspaceDb:", *workspaceDb)
+	log.Println("   -migrateDb:", *migrateDb)
 	for tableName, extColumns := range extTables {
 		log.Println("Table:",tableName,"Extended Columns:",strings.Join(extColumns, ","))
 	}

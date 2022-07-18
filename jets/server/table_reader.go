@@ -1,4 +1,5 @@
 package main
+
 // This file contains functions and methods for reading input tables, text or entity
 import (
 	"context"
@@ -13,12 +14,12 @@ import (
 // Struct that represent bundle of input records corresponding to a rete session
 type inputBundle struct {
 	groupingValue string
-	inputRows []bundleRow
+	inputRows     []bundleRow
 }
 
 type bundleRow struct {
 	processInput *ProcessInput
-	inputRows []interface{}
+	inputRows    []interface{}
 }
 
 func readRow(rows *pgx.Rows, processInput *ProcessInput) ([]interface{}, error) {
@@ -28,9 +29,9 @@ func readRow(rows *pgx.Rows, processInput *ProcessInput) ([]interface{}, error) 
 		dataGrp := make([]sql.NullString, nCol)
 		for i := 0; i < nCol; i++ {
 			dataRow[i] = &dataGrp[i]
-		}	
+		}
 	} else {
-		// input type base on model, 
+		// input type base on model,
 		for i := 0; i < nCol; i++ {
 			inputColumnSpec := &processInput.processInputMapping[i]
 			rdfType := inputColumnSpec.rdfType
@@ -73,17 +74,17 @@ func readRow(rows *pgx.Rows, processInput *ProcessInput) ([]interface{}, error) 
 			default:
 				dataRow[i] = &sql.NullString{}
 			}
-		}	
+		}
 	}
 	err := (*rows).Scan(dataRow...)
 	return dataRow, err
 }
 
 type joinQuery struct {
-	processInput *ProcessInput
-	rows pgx.Rows
+	processInput  *ProcessInput
+	rows          pgx.Rows
 	groupingValue string
-	pendingRow []interface{}
+	pendingRow    []interface{}
 }
 
 // readInput read the input table and grouping the rows according to the
@@ -128,7 +129,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		var groupingValue string
 		// Loop through rows, using Scan to assign column data to struct fields.
 		for rows.Next() {
-			mainBundleRow := bundleRow{processInput: mainInput}			
+			mainBundleRow := bundleRow{processInput: mainInput}
 			mainBundleRow.inputRows, err = readRow(&rows, mainInput)
 			if err != nil {
 				log.Printf("error while scanning dataRow from main table: %v", err)
@@ -143,9 +144,9 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 			}
 			if glogv > 0 {
 				if mainInput.inputType == 0 {
-					log.Printf("Got text-based input record with grouping key %s",dataGrp.String)
+					log.Printf("Got text-based input record with grouping key %s", dataGrp.String)
 				} else {
-					log.Printf("Got input entity with grouping key %s",dataGrp.String)
+					log.Printf("Got input entity with grouping key %s", dataGrp.String)
 				}
 			}
 			if rowCount == 0 || groupingValue != dataGrp.String {
@@ -162,17 +163,16 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 				// start grouping
 				groupingValue = dataGrp.String
 				if glogv > 0 {
-					fmt.Println("*** START Grouping ",groupingValue)
+					fmt.Println("*** START Grouping ", groupingValue)
 				}
 
 				// read the join tables
 				if rowCount == 0 {
 					// setup the join tables - dsn * (nbr_input_tables - 1)
-					mainEntityRdfType := &reteWorkspace.procConfig.mainEntityRdfType
-					processInputs := reteWorkspace.procConfig.processInputs
+					processInputs := reteWorkspace.pipelineConfig.processInputs
 					for _, jnode := range dbc.joinNodes {
 						for ipoc := range processInputs {
-							if processInputs[ipoc].entityRdfType != *mainEntityRdfType {
+							if processInputs[ipoc].tableName != reteWorkspace.pipelineConfig.mainTableName.String {
 								// prepare the sql stmt
 								jquery := joinQuery{processInput: &processInputs[ipoc]}
 								stmt := processInputs[ipoc].makeJoinSqlStmt()
@@ -196,8 +196,8 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 						// consume this row
 						rowCount += 1
 						dataGrps.inputRows = append(dataGrps.inputRows, bundleRow{
-							processInput: joinQueries[iqr].processInput, 
-							inputRows: joinQueries[iqr].pendingRow})			
+							processInput: joinQueries[iqr].processInput,
+							inputRows:    joinQueries[iqr].pendingRow})
 					}
 					for joinQueries[iqr].rows.Next() {
 						joinQueries[iqr].pendingRow, err = readRow(&joinQueries[iqr].rows, joinQueries[iqr].processInput)
@@ -213,7 +213,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 							return
 						}
 						if glogv > 0 {
-							log.Printf("Got join input record with grouping key %s",dataGrp.String)
+							log.Printf("Got join input record with grouping key %s", dataGrp.String)
 						}
 						joinQueries[iqr].groupingValue = dataGrp.String
 						if groupingValue != dataGrp.String {
@@ -222,8 +222,8 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 						// consume this row
 						rowCount += 1
 						dataGrps.inputRows = append(dataGrps.inputRows, bundleRow{
-							processInput: joinQueries[iqr].processInput, 
-							inputRows: joinQueries[iqr].pendingRow})
+							processInput: joinQueries[iqr].processInput,
+							inputRows:    joinQueries[iqr].pendingRow})
 						// //*
 						// log.Println("GOT Join ROW:")
 						// for ipos := range joinQueries[iqr].pendingRow {
@@ -236,7 +236,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 			rowCount += 1
 			dataGrps.inputRows = append(dataGrps.inputRows, mainBundleRow)
 		}
-		
+
 		if rowCount == 0 {
 			// got nothing from input
 			log.Println("No row read from input table")

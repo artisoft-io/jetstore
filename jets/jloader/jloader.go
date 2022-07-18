@@ -27,14 +27,16 @@ func (s *chartype) Set(value string) error {
 	return nil
 }
 
-var inFile             = flag.String("in_file", "", "the input json file name")
+var inFile = flag.String("in_file", "", "the input json file name")
+
 // var dropTable          = flag.Bool("d", false, "drop table if it exists, default is false")
 // var dsnList            = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
 // var tblName            = flag.String("table", "", "table name to load the data into (required)")
-// var groupingColumn     = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the input_table for that column")
+// var groupingColumn     = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column")
 // var nbrShards          = flag.Int   ("nbrShards", 1, "Number of shards to use in sharding the input file")
 // var sessionId          = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var sep_flag chartype = '|'
+
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator for output csv, default is pipe ('|')")
 }
@@ -69,28 +71,29 @@ func readToken(dec *json.Decoder) (int, json.Token, error) {
 		return e_none, t, err
 	}
 
-	switch v := t.(type) { 
+	switch v := t.(type) {
 	case json.Delim:
 		switch fmt.Sprintf("%v", t) {
 		case "[":
-				return e_start_array, t, nil
+			return e_start_array, t, nil
 		case "]":
-				return e_end_array, t, nil
+			return e_end_array, t, nil
 		case "{":
-				return e_start_struct, t, nil
+			return e_start_struct, t, nil
 		case "}":
-				return e_end_struct, t, nil
+			return e_end_struct, t, nil
 		default:
-			return e_none, t, fmt.Errorf("error, unknown delimit %v",t)
+			return e_none, t, fmt.Errorf("error, unknown delimit %v", t)
 		}
-		case string:
-			return e_string, t, nil
-		case float64:
-			return e_number, t, nil
-		default:
-			return e_none, t, fmt.Errorf("error, unexpected type %T in json", v)
-		} 
+	case string:
+		return e_string, t, nil
+	case float64:
+		return e_number, t, nil
+	default:
+		return e_none, t, fmt.Errorf("error, unexpected type %T in json", v)
+	}
 }
+
 // skip to the struct key keyName, does not read the value
 func skipTo(dec *json.Decoder, keyName string) error {
 	for {
@@ -177,7 +180,7 @@ func skipEntity(dec *json.Decoder) error {
 		}
 		return nil
 	case e_end_array, e_end_struct:
-		return fmt.Errorf("error while skipping entity, unexpected %s",eTok[d])
+		return fmt.Errorf("error while skipping entity, unexpected %s", eTok[d])
 	default:
 		return nil
 	}
@@ -186,7 +189,8 @@ func skipEntity(dec *json.Decoder) error {
 type Path struct {
 	components []string
 }
-func (p *Path) isMatch (basePath []string, token string) bool {
+
+func (p *Path) isMatch(basePath []string, token string) bool {
 	// fmt.Println("IsMatch(",basePath,token,") on p",p)
 	l := len(basePath)
 	if l < len(p.components) {
@@ -201,15 +205,16 @@ func (p *Path) isMatch (basePath []string, token string) bool {
 	}
 	return false
 }
-func (p *Path) isComplete (level int) bool {
-	return level == len(p.components) -1 
+func (p *Path) isComplete(level int) bool {
+	return level == len(p.components)-1
 }
 
 type PathExtractor struct {
 	paths []Path
 }
+
 // basePath indicate segments of path between root and current position
-func (pe *PathExtractor) extractPaths(dec *json.Decoder, basePath []string, cb func (int, int, json.Token, error) ) error {
+func (pe *PathExtractor) extractPaths(dec *json.Decoder, basePath []string, cb func(int, int, json.Token, error)) error {
 	level := len(basePath)
 	for dec.More() {
 		key, err := expectString(dec, "%.f")
@@ -218,7 +223,7 @@ func (pe *PathExtractor) extractPaths(dec *json.Decoder, basePath []string, cb f
 		}
 		// fmt.Println("\npathExtractor on:",key)
 		matchFound := false
-		matchConsumed := false	// indicated value consumed, no need to skip or visit
+		matchConsumed := false // indicated value consumed, no need to skip or visit
 		for i := range pe.paths {
 			if pe.paths[i].isMatch(basePath, key) {
 				matchFound = true
@@ -279,12 +284,12 @@ func (pe *PathExtractor) extractPaths(dec *json.Decoder, basePath []string, cb f
 
 // Data structure to hold the extracted information
 type Record struct {
-	billingCode string
+	billingCode    string
 	providerGroups []ProviderGroup
 }
 type ProviderGroup struct {
-	npi []string
-	tinType string
+	npi      []string
+	tinType  string
 	tinValue string
 }
 
@@ -301,15 +306,14 @@ func processFile() error {
 	dec := json.NewDecoder(file)
 	err = expectDelimitToken(dec, e_start_struct)
 	if err != nil {
-			return err
+		return err
 	}
 	// Allocate the data structure to hold the extracted data
 	records := make([]Record, 0)
 	record := Record{
 		providerGroups: make([]ProviderGroup, 0),
 	}
-	providerGroup := ProviderGroup{
-	}
+	providerGroup := ProviderGroup{}
 	// The paths of interest
 	pe := PathExtractor{
 		paths: []Path{
@@ -319,15 +323,15 @@ func processFile() error {
 			{components: []string{"in_network", "negotiated_rates", "provider_groups", "tin", "value"}},
 		},
 	}
-	pe.extractPaths(dec, []string{}, func (path_index int, token_type int, token json.Token, err error) {
+	pe.extractPaths(dec, []string{}, func(path_index int, token_type int, token json.Token, err error) {
 		switch path_index {
-		case 0:		// billing_code
+		case 0: // billing_code
 			if token_type != e_string {
 				fmt.Println("error, expecting string for billing_code, got", eTok[token_type])
 			}
 			str, err := ToString(token_type, token, "%.f")
 			if err != nil {
-				fmt.Println("Error while ToString on billing_code:",err)
+				fmt.Println("Error while ToString on billing_code:", err)
 			} else {
 				// fmt.Println("Got billing_code:",str)
 				if len(record.providerGroups) > 0 {
@@ -338,39 +342,39 @@ func processFile() error {
 				}
 				record.billingCode = str
 			}
-		case 1:		// npi
+		case 1: // npi
 			if token_type != e_start_array {
 				fmt.Println("error, expecting array for npi, got", eTok[token_type])
 			}
 			values, err := ToArray(dec, "%.f")
 			if err != nil {
-				fmt.Println("Error while ToArray on npi:",err)
+				fmt.Println("Error while ToArray on npi:", err)
 			} else {
 				// fmt.Println("Got npi:",values)
-				if(len(providerGroup.npi) > 0) {
+				if len(providerGroup.npi) > 0 {
 					record.providerGroups = append(record.providerGroups, providerGroup)
 					providerGroup = ProviderGroup{}
-				} 
+				}
 				providerGroup.npi = values
 			}
-		case 2:		// tin type
+		case 2: // tin type
 			if token_type != e_string {
 				fmt.Println("error, expecting string for tin.type, got", eTok[token_type])
 			}
 			str, err := ToString(token_type, token, "%.f")
 			if err != nil {
-				fmt.Println("Error while ToString on tin.type:",err)
+				fmt.Println("Error while ToString on tin.type:", err)
 			} else {
 				// fmt.Println("Got tin_type:",str)
 				providerGroup.tinType = str
 			}
-		case 3:		// tin value
+		case 3: // tin value
 			if token_type != e_string {
 				fmt.Println("error, expecting string for tin.value, got", eTok[token_type])
 			}
 			str, err := ToString(token_type, token, "%.f")
 			if err != nil {
-				fmt.Println("Error while ToString on tin.value:",err)
+				fmt.Println("Error while ToString on tin.value:", err)
 			} else {
 				// fmt.Println("Got tin_value:",str)
 				providerGroup.tinValue = str
@@ -380,7 +384,7 @@ func processFile() error {
 	for i := range records {
 		fmt.Println(records[i])
 	}
-	fmt.Println("That's it for",len(records))
+	fmt.Println("That's it for", len(records))
 	return nil
 }
 
@@ -395,15 +399,15 @@ func main() {
 	if hasErr {
 		flag.Usage()
 		for _, msg := range errMsg {
-			fmt.Println("**",msg)
+			fmt.Println("**", msg)
 		}
 		os.Exit((1))
 	}
 
 	fmt.Println("jloader argument:")
 	fmt.Println("----------------")
-	fmt.Println("Got argument: inFile",*inFile)
-	fmt.Println("Got argument: sep_flag",sep_flag)
+	fmt.Println("Got argument: inFile", *inFile)
+	fmt.Println("Got argument: sep_flag", sep_flag)
 
 	err := processFile()
 	if err != nil {

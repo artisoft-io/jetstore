@@ -102,14 +102,14 @@ SUBJECT | PREDICATE | OBJECT | TYPE
 "usi_sm:RRConfig" | "usi_sm:codesInContractExclusion" | "CODE2" | "text"
 
 ## Database Schema for Process Execution Context (Start Message)
-Main table is `process_config`:
+Main table is `pipeline_config`:
   - `client` is a client name or code for reference only.
   - `description` for contextual information
   - `main_entity_rdf_type` is main entity for the load or merge process
 
 The `process_input` table defines the input tables in which
 we loaded the csv files:
-  - `input_table` is the table name where the data is
+  - `table_name` is the table name where the data is
   - `entity_rdf_type` is the rdf type of the entity being loaded
 
 `process_mapping` table defines the mapping and data transformations being made
@@ -125,8 +125,8 @@ table:
   main table.
 
 ```
-DROP TABLE IF EXISTS process_config;
-CREATE TABLE IF NOT EXISTS process_config (
+DROP TABLE IF EXISTS pipeline_config;
+CREATE TABLE IF NOT EXISTS pipeline_config (
     key SERIAL PRIMARY KEY  ,
     client text  ,
     description text  ,
@@ -137,10 +137,10 @@ CREATE TABLE IF NOT EXISTS process_config (
 DROP TABLE IF EXISTS process_input;
 CREATE TABLE IF NOT EXISTS process_input (
     key SERIAL PRIMARY KEY  ,
-    process_key integer REFERENCES process_config ON DELETE CASCADE ,
-    input_table text  ,
+    process_key integer REFERENCES pipeline_config ON DELETE CASCADE ,
+    table_name text  ,
     entity_rdf_type text ,
-    UNIQUE (process_key, input_table)
+    UNIQUE (process_key, table_name)
 );
 CREATE INDEX IF NOT EXISTS process_input_process_key_idx ON process_input (process_key);
 
@@ -158,7 +158,7 @@ CREATE INDEX IF NOT EXISTS process_mapping_process_input_key_idx ON process_mapp
 
 DROP TABLE IF EXISTS rule_config;
 CREATE TABLE IF NOT EXISTS rule_config (
-    process_key integer REFERENCES process_config ON DELETE CASCADE ,
+    process_key integer REFERENCES pipeline_config ON DELETE CASCADE ,
     subject text  ,
     predicate text  ,
     object text  ,
@@ -169,7 +169,7 @@ CREATE INDEX IF NOT EXISTS rule_config_process_key_idx ON rule_config (process_k
 
 DROP TABLE IF EXISTS process_merge;
 CREATE TABLE IF NOT EXISTS process_merge (
-    process_key integer REFERENCES process_config ON DELETE CASCADE ,
+    process_key integer REFERENCES pipeline_config ON DELETE CASCADE ,
     entity_rdf_type text  ,
     query_rdf_property_list text ,
     grouping_rdf_property text
