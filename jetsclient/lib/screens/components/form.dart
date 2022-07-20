@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 import '../../routes/jets_route_data.dart';
@@ -14,10 +15,10 @@ class JetsForm extends StatelessWidget {
       required this.actions})
       : super(key: key);
 
-  final List<Map<String, dynamic>> formData;
+  final JetsFormState formData;
   final GlobalKey<FormState> formKey;
   final FormConfig formConfig;
-  final String? Function(int group, String, String?) validatorDelegate;
+  final String? Function(int group, String, dynamic) validatorDelegate;
   final Map<String, VoidCallback> actions;
   final JetsRouteData formPath;
 
@@ -32,7 +33,7 @@ class JetsForm extends StatelessWidget {
                 if (index < formConfig.inputFields.length) {
                   var fc = formConfig.inputFields[index];
                   return Row(
-                    children: fc.map((e) => e.makeFormField(formPath: formPath, state: formData, validator: validatorDelegate)).toList(),
+                    children: fc.map((e) => e.makeFormField(screenPath: formPath, state: formData, validator: validatorDelegate)).toList(),
                   );
                 }
                 // case last: row of buttons

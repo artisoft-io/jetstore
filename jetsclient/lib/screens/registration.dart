@@ -1,12 +1,13 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:jetsclient/routes/export_routes.dart';
-import 'package:jetsclient/screens/components/form.dart';
 import 'package:provider/provider.dart';
-import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/screens/components/app_bar.dart';
+
 import 'package:jetsclient/utils/form_config.dart';
+import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/form.dart';
+import 'package:jetsclient/screens/components/app_bar.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({
@@ -14,7 +15,7 @@ class RegistrationScreen extends StatefulWidget {
     required this.screenPath,
   });
 
-  final String formConfig = 'register';
+  final String formConfig = FormKeys.register;
   final JetsRouteData screenPath;
 
   @override
@@ -22,7 +23,7 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
-  late final FormStateMap formData;
+  late final JetsFormState formData;
   final formKey = GlobalKey<FormState>();
   late final FormConfig formConfig;
 
@@ -30,12 +31,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   void initState() {
     super.initState();
     formConfig = getFormConfig(widget.formConfig);
-    formData = formConfig.makeFormData();
+    formData = formConfig.makeFormState();
   }
 
-  String? validatorDelegate(int group, String key, String? value) {
+  String? validatorDelegate(int group, String key, dynamic v) {
+    String? value = v;
     switch (key) {
-      case 'name':
+      case FSK.userName:
         if (value != null && value.characters.length > 1) {
           return null;
         }
@@ -43,12 +45,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           return "Name is too short.";
         }
         return "Name must be provided.";
-      case 'email':
+      case FSK.userEmail:
         if (value != null && value.characters.length > 3) {
           return null;
         }
         return "Email must be provided.";
-      case 'password':
+      case FSK.userPassword:
         if (value != null && value.length >= 4) {
           var hasNum = value.contains(RegExp(r'[0-9]'));
           var hasUpper = value.contains(RegExp(r'[A-Z]'));
@@ -56,13 +58,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           if (hasNum && hasUpper && hasLower) return null;
         }
         return "Password must have at least 4 charaters and contain at least one of: upper and lower case letter, and number.";
-      case 'passwordConfirmation':
-        if (formData[group]['password'] != null &&
-            formData[group]['password']!.isNotEmpty &&
-            formData[group]['password'] == value) {
+      case FSK.userPasswordConfirm:
+        // Expecting String? not Set<String>?
+        String? formValue = formData.getValue(group, FSK.userPassword);
+        if (formValue != null && formValue!.isNotEmpty && formValue == value) {
           return null;
         }
         return "Passwords does not match.";
+      //* REMOVE THIS DEMO CODE
       case 'emailType':
         if (value == null) {
           return "Please select an email type";
@@ -82,12 +85,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
     var result = await client.sendRequest(
-        path: registerPath, encodedJsonBody: json.encode(formData[0]));
+        path: registerPath, encodedJsonBody: formData.encodeState(0));
     if (!mounted) return;
     if (result.statusCode == 200 || result.statusCode == 201) {
       // update the [UserModel]
-      JetsRouterDelegate().user.name = result.body['name'];
-      JetsRouterDelegate().user.email = result.body['email'];
+      JetsRouterDelegate().user.name = result.body[FSK.userName];
+      JetsRouterDelegate().user.email = result.body[FSK.userEmail];
       // Inform the user and transition
       const snackBar = SnackBar(
         content: Text('Registration Successful, you are now signed in'),
@@ -115,7 +118,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           formKey: formKey,
           formConfig: formConfig,
           validatorDelegate: validatorDelegate,
-          actions: <String, VoidCallback>{'register': _doRegister}),
+          actions: <String, VoidCallback>{ActionKeys.register: _doRegister}),
     );
   }
 }

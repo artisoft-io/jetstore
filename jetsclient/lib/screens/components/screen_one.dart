@@ -81,7 +81,9 @@ class ScreenOneState extends State<ScreenOne> {
                 flex: 8,
                 fit: FlexFit.tight,
                 child: JetsDataTableWidget(
-                    tablePath: widget.tablePath, tableConfig: widget.screenConfig.tableConfig),
+                  key: Key(widget.screenConfig.tableConfig.key),
+                  screenPath: widget.tablePath, 
+                  tableConfig: widget.screenConfig.tableConfig),
               ),
             ]),
           ),

@@ -1,21 +1,8 @@
 import 'package:flutter/material.dart';
 
-enum ActionStyle { primary, secondary, danger }
+import 'package:jetsclient/utils/constants.dart';
 
-class ColumnConfig {
-  ColumnConfig({
-    required this.index,
-    required this.name,
-    required this.label,
-    required this.tooltips,
-    required this.isNumeric,
-  });
-  final int index;
-  final String name;
-  final String label;
-  final String tooltips;
-  final bool isNumeric;
-}
+enum ActionStyle { primary, secondary, danger }
 
 class TableConfig {
   TableConfig(
@@ -23,10 +10,13 @@ class TableConfig {
       required this.schemaName,
       required this.tableName,
       required this.title,
+      required this.apiPath,
       required this.isCheckboxVisible,
-      required this.isCheckboxSingleSelect,      
+      required this.isCheckboxSingleSelect,
       required this.actions,
       required this.columns,
+      required this.whereClauses,
+      this.formStateConfig,
       required this.sortColumnIndex,
       required this.sortAscending,
       required this.rowsPerPage});
@@ -34,10 +24,13 @@ class TableConfig {
   final String schemaName;
   final String tableName;
   final String title;
+  final String apiPath;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
   final List<ColumnConfig> columns;
+  final List<WhereClause> whereClauses;
+  final DataTableFormStateConfig? formStateConfig;
   final int sortColumnIndex;
   final bool sortAscending;
   final int rowsPerPage;
@@ -99,242 +92,312 @@ class ActionConfig {
   }
 }
 
+class ColumnConfig {
+  ColumnConfig({
+    required this.index,
+    required this.name,
+    required this.label,
+    required this.tooltips,
+    required this.isNumeric,
+  });
+  final int index;
+  final String name;
+  final String label;
+  final String tooltips;
+  final bool isNumeric;
+}
+
+class WhereClause {
+  WhereClause({
+    required this.column,
+    this.formStateKey,
+    this.defaultValue = const [],
+  });
+  final String column;
+  final String? formStateKey;
+  final List<String> defaultValue;
+}
+
+class DataTableFormStateConfig {
+  DataTableFormStateConfig(
+      {required this.keyColumnIdx, required this.otherColumns});
+  final int keyColumnIdx;
+  final List<DataTableFormStateOtherColumnConfig> otherColumns;
+}
+
+class DataTableFormStateOtherColumnConfig {
+  DataTableFormStateOtherColumnConfig({
+    required this.stateKey,
+    required this.columnIdx,
+  });
+  final String stateKey;
+  final int columnIdx;
+}
+
 final Map<String, TableConfig> _tableConfigurations = {
-  'pipelineTable': TableConfig(
-      key: 'pipelineTable',
-      schemaName: 'jetsapi',
-      tableName: 'pipelines',
-      title: 'Data Pipeline',
-      isCheckboxVisible: false,
-      isCheckboxSingleSelect: false,
-      actions: [
-        ActionConfig(
-            key: 'new',
-            label: 'New Row',
-            style: ActionStyle.primary,
-            configTable: "processConfigTable",
-            configForm: "newPipeline"),
-        ActionConfig(
-            key: 'edit',
-            label: 'Edit Table',
-            style: ActionStyle.secondary,
-            isTableEditablePrecondition: false),
-        ActionConfig(
-            key: 'save',
-            label: 'Save Changes',
-            style: ActionStyle.primary,
-            isTableEditablePrecondition: true,
-            apiKey: 'updatePipeline'),
-        ActionConfig(
-            key: 'delete',
-            label: 'Delete Rows',
-            style: ActionStyle.danger,
-            isTableEditablePrecondition: true,
-            apiKey: 'deletePipelines'),
-        ActionConfig(
-            key: 'cancel',
-            label: 'Cancel Changes',
-            style: ActionStyle.primary,
-            isTableEditablePrecondition: true),
-      ],
-      columns: [
-        ColumnConfig(
+  //* DEMO CODE
+  DTKeys.pipelineDemo: TableConfig(
+    key: DTKeys.pipelineDemo,
+    schemaName: 'jetsapi',
+    tableName: 'pipelines',
+    title: 'Data Pipeline',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          key: 'new',
+          label: 'New Row',
+          style: ActionStyle.primary,
+          configTable: "processConfigTable",
+          configForm: "newPipeline"),
+      ActionConfig(
+          key: 'edit',
+          label: 'Edit Table',
+          style: ActionStyle.secondary,
+          isTableEditablePrecondition: false),
+      ActionConfig(
+          key: 'save',
+          label: 'Save Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true,
+          apiKey: 'updatePipeline'),
+      ActionConfig(
+          key: 'delete',
+          label: 'Delete Rows',
+          style: ActionStyle.danger,
+          isTableEditablePrecondition: true,
+          apiKey: 'deletePipelines'),
+      ActionConfig(
+          key: 'cancel',
+          label: 'Cancel Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true),
+    ],
+    // no need for formState here since isCheckboxVisible is false
+    columns: [
+      ColumnConfig(
           index: 0,
-            name: "key",
-            label: 'Key',
-            tooltips: 'Process Session ID',
-            isNumeric: true),
-        ColumnConfig(
+          name: "key",
+          label: 'Key',
+          tooltips: 'Process Session ID',
+          isNumeric: true),
+      ColumnConfig(
           index: 1,
-            name: "user_name",
-            label: 'Submitted By',
-            tooltips: 'Submitted By',
-            isNumeric: false),
-        ColumnConfig(
+          name: "user_name",
+          label: 'Submitted By',
+          tooltips: 'Submitted By',
+          isNumeric: false),
+      ColumnConfig(
           index: 2,
-            name: "client",
-            label: 'Client',
-            tooltips: 'Client',
-            isNumeric: false),
-        ColumnConfig(
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client',
+          isNumeric: false),
+      ColumnConfig(
           index: 3,
-            name: "process",
-            label: 'Process',
-            tooltips: 'Process',
-            isNumeric: false),
-        ColumnConfig(
+          name: "process",
+          label: 'Process',
+          tooltips: 'Process',
+          isNumeric: false),
+      ColumnConfig(
           index: 4,
-            name: "status",
-            label: 'Status',
-            tooltips: 'Execution Status',
-            isNumeric: false),
-        ColumnConfig(
+          name: "status",
+          label: 'Status',
+          tooltips: 'Execution Status',
+          isNumeric: false),
+      ColumnConfig(
           index: 5,
-            name: "submitted_at",
-            label: 'Submitted At',
-            tooltips: 'Submitted At',
-            isNumeric: false),
-      ],
-      sortColumnIndex: 0,
-      sortAscending: true,
-      rowsPerPage: 10),
-  'registryTable': TableConfig(
-      key: 'registryTable',
-      schemaName: 'public',
-      tableName: 'input_registry',
-      title: 'Input File Registry',
-      isCheckboxVisible: true,
-      isCheckboxSingleSelect: true,
-      actions: [
-        ActionConfig(
-            key: 'new',
-            label: 'Load New File',
-            style: ActionStyle.primary,
-            configTable: "processConfigTable",
-            configForm: "newPipeline"),
-        ActionConfig(
-            key: 'edit',
-            label: 'Edit Table',
-            style: ActionStyle.secondary,
-            isTableEditablePrecondition: false),
-        ActionConfig(
-            key: 'save',
-            label: 'Save Changes',
-            style: ActionStyle.primary,
-            isTableEditablePrecondition: true,
-            apiKey: 'updatePipeline'),
-        ActionConfig(
-            key: 'delete',
-            label: 'Delete Rows',
-            style: ActionStyle.danger,
-            isTableEditablePrecondition: true,
-            apiKey: 'deletePipelines'),
-        ActionConfig(
-            key: 'cancel',
-            label: 'Cancel Changes',
-            style: ActionStyle.primary,
-            isTableEditablePrecondition: true),
-      ],
-      columns: [
-        ColumnConfig(
+          name: "submitted_at",
+          label: 'Submitted At',
+          tooltips: 'Submitted At',
+          isNumeric: false),
+    ],
+    sortColumnIndex: 0,
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+  //* DEMO CODE
+  DTKeys.registryDemo: TableConfig(
+    key: DTKeys.registryDemo,
+    schemaName: 'public',
+    tableName: 'input_registry',
+    title: 'Input File Registry',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          key: 'new',
+          label: 'Load New File',
+          style: ActionStyle.primary,
+          configTable: "processConfigTable",
+          configForm: "newPipeline"),
+      ActionConfig(
+          key: 'edit',
+          label: 'Edit Table',
+          style: ActionStyle.secondary,
+          isTableEditablePrecondition: false),
+      ActionConfig(
+          key: 'save',
+          label: 'Save Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true,
+          apiKey: 'updatePipeline'),
+      ActionConfig(
+          key: 'delete',
+          label: 'Delete Rows',
+          style: ActionStyle.danger,
+          isTableEditablePrecondition: true,
+          apiKey: 'deletePipelines'),
+      ActionConfig(
+          key: 'cancel',
+          label: 'Cancel Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true),
+    ],
+    //* DEMO CODE
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.sessionId,
+        columnIdx: 2,
+      )
+    ]),
+    columns: [
+      ColumnConfig(
           index: 0,
-            name: "file_name",
-            label: 'File Name',
-            tooltips: 'Input File Name',
-            isNumeric: false),
-        ColumnConfig(
+          name: "file_name",
+          label: 'File Name',
+          tooltips: 'Input File Name',
+          isNumeric: false),
+      ColumnConfig(
           index: 1,
-            name: "table_name",
-            label: 'Table Name',
-            tooltips: 'Table where the file was loaded',
-            isNumeric: false),
-        ColumnConfig(
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the file was loaded',
+          isNumeric: false),
+      ColumnConfig(
           index: 2,
-            name: "session_id",
-            label: 'Session ID',
-            tooltips: 'Data Pipeline Job Key',
-            isNumeric: false),
-        ColumnConfig(
+          name: "session_id",
+          label: 'Session ID',
+          tooltips: 'Data Pipeline Job Key',
+          isNumeric: false),
+      ColumnConfig(
           index: 3,
-            name: "load_count",
-            label: 'Records Count',
-            tooltips: 'Number of records loaded',
-            isNumeric: true),
-        ColumnConfig(
+          name: "load_count",
+          label: 'Records Count',
+          tooltips: 'Number of records loaded',
+          isNumeric: true),
+      ColumnConfig(
           index: 4,
-            name: "bad_row_count",
-            label: 'Bad Records',
-            tooltips: 'Number of Bad Records',
-            isNumeric: true),
-        ColumnConfig(
+          name: "bad_row_count",
+          label: 'Bad Records',
+          tooltips: 'Number of Bad Records',
+          isNumeric: true),
+      ColumnConfig(
           index: 5,
-            name: "node_id",
-            label: 'Node ID',
-            tooltips: 'Node ID containing there records',
-            isNumeric: true),
-        ColumnConfig(
+          name: "node_id",
+          label: 'Node ID',
+          tooltips: 'Node ID containing there records',
+          isNumeric: true),
+      ColumnConfig(
           index: 6,
-            name: "last_update",
-            label: 'Loaded At',
-            tooltips: 'Indicates when the file was loaded',
-            isNumeric: false),
-      ],
-      sortColumnIndex: 6,
-      sortAscending: false,
-      rowsPerPage: 10),
-  'userTable': TableConfig(
-      key: 'userTable',
-      schemaName: 'jetsapi',
-      tableName: 'users',
-      title: 'User Registry',
-      isCheckboxVisible: true,
-      isCheckboxSingleSelect: false,
-      actions: [
-        ActionConfig(
-            key: 'new',
-            label: 'Load New File',
-            style: ActionStyle.primary,
-            configTable: "processConfigTable",
-            configForm: "newPipeline"),
-        ActionConfig(
-            key: 'edit',
-            label: 'Edit Table',
-            style: ActionStyle.secondary,
-            isTableEditablePrecondition: false),
-        ActionConfig(
-            key: 'save',
-            label: 'Save Changes',
-            style: ActionStyle.primary,
-            isTableEditablePrecondition: true,
-            apiKey: 'updatePipeline'),
-        ActionConfig(
-            key: 'delete',
-            label: 'Delete Rows',
-            style: ActionStyle.danger,
-            isTableEditablePrecondition: true,
-            apiKey: 'deletePipelines'),
-        ActionConfig(
-            key: 'cancel',
-            label: 'Cancel Changes',
-            style: ActionStyle.primary,
-            isTableEditablePrecondition: true),
-      ],
-      columns: [
-        ColumnConfig(
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the file was loaded',
+          isNumeric: false),
+    ],
+    sortColumnIndex: 6,
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+  DTKeys.usersTable: TableConfig(
+    key: DTKeys.usersTable,
+    schemaName: 'jetsapi',
+    tableName: 'users',
+    title: 'User Registry',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          key: 'new',
+          label: 'Load New File',
+          style: ActionStyle.primary,
+          configTable: "processConfigTable",
+          configForm: "newPipeline"),
+      ActionConfig(
+          key: 'edit',
+          label: 'Edit Table',
+          style: ActionStyle.secondary,
+          isTableEditablePrecondition: false),
+      ActionConfig(
+          key: 'save',
+          label: 'Save Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true,
+          apiKey: 'updatePipeline'),
+      ActionConfig(
+          key: 'delete',
+          label: 'Delete Rows',
+          style: ActionStyle.danger,
+          isTableEditablePrecondition: true,
+          apiKey: 'deletePipelines'),
+      ActionConfig(
+          key: 'cancel',
+          label: 'Cancel Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true),
+    ],
+    //* DEMO CODE
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.userEmail,
+        columnIdx: 2,
+      )
+    ]),
+    columns: [
+      ColumnConfig(
           index: 0,
-            name: "user_id",
-            label: 'UserID',
-            tooltips: 'User ID',
-            isNumeric: true),
-        ColumnConfig(
+          name: "user_id",
+          label: 'UserID',
+          tooltips: 'User ID',
+          isNumeric: true),
+      ColumnConfig(
           index: 1,
-            name: "name",
-            label: 'Name',
-            tooltips: 'User Name',
-            isNumeric: false),
-        ColumnConfig(
+          name: "name",
+          label: 'Name',
+          tooltips: 'User Name',
+          isNumeric: false),
+      ColumnConfig(
           index: 2,
-            name: "email",
-            label: 'Email',
-            tooltips: 'User Email',
-            isNumeric: false),
-        ColumnConfig(
+          name: "email",
+          label: 'Email',
+          tooltips: 'User Email',
+          isNumeric: false),
+      ColumnConfig(
           index: 3,
-            name: "last_update",
-            label: 'Last Updated',
-            tooltips: 'Last Updated',
-            isNumeric: false),
-      ],
-      sortColumnIndex: 0,
-      sortAscending: true,
-      rowsPerPage: 10),
+          name: "last_update",
+          label: 'Last Updated',
+          tooltips: 'Last Updated',
+          isNumeric: false),
+    ],
+    sortColumnIndex: 0,
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
   'inputTable': TableConfig(
       key: 'inputTable',
       schemaName: 'public',
       tableName: '',
       title: 'Input Data',
+      apiPath: '/dataTable',
       isCheckboxVisible: false,
       isCheckboxSingleSelect: false,
+      whereClauses: [],
       actions: [],
       columns: [],
       sortColumnIndex: 0,
