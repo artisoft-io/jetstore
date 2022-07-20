@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'package:jetsclient/utils/form_config.dart';
 
 class JetsTextFormField extends StatefulWidget {
   const JetsTextFormField({
-    Key? key,
-    required this.inputFieldConfig,
+    required super.key,
+    required this.formFieldConfig,
     required this.onChanged,
-    required this.validatorDelegate,
+    required this.validator,
     this.flex = 1,
-  }) : super(key: key);
-  final FormInputFieldConfig inputFieldConfig;
+  });
+  final FormInputFieldConfig formFieldConfig;
   final void Function(String) onChanged;
-  final ValidatorDelegate validatorDelegate;
+  // Note: validator is require as this control needs to be part of a form
+  //       so to have formFieldConfig. We need to externalize the widget
+  //       config (as done for data table) to to be able to use the widget
+  //       without a form. Same applies to dropdown widget.
+  final FormFieldValidator<String> validator;
   final int flex;
 
   @override
@@ -78,7 +83,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
       }
       // debugPrint("Controller listener called for ${_config.key}");
     });
-    _config = widget.inputFieldConfig;
+    _config = widget.formFieldConfig;
     _node = FocusNode(debugLabel: _config.key);
     _node.addListener(_handleFocusChange);
   }
@@ -110,8 +115,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
             labelText: _config.label,
           ),
           onChanged: widget.onChanged,
-          validator: (String? value) =>
-              widget.validatorDelegate(_config.group, _config.key, value),
+          validator: widget.validator,
         ),
       ),
     );

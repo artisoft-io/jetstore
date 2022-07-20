@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+
 import 'package:jetsclient/utils/form_config.dart';
 
 class JetsDropdownButtonFormField extends StatefulWidget {
-  const JetsDropdownButtonFormField(
-      {Key? key,
-      required this.inputFieldConfig,
-      required this.onChanged,
-      required this.validatorDelegate,
-      this.flex = 1})
-      : super(key: key);
-  final FormDropdownFieldConfig inputFieldConfig;
+  const JetsDropdownButtonFormField({
+    required super.key,
+    required this.formFieldConfig,
+    required this.onChanged,
+    required this.validator,
+    this.flex = 1});
+  final FormDropdownFieldConfig formFieldConfig;
   final void Function(String?) onChanged;
-  final ValidatorDelegate validatorDelegate;
+  // Note: validator is require as this control needs to be part of a form
+  //       so to have formFieldConfig. We need to externalize the widget
+  //       config (as done for data table) to to be able to use the widget
+  //       without a form. Same applies to input text from.
+  final FormFieldValidator<String> validator;
   final int flex;
 
   @override
@@ -27,7 +31,7 @@ class _JetsDropdownButtonFormFieldState
   @override
   void initState() {
     super.initState();
-    _config = widget.inputFieldConfig;
+    _config = widget.formFieldConfig;
     if (_config.items.isNotEmpty) {
       selectedValue = _config.items[_config.defaultItemPos].value;
     }
@@ -40,8 +44,6 @@ class _JetsDropdownButtonFormFieldState
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
         child: DropdownButtonFormField<String>(
-            validator: (value) =>
-                widget.validatorDelegate(_config.group, _config.key, value),
             value: selectedValue,
             onChanged: (String? newValue) {
               setState(() {
@@ -49,6 +51,7 @@ class _JetsDropdownButtonFormFieldState
               });
               widget.onChanged(newValue);
             },
+            validator: widget.validator,
             items: _config.items
                 .map((e) => DropdownMenuItem<String>(
                     value: e.value, child: Text(e.label)))

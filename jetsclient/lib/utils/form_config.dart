@@ -1,43 +1,43 @@
 import 'package:flutter/material.dart';
+
+import 'package:jetsclient/routes/jets_route_data.dart';
+import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/utils/data_table_config.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/screens/components/input_text_form_field.dart';
 import 'package:jetsclient/screens/components/text_field.dart';
-import 'package:jetsclient/utils/data_table_config.dart';
-
-import '../routes/jets_route_data.dart';
-import '../screens/components/dropdown_form_field.dart';
+import 'package:jetsclient/screens/components/dropdown_form_field.dart';
 
 enum TextRestriction { none, allLower, allUpper, digitsOnly }
 
 enum ButtonStyle { primary, secondary, other }
 
-typedef FormStateMap = List<Map<String, dynamic>>;
-typedef ValidatorDelegate = String? Function(int, String, String?);
-
 abstract class FormFieldConfig {
   FormFieldConfig({
     required this.key,
-    this.group = 0,
-    this.flex = 1,
+    required this.group,
+    required this.flex,
   });
   final String key;
   final int group;
   final int flex;
   Widget makeFormField({
-    required JetsRouteData formPath,
-    required FormStateMap state,
+    required JetsRouteData screenPath,
+    required JetsFormState state,
     required ValidatorDelegate validator,
   });
 }
 
 class TextFieldConfig extends FormFieldConfig {
-  TextFieldConfig({super.key = '', required this.label, super.flex});
+  TextFieldConfig(
+      {super.key = '', super.group = 0, super.flex = 1, required this.label});
   final String label;
 
   @override
   Widget makeFormField({
-    required JetsRouteData formPath,
-    required FormStateMap state,
+    required JetsRouteData screenPath,
+    required JetsFormState state,
     required ValidatorDelegate validator,
   }) {
     return JetsTextField(
@@ -50,13 +50,14 @@ class TextFieldConfig extends FormFieldConfig {
 class FormInputFieldConfig extends FormFieldConfig {
   FormInputFieldConfig(
       {required super.key,
+      super.group = 0,
+      super.flex = 1,
       required this.label,
       required this.hint,
       required this.autofocus,
       this.obscureText = false,
       required this.textRestriction,
-      required this.maxLength,
-      super.flex});
+      required this.maxLength});
   final String label;
   final String hint;
   final bool autofocus;
@@ -67,14 +68,15 @@ class FormInputFieldConfig extends FormFieldConfig {
 
   @override
   Widget makeFormField({
-    required JetsRouteData formPath,
-    required FormStateMap state,
+    required JetsRouteData screenPath,
+    required JetsFormState state,
     required ValidatorDelegate validator,
   }) {
     return JetsTextFormField(
-      inputFieldConfig: this,
-      onChanged: (p0) => state[group][key] = p0,
-      validatorDelegate: validator,
+      key: Key(key),
+      formFieldConfig: this,
+      onChanged: (p0) => state.setValue(group, key, p0),
+      validator: (String? value) => validator(group, key, value),
       flex: flex,
     );
   }
@@ -90,50 +92,55 @@ class DropdownItemConfig {
 }
 
 class FormDropdownFieldConfig extends FormFieldConfig {
-  FormDropdownFieldConfig({
-    required super.key,
-    this.defaultItemPos = 0,
-    required this.items,
-    super.flex,
-  });
+  FormDropdownFieldConfig(
+      {required super.key,
+      super.group = 0,
+      super.flex = 1,
+      this.defaultItemPos = 0,
+      required this.items});
   final int defaultItemPos;
   final List<DropdownItemConfig> items;
 
   @override
   Widget makeFormField({
-    required JetsRouteData formPath,
-    required FormStateMap state,
+    required JetsRouteData screenPath,
+    required JetsFormState state,
     required ValidatorDelegate validator,
   }) {
     return JetsDropdownButtonFormField(
-      inputFieldConfig: this,
-      onChanged: (p0) => state[group][key] = p0,
-      validatorDelegate: validator,
+      key: Key(key),
+      formFieldConfig: this,
+      onChanged: (p0) => state.setValue(group, key, p0),
+      validator: (String? value) => validator(group, key, value),
       flex: flex,
     );
   }
 }
 
-// class FormDataTableFieldConfig extends FormFieldConfig {
-//   FormDataTableFieldConfig({
-//     required super.key, 
-//     required this.dataTableConfig,
-//   });
-//   final String dataTableConfig;
+class FormDataTableFieldConfig extends FormFieldConfig {
+  FormDataTableFieldConfig(
+      {required super.key,
+      super.group = 0,
+      super.flex = 1,
+      required this.dataTableConfig});
+  final String dataTableConfig;
 
-//   @override
-//   Widget makeFormField({
-//     required JetsRouteData formPath,
-//     required FormStateMap state,
-//     required ValidatorDelegate validator,
-//   }) {
-//     return JetsDataTableWidget(
-//       tablePath: formPath,
-//       tableConfig: getTableConfig(dataTableConfig),
-//       state passing is missing!
-//     );
-//   }
-// }
+  @override
+  Widget makeFormField({
+    required JetsRouteData screenPath,
+    required JetsFormState state,
+    required ValidatorDelegate validator,
+  }) {
+    return JetsDataTableWidget(
+      key: Key(key),
+      screenPath: screenPath,
+      formFieldConfig: this,
+      tableConfig: getTableConfig(dataTableConfig),
+      formState: state,
+      validator: (Set<String>? value) => validator(group, key, value),
+    );
+  }
+}
 
 class FormActionConfig {
   FormActionConfig(
@@ -164,35 +171,33 @@ class FormConfig {
     return unique.length;
   }
 
-  dynamic findFirst(FormStateMap formData, String key) {
-    for (int i = 0; i < formData.length; i++) {
-      if (formData[i].containsKey(key)) {
-        return formData[i][key];
-      }
-    }
+  dynamic findFirst(JetsFormState formData, String key) {
+    return formData.findFirst(key);
   }
 
-  FormStateMap makeFormData() {
-    return FormStateMap.filled(groupCount(), <String, dynamic>{});
+  JetsFormState makeFormState() {
+    return JetsFormState(groupCount: groupCount());
   }
 }
 
 final Map<String, FormConfig> _formConfigurations = {
-  'login': FormConfig(
-    key: 'login',
+  FormKeys.login: FormConfig(
+    key: FormKeys.login,
     title: 'Please Sign In',
     actions: [
       FormActionConfig(
-          key: "login", label: "Sign in", buttonStyle: ButtonStyle.primary),
+          key: ActionKeys.login,
+          label: "Sign in",
+          buttonStyle: ButtonStyle.primary),
       FormActionConfig(
-          key: "register",
+          key: ActionKeys.register,
           label: "Register",
           buttonStyle: ButtonStyle.secondary),
     ],
     inputFields: [
       [
         FormInputFieldConfig(
-            key: "email",
+            key: FSK.userEmail,
             label: "Email",
             hint: "Your email address",
             autofocus: true,
@@ -202,7 +207,7 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
       [
         FormInputFieldConfig(
-            key: "password",
+            key: FSK.userPassword,
             label: "Password",
             hint: "Your password",
             autofocus: false,
@@ -212,18 +217,20 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
-  'register': FormConfig(
-    key: 'register',
+  FormKeys.register: FormConfig(
+    key: FormKeys.register,
     title: 'Welcome, Please Register',
     actions: [
       FormActionConfig(
-          key: "register", label: "Register", buttonStyle: ButtonStyle.primary),
+          key: ActionKeys.register,
+          label: "Register",
+          buttonStyle: ButtonStyle.primary),
     ],
     inputFields: [
       [
         TextFieldConfig(label: 'This is the First Item'),
         FormInputFieldConfig(
-            key: "name",
+            key: FSK.userName,
             label: "Name",
             hint: "Enter your name",
             flex: 2,
@@ -233,7 +240,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 80), // ],
         // [
         FormInputFieldConfig(
-            key: "email",
+            key: FSK.userEmail,
             label: "Email",
             hint: "Your email address",
             flex: 2,
@@ -241,6 +248,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.allLower,
             maxLength: 80),
+        //* REMOVE THIS DEMO CODE
         FormDropdownFieldConfig(key: 'emailType', items: [
           DropdownItemConfig(label: 'Work', value: 'work'),
           DropdownItemConfig(label: 'Home', value: 'home'),
@@ -249,7 +257,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         TextFieldConfig(label: 'This is the Second Item'),
         FormInputFieldConfig(
-            key: "password",
+            key: FSK.userPassword,
             label: "Password",
             hint: "Your password",
             flex: 2,
@@ -259,7 +267,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 80), // ],
         // [
         FormInputFieldConfig(
-            key: "passwordConfirmation",
+            key: FSK.userPasswordConfirm,
             label: "Password Confirmation",
             hint: "Re-enter your password",
             flex: 2,
@@ -267,6 +275,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 80),
+        //* REMOVE THIS DEMO CODE
         FormDropdownFieldConfig(key: 'emailType', items: [
           DropdownItemConfig(label: ''),
           DropdownItemConfig(label: 'Work', value: 'work'),

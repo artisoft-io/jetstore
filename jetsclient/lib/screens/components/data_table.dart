@@ -1,28 +1,199 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:provider/provider.dart';
 
-import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/utils/data_table_config.dart';
+import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/data_table_source.dart';
 
-//* examples
-typedef FncBool = void Function(bool?);
-typedef OnSelectCB = void Function(bool value, int index);
+class JetsDataTableWidget extends FormField<Set<String>> {
+  JetsDataTableWidget(
+      {required super.key,
+      required this.screenPath,
+      this.formFieldConfig,
+      required this.tableConfig,
+      this.formState,
+      super.validator})
+      : assert((formState != null &&
+                formFieldConfig != null &&
+                validator != null) ||
+            (formState == null &&
+                formFieldConfig == null &&
+                validator == null)),
+        super(
+          initialValue:
+              formState?.getValue(formFieldConfig!.group, formFieldConfig.key),
+          autovalidateMode: AutovalidateMode.disabled,
+          builder: (FormFieldState<Set<String>> field) {
+            final state = field as JetsDataTableState;
+            final context = field.context;
+            final ThemeData themeData = Theme.of(context);
+            final MaterialLocalizations localizations =
+                MaterialLocalizations.of(context);
+            // prepare the footer widgets
+            final TextStyle? footerTextStyle = themeData.textTheme.caption;
+            List<DropdownMenuItem<int>> rowsPerPageItems =
+                state.availableRowsPerPage
+                    .map<DropdownMenuItem<int>>((e) => DropdownMenuItem<int>(
+                          value: e,
+                          child: Text('$e'),
+                        ))
+                    .toList();
+            final List<DataColumn> dataColumns = state.columnsConfig
+                .map((e) => state.makeDataColumn(e))
+                .toList();
+            var footerWidgets = <Widget>[
+              Container(
+                  // to match trailing padding in case we overflow and end up scrolling
+                  width: 14.0),
+              Text(localizations.rowsPerPageTitle),
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                    minWidth: 64.0), // 40.0 for the text, 24.0 for the icon
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      items: rowsPerPageItems,
+                      value: state.rowsPerPage,
+                      onChanged: state._rowPerPageChanged,
+                      style: footerTextStyle,
+                    ),
+                  ),
+                ),
+              ),
+              Container(width: 32.0),
+              Text(
+                localizations.pageRowsInfoTitle(
+                  state.indexOffset + 1,
+                  state.maxIndex + 1,
+                  state.dataSource.totalRowCount,
+                  false,
+                ),
+              ),
+              Container(width: 32.0),
+              IconButton(
+                icon: const Icon(Icons.skip_previous),
+                padding: EdgeInsets.zero,
+                tooltip: localizations.firstPageTooltip,
+                onPressed:
+                    state.currentDataPage == 0 ? null : state._gotoFirstPressed,
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                padding: EdgeInsets.zero,
+                tooltip: localizations.previousPageTooltip,
+                onPressed:
+                    state.currentDataPage == 0 ? null : state._previousPressed,
+              ),
+              Container(width: 24.0),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                padding: EdgeInsets.zero,
+                tooltip: localizations.nextPageTooltip,
+                onPressed: state._isLastPage() ? null : state._nextPressed,
+              ),
+              IconButton(
+                icon: const Icon(Icons.skip_next),
+                padding: EdgeInsets.zero,
+                tooltip: localizations.lastPageTooltip,
+                onPressed: state._isLastPage() ? null : state._lastPressed,
+              ),
+              Container(width: 14.0),
+            ];
 
-class JetsDataTableWidget extends StatefulWidget {
-  const JetsDataTableWidget(
-      {super.key, required this.tablePath, required this.tableConfig});
-  final JetsRouteData tablePath;
+            // build the data table
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // HEADER ROW
+                Row(
+                  children: tableConfig.actions
+                      .where((ac) => ac.predicate(state.isTableEditable))
+                      .expand((ac) => [
+                            const SizedBox(width: defaultPadding),
+                            ElevatedButton(
+                              style: ac.buttonStyle(themeData),
+                              onPressed: () =>
+                                  ac.isEnabled(state.isTableEditable)
+                                      ? state.actionDispatcher(ac)
+                                      : null,
+                              child: Text(ac.label),
+                            )
+                          ])
+                      .toList(),
+                ),
+                // MAIN TABLE SECTION
+                const SizedBox(height: defaultPadding),
+                Expanded(
+                    child: Scrollbar(
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  controller: state._verticalController,
+                  child: Scrollbar(
+                    thumbVisibility: true,
+                    trackVisibility: true,
+                    controller: state._horizontalController,
+                    notificationPredicate: (e) => e.depth == 1,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      controller: state._verticalController,
+                      child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          controller: state._horizontalController,
+                          padding: const EdgeInsets.all(defaultPadding),
+                          child: DataTable(
+                            columns: dataColumns.isNotEmpty
+                                ? dataColumns
+                                : [const DataColumn(label: Text(' '))],
+                            rows: List<DataRow>.generate(
+                              state.dataSource.rowCount,
+                              (int index) => state.dataSource.getRow(index),
+                            ),
+                            sortColumnIndex: state.sortColumnIndex,
+                            sortAscending: state.sortAscending,
+                          )),
+                    ),
+                  ),
+                )),
+                // FOOTER ROW
+                const SizedBox(height: defaultPadding),
+                DefaultTextStyle(
+                  style: footerTextStyle!,
+                  child: IconTheme.merge(
+                    data: const IconThemeData(
+                      opacity: 0.54,
+                    ),
+                    child: SizedBox(
+                      height: 56.0,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        reverse: true,
+                        child: Row(
+                          children: footerWidgets,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+  final JetsRouteData screenPath;
   final TableConfig tableConfig;
+  final FormDataTableFieldConfig? formFieldConfig;
+  final JetsFormState? formState;
 
   @override
-  State<JetsDataTableWidget> createState() => JetsDataTableState();
+  FormFieldState<Set<String>> createState() => JetsDataTableState();
 }
 
-class JetsDataTableState extends State<JetsDataTableWidget> {
+class JetsDataTableState extends FormFieldState<Set<String>> {
   // State Data
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
@@ -41,7 +212,11 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
 
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
-  TableConfig get tableConfig => widget.tableConfig;
+  JetsDataTableWidget get _dataTableWidget =>
+      super.widget as JetsDataTableWidget;
+  TableConfig get tableConfig => _dataTableWidget.tableConfig;
+  JetsFormState? get formState => _dataTableWidget.formState;
+  FormDataTableFieldConfig? get formFieldConfig => _dataTableWidget.formFieldConfig;
 
   @override
   void initState() {
@@ -57,7 +232,8 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     ];
 
     dataSource = JetsDataTableSource(
-        this, Provider.of<HttpClient>(context, listen: false));
+        state: this,
+        httpClient: Provider.of<HttpClient>(context, listen: false));
     dataSource.addListener(triggetRefreshListner);
 
     isTableEditable = tableConfig.isCheckboxVisible;
@@ -65,8 +241,8 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     // this may be an empty list if table is a domain table
     columnsConfig = tableConfig.columns;
 
-    if (widget.tablePath.path == homePath) {
-      // Get the first batch of data when navigated to tablePath
+    if (_dataTableWidget.screenPath.path == homePath) {
+      // Get the first batch of data when navigated to screenPath
       JetsRouterDelegate().addListener(navListener);
     } else {
       dataSource.getModelData();
@@ -83,8 +259,7 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
   }
 
   void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path ==
-        widget.tablePath.path) {
+    if (JetsRouterDelegate().currentConfiguration?.path == homePath) {
       dataSource.getModelData();
     }
   }
@@ -141,7 +316,7 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     // dataSource.sortModelData(columnIndex, ascending);
     setState(() {
       currentDataPage = 0;
-      if(columnIndex != sortColumnIndex) {
+      if (columnIndex != sortColumnIndex) {
         sortColumnIndex = columnIndex;
         sortAscending = true;
       } else {
@@ -183,155 +358,5 @@ class JetsDataTableState extends State<JetsDataTableWidget> {
     var r = dataSource.totalRowCount % n;
     currentDataPage = r == 0 ? n - 1 : n;
     dataSource.getModelData();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData themeData = Theme.of(context);
-    final MaterialLocalizations localizations =
-        MaterialLocalizations.of(context);
-    // prepare the footer widgets
-    final TextStyle? footerTextStyle = themeData.textTheme.caption;
-    List<DropdownMenuItem<int>> rowsPerPageItems = availableRowsPerPage
-        .map<DropdownMenuItem<int>>((e) => DropdownMenuItem<int>(
-              value: e,
-              child: Text('$e'),
-            ))
-        .toList();
-    final List<DataColumn> dataColumns =
-        columnsConfig.map((e) => makeDataColumn(e)).toList();
-    var footerWidgets = <Widget>[
-      Container(
-          width:
-              14.0), // to match trailing padding in case we overflow and end up scrolling
-      Text(localizations.rowsPerPageTitle),
-      ConstrainedBox(
-        constraints: const BoxConstraints(
-            minWidth: 64.0), // 40.0 for the text, 24.0 for the icon
-        child: Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              items: rowsPerPageItems,
-              value: rowsPerPage,
-              onChanged: _rowPerPageChanged,
-              style: footerTextStyle,
-            ),
-          ),
-        ),
-      ),
-      Container(width: 32.0),
-      Text(
-        localizations.pageRowsInfoTitle(
-          indexOffset + 1,
-          maxIndex + 1,
-          dataSource.totalRowCount,
-          false,
-        ),
-      ),
-      Container(width: 32.0),
-      IconButton(
-        icon: const Icon(Icons.skip_previous),
-        padding: EdgeInsets.zero,
-        tooltip: localizations.firstPageTooltip,
-        onPressed: currentDataPage == 0 ? null : _gotoFirstPressed,
-      ),
-      IconButton(
-        icon: const Icon(Icons.chevron_left),
-        padding: EdgeInsets.zero,
-        tooltip: localizations.previousPageTooltip,
-        onPressed: currentDataPage == 0 ? null : _previousPressed,
-      ),
-      Container(width: 24.0),
-      IconButton(
-        icon: const Icon(Icons.chevron_right),
-        padding: EdgeInsets.zero,
-        tooltip: localizations.nextPageTooltip,
-        onPressed: _isLastPage() ? null : _nextPressed,
-      ),
-      IconButton(
-        icon: const Icon(Icons.skip_next),
-        padding: EdgeInsets.zero,
-        tooltip: localizations.lastPageTooltip,
-        onPressed: _isLastPage() ? null : _lastPressed,
-      ),
-      Container(width: 14.0),
-    ];
-
-    // build the data table
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // HEADER ROW
-        Row(
-          children: tableConfig.actions
-              .where((ac) => ac.predicate(isTableEditable))
-              .expand((ac) => [
-                    const SizedBox(width: defaultPadding),
-                    ElevatedButton(
-                      style: ac.buttonStyle(themeData),
-                      onPressed: () => ac.isEnabled(isTableEditable)
-                          ? actionDispatcher(ac)
-                          : null,
-                      child: Text(ac.label),
-                    )
-                  ])
-              .toList(),
-        ),
-        // MAIN TABLE SECTION
-        const SizedBox(height: defaultPadding),
-        Expanded(
-            child: Scrollbar(
-          thumbVisibility: true,
-          trackVisibility: true,
-          controller: _verticalController,
-          child: Scrollbar(
-            thumbVisibility: true,
-            trackVisibility: true,
-            controller: _horizontalController,
-            notificationPredicate: (e) => e.depth == 1,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              controller: _verticalController,
-              child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  controller: _horizontalController,
-                  padding: const EdgeInsets.all(defaultPadding),
-                  child: DataTable(
-                    columns: dataColumns.isNotEmpty
-                        ? dataColumns
-                        : [const DataColumn(label: Text(' '))],
-                    rows: List<DataRow>.generate(
-                      dataSource.rowCount,
-                      (int index) => dataSource.getRow(index),
-                    ),
-                    sortColumnIndex: sortColumnIndex,
-                    sortAscending: sortAscending,
-                  )),
-            ),
-          ),
-        )),
-        // FOOTER ROW
-        const SizedBox(height: defaultPadding),
-        DefaultTextStyle(
-          style: footerTextStyle!,
-          child: IconTheme.merge(
-            data: const IconThemeData(
-              opacity: 0.54,
-            ),
-            child: SizedBox(
-              height: 56.0,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                reverse: true,
-                child: Row(
-                  children: footerWidgets,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }

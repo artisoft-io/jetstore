@@ -1,9 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+
 import 'package:jetsclient/routes/export_routes.dart';
-import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/utils/form_config.dart';
+import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/form.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
@@ -14,7 +15,7 @@ class LoginScreen extends StatefulWidget {
     required this.screenPath,
   });
 
-  final String formConfig = 'login';
+  final String formConfig = FormKeys.login;
   final JetsRouteData screenPath;
 
   @override
@@ -22,7 +23,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  late final FormStateMap formData;
+  late final JetsFormState formData;
   final formKey = GlobalKey<FormState>();
   late final FormConfig formConfig;
 
@@ -30,17 +31,18 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     formConfig = getFormConfig(widget.formConfig);
-    formData = formConfig.makeFormData();
+    formData = formConfig.makeFormState();
   }
 
-  String? validatorDelegate(int group, String key, String? value) {
+  String? validatorDelegate(int group, String key, dynamic v) {
+    String? value = v;
     switch (key) {
-      case 'email':
+      case FSK.userEmail:
         if (value != null && value.characters.length > 3) {
           return null;
         }
         return "Email must be provided.";
-      case 'password':
+      case FSK.userPassword:
         if (value != null && value.length >= 4) {
           return null;
         }
@@ -55,13 +57,13 @@ class _LoginScreenState extends State<LoginScreen> {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
     var result = await client.sendRequest(
-        path: loginPath, encodedJsonBody: json.encode(formData[0]));
+        path: loginPath, encodedJsonBody: formData.encodeState(0));
 
     if (!mounted) return;
     if (result.statusCode == 200) {
       // update the [UserModel]
-      JetsRouterDelegate().user.name = result.body['name'];
-      JetsRouterDelegate().user.email = result.body['email'];
+      JetsRouterDelegate().user.name = result.body[FSK.userName];
+      JetsRouterDelegate().user.email = result.body[FSK.userEmail];
       // Inform the user and transition
       const snackBar = SnackBar(
         content: Text('Login Successful!'),
@@ -84,14 +86,14 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: appBar(context, 'Please Sign In'),
       body: JetsForm(
-        formPath: widget.screenPath,
+          formPath: widget.screenPath,
           formData: formData,
           formKey: formKey,
           formConfig: formConfig,
           validatorDelegate: validatorDelegate,
           actions: <String, VoidCallback>{
-            'login': _doLogin,
-            'register': _doRegister
+            ActionKeys.login: _doLogin,
+            ActionKeys.register: _doRegister
           }),
     );
   }
