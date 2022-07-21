@@ -16,12 +16,9 @@ class JetsDataTableSource extends ChangeNotifier {
   JetsDataModel? model;
   int _totalRowCount = 0;
   List<bool> selectedRows = <bool>[];
-  int _selectedRowCount = 0;
 
   int get rowCount => model != null ? model!.length : 0;
   int get totalRowCount => _totalRowCount;
-
-  int get selectedRowCount => _selectedRowCount;
 
   //// Update the form state:
   ///  if [isAdd] is true, add row identified by index to the form state
@@ -85,6 +82,26 @@ class JetsDataTableSource extends ChangeNotifier {
     }
   }
 
+  //// Update table's selected rows based on form state
+  void updateTableFromFormState() {
+    var formStateConfig = state.tableConfig.formStateConfig;
+    var formState = state.formState;
+    if (formStateConfig == null || model == null || formState == null) {
+      return;
+    }
+    var config = state.formFieldConfig!;
+    var selValues =
+        formState.getValue(config.group, config.key) as Set<String>?;
+    if (selValues == null) return;
+    for (int index = 0; index < model!.length; index++) {
+      var row = model![index] as List<String?>;
+      var rowKeyValue = row[formStateConfig.keyColumnIdx];
+      if (rowKeyValue != null && selValues.contains(rowKeyValue)) {
+        selectedRows[index] = true;
+      }
+    }
+  }
+
   DataRow getRow(int index) {
     assert(model != null);
     // print("getRow Called with index $index which has key ${model![index][0]} ");
@@ -108,8 +125,6 @@ class JetsDataTableSource extends ChangeNotifier {
       onSelectChanged: state.isTableEditable
           ? (bool? value) {
               if (value == null) return;
-              if (value && !selectedRows[index]) _selectedRowCount++;
-              if (!value && selectedRows[index]) _selectedRowCount--;
               selectedRows[index] = value;
               updateFormState(index, value);
               notifyListeners();
@@ -216,7 +231,6 @@ class JetsDataTableSource extends ChangeNotifier {
 
   void getModelData() async {
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
-    _selectedRowCount = 0;
 
     var data = await fetchData();
     if (data != null) {
@@ -235,12 +249,8 @@ class JetsDataTableSource extends ChangeNotifier {
       }
       model = data['rows'];
       _totalRowCount = data['totalRowCount'];
-      XXX;
-      //* SET selectedRows based on form state
-      if (state.formState != null &&
-          state.tableConfig.formStateConfig != null) {
-        //* TODO
-      }
+      // Set selectedRows based on form state
+      updateTableFromFormState();
       notifyListeners();
     }
   }
