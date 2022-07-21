@@ -40,7 +40,8 @@ func updateUserSchema(dbpool *pgxpool.Pool, dropTable bool) error {
 			return fmt.Errorf("error while droping jetsapi.users table: %v", err)
 		}	
 	}
-	stmt := `CREATE TABLE IF NOT EXISTS jetsapi.users (
+	stmt := `CREATE SCHEMA IF NOT EXISTS jetsapi;
+	CREATE TABLE IF NOT EXISTS jetsapi.users (
 		user_id SERIAL PRIMARY KEY, 
 		name TEXT NOT NULL, 
 		email TEXT NOT NULL, 
