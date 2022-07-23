@@ -11,14 +11,14 @@ import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/data_table_source.dart';
 
 class JetsDataTableWidget extends FormField<Set<String>> {
-  JetsDataTableWidget(
-      {required super.key,
-      required this.screenPath,
-      this.formFieldConfig,
-      required this.tableConfig,
-      this.formState,
-      super.validator})
-      : assert((formState != null &&
+  JetsDataTableWidget({
+    required super.key,
+    required this.screenPath,
+    this.formFieldConfig,
+    required this.tableConfig,
+    this.formState,
+    super.validator,
+  })  : assert((formState != null &&
                 formFieldConfig != null &&
                 validator != null) ||
             (formState == null &&
@@ -216,7 +216,8 @@ class JetsDataTableState extends FormFieldState<Set<String>> {
       super.widget as JetsDataTableWidget;
   TableConfig get tableConfig => _dataTableWidget.tableConfig;
   JetsFormState? get formState => _dataTableWidget.formState;
-  FormDataTableFieldConfig? get formFieldConfig => _dataTableWidget.formFieldConfig;
+  FormDataTableFieldConfig? get formFieldConfig =>
+      _dataTableWidget.formFieldConfig;
 
   @override
   void initState() {

@@ -8,30 +8,42 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
+import 'package:jetsclient/screens/components/base_screen.dart';
 
-class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({
-    super.key,
-    required this.screenPath,
-  });
+class RegistrationScreen extends BaseScreen {
+  RegistrationScreen({
+    required super.key,
+    required super.screenPath,
+    required super.screenConfig,
+    required this.formConfig,
+  }) : super(builder: (State<BaseScreen> baseState) {
+          final state = baseState as _RegistrationScreenState;
+          return JetsForm(
+              formPath: screenPath,
+              formState: state.formState,
+              formKey: state.formKey,
+              formConfig: formConfig,
+              validatorDelegate: state.validatorDelegate,
+              actions: <String, VoidCallback>{
+                ActionKeys.register: state._doRegister
+              });
+        });
 
-  final String formConfig = FormKeys.register;
-  final JetsRouteData screenPath;
+  final FormConfig formConfig;
 
   @override
-  State<RegistrationScreen> createState() => _RegistrationScreenState();
+  State<BaseScreen> createState() => _RegistrationScreenState();
 }
 
-class _RegistrationScreenState extends State<RegistrationScreen> {
-  late final JetsFormState formData;
+class _RegistrationScreenState extends BaseScreenState {
+  late final JetsFormState formState;
   final formKey = GlobalKey<FormState>();
-  late final FormConfig formConfig;
 
   @override
   void initState() {
     super.initState();
-    formConfig = getFormConfig(widget.formConfig);
-    formData = formConfig.makeFormState();
+    final w = widget as RegistrationScreen;
+    formState = w.formConfig.makeFormState();
   }
 
   String? validatorDelegate(int group, String key, dynamic v) {
@@ -60,7 +72,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         return "Password must have at least 4 charaters and contain at least one of: upper and lower case letter, and number.";
       case FSK.userPasswordConfirm:
         // Expecting String? not Set<String>?
-        String? formValue = formData.getValue(group, FSK.userPassword);
+        String? formValue = formState.getValue(group, FSK.userPassword);
         if (formValue != null && formValue!.isNotEmpty && formValue == value) {
           return null;
         }
@@ -85,7 +97,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
     var result = await client.sendRequest(
-        path: registerPath, encodedJsonBody: formData.encodeState(0));
+        path: registerPath, encodedJsonBody: formState.encodeState(0));
     if (!mounted) return;
     if (result.statusCode == 200 || result.statusCode == 201) {
       // update the [UserModel]
@@ -106,19 +118,5 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     } else {
       showAlertDialog(context, 'Something went wrong. Please try again.');
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: appBar(context, 'Registration'),
-      body: JetsForm(
-          formPath: widget.screenPath,
-          formData: formData,
-          formKey: formKey,
-          formConfig: formConfig,
-          validatorDelegate: validatorDelegate,
-          actions: <String, VoidCallback>{ActionKeys.register: _doRegister}),
-    );
   }
 }

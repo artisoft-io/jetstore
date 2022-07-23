@@ -13,6 +13,32 @@ enum TextRestriction { none, allLower, allUpper, digitsOnly }
 
 enum ButtonStyle { primary, secondary, other }
 
+class FormConfig {
+  FormConfig(
+      {required this.key, required this.inputFields, required this.actions});
+  final String key;
+  final List<List<FormFieldConfig>> inputFields;
+  final List<FormActionConfig> actions;
+
+  int groupCount() {
+    var unique = <int>{};
+    for (int i = 0; i < inputFields.length; i++) {
+      for (int j = 0; j < inputFields[i].length; j++) {
+        unique.add(inputFields[i][j].group);
+      }
+    }
+    return unique.length;
+  }
+
+  dynamic findFirst(JetsFormState formState, String key) {
+    return formState.findFirst(key);
+  }
+
+  JetsFormState makeFormState() {
+    return JetsFormState(groupCount: groupCount());
+  }
+}
+
 abstract class FormFieldConfig {
   FormFieldConfig({
     required this.key,
@@ -122,7 +148,11 @@ class FormDataTableFieldConfig extends FormFieldConfig {
       {required super.key,
       super.group = 0,
       super.flex = 1,
+      this.tableWidth = double.infinity,
+      this.tableHeight = 400,
       required this.dataTableConfig});
+  final double tableWidth;
+  final double tableHeight;
   final String dataTableConfig;
 
   @override
@@ -131,13 +161,19 @@ class FormDataTableFieldConfig extends FormFieldConfig {
     required JetsFormState state,
     required ValidatorDelegate validator,
   }) {
-    return JetsDataTableWidget(
-      key: Key(key),
-      screenPath: screenPath,
-      formFieldConfig: this,
-      tableConfig: getTableConfig(dataTableConfig),
-      formState: state,
-      validator: (Set<String>? value) => validator(group, key, value),
+    return Expanded(
+      child: SizedBox(
+        width: tableWidth,
+        height: tableHeight,
+        child: JetsDataTableWidget(
+          key: Key(key),
+          screenPath: screenPath,
+          formFieldConfig: this,
+          tableConfig: getTableConfig(dataTableConfig),
+          formState: state,
+          validator: (Set<String>? value) => validator(group, key, value),
+        ),
+      ),
     );
   }
 }
@@ -150,40 +186,31 @@ class FormActionConfig {
   final ButtonStyle buttonStyle;
 }
 
-class FormConfig {
-  FormConfig(
-      {required this.key,
-      this.title,
-      required this.inputFields,
-      required this.actions});
-  final String key;
-  final String? title;
-  final List<List<FormFieldConfig>> inputFields;
-  final List<FormActionConfig> actions;
-
-  int groupCount() {
-    var unique = <int>{};
-    for (int i = 0; i < inputFields.length; i++) {
-      for (int j = 0; j < inputFields[i].length; j++) {
-        unique.add(inputFields[i][j].group);
-      }
-    }
-    return unique.length;
-  }
-
-  dynamic findFirst(JetsFormState formData, String key) {
-    return formData.findFirst(key);
-  }
-
-  JetsFormState makeFormState() {
-    return JetsFormState(groupCount: groupCount());
-  }
-}
-
 final Map<String, FormConfig> _formConfigurations = {
+  //* DEMO FORM
+  "dataTableDemoForm": FormConfig(
+    key: "dataTableDemoForm",
+    actions: [
+      FormActionConfig(
+          key: "dataTableDemoAction1",
+          label: "Do it!",
+          buttonStyle: ButtonStyle.primary),
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: "dataTableDemoMainTable",
+            dataTableConfig: "dataTableDemoMainTableConfig")
+      ],
+      // [
+      //   FormDataTableFieldConfig(
+      //       key: "dataTableDemoSupportTable",
+      //       dataTableConfig: "dataTableDemoSupportTableConfig")
+      // ],
+    ],
+  ),
   FormKeys.login: FormConfig(
     key: FormKeys.login,
-    title: 'Please Sign In',
     actions: [
       FormActionConfig(
           key: ActionKeys.login,
@@ -219,7 +246,6 @@ final Map<String, FormConfig> _formConfigurations = {
   ),
   FormKeys.register: FormConfig(
     key: FormKeys.register,
-    title: 'Welcome, Please Register',
     actions: [
       FormActionConfig(
           key: ActionKeys.register,

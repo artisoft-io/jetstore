@@ -135,7 +135,217 @@ class DataTableFormStateOtherColumnConfig {
 }
 
 final Map<String, TableConfig> _tableConfigurations = {
-  //* DEMO CODE
+  //* DEMO FORM - DEMO MAIN DATA TABLE
+  "dataTableDemoMainTableConfig": TableConfig(
+    key: "dataTableDemoMainTableConfig",
+    schemaName: 'jetsapi',
+    tableName: 'process_input',
+    title: 'Client Input',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          key: 'new',
+          label: 'New Row',
+          style: ActionStyle.primary,
+          configTable: "processConfigTable",
+          configForm: "newPipeline"),
+      ActionConfig(
+          key: 'edit',
+          label: 'Edit Table',
+          style: ActionStyle.secondary,
+          isTableEditablePrecondition: false),
+      ActionConfig(
+          key: 'save',
+          label: 'Save Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true,
+          apiKey: 'updatePipeline'),
+      ActionConfig(
+          key: 'delete',
+          label: 'Delete Rows',
+          style: ActionStyle.danger,
+          isTableEditablePrecondition: true,
+          apiKey: 'deletePipelines'),
+      ActionConfig(
+          key: 'cancel',
+          label: 'Cancel Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true),
+    ],
+    // // FORM STATE CONFIG
+    // formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+    //   DataTableFormStateOtherColumnConfig(
+    //     stateKey: "dataTableDemoClient",
+    //     columnIdx: 1,
+    //   )
+    // ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Input Data Table Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Secondary Key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "input_type",
+          label: 'Input Type',
+          tooltips: 'Table Type',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "entity_rdf_type",
+          label: 'RDF Type',
+          tooltips: 'Entity rdf type',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "grouping_column",
+          label: 'Grouping Column',
+          tooltips: 'Input record grouping column',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "key_column",
+          label: 'Key Column',
+          tooltips: 'Input record key column',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'User who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "last_update",
+          label: 'Last Update',
+          tooltips: 'When the record was created or last update',
+          isNumeric: false),
+    ],
+    sortColumnIndex: 0,
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+  //* DEMO FORM - DEMO SUPPORT DATA TABLE
+  "dataTableDemoSupportTableConfig": TableConfig(
+    key: "dataTableDemoSupportTableConfig",
+    schemaName: 'jetsapi',
+    tableName: 'process_mapping',
+    title: 'Input Mapping',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "table_name", formStateKey: "dataTableDemoMainTableConfig")
+    ],
+    actions: [
+      ActionConfig(
+          key: 'new',
+          label: 'New Row',
+          style: ActionStyle.primary,
+          configTable: "processConfigTable",
+          configForm: "newPipeline"),
+      ActionConfig(
+          key: 'edit',
+          label: 'Edit Table',
+          style: ActionStyle.secondary,
+          isTableEditablePrecondition: false),
+      ActionConfig(
+          key: 'save',
+          label: 'Save Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true,
+          apiKey: 'updatePipeline'),
+      ActionConfig(
+          key: 'delete',
+          label: 'Delete Rows',
+          style: ActionStyle.danger,
+          isTableEditablePrecondition: true,
+          apiKey: 'deletePipelines'),
+      ActionConfig(
+          key: 'cancel',
+          label: 'Cancel Changes',
+          style: ActionStyle.primary,
+          isTableEditablePrecondition: true),
+    ],
+    // // FORM STATE CONFIG
+    // formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+    //   DataTableFormStateOtherColumnConfig(
+    //     stateKey: "dataTableDemoClient",
+    //     columnIdx: 1,
+    //   )
+    // ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Input Data Table Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "input_column",
+          label: 'Input Column',
+          tooltips: 'Input column',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "data_property",
+          label: 'Data Property',
+          tooltips: 'Entity data property',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "function_name",
+          label: 'Mapping Function',
+          tooltips: 'Function applied to input data',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "argument",
+          label: 'Argument',
+          tooltips: 'Argument for mapping function',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "default_value",
+          label: 'Default',
+          tooltips: 'Default value if the mapping function does not yield anything',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "error_message",
+          label: 'Error Message',
+          tooltips: 'Alternate to default value, generate an error if no data is available',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'User who created or last updated the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "last_update",
+          label: 'Last Update',
+          tooltips: 'When the record was created or last update',
+          isNumeric: false),
+    ],
+    sortColumnIndex: 1,
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+  //* DEMO ** TABLE ** CODE
   DTKeys.pipelineDemo: TableConfig(
     key: DTKeys.pipelineDemo,
     schemaName: 'jetsapi',
@@ -221,7 +431,7 @@ final Map<String, TableConfig> _tableConfigurations = {
   //* DEMO CODE
   DTKeys.registryDemo: TableConfig(
     key: DTKeys.registryDemo,
-    schemaName: 'public',
+    schemaName: 'jetsapi',
     tableName: 'input_registry',
     title: 'Input File Registry',
     apiPath: '/dataTable',
@@ -389,7 +599,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: true,
     rowsPerPage: 10,
   ),
-  'inputTable': TableConfig(
+  DTKeys.inputTable: TableConfig(
       key: 'inputTable',
       schemaName: 'public',
       tableName: '',

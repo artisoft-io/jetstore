@@ -11,7 +11,7 @@ var apiSecret          = flag.String("API_SECRET", "", "Secret used for signing 
 var dropTable          = flag.Bool  ("d", false, "drop users table if it exists, default is false")
 var dsn                = flag.String("dsn", "", "primary database connection string (required)")
 var serverAddr         = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
-var tokenExpiration    = flag.Int("tokenExpiration", 3600, "Token expiration in min, must be more than 5 min (default 3600)")
+var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 
 func main() {
 	flag.Parse()
