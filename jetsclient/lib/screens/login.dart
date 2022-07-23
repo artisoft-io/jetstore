@@ -8,30 +8,43 @@ import 'package:jetsclient/screens/components/form.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
+import 'package:jetsclient/screens/components/base_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({
-    super.key,
-    required this.screenPath,
-  });
+class LoginScreen extends BaseScreen {
+  LoginScreen({
+    required super.key,
+    required super.screenPath,
+    required super.screenConfig,
+    required this.formConfig,
+  }) : super(builder: (State<BaseScreen> baseState) {
+          final state = baseState as _LoginScreenState;
+          return JetsForm(
+              formPath: screenPath,
+              formState: state.formState,
+              formKey: state.formKey,
+              formConfig: formConfig,
+              validatorDelegate: state.validatorDelegate,
+              actions: <String, VoidCallback>{
+                ActionKeys.login: state._doLogin,
+                ActionKeys.register: state._doRegister
+              });
+        });
 
-  final String formConfig = FormKeys.login;
-  final JetsRouteData screenPath;
+  final FormConfig formConfig;
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<BaseScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  late final JetsFormState formData;
+class _LoginScreenState extends BaseScreenState {
+  late final JetsFormState formState;
   final formKey = GlobalKey<FormState>();
-  late final FormConfig formConfig;
 
   @override
   void initState() {
     super.initState();
-    formConfig = getFormConfig(widget.formConfig);
-    formData = formConfig.makeFormState();
+    final w = widget as LoginScreen;
+    formState = w.formConfig.makeFormState();
   }
 
   String? validatorDelegate(int group, String key, dynamic v) {
@@ -57,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
     var result = await client.sendRequest(
-        path: loginPath, encodedJsonBody: formData.encodeState(0));
+        path: loginPath, encodedJsonBody: formState.encodeState(0));
 
     if (!mounted) return;
     if (result.statusCode == 200) {
@@ -79,22 +92,5 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _doRegister() async {
     JetsRouterDelegate()(JetsRouteData(registerPath));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: appBar(context, 'Please Sign In'),
-      body: JetsForm(
-          formPath: widget.screenPath,
-          formData: formData,
-          formKey: formKey,
-          formConfig: formConfig,
-          validatorDelegate: validatorDelegate,
-          actions: <String, VoidCallback>{
-            ActionKeys.login: _doLogin,
-            ActionKeys.register: _doRegister
-          }),
-    );
   }
 }

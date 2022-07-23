@@ -30,7 +30,7 @@ class JetsFormState extends ChangeNotifier {
       _state[group][key] = value;
       didit = true;
     }
-    if(didit) notifyListeners();
+    if (didit) notifyListeners();
   }
 
   //// return the state of validation [group]
@@ -43,6 +43,7 @@ class JetsFormState extends ChangeNotifier {
   /// validation group [group] and key [key]
   dynamic getValue(int group, String key) {
     assert(group < groupCount, "invalid groupCount");
+    print("FormState.getValue called for group $group, key $key");
     return _state[group][key];
   }
 

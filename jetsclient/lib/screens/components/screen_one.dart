@@ -1,94 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/routes/jets_route_data.dart';
-import 'package:jetsclient/routes/jets_router_delegate.dart';
-import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
-import 'package:jetsclient/utils/constants.dart';
-import 'package:jetsclient/utils/screen_config.dart';
+import 'package:jetsclient/screens/components/base_screen.dart';
+import 'package:jetsclient/utils/data_table_config.dart';
 
-class ScreenOne extends StatefulWidget {
-  const ScreenOne(
-      {super.key, required this.tablePath, required this.screenConfig});
-
-  final JetsRouteData tablePath;
-  final ScreenConfig screenConfig;
-
+class ScreenOne extends BaseScreen {
+  ScreenOne({
+    required super.key,
+    required super.screenPath,
+    required super.screenConfig,
+    required this.tableConfig,
+  }) : super(builder: (State<BaseScreen> baseState) {
+          return JetsDataTableWidget(
+              key: Key(screenConfig.key),
+              screenPath: screenPath,
+              tableConfig: tableConfig);
+        });
+  final TableConfig tableConfig;
 
   @override
-  State<ScreenOne> createState() => ScreenOneState();
+  State<BaseScreen> createState() => ScreenOneState();
 }
 
-class ScreenOneState extends State<ScreenOne> {
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: appBar(context, widget.screenConfig.appBarLabel,
-          showLogout: widget.screenConfig.showLogout),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            flex: 1,
-            fit: FlexFit.tight,
-            child: Column(children: [
-              const SizedBox(height: defaultPadding),
-              Expanded(
-                flex: 1,
-                child: Image.asset(widget.screenConfig.leftBarLogo),
-              ),
-              const SizedBox(height: defaultPadding),
-              Expanded(
-                  flex: 8,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(defaultPadding),
-                    itemCount: widget.screenConfig.menuEntries.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      return ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                        ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-                        onPressed: () => JetsRouterDelegate()(JetsRouteData(
-                            widget.screenConfig.menuEntries[index].routePath)),
-                        child: Center(
-                            child: Text(widget.screenConfig.menuEntries[index].label)),
-                      );
-                    },
-                    separatorBuilder: (BuildContext context, int index) =>
-                        const Divider(),
-                  ))
-            ]),
-          ),
-          Flexible(
-            flex: 5,
-            fit: FlexFit.tight,
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const SizedBox(height: 2 * defaultPadding),
-              Flexible(
-                flex: 1,
-                fit: FlexFit.tight,
-                child: Text(
-                  widget.screenConfig.title,
-                  style: Theme.of(context).textTheme.headline4,
-                ),
-              ),
-              Flexible(
-                flex: 8,
-                fit: FlexFit.tight,
-                child: JetsDataTableWidget(
-                  key: Key(widget.screenConfig.tableConfig.key),
-                  screenPath: widget.tablePath, 
-                  tableConfig: widget.screenConfig.tableConfig),
-              ),
-            ]),
-          ),
-        ],
-      ),
-    );
-  }
+class ScreenOneState extends BaseScreenState {
+  //* Empty class for now, might be removed
 }

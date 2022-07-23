@@ -1,5 +1,16 @@
 const defaultPadding = 16.0;
 
+// Screen ID Keys
+// standard keys to identify screen config key
+class ScreenKeys {
+  static const home = "homeScreen";
+  static const login = "loginScreen";
+  static const register = "registerScreen";
+  static const pipelines = "pipelinesScreen";
+  static const fileRegistry = "fileRegistryScreen";
+  static const fileRegistryTable = "fileRegistryTableScreen";
+}
+
 // Form ID Keys
 // standard keys to identify form config key
 class FormKeys {
@@ -30,4 +41,5 @@ class DTKeys {
   static const pipelineDemo = "pipelineTable";
   static const registryDemo = "registryTable";
   static const usersTable = "userTable";
+  static const inputTable = "inputTable";
 }

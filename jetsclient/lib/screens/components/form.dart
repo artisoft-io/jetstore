@@ -8,14 +8,14 @@ class JetsForm extends StatelessWidget {
   const JetsForm(
       {Key? key,
       required this.formPath,
-      required this.formData,
+      required this.formState,
       required this.formKey,
       required this.formConfig,
       required this.validatorDelegate,
       required this.actions})
       : super(key: key);
 
-  final JetsFormState formData;
+  final JetsFormState formState;
   final GlobalKey<FormState> formKey;
   final FormConfig formConfig;
   final String? Function(int group, String, dynamic) validatorDelegate;
@@ -33,7 +33,12 @@ class JetsForm extends StatelessWidget {
                 if (index < formConfig.inputFields.length) {
                   var fc = formConfig.inputFields[index];
                   return Row(
-                    children: fc.map((e) => e.makeFormField(screenPath: formPath, state: formData, validator: validatorDelegate)).toList(),
+                    children: fc
+                        .map((e) => e.makeFormField(
+                            screenPath: formPath,
+                            state: formState,
+                            validator: validatorDelegate))
+                        .toList(),
                   );
                 }
                 // case last: row of buttons
@@ -43,8 +48,7 @@ class JetsForm extends StatelessWidget {
                     child: Row(
                         children: List<Widget>.from(
                       formConfig.actions.map((e) => TextButton(
-                          onPressed: actions[e.key], 
-                          child: Text(e.label))),
+                          onPressed: actions[e.key], child: Text(e.label))),
                       growable: false,
                     )),
                   ),

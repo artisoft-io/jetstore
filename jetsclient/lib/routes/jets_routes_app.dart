@@ -4,13 +4,18 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/screen_one.dart';
 import 'package:jetsclient/screens/login.dart';
 import 'package:jetsclient/screens/registration.dart';
+import 'package:jetsclient/screens/test_screen.dart';
 import 'package:jetsclient/models/user.dart';
+import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/utils/data_table_config.dart';
+import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/utils/screen_config.dart';
 
 const PARAM_CHAR = ':';
 
 const homePath = '/';
-const jobListPath = '/dataPipelines';
+const pipelinePath = '/dataPipelines';
+const mappingConfigPath = '/mappingConfig';
 const fileRegistryPath = '/fileRegistry';
 const fileRegistryTablePath = '/fileRegistry/table/:table';
 const loginPath = '/login';
@@ -19,24 +24,49 @@ const jobDetailsPath = '/job/:id';
 const pageNotFoundPath = '/404';
 
 final Map<String, Widget> jetsRoutesMap = {
+  // Home Screen
   homePath: ScreenOne(
-      key: const Key('homeScreen'),
-      tablePath: JetsRouteData(homePath),
-      screenConfig: getScreenConfig('homeScreen')),
-  jobListPath: ScreenOne(
-      key: const Key('jobListScreen'),
-      tablePath: JetsRouteData(jobListPath),
-      screenConfig: getScreenConfig('jobListScreen')),
+      key: const Key(ScreenKeys.home),
+      screenPath: JetsRouteData(homePath),
+      screenConfig: getScreenConfig(ScreenKeys.home),
+      //* DEMO
+      tableConfig: getTableConfig(DTKeys.usersTable)),
+  // Pipeline Screen
+  pipelinePath: ScreenOne(
+      key: const Key(ScreenKeys.pipelines),
+      screenPath: JetsRouteData(pipelinePath),
+      screenConfig: getScreenConfig(ScreenKeys.pipelines),
+      tableConfig: getTableConfig(DTKeys.pipelineDemo)),
+  //* TEST SCREEN
+  mappingConfigPath: TestScreen(
+      key: const Key('testScreen'),
+      screenPath: JetsRouteData(mappingConfigPath),
+      screenConfig: getScreenConfig("testScreen"),
+      formConfig: getFormConfig("dataTableDemoForm")),
+  // File Registry Screen
   fileRegistryPath: ScreenOne(
-      key: const Key('fileRegistryScreen'),
-      tablePath: JetsRouteData(fileRegistryPath),
-      screenConfig: getScreenConfig('fileRegistryScreen')),
+      key: const Key(ScreenKeys.fileRegistry),
+      screenPath: JetsRouteData(fileRegistryPath),
+      screenConfig: getScreenConfig(ScreenKeys.fileRegistry),
+      tableConfig: getTableConfig(DTKeys.registryDemo)),
+  // File Registry Table Screen
   fileRegistryTablePath: ScreenOne(
-      key: const Key('fileRegistryTableScreen'),
-      tablePath: JetsRouteData(fileRegistryTablePath),
-      screenConfig: getScreenConfig('fileRegistryTableScreen')),
-  loginPath: LoginScreen(screenPath: JetsRouteData(loginPath),),
-  registerPath: RegistrationScreen(screenPath: JetsRouteData(registerPath),),
+      key: const Key(ScreenKeys.fileRegistryTable),
+      screenPath: JetsRouteData(fileRegistryTablePath),
+      screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
+      tableConfig: getTableConfig(DTKeys.inputTable)),
+  // Login Screen
+  loginPath: LoginScreen(
+      key: const Key(ScreenKeys.login),
+      screenPath: JetsRouteData(loginPath),
+      screenConfig: getScreenConfig(ScreenKeys.login),
+      formConfig: getFormConfig(FormKeys.login)),
+  // Register Screen
+  registerPath: RegistrationScreen(
+      key: const Key(ScreenKeys.register),
+      screenPath: JetsRouteData(registerPath),
+      screenConfig: getScreenConfig(ScreenKeys.register),
+      formConfig: getFormConfig(FormKeys.register)),
   jobDetailsPath: const MessageScreen(message: "Detailed Welcome!"),
   pageNotFoundPath: const MessageScreen(message: "Opps 404!")
 };
