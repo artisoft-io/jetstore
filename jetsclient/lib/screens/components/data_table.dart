@@ -10,7 +10,7 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/data_table_source.dart';
 
-class JetsDataTableWidget extends FormField<Set<String>> {
+class JetsDataTableWidget extends FormField<WidgetField> {
   JetsDataTableWidget({
     required super.key,
     required this.screenPath,
@@ -28,7 +28,7 @@ class JetsDataTableWidget extends FormField<Set<String>> {
           initialValue:
               formState?.getValue(formFieldConfig!.group, formFieldConfig.key),
           autovalidateMode: AutovalidateMode.disabled,
-          builder: (FormFieldState<Set<String>> field) {
+          builder: (FormFieldState<WidgetField> field) {
             final state = field as JetsDataTableState;
             final context = field.context;
             final ThemeData themeData = Theme.of(context);
@@ -190,10 +190,10 @@ class JetsDataTableWidget extends FormField<Set<String>> {
   final JetsFormState? formState;
 
   @override
-  FormFieldState<Set<String>> createState() => JetsDataTableState();
+  FormFieldState<WidgetField> createState() => JetsDataTableState();
 }
 
-class JetsDataTableState extends FormFieldState<Set<String>> {
+class JetsDataTableState extends FormFieldState<WidgetField> {
   // State Data
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();

@@ -175,13 +175,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isTableEditablePrecondition: true),
     ],
-    // // FORM STATE CONFIG
-    // formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-    //   DataTableFormStateOtherColumnConfig(
-    //     stateKey: "dataTableDemoClient",
-    //     columnIdx: 1,
-    //   )
-    // ]),
+    // FORM STATE CONFIG
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: "dataTableDemoClient",
+        columnIdx: 1,
+      )
+    ]),
     columns: [
       ColumnConfig(
           index: 0,

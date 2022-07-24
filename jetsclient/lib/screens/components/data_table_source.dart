@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/screens/components/data_table_model.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
-
-// typedef JetsDataModel = List<List<String?>>;
-typedef JetsDataModel = List<dynamic>;
 
 class JetsDataTableSource extends ChangeNotifier {
   JetsDataTableSource({required this.state, required this.httpClient});
@@ -26,36 +25,36 @@ class JetsDataTableSource extends ChangeNotifier {
   ///  This takes in consideration the row key as well as secondary keys
   ///  defined in [DataTableFormStateConfig] of the table's config.
   ///  Note that if the row's key column is null, then the form state is not updated
-  void updateFormState(int index, bool isAdd) {
+  void _updateFormState(int index, bool isAdd) {
     // Get the row key value (rowKeyValue)
     var formStateConfig = state.tableConfig.formStateConfig;
     var formState = state.formState;
     if (formStateConfig == null || model == null || formState == null) {
       return;
     }
-    var row = model![index];
-    var rowKeyValue = row?[formStateConfig.keyColumnIdx];
+    JetsRow row = model![index];
+    var rowKeyValue = row[formStateConfig.keyColumnIdx];
     if (rowKeyValue == null) return;
     var config = state.formFieldConfig!;
-    var selValues =
-        formState.getValue(config.group, config.key) as Set<String>?;
+    // The current WidgetField
+    WidgetField? selValues = formState.getValue(config.group, config.key);
     if (isAdd) {
-      // row is added to the selected rows
+      // Add row to the selected rows
       formState.addSelectedRow(config.group, config.key, index, row);
+
       // add the row (primary) key to form state
       if (selValues != null) {
-        var isChanged = selValues.add(rowKeyValue);
-        if (isChanged) formState.notifyListeners();
+        if (!selValues.contains(rowKeyValue)) {
+          selValues.add(rowKeyValue);
+        }
       } else {
-        formState.setValue(config.group, config.key, <String>{rowKeyValue});
+        formState.setValue(config.group, config.key, <String>[rowKeyValue]);
       }
     } else {
       // row is removed to the selected rows
       formState.removeSelectedRow(config.group, config.key, index);
-      if (selValues != null) {
-        var isChanged = selValues.remove(rowKeyValue);
-        if (isChanged) formState.notifyListeners();
-      }
+      assert(selValues != null, "Expecting to have row in Form State");
+      selValues!.remove(rowKeyValue);
     }
     // Reset the secondary keys in form state.
     // Note that secondary keys MUST be set in form state ONLY by
@@ -64,17 +63,16 @@ class JetsDataTableSource extends ChangeNotifier {
     // but should not update it since they are reset here regardless
     // of the other widgets.
     for (final otherColConfig in formStateConfig.otherColumns) {
-      formState.setValue(config.group, otherColConfig.stateKey, <String>{});
+      formState.setValue(config.group, otherColConfig.stateKey, <String>[]);
     }
-    var itor = formState.selectedRows(config.group, config.key)
-        as Iterable<List<String?>>?;
+    Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
     if (itor != null) {
-      for (final selRow in itor) {
+      for (final JetsRow selRow in itor) {
         for (final otherColConfig in formStateConfig.otherColumns) {
           var value = selRow[otherColConfig.columnIdx];
           if (value != null) {
             formState
-                .getValue(config.group, otherColConfig.stateKey)
+                .getValue(config.group, otherColConfig.stateKey)!
                 .add(value);
           }
         }
@@ -82,7 +80,7 @@ class JetsDataTableSource extends ChangeNotifier {
     }
   }
 
-  //// Update table's selected rows based on form state
+  /// Update table's selected rows based on form state
   void updateTableFromFormState() {
     var formStateConfig = state.tableConfig.formStateConfig;
     var formState = state.formState;
@@ -90,11 +88,10 @@ class JetsDataTableSource extends ChangeNotifier {
       return;
     }
     var config = state.formFieldConfig!;
-    var selValues =
-        formState.getValue(config.group, config.key) as Set<String>?;
+    WidgetField? selValues = formState.getValue(config.group, config.key);
     if (selValues == null) return;
     for (int index = 0; index < model!.length; index++) {
-      var row = model![index] as List<String?>;
+      final JetsRow row = model![index];
       var rowKeyValue = row[formStateConfig.keyColumnIdx];
       if (rowKeyValue != null && selValues.contains(rowKeyValue)) {
         selectedRows[index] = true;
@@ -126,7 +123,7 @@ class JetsDataTableSource extends ChangeNotifier {
           ? (bool? value) {
               if (value == null) return;
               selectedRows[index] = value;
-              updateFormState(index, value);
+              _updateFormState(index, value);
               notifyListeners();
             }
           : null,
@@ -159,17 +156,10 @@ class JetsDataTableSource extends ChangeNotifier {
           whereClauses.add(<String, dynamic>{wc.column: wc.defaultValue});
         }
       } else {
-        var values = state.formState?.getValue(config.group, wc.formStateKey!);
+        WidgetField? values =
+            state.formState?.getValue(config.group, wc.formStateKey!);
         if (values != null) {
-          assert(values is String || values is Set<String>,
-              "Invalid type in form state");
-          if (values is String) {
-            whereClauses.add(<String, dynamic>{
-              wc.column: [values]
-            });
-          } else {
-            whereClauses.add(<String, dynamic>{wc.column: values.toList()});
-          }
+          whereClauses.add(<String, dynamic>{wc.column: values});
         } else {
           if (wc.defaultValue.isNotEmpty) {
             whereClauses.add(<String, dynamic>{wc.column: wc.defaultValue});
@@ -247,7 +237,9 @@ class JetsDataTableSource extends ChangeNotifier {
             .toList();
         state.columnNames = columnDef.map((e) => e['name'] as String).toList();
       }
-      model = data['rows'];
+      final rows = data['rows'] as List;
+      model = rows.map((e) => (e as List).cast<String?>()).toList();
+      // model = rows.cast<JetsRow>().toList();
       _totalRowCount = data['totalRowCount'];
       // Set selectedRows based on form state
       updateTableFromFormState();
@@ -267,8 +259,8 @@ class JetsDataTableSource extends ChangeNotifier {
       // Check data type
       if (state.tableConfig.columns[columnIndex].isNumeric) {
         return sortSign *
-            double.parse(l[columnIndex])
-                .compareTo(double.parse(r[columnIndex]));
+            double.parse(l[columnIndex]!)
+                .compareTo(double.parse(r[columnIndex]!));
       }
       return sortSign *
           l[columnIndex].toString().compareTo(r[columnIndex].toString());

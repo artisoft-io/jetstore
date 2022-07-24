@@ -30,7 +30,7 @@ class FormConfig {
     return unique.length;
   }
 
-  dynamic findFirst(JetsFormState formState, String key) {
+  List<String?>? findFirst(JetsFormState formState, String key) {
     return formState.findFirst(key);
   }
 
@@ -171,7 +171,7 @@ class FormDataTableFieldConfig extends FormFieldConfig {
           formFieldConfig: this,
           tableConfig: getTableConfig(dataTableConfig),
           formState: state,
-          validator: (Set<String>? value) => validator(group, key, value),
+          validator: (WidgetField? value) => validator(group, key, value),
         ),
       ),
     );
@@ -202,11 +202,11 @@ final Map<String, FormConfig> _formConfigurations = {
             key: "dataTableDemoMainTable",
             dataTableConfig: "dataTableDemoMainTableConfig")
       ],
-      // [
-      //   FormDataTableFieldConfig(
-      //       key: "dataTableDemoSupportTable",
-      //       dataTableConfig: "dataTableDemoSupportTableConfig")
-      // ],
+      [
+        FormDataTableFieldConfig(
+            key: "dataTableDemoSupportTable",
+            dataTableConfig: "dataTableDemoSupportTableConfig")
+      ],
     ],
   ),
   FormKeys.login: FormConfig(
