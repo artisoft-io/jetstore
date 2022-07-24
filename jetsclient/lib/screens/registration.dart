@@ -47,6 +47,8 @@ class _RegistrationScreenState extends BaseScreenState {
   }
 
   String? validatorDelegate(int group, String key, dynamic v) {
+    // This form does not use data table, therefore v is String?
+    assert(v is String?, "Registration Form has unexpected data type");
     String? value = v;
     switch (key) {
       case FSK.userName:
@@ -71,9 +73,11 @@ class _RegistrationScreenState extends BaseScreenState {
         }
         return "Password must have at least 4 charaters and contain at least one of: upper and lower case letter, and number.";
       case FSK.userPasswordConfirm:
-        // Expecting String? not Set<String>?
-        String? formValue = formState.getValue(group, FSK.userPassword);
-        if (formValue != null && formValue!.isNotEmpty && formValue == value) {
+        // Expecting [WidgetField]
+        WidgetField? formValue = formState.getValue(group, FSK.userPassword);
+        if (formValue != null &&
+            formValue.length == 1 &&
+            formValue[0] == value) {
           return null;
         }
         return "Passwords does not match.";
@@ -85,7 +89,7 @@ class _RegistrationScreenState extends BaseScreenState {
         return null;
       default:
         throw Exception(
-            'ERROR: Invalid program configuration: No validator configured for form field $key');
+            'ERROR: Invalid Registration Form configuration: No validator configured for form field $key');
     }
   }
 

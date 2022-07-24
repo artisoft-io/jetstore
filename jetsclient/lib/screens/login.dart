@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'package:jetsclient/routes/export_routes.dart';
@@ -69,8 +70,26 @@ class _LoginScreenState extends BaseScreenState {
   void _doLogin() async {
     // Use a JSON encoded string to send
     var client = context.read<HttpClient>();
+    var msg = <String, String>{};
+    // Note: using the same keys for FormState (class FSK)
+    // as the message structure (User class of api server)
+    // May not be ideal and might need to have separate
+    // keys.
+    final fstate = formState.getState(0);
+    for (final key in fstate.keys) {
+      final value = fstate[key];
+      if (value == null) continue;
+      switch (key) {
+        case FSK.userEmail:
+          msg[FSK.userEmail] = value[0];
+          break;
+        case FSK.userPassword:
+          msg[FSK.userPassword] = value[0];
+          break;
+      }
+    }
     var result = await client.sendRequest(
-        path: loginPath, encodedJsonBody: formState.encodeState(0));
+        path: loginPath, encodedJsonBody: json.encode(msg));
 
     if (!mounted) return;
     if (result.statusCode == 200) {

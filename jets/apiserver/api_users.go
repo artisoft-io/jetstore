@@ -61,7 +61,7 @@ func IsDuplicateUserError(err string) bool {
 }
 
 func FormatError(err string) error {
-
+	log.Println("ERROR:",err)
 	if strings.Contains(err, "name") {
 		return errors.New("Name Already Taken")
 	}
