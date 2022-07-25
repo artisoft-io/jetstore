@@ -105,28 +105,33 @@ class JetsDataTableWidget extends FormField<WidgetField> {
               ),
               Container(width: 14.0),
             ];
+            // Header row - label + action buttons
+            final headerRow = <Widget>[
+              if (tableConfig.label.isNotEmpty)
+                Text(
+                  tableConfig.label,
+                  style: Theme.of(context).textTheme.headline5,
+                )
+            ];
+            headerRow.addAll(tableConfig.actions
+                .where((ac) => ac.predicate(state.isTableEditable))
+                .expand((ac) => [
+                      const SizedBox(width: defaultPadding),
+                      ElevatedButton(
+                        style: ac.buttonStyle(themeData),
+                        onPressed: () => ac.isEnabled(state.isTableEditable)
+                            ? state.actionDispatcher(ac)
+                            : null,
+                        child: Text(ac.label),
+                      )
+                    ]));
 
             // build the data table
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // HEADER ROW
-                Row(
-                  children: tableConfig.actions
-                      .where((ac) => ac.predicate(state.isTableEditable))
-                      .expand((ac) => [
-                            const SizedBox(width: defaultPadding),
-                            ElevatedButton(
-                              style: ac.buttonStyle(themeData),
-                              onPressed: () =>
-                                  ac.isEnabled(state.isTableEditable)
-                                      ? state.actionDispatcher(ac)
-                                      : null,
-                              child: Text(ac.label),
-                            )
-                          ])
-                      .toList(),
-                ),
+                if (headerRow.isNotEmpty) Row(children: headerRow),
                 // MAIN TABLE SECTION
                 const SizedBox(height: defaultPadding),
                 Expanded(
@@ -242,6 +247,11 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     // this may be an empty list if table is a domain table
     columnsConfig = tableConfig.columns;
 
+    // register for change notification on the form state
+    if (formState != null && formFieldConfig != null) {
+      formState!.addListener(refreshOnFormStateChange);
+    }
+
     if (_dataTableWidget.screenPath.path == homePath) {
       // Get the first batch of data when navigated to screenPath
       JetsRouterDelegate().addListener(navListener);
@@ -267,6 +277,24 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
   void triggetRefreshListner() {
     setState(() {});
+  }
+
+  void refreshOnFormStateChange() {
+    assert(formState != null);
+    assert(formFieldConfig != null);
+    for (final whereClause in tableConfig.whereClauses) {
+      if (whereClause.formStateKey != null) {
+        if (formState!
+            .isKeyUpdated(formFieldConfig!.group, whereClause.formStateKey!)) {
+          // where clause have changed, refresh the table, make sure to go to
+          // first page of data
+          currentDataPage = 0;
+          rowsPerPage = 10;
+          dataSource.getModelData();
+          return;
+        }
+      }
+    }
   }
 
   @override

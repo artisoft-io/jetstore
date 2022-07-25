@@ -47,7 +47,7 @@ func main() {
 	fmt.Println("Got argument: dropTable",*dropTable)
 	fmt.Println("Got argument: dsn",*dsn)
 	fmt.Println("Got argument: serverAddr",*serverAddr)
-	fmt.Println("Got argument: tokenExpiration",*tokenExpiration)
+	fmt.Println("Got argument: tokenExpiration",*tokenExpiration, "min")
 
 	log.Fatal(listenAndServe())
 }

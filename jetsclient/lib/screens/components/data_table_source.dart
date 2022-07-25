@@ -36,25 +36,32 @@ class JetsDataTableSource extends ChangeNotifier {
     var rowKeyValue = row[formStateConfig.keyColumnIdx];
     if (rowKeyValue == null) return;
     var config = state.formFieldConfig!;
-    // The current WidgetField
-    WidgetField? selValues = formState.getValue(config.group, config.key);
     if (isAdd) {
       // Add row to the selected rows
       formState.addSelectedRow(config.group, config.key, index, row);
-
-      // add the row (primary) key to form state
-      if (selValues != null) {
-        if (!selValues.contains(rowKeyValue)) {
-          selValues.add(rowKeyValue);
-        }
-      } else {
-        formState.setValue(config.group, config.key, <String>[rowKeyValue]);
-      }
     } else {
       // row is removed to the selected rows
       formState.removeSelectedRow(config.group, config.key, index);
-      assert(selValues != null, "Expecting to have row in Form State");
-      selValues!.remove(rowKeyValue);
+    }
+    // update the row (primary) key to form state
+    formState.resetUpdatedKeys(config.group);
+    var selRowsIdx = <String>[];
+    for (var i = 0; i < selectedRows.length; i++) {
+      if (selectedRows[i]) {
+        selRowsIdx.add(model![i][formStateConfig.keyColumnIdx]!);
+      }
+    }
+    if (selRowsIdx.isNotEmpty) {
+      formState.setValue(config.group, config.key, selRowsIdx);
+      state.didChange(selRowsIdx);
+    } else {
+      formState.setValue(config.group, config.key, null);
+      state.didChange(null);
+    }
+
+    if (formStateConfig.otherColumns.isEmpty) {
+      formState.notifyListeners();
+      return;
     }
     // Reset the secondary keys in form state.
     // Note that secondary keys MUST be set in form state ONLY by
@@ -62,22 +69,30 @@ class JetsDataTableSource extends ChangeNotifier {
     // Other widgets associated with the form can read these value
     // but should not update it since they are reset here regardless
     // of the other widgets.
-    for (final otherColConfig in formStateConfig.otherColumns) {
-      formState.setValue(config.group, otherColConfig.stateKey, <String>[]);
-    }
+    List<Set<String>> secondaryValues =
+        List.filled(formStateConfig.otherColumns.length, <String>{});
     Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
     if (itor != null) {
       for (final JetsRow selRow in itor) {
-        for (final otherColConfig in formStateConfig.otherColumns) {
-          var value = selRow[otherColConfig.columnIdx];
+        for (var i = 0; i < formStateConfig.otherColumns.length; i++) {
+          final otherColConfig = formStateConfig.otherColumns[i];
+          final value = selRow[otherColConfig.columnIdx];
           if (value != null) {
-            formState
-                .getValue(config.group, otherColConfig.stateKey)!
-                .add(value);
+            secondaryValues[i].add(value);
           }
         }
       }
     }
+    for (var i = 0; i < secondaryValues.length; i++) {
+      final otherColConfig = formStateConfig.otherColumns[i];
+      if (secondaryValues[i].isEmpty) {
+        formState.setValue(config.group, otherColConfig.stateKey, null);
+      } else {
+        formState.setValue(
+            config.group, otherColConfig.stateKey, secondaryValues[i].toList());
+      }
+    }
+    formState.notifyListeners();
   }
 
   /// Update table's selected rows based on form state
@@ -88,6 +103,7 @@ class JetsDataTableSource extends ChangeNotifier {
       return;
     }
     var config = state.formFieldConfig!;
+    // Expecting WidgetField from form state
     WidgetField? selValues = formState.getValue(config.group, config.key);
     if (selValues == null) return;
     for (int index = 0; index < model!.length; index++) {
@@ -131,9 +147,9 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   dynamic _makeQuery() {
-    var schemaName = state.tableConfig.schemaName;
-    var tableName = state.tableConfig.tableName;
-    var columns = state.tableConfig.columns;
+    final schemaName = state.tableConfig.schemaName;
+    final tableName = state.tableConfig.tableName;
+    final columns = state.tableConfig.columns;
     List<String> columnNames = [];
     if (columns.isNotEmpty) {
       columnNames =
@@ -149,20 +165,39 @@ class JetsDataTableSource extends ChangeNotifier {
     }
     // add where clauses
     List<Map<String, dynamic>> whereClauses = [];
-    var config = state.formFieldConfig;
+    final config = state.formFieldConfig;
     for (final wc in state.tableConfig.whereClauses) {
       if (config == null || wc.formStateKey == null) {
         if (wc.defaultValue.isNotEmpty) {
-          whereClauses.add(<String, dynamic>{wc.column: wc.defaultValue});
+          whereClauses.add(<String, dynamic>{
+            'column': wc.column,
+            'values': wc.defaultValue,
+          });
         }
       } else {
-        WidgetField? values =
-            state.formState?.getValue(config.group, wc.formStateKey!);
+        var values = state.formState?.getValue(config.group, wc.formStateKey!);
         if (values != null) {
-          whereClauses.add(<String, dynamic>{wc.column: values});
+          if (values is String?) {
+            whereClauses.add(<String, dynamic>{
+              'column': wc.column,
+              'values': [values],
+            });
+          } else {
+            assert(values is List<String>?, "Incorrect data type in for state");
+            var l = values as List<String>;
+            if (l.isNotEmpty) {
+              whereClauses.add(<String, dynamic>{
+                'column': wc.column,
+                'values': values,
+              });
+            }
+          }
         } else {
           if (wc.defaultValue.isNotEmpty) {
-            whereClauses.add(<String, dynamic>{wc.column: wc.defaultValue});
+            whereClauses.add(<String, dynamic>{
+              'column': wc.column,
+              'values': wc.defaultValue,
+            });
           }
         }
       }
@@ -221,7 +256,34 @@ class JetsDataTableSource extends ChangeNotifier {
 
   void getModelData() async {
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
-
+    // Check if this data table widget is part of a form and depend on
+    // row selection of another widget, if so let's make sure that
+    // widget has data selected
+    final config = state.formFieldConfig;
+    var hasBlockingFilter = false;
+    if (config != null) {
+      for (final wc in state.tableConfig.whereClauses) {
+        if (wc.defaultValue.isNotEmpty) continue;
+        if (wc.formStateKey != null) {
+          final value =
+              state.formState?.getValue(config.group, wc.formStateKey!);
+          if (value == null) {
+            hasBlockingFilter = true;
+            //*
+            print(
+                "getModelData for table ${state.tableConfig.key} is blocked by ${wc.formStateKey}");
+          }
+        }
+      }
+    }
+    if (hasBlockingFilter) {
+      model = null;
+      _totalRowCount = 0;
+      notifyListeners();
+      return;
+    }
+    //*
+    print("getModelData for table ${state.tableConfig.key} GETTING data");
     var data = await fetchData();
     if (data != null) {
       // Check if we got columnDef back
