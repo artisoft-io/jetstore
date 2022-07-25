@@ -9,7 +9,7 @@ class TableConfig {
       {required this.key,
       required this.schemaName,
       required this.tableName,
-      required this.title,
+      this.label = "",
       required this.apiPath,
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
@@ -23,7 +23,7 @@ class TableConfig {
   final String key;
   final String schemaName;
   final String tableName;
-  final String title;
+  final String label;
   final String apiPath;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
@@ -140,7 +140,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     key: "dataTableDemoMainTableConfig",
     schemaName: 'jetsapi',
     tableName: 'process_input',
-    title: 'Client Input',
+    label: 'Client Input',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -241,12 +241,12 @@ final Map<String, TableConfig> _tableConfigurations = {
     key: "dataTableDemoSupportTableConfig",
     schemaName: 'jetsapi',
     tableName: 'process_mapping',
-    title: 'Input Mapping',
+    label: 'Input Mapping',
     apiPath: '/dataTable',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: false,
     whereClauses: [
-      WhereClause(column: "table_name", formStateKey: "dataTableDemoMainTableConfig")
+      WhereClause(column: "table_name", formStateKey: "dataTableDemoMainTable")
     ],
     actions: [
       ActionConfig(
@@ -281,7 +281,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     // // FORM STATE CONFIG
     // formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
     //   DataTableFormStateOtherColumnConfig(
-    //     stateKey: "dataTableDemoClient",
+    //     stateKey: "dataTableDemoClient", // this key is already taken by the main table
     //     columnIdx: 1,
     //   )
     // ]),
@@ -350,7 +350,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     key: DTKeys.pipelineDemo,
     schemaName: 'jetsapi',
     tableName: 'pipelines',
-    title: 'Data Pipeline',
+    label: 'Data Pipeline',
     apiPath: '/dataTable',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: false,
@@ -433,7 +433,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     key: DTKeys.registryDemo,
     schemaName: 'jetsapi',
     tableName: 'input_registry',
-    title: 'Input File Registry',
+    label: 'Input File Registry',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -527,7 +527,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     key: DTKeys.usersTable,
     schemaName: 'jetsapi',
     tableName: 'users',
-    title: 'User Registry',
+    label: 'User Registry',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
@@ -603,7 +603,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       key: 'inputTable',
       schemaName: 'public',
       tableName: '',
-      title: 'Input Data',
+      label: 'Input Data',
       apiPath: '/dataTable',
       isCheckboxVisible: false,
       isCheckboxSingleSelect: false,

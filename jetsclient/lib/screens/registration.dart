@@ -74,10 +74,8 @@ class _RegistrationScreenState extends BaseScreenState {
         return "Password must have at least 4 charaters and contain at least one of: upper and lower case letter, and number.";
       case FSK.userPasswordConfirm:
         // Expecting [WidgetField]
-        WidgetField? formValue = formState.getValue(group, FSK.userPassword);
-        if (formValue != null &&
-            formValue.length == 1 &&
-            formValue[0] == value) {
+        String? formValue = formState.getValue(group, FSK.userPassword);
+        if (formValue != null && formValue == value) {
           return null;
         }
         return "Passwords does not match.";

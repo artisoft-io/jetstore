@@ -18,14 +18,19 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 type DataTableQuery struct {
-	Action         string      `json:"action"`
-	Schema         string      `json:"schema"`
-	Table          string      `json:"table"`
-	Columns        []string    `json:"columns"`
-	SortColumn     string      `json:"sortColumn"`
-	SortAscending   bool       `json:"sortAscending"`
-	Offset         int         `json:"offset"`
-	Limit          int         `json:"limit"`
+	Action         string        `json:"action"`
+	Schema         string        `json:"schema"`
+	Table          string        `json:"table"`
+	Columns        []string      `json:"columns"`
+	WhereClauses   []WhereClause `json:"whereClauses"`
+	SortColumn     string        `json:"sortColumn"`
+	SortAscending   bool         `json:"sortAscending"`
+	Offset         int           `json:"offset"`
+	Limit          int           `json:"limit"`
+}
+type WhereClause struct {
+	Column           string      `json:"column"`
+	Values           []string    `json:"values"`
 }
 type DataTableColumnDef struct {
 	Index            int         `json:"index"`
@@ -33,6 +38,41 @@ type DataTableColumnDef struct {
 	Label            string      `json:"label"`
 	Tooltips         string      `json:"tooltips"`
 	IsNumeric        bool        `json:"isnumeric"`
+}
+
+func (dtq *DataTableQuery) makeWhereClause() string {
+	if len(dtq.WhereClauses) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	buf.WriteString(" WHERE ")
+	isFirst := true
+	for i := range dtq.WhereClauses {
+		if !isFirst {
+			buf.WriteString(" AND ")
+		}
+		isFirst = false
+		buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Column}.Sanitize())
+		if len(dtq.WhereClauses[i].Values) > 1 {
+			buf.WriteString(" in (")
+			isFirstValue := true
+			for j := range dtq.WhereClauses[i].Values {
+				if !isFirstValue {
+					buf.WriteString(", ")
+				}
+				isFirstValue = false
+				buf.WriteString("'")
+				buf.WriteString(dtq.WhereClauses[i].Values[j])
+				buf.WriteString("'")
+			}
+			buf.WriteString(") ")
+		} else {
+			buf.WriteString(" = '")
+			buf.WriteString(dtq.WhereClauses[i].Values[0])
+			buf.WriteString("'")
+		}
+	}
+	return buf.String()
 }
 
 func isNumeric(dtype string) bool {
@@ -140,6 +180,8 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(sanitizedTableName)
+	whereClause := dataTableQuery.makeWhereClause()
+	buf.WriteString(whereClause)
 	buf.WriteString(" ORDER BY ")
 	buf.WriteString(pgx.Identifier{dataTableQuery.SortColumn}.Sanitize())
 	if !dataTableQuery.SortAscending {
@@ -185,7 +227,7 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 
 	// get the total nbr of row
 	//* TODO add where clause to filter deleted items
-	stmt := "SELECT count(*) FROM "+sanitizedTableName
+	stmt := fmt.Sprintf("SELECT count(*) FROM %s %s",sanitizedTableName, whereClause)
 	var totalRowCount int
 	err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
