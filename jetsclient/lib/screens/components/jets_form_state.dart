@@ -6,8 +6,8 @@ import 'package:jetsclient/screens/components/data_table_model.dart';
 /// The last argument is either String? or List<String?>
 typedef ValidatorDelegate = String? Function(int, String, dynamic);
 
-/// Selected rows mapping, key is [JetsDataModel] model's row index
-typedef SelectedRows = Map<int, JetsRow>;
+/// Selected rows mapping, key is row primary key
+typedef SelectedRows = Map<String, JetsRow>;
 
 /// Data Table Widget field model
 /// Note that [JetsTextFormField] and [JetsDropdownButtonFormField] data element
@@ -54,7 +54,8 @@ class JetsFormState extends ChangeNotifier {
   final InternalFormState _state;
 
   /// Keep track of selected rows for data table form widgets
-  ///  using the same keying as [_state] does.
+  ///  using the same keying as [_state] does (group and widget key).
+  /// The selected rows are in a map keyed by the row's primary key
   final InternalSelectedRow _selectedRows;
 
   /// Keep track of keys that have value that changed
@@ -65,11 +66,15 @@ class JetsFormState extends ChangeNotifier {
     _updatedKeys[group].clear();
   }
 
+  /// [group] is validation group
+  /// [key] is widget key
   void markKeyAsUpdated(int group, String key) {
     assert(group < groupCount, "invalid group");
     _updatedKeys[group].add(key);
   }
 
+  /// [group] is validation group
+  /// [key] is widget key
   bool isKeyUpdated(int group, String key) {
     assert(group < groupCount, "invalid group");
     return _updatedKeys[group].contains(key);
@@ -79,9 +84,9 @@ class JetsFormState extends ChangeNotifier {
     assert(group < groupCount, "invalid group");
     assert((value is String?) || (value is WidgetField?),
         "form state values are expected to be String? or WidgetField? (List<String>?), got ${value.runtimeType}");
-    //*
-    print(
-        "FormState.setValue called for group $group, key $key, with value $value");
+    // //*
+    // print(
+    //     "FormState.setValue called for group $group, key $key, with value $value");
     var didit = false;
     if (value == null) {
       // remove the binding if any
@@ -106,45 +111,62 @@ class JetsFormState extends ChangeNotifier {
   /// validation group [group] and key [key]
   /// [key] is widget key.
   dynamic getValue(int group, String key) {
-    assert(group < groupCount, "invalid groupCount");
+    assert(group < groupCount, "invalid group");
     final value = _state[group][key];
-    //*
-    print(
-        "FormState.getValue called for group $group, key $key, returning $value");
+    // //*
+    // print(
+    //     "FormState.getValue called for group $group, key $key, returning $value");
     return value;
   }
 
   /// Add a selected row from a data table
-  void addSelectedRow(int group, String key, int rowIndex, JetsRow row) {
+  /// [group] is the validation group
+  /// [key] is the widget key
+  /// [rowPK] is row's primary key
+  void addSelectedRow(int group, String key, String rowPK, JetsRow row) {
     assert(group < groupCount, "invalid group argument");
     SelectedRows? selectedRows = _selectedRows[group][key];
     if (selectedRows == null) {
-      _selectedRows[group][key] = <int, JetsRow>{rowIndex: row};
+      _selectedRows[group][key] = <String, JetsRow>{rowPK: row};
     } else {
-      selectedRows[rowIndex] = row;
+      selectedRows[rowPK] = row;
     }
-    //*
-    print(
-        "FormState.addSelectedRow called for group $group, key $key, rowIndex $rowIndex, selected rows are now ${selectedRows?.keys}");
+    // //*
+    // print(
+    //     "FormState.addSelectedRow called for group $group, key $key, rowIndex $rowPK, selected rows are now ${selectedRows?.keys}");
   }
 
   /// Remove a selected row from a data table
-  void removeSelectedRow(int group, String key, int rowIndex) {
-    assert(group < groupCount, "invalid groupCount");
+  /// [group] is the validation group
+  /// [key] is the widget key
+  /// [rowPK] is row's primary key
+  void removeSelectedRow(int group, String key, String rowPK) {
+    assert(group < groupCount, "invalid group");
     SelectedRows? selectedRows = _selectedRows[group][key];
     if (selectedRows == null) return;
-    selectedRows.remove(rowIndex);
-    if(selectedRows.isEmpty) {
+    selectedRows.remove(rowPK);
+    if (selectedRows.isEmpty) {
       _selectedRows[group].remove(key);
     }
-    //*
-    print(
-        "FormState.removeSelectedRow called for group $group, key $key, rowIndex $rowIndex, selected rows are now ${selectedRows.keys}");
+    // //*
+    // print(
+    //     "FormState.removeSelectedRow called for group $group, key $key, rowIndex $rowPK, selected rows are now ${selectedRows.keys}");
+  }
+
+  /// Clear selected row from a data table
+  /// [group] is the validation group
+  /// [key] is the widget key
+  void clearSelectedRow(int group, String key) {
+    assert(group < groupCount, "invalid group");
+    _selectedRows[group].remove(key);
+    // //*
+    // print(
+    //     "FormState.clearSelectedRow called for group $group, key $key");
   }
 
   /// return an [Iterable] over the selected rows
   Iterable<JetsRow>? selectedRows(int group, String key) {
-    assert(group < groupCount, "invalid groupCount");
+    assert(group < groupCount, "invalid group");
     SelectedRows? selectedRows = _selectedRows[group][key];
     if (selectedRows == null) return null;
     return selectedRows.values;

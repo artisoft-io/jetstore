@@ -19,7 +19,8 @@ class JetsDataTableSource extends ChangeNotifier {
   int get rowCount => model != null ? model!.length : 0;
   int get totalRowCount => _totalRowCount;
 
-  //// Update the form state:
+  /// Update the form state:
+  /// This is in response to a gesture of selecting or de-selecting a row.
   ///  if [isAdd] is true, add row identified by index to the form state
   ///  otherwise remove it.
   ///  This takes in consideration the row key as well as secondary keys
@@ -38,22 +39,28 @@ class JetsDataTableSource extends ChangeNotifier {
     var config = state.formFieldConfig!;
     if (isAdd) {
       // Add row to the selected rows
-      formState.addSelectedRow(config.group, config.key, index, row);
+      formState.addSelectedRow(config.group, config.key, rowKeyValue, row);
     } else {
-      // row is removed to the selected rows
-      formState.removeSelectedRow(config.group, config.key, index);
+      // row is removed from the selected rows
+      formState.removeSelectedRow(config.group, config.key, rowKeyValue);
     }
     // update the row (primary) key to form state
+    // use the selected rows to have those selected on other data page
     formState.resetUpdatedKeys(config.group);
-    var selRowsIdx = <String>[];
-    for (var i = 0; i < selectedRows.length; i++) {
-      if (selectedRows[i]) {
-        selRowsIdx.add(model![i][formStateConfig.keyColumnIdx]!);
+    var selRowPKs = <String>[];
+    Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
+    if(itor != null) {
+      for (final JetsRow selRow in itor) {
+        final value = selRow[formStateConfig.keyColumnIdx];
+        if (value != null) {
+          selRowPKs.add(value);
+        }
       }
     }
-    if (selRowsIdx.isNotEmpty) {
-      formState.setValue(config.group, config.key, selRowsIdx);
-      state.didChange(selRowsIdx);
+    // save the selected primary keys
+    if (selRowPKs.isNotEmpty) {
+      formState.setValue(config.group, config.key, selRowPKs);
+      state.didChange(selRowPKs);
     } else {
       formState.setValue(config.group, config.key, null);
       state.didChange(null);
@@ -71,7 +78,7 @@ class JetsDataTableSource extends ChangeNotifier {
     // of the other widgets.
     List<Set<String>> secondaryValues =
         List.filled(formStateConfig.otherColumns.length, <String>{});
-    Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
+    itor = formState.selectedRows(config.group, config.key);
     if (itor != null) {
       for (final JetsRow selRow in itor) {
         for (var i = 0; i < formStateConfig.otherColumns.length; i++) {
@@ -106,6 +113,9 @@ class JetsDataTableSource extends ChangeNotifier {
     // Expecting WidgetField from form state
     WidgetField? selValues = formState.getValue(config.group, config.key);
     if (selValues == null) return;
+    // update selectedRows based on form state,
+    // also drop selected row in form state that are no longer in the model
+    // in case the where clause has changed
     for (int index = 0; index < model!.length; index++) {
       final JetsRow row = model![index];
       var rowKeyValue = row[formStateConfig.keyColumnIdx];
@@ -113,6 +123,20 @@ class JetsDataTableSource extends ChangeNotifier {
         selectedRows[index] = true;
       }
     }
+  }
+
+  void _onSelectChanged(int index, bool value) {
+    if (state.tableConfig.isCheckboxSingleSelect && value) {
+      for (int i = 0; i < model!.length; i++) {
+        if (selectedRows[i]) {
+          selectedRows[i] = false;
+          _updateFormState(i, false);
+        }
+      }
+    }
+    selectedRows[index] = value;
+    _updateFormState(index, value);
+    notifyListeners();
   }
 
   DataRow getRow(int index) {
@@ -138,9 +162,7 @@ class JetsDataTableSource extends ChangeNotifier {
       onSelectChanged: state.isTableEditable
           ? (bool? value) {
               if (value == null) return;
-              selectedRows[index] = value;
-              _updateFormState(index, value);
-              notifyListeners();
+              _onSelectChanged(index, value);
             }
           : null,
     );
@@ -269,9 +291,6 @@ class JetsDataTableSource extends ChangeNotifier {
               state.formState?.getValue(config.group, wc.formStateKey!);
           if (value == null) {
             hasBlockingFilter = true;
-            //*
-            print(
-                "getModelData for table ${state.tableConfig.key} is blocked by ${wc.formStateKey}");
           }
         }
       }
@@ -282,8 +301,6 @@ class JetsDataTableSource extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    //*
-    print("getModelData for table ${state.tableConfig.key} GETTING data");
     var data = await fetchData();
     if (data != null) {
       // Check if we got columnDef back
