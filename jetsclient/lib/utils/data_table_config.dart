@@ -243,7 +243,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     tableName: 'process_mapping',
     label: 'Input Mapping',
     apiPath: '/dataTable',
-    isCheckboxVisible: false,
+    isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
     whereClauses: [
       WhereClause(column: "table_name", formStateKey: "dataTableDemoMainTable")
@@ -278,70 +278,76 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isTableEditablePrecondition: true),
     ],
-    // // FORM STATE CONFIG
-    // formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-    //   DataTableFormStateOtherColumnConfig(
-    //     stateKey: "dataTableDemoClient", // this key is already taken by the main table
-    //     columnIdx: 1,
-    //   )
-    // ]),
+    // FORM STATE CONFIG
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: "dataProperties",
+        columnIdx: 3,
+      )
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
+          name: "key",
+          label: 'Primary Key',
+          tooltips: 'Sequence Primary Key',
+          isNumeric: true),
+      ColumnConfig(
+          index: 1,
           name: "table_name",
           label: 'Table Name',
           tooltips: 'Input Data Table Name',
           isNumeric: false),
       ColumnConfig(
-          index: 1,
+          index: 2,
           name: "input_column",
           label: 'Input Column',
           tooltips: 'Input column',
           isNumeric: false),
       ColumnConfig(
-          index: 2,
+          index: 3,
           name: "data_property",
           label: 'Data Property',
           tooltips: 'Entity data property',
           isNumeric: false),
       ColumnConfig(
-          index: 3,
+          index: 4,
           name: "function_name",
           label: 'Mapping Function',
           tooltips: 'Function applied to input data',
           isNumeric: false),
       ColumnConfig(
-          index: 4,
+          index: 5,
           name: "argument",
           label: 'Argument',
           tooltips: 'Argument for mapping function',
           isNumeric: false),
       ColumnConfig(
-          index: 5,
+          index: 6,
           name: "default_value",
           label: 'Default',
           tooltips: 'Default value if the mapping function does not yield anything',
           isNumeric: false),
       ColumnConfig(
-          index: 6,
+          index: 7,
           name: "error_message",
           label: 'Error Message',
           tooltips: 'Alternate to default value, generate an error if no data is available',
           isNumeric: false),
       ColumnConfig(
-          index: 7,
+          index: 8,
           name: "user_email",
           label: 'User',
           tooltips: 'User who created or last updated the record',
           isNumeric: false),
       ColumnConfig(
-          index: 8,
+          index: 9,
           name: "last_update",
           label: 'Last Update',
           tooltips: 'When the record was created or last update',
           isNumeric: false),
     ],
-    sortColumnIndex: 1,
+    sortColumnIndex: 2,
     sortAscending: true,
     rowsPerPage: 10,
   ),

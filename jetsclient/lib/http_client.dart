@@ -20,16 +20,16 @@ class HttpClient {
   Future<HttpResponse> sendRequest(
       {required String path, String? token, String? encodedJsonBody}) async {
     try {
-      print('Request: $encodedJsonBody');
+      // print('Request: $encodedJsonBody');
       var h = <String, String>{'Content-Type': 'application/json'};
       if (token != null) {
         h['Authorization'] = 'token $token';
       }
       var response = await httpClient.post(serverAdd.replace(path: path),
           headers: h, body: encodedJsonBody);
-      print('Response status: ${response.statusCode} body: ${response.body}');
-      print('Response headers: ${response.headers}');
-      print('---');
+      // print('Response status: ${response.statusCode} body: ${response.body}');
+      // print('Response headers: ${response.headers}');
+      // print('---');
       if (response.statusCode == 401) {
         // redirect to login page
         JetsRouterDelegate()(JetsRouteData(loginPath));

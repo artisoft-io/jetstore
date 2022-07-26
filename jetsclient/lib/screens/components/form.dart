@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 import '../../routes/jets_route_data.dart';
@@ -24,6 +25,7 @@ class JetsForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeData = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       child: Form(
@@ -47,10 +49,22 @@ class JetsForm extends StatelessWidget {
                   child: Center(
                     child: Row(
                         children: List<Widget>.from(
-                      formConfig.actions.map((e) => TextButton(
-                          onPressed: actions[e.key], child: Text(e.label))),
+                      formConfig.actions.map((e) => ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            // Foreground color
+                            foregroundColor: themeData.colorScheme.onPrimary,
+                            backgroundColor: themeData.colorScheme.primary,
+                          ).copyWith(
+                              elevation: ButtonStyleButton.allOrNull(0.0)),
+                          onPressed: actions[e.key],
+                          child: Text(e.label))),
                       growable: false,
-                    )),
+                    )
+                            .expand((element) => [
+                                  const SizedBox(width: defaultPadding),
+                                  element
+                                ])
+                            .toList()),
                   ),
                 );
               },

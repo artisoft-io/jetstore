@@ -130,61 +130,83 @@ class JetsDataTableWidget extends FormField<WidgetField> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // HEADER ROW
-                if (headerRow.isNotEmpty) Row(children: headerRow),
-                // MAIN TABLE SECTION
-                const SizedBox(height: defaultPadding),
                 Expanded(
-                    child: Scrollbar(
-                  thumbVisibility: true,
-                  trackVisibility: true,
-                  controller: state._verticalController,
-                  child: Scrollbar(
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    controller: state._horizontalController,
-                    notificationPredicate: (e) => e.depth == 1,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      controller: state._verticalController,
-                      child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          controller: state._horizontalController,
-                          padding: const EdgeInsets.all(defaultPadding),
-                          child: DataTable(
-                            columns: dataColumns.isNotEmpty
-                                ? dataColumns
-                                : [const DataColumn(label: Text(' '))],
-                            rows: List<DataRow>.generate(
-                              state.dataSource.rowCount,
-                              (int index) => state.dataSource.getRow(index),
+                  child: Container(
+                    padding: state.errorText != null
+                        ? const EdgeInsets.all(4)
+                        : null,
+                    decoration: state.errorText != null
+                        ? BoxDecoration(
+                            border: Border.all(color: Colors.red, width: 2.0),
+                            borderRadius: BorderRadius.circular(12))
+                        : null,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // HEADER ROW
+                        if (headerRow.isNotEmpty) Row(children: headerRow),
+                        // MAIN TABLE SECTION
+                        const SizedBox(height: defaultPadding),
+                        Expanded(
+                            child: Scrollbar(
+                          thumbVisibility: true,
+                          trackVisibility: true,
+                          controller: state._verticalController,
+                          child: Scrollbar(
+                            thumbVisibility: true,
+                            trackVisibility: true,
+                            controller: state._horizontalController,
+                            notificationPredicate: (e) => e.depth == 1,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.vertical,
+                              controller: state._verticalController,
+                              child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  controller: state._horizontalController,
+                                  padding: const EdgeInsets.all(defaultPadding),
+                                  child: DataTable(
+                                    columns: dataColumns.isNotEmpty
+                                        ? dataColumns
+                                        : [const DataColumn(label: Text(' '))],
+                                    rows: List<DataRow>.generate(
+                                      state.dataSource.rowCount,
+                                      (int index) =>
+                                          state.dataSource.getRow(index),
+                                    ),
+                                    sortColumnIndex: state.sortColumnIndex,
+                                    sortAscending: state.sortAscending,
+                                  )),
                             ),
-                            sortColumnIndex: state.sortColumnIndex,
-                            sortAscending: state.sortAscending,
-                          )),
-                    ),
-                  ),
-                )),
-                // FOOTER ROW
-                const SizedBox(height: defaultPadding),
-                DefaultTextStyle(
-                  style: footerTextStyle!,
-                  child: IconTheme.merge(
-                    data: const IconThemeData(
-                      opacity: 0.54,
-                    ),
-                    child: SizedBox(
-                      height: 56.0,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        reverse: true,
-                        child: Row(
-                          children: footerWidgets,
+                          ),
+                        )),
+                        // FOOTER ROW
+                        const SizedBox(height: defaultPadding),
+                        DefaultTextStyle(
+                          style: footerTextStyle!,
+                          child: IconTheme.merge(
+                            data: const IconThemeData(
+                              opacity: 0.54,
+                            ),
+                            child: SizedBox(
+                              height: 56.0,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                reverse: true,
+                                child: Row(
+                                  children: footerWidgets,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
+                if (state.errorText != null)
+                  Text(state.errorText!,
+                      style: themeData.textTheme.bodyMedium
+                          ?.copyWith(color: Colors.red)),
               ],
             );
           },
@@ -287,9 +309,18 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         if (formState!
             .isKeyUpdated(formFieldConfig!.group, whereClause.formStateKey!)) {
           // where clause have changed, refresh the table, make sure to go to
-          // first page of data
+          // first page of data and clear the selected rows & secondary fields
+          // in the form state
           currentDataPage = 0;
           rowsPerPage = 10;
+          final config = formFieldConfig!;
+          formState!.clearSelectedRow(config.group, config.key);
+          formState!.setValue(config.group, config.key, null);
+          if (tableConfig.formStateConfig != null) {
+            for (final field in tableConfig.formStateConfig!.otherColumns) {
+              formState!.setValue(config.group, field.stateKey, null);
+            }
+          }
           dataSource.getModelData();
           return;
         }

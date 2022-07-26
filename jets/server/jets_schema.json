@@ -171,6 +171,10 @@
     "tableName":  "process_mapping",
     "columns": [
       {
+        "columnName": "key",
+        "dataType":   "int",
+        "isPK":       true
+      }, {
         "columnName": "table_name",
         "dataType":   "text",
         "isNotNull":  true
@@ -212,7 +216,7 @@
       }
     ],
     "tableConstraints": [
-      "PRIMARY KEY (table_name, input_column, data_property)"
+      "UNIQUE (table_name, input_column, data_property)"
    ]
   },
   {
