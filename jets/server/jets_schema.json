@@ -1,6 +1,39 @@
 [
   {
     "schemaName": "jetsapi",
+    "tableName":  "users",
+    "columns": [
+      {
+        "columnName": "email",
+        "dataType":   "text",
+        "isPK":       true
+      }, {
+        "columnName": "name",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "password",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "is_active",
+        "dataType":   "int",
+        "default":    "1",
+        "isNotNull":  true
+      }, {
+        "columnName": "last_update",
+        "dataType":   "datetime",
+        "default":    "now()",
+        "isNotNull":  true
+      }
+    ],
+    "indexes": [
+    ],
+    "tableConstraints": [
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName":  "source_config",
     "columns": [
       {

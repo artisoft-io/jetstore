@@ -13,17 +13,17 @@ import (
 	jwt "github.com/golang-jwt/jwt/v4"
 )
 
-func CreateToken(user_id uint32) (string, error) {
+func CreateToken(email string) (string, error) {
 	claims := jwt.MapClaims{}
 	claims["authorized"] = true
-	claims["user_id"] = user_id
+	claims["email"] = email
 	// claims["exp"] = time.Now().Add(time.Hour * 1).Unix() //Token expires after 1 hour
 	claims["exp"] = time.Now().Add(time.Minute * time.Duration(*tokenExpiration)).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("API_SECRET")))
 }
 
-func TokenValid(r *http.Request) (uint32, error) {
+func TokenValid(r *http.Request) (string, error) {
 	tokenString := ExtractToken(r)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -32,16 +32,16 @@ func TokenValid(r *http.Request) (uint32, error) {
 		return []byte(os.Getenv("API_SECRET")), nil
 	})
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	// Token should be valid at this point, otherwise Parse would
 	// have returned an error. To be safe though we still validate...
 	if !token.Valid {
-		return 0, errors.New("Invalid Token")
+		return "", errors.New("Invalid Token")
 	}
 	claims := token.Claims.(jwt.MapClaims)
 
-	return uint32(claims["user_id"].(float64)), nil
+	return claims["email"].(string), nil
 }
 
 func TokenClaims(token *jwt.Token) (jwt.MapClaims, error) {
@@ -69,7 +69,7 @@ func ExtractToken(r *http.Request) string {
 	return ""
 }
 
-func ExtractTokenID(r *http.Request) (uint32, error) {
+func ExtractTokenID(r *http.Request) (string, error) {
 
 	tokenString := ExtractToken(r)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -79,14 +79,14 @@ func ExtractTokenID(r *http.Request) (uint32, error) {
 		return []byte(os.Getenv("API_SECRET")), nil
 	})
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
-		uid := claims["user_id"].(float64)
-		return uint32(uid), nil
+		email := claims["email"].(string)
+		return email, nil
 	}
-	return 0, nil
+	return "", nil
 }
 
 //Pretty display the claims licely in the terminal

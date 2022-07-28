@@ -50,6 +50,30 @@ class _TestScreenState extends BaseScreenState {
     //     "Form: dataTableDemoForm, validating group: $group, key $key for value $v ");
     assert((v is String?) || (v is List<String>?));
     switch (key) {
+      case "source_loc":
+        String? value = v;
+        if (value != null && value.characters.length > 1) {
+          return null;
+        }
+        return "Source location must be provided.";
+      case "client":
+        String? value = v;
+        if (value != null && value.characters.length > 1) {
+          return null;
+        }
+        return "Please select a client.";
+      case "table_name":
+        String? value = v;
+        if (value != null && value.characters.length > 1) {
+          return null;
+        }
+        return "Table name must be provided.";
+      case "grouping_column":
+        String? value = v;
+        if (value != null && value.characters.length > 1) {
+          return null;
+        }
+        return "Grouping column must be provided.";
       case "dataTableDemoMainTable":
         var value = v as List<String>?;
         if (value == null || value.isEmpty) {
@@ -59,8 +83,8 @@ class _TestScreenState extends BaseScreenState {
       case "dataTableDemoSupportTable":
         return null;
       default:
-        throw Exception(
-            'ERROR: Invalid program configuration: No validator configured for form field $key');
+        showAlertDialog(context, 'Form validation is missing for field $key');
+        return null;
     }
   }
 

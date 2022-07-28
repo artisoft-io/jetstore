@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -98,10 +99,13 @@ func listenAndServe() error {
 	}
 	defer server.dbpool.Close()	
 
-	// prepare users table
-	err = updateUserSchema(server.dbpool, *dropTable)
+	// Check that the users table exists
+	usersTableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "users")
 	if err != nil {
-		return fmt.Errorf("while updating users table: %v", err)
+		return fmt.Errorf("while verifying that the users table exists: %v", err)
+	}
+	if !usersTableExists {
+		return fmt.Errorf("error: user table does not exist, please update database schema")
 	}
 
 	// setup the http routes

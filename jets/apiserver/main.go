@@ -8,7 +8,6 @@ import (
 )
 
 var apiSecret          = flag.String("API_SECRET", "", "Secret used for signing jwt tokens (required)")
-var dropTable          = flag.Bool  ("d", false, "drop users table if it exists, default is false")
 var dsn                = flag.String("dsn", "", "primary database connection string (required)")
 var serverAddr         = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
 var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
@@ -44,7 +43,6 @@ func main() {
 	fmt.Println("apiserver argument:")
 	fmt.Println("-------------------")
 	fmt.Println("Got argument: apiSecret",*apiSecret)
-	fmt.Println("Got argument: dropTable",*dropTable)
 	fmt.Println("Got argument: dsn",*dsn)
 	fmt.Println("Got argument: serverAddr",*serverAddr)
 	fmt.Println("Got argument: tokenExpiration",*tokenExpiration, "min")

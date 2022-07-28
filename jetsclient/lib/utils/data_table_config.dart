@@ -144,7 +144,9 @@ final Map<String, TableConfig> _tableConfigurations = {
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
-    whereClauses: [],
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: "client")
+    ],
     actions: [
       ActionConfig(
           key: 'new',
@@ -570,32 +572,22 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     //* DEMO CODE
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.userEmail,
-        columnIdx: 2,
-      )
     ]),
     columns: [
       ColumnConfig(
           index: 0,
-          name: "user_id",
-          label: 'UserID',
-          tooltips: 'User ID',
-          isNumeric: true),
-      ColumnConfig(
-          index: 1,
           name: "name",
           label: 'Name',
           tooltips: 'User Name',
           isNumeric: false),
       ColumnConfig(
-          index: 2,
+          index: 1,
           name: "email",
           label: 'Email',
           tooltips: 'User Email',
           isNumeric: false),
       ColumnConfig(
-          index: 3,
+          index: 2,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Last Updated',
