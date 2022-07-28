@@ -11,6 +11,14 @@ CREATE SCHEMA IF NOT EXISTS jetsapi;
 --   UNIQUE (email)
 -- );
 
+-- Test Data
+INSERT INTO jetsapi.client_registry (client) VALUES
+  ('ACME'),
+  ('Zeme'),
+  ('Latour')
+;
+
+-- TEST Table
 DROP TABLE IF EXISTS jetsapi.pipelines;
 CREATE TABLE IF NOT EXISTS jetsapi.pipelines (
   key SERIAL PRIMARY KEY, 

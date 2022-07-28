@@ -80,6 +80,8 @@ class JetsFormState extends ChangeNotifier {
     return _updatedKeys[group].contains(key);
   }
 
+  /// Set a form state [value] for widget [key]
+  /// for validation [group]
   void setValue(int group, String key, dynamic value) {
     assert(group < groupCount, "invalid group");
     assert((value is String?) || (value is WidgetField?),
@@ -99,6 +101,15 @@ class JetsFormState extends ChangeNotifier {
       }
     }
     if (didit) markKeyAsUpdated(group, key);
+  }
+
+  /// Set a form state [value] for widget [key]
+  /// for validation [group] and notify listeners
+  /// of the change
+  void setValueAndNotify(int group, String key, dynamic value) {
+    resetUpdatedKeys(group);
+    setValue(group, key, value);
+    notifyListeners();
   }
 
   /// return the model value (aka state) for validation [group]

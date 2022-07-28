@@ -28,47 +28,49 @@ class JetsForm extends StatelessWidget {
     final themeData = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
-      child: Form(
-          key: formKey,
-          child: ListView.builder(
-              itemBuilder: (BuildContext context, int index) {
-                if (index < formConfig.inputFields.length) {
-                  var fc = formConfig.inputFields[index];
-                  return Row(
-                    children: fc
-                        .map((e) => e.makeFormField(
-                            screenPath: formPath,
-                            state: formState,
-                            validator: validatorDelegate))
-                        .toList(),
+      child: FocusTraversalGroup(
+        child: Form(
+            key: formKey,
+            child: ListView.builder(
+                itemBuilder: (BuildContext context, int index) {
+                  if (index < formConfig.inputFields.length) {
+                    var fc = formConfig.inputFields[index];
+                    return Row(
+                      children: fc
+                          .map((e) => e.makeFormField(
+                              screenPath: formPath,
+                              state: formState,
+                              validator: validatorDelegate))
+                          .toList(),
+                    );
+                  }
+                  // case last: row of buttons
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 0, 0),
+                    child: Center(
+                      child: Row(
+                          children: List<Widget>.from(
+                        formConfig.actions.map((e) => ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              // Foreground color
+                              foregroundColor: themeData.colorScheme.onPrimary,
+                              backgroundColor: themeData.colorScheme.primary,
+                            ).copyWith(
+                                elevation: ButtonStyleButton.allOrNull(0.0)),
+                            onPressed: actions[e.key],
+                            child: Text(e.label))),
+                        growable: false,
+                      )
+                              .expand((element) => [
+                                    const SizedBox(width: defaultPadding),
+                                    element
+                                  ])
+                              .toList()),
+                    ),
                   );
-                }
-                // case last: row of buttons
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 0, 0),
-                  child: Center(
-                    child: Row(
-                        children: List<Widget>.from(
-                      formConfig.actions.map((e) => ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            // Foreground color
-                            foregroundColor: themeData.colorScheme.onPrimary,
-                            backgroundColor: themeData.colorScheme.primary,
-                          ).copyWith(
-                              elevation: ButtonStyleButton.allOrNull(0.0)),
-                          onPressed: actions[e.key],
-                          child: Text(e.label))),
-                      growable: false,
-                    )
-                            .expand((element) => [
-                                  const SizedBox(width: defaultPadding),
-                                  element
-                                ])
-                            .toList()),
-                  ),
-                );
-              },
-              itemCount: formConfig.inputFields.length + 1)),
+                },
+                itemCount: formConfig.inputFields.length + 1)),
+      ),
     );
   }
 }

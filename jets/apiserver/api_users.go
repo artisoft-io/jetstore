@@ -3,11 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -48,7 +46,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
-	user.Token, err = CreateToken(user.ID)
+	user.Token, err = CreateToken(user.Email)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
@@ -109,7 +107,7 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user.Password = ""
-	user.Token, err = CreateToken(user.ID)
+	user.Token, err = CreateToken(user.Email)
 	if err != nil {
 		formattedError := FormatError(err.Error())
 		ERROR(w, http.StatusUnprocessableEntity, formattedError)
@@ -135,13 +133,8 @@ func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {
 func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
-	uid, err := strconv.ParseUint(vars["id"], 10, 32)
-	if err != nil {
-		ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	user := User{ID: uint32(uid)}
-	err = user.GetUserByID(server.dbpool)
+	user := User{Email: vars["id"]}
+	err := user.GetUserByEmail(server.dbpool)
 	if err != nil {
 		log.Println("error while get user by ID:",err)
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
@@ -156,14 +149,14 @@ func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 
 	tokenID, err := ExtractTokenID(r)
 	if err != nil {
-		log.Println("error while extracting user ID from jwt token:",err)
+		log.Println("error while extracting user email from jwt token:",err)
 		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 		return
 	}
-	user := User{ID: tokenID}
-	err = user.GetUserByID(server.dbpool)
+	user := User{Email: tokenID}
+	err = user.GetUserByEmail(server.dbpool)
 	if err != nil {
-		log.Println("error while get user by ID:",err)
+		log.Println("error while get user by email:",err)
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
 		return
 	}
@@ -175,11 +168,6 @@ func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
-	uid, err := strconv.ParseUint(vars["id"], 10, 32)
-	if err != nil {
-		ERROR(w, http.StatusBadRequest, err)
-		return
-	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
@@ -196,7 +184,7 @@ func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 		return
 	}
-	if tokenID != uint32(uid) {
+	if tokenID != vars["id"] {
 		ERROR(w, http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized)))
 		return
 	}
@@ -223,19 +211,12 @@ func (server *Server) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
-	// user := User{}
-
-	uid, err := strconv.ParseUint(vars["id"], 10, 32)
-	if err != nil {
-		ERROR(w, http.StatusBadRequest, err)
-		return
-	}
 	tokenID, err := ExtractTokenID(r)
 	if err != nil {
 		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 		return
 	}
-	if tokenID != 0 && tokenID != uint32(uid) {
+	if tokenID != "" && tokenID != vars["id"] {
 		ERROR(w, http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized)))
 		return
 	}
@@ -245,6 +226,6 @@ func (server *Server) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	// 	ERROR(w, http.StatusInternalServerError, err)
 	// 	return
 	// }
-	w.Header().Set("Entity", fmt.Sprintf("%d", uid))
+	w.Header().Set("Entity", vars["id"])
 	JSON(w, http.StatusNoContent, "")
 }

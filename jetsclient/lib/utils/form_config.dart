@@ -101,7 +101,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     return JetsTextFormField(
       key: Key(key),
       formFieldConfig: this,
-      onChanged: (p0) => state.setValue(group, key, p0),
+      onChanged: (p0) => state.setValueAndNotify(group, key, p0),
       validator: (String? value) => validator(group, key, value),
       flex: flex,
     );
@@ -116,16 +116,23 @@ class DropdownItemConfig {
   final String label;
   final String? value;
 }
-
+/// Dropdown Widget, [items] must be provided, with
+/// perhaps a blank item to invite the user to make a selection.
+/// If the [dropdownItemsQuery] is not null, it will be used
+/// to query the server to obtain items that are appended to [items]
 class FormDropdownFieldConfig extends FormFieldConfig {
-  FormDropdownFieldConfig(
-      {required super.key,
-      super.group = 0,
-      super.flex = 1,
-      this.defaultItemPos = 0,
-      required this.items});
+  FormDropdownFieldConfig({
+    required super.key,
+    super.group = 0,
+    super.flex = 1,
+    this.defaultItemPos = 0,
+    this.dropdownItemsQuery,
+    required this.items,
+  });
+  final String? dropdownItemsQuery;
   final int defaultItemPos;
   final List<DropdownItemConfig> items;
+  bool dropdownItemLoaded = false;
 
   @override
   Widget makeFormField({
@@ -135,8 +142,9 @@ class FormDropdownFieldConfig extends FormFieldConfig {
   }) {
     return JetsDropdownButtonFormField(
       key: Key(key),
+      screenPath: screenPath,
       formFieldConfig: this,
-      onChanged: (p0) => state.setValue(group, key, p0),
+      onChanged: (p0) => state.setValueAndNotify(group, key, p0),
       validator: (String? value) => validator(group, key, value),
       flex: flex,
     );
@@ -197,6 +205,41 @@ final Map<String, FormConfig> _formConfigurations = {
           buttonStyle: ButtonStyle.primary),
     ],
     inputFields: [
+      [
+        FormInputFieldConfig(
+            key: "source_loc",
+            label: "S3 Folder",
+            hint: "Folder where the files are dropped",
+            flex: 2,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80), // ],
+        FormDropdownFieldConfig(key: 'client', items: [
+          DropdownItemConfig(label: ''),
+        ],
+        dropdownItemsQuery: "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+      ],
+      [
+        FormInputFieldConfig(
+            key: "table_name",
+            label: "Client Table Name",
+            hint: "Table where client file is loaded into",
+            flex: 2,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 60), // ],
+        FormInputFieldConfig(
+            key: "grouping_column",
+            label: "Grouping Column",
+            hint: "Column containing Member Key",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 60), // ],
+      ],
       [
         FormDataTableFieldConfig(
             key: "dataTableDemoMainTable",

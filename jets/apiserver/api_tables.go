@@ -13,12 +13,14 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
-
 	// lru "github.com/hashicorp/golang-lru"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 type DataTableQuery struct {
 	Action         string        `json:"action"`
+	RawQuery       string        `json:"query"`
+	NbrColumns     int           `json:"nbrColumns"`	// used for rawQuery
 	Schema         string        `json:"schema"`
 	Table          string        `json:"table"`
 	Columns        []string      `json:"columns"`
@@ -96,12 +98,67 @@ func isNumeric(dtype string) bool {
 // 	return dataTableQuery.Schema+"_"+dataTableQuery.Table
 // }
 
+// ExecRawQuery ------------------------------------------------------
+// These are queries to load reference data for widget, e.g. dropdown list of items
+func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataTableQuery *DataTableQuery) {
+	resultRows, err := execQuery(server.dbpool, dataTableQuery, &dataTableQuery.RawQuery, dataTableQuery.NbrColumns)
+	if err != nil {
+		ERROR(w, http.StatusInternalServerError, errors.New("error while executing raw query"))
+		return
+	}
+
+	results := make(map[string]interface{}, 3)
+	token, ok := r.Header["Token"]
+	if ok {
+		results["token"] = token[0]
+	}
+	results["rows"] = resultRows
+	JSON(w, http.StatusOK, results)
+}
+
+// utility method
+func execQuery(dbpool *pgxpool.Pool, dataTableQuery *DataTableQuery, query *string, nCol int) (*[][]interface{}, error) {
+	//*
+	log.Println("Query:", *query)
+	resultRows := make([][]interface{}, 0, dataTableQuery.Limit)
+	rows, err := dbpool.Query(context.Background(), *query)
+	if err != nil {
+		log.Printf("While executing dataTable query: %v", err)
+		return &resultRows, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		dataRow := make([]interface{}, nCol)
+		for i:=0; i<nCol; i++ {
+			dataRow[i] = &sql.NullString{}
+		}
+		// scan the row
+		if err = rows.Scan(dataRow...); err != nil {
+			log.Printf("While scanning the row: %v", err)
+			return &resultRows, err
+		}
+		flatRow := make([]interface{}, nCol)
+		for i:=0; i<nCol; i++ {
+			ns := dataRow[i].(*sql.NullString)
+			if ns.Valid {
+				flatRow[i] = ns.String
+			} else {
+				flatRow[i] = nil
+			}
+		}
+		resultRows = append(resultRows, flatRow)
+	}
+	return &resultRows, nil
+}
+
 // ReadDataTable ------------------------------------------------------
 func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
+		return
 	}
 	dataTableQuery := DataTableQuery{Limit: 200}
 	err = json.Unmarshal(body, &dataTableQuery)
@@ -109,6 +166,12 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	// Intercept special case
+	if dataTableQuery.Action == "raw_query" {
+		server.ExecRawQuery(w, r, &dataTableQuery)
+		return
+	}
+
 	// to package up the result
 	results := make(map[string]interface{}, 5)
 
@@ -120,6 +183,7 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableQuery.Schema, dataTableQuery.Table, err)
 			ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
+			return
 		}
 		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
 		colIndex := 0
@@ -193,36 +257,11 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 	buf.WriteString(fmt.Sprintf("%d", dataTableQuery.Limit))
 
 	// Perform the query
-	//*
-	log.Println("Query:",buf.String())
-	resultRows := make([][]interface{}, 0, dataTableQuery.Limit)
-	rows, err := server.dbpool.Query(context.Background(), buf.String())
+	query := buf.String()
+	resultRows, err := execQuery(server.dbpool, &dataTableQuery, &query, len(dataTableQuery.Columns))
 	if err != nil {
-		log.Printf("While executing dataTable query: %v", err)
 		ERROR(w, http.StatusInternalServerError, errors.New("error while executing query"))
-	}
-	defer rows.Close()
-	nCol := len(dataTableQuery.Columns)
-	for rows.Next() {
-		dataRow := make([]interface{}, nCol)
-		for i:=0; i<nCol; i++ {
-			dataRow[i] = &sql.NullString{}
-		}
-		// scan the row
-		if err = rows.Scan(dataRow...); err != nil {
-			log.Printf("While scanning the row: %v", err)
-			ERROR(w, http.StatusInternalServerError, errors.New("error while scanning the db row"))	
-		}
-		flatRow := make([]interface{}, nCol)
-		for i:=0; i<nCol; i++ {
-			ns := dataRow[i].(*sql.NullString)
-			if ns.Valid {
-				flatRow[i] = ns.String
-			} else {
-				flatRow[i] = nil
-			}
-		}
-		resultRows = append(resultRows, flatRow)
+		return
 	}
 
 	// get the total nbr of row
@@ -233,6 +272,7 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("While getting table's total row count: %v", err)
 		ERROR(w, http.StatusInternalServerError, errors.New("error while getting table's total row count"))	
+		return
 	}
 
 	token, ok := r.Header["Token"]
