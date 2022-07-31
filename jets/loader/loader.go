@@ -44,7 +44,7 @@ var dropTable = flag.Bool("d", false, "drop table if it exists, default is false
 var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
 var tblName = flag.String("table", "", "table name to load the data into (required)")
 var client = flag.String("client", "", "Client associated with the source location (required)")
-var sourceLoc = flag.String("sourceLoc", "", "Source location of the file (required)")
+var objectType = flag.String("objectType", "", "Source location of the file (required)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
 var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
@@ -64,8 +64,8 @@ func compute_shard_id(key string) int {
 	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
 	return res
 }
-func tableExists(dbpool *pgxpool.Pool) (exists bool, err error) {
-	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = 'public' and tablename = $1)", *tblName).Scan(&exists)
+func tableExists(dbpool *pgxpool.Pool, schema, table string) (exists bool, err error) {
+	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = $1 and tablename = $2)", schema, table).Scan(&exists)
 	if err != nil {
 		err = fmt.Errorf("QueryRow failed: %v", err)
 	}
@@ -88,13 +88,13 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	buf.WriteString("(")
 	for _, header := range headers {
 		switch header {
-		case "session_id", "shard_id", "file_name":
+		case "session_id", "shard_id", "file_key":
 		default:
 			buf.WriteString(pgx.Identifier{header}.Sanitize())
 			buf.WriteString(" TEXT, ")
 		}
 	}
-	buf.WriteString(" file_name TEXT,")
+	buf.WriteString(" file_key TEXT,")
 	buf.WriteString(" \"jets:key\" TEXT DEFAULT gen_random_uuid ()::text NOT NULL,")
 	buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL,")
 	buf.WriteString(" shard_id integer DEFAULT 0 NOT NULL, ")
@@ -118,19 +118,24 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 			return fmt.Errorf("error while creating primary index: %v", err)
 		}
 	}
-	// the registry table
-	//* TODO provide a schema update function
-	stmt = `CREATE TABLE IF NOT EXISTS jetsapi.input_registry (file_name TEXT NOT NULL, table_name TEXT NOT NULL, session_id TEXT NOT NULL, load_count INTEGER, bad_row_count INTEGER, node_id INTEGER DEFAULT 0 NOT NULL, last_update timestamp without time zone DEFAULT now() NOT NULL, UNIQUE (file_name, table_name, session_id));`
-	_, err = dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return fmt.Errorf("error while creating jetsapi.input_registry table: %v", err)
-	}
 	return nil
 }
 
 func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, nodeId int) error {
-	stmt := `INSERT INTO jetsapi.input_registry (source_loc, table_name, client, file_name, session_id, load_count, bad_row_count, node_id, user_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	_, err := dbpool.Exec(context.Background(), stmt, *sourceLoc, *tblName, *client, *inFile, *sessionId, copyCount, badRowCount, nodeId, *userEmail)
+	stmt := `INSERT INTO jetsapi.input_loader_status (
+		object_type, table_name, client, file_key, session_id, 
+		load_count, bad_row_count, node_id, user_email) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err := dbpool.Exec(context.Background(), stmt, 
+		*objectType, *tblName, *client, *inFile, *sessionId, copyCount, badRowCount, nodeId, *userEmail)
+	if err != nil {
+		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
+	}
+	stmt = `INSERT INTO jetsapi.input_registry (
+		client, object_type, file_key, table_name, source_type, session_id, user_email) 
+		VALUES ($1, $2, $3, $4, 'file', $5, $6)`
+	_, err = dbpool.Exec(context.Background(), stmt, 
+		*client, *objectType, *inFile, *tblName, *sessionId, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 	}
@@ -181,7 +186,7 @@ func processFile() error {
 			groupingColumnPos = ipos
 		}
 		switch rawHeaders[ipos] {
-		case "file_name", "jets:key", "last_update", "session_id", "shard_id":
+		case "file_key", "jets:key", "last_update", "session_id", "shard_id":
 			log.Printf("Input file contains column named '%s', this is a reserve name. Droping the column", rawHeaders[ipos])
 		default:
 			headers = append(headers, rawHeaders[ipos])
@@ -194,7 +199,7 @@ func processFile() error {
 	}
 	// Adding reserve columns
 	fileNamePos := len(headers)
-	headers = append(headers, "file_name")
+	headers = append(headers, "file_key")
 	sessionIdPos := len(headers)
 	headers = append(headers, "session_id")
 	shardIdPos := len(headers)
@@ -221,8 +226,17 @@ func processFile() error {
 		}
 		defer dbpool[i].Close()
 
+		// Make sure the jetstore schema exists
+		tblExists, err := tableExists(dbpool[i], "jetsapi", "input_loader_status")
+		if err != nil {
+			return fmt.Errorf("while verifying the jetstore schema: %v", err)
+		}
+		if !tblExists {
+			return fmt.Errorf("error: JetStore schema does not exst in database, please run 'update_db -migrateDb'")
+		}
+
 		// validate table name
-		tblExists, err := tableExists(dbpool[i])
+		tblExists, err = tableExists(dbpool[i], "public", *tblName)
 		if err != nil {
 			return fmt.Errorf("while validating table name: %v", err)
 		}
@@ -259,7 +273,7 @@ func processFile() error {
 			for i, ipos := range headerPos {
 				copyRec[i] = record[ipos]
 			}
-			// Set the file_name, session_id, and shard_id
+			// Set the file_key, session_id, and shard_id
 			var nodeId int
 			copyRec[fileNamePos] = *inFile
 			copyRec[sessionIdPos] = *sessionId
@@ -370,9 +384,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "User email must be provided (-userEmail).")
 	}
-	if *sourceLoc == "" {
+	if *objectType == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Source location must be provided (-sourceLoc).")
+		errMsg = append(errMsg, "Source location must be provided (-objectType).")
 	}
 	if *tblName == "" {
 		hasErr = true
@@ -406,7 +420,7 @@ func main() {
 	fmt.Println("Got argument: dropTable", *dropTable)
 	fmt.Println("Got argument: dsnList", *dsnList)
 	fmt.Println("Got argument: client", *client)
-	fmt.Println("Got argument: sourceLoc", *sourceLoc)
+	fmt.Println("Got argument: objectType", *objectType)
 	fmt.Println("Got argument: userEmail", *userEmail)
 	fmt.Println("Got argument: tblName", *tblName)
 	fmt.Println("Got argument: groupingColumn", *groupingColumn)

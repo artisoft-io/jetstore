@@ -34,7 +34,7 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 			continue
 		}
 		var err error
-		if bunRow.processInput.inputType == 0 {
+		if bunRow.processInput.sourceType == "file" {
 			err = ri.assertInputTextRecord(reteSession, &bunRow, writeOutputc)
 		} else {
 			err = ri.assertInputEntityRecord(reteSession, &bunRow, writeOutputc)

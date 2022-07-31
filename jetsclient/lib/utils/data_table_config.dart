@@ -144,9 +144,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
-    whereClauses: [
-      WhereClause(column: "client", formStateKey: "client")
-    ],
+    whereClauses: [WhereClause(column: "client", formStateKey: "client")],
     actions: [
       ActionConfig(
           key: 'new',
@@ -199,9 +197,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 2,
-          name: "input_type",
-          label: 'Input Type',
-          tooltips: 'Table Type',
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source Type can be file or domain_table',
           isNumeric: false),
       ColumnConfig(
           index: 3,
@@ -328,13 +326,15 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 6,
           name: "default_value",
           label: 'Default',
-          tooltips: 'Default value if the mapping function does not yield anything',
+          tooltips:
+              'Default value if the mapping function does not yield anything',
           isNumeric: false),
       ColumnConfig(
           index: 7,
           name: "error_message",
           label: 'Error Message',
-          tooltips: 'Alternate to default value, generate an error if no data is available',
+          tooltips:
+              'Alternate to default value, generate an error if no data is available',
           isNumeric: false),
       ColumnConfig(
           index: 8,
@@ -440,7 +440,7 @@ final Map<String, TableConfig> _tableConfigurations = {
   DTKeys.registryDemo: TableConfig(
     key: DTKeys.registryDemo,
     schemaName: 'jetsapi',
-    tableName: 'input_registry',
+    tableName: 'input_loader_status',
     label: 'Input File Registry',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
@@ -486,7 +486,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     columns: [
       ColumnConfig(
           index: 0,
-          name: "file_name",
+          name: "file_key",
           label: 'File Name',
           tooltips: 'Input File Name',
           isNumeric: false),
@@ -571,8 +571,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           isTableEditablePrecondition: true),
     ],
     //* DEMO CODE
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-    ]),
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,

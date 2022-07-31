@@ -232,7 +232,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 					switch domainColumn.ColumnName {
 					case "session_id":
-						entityRow[i] = *sessionId
+						entityRow[i] = *outSessionId
 					case "shard_id":
 						entityRow[i] = shard
 					default:

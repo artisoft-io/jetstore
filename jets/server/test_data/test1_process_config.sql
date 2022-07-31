@@ -1,4 +1,3 @@
--- TRUNCATE TABLE jetsapi.pipeline_config, jetsapi.process_input, jetsapi.process_mapping, jetsapi.rule_config, jetsapi.process_merge;
 DELETE FROM jetsapi.pipeline_config WHERE key in (101, 102);
 DELETE FROM jetsapi.process_config WHERE key in (151, 152);
 DELETE FROM jetsapi.process_input WHERE table_name in ('test1');
@@ -9,13 +8,13 @@ INSERT INTO jetsapi.pipeline_config (key, client, description, process_config_ke
   (102, 'ACME', 'Lookup ACME Service Code without Modifier', 152, 'PROC01', 'test1', 'user@mail.com')
 RETURNING key;
 
-INSERT INTO jetsapi.process_config (key, client, process_name, main_rules, is_rule_set, output_tables, user_email) VALUES
-  (151, 'ACME', 'PROC01', 'test1_ruleset1.jr', 1, '{hc:Claim}', 'user@mail.com'),
-  (152, 'ACME', 'PROC01', 'test1_ruleset1.jr', 1, '{hc:Claim}', 'user@mail.com')
+INSERT INTO jetsapi.process_config (key, process_name, main_rules, is_rule_set, output_tables, user_email) VALUES
+  (151, 'PROC01', 'test1_ruleset1.jr', 1, '{hc:Claim}', 'user@mail.com'),
+  (152, 'PROC01', 'test1_ruleset1.jr', 1, '{hc:Claim}', 'user@mail.com')
 ;
 
-INSERT INTO jetsapi.process_input (table_name, client, input_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES
-  ('test1', 'ACME', 0, 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER', 'user@mail.com')
+INSERT INTO jetsapi.process_input (table_name, client, source_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES
+  ('test1', 'ACME', 'file', 'hc:Claim', 'MEMBER_NUMBER', 'CLAIM_NUMBER', 'user@mail.com')
 ;
 
 INSERT INTO jetsapi.process_mapping (table_name, input_column, data_property, function_name, argument, default_value, error_message, user_email) VALUES
@@ -29,8 +28,8 @@ INSERT INTO jetsapi.process_mapping (table_name, input_column, data_property, fu
   ('test1', 'ALLOWED_AMT'  , 'hc:allowed_amount', 'parse_amount', '1', NULL, 'Input amounts cannot be null', 'user@mail.com')
 ;
 
-INSERT INTO jetsapi.rule_config (process_config_key, subject, predicate, object, rdf_type) VALUES
-  (151, 'jets:iState', 'lk:withModifier', 'true', 'bool'),
-  (152, 'jets:iState', 'lk:withModifier', 'false', 'bool')
+INSERT INTO jetsapi.rule_config (process_config_key, process_name, client, subject, predicate, object, rdf_type) VALUES
+  (151, 'PROC01', 'ACME', 'jets:iState', 'lk:withModifier', 'true', 'bool'),
+  (152, 'PROC01', 'ACME', 'jets:iState', 'lk:withModifier', 'false', 'bool')
 ;
 

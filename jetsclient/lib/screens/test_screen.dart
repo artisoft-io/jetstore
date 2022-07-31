@@ -50,7 +50,7 @@ class _TestScreenState extends BaseScreenState {
     //     "Form: dataTableDemoForm, validating group: $group, key $key for value $v ");
     assert((v is String?) || (v is List<String>?));
     switch (key) {
-      case "source_loc":
+      case "object_type":
         String? value = v;
         if (value != null && value.characters.length > 1) {
           return null;

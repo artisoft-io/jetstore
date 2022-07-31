@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"sync"
@@ -52,18 +53,57 @@ type writeResult struct {
 	err    error
 }
 
-// PipelineResult Method to update status and execution count to
-// jetsapi.pipeline_execution table
+// PipelineResult Method to update status and execution count to jetsapi.pipeline_execution_details table
 func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
-	log.Printf("Inserting status '%s' and results counts to pipeline_execution table", pr.Status)
-	stmt := `INSERT INTO jetsapi.pipeline_execution (pipeline_config_key, client, process_name, main_table_name, input_session_id, session_id, shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
-	_, err := dbpool.Exec(context.Background(), stmt, *pipelineConfigKey, 
-		pr.ReteWorkspace.pipelineConfig.clientName, 
-		pr.ReteWorkspace.pipelineConfig.processConfig.processName, 
-		pr.ReteWorkspace.pipelineConfig.mainTableName, *inSessionId, *sessionId, *shardId, 
+	var pipelineExexStatusKey sql.NullInt32
+	if(*pipelineExecKey > -1) {
+		pipelineExexStatusKey.Int32 = int32(*pipelineExecKey)
+		pipelineExexStatusKey.Valid = true
+	}
+	pipelineConfig := pr.ReteWorkspace.pipelineConfig
+	log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
+	stmt := `INSERT INTO jetsapi.pipeline_execution_details (
+						pipeline_config_key, pipeline_execution_status_key, client, process_name, session_id, 
+						shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) 
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	_, err := dbpool.Exec(context.Background(), stmt, 
+		pipelineConfig.key, pipelineExexStatusKey,
+		pipelineConfig.clientName, pipelineConfig.processConfig.processName, 
+		pipelineConfig.mainProcessInput.sessionId, *shardId, 
 		pr.Status, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, *userEmail)
 	if err != nil {
-		return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+		return fmt.Errorf("error inserting in jetsapi.pipeline_execution table: %v", err)
+	}
+	return nil
+}
+
+func prepareProcessInput(processInput *ProcessInput, 
+	reteWorkspace *ReteWorkspace, workspaceMgr *workspace.WorkspaceDb) error {
+	err := processInput.setGroupingPos()
+	if err != nil {
+		return err
+	}
+	err = processInput.setKeyPos()
+	if err != nil {
+		return err
+	}
+	err = reteWorkspace.addEntityRdfType(processInput)
+	if err != nil {
+		log.Println("Error while getting adding entity rdf type:", err)
+		return err
+	}
+	err = reteWorkspace.addInputPredicate(processInput.processInputMapping)
+	if err != nil {
+		log.Println("Error while getting input predicate:", err)
+		return err
+	}
+	// Add range rdf type to data properties used in mapping spec
+	for ipos := range processInput.processInputMapping {
+		pim := &processInput.processInputMapping[ipos]
+		pim.rdfType, pim.isArray, err = workspaceMgr.GetRangeDataType(pim.dataProperty)
+		if err != nil {
+			return fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
+		}
 	}
 	return nil
 }
@@ -83,42 +123,21 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 	defer workspaceMgr.Close()
 
 	// setup to read the primary input table
-	var mainProcessInput *ProcessInput
+	mainProcessInput := reteWorkspace.pipelineConfig.mainProcessInput
 	// Configure all ProcessInput while identifying the main input table
-	for i := range reteWorkspace.pipelineConfig.processInputs {
-		processInput := &reteWorkspace.pipelineConfig.processInputs[i]
-		err = processInput.setGroupingPos()
+	err = prepareProcessInput(mainProcessInput, reteWorkspace, workspaceMgr)
+	if err != nil {
+		return &result, err
+	}
+	for i := range reteWorkspace.pipelineConfig.mergedProcessInput {
+		err = prepareProcessInput(&reteWorkspace.pipelineConfig.mergedProcessInput[i], 
+			reteWorkspace, workspaceMgr)
 		if err != nil {
 			return &result, err
-		}
-		err = processInput.setKeyPos()
-		if err != nil {
-			return &result, err
-		}
-		err = reteWorkspace.addEntityRdfType(processInput)
-		if err != nil {
-			log.Println("Error while getting adding entity rdf type:", err)
-			return &result, err
-		}
-		err = reteWorkspace.addInputPredicate(processInput.processInputMapping)
-		if err != nil {
-			log.Println("Error while getting input predicate:", err)
-			return &result, err
-		}
-		// Add range rdf type to data properties used in mapping spec
-		for ipos := range processInput.processInputMapping {
-			pim := &processInput.processInputMapping[ipos]
-			pim.rdfType, pim.isArray, err = workspaceMgr.GetRangeDataType(pim.dataProperty)
-			if err != nil {
-				return &result, fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
-			}
-		}
-		if processInput.tableName == reteWorkspace.pipelineConfig.mainTableName.String {
-			mainProcessInput = processInput
 		}
 	}
 	if mainProcessInput == nil {
-		return &result, fmt.Errorf("ERROR: Did not find the primary ProcessInput in the PipelineConfig")
+		return &result, fmt.Errorf("unexpected error: Main ProcessInput is nil in the PipelineConfig")
 	}
 
 	// some bookeeping

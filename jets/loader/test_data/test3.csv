@@ -1,4 +1,4 @@
-header1|file_name|header2|header3
-val11|file_name|val12|val13
-val21|file_name|val22|val23
-val31|file_name|val|32|val33
+header1|file_key|header2|header3
+val11|file_key|val12|val13
+val21|file_key|val22|val23
+val31|file_key|val|32|val33

@@ -116,6 +116,7 @@ class DropdownItemConfig {
   final String label;
   final String? value;
 }
+
 /// Dropdown Widget, [items] must be provided, with
 /// perhaps a blank item to invite the user to make a selection.
 /// If the [dropdownItemsQuery] is not null, it will be used
@@ -207,7 +208,7 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormInputFieldConfig(
-            key: "source_loc",
+            key: "object_type",
             label: "S3 Folder",
             hint: "Folder where the files are dropped",
             flex: 2,
@@ -215,10 +216,13 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLength: 80), // ],
-        FormDropdownFieldConfig(key: 'client', items: [
-          DropdownItemConfig(label: ''),
-        ],
-        dropdownItemsQuery: "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+        FormDropdownFieldConfig(
+            key: 'client',
+            items: [
+              DropdownItemConfig(label: ''),
+            ],
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
       ],
       [
         FormInputFieldConfig(
