@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -44,7 +45,7 @@ var dropTable = flag.Bool("d", false, "drop table if it exists, default is false
 var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
 var tblName = flag.String("table", "", "table name to load the data into (required)")
 var client = flag.String("client", "", "Client associated with the source location (required)")
-var objectType = flag.String("objectType", "", "Source location of the file (required)")
+var objectType = flag.String("objectType", "", "The type of object contained in the file (required)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
 var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
@@ -121,23 +122,40 @@ func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
 	return nil
 }
 
-func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, nodeId int) error {
+func truncateSessionId(dbpool *pgxpool.Pool, nodeId int) error {
+	stmt := `DELETE FROM jetsapi.input_loader_status 
+						WHERE table_name = $1 AND session_id = $2 AND node_id = $3`
+	_, err := dbpool.Exec(context.Background(), stmt, *tblName, *sessionId, nodeId)
+	if err != nil {
+		return fmt.Errorf("error deleting sessionId from jetsapi.input_loader_status table: %v", err)
+	}
+	stmt = `DELETE FROM jetsapi.input_registry WHERE table_name = $1 AND session_id = $2`
+	_, err = dbpool.Exec(context.Background(), stmt, *tblName, *sessionId)
+	if err != nil {
+		return fmt.Errorf("error deleting sessionId from jetsapi.input_registry table: %v", err)
+	}
+	return nil
+}
+
+func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, nodeId int, status string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
-		object_type, table_name, client, file_key, session_id, 
+		object_type, table_name, client, file_key, session_id, status,
 		load_count, bad_row_count, node_id, user_email) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 	_, err := dbpool.Exec(context.Background(), stmt, 
-		*objectType, *tblName, *client, *inFile, *sessionId, copyCount, badRowCount, nodeId, *userEmail)
+		*objectType, *tblName, *client, *inFile, *sessionId, status, copyCount, badRowCount, nodeId, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
-	stmt = `INSERT INTO jetsapi.input_registry (
-		client, object_type, file_key, table_name, source_type, session_id, user_email) 
-		VALUES ($1, $2, $3, $4, 'file', $5, $6)`
-	_, err = dbpool.Exec(context.Background(), stmt, 
-		*client, *objectType, *inFile, *tblName, *sessionId, *userEmail)
-	if err != nil {
-		return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+	if status == "completed" {
+		stmt = `INSERT INTO jetsapi.input_registry (
+			client, object_type, file_key, table_name, source_type, session_id, user_email) 
+			VALUES ($1, $2, $3, $4, 'file', $5, $6)`
+		_, err = dbpool.Exec(context.Background(), stmt, 
+			*client, *objectType, *inFile, *tblName, *sessionId, *userEmail)
+		if err != nil {
+			return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+		}	
 	}
 	return nil
 }
@@ -149,7 +167,7 @@ type writeResult struct {
 
 // processFile
 // --------------------------------------------------------------------------------------
-func processFile() error {
+func processFile(dbpool []*pgxpool.Pool) error {
 	// open csv file
 	file, err := os.Open(*inFile)
 	if err != nil {
@@ -216,31 +234,21 @@ func processFile() error {
 	}
 
 	// open db connections
-	dsnSplit := strings.Split(*dsnList, ",")
-	nbrNodes := len(dsnSplit)
-	dbpool := make([]*pgxpool.Pool, nbrNodes)
-	for i := range dsnSplit {
-		dbpool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
-		if err != nil {
-			return fmt.Errorf("while opening db connection: %v", err)
-		}
-		defer dbpool[i].Close()
-
-		// Make sure the jetstore schema exists
-		tblExists, err := tableExists(dbpool[i], "jetsapi", "input_loader_status")
-		if err != nil {
-			return fmt.Errorf("while verifying the jetstore schema: %v", err)
-		}
-		if !tblExists {
-			return fmt.Errorf("error: JetStore schema does not exst in database, please run 'update_db -migrateDb'")
-		}
-
+	nbrNodes := len(dbpool)
+	for i := range dbpool {
 		// validate table name
-		tblExists, err = tableExists(dbpool[i], "public", *tblName)
+		tblExists, err := tableExists(dbpool[i], "public", *tblName)
 		if err != nil {
 			return fmt.Errorf("while validating table name: %v", err)
 		}
 		if !tblExists || *dropTable {
+			if *dropTable {
+				// remove the previous input loader status associated with sessionId
+				err = truncateSessionId(dbpool[i], i)
+				if err != nil {
+					return fmt.Errorf("while truncating sessionId: %v", err)
+				}
+			}
 			err = createTable(dbpool[i], headers)
 			if err != nil {
 				return fmt.Errorf("while creating table: %v", err)
@@ -362,13 +370,68 @@ func processFile() error {
 		}
 	}
 	// registering the load
+	status := "completed"
+	if badRowCount != 0 {
+		status = "errors"
+	}
+	// register the session if status is completed
+	if status == "completed" {
+		err:= schema.RegisterSession(dbpool[0], *sessionId)
+		if err != nil {
+			return fmt.Errorf("error while registering the session id: %v", err)
+		}
+	}
 	for i := 0; i < nbrNodes; i++ {
-		err = registerCurrentLoad(copyCount, badRowCount, dbpool[i], i)
+		err = registerCurrentLoad(copyCount, badRowCount, dbpool[i], i, status)
 		if err != nil {
 			return fmt.Errorf("error while registering the load: %v", err)
 		}
 	}
 
+	return nil
+}
+
+func coordinateWork() error {
+	// open db connections
+	var err error
+	dsnSplit := strings.Split(*dsnList, ",")
+	nbrNodes := len(dsnSplit)
+	dbpool := make([]*pgxpool.Pool, nbrNodes)
+	for i := range dsnSplit {
+		dbpool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
+		if err != nil {
+			return fmt.Errorf("while opening db connection: %v", err)
+		}
+		defer dbpool[i].Close()
+
+		// Make sure the jetstore schema exists
+		tblExists, err := tableExists(dbpool[i], "jetsapi", "input_loader_status")
+		if err != nil {
+			return fmt.Errorf("while verifying the jetstore schema: %v", err)
+		}
+		if !tblExists {
+			return fmt.Errorf("error: JetStore schema does not exst in database, please run 'update_db -migrateDb'")
+		}
+	}
+
+	// check the session is not already used
+	isInUse, err := schema.IsSessionExists(dbpool[0], *sessionId)
+	if err != nil {
+		return fmt.Errorf("while verifying is the session is in use: %v", err)
+	}
+	if isInUse {
+		return fmt.Errorf("error: the session id is already used")
+	}
+
+	err = processFile(dbpool)
+	if err != nil {
+		for i := 0; i < nbrNodes; i++ {
+			err = registerCurrentLoad(0, 0, dbpool[i], i, "failed")
+			if err != nil {
+				return fmt.Errorf("error while registering the load: %v", err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -428,7 +491,7 @@ func main() {
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: sep_flag", sep_flag)
 
-	err := processFile()
+	err := coordinateWork()
 	if err != nil {
 		flag.Usage()
 		log.Fatal(err)

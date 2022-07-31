@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -54,25 +56,61 @@ type writeResult struct {
 }
 
 // PipelineResult Method to update status and execution count to jetsapi.pipeline_execution_details table
+// Will register the output domain tables to input_registry if this is a single node run (no sharding)
+// which is identified the global variable isSingleNodeRun
 func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
+	var err error
+
+	// Register the outSessionId
+	//* isSingleNodeRun: adjust for multi node or sharded run
+	if isSingleNodeRun {
+		err = schema.RegisterSession(dbpool, *outSessionId)
+		if err != nil {
+			return fmt.Errorf("while recording out session id: %v", err)
+		}	
+	}
+
 	var pipelineExexStatusKey sql.NullInt32
-	if(*pipelineExecKey > -1) {
+	if(*pipelineExecKey >= 0) {
 		pipelineExexStatusKey.Int32 = int32(*pipelineExecKey)
 		pipelineExexStatusKey.Valid = true
 	}
 	pipelineConfig := pr.ReteWorkspace.pipelineConfig
 	log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
 	stmt := `INSERT INTO jetsapi.pipeline_execution_details (
-						pipeline_config_key, pipeline_execution_status_key, client, process_name, session_id, 
+						pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, 
 						shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) 
-						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
-	_, err := dbpool.Exec(context.Background(), stmt, 
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+	_, err = dbpool.Exec(context.Background(), stmt, 
 		pipelineConfig.key, pipelineExexStatusKey,
 		pipelineConfig.clientName, pipelineConfig.processConfig.processName, 
-		pipelineConfig.mainProcessInput.sessionId, *shardId, 
+		pipelineConfig.mainProcessInput.sessionId, *outSessionId, *shardId, 
 		pr.Status, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.pipeline_execution table: %v", err)
+	}
+	//* isSingleNodeRun: adjust for multi node or sharded run
+	if pr.Status == "completed" && isSingleNodeRun {
+		// Register the output domain tables to input_registry
+		var buf strings.Builder
+		buf.WriteString(`INSERT INTO jetsapi.input_registry (client, object_type, 
+			table_name, source_type, session_id, user_email) VALUES `)
+		isFirst := true
+		for i := range pr.ReteWorkspace.outTables {
+			if !isFirst {
+				buf.WriteString(", ")
+			}
+			isFirst = false
+			tblSplit := strings.Split(pr.ReteWorkspace.outTables[i], ":")
+			buf.WriteString(fmt.Sprintf(" ('%s', '%s', '%s', 'domain_table', '%s', '%s') ", 
+				pipelineConfig.clientName, tblSplit[len(tblSplit)-1], pr.ReteWorkspace.outTables[i], 
+				*outSessionId, *userEmail))
+		}
+		_, err = dbpool.Exec(context.Background(), buf.String())
+		if err != nil {
+			return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+		}	
+
 	}
 	return nil
 }

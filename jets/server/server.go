@@ -29,8 +29,8 @@ var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required)")
 var lookupDb = flag.String("lookupDb", "", "lookup data path")
 var ruleset = flag.String("ruleset", "", "main rule set name (override pipeline process config)")
 var ruleseq = flag.String("ruleseq", "", "rule set sequence (override pipeline process config)")
-var pipelineConfigKey = flag.Int("pcKey", -1, "Pipeline config key (required or -pipelineExecKey)")
-var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required or -pipelineConfigKey)")
+var pipelineConfigKey = flag.Int("pcKey", -1, "Pipeline config key (required or -peKey)")
+var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required or -pcKey)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
 var outSessionId = flag.String("sessionId", "", "Process session ID for the output Domain Tables. (required)")
 var inSessionIdOverride = flag.String("inSessionId", "", "Session ID for input domain table, defaults to latest in input_registry table.")
@@ -45,6 +45,7 @@ var extTables map[string][]string
 var glogv int // taken from env GLOG_v
 var dbc dbConnections
 var nbrDbNodes int
+var isSingleNodeRun bool
 
 func init() {
 	extTables = make(map[string][]string)
@@ -62,6 +63,8 @@ func init() {
 		extTables[split1[0]] = split2
 		return nil
 	})
+	// Check if this is a isSingleNodeRun
+	isSingleNodeRun = *nbrShards == 1
 }
 
 //* TODO move this utility fnc somewhere where it would be reused
@@ -101,8 +104,8 @@ func doJob() error {
 	log.Printf("Command Line Argument: nodeId: %d\n", *nodeId)
 	log.Printf("Command Line Argument: outTables: %s\n", *outTables)
 	log.Printf("Command Line Argument: poolSize: %d\n", *poolSize)
-	log.Printf("Command Line Argument: pipelineConfigKey: %d\n", *pipelineConfigKey)
-	log.Printf("Command Line Argument: pipelineExecKey: %d\n", *pipelineExecKey)
+	log.Printf("Command Line Argument: pcKey: %d\n", *pipelineConfigKey)
+	log.Printf("Command Line Argument: peKey: %d\n", *pipelineExecKey)
 	log.Printf("Command Line Argument: ruleseq: %s\n", *ruleseq)
 	log.Printf("Command Line Argument: ruleset: %s\n", *ruleset)
 	log.Printf("Command Line Argument: sessionId: %s\n", *outSessionId)
@@ -110,6 +113,9 @@ func doJob() error {
 	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
 	log.Printf("Command Line Argument: userEmail: %s\n", *userEmail)
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
+	if isSingleNodeRun {
+		log.Printf("This is a single node run (no sharding)")
+	}
 	dsn := dsnSplit[*nodeId%nbrDbNodes]
 	dbpool, err := pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
@@ -149,7 +155,7 @@ func doJob() error {
 
 	PipelineResult, err := ProcessData(reteWorkspace)
 	if err != nil {
-		PipelineResult.Status = "Error"
+		PipelineResult.Status = "failed"
 		err2 := PipelineResult.updateStatus(dbpool)
 		if err2 != nil {
 			log.Printf("error while writing pipeline status: %v", err2)
@@ -165,7 +171,7 @@ func doJob() error {
 		PipelineResult.TotalOutputCount += count
 	}
 	// Update the pipeline_execution table with status and counts
-	PipelineResult.Status = "Completed"
+	PipelineResult.Status = "completed"
 	err2 := PipelineResult.updateStatus(dbpool)
 	if err2 != nil {
 		log.Printf("error while writing pipeline status: %v", err2)
@@ -181,17 +187,21 @@ func main() {
 	// validate command line arguments
 	hasErr := false
 	var errMsg []string
-	if *pipelineConfigKey <= -1 && *pipelineExecKey <= -1 {
+	if *pipelineConfigKey < 0 && *pipelineExecKey < 0 {
 		hasErr = true
 		errMsg = append(errMsg, "Process config key (-pcKey) or process execution status key (-peKey) must be provided.")
 	}
-	if *pipelineConfigKey > -1 && *pipelineExecKey > -1 {
+	if *pipelineConfigKey >= 0 && *pipelineExecKey >= 0 {
 		hasErr = true
 		errMsg = append(errMsg, "Do not provide both process config key (-pcKey) and process execution status key (-peKey), -peKey is sufficient.")
 	}
 	if *dsnList == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Connection string (-dsn) must be provided.")
+	}
+	if *userEmail == "" {
+		hasErr = true
+		errMsg = append(errMsg, "user email (-userEmail) must be provided.")
 	}
 	if *workspaceDb == "" {
 		hasErr = true
@@ -209,9 +219,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "The number of shards (-nbrShards) for the output entities must at least be 1.")
 	}
-	if *outSessionId == "" {
+	if *outSessionId == "" && *pipelineExecKey < 0 {
 		hasErr = true
-		errMsg = append(errMsg, "The session id (-sessionId) must be provided.")
+		errMsg = append(errMsg, "The session id (-sessionId) must be provided since -peKey is not provided.")
 	}
 	if len(*outTables) > 0 {
 		outTableSlice = strings.Split(*outTables, ",")

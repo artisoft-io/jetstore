@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -283,24 +284,43 @@ func (processInput *ProcessInput) setKeyPos() error {
 func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineConfig, error) {
 	pc := PipelineConfig{key: pcKey}
 	var err error
+	var inSessId, sessId sql.NullString
 	mainInputRegistryKey := -1
 	var mergedInputRegistryKeys []int
 	if peKey > -1 {
 		err = dbpool.QueryRow(context.Background(),
-			`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys
+			`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys, input_session_id, session_id
 			 FROM jetsapi.pipeline_execution_status 
-			 WHERE key = $1`, peKey).Scan(&pc.key, &mainInputRegistryKey, &mergedInputRegistryKeys)
+			 WHERE key = $1`, peKey).Scan(&pc.key, &mainInputRegistryKey, &mergedInputRegistryKeys, &inSessId, &sessId)
 		if err != nil {
 			return &pc, fmt.Errorf("read jetsapi.pipeline_execution_status table failed: %v", err)
 		}
+		if inSessId.Valid && *inSessionIdOverride == "" {
+			*inSessionIdOverride = inSessId.String
+		}
+		if sessId.Valid && *outSessionId == "" {
+			*outSessionId = sessId.String
+		}
+		if *outSessionId == "" {
+			return &pc, fmt.Errorf("error: output SessionId is not specified")
+		}
 	}
+	// Validate the outSessionId is not already used
+	isInUse, err := schema.IsSessionExists(dbpool, *outSessionId)
+	if err != nil {
+		return &pc, fmt.Errorf("while verifying is out session is already used: %v", err)
+	}
+	if isInUse {
+		return &pc, fmt.Errorf("error: out session id is already used, cannot use it again")
+	}
+
 	err = pc.loadPipelineConfig(dbpool)
 	if err != nil {
 		return &pc, fmt.Errorf("while loading pipeline config: %v", err)
 	}
 
 	// Load the process input table definitions
-	pc.mainProcessInput.key = pc.mainProcessInputKey
+	pc.mainProcessInput = &ProcessInput{key: pc.mainProcessInputKey}
 	err = pc.mainProcessInput.loadProcessInput(dbpool)
 	if err != nil {
 		return &pc, fmt.Errorf("while loading main process input: %v", err)
@@ -321,7 +341,7 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 	}
 
 	// load the process config
-	pc.processConfig.key = pc.processConfigKey
+	pc.processConfig = &ProcessConfig{key: pc.processConfigKey}
 	err = pc.processConfig.loadProcessConfig(dbpool)
 	if err != nil {
 		return &pc, fmt.Errorf("while loading process config: %v", err)
@@ -380,7 +400,7 @@ func getSessionId(dbpool *pgxpool.Pool, inputRegistryKey int) (sessionId string,
 
 func getLatestSessionId(dbpool *pgxpool.Pool, tableName string) (sessionId string, err error) {
 	err = dbpool.QueryRow(context.Background(),
-		"SELECT session_id FROM jetsapi.input_registry ORDER BY last_update DESC WHERE table_name = $1",
+		"SELECT session_id FROM jetsapi.input_registry WHERE table_name = $1 ORDER BY last_update DESC LIMIT 1",
 		tableName).Scan(&sessionId)
 	if err != nil {
 		return sessionId, fmt.Errorf("while reading latest sessionId for %s: %v", tableName, err)
@@ -396,6 +416,7 @@ func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
 	}
+
 	return nil
 }
 
@@ -405,9 +426,9 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	err := dbpool.QueryRow(context.Background(),
 		`SELECT table_name, source_type, entity_rdf_type, grouping_column, key_column
 		FROM jetsapi.process_input 
-		WHERE key = $1`, pi.key).Scan(&pi.tableName, &pi.sourceType, &pi.entityRdfType, groupingCol, keyCol)
+		WHERE key = $1`, pi.key).Scan(&pi.tableName, &pi.sourceType, &pi.entityRdfType, &groupingCol, &keyCol)
 	if err != nil {
-		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
+		return fmt.Errorf("while reading jetsapi.process_input table: %v", err)
 	}
 	if groupingCol.Valid {
 		pi.groupingColumn = groupingCol.String
@@ -422,7 +443,7 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	// read the mapping definitions
 	pi.processInputMapping, err = readProcessInputMapping(dbpool, pi.key)
 	if err != nil {
-		return fmt.Errorf("while reading jetsapi.process_mapping rows for ProcessInput: %v", err)
+		return fmt.Errorf("while calling readProcessInputMapping: %v", err)
 	}
 	return nil
 }
