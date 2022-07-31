@@ -153,6 +153,8 @@ are not provided, the latest `session_id` is taken from `input_registry` unless
 overriden by `input_session_id`.
 This applies to the case when the server process in not provided with a `pipeline_execution_key`.
 
+The `status` can be `pending` (waiting for the job to complete), `completed` or `failed` when an unrecoverable error occured.
+
 Depend on `pipeline_config` and `input_registry` tables
 
 ## Table `pipeline_execution_details`
@@ -162,7 +164,16 @@ The table consist of:
 
 - `pipeline_config_key` specifying the `pipeline_configuration` that is in use,
 - `pipeline_execution_status_key` specifying the `pipeline_execution_status` for the current execution,
+- `main_input_session_id` indicates the input session id used for the main input table
 - `session_id` for the process output tables (specified in the `process_config` table)
 - and a number of metrics per `shard_id`.
 
+The `status` can be `completed` or `failed` when an unrecoverable error occured.
+
 Depend on `pipeline_config`, `pipeline_execution_status`
+
+## Table `session_registry`
+
+This table is to register session id that are used by jetstore to ensure a session id is not used more than once.
+
+The sessions are registered when the execution is successful.

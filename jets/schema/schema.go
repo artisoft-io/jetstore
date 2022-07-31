@@ -280,3 +280,33 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 	}
 	return nil
 }
+
+// Utility function to check if session exist
+func IsSessionExists(dbpool *pgxpool.Pool, sessionId string) (bool, error) {
+	if sessionId == "" {
+		return false, fmt.Errorf("error: cannot have empty session")
+	}
+	var nrows int
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT count(*) FROM jetsapi.session_registry WHERE session_id = $1`, sessionId).Scan(&nrows)
+	if err != nil {
+		return false, fmt.Errorf("while reading jetsapi.session_registry table: %v", err)
+	}
+	if nrows > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+func RegisterSession(dbpool *pgxpool.Pool, sessionId string) error {
+	if sessionId == "" {
+		return fmt.Errorf("error: cannot have empty session")
+	}
+	stmt := `INSERT INTO jetsapi.session_registry (session_id) VALUES ($1)`
+	_, err := dbpool.Exec(context.Background(), stmt, sessionId)
+	if err != nil {
+		return fmt.Errorf("error inserting in jetsapi.session_registry table: %v", err)
+	}
+	log.Printf("Registered session '%s' in jetsapi.session_registry table", sessionId)
+	return nil
+}
