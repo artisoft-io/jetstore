@@ -15,15 +15,15 @@ import (
 
 // Main data entity
 type PipelineConfig struct {
-	key                int
-	processConfigKey   int
-	clientName         string
-	mainTableName      sql.NullString
-	mergedInTableNames []string
-	processConfig      *ProcessConfig
-	// processInputs include the main process input
-	processInputs      []ProcessInput
-	ruleConfigs        []RuleConfig
+	key                    int
+	processConfigKey       int
+	clientName             string
+	mainProcessInputKey    int
+	mergedProcessInputKeys []int
+	processConfig          *ProcessConfig
+	mainProcessInput       *ProcessInput
+	mergedProcessInput     []ProcessInput
+	ruleConfigs            []RuleConfig
 }
 
 type ProcessConfig struct {
@@ -43,8 +43,8 @@ type BadRow struct {
 
 func (br BadRow) String() string {
 	var buf strings.Builder
-	if sessionId != nil && len(*sessionId) > 0 {
-		buf.WriteString(*sessionId)
+	if outSessionId != nil && len(*outSessionId) > 0 {
+		buf.WriteString(*outSessionId)
 	} else {
 		buf.WriteString("NULL")
 	}
@@ -79,8 +79,8 @@ func (br BadRow) String() string {
 func (br BadRow) write2Chan(ch chan<- []interface{}) {
 
 	brout := make([]interface{}, 6) // len of BadRow columns			var sid string
-	if sessionId != nil && len(*sessionId) > 0 {
-		brout[0] = *sessionId
+	if outSessionId != nil && len(*outSessionId) > 0 {
+		brout[0] = *outSessionId
 	}
 	brout[1] = br.GroupingKey
 	brout[2] = br.RowJetsKey
@@ -93,8 +93,9 @@ func (br BadRow) write2Chan(ch chan<- []interface{}) {
 }
 
 type ProcessInput struct {
+	key                   int
 	tableName             string
-	inputType             int
+	sourceType            string
 	entityRdfType         string
 	entityRdfTypeResource *bridge.Resource
 	groupingColumn        string
@@ -102,19 +103,20 @@ type ProcessInput struct {
 	keyColumn             string
 	keyPosition           int
 	processInputMapping   []ProcessMap
+	sessionId             string
 }
 
 type ProcessMap struct {
-	tableName       string
-	inputColumn     string
-	dataProperty    string
-	predicate       *bridge.Resource
-	rdfType         string // populated from workspace.db
-	isArray         bool   // populated from workspace.db
-	functionName    sql.NullString
-	argument        sql.NullString
-	defaultValue    sql.NullString
-	errorMessage    sql.NullString
+	tableName    string
+	inputColumn  string
+	dataProperty string
+	predicate    *bridge.Resource
+	rdfType      string // populated from workspace.db
+	isArray      bool   // populated from workspace.db
+	functionName sql.NullString
+	argument     sql.NullString
+	defaultValue sql.NullString
+	errorMessage sql.NullString
 }
 
 type RuleConfig struct {
@@ -277,99 +279,171 @@ func (processInput *ProcessInput) setKeyPos() error {
 }
 
 // Main Pipeline Configuration Read Function
-func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int) (*PipelineConfig, error) {
-	var pc PipelineConfig
-	err := dbpool.QueryRow(context.Background(), "SELECT key, client, process_config_key, main_table_name, merged_in_table_names   FROM jetsapi.pipeline_config   WHERE key = $1", pcKey).Scan(&pc.key, &pc.clientName, &pc.processConfigKey, &pc.mainTableName, &pc.mergedInTableNames)
+// -----------------------------------------
+func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineConfig, error) {
+	pc := PipelineConfig{key: pcKey}
+	var err error
+	mainInputRegistryKey := -1
+	var mergedInputRegistryKeys []int
+	if peKey > -1 {
+		err = dbpool.QueryRow(context.Background(),
+			`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys
+			 FROM jetsapi.pipeline_execution_status 
+			 WHERE key = $1`, peKey).Scan(&pc.key, &mainInputRegistryKey, &mergedInputRegistryKeys)
+		if err != nil {
+			return &pc, fmt.Errorf("read jetsapi.pipeline_execution_status table failed: %v", err)
+		}
+	}
+	err = pc.loadPipelineConfig(dbpool)
 	if err != nil {
-		err = fmt.Errorf("read jetsapi.pipeline_config table failed: %v", err)
-		return &pc, err
+		return &pc, fmt.Errorf("while loading pipeline config: %v", err)
 	}
-	// validate that we have main_table_name
-	if !pc.mainTableName.Valid {
-		return &pc, fmt.Errorf("error PipelineConfig cannot have null main_table_name")
-	}
-	// make a single list with all input tables (main + merged in)
-	inputTableNames := make([]string, len(pc.mergedInTableNames)+1)
-	inputTableNames[0] = pc.mainTableName.String
-	for i := range pc.mergedInTableNames {
-		inputTableNames[i+1] = pc.mergedInTableNames[i]
-	}
+
 	// Load the process input table definitions
-	pc.processInputs, err = readProcessInputs(dbpool, inputTableNames)
+	pc.mainProcessInput.key = pc.mainProcessInputKey
+	err = pc.mainProcessInput.loadProcessInput(dbpool)
 	if err != nil {
-		err = fmt.Errorf("read jetsapi.process_input table failed: %v", err)
-		return &pc, err
+		return &pc, fmt.Errorf("while loading main process input: %v", err)
+	}
+	pc.mergedProcessInput = make([]ProcessInput, len(pc.mergedProcessInputKeys))
+	for i := range pc.mergedProcessInputKeys {
+		pc.mergedProcessInput[i].key = pc.mergedProcessInputKeys[i]
+		err = pc.mergedProcessInput[i].loadProcessInput(dbpool)
+		if err != nil {
+			return &pc, fmt.Errorf("while loading merged process input %d: %v", i, err)
+		}
+	}
+
+	// read the rule config triples
+	pc.ruleConfigs, err = readRuleConfig(dbpool, pc.processConfigKey, pc.clientName)
+	if err != nil {
+		return &pc, fmt.Errorf("read jetsapi.rule_config table failed: %v", err)
+	}
+
+	// load the process config
+	pc.processConfig.key = pc.processConfigKey
+	err = pc.processConfig.loadProcessConfig(dbpool)
+	if err != nil {
+		return &pc, fmt.Errorf("while loading process config: %v", err)
+	}
+
+	// determine the input session ids
+	if *inSessionIdOverride != "" {
+		pc.mainProcessInput.sessionId = *inSessionIdOverride
+		for i := range pc.mergedProcessInput {
+			pc.mergedProcessInput[i].sessionId = *inSessionIdOverride
+		}
+	} else if mainInputRegistryKey > -1 {
+		// take the specific input session id as specified in the pipeline execution status table
+		if len(mergedInputRegistryKeys) != len(pc.mergedProcessInput) {
+			return &pc, fmt.Errorf("error: nbr of merged table in process exec is %d != nbr in process config %d",
+				len(mergedInputRegistryKeys), len(pc.mergedProcessInput))
+		}
+		pc.mainProcessInput.sessionId, err = getSessionId(dbpool, mainInputRegistryKey)
+		if err != nil {
+			return &pc, fmt.Errorf("while reading session id for main table: %v", err)
+		}
+		for i := range pc.mergedProcessInput {
+			pc.mergedProcessInput[i].sessionId, err = getSessionId(dbpool, mergedInputRegistryKeys[i])
+			if err != nil {
+				return &pc, fmt.Errorf("while reading session id for merged-in table %s: %v",
+					pc.mergedProcessInput[i].tableName, err)
+			}
+		}
+	} else {
+		// input session id not specified, take the latest from input_registry
+		pc.mainProcessInput.sessionId, err = getLatestSessionId(dbpool, pc.mainProcessInput.tableName)
+		if err != nil {
+			return &pc, fmt.Errorf("while reading latest session id for main table: %v", err)
+		}
+		for i := range pc.mergedProcessInput {
+			pc.mergedProcessInput[i].sessionId, err = getLatestSessionId(dbpool, pc.mergedProcessInput[i].tableName)
+			if err != nil {
+				return &pc, fmt.Errorf("while reading latest session id for merged-in table %s: %v",
+					pc.mergedProcessInput[i].tableName, err)
+			}
+		}
+	}
+
+	return &pc, nil
+}
+
+func getSessionId(dbpool *pgxpool.Pool, inputRegistryKey int) (sessionId string, err error) {
+	err = dbpool.QueryRow(context.Background(),
+		"SELECT session_id FROM jetsapi.input_registry WHERE key = $1",
+		inputRegistryKey).Scan(&sessionId)
+	if err != nil {
+		return sessionId, fmt.Errorf("while reading sessionId from input_registry for key %d: %v", inputRegistryKey, err)
+	}
+	return sessionId, nil
+}
+
+func getLatestSessionId(dbpool *pgxpool.Pool, tableName string) (sessionId string, err error) {
+	err = dbpool.QueryRow(context.Background(),
+		"SELECT session_id FROM jetsapi.input_registry ORDER BY last_update DESC WHERE table_name = $1",
+		tableName).Scan(&sessionId)
+	if err != nil {
+		return sessionId, fmt.Errorf("while reading latest sessionId for %s: %v", tableName, err)
+	}
+	return sessionId, nil
+}
+
+func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys 
+		FROM jetsapi.pipeline_config WHERE key = $1`,
+		pc.key).Scan(&pc.clientName, &pc.processConfigKey, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys)
+	if err != nil {
+		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
+	}
+	return nil
+}
+
+// load ProcessInput
+func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
+	var groupingCol, keyCol sql.NullString
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT table_name, source_type, entity_rdf_type, grouping_column, key_column
+		FROM jetsapi.process_input 
+		WHERE key = $1`, pi.key).Scan(&pi.tableName, &pi.sourceType, &pi.entityRdfType, groupingCol, keyCol)
+	if err != nil {
+		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
+	}
+	if groupingCol.Valid {
+		pi.groupingColumn = groupingCol.String
+	} else {
+		pi.groupingColumn = "jets:key"
+	}
+	if keyCol.Valid {
+		pi.keyColumn = keyCol.String
+	} else {
+		pi.keyColumn = "jets:key"
 	}
 	// read the mapping definitions
-	pc.ruleConfigs, err = readRuleConfig(dbpool, pc.processConfigKey)
+	pi.processInputMapping, err = readProcessInputMapping(dbpool, pi.key)
 	if err != nil {
-		err = fmt.Errorf("read jetsapi.rule_config table failed: %v", err)
-		return &pc, err
+		return fmt.Errorf("while reading jetsapi.process_mapping rows for ProcessInput: %v", err)
 	}
-	// read the process config
-	pc.processConfig, err = readProcessConfig(dbpool, pc.processConfigKey)
-	if err != nil {
-		err = fmt.Errorf("read jetsapi.process_config table failed: %v", err)
-		return &pc, err
-	}
-
-	return &pc, nil
+	return nil
 }
 
-// read ProcessConfig
-func readProcessConfig(dbpool *pgxpool.Pool, pcKey int) (*ProcessConfig, error) {
-	var pc ProcessConfig
-	err := dbpool.QueryRow(context.Background(), "SELECT key, process_name, main_rules, is_rule_set, output_tables   FROM jetsapi.process_config   WHERE key = $1", pcKey).Scan(&pc.key, &pc.processName, &pc.mainRules, &pc.isRuleSet, &pc.outputTables)
+// load ProcessConfig
+func (pc *ProcessConfig) loadProcessConfig(dbpool *pgxpool.Pool) error {
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT process_name, main_rules, is_rule_set, output_tables
+		FROM jetsapi.process_config 
+		WHERE key = $1`, pc.key).Scan(&pc.processName, &pc.mainRules, &pc.isRuleSet, &pc.outputTables)
 	if err != nil {
-		err = fmt.Errorf("read jetsapi.process_config table failed: %v", err)
-		return &pc, err
+		return fmt.Errorf("while reading jetsapi.process_config table: %v", err)
 	}
-	return &pc, nil
-}
-
-// read input table definitions
-func readProcessInputs(dbpool *pgxpool.Pool, inputTableNames []string) ([]ProcessInput, error) {
-	rows, err := dbpool.Query(context.Background(), "SELECT table_name, input_type, entity_rdf_type, grouping_column, key_column FROM jetsapi.process_input WHERE table_name = ANY($1)", inputTableNames)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// Loop through rows, using Scan to assign column data to struct fields.
-	result := make([]ProcessInput, 0)
-	for rows.Next() {
-		var pi ProcessInput
-		var groupingCol, keyCol sql.NullString
-		if err := rows.Scan(&pi.tableName, &pi.inputType, &pi.entityRdfType, &groupingCol, &keyCol); err != nil {
-			return result, err
-		}
-		if groupingCol.Valid {
-			pi.groupingColumn = groupingCol.String
-		} else {
-			pi.groupingColumn = "jets:key"
-		}
-		if keyCol.Valid {
-			pi.keyColumn = keyCol.String
-		} else {
-			pi.keyColumn = "jets:key"
-		}
-
-		// read the mapping definitions
-		pi.processInputMapping, err = readProcessInputMapping(dbpool, pi.tableName)
-		if err != nil {
-			return result, err
-		}
-		result = append(result, pi)
-	}
-	if err = rows.Err(); err != nil {
-		return result, err
-	}
-	return result, nil
+	return nil
 }
 
 // read mapping definitions
-func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessMap, error) {
-	rows, err := dbpool.Query(context.Background(), "SELECT table_name, input_column, data_property, function_name, argument, default_value, error_message FROM jetsapi.process_mapping WHERE table_name = $1", tableName)
+func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]ProcessMap, error) {
+	rows, err := dbpool.Query(context.Background(),
+		`SELECT table_name, input_column, data_property, function_name, argument, default_value, error_message
+		FROM jetsapi.process_mapping WHERE process_input_key = $1`, processInputKey)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +453,8 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessM
 	result := make([]ProcessMap, 0)
 	for rows.Next() {
 		var pm ProcessMap
-		if err := rows.Scan(&pm.tableName, &pm.inputColumn, &pm.dataProperty, &pm.functionName, &pm.argument, &pm.defaultValue, &pm.errorMessage); err != nil {
+		if err := rows.Scan(&pm.tableName, &pm.inputColumn, &pm.dataProperty, &pm.functionName,
+			&pm.argument, &pm.defaultValue, &pm.errorMessage); err != nil {
 			return result, err
 		}
 
@@ -397,10 +472,13 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessM
 	return result, nil
 }
 
-// Read rule config triples, pcKey is rule_config.process_config_key
-func readRuleConfig(dbpool *pgxpool.Pool, pcKey int) ([]RuleConfig, error) {
+// Read rule config triples, processConfigKey is rule_config.process_config_key
+func readRuleConfig(dbpool *pgxpool.Pool, processConfigKey int, client string) ([]RuleConfig, error) {
 	result := make([]RuleConfig, 0)
-	rows, err := dbpool.Query(context.Background(), "SELECT process_config_key, subject, predicate, object, rdf_type FROM jetsapi.rule_config WHERE process_config_key = $1", pcKey)
+	rows, err := dbpool.Query(context.Background(),
+		`SELECT process_config_key, subject, predicate, object, rdf_type 
+		FROM jetsapi.rule_config WHERE process_config_key = $1 AND client = $2`,
+		processConfigKey, client)
 	if err != nil {
 		return result, err
 	}

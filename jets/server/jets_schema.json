@@ -34,12 +34,30 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName":  "client_registry",
+    "columns": [
+      {
+        "columnName": "client",
+        "dataType":   "text",
+        "isPK":  true        
+      }, {
+        "columnName": "details",
+        "dataType":   "text"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName":  "source_config",
     "columns": [
       {
-        "columnName": "source_loc",
-        "dataType":   "text",
+        "columnName": "key",
+        "dataType":   "int",
         "isPK":       true
+      }, {
+        "columnName": "object_type",
+        "dataType":   "text",
+        "isNotNull":  true
       }, {
         "columnName": "client",
         "dataType":   "text",
@@ -66,6 +84,9 @@
       {
         "indexName": "source_config_client_idx",
         "indexDef": "CREATE INDEX source_config_client_idx ON jetsapi.source_config (client ASC)"
+      }, {
+        "indexName": "source_config_object_type_idx",
+        "indexDef": "CREATE INDEX source_config_object_type_idx ON jetsapi.source_config (object_type ASC)"
       }
     ],
     "tableConstraints": [
@@ -74,14 +95,18 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "input_registry",
+    "tableName":  "input_loader_status",
     "columns": [
       {
         "columnName": "key",
         "dataType":   "int",
         "isPK":       true
       }, {
-        "columnName": "source_loc",
+        "columnName": "source_config_key",
+        "dataType":   "int",
+        "isNotNull":  true
+      }, {
+        "columnName": "object_type",
         "dataType":   "text",
         "isNotNull":  true
       }, {
@@ -93,7 +118,7 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "file_name",
+        "columnName": "file_key",
         "dataType":   "text",
         "isNotNull":  true
       }, {
@@ -107,6 +132,71 @@
       }, {
         "columnName": "load_count",
         "dataType":   "int"
+      }, {
+        "columnName": "session_id",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "status",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "user_email",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "last_update",
+        "dataType":   "datetime",
+        "default":    "now()",
+        "isNotNull":  true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "input_loader_status_client_idx",
+        "indexDef": "CREATE INDEX input_loader_status_client_idx ON jetsapi.input_loader_status (client ASC)"
+      }, {
+        "indexName": "input_loader_status_status_idx",
+        "indexDef": "CREATE INDEX input_loader_status_status_idx ON jetsapi.input_loader_status (status ASC)"
+      }, {
+        "indexName": "input_loader_status_object_type_idx",
+        "indexDef": "CREATE INDEX input_loader_status_object_type_idx ON jetsapi.input_loader_status (object_type ASC)"
+      }, {
+        "indexName": "input_loader_status_table_name_idx",
+        "indexDef": "CREATE INDEX input_loader_status_table_name_idx ON jetsapi.input_loader_status (table_name ASC)"
+      }
+    ],
+    "tableConstraints": [
+      "UNIQUE (table_name, session_id)"
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName":  "input_registry",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType":   "int",
+        "isPK":       true
+      }, {
+        "columnName": "client",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "object_type",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "file_key",
+        "dataType":   "text"
+      }, {
+        "columnName": "table_name",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "source_type",
+        "dataType":   "text",
+        "isNotNull":  true
       }, {
         "columnName": "session_id",
         "dataType":   "text",
@@ -127,29 +217,15 @@
         "indexName": "input_registry_client_idx",
         "indexDef": "CREATE INDEX input_registry_client_idx ON jetsapi.input_registry (client ASC)"
       }, {
-        "indexName": "input_registry_source_loc_idx",
-        "indexDef": "CREATE INDEX input_registry_source_loc_idx ON jetsapi.input_registry (source_loc ASC)"
+        "indexName": "input_registry_object_type_idx",
+        "indexDef": "CREATE INDEX input_registry_object_type_idx ON jetsapi.input_registry (object_type ASC)"
       }, {
         "indexName": "input_registry_table_name_idx",
         "indexDef": "CREATE INDEX input_registry_table_name_idx ON jetsapi.input_registry (table_name ASC)"
       }
     ],
     "tableConstraints": [
-      "UNIQUE (source_loc, session_id)"
-    ]
-  },
-  {
-    "schemaName": "jetsapi",
-    "tableName":  "client_registry",
-    "columns": [
-      {
-        "columnName": "client",
-        "dataType":   "text",
-        "isPK":  true        
-      }, {
-        "columnName": "details",
-        "dataType":   "text"
-      }
+      "UNIQUE (table_name, session_id)"
     ]
   },
   {
@@ -157,17 +233,28 @@
     "tableName":  "process_input",
     "columns": [
       {
-        "columnName": "table_name",
-        "dataType":   "text",
+        "columnName": "key",
+        "dataType":   "int",
         "isPK":       true
       }, {
         "columnName": "client",
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "input_type",
-        "dataType":   "int",
+        "columnName": "object_type",
+        "dataType":   "text",
         "isNotNull":  true
+      }, {
+        "columnName": "table_name",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "source_type",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "source_config_key",
+        "dataType":   "int"
       }, {
         "columnName": "entity_rdf_type",
         "dataType":   "text",
@@ -194,9 +281,12 @@
         "indexName": "process_input_client_idx",
         "indexDef": "CREATE INDEX process_input_client_idx ON jetsapi.process_input (client ASC)"
       }, {
-        "indexName": "process_input_entity_rdf_type_idx",
-        "indexDef": "CREATE INDEX process_input_entity_rdf_type_idx ON jetsapi.process_input (entity_rdf_type ASC)"
+        "indexName": "process_input_object_type_idx",
+        "indexDef": "CREATE INDEX process_input_object_type_idx ON jetsapi.process_input (object_type ASC)"
       }
+    ],
+    "tableConstraints": [
+      "UNIQUE (table_name, grouping_column)"
     ]
   },
   {
@@ -207,6 +297,10 @@
         "columnName": "key",
         "dataType":   "int",
         "isPK":       true
+      }, {
+        "columnName": "process_input_key",
+        "dataType":   "int",
+        "isNotNull":  true
       }, {
         "columnName": "table_name",
         "dataType":   "text",
@@ -246,6 +340,9 @@
       {
         "indexName": "process_mapping_table_name_idx",
         "indexDef": "CREATE INDEX process_mapping_table_name_idx ON jetsapi.process_mapping (table_name ASC)"
+      }, {
+        "indexName": "process_mapping_process_input_key_idx",
+        "indexDef": "CREATE INDEX process_mapping_process_input_key_idx ON jetsapi.process_mapping (process_input_key ASC)"
       }
     ],
     "tableConstraints": [
@@ -260,10 +357,6 @@
         "columnName": "key",
         "dataType":   "int",
         "isPK":       true
-      }, {
-        "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
       }, {
         "columnName": "process_name",
         "dataType":   "text",
@@ -297,12 +390,12 @@
     ],
     "indexes": [
       {
-        "indexName": "process_config_client_idx",
-        "indexDef": "CREATE INDEX process_config_client_idx ON jetsapi.process_config (client ASC)"
-      }, {
         "indexName": "process_config_process_name_idx",
         "indexDef": "CREATE INDEX process_config_process_name_idx ON jetsapi.process_config (process_name ASC)"
       }
+    ],
+    "tableConstraints": [
+      "UNIQUE (process_name)"
    ]
   },
   {
@@ -312,6 +405,14 @@
       {
         "columnName": "process_config_key",
         "dataType":   "int",
+        "isNotNull":  true
+      }, {
+        "columnName": "process_name",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "client",
+        "dataType":   "text",
         "isNotNull":  true
       }, {
         "columnName": "subject",
@@ -333,8 +434,8 @@
     ],
     "indexes": [
       {
-        "indexName": "rule_config_process_config_key_idx",
-        "indexDef": "CREATE INDEX rule_config_process_config_key_idx ON jetsapi.rule_config (process_config_key ASC)"
+        "indexName": "rule_config_process_config_key_client_idx",
+        "indexDef": "CREATE INDEX rule_config_process_config_key_client_idx ON jetsapi.rule_config (process_config_key ASC, client ASC)"
       }
    ]
   },
@@ -355,18 +456,22 @@
         "dataType":   "int",
         "isNotNull":  true
       }, {
+        "columnName": "main_process_input_key",
+        "dataType":   "int",
+        "isNotNull":  true
+      }, {
+        "columnName": "merged_process_input_keys",
+        "dataType":   "int",
+        "isArray":    true,
+        "default":    "'{}'",
+        "isNotNull":  true
+      }, {
         "columnName": "process_name",
         "dataType":   "text",
         "isNotNull":  true
       }, {
         "columnName": "main_table_name",
         "dataType":   "text",
-        "isNotNull":  true
-        }, {
-        "columnName": "merged_in_table_names",
-        "dataType":   "text",
-        "isArray":    true,
-        "default":    "'{}'",
         "isNotNull":  true
         }, {
         "columnName": "description",
@@ -397,7 +502,7 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "pipeline_execution",
+    "tableName":  "pipeline_execution_status",
     "columns": [
       {
         "columnName": "key",
@@ -408,6 +513,16 @@
         "dataType":   "int",
         "isNotNull":  true
       }, {
+        "columnName": "main_input_registry_key",
+        "dataType":   "int",
+        "isNotNull":  true
+      }, {
+        "columnName": "merged_input_registry_keys",
+        "dataType":   "int",
+        "isArray":    true,
+        "default":    "'{}'",
+        "isNotNull":  true
+      }, {
         "columnName": "client",
         "dataType":   "text",
         "isNotNull":  true
@@ -416,12 +531,69 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "main_table_name",
+        "columnName": "input_session_id",
+        "dataType":   "text"
+      }, {
+        "columnName": "session_id",
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "input_session_id",
-        "dataType":   "text"
+        "columnName": "status",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "user_email",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "last_update",
+        "dataType":   "datetime",
+        "default":    "now()",
+        "isNotNull":  true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "pipeline_execution_status_client_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_status_client_idx ON jetsapi.pipeline_execution_status (client ASC)"
+      }, {
+        "indexName": "pipeline_execution_status_process_name_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_status_process_name_idx ON jetsapi.pipeline_execution_status (process_name ASC)"
+      }, {
+        "indexName": "pipeline_execution_status_pipeline_config_key_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_status_pipeline_config_key_idx ON jetsapi.pipeline_execution_status (pipeline_config_key ASC)"
+      }, {
+        "indexName": "pipeline_execution_status_session_id_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_status_session_id_idx ON jetsapi.pipeline_execution_status (session_id DESC)"
+      }, {
+        "indexName": "pipeline_execution_status_last_update_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_status_last_update_idx ON jetsapi.pipeline_execution_status (last_update DESC)"
+      }
+   ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName":  "pipeline_execution_details",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType":   "int",
+        "isPK":       true
+      }, {
+        "columnName": "pipeline_config_key",
+        "dataType":   "int",
+        "isNotNull":  true
+      }, {
+        "columnName": "pipeline_execution_status_key",
+        "dataType":   "int"
+      }, {
+        "columnName": "client",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "process_name",
+        "dataType":   "text",
+        "isNotNull":  true
       }, {
         "columnName": "session_id",
         "dataType":   "text",
@@ -449,7 +621,7 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "started_at",
+        "columnName": "last_update",
         "dataType":   "datetime",
         "default":    "now()",
         "isNotNull":  true
@@ -457,20 +629,23 @@
     ],
     "indexes": [
       {
-        "indexName": "pipeline_execution_client_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_client_idx ON jetsapi.pipeline_execution (client ASC)"
+        "indexName": "pipeline_execution_details_client_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_details_client_idx ON jetsapi.pipeline_execution_details (client ASC)"
       }, {
-        "indexName": "pipeline_execution_process_name_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_process_name_idx ON jetsapi.pipeline_execution (process_name ASC)"
+        "indexName": "pipeline_execution_details_process_name_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_details_process_name_idx ON jetsapi.pipeline_execution_details (process_name ASC)"
       }, {
-        "indexName": "pipeline_execution_main_table_name_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_main_table_name_idx ON jetsapi.pipeline_execution (main_table_name ASC)"
+        "indexName": "pipeline_execution_details_pipeline_config_key_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_details_pipeline_config_key_idx ON jetsapi.pipeline_execution_details (pipeline_config_key ASC)"
       }, {
-        "indexName": "pipeline_execution_session_id_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_session_id_idx ON jetsapi.pipeline_execution (session_id DESC)"
+        "indexName": "pipeline_execution_details_pipeline_execution_status_key_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_details_pipeline_execution_status_key_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key ASC)"
       }, {
-        "indexName": "pipeline_execution_started_at_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_started_at_idx ON jetsapi.pipeline_execution (started_at DESC)"
+        "indexName": "pipeline_execution_details_session_id_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_details_session_id_idx ON jetsapi.pipeline_execution_details (session_id DESC)"
+      }, {
+        "indexName": "pipeline_execution_details_last_update_idx",
+        "indexDef": "CREATE INDEX pipeline_execution_details_last_update_idx ON jetsapi.pipeline_execution_details (last_update DESC)"
       }
    ]
   },

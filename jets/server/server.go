@@ -29,16 +29,17 @@ var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required)")
 var lookupDb = flag.String("lookupDb", "", "lookup data path")
 var ruleset = flag.String("ruleset", "", "main rule set name (override pipeline process config)")
 var ruleseq = flag.String("ruleseq", "", "rule set sequence (override pipeline process config)")
-var pipelineConfigKey = flag.Int("pcKey", 0, "Pipeline config key (required)")
+var pipelineConfigKey = flag.Int("pcKey", -1, "Pipeline config key (required or -pipelineExecKey)")
+var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required or -pipelineConfigKey)")
 var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
-var sessionId = flag.String("sessionId", "", "Process session ID used to link entitied processed together. (required)")
-var inSessionId = flag.String("inSessionId", "", "Session ID for input domain table, default is same as -sessionId.")
+var outSessionId = flag.String("sessionId", "", "Process session ID for the output Domain Tables. (required)")
+var inSessionIdOverride = flag.String("inSessionId", "", "Session ID for input domain table, defaults to latest in input_registry table.")
 var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
 var nodeId = flag.Int("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities")
-var outTables = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline process config).")
+var outTables = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
 var shardId = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId.")
-var userEmail = flag.String("userEmail", "", "User identifier to register the execution (required)")
+var userEmail = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int // taken from env GLOG_v
@@ -63,7 +64,7 @@ func init() {
 	})
 }
 
-//* TODO move this utility fnc somewhere
+//* TODO move this utility fnc somewhere where it would be reused
 func compute_shard_id(key string) int {
 	h := fnv.New32a()
 	h.Write([]byte(key))
@@ -92,7 +93,7 @@ func doJob() error {
 	if *nodeId >= nbrDbNodes {
 		return fmt.Errorf("error: nodeId is %d (-nodeId), we have %d nodes (-dsn): nodeId must be one of the db nodes", *nodeId, nbrDbNodes)
 	}
-	log.Printf("Command Line Argument: inSessionId: %s\n", *inSessionId)
+	log.Printf("Command Line Argument: inSessionId: %s\n", *inSessionIdOverride)
 	log.Printf("Command Line Argument: limit: %d\n", *limit)
 	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
 	log.Printf("Command Line Argument: nbrDbNodes: %d\n", nbrDbNodes)
@@ -101,9 +102,10 @@ func doJob() error {
 	log.Printf("Command Line Argument: outTables: %s\n", *outTables)
 	log.Printf("Command Line Argument: poolSize: %d\n", *poolSize)
 	log.Printf("Command Line Argument: pipelineConfigKey: %d\n", *pipelineConfigKey)
+	log.Printf("Command Line Argument: pipelineExecKey: %d\n", *pipelineExecKey)
 	log.Printf("Command Line Argument: ruleseq: %s\n", *ruleseq)
 	log.Printf("Command Line Argument: ruleset: %s\n", *ruleset)
-	log.Printf("Command Line Argument: sessionId: %s\n", *sessionId)
+	log.Printf("Command Line Argument: sessionId: %s\n", *outSessionId)
 	log.Printf("Command Line Argument: shardId: %d\n", *shardId)
 	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
 	log.Printf("Command Line Argument: userEmail: %s\n", *userEmail)
@@ -125,9 +127,9 @@ func doJob() error {
 		defer dbc.joinNodes[i].dbpool.Close()
 	}
 	dbpool = dbc.mainNode.dbpool
-	pipelineConfig, err := readPipelineConfig(dbpool, *pipelineConfigKey)
+	pipelineConfig, err := readPipelineConfig(dbpool, *pipelineConfigKey, *pipelineExecKey)
 	if err != nil {
-		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
+		return fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
 	}
 
 	// check if we are NOT overriding ruleset/ruleseq
@@ -179,9 +181,13 @@ func main() {
 	// validate command line arguments
 	hasErr := false
 	var errMsg []string
-	if *pipelineConfigKey == 0 {
+	if *pipelineConfigKey <= -1 && *pipelineExecKey <= -1 {
 		hasErr = true
-		errMsg = append(errMsg, "Process config key value (-pcKey) must be provided.")
+		errMsg = append(errMsg, "Process config key (-pcKey) or process execution status key (-peKey) must be provided.")
+	}
+	if *pipelineConfigKey > -1 && *pipelineExecKey > -1 {
+		hasErr = true
+		errMsg = append(errMsg, "Do not provide both process config key (-pcKey) and process execution status key (-peKey), -peKey is sufficient.")
 	}
 	if *dsnList == "" {
 		hasErr = true
@@ -203,12 +209,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "The number of shards (-nbrShards) for the output entities must at least be 1.")
 	}
-	if *sessionId == "" {
+	if *outSessionId == "" {
 		hasErr = true
-		errMsg = append(errMsg, "The session id (-seesionId) must be provided.")
-	}
-	if *inSessionId == "" {
-		inSessionId = sessionId
+		errMsg = append(errMsg, "The session id (-sessionId) must be provided.")
 	}
 	if len(*outTables) > 0 {
 		outTableSlice = strings.Split(*outTables, ",")

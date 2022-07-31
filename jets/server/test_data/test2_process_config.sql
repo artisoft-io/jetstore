@@ -1,8 +1,7 @@
--- TRUNCATE TABLE jetsapi.pipeline_config, jetsapi.process_input, jetsapi.process_mapping, jetsapi.rule_config, jetsapi.process_merge;
 DELETE FROM jetsapi.pipeline_config WHERE key in (201, 202, 203);
 DELETE FROM jetsapi.process_config WHERE key in (251, 252, 255);
 DELETE FROM jetsapi.process_input WHERE table_name in ('test2');
-DELETE FROM jetsapi.rule_config WHERE process_config_key in (151, 152);
+DELETE FROM jetsapi.rule_config WHERE process_config_key in (251, 252, 255);
 
 INSERT INTO jetsapi.pipeline_config (key, client, description, process_config_key, process_name, main_table_name, merged_in_table_names, user_email) VALUES
   (201, 'Zeme', 'Input mapping for aspec:Simulator', 251, 'Gen02', 'test2',                   '{}', 'user@mail.com'),
@@ -11,18 +10,18 @@ INSERT INTO jetsapi.pipeline_config (key, client, description, process_config_ke
   (205, 'Zeme', 'From simulation to inferrence', 255, 'Gen02', 'test2', '{}', 'user@mail.com')
 ;
 
-INSERT INTO jetsapi.process_config (key, client, process_name, main_rules, is_rule_set, output_tables, user_email) VALUES
-  (251, 'Zeme', 'PROC02-1', 'test2_ruleset1.jr', 1, '{hc:SimulatedPatient}', 'user@mail.com'),
-  (252, 'Zeme', 'PROC02-2', 'test2_ruleset2.jr', 1, '{hc:SimulatedClaim,hc:Claim,hc:ProfessionalClaim,hc:InstitutionalClaim}', 'user@mail.com'),
-  (253, 'Zeme', 'PROC02-3', 'test2_ruleset3.jr', 1, '{hc:PatientAdum}', 'user@mail.com'),
-  (255, 'Zeme', 'PROC02-ALL', 'all_uuid', 0, '{hc:PatientAdum,hc:SimulatedClaim,hc:Claim,hc:ProfessionalClaim,hc:InstitutionalClaim,hc:SimulatedPatient,hc:Patient}', 'user@mail.com')
+INSERT INTO jetsapi.process_config (key, process_name, main_rules, is_rule_set, output_tables, user_email) VALUES
+  (251, 'PROC02-1', 'test2_ruleset1.jr', 1, '{hc:SimulatedPatient}', 'user@mail.com'),
+  (252, 'PROC02-2', 'test2_ruleset2.jr', 1, '{hc:SimulatedClaim,hc:Claim,hc:ProfessionalClaim,hc:InstitutionalClaim}', 'user@mail.com'),
+  (253, 'PROC02-3', 'test2_ruleset3.jr', 1, '{hc:PatientAdum}', 'user@mail.com'),
+  (255, 'PROC02-ALL', 'all_uuid', 0, '{hc:PatientAdum,hc:SimulatedClaim,hc:Claim,hc:ProfessionalClaim,hc:InstitutionalClaim,hc:SimulatedPatient,hc:Patient}', 'user@mail.com')
 ;
 
-INSERT INTO jetsapi.process_input (table_name, client, input_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES
-  ('test2',                'Zeme', 0, 'aspec:Simulator', 'key', 'key', 'user@mail.com'),
-  ('hc:SimulatedPatient',  'Zeme', 1, 'hc:SimulatedPatient', 'hc:patient_number', 'jets:key', 'user@mail.com'),
-  ('hc:ProfessionalClaim', 'Zeme', 1, 'hc:ProfessionalClaim', 'hc:member_number', 'jets:key', 'user@mail.com'),
-  ('hc:InstitutionalClaim','Zeme', 1, 'hc:InstitutionalClaim', 'hc:member_number', 'jets:key', 'user@mail.com')
+INSERT INTO jetsapi.process_input (table_name, client, source_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES
+  ('test2',                'Zeme', 'file', 'aspec:Simulator', 'key', 'key', 'user@mail.com'),
+  ('hc:SimulatedPatient',  'Zeme', 'domain_table', 'hc:SimulatedPatient', 'hc:patient_number', 'jets:key', 'user@mail.com'),
+  ('hc:ProfessionalClaim', 'Zeme', 'domain_table', 'hc:ProfessionalClaim', 'hc:member_number', 'jets:key', 'user@mail.com'),
+  ('hc:InstitutionalClaim','Zeme', 'domain_table', 'hc:InstitutionalClaim', 'hc:member_number', 'jets:key', 'user@mail.com')
 ;
 
 INSERT INTO jetsapi.process_mapping (table_name, input_column, data_property, function_name, argument, default_value, error_message, user_email) VALUES
@@ -52,9 +51,9 @@ INSERT INTO jetsapi.process_mapping (table_name, input_column, data_property, fu
   ('hc:InstitutionalClaim', 'rdf:type', 'rdf:type', NULL, NULL, NULL, NULL, 'user@mail.com')
 ;
 
-INSERT INTO jetsapi.rule_config (process_config_key, subject, predicate, object, rdf_type) VALUES
-  (151, 'jets:iState', 'rdf:type', 'jets:State', 'resource'),
-  (152, 'jets:iState', 'rdf:type', 'jets:State', 'resource'),
-  (155, 'jets:iState', 'rdf:type', 'jets:State', 'resource')
+INSERT INTO jetsapi.rule_config (process_config_key, process_name, client, subject, predicate, object, rdf_type) VALUES
+  (251, 'PROC02-1', 'Zeme', 'jets:iState', 'rdf:type', 'jets:State', 'resource'),
+  (252, 'PROC02-2', 'Zeme', 'jets:iState', 'rdf:type', 'jets:State', 'resource'),
+  (255, 'PROC02-ALL', 'Zeme', 'jets:iState', 'rdf:type', 'jets:State', 'resource')
 ;
 

@@ -25,7 +25,7 @@ type bundleRow struct {
 func readRow(rows *pgx.Rows, processInput *ProcessInput) ([]interface{}, error) {
 	nCol := len(processInput.processInputMapping)
 	dataRow := make([]interface{}, nCol)
-	if processInput.inputType == 0 {
+	if processInput.sourceType == "file" {
 		dataGrp := make([]sql.NullString, nCol)
 		for i := 0; i < nCol; i++ {
 			dataRow[i] = &dataGrp[i]
@@ -98,20 +98,20 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		var stmt string
 		var rows pgx.Rows
 		var err error
-		if mainInput.inputType == 0 {
+		if mainInput.sourceType == "file" {
 			stmt = mainInput.makeInputSqlStmt()
-		} else if mainInput.inputType == 1 {
+		} else if mainInput.sourceType == "domain_table" {
 			stmt = mainInput.makeSqlStmt()
 		} else {
-			result <- readResult{err: fmt.Errorf("error: unknown input_type for the input table %d", mainInput.inputType)}
+			result <- readResult{err: fmt.Errorf("error: unknown source_type for the input table: %s", mainInput.sourceType)}
 			return
 		}
 		log.Println("SQL:", stmt)
 		log.Println("Grouping key at pos", mainInput.groupingPosition)
 		if *shardId >= 0 {
-			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId, *shardId)
+			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, mainInput.sessionId, *shardId)
 		} else {
-			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, *inSessionId)
+			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, mainInput.sessionId)
 		}
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
@@ -143,7 +143,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 				return
 			}
 			if glogv > 0 {
-				if mainInput.inputType == 0 {
+				if mainInput.sourceType == "file" {
 					log.Printf("Got text-based input record with grouping key %s", dataGrp.String)
 				} else {
 					log.Printf("Got input entity with grouping key %s", dataGrp.String)
@@ -168,25 +168,23 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 
 				// read the join tables
 				if rowCount == 0 {
-					// setup the join tables - dsn * (nbr_input_tables - 1)
-					processInputs := reteWorkspace.pipelineConfig.processInputs
+					// setup the join tables: dsn * nbr merged tables
+					processInputs := reteWorkspace.pipelineConfig.mergedProcessInput
 					for _, jnode := range dbc.joinNodes {
 						for ipoc := range processInputs {
-							if processInputs[ipoc].tableName != reteWorkspace.pipelineConfig.mainTableName.String {
-								// prepare the sql stmt
-								jquery := joinQuery{processInput: &processInputs[ipoc]}
-								stmt := processInputs[ipoc].makeJoinSqlStmt()
-								log.Println("JOIN SQL:", stmt)
-								log.Println("Grouping key at pos", processInputs[ipoc].groupingPosition)
-								log.Println("Grouping key starting value", groupingValue)
-								jquery.rows, err = jnode.dbpool.Query(context.Background(), stmt, *inSessionId, groupingValue)
-								if err != nil {
-									result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
-									return
-								}
-								joinQueries = append(joinQueries, jquery)
-								defer joinQueries[len(joinQueries)-1].rows.Close()
+							// prepare the sql stmt
+							jquery := joinQuery{processInput: &processInputs[ipoc]}
+							stmt := processInputs[ipoc].makeJoinSqlStmt()
+							log.Println("JOIN SQL:", stmt)
+							log.Println("Grouping key at pos", processInputs[ipoc].groupingPosition)
+							log.Println("Grouping key starting value", groupingValue)
+							jquery.rows, err = jnode.dbpool.Query(context.Background(), stmt, processInputs[ipoc].sessionId, groupingValue)
+							if err != nil {
+								result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
+								return
 							}
+							joinQueries = append(joinQueries, jquery)
+							defer joinQueries[len(joinQueries)-1].rows.Close()
 						}
 					}
 				}
