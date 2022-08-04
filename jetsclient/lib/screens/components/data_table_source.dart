@@ -156,8 +156,10 @@ class JetsDataTableSource extends ChangeNotifier {
         }
         return null; // Use default value for other states and odd rows.
       }),
-      cells: List<DataCell>.generate(model![0].length,
-          (int colIndex) => DataCell(Text(model![index][colIndex] ?? 'null'))),
+      cells: state.columnsConfig
+        .where((e) => !e.isHidden)
+        .map((e) => DataCell(Text(model![index][e.index] ?? 'null')))
+        .toList(),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable
           ? (bool? value) {
@@ -231,11 +233,11 @@ class JetsDataTableSource extends ChangeNotifier {
     msg['limit'] = state.rowsPerPage;
     if (columns.isNotEmpty) {
       msg['columns'] = columnNames;
-      msg['sortColumn'] = columnNames[state.sortColumnIndex];
+      msg['sortColumn'] = state.sortColumnName;
     } else {
       if (state.columnNames.isNotEmpty) {
         msg['columns'] = state.columnNames;
-        msg['sortColumn'] = state.columnNames[state.sortColumnIndex];
+        msg['sortColumn'] = state.sortColumnName;
       } else {
         msg['columns'] = [];
         msg['sortColumn'] = '';
@@ -315,6 +317,7 @@ class JetsDataTableSource extends ChangeNotifier {
                 isNumeric: m1['isnumeric']))
             .toList();
         state.columnNames = columnDef.map((e) => e['name'] as String).toList();
+        state.setSortingColumn(columnIndex: 0);
       }
       final rows = data['rows'] as List;
       model = rows.map((e) => (e as List).cast<String?>()).toList();

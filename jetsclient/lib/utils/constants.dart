@@ -20,6 +20,7 @@ class ScreenKeys {
 class FormKeys {
   static const home = "homeForm";
   static const sourceConfig = "sourceConfigForm";
+  static const addClient = "addClientDialog";
 
   static const login = "login";
   static const register = "register";
@@ -38,6 +39,12 @@ class FSK {
   static const userPassword = "password";
   static const userPasswordConfirm = "passwordConfirm";
   static const sessionId = "sessionId";
+
+  static const client = "client";
+  static const details = "details";
+
+  // reserve key to hold an error to display to user
+  static const serverError = "server_error";
 }
 
 /// Form Action Keys
@@ -45,6 +52,8 @@ class FSK {
 class ActionKeys {
   static const login = "loginAction";
   static const register = "registerAction";
+  static const clientOk = "client.ok";
+  static const dialogCancel = "dialog.cancelAction";
 }
 
 /// Data Table Config Keys
@@ -63,4 +72,9 @@ class DTKeys {
   static const registryDemo = "inputLoaderStatusTable"; // repurposed
   static const usersTable = "userTable";
   static const inputTable = "inputTable";
+}
+
+/// API Server endpoints
+class ServerEPs {
+  static const dataTableEP = "/dataTable";
 }

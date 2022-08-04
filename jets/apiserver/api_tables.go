@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
-type DataTableQuery struct {
+type DataTableAction struct {
 	Action         string        `json:"action"`
 	RawQuery       string        `json:"query"`
 	NbrColumns     int           `json:"nbrColumns"`	// used for rawQuery
@@ -29,6 +29,7 @@ type DataTableQuery struct {
 	SortAscending   bool         `json:"sortAscending"`
 	Offset         int           `json:"offset"`
 	Limit          int           `json:"limit"`
+	Data           []map[string]interface{} `json:"data"`
 }
 type WhereClause struct {
 	Column           string      `json:"column"`
@@ -42,7 +43,7 @@ type DataTableColumnDef struct {
 	IsNumeric        bool        `json:"isnumeric"`
 }
 
-func (dtq *DataTableQuery) makeWhereClause() string {
+func (dtq *DataTableAction) makeWhereClause() string {
 	if len(dtq.WhereClauses) == 0 {
 		return ""
 	}
@@ -65,9 +66,9 @@ func (dtq *DataTableQuery) makeWhereClause() string {
 				isFirstValue = false
 				value := dtq.WhereClauses[i].Values[j]
 				if value == "NULL" {
-					buf.WriteString(" is NULL ")
+					buf.WriteString(" NULL ")
 				} else {
-					buf.WriteString(" = '")
+					buf.WriteString("'")
 					buf.WriteString(value)
 					buf.WriteString("'")	
 				}
@@ -104,14 +105,14 @@ func isNumeric(dtype string) bool {
 // 		log.Fatal("error: cannot create cache")
 // 	}
 // }
-// func (dataTableQuery *DataTableQuery) getKey() string {
-// 	return dataTableQuery.Schema+"_"+dataTableQuery.Table
+// func (dataTableAction *DataTableAction) getKey() string {
+// 	return dataTableAction.Schema+"_"+dataTableAction.Table
 // }
 
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataTableQuery *DataTableQuery) {
-	resultRows, err := execQuery(server.dbpool, dataTableQuery, &dataTableQuery.RawQuery, dataTableQuery.NbrColumns)
+func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
+	resultRows, err := execQuery(server.dbpool, dataTableAction, &dataTableAction.RawQuery, dataTableAction.NbrColumns)
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while executing raw query"))
 		return
@@ -126,11 +127,40 @@ func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataT
 	JSON(w, http.StatusOK, results)
 }
 
+// InsertRows ------------------------------------------------------
+// Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
+func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
+	sqlStmt, ok := sqlInsertStmts[dataTableAction.Table]
+	if !ok {
+		ERROR(w, http.StatusBadRequest, errors.New("error: unknown table"))
+		return
+	}
+	row := make([]interface{}, len(sqlStmt.columnKeys))
+	for irow := range dataTableAction.Data {
+		for jcol, colKey := range sqlStmt.columnKeys {
+			row[jcol] = dataTableAction.Data[irow][colKey]
+		}
+		_, err := server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
+		if err != nil {
+			log.Printf("while inserting in client_registry: %v", err)
+			ERROR(w, http.StatusConflict, errors.New("error while executing insert"))
+			return
+		}
+	}
+
+	results := make(map[string]interface{}, 3)
+	token, ok := r.Header["Token"]
+	if ok {
+		results["token"] = token[0]
+	}
+	JSON(w, http.StatusOK, results)
+}
+
 // utility method
-func execQuery(dbpool *pgxpool.Pool, dataTableQuery *DataTableQuery, query *string, nCol int) (*[][]interface{}, error) {
+func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string, nCol int) (*[][]interface{}, error) {
 	//*
 	log.Println("Query:", *query)
-	resultRows := make([][]interface{}, 0, dataTableQuery.Limit)
+	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
 		log.Printf("While executing dataTable query: %v", err)
@@ -163,22 +193,33 @@ func execQuery(dbpool *pgxpool.Pool, dataTableQuery *DataTableQuery, query *stri
 }
 
 // ReadDataTable ------------------------------------------------------
-func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
+func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	dataTableQuery := DataTableQuery{Limit: 200}
-	err = json.Unmarshal(body, &dataTableQuery)
+	dataTableAction := DataTableAction{Limit: 200}
+	err = json.Unmarshal(body, &dataTableAction)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
 	// Intercept special case
-	if dataTableQuery.Action == "raw_query" {
-		server.ExecRawQuery(w, r, &dataTableQuery)
+	switch dataTableAction.Action {
+	case "raw_query":
+		server.ExecRawQuery(w, r, &dataTableAction)
+		return
+
+	case "insert_rows":
+		server.InsertRows(w, r, &dataTableAction)
+		return
+
+	case "read":
+		// continue
+	default:
+		ERROR(w, http.StatusUnprocessableEntity, fmt.Errorf("error: unknown action"))
 		return
 	}
 
@@ -186,51 +227,52 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 	results := make(map[string]interface{}, 5)
 
 	var columnsDef []DataTableColumnDef
-	if len(dataTableQuery.Columns) == 0 {
+	if len(dataTableAction.Columns) == 0 {
 		// Get table column definition
 		//* TODO use cache
-		tableSchema, err := schema.GetTableSchema(server.dbpool, dataTableQuery.Schema, dataTableQuery.Table)
+		tableSchema, err := schema.GetTableSchema(server.dbpool, dataTableAction.Schema, dataTableAction.Table)
 		if err != nil {
-			log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableQuery.Schema, dataTableQuery.Table, err)
+			log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.Schema, dataTableAction.Table, err)
 			ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
 			return
 		}
 		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
-		colIndex := 0
 		for _,colDef := range tableSchema.Columns {
 			columnsDef = append(columnsDef, DataTableColumnDef{
-				Index: colIndex,
 				Name: colDef.ColumnName, 
 				Label: colDef.ColumnName,
 				Tooltips: colDef.ColumnName,
 				IsNumeric: isNumeric(colDef.DataType),})
-			colIndex++
-			dataTableQuery.Columns = append(dataTableQuery.Columns, colDef.ColumnName)
+			dataTableAction.Columns = append(dataTableAction.Columns, colDef.ColumnName)
 		}
 		sort.Slice(columnsDef, func(l, r int) bool {return columnsDef[l].Name < columnsDef[r].Name})
-		dataTableQuery.Columns = make([]string, 0, len(tableSchema.Columns))
+		// need to reset the column index due to the sort
 		for i := range columnsDef {
-			dataTableQuery.Columns = append(dataTableQuery.Columns, columnsDef[i].Name)
+			columnsDef[i].Index = i
+		}
+		dataTableAction.Columns = make([]string, 0, len(tableSchema.Columns))
+		for i := range columnsDef {
+			dataTableAction.Columns = append(dataTableAction.Columns, columnsDef[i].Name)
 		}
 
-		dataTableQuery.SortColumn = columnsDef[0].Name
+		dataTableAction.SortColumn = columnsDef[0].Name
 		results["columnDef"] = columnsDef
 	}
 
 	// Get table schema
 	// //*
-	// value, ok := tableSchemaCache.Get(dataTableQuery.getKey())
+	// value, ok := tableSchemaCache.Get(dataTableAction.getKey())
 	// if !ok {
 	// 	// Not in cache
 	// 	//*
-	// 	log.Println("DataTableSchema key",dataTableQuery.getKey(),"is not in the cache")
-	// 	tableSchema, err := schema.GetTableSchema(server.dbpool, dataTableQuery.Schema, dataTableQuery.Table)
+	// 	log.Println("DataTableSchema key",dataTableAction.getKey(),"is not in the cache")
+	// 	tableSchema, err := schema.GetTableSchema(server.dbpool, dataTableAction.Schema, dataTableAction.Table)
 	// 	if err != nil {
-	// 		log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableQuery.Schema, dataTableQuery.Table, err)
+	// 		log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.Schema, dataTableAction.Table, err)
 	// 		ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
 	// 	}
 	// 	value = *tableSchema
-	// 	tableSchemaCache.Add(dataTableQuery.getKey(), value)
+	// 	tableSchemaCache.Add(dataTableAction.getKey(), value)
 	// }
 	// tableDefinition, ok := value.(schema.TableDefinition)
 	// if !ok {
@@ -242,33 +284,35 @@ func (server *Server) DataTableAction(w http.ResponseWriter, r *http.Request) {
 	// Build the query
 	// SELECT "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
 	var buf strings.Builder
-	sanitizedTableName := pgx.Identifier{dataTableQuery.Schema, dataTableQuery.Table}.Sanitize()
+	sanitizedTableName := pgx.Identifier{dataTableAction.Schema, dataTableAction.Table}.Sanitize()
 	buf.WriteString("SELECT ")
 	isFirst := true
-	for i := range dataTableQuery.Columns {
+	for i := range dataTableAction.Columns {
 		if !isFirst {
 			buf.WriteString(", ")
 		}
 		isFirst = false
-		buf.WriteString(pgx.Identifier{dataTableQuery.Columns[i]}.Sanitize())
+		buf.WriteString(pgx.Identifier{dataTableAction.Columns[i]}.Sanitize())
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(sanitizedTableName)
-	whereClause := dataTableQuery.makeWhereClause()
+	whereClause := dataTableAction.makeWhereClause()
 	buf.WriteString(whereClause)
-	buf.WriteString(" ORDER BY ")
-	buf.WriteString(pgx.Identifier{dataTableQuery.SortColumn}.Sanitize())
-	if !dataTableQuery.SortAscending {
-		buf.WriteString(" DESC ")
+	if len(dataTableAction.SortColumn) > 0 {
+		buf.WriteString(" ORDER BY ")
+		buf.WriteString(pgx.Identifier{dataTableAction.SortColumn}.Sanitize())
+		if !dataTableAction.SortAscending {
+			buf.WriteString(" DESC ")
+		}	
 	}
 	buf.WriteString(" OFFSET ")
-	buf.WriteString(fmt.Sprintf("%d", dataTableQuery.Offset))
+	buf.WriteString(fmt.Sprintf("%d", dataTableAction.Offset))
 	buf.WriteString(" LIMIT ")
-	buf.WriteString(fmt.Sprintf("%d", dataTableQuery.Limit))
+	buf.WriteString(fmt.Sprintf("%d", dataTableAction.Limit))
 
 	// Perform the query
 	query := buf.String()
-	resultRows, err := execQuery(server.dbpool, &dataTableQuery, &query, len(dataTableQuery.Columns))
+	resultRows, err := execQuery(server.dbpool, &dataTableAction, &query, len(dataTableAction.Columns))
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while executing query"))
 		return

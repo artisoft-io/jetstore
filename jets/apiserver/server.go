@@ -135,7 +135,7 @@ func listenAndServe() error {
 		AllowedMethods: "POST, OPTIONS",
 		AllowedHeaders: "Content-Type, Authorization"	}
 	server.Router.HandleFunc("/dataTable", dataTableOptions.options).Methods("OPTIONS")
-	server.Router.HandleFunc("/dataTable", jsonh(corsh(authh(server.DataTableAction)))).Methods("POST")
+	server.Router.HandleFunc("/dataTable", jsonh(corsh(authh(server.DoDataTableAction)))).Methods("POST")
 
 	//* TODO add options and corrs check - Users routes
 	// server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")

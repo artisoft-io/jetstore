@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
@@ -39,9 +40,14 @@ class BaseScreenState extends State<BaseScreen> {
             child: Column(children: [
               const SizedBox(height: defaultPadding),
               Expanded(
-                flex: 1,
-                child: Image.asset(widget.screenConfig.leftBarLogo),
-              ),
+                  flex: 1,
+                  child: ConstrainedBox(
+                      constraints: const BoxConstraints.expand(),
+                      child: IconButton(
+                          onPressed: () =>
+                              JetsRouterDelegate()(JetsRouteData(homePath)),
+                          padding: const EdgeInsets.all(0.0),
+                          icon: Image.asset(widget.screenConfig.leftBarLogo)))),
               const SizedBox(height: defaultPadding),
               Expanded(
                   flex: 8,

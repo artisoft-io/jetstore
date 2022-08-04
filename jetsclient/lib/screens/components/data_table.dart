@@ -46,6 +46,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                         ))
                     .toList();
             final List<DataColumn> dataColumns = state.columnsConfig
+                .where((e) => !e.isHidden)
                 .map((e) => state.makeDataColumn(e))
                 .toList();
             var footerWidgets = <Widget>[
@@ -231,7 +232,8 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   final ScrollController _horizontalController = ScrollController();
   late final JetsDataTableSource dataSource;
   bool isTableEditable = false;
-  int sortColumnIndex = 0;
+  int? sortColumnIndex;
+  String sortColumnName = '';
   bool sortAscending = false;
 
   // pagination state
@@ -257,7 +259,11 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   @override
   void initState() {
     super.initState();
-    sortColumnIndex = tableConfig.sortColumnIndex;
+
+    // this may be an empty list if table is a domain table
+    columnsConfig = tableConfig.columns;
+    // sortColumnIndex may not be resolved until we get the columns
+    setSortingColumn();
     sortAscending = tableConfig.sortAscending;
     rowsPerPage = tableConfig.rowsPerPage;
     availableRowsPerPage = <int>[
@@ -274,9 +280,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
     isTableEditable = tableConfig.isCheckboxVisible;
 
-    // this may be an empty list if table is a domain table
-    columnsConfig = tableConfig.columns;
-
     // register for change notification on the form state
     if (formState != null && formFieldConfig != null) {
       formState!.addListener(refreshOnFormStateChange);
@@ -288,6 +291,49 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     } else {
       dataSource.getModelData();
     }
+  }
+
+  /// Get the sort column index as seen by the data table,
+  /// i.e., the position of sortColumnName among the visible columns
+  /// If the column is not visible or not found, defaults to the first
+  /// visible column
+  void setSortingColumn({int columnIndex = -1}) {
+    if (columnsConfig.isEmpty) return;
+    var filteredColumns = columnsConfig.where((e) => !e.isHidden);
+    if (filteredColumns.isEmpty) {
+      print("error: table has no visible columns!");
+      sortColumnIndex = null;
+      sortColumnName = '';
+      return;
+    }
+    if (columnIndex < 0 || columnIndex >= filteredColumns.length) {
+      // Use the configuration setting, which is specified by column name
+      var sortPos = 0;
+      for (var col in filteredColumns) {
+        if (col.name == tableConfig.sortColumnName) {
+          if (col.isHidden) {
+            print("error: table sort column is not visible!");
+            sortColumnIndex = null;
+            sortColumnName = '';
+            return;
+          } else {
+            sortColumnIndex = sortPos;
+            sortColumnName = col.name;
+            return;
+          }
+        }
+        sortPos++;
+      }
+    } else {
+      // use columnIndex, which came from gesture
+      var col = filteredColumns.elementAt(columnIndex);
+      sortColumnIndex = columnIndex;
+      sortColumnName = col.name;
+      return;
+    }
+    print("error: table sort column unexpected fall through!");
+    sortColumnIndex = null;
+    sortColumnName = '';
   }
 
   DataColumn makeDataColumn(ColumnConfig e) {
@@ -349,15 +395,20 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     super.dispose();
   }
 
-  void dialogResultHandler(BuildContext context, DTActionResult? result) {
+  void dialogResultHandler(BuildContext context, JetsFormState dialogFormState, DTActionResult? result) {
     switch (result) {
       case DTActionResult.ok:
       case DTActionResult.canceled:
         break;
       case DTActionResult.okDataTableDirty:
         // refresh the data table
-        print("Refreshing the data table YAY!");
         dataSource.getModelData();
+        break;
+      case DTActionResult.statusError:
+        var msg = dialogFormState.getValue(0, FSK.serverError);
+        if (msg != null) {
+          showAlertDialog(context, msg);
+        }
         break;
       default:
       // case null
@@ -409,18 +460,17 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   }
 
   void _sortTable(int columnIndex, bool ascending) async {
-    //* TODO add sort on client side with time-based order from server
+    //* TODO ? add sort on client side with time-based order from server ?
     // dataSource.sortModelData(columnIndex, ascending);
+    setSortingColumn(columnIndex: columnIndex);
+    dataSource.getModelData();
     setState(() {
       currentDataPage = 0;
       if (columnIndex != sortColumnIndex) {
-        sortColumnIndex = columnIndex;
         sortAscending = true;
       } else {
-        sortColumnIndex = columnIndex;
         sortAscending = !sortAscending;
       }
-      dataSource.getModelData();
     });
   }
 

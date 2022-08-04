@@ -16,7 +16,7 @@ class TableConfig {
       required this.columns,
       required this.whereClauses,
       this.formStateConfig,
-      required this.sortColumnIndex,
+      required this.sortColumnName,
       required this.sortAscending,
       required this.rowsPerPage});
   final String key;
@@ -30,7 +30,7 @@ class TableConfig {
   final List<ColumnConfig> columns;
   final List<WhereClause> whereClauses;
   final DataTableFormStateConfig? formStateConfig;
-  final int sortColumnIndex;
+  final String sortColumnName;
   final bool sortAscending;
   final int rowsPerPage;
 }
@@ -117,12 +117,14 @@ class ColumnConfig {
     required this.label,
     required this.tooltips,
     required this.isNumeric,
+    this.isHidden = false,
   });
   final int index;
   final String name;
   final String label;
   final String tooltips;
   final bool isNumeric;
+  final bool isHidden;
 }
 
 class WhereClause {
@@ -160,7 +162,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     tableName: 'input_loader_status',
     label: 'File Loader Status',
     apiPath: '/dataTable',
-    isCheckboxVisible: true,
+    isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
     whereClauses: [],
     actions: [
@@ -186,7 +188,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           name: "key",
           label: 'Key',
           tooltips: 'Row Primary Key',
-          isNumeric: true),
+          isNumeric: true,
+          isHidden: true),
       ColumnConfig(
           index: 1,
           name: "client",
@@ -254,7 +257,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Indicates when the file was loaded',
           isNumeric: false),
     ],
-    sortColumnIndex: 11,
+    sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
   ),
@@ -285,33 +288,37 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenTableEditablePrecondition: true,
           configForm: "newPipeline"),
     ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-    ]),
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
           name: "key",
           label: 'Key',
           tooltips: 'Row Primary Key',
-          isNumeric: true),
+          isNumeric: true,
+          isHidden: true),
       ColumnConfig(
           index: 1,
           name: "pipeline_config_key",
           label: 'Pipeline Config',
           tooltips: 'Pipeline configuration key',
-          isNumeric: true),
+          isNumeric: true,
+          isHidden: true),
       ColumnConfig(
           index: 2,
           name: "main_input_registry_key",
           label: 'Main Input Registry',
           tooltips: 'Main input registry key',
-          isNumeric: true),
+          isNumeric: true,
+          isHidden: true),
       ColumnConfig(
           index: 3,
           name: "merged_input_registry_keys",
           label: 'Merge-In Input Registry',
           tooltips: 'Merged entities input registry keys',
-          isNumeric: false),
+          isNumeric: false,
+          isHidden: true),
       ColumnConfig(
           index: 4,
           name: "client",
@@ -355,7 +362,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Indicates when the file was loaded',
           isNumeric: false),
     ],
-    sortColumnIndex: 10,
+    sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
   ),
@@ -368,19 +375,22 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
     whereClauses: [
-      WhereClause(column: "pipeline_execution_status_key", formStateKey: DTKeys.pipelineExecStatusTable, defaultValue: ["NULL"])
+      WhereClause(
+          column: "pipeline_execution_status_key",
+          formStateKey: DTKeys.pipelineExecStatusTable,
+          defaultValue: ["NULL"])
     ],
-    actions: [
-    ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-    ]),
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
           name: "key",
           label: 'Key',
           tooltips: 'Row Primary Key',
-          isNumeric: true),
+          isNumeric: true,
+          isHidden: true),
       ColumnConfig(
           index: 1,
           name: "client",
@@ -448,7 +458,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Indicates when the file was loaded',
           isNumeric: false),
     ],
-    sortColumnIndex: 4,
+    sortColumnName: 'shard_id',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -468,11 +478,11 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'addClient',
           label: 'Add New Client',
           style: ActionStyle.primary,
-          configForm: "newPipeline"),
+          configForm: FormKeys.addClient),
     ],
     // FORM STATE CONFIG
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-    ]),
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
@@ -487,7 +497,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: '',
           isNumeric: false),
     ],
-    sortColumnIndex: 0,
+    sortColumnName: 'client',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -510,8 +520,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           configForm: "newPipeline"),
     ],
     // FORM STATE CONFIG
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-    ]),
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
@@ -556,11 +566,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Indicates when the records was created',
           isNumeric: false),
     ],
-    sortColumnIndex: 6,
+    sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
   ),
-
 
   //* DEMO FORM - DEMO MAIN DATA TABLE
   "dataTableDemoMainTableConfig": TableConfig(
@@ -663,7 +672,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'When the record was created or last update',
           isNumeric: false),
     ],
-    sortColumnIndex: 0,
+    sortColumnName: 'table_name',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -679,8 +688,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [
       WhereClause(column: "table_name", formStateKey: "dataTableDemoMainTable")
     ],
-    actions: [
-    ],
+    actions: [],
     // FORM STATE CONFIG
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
@@ -752,7 +760,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'When the record was created or last update',
           isNumeric: false),
     ],
-    sortColumnIndex: 2,
+    sortColumnName: 'input_column',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -766,8 +774,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: false,
     isCheckboxSingleSelect: false,
     whereClauses: [],
-    actions: [
-    ],
+    actions: [],
     // no need for formState here since isCheckboxVisible is false
     columns: [
       ColumnConfig(
@@ -807,7 +814,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Submitted At',
           isNumeric: false),
     ],
-    sortColumnIndex: 0,
+    sortColumnName: 'key',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -820,8 +827,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
     whereClauses: [],
-    actions: [
-    ],
+    actions: [],
     //* DEMO CODE
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
@@ -845,7 +851,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Last Updated',
           isNumeric: false),
     ],
-    sortColumnIndex: 0,
+    sortColumnName: 'name',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -860,8 +866,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       whereClauses: [],
       actions: [],
       columns: [],
-      sortColumnIndex: 0,
-      sortAscending: true,
+      sortColumnName: '',
+      sortAscending: false,
       rowsPerPage: 10),
 };
 

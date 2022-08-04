@@ -5,7 +5,7 @@ go 1.18
 require github.com/jackc/pgx/v4 v4.16.1
 
 require (
-	github.com/golang-jwt/jwt/v4 v4.4.1
+	github.com/golang-jwt/jwt/v4 v4.4.2
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
 
@@ -24,7 +24,7 @@ require (
 	github.com/jackc/pgtype v1.11.0 // indirect
 	github.com/jackc/puddle v1.2.1 // indirect
 	github.com/lib/pq v1.10.5 // indirect
-	github.com/mattn/go-sqlite3 v1.14.13
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+	github.com/mattn/go-sqlite3 v1.14.14
+	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/text v0.3.7 // indirect
 )
