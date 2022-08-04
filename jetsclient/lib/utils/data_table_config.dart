@@ -171,7 +171,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isTableEditablePrecondition: null,
           isEnabledWhenTableEditablePrecondition: null,
-          configForm: "newPipeline"),
+          configForm: "TEST"),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(

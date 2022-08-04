@@ -77,6 +77,29 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
   }
 }
 
+/// Home Form Actions
+void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
+    JetsFormState formState, String actionKey) async {
+  print("HOME FORM ACTION DELEGATE CALLED");
+  switch (actionKey) {
+    case "test.action":
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return;
+      }
+      print("Returning ${DTActionResult.okDataTableDirty}");
+      Navigator.of(context).pop(DTActionResult.okDataTableDirty);
+      break;
+    case "test.cancel":
+      print("OK got it!");
+      Navigator.of(context).pop();
+      break;
+    default:
+      showAlertDialog(
+          context, 'Oops unknown ActionKey for login form: $actionKey');
+  }
+}
+
 // Registration Form Validator
 String? registrationFormValidator(BuildContext context, JetsFormState formState,
     int group, String key, dynamic v) {

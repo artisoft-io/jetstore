@@ -356,6 +356,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         break;
       case DTActionResult.okDataTableDirty:
         // refresh the data table
+        print("Refreshing the data table YAY!");
         dataSource.getModelData();
         break;
       default:
