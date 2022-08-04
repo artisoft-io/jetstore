@@ -30,12 +30,18 @@ COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 
+# Resource files
+COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
+# Set env to find the jets_schema.json by update_db (migrate_db.go)
+ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
 
 RUN \
     cd /usr/local/lib/ \
     && ldconfig \
     && echo "USR LOCAL LIB DIRECTORY Contains" \
     && ls -la \
+    && echo "USR LOCAL BIN DIRECTORY Contains" \
+    && ls -la /usr/local/bin \
     && ldd libjets.so \
     && cd / 
 

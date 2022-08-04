@@ -63,8 +63,6 @@ func init() {
 		extTables[split1[0]] = split2
 		return nil
 	})
-	// Check if this is a isSingleNodeRun
-	isSingleNodeRun = *nbrShards == 1
 }
 
 //* TODO move this utility fnc somewhere where it would be reused
@@ -183,6 +181,9 @@ func doJob() error {
 
 func main() {
 	flag.Parse()
+	
+	// Check if this is a isSingleNodeRun
+	isSingleNodeRun = *nbrShards == 1
 
 	// validate command line arguments
 	hasErr := false

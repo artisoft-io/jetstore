@@ -19,7 +19,8 @@ typedef FormActionsDelegate = void Function(BuildContext context,
 
 /// Form Field Validator, this correspond to ValidatorDelegate with
 /// the context and the formState curried by the JetsForm when calling makeFormField
-typedef JetsFormFieldValidator = String? Function(int group, String key, dynamic v);
+typedef JetsFormFieldValidator = String? Function(
+    int group, String key, dynamic v);
 
 class FormConfig {
   FormConfig(
@@ -56,6 +57,7 @@ abstract class FormFieldConfig {
   final String key;
   final int group;
   final int flex;
+
   /// make the form widget
   /// formFieldValidator and formValidator are both the same functon,
   /// the formFieldValidator has the context and formState curried
@@ -370,14 +372,50 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
+  // Add Client Dialog
+  FormKeys.addClient: FormConfig(
+    key: FormKeys.addClient,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.clientOk,
+          label: "Insert",
+          buttonStyle: ButtonStyle.primary),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ButtonStyle.secondary),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.client,
+            label: "Client Name",
+            hint: "Client name as a short name",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.details,
+            label: "Details",
+            hint: "Optional notes",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80),
+      ],
+    ],
+  ),
   //* TEST FORM - Dialog from Home Form table inputLoaderStatusTable
   "TEST": FormConfig(
     key: "TEST",
     actions: [
       FormActionConfig(
-          key: "test.action",
-          label: "Test",
-          buttonStyle: ButtonStyle.primary),
+          key: "test.action", label: "Test", buttonStyle: ButtonStyle.primary),
       FormActionConfig(
           key: "test.cancel",
           label: "Cancel",
@@ -394,7 +432,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLength: 80), // ],
-          //
+        //
         FormDropdownFieldConfig(key: 'emailType', items: [
           DropdownItemConfig(label: 'Work', value: 'work'),
           DropdownItemConfig(label: 'Home', value: 'home'),

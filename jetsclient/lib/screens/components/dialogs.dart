@@ -23,9 +23,12 @@ void showAlertDialog(BuildContext context, String message) {
 /// Enum to record the action result for data table actions
 /// Used as the template type for DialogResultHandler when used
 /// with data table actions
-enum DTActionResult { canceled, ok, okDataTableDirty }
+/// statusError is to indicate an error was return, formState.serverError
+/// have a message to show the user
+enum DTActionResult { canceled, ok, okDataTableDirty, statusError }
 
-typedef DialogResultHandler<T> = void Function(BuildContext context, T? t);
+typedef DialogResultHandler<T> = void Function(
+    BuildContext context, JetsFormState dialogFormState, T? t);
 
 Future<void> showFormDialog<T>(
     {required GlobalKey<FormState> formKey,
@@ -37,7 +40,7 @@ Future<void> showFormDialog<T>(
     required FormActionsDelegate actionsDelegate,
     required DialogResultHandler<T> resultHandler}) async {
   resultHandler(
-      context,
+      context, formState,
       await showDialog<T>(
         context: context,
         builder: (context) => Dialog(

@@ -4,6 +4,7 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/screen_form.dart';
 import 'package:jetsclient/screens/screen_one.dart';
 import 'package:jetsclient/screens/screen_delegates/user_delegates.dart';
+import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
@@ -21,14 +22,14 @@ const processConfigPath = '/processConfig';
 const ruleConfigPath = '/processConfig/ruleConfig/:pc';
 const pipelineConfigPath = '/pipelineConfig';
 const pageNotFoundPath = '/404';
+const loginPath = '/login';
+const registerPath = '/register';
 
 // Old test pages
 const pipelinePath = '/dataPipelines';
 const mappingConfigPath = '/mappingConfig';
 const fileRegistryPath = '/fileRegistry';
 const fileRegistryTablePath = '/fileRegistry/table/:table';
-const loginPath = '/login';
-const registerPath = '/register';
 
 final Map<String, Widget> jetsRoutesMap = {
   // Home Screen
@@ -45,8 +46,8 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(sourceConfigPath),
       screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
       formConfig: getFormConfig(FormKeys.sourceConfig),
-      formValidatorDelegate: (context, formState, p2, p3, p4) => null,
-      formActionsDelegate: (context, formKey, formState, actionKey) {}),
+      formValidatorDelegate: sourceConfigFormValidator,
+      formActionsDelegate: sourceConfigFormActions),
 
   // Login Screen
   loginPath: ScreenWithForm(
