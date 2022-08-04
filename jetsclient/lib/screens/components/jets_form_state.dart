@@ -4,7 +4,8 @@ import 'package:jetsclient/screens/components/data_table_model.dart';
 
 /// Jets Form validator
 /// The last argument is either String? or List<String?>
-typedef ValidatorDelegate = String? Function(int, String, dynamic);
+typedef ValidatorDelegate = String? Function(
+    BuildContext context, JetsFormState formState, int, String, dynamic);
 
 /// Selected rows mapping, key is row primary key
 typedef SelectedRows = Map<String, JetsRow>;

@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/export_routes.dart';
@@ -13,7 +12,7 @@ class JetsDropdownButtonFormField extends StatefulWidget {
     required this.screenPath,
     required this.formFieldConfig,
     required this.onChanged,
-    required this.validator,
+    required this.formValidator,
     this.flex = 1,
   });
   final JetsRouteData screenPath;
@@ -24,7 +23,7 @@ class JetsDropdownButtonFormField extends StatefulWidget {
   ///       so to have formFieldConfig. We need to externalize the widget
   ///       config (as done for data table) to to be able to use the widget
   ///       without a form. Same applies to input text from.
-  final FormFieldValidator<String> validator;
+  final JetsFormFieldValidator formValidator;
   final int flex;
 
   @override
@@ -112,7 +111,8 @@ class _JetsDropdownButtonFormFieldState
               });
               widget.onChanged(newValue);
             },
-            validator: widget.validator,
+            validator: (p0) =>
+                widget.formValidator(_config.group, _config.key, p0),
             items: _config.items
                 .map((e) => DropdownMenuItem<String>(
                     value: e.value, child: Text(e.label)))

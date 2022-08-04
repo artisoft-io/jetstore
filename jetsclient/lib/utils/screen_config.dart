@@ -1,7 +1,6 @@
 import 'package:jetsclient/utils/constants.dart';
 
 import '../routes/jets_routes_app.dart';
-import 'data_table_config.dart';
 
 class ScreenConfig {
   ScreenConfig(
@@ -28,24 +27,37 @@ class MenuEntry {
 
 final defaultMenuEntries = [
   MenuEntry(
-      key: 'inputFiles', label: 'Input Files', routePath: fileRegistryPath),
+      key: 'sourceConfig', label: 'Source Config', routePath: sourceConfigPath),
   MenuEntry(
-      key: 'mappingConfig',
-      label: 'Mapping Configurations',
-      routePath: mappingConfigPath),
+      key: 'processInput',
+      label: 'Process Input Config',
+      routePath: processInputPath),
   MenuEntry(
-      key: 'processConfig', label: 'Process Configurations'),
-  MenuEntry(key: 'jobList', label: 'Data Pipeline', routePath: pipelinePath),
+      key: 'processConfig',
+      label: 'Process Configurations',
+      routePath: processConfigPath),
+  MenuEntry(
+      key: 'pipelineConfig',
+      label: 'Data Pipeline Config',
+      routePath: pipelineConfigPath),
 ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {
-  "testScreen": ScreenConfig(
-      key: "testScreen",
+  ScreenKeys.home: ScreenConfig(
+      key: ScreenKeys.home,
       appBarLabel: 'JetStore Workspace',
-      title: 'Test Screen',
+      title: 'Welcome to JetStore Workspace!',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
+  ScreenKeys.sourceConfig: ScreenConfig(
+      key: ScreenKeys.sourceConfig,
+      appBarLabel: 'JetStore Workspace',
+      title: 'File Source Configuration',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
   ScreenKeys.login: ScreenConfig(
       key: ScreenKeys.login,
       appBarLabel: 'JetStore Workspace',
@@ -60,6 +72,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: false,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: []),
+
+  //* DEMOS
+  "testScreen": ScreenConfig(
+      key: "testScreen",
+      appBarLabel: 'JetStore Workspace',
+      title: 'Test Screen',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
   ScreenKeys.pipelines: ScreenConfig(
       key: ScreenKeys.pipelines,
       appBarLabel: 'JetStore Workspace',
@@ -78,13 +99,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       key: ScreenKeys.fileRegistryTable,
       appBarLabel: 'JetStore Workspace',
       title: 'Input File as Table',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
-  ScreenKeys.home: ScreenConfig(
-      key: ScreenKeys.home,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Welcome to JetStore Workspace!',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),

@@ -13,6 +13,14 @@ enum TextRestriction { none, allLower, allUpper, digitsOnly }
 
 enum ButtonStyle { primary, secondary, other }
 
+/// Form action delegate for dialog presented from a data table button
+typedef FormActionsDelegate = void Function(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey);
+
+/// Form Field Validator, this correspond to ValidatorDelegate with
+/// the context and the formState curried by the JetsForm when calling makeFormField
+typedef JetsFormFieldValidator = String? Function(int group, String key, dynamic v);
+
 class FormConfig {
   FormConfig(
       {required this.key, required this.inputFields, required this.actions});
@@ -48,10 +56,17 @@ abstract class FormFieldConfig {
   final String key;
   final int group;
   final int flex;
+  /// make the form widget
+  /// formFieldValidator and formValidator are both the same functon,
+  /// the formFieldValidator has the context and formState curried
+  /// by the form widget. This is need by the Jets Data Table since
+  /// it's a FormField and must have arguments context and formState erased.
   Widget makeFormField({
     required JetsRouteData screenPath,
     required JetsFormState state,
-    required ValidatorDelegate validator,
+    required JetsFormFieldValidator formFieldValidator,
+    required ValidatorDelegate formValidator,
+    required FormActionsDelegate formActionsDelegate,
   });
 }
 
@@ -64,7 +79,9 @@ class TextFieldConfig extends FormFieldConfig {
   Widget makeFormField({
     required JetsRouteData screenPath,
     required JetsFormState state,
-    required ValidatorDelegate validator,
+    required JetsFormFieldValidator formFieldValidator,
+    required ValidatorDelegate formValidator,
+    required FormActionsDelegate formActionsDelegate,
   }) {
     return JetsTextField(
       fieldConfig: this,
@@ -96,13 +113,15 @@ class FormInputFieldConfig extends FormFieldConfig {
   Widget makeFormField({
     required JetsRouteData screenPath,
     required JetsFormState state,
-    required ValidatorDelegate validator,
+    required JetsFormFieldValidator formFieldValidator,
+    required ValidatorDelegate formValidator,
+    required FormActionsDelegate formActionsDelegate,
   }) {
     return JetsTextFormField(
       key: Key(key),
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
-      validator: (String? value) => validator(group, key, value),
+      formValidator: formFieldValidator,
       flex: flex,
     );
   }
@@ -139,14 +158,16 @@ class FormDropdownFieldConfig extends FormFieldConfig {
   Widget makeFormField({
     required JetsRouteData screenPath,
     required JetsFormState state,
-    required ValidatorDelegate validator,
+    required JetsFormFieldValidator formFieldValidator,
+    required ValidatorDelegate formValidator,
+    required FormActionsDelegate formActionsDelegate,
   }) {
     return JetsDropdownButtonFormField(
       key: Key(key),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
-      validator: (String? value) => validator(group, key, value),
+      formValidator: formFieldValidator,
       flex: flex,
     );
   }
@@ -168,7 +189,9 @@ class FormDataTableFieldConfig extends FormFieldConfig {
   Widget makeFormField({
     required JetsRouteData screenPath,
     required JetsFormState state,
-    required ValidatorDelegate validator,
+    required JetsFormFieldValidator formFieldValidator,
+    required ValidatorDelegate formValidator,
+    required FormActionsDelegate formActionsDelegate,
   }) {
     return Expanded(
       child: SizedBox(
@@ -180,7 +203,9 @@ class FormDataTableFieldConfig extends FormFieldConfig {
           formFieldConfig: this,
           tableConfig: getTableConfig(dataTableConfig),
           formState: state,
-          validator: (WidgetField? value) => validator(group, key, value),
+          formFieldValidator: formFieldValidator,
+          dialogValidatorDelegate: formValidator,
+          actionsDelegate: formActionsDelegate,
         ),
       ),
     );
@@ -196,66 +221,53 @@ class FormActionConfig {
 }
 
 final Map<String, FormConfig> _formConfigurations = {
-  //* DEMO FORM
-  "dataTableDemoForm": FormConfig(
-    key: "dataTableDemoForm",
+  // Home Form (actionless)
+  FormKeys.home: FormConfig(
+    key: FormKeys.home,
     actions: [
-      FormActionConfig(
-          key: "dataTableDemoAction1",
-          label: "Do it!",
-          buttonStyle: ButtonStyle.primary),
+      // Action-less form
     ],
     inputFields: [
       [
-        FormInputFieldConfig(
-            key: "object_type",
-            label: "S3 Folder",
-            hint: "Folder where the files are dropped",
-            flex: 2,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 80), // ],
-        FormDropdownFieldConfig(
-            key: 'client',
-            items: [
-              DropdownItemConfig(label: ''),
-            ],
-            dropdownItemsQuery:
-                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
-      ],
-      [
-        FormInputFieldConfig(
-            key: "table_name",
-            label: "Client Table Name",
-            hint: "Table where client file is loaded into",
-            flex: 2,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 60), // ],
-        FormInputFieldConfig(
-            key: "grouping_column",
-            label: "Grouping Column",
-            hint: "Column containing Member Key",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 60), // ],
+        FormDataTableFieldConfig(
+            key: DTKeys.inputLoaderStatusTable,
+            dataTableConfig: DTKeys.inputLoaderStatusTable)
       ],
       [
         FormDataTableFieldConfig(
-            key: "dataTableDemoMainTable",
-            dataTableConfig: "dataTableDemoMainTableConfig")
+            key: DTKeys.pipelineExecStatusTable,
+            dataTableConfig: DTKeys.pipelineExecStatusTable)
       ],
       [
         FormDataTableFieldConfig(
-            key: "dataTableDemoSupportTable",
-            dataTableConfig: "dataTableDemoSupportTableConfig")
+            key: DTKeys.pipelineExecDetailsTable,
+            dataTableConfig: DTKeys.pipelineExecDetailsTable)
       ],
     ],
   ),
+  // Source Config (actionless)
+  FormKeys.sourceConfig: FormConfig(
+    key: FormKeys.sourceConfig,
+    actions: [
+      // Action-less form
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.clientsTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.clientsTable)
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.sourceConfigsTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.sourceConfigsTable)
+      ],
+    ],
+  ),
+
+  // Login Form
   FormKeys.login: FormConfig(
     key: FormKeys.login,
     actions: [
@@ -291,6 +303,7 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
+  // User Registration Form
   FormKeys.register: FormConfig(
     key: FormKeys.register,
     actions: [
@@ -354,6 +367,67 @@ final Map<String, FormConfig> _formConfigurations = {
           DropdownItemConfig(label: 'Work', value: 'work'),
           DropdownItemConfig(label: 'Home', value: 'home'),
         ]),
+      ],
+    ],
+  ),
+
+  //* DEMO FORM
+  "dataTableDemoForm": FormConfig(
+    key: "dataTableDemoForm",
+    actions: [
+      FormActionConfig(
+          key: "dataTableDemoAction1",
+          label: "Do it!",
+          buttonStyle: ButtonStyle.primary),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: "object_type",
+            label: "S3 Folder",
+            hint: "Folder where the files are dropped",
+            flex: 2,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80), // ],
+        FormDropdownFieldConfig(
+            key: 'client',
+            items: [
+              DropdownItemConfig(label: ''),
+            ],
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+      ],
+      [
+        FormInputFieldConfig(
+            key: "table_name",
+            label: "Client Table Name",
+            hint: "Table where client file is loaded into",
+            flex: 2,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 60), // ],
+        FormInputFieldConfig(
+            key: "grouping_column",
+            label: "Grouping Column",
+            hint: "Column containing Member Key",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 60), // ],
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: "dataTableDemoMainTable",
+            dataTableConfig: "dataTableDemoMainTableConfig")
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: "dataTableDemoSupportTable",
+            dataTableConfig: "dataTableDemoSupportTableConfig")
       ],
     ],
   ),

@@ -34,18 +34,3 @@ AppBar appBar(BuildContext context, String title, {bool showLogout = false}) {
     ],
   );
 }
-
-void showAlertDialog(BuildContext context, String message) {
-  showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(message),
-      actions: [
-        TextButton(
-          child: const Text('OK'),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ],
-    ),
-  );
-}
