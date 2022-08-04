@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/screens/components/base_screen.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
+import 'package:jetsclient/utils/form_config.dart';
 
 class ScreenOne extends BaseScreen {
   ScreenOne({
@@ -9,13 +11,19 @@ class ScreenOne extends BaseScreen {
     required super.screenPath,
     required super.screenConfig,
     required this.tableConfig,
+    required this.validatorDelegate,
+    required this.actionsDelegate,
   }) : super(builder: (State<BaseScreen> baseState) {
           return JetsDataTableWidget(
               key: Key(screenConfig.key),
               screenPath: screenPath,
-              tableConfig: tableConfig);
+              tableConfig: tableConfig,
+              dialogValidatorDelegate: validatorDelegate,
+              actionsDelegate: actionsDelegate);
         });
   final TableConfig tableConfig;
+  final ValidatorDelegate validatorDelegate;
+  final FormActionsDelegate actionsDelegate;
 
   @override
   State<BaseScreen> createState() => ScreenOneState();

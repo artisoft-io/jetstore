@@ -6,21 +6,21 @@ import 'package:jetsclient/utils/form_config.dart';
 import '../../routes/jets_route_data.dart';
 
 class JetsForm extends StatelessWidget {
-  const JetsForm(
-      {Key? key,
-      required this.formPath,
-      required this.formState,
-      required this.formKey,
-      required this.formConfig,
-      required this.validatorDelegate,
-      required this.actions})
-      : super(key: key);
+  const JetsForm({
+    Key? key,
+    required this.formPath,
+    required this.formState,
+    required this.formKey,
+    required this.formConfig,
+    required this.validatorDelegate,
+    required this.actionsDelegate,
+  }) : super(key: key);
 
   final JetsFormState formState;
   final GlobalKey<FormState> formKey;
   final FormConfig formConfig;
-  final String? Function(int group, String, dynamic) validatorDelegate;
-  final Map<String, VoidCallback> actions;
+  final ValidatorDelegate validatorDelegate;
+  final FormActionsDelegate actionsDelegate;
   final JetsRouteData formPath;
 
   @override
@@ -38,9 +38,14 @@ class JetsForm extends StatelessWidget {
                     return Row(
                       children: fc
                           .map((e) => e.makeFormField(
-                              screenPath: formPath,
-                              state: formState,
-                              validator: validatorDelegate))
+                                screenPath: formPath,
+                                state: formState,
+                                formFieldValidator: (group, key, v) =>
+                                    validatorDelegate(
+                                        context, formState, group, key, v),
+                                formValidator: validatorDelegate,
+                                formActionsDelegate: actionsDelegate,
+                              ))
                           .toList(),
                     );
                   }
@@ -57,7 +62,8 @@ class JetsForm extends StatelessWidget {
                               backgroundColor: themeData.colorScheme.primary,
                             ).copyWith(
                                 elevation: ButtonStyleButton.allOrNull(0.0)),
-                            onPressed: actions[e.key],
+                            onPressed: () => actionsDelegate(
+                                context, formKey, formState, e.key),
                             child: Text(e.label))),
                         growable: false,
                       )

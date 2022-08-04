@@ -58,9 +58,6 @@ This table is populated by the file loader and the pipeline execution upon suces
 Defines the details of the input data. `source_type` can be `file` (for data comming from `source_config`)
 or `domain_table` (for data sourced from the output of a previous rule execution pipeline).
 
-The `source_config_key` is populated when `source_type` is `file`, this is to resolve the
-`table_name` to use for a given `object_type`.
-
 Note that the association between `object_type` to `table_name` is unique when `source_type`
 is `domain_table` and is defined in the workspace.
 However when the `source_type` is `file` this association is not unique and is defined by the
@@ -168,7 +165,8 @@ The table consist of:
 - `session_id` for the process output tables (specified in the `process_config` table)
 - and a number of metrics per `shard_id`.
 
-The `status` can be `completed` or `failed` when an unrecoverable error occured.
+The `status` can be `completed`, `errors`, or `failed` when an unrecoverable error occured. 
+The `errors` status is to indicates that some session got a rule execution error.
 
 Depend on `pipeline_config`, `pipeline_execution_status`
 

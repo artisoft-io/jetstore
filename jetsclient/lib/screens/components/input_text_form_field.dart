@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:jetsclient/utils/form_config.dart';
 
 class JetsTextFormField extends StatefulWidget {
@@ -8,16 +7,16 @@ class JetsTextFormField extends StatefulWidget {
     required super.key,
     required this.formFieldConfig,
     required this.onChanged,
-    required this.validator,
+    required this.formValidator,
     this.flex = 1,
   });
   final FormInputFieldConfig formFieldConfig;
   final void Function(String) onChanged;
-  // Note: validator is require as this control needs to be part of a form
+  // Note: formValidator is require as this control needs to be part of a form
   //       so to have formFieldConfig. We need to externalize the widget
   //       config (as done for data table) to to be able to use the widget
   //       without a form. Same applies to dropdown widget.
-  final FormFieldValidator<String> validator;
+  final JetsFormFieldValidator formValidator;
   final int flex;
 
   @override
@@ -115,7 +114,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
             labelText: _config.label,
           ),
           onChanged: widget.onChanged,
-          validator: widget.validator,
+          validator: (p0) => widget.formValidator(_config.group, _config.key, p0),
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:provider/provider.dart';
 
@@ -7,7 +8,6 @@ import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/data_table_source.dart';
 
 class JetsDataTableWidget extends FormField<WidgetField> {
@@ -17,16 +17,18 @@ class JetsDataTableWidget extends FormField<WidgetField> {
     this.formFieldConfig,
     required this.tableConfig,
     this.formState,
-    super.validator,
-  })  : assert((formState != null &&
-                formFieldConfig != null &&
-                validator != null) ||
-            (formState == null &&
-                formFieldConfig == null &&
-                validator == null)),
+    this.formFieldValidator,
+    required this.dialogValidatorDelegate,
+    required this.actionsDelegate,
+  })  : assert((formState != null && formFieldConfig != null) ||
+            (formState == null && formFieldConfig == null)),
         super(
           initialValue:
               formState?.getValue(formFieldConfig!.group, formFieldConfig.key),
+          validator: formFieldConfig != null && formFieldValidator != null
+              ? (WidgetField? value) => formFieldValidator(
+                  formFieldConfig.group, formFieldConfig.key, value)
+              : null,
           autovalidateMode: AutovalidateMode.disabled,
           builder: (FormFieldState<WidgetField> field) {
             final state = field as JetsDataTableState;
@@ -120,7 +122,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                       ElevatedButton(
                         style: ac.buttonStyle(themeData),
                         onPressed: () => ac.isEnabled(state.isTableEditable)
-                            ? state.actionDispatcher(ac)
+                            ? state.actionDispatcher(context, ac)
                             : null,
                         child: Text(ac.label),
                       )
@@ -215,6 +217,9 @@ class JetsDataTableWidget extends FormField<WidgetField> {
   final TableConfig tableConfig;
   final FormDataTableFieldConfig? formFieldConfig;
   final JetsFormState? formState;
+  final JetsFormFieldValidator? formFieldValidator;
+  final ValidatorDelegate dialogValidatorDelegate;
+  final FormActionsDelegate actionsDelegate;
 
   @override
   FormFieldState<WidgetField> createState() => JetsDataTableState();
@@ -245,6 +250,9 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   JetsFormState? get formState => _dataTableWidget.formState;
   FormDataTableFieldConfig? get formFieldConfig =>
       _dataTableWidget.formFieldConfig;
+  ValidatorDelegate get dialogValidatorDelegate =>
+      _dataTableWidget.dialogValidatorDelegate;
+  FormActionsDelegate get actionsDelegate => _dataTableWidget.actionsDelegate;
 
   @override
   void initState() {
@@ -341,29 +349,57 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     super.dispose();
   }
 
-  void actionDispatcher(ActionConfig ac) {
-    //* TODO
-    switch (ac.key) {
-      case 'new':
-        showAlertDialog(context, 'New Pipeline Coming Soon!');
+  void dialogResultHandler(BuildContext context, DTActionResult? result) {
+    switch (result) {
+      case DTActionResult.ok:
+      case DTActionResult.canceled:
         break;
-      case 'edit':
-        setState(() => isTableEditable = true);
+      case DTActionResult.okDataTableDirty:
+        // refresh the data table
+        dataSource.getModelData();
         break;
-      case 'save':
-        showAlertDialog(context, 'Save Changes Coming Soon!');
-        setState(() => isTableEditable = false);
+      default:
+      // case null
+    }
+  }
+
+  /// Dispatcher to handled the data table actions
+  void actionDispatcher(BuildContext context, ActionConfig ac) {
+    switch (ac.actionType) {
+      // Show a modal dialog
+      case DataTableActionType.showDialog:
+        if (ac.configForm == null) return;
+        final dialogFormKey = GlobalKey<FormState>();
+        final formConfig = getFormConfig(ac.configForm!);
+        final dialogFormState = formConfig.makeFormState();
+        showFormDialog<DTActionResult>(
+          formKey: dialogFormKey,
+          screenPath: _dataTableWidget.screenPath,
+          context: context,
+          formState: dialogFormState,
+          formConfig: formConfig,
+          validatorDelegate: dialogValidatorDelegate,
+          actionsDelegate: actionsDelegate,
+          resultHandler: dialogResultHandler,
+        );
         break;
-      case 'delete':
-        showAlertDialog(
-            context, 'Delete Pipeline (with confirmation) Coming Soon!');
-        setState(() => isTableEditable = false);
-        break;
-      case 'cancel':
-        showAlertDialog(
-            context, 'Cancel changes (with confirmation) Coming Soon!');
-        setState(() => isTableEditable = false);
-        break;
+      // case 'edit':
+      //   setState(() => isTableEditable = true);
+      //   break;
+      // case 'save':
+      //   showAlertDialog(context, 'Save Changes Coming Soon!');
+      //   setState(() => isTableEditable = false);
+      //   break;
+      // case 'delete':
+      //   showAlertDialog(
+      //       context, 'Delete Pipeline (with confirmation) Coming Soon!');
+      //   setState(() => isTableEditable = false);
+      //   break;
+      // case 'cancel':
+      //   showAlertDialog(
+      //       context, 'Cancel changes (with confirmation) Coming Soon!');
+      //   setState(() => isTableEditable = false);
+      //   break;
 
       default:
         showAlertDialog(

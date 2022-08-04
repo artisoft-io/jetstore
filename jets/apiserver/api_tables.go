@@ -63,15 +63,25 @@ func (dtq *DataTableQuery) makeWhereClause() string {
 					buf.WriteString(", ")
 				}
 				isFirstValue = false
-				buf.WriteString("'")
-				buf.WriteString(dtq.WhereClauses[i].Values[j])
-				buf.WriteString("'")
+				value := dtq.WhereClauses[i].Values[j]
+				if value == "NULL" {
+					buf.WriteString(" is NULL ")
+				} else {
+					buf.WriteString(" = '")
+					buf.WriteString(value)
+					buf.WriteString("'")	
+				}
 			}
 			buf.WriteString(") ")
 		} else {
-			buf.WriteString(" = '")
-			buf.WriteString(dtq.WhereClauses[i].Values[0])
-			buf.WriteString("'")
+			value := dtq.WhereClauses[i].Values[0]
+			if value == "NULL" {
+				buf.WriteString(" is NULL ")
+			} else {
+				buf.WriteString(" = '")
+				buf.WriteString(value)
+				buf.WriteString("'")	
+			}
 		}
 	}
 	return buf.String()
