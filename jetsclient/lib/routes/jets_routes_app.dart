@@ -38,7 +38,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenConfig: getScreenConfig(ScreenKeys.home),
       formConfig: getFormConfig(FormKeys.home),
       formValidatorDelegate: (context, formState, p2, p3, p4) => null,
-      formActionsDelegate: (context, formKey, formState, actionKey) {}),
+      formActionsDelegate: homeFormActions),
   // Source Config
   sourceConfigPath: ScreenWithForm(
       key: const Key(ScreenKeys.sourceConfig),

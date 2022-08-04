@@ -370,6 +370,56 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
+  //* TEST FORM - Dialog from Home Form table inputLoaderStatusTable
+  "TEST": FormConfig(
+    key: "TEST",
+    actions: [
+      FormActionConfig(
+          key: "test.action",
+          label: "Test",
+          buttonStyle: ButtonStyle.primary),
+      FormActionConfig(
+          key: "test.cancel",
+          label: "Cancel",
+          buttonStyle: ButtonStyle.secondary),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.userName,
+            label: "Name",
+            hint: "Enter your name",
+            flex: 2,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80), // ],
+          //
+        FormDropdownFieldConfig(key: 'emailType', items: [
+          DropdownItemConfig(label: 'Work', value: 'work'),
+          DropdownItemConfig(label: 'Home', value: 'home'),
+        ]),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.userPassword,
+            label: "Password",
+            hint: "Your password",
+            flex: 2,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 80), // ],
+        //* REMOVE THIS DEMO CODE
+        FormDropdownFieldConfig(key: 'emailType', items: [
+          DropdownItemConfig(label: ''),
+          DropdownItemConfig(label: 'Work', value: 'work'),
+          DropdownItemConfig(label: 'Home', value: 'home'),
+        ]),
+      ],
+    ],
+  ),
+  //* TEST FORM
 
   //* DEMO FORM
   "dataTableDemoForm": FormConfig(
