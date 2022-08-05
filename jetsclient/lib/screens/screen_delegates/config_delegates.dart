@@ -108,7 +108,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       var state = formState.getState(0);
       state['status'] = StatusKeys.submitted;
       state['user_email'] = JetsRouterDelegate().user.email;
-      state['session_id'] = DateTime.now().millisecondsSinceEpoch;
+      state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
       state['table_name'] = state[FSK.client] + '_' + state[FSK.objectType];
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
