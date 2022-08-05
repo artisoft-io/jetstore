@@ -10,6 +10,11 @@ INSERT INTO jetsapi.source_config (key, object_type, client, table_name, groupin
   (291, 'Simulator', 'Zeme', 'test2', NULL, 'user@mail.com')
 ;
 
+INSERT INTO jetsapi.object_type_registry (object_type, details) VALUES
+  ('Claim', 'Healthcare Claim'),
+  ('Network', 'Network Transparency file')
+;
+
 INSERT INTO jetsapi.process_input (key, client, object_type, table_name, source_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES
   (271, 'Zeme', 'Simulator'         , 'test2'                , 'file',         'aspec:Simulator'      , NULL               , NULL , 'user@mail.com'),
   (272, 'Zeme', 'SimulatedPatient'  , 'hc:SimulatedPatient'  , 'domain_table', 'hc:SimulatedPatient'  , 'hc:patient_number', NULL , 'user@mail.com'),
