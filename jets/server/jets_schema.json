@@ -4,7 +4,7 @@
     "tableName":  "users",
     "columns": [
       {
-        "columnName": "email",
+        "columnName": "user_email",
         "dataType":   "text",
         "isPK":       true
       }, {
@@ -38,6 +38,20 @@
     "columns": [
       {
         "columnName": "client",
+        "dataType":   "text",
+        "isPK":  true        
+      }, {
+        "columnName": "details",
+        "dataType":   "text"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName":  "object_type_registry",
+    "columns": [
+      {
+        "columnName": "object_type",
         "dataType":   "text",
         "isPK":  true        
       }, {

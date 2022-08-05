@@ -38,7 +38,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(homePath),
       screenConfig: getScreenConfig(ScreenKeys.home),
       formConfig: getFormConfig(FormKeys.home),
-      formValidatorDelegate: (context, formState, p2, p3, p4) => null,
+      formValidatorDelegate: homeFormValidator,
       formActionsDelegate: homeFormActions),
   // Source Config
   sourceConfigPath: ScreenWithForm(
@@ -46,8 +46,8 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(sourceConfigPath),
       screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
       formConfig: getFormConfig(FormKeys.sourceConfig),
-      formValidatorDelegate: sourceConfigFormValidator,
-      formActionsDelegate: sourceConfigFormActions),
+      formValidatorDelegate: homeFormValidator,
+      formActionsDelegate: homeFormActions),
 
   // Login Screen
   loginPath: ScreenWithForm(

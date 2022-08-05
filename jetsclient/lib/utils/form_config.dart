@@ -410,54 +410,60 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
-  //* TEST FORM - Dialog from Home Form table inputLoaderStatusTable
-  "TEST": FormConfig(
-    key: "TEST",
+  // loadFile - Dialog to load file by client and file type
+  FormKeys.loadFile: FormConfig(
+    key: FormKeys.loadFile,
     actions: [
       FormActionConfig(
-          key: "test.action", label: "Test", buttonStyle: ButtonStyle.primary),
+          key: ActionKeys.loaderOk, 
+          label: "Load", buttonStyle: ButtonStyle.primary),
       FormActionConfig(
-          key: "test.cancel",
+          key: ActionKeys.dialogCancel,
           label: "Cancel",
           buttonStyle: ButtonStyle.secondary),
     ],
     inputFields: [
       [
-        FormInputFieldConfig(
-            key: FSK.userName,
-            label: "Name",
-            hint: "Enter your name",
-            flex: 2,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 80), // ],
-        //
-        FormDropdownFieldConfig(key: 'emailType', items: [
-          DropdownItemConfig(label: 'Work', value: 'work'),
-          DropdownItemConfig(label: 'Home', value: 'home'),
-        ]),
+        FormDropdownFieldConfig(
+            key: FSK.client,
+            items: [
+              DropdownItemConfig(label: ''),
+            ],
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+
+        FormDropdownFieldConfig(
+            key: FSK.objectType,
+            items: [
+              DropdownItemConfig(label: ''),
+            ],
+            dropdownItemsQuery:
+                "SELECT object_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
       ],
       [
         FormInputFieldConfig(
-            key: FSK.userPassword,
-            label: "Password",
-            hint: "Your password",
-            flex: 2,
+            key: FSK.fileKey,
+            label: "File Key",
+            hint: "Full path of intake file",
+            flex: 1,
             autofocus: false,
-            obscureText: true,
+            obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 80), // ],
-        //* REMOVE THIS DEMO CODE
-        FormDropdownFieldConfig(key: 'emailType', items: [
-          DropdownItemConfig(label: ''),
-          DropdownItemConfig(label: 'Work', value: 'work'),
-          DropdownItemConfig(label: 'Home', value: 'home'),
-        ]),
+            maxLength: 60), // ],
+
+        FormInputFieldConfig(
+            key: FSK.groupingColumn,
+            label: "Grouping Column",
+            hint: "Column containing Member Key (optional)",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 60), // ],
       ],
     ],
   ),
-  //* TEST FORM
+
 
   //* DEMO FORM
   "dataTableDemoForm": FormConfig(
@@ -480,7 +486,7 @@ final Map<String, FormConfig> _formConfigurations = {
             textRestriction: TextRestriction.none,
             maxLength: 80), // ],
         FormDropdownFieldConfig(
-            key: 'client',
+            key: FSK.client,
             items: [
               DropdownItemConfig(label: ''),
             ],

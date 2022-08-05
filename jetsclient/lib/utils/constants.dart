@@ -21,6 +21,7 @@ class FormKeys {
   static const home = "homeForm";
   static const sourceConfig = "sourceConfigForm";
   static const addClient = "addClientDialog";
+  static const loadFile = "loadFileDialog";
 
   static const login = "login";
   static const register = "register";
@@ -31,17 +32,20 @@ class FormKeys {
 /// These are universal keys used across forms and generally correspond
 /// to keys expected in message sent to apiserver
 class FSK {
-  static const tableName = "tableName";
-  static const fileKey = "fileKey";
+  static const tableName = "table_name";
+  static const fileKey = "file_key";
 
-  static const userEmail = "email";
+  static const userEmail = "user_email";
   static const userName = "name";
   static const userPassword = "password";
   static const userPasswordConfirm = "passwordConfirm";
-  static const sessionId = "sessionId";
+  static const sessionId = "session_id";
 
   static const client = "client";
   static const details = "details";
+
+  static const objectType = "object_type";
+  static const groupingColumn = "grouping_column";
 
   // reserve key to hold an error to display to user
   static const serverError = "server_error";
@@ -54,6 +58,16 @@ class ActionKeys {
   static const register = "registerAction";
   static const clientOk = "client.ok";
   static const dialogCancel = "dialog.cancelAction";
+  static const loaderOk = "loader.ok";
+}
+
+/// Form Action Keys
+/// stardard keys to identify Form Action Config Key
+class StatusKeys {
+  static const submitted = "submitted";
+  static const processing = "processing";
+  static const error = "error";
+  static const failed = "failed";
 }
 
 /// Data Table Config Keys

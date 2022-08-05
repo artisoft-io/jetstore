@@ -36,21 +36,23 @@ class _JetsDropdownButtonFormFieldState
   late final FormDropdownFieldConfig _config;
   late final HttpClient httpClient;
   String? selectedValue;
+  List<DropdownItemConfig> items = [];
 
   @override
   void initState() {
     super.initState();
     httpClient = Provider.of<HttpClient>(context, listen: false);
     _config = widget.formFieldConfig;
+    items.addAll(_config.items);
     if (_config.dropdownItemsQuery != null) {
-      if (widget.screenPath.path == homePath) {
+      if (JetsRouterDelegate().user.isAuthenticated) {
+        queryDropdownItems();
+      } else {
         // Get the first batch of data when navigated to screenPath
         JetsRouterDelegate().addListener(navListener);
-      } else {
-        queryDropdownItems();
       }
-    } else if (_config.items.isNotEmpty) {
-      selectedValue = _config.items[_config.defaultItemPos].value;
+    } else if (items.isNotEmpty) {
+      selectedValue = items[_config.defaultItemPos].value;
     }
   }
 
@@ -61,7 +63,7 @@ class _JetsDropdownButtonFormFieldState
   }
 
   void queryDropdownItems() async {
-    if (_config.dropdownItemLoaded) return;
+    // if (_config.dropdownItemLoaded) return;
     var msg = <String, dynamic>{
       'action': 'raw_query',
       'nbrColumns': 1,
@@ -77,11 +79,13 @@ class _JetsDropdownButtonFormFieldState
       _config.dropdownItemLoaded = true;
       final rows = result.body['rows'] as List;
       final model = rows.map((e) => (e as List).cast<String?>()).toList();
-      _config.items.addAll(
+      items = [];
+      items.addAll(_config.items);
+      items.addAll(
           model.map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
       setState(() {
-        if (_config.items.isNotEmpty) {
-          selectedValue = _config.items[_config.defaultItemPos].value;
+        if (items.isNotEmpty) {
+          selectedValue = items[_config.defaultItemPos].value;
         }
       });
     } else if (result.statusCode == 401) {
@@ -113,7 +117,7 @@ class _JetsDropdownButtonFormFieldState
             },
             validator: (p0) =>
                 widget.formValidator(_config.group, _config.key, p0),
-            items: _config.items
+            items: items
                 .map((e) => DropdownMenuItem<String>(
                     value: e.value, child: Text(e.label)))
                 .toList()),

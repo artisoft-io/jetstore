@@ -173,11 +173,19 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isTableEditablePrecondition: null,
           isEnabledWhenTableEditablePrecondition: null,
-          configForm: "TEST"),
+          configForm: FormKeys.loadFile),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addClient',
+          label: 'Add Client',
+          style: ActionStyle.secondary,
+          isTableEditablePrecondition: null,
+          isEnabledWhenTableEditablePrecondition: null,
+          configForm: FormKeys.addClient),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-        // not really needed...
+        // an example, not really needed...
         stateKey: FSK.tableName,
         columnIdx: 3,
       )
@@ -207,7 +215,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           name: "table_name",
           label: 'Table Name',
           tooltips: 'Table where the file was loaded',
-          isNumeric: false),
+          isNumeric: false,
+          isHidden: true),
       ColumnConfig(
           index: 4,
           name: "file_key",
@@ -840,7 +849,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 1,
-          name: "email",
+          name: "user_email",
           label: 'Email',
           tooltips: 'User Email',
           isNumeric: false),
