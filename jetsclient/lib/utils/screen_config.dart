@@ -43,6 +43,7 @@ final defaultMenuEntries = [
 ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {
+  // Home Screen
   ScreenKeys.home: ScreenConfig(
       key: ScreenKeys.home,
       appBarLabel: 'JetStore Workspace',
@@ -50,6 +51,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
+
+  // Source Config Screen
   ScreenKeys.sourceConfig: ScreenConfig(
       key: ScreenKeys.sourceConfig,
       appBarLabel: 'JetStore Workspace',
@@ -58,6 +61,16 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
 
+  // Domain Table Viewer Screen
+  ScreenKeys.domainTableViewer: ScreenConfig(
+      key: ScreenKeys.domainTableViewer,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Input File Staging Table',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
+  // Login Screen
   ScreenKeys.login: ScreenConfig(
       key: ScreenKeys.login,
       appBarLabel: 'JetStore Workspace',
@@ -65,6 +78,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: false,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: []),
+
+  // Registration Screen
   ScreenKeys.register: ScreenConfig(
       key: ScreenKeys.register,
       appBarLabel: 'JetStore Workspace',

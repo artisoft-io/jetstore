@@ -149,9 +149,11 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     super.flex = 1,
     this.defaultItemPos = 0,
     this.dropdownItemsQuery,
+    this.stateKeyPredicates = const [],
     required this.items,
   });
   final String? dropdownItemsQuery;
+  final List<String> stateKeyPredicates;
   final int defaultItemPos;
   final List<DropdownItemConfig> items;
   bool dropdownItemLoaded = false;
@@ -170,6 +172,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
       formValidator: formFieldValidator,
+      formState: state,
       flex: flex,
     );
   }
@@ -415,8 +418,9 @@ final Map<String, FormConfig> _formConfigurations = {
     key: FormKeys.loadFile,
     actions: [
       FormActionConfig(
-          key: ActionKeys.loaderOk, 
-          label: "Load", buttonStyle: ButtonStyle.primary),
+          key: ActionKeys.loaderOk,
+          label: "Load",
+          buttonStyle: ButtonStyle.primary),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
@@ -427,29 +431,27 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDropdownFieldConfig(
             key: FSK.client,
             items: [
-              DropdownItemConfig(label: ''),
+              DropdownItemConfig(label: 'Select a client'),
             ],
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
-
         FormDropdownFieldConfig(
             key: FSK.objectType,
             items: [
-              DropdownItemConfig(label: ''),
+              DropdownItemConfig(label: 'Select a file type'),
             ],
             dropdownItemsQuery:
                 "SELECT object_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
       ],
       [
-        FormInputFieldConfig(
+        FormDropdownFieldConfig(
             key: FSK.fileKey,
-            label: "File Key",
-            hint: "Full path of intake file",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 60), // ],
+            items: [
+              DropdownItemConfig(label: 'Select a file key'),
+            ],
+            dropdownItemsQuery:
+                "SELECT file_key FROM jetsapi.file_key_staging WHERE client = {client} AND object_type = {object_type} ORDER BY file_key ASC LIMIT 100",
+            stateKeyPredicates: [FSK.client, FSK.objectType]),
 
         FormInputFieldConfig(
             key: FSK.groupingColumn,
@@ -463,7 +465,6 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
-
 
   //* DEMO FORM
   "dataTableDemoForm": FormConfig(

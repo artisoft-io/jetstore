@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 enum ActionStyle { primary, secondary, danger }
@@ -38,8 +40,8 @@ class TableConfig {
 /// enum describing the type of actions that are available to data table
 enum DataTableActionType {
   showDialog,
-  showDomainTable,
-  makeCheckboxVisible,
+  showScreen,
+  toggleCheckboxVisible,
   makeSelectedRowsEditable,
   saveDirtyRows,
   deleteSelectedRows,
@@ -47,42 +49,54 @@ enum DataTableActionType {
 }
 
 /// Table Action Configuration
-/// case isTableEditablePrecondition is null, action always visible
-/// case isTableEditablePrecondition == false, action visible when table check boxes are NOT visible
-/// case isTableEditablePrecondition == true, action visible when table check boxes ARE visble
+/// case isVisibleWhenCheckboxVisible is null, action always visible
+/// case isVisibleWhenCheckboxVisible == false, action visible when table check boxes are NOT visible
+/// case isVisibleWhenCheckboxVisible == true, action visible when table check boxes ARE visble
 ///
-/// case isEnabledWhenTableEditablePrecondition is null, action always enable
-/// case isEnabledWhenTableEditablePrecondition == false, action enabled when table check boxes are NOT visible
-/// case isEnabledWhenTableEditablePrecondition == true, action enabled when table check boxes ARE visble
+/// case isEnabledWhenHavingSelectedRows is null, action always enable when visible
+/// case isEnabledWhenHavingSelectedRows == false, action always enabled when table check boxes are visible
+/// case isEnabledWhenHavingSelectedRows == true, action enabled when table HAVE selected row(s)
+/// [navigationParams] hold param information for navigating to a screen (action type showScreen):
+///   - key correspond to the key to provide to navigator's param
+///   - value correspond to a column index to take the associated value of the selected row.
+///     Note: if the value is a String (rather than an int), then use it as the value to pass to the navigator.
+///     (see data table state method [actionDispatcher])
 class ActionConfig {
   ActionConfig(
       {required this.actionType,
       required this.key,
       required this.label,
-      this.isTableEditablePrecondition,
-      this.isEnabledWhenTableEditablePrecondition,
+      this.isVisibleWhenCheckboxVisible,
+      this.isEnabledWhenHavingSelectedRows,
+      this.navigationParams,
       required this.style,
       this.configForm,
+      this.configScreenPath,
       this.apiKey});
   final DataTableActionType actionType;
   final String key;
   final String label;
-  final bool? isTableEditablePrecondition;
-  final bool? isEnabledWhenTableEditablePrecondition;
+  final bool? isVisibleWhenCheckboxVisible;
+  final bool? isEnabledWhenHavingSelectedRows;
+  final Map<String, dynamic>? navigationParams;
   final ActionStyle style;
   final String? configForm;
+  final String? configScreenPath;
   final String? apiKey;
 
-  bool predicate(bool isTableEditable) {
-    if (isTableEditablePrecondition != null) {
-      return isTableEditablePrecondition == isTableEditable;
+  /// returns true if action button is visible
+  bool isVisible(JetsDataTableState widgetState) {
+    if (isVisibleWhenCheckboxVisible != null) {
+      return isVisibleWhenCheckboxVisible == widgetState.isTableEditable;
     }
     return true;
   }
 
-  bool isEnabled(bool isTableEditable) {
-    if (isEnabledWhenTableEditablePrecondition != null) {
-      return isEnabledWhenTableEditablePrecondition == isTableEditable;
+  /// returns true if action button is enabled
+  bool isEnabled(JetsDataTableState widgetState) {
+    if (isEnabledWhenHavingSelectedRows != null) {
+      return isEnabledWhenHavingSelectedRows ==
+          widgetState.dataSource.hasSelectedRows();
     }
     return true;
   }
@@ -155,14 +169,14 @@ class DataTableFormStateOtherColumnConfig {
 }
 
 final Map<String, TableConfig> _tableConfigurations = {
-  // Home Screen Tables
+  // Input Loader Status Data Table
   DTKeys.inputLoaderStatusTable: TableConfig(
     key: DTKeys.inputLoaderStatusTable,
     schemaName: 'jetsapi',
     tableName: 'input_loader_status',
     label: 'File Loader Status',
     apiPath: '/dataTable',
-    isCheckboxVisible: false,
+    isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [],
     actions: [
@@ -171,16 +185,25 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'loadNewFile',
           label: 'Load New File',
           style: ActionStyle.primary,
-          isTableEditablePrecondition: null,
-          isEnabledWhenTableEditablePrecondition: null,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
           configForm: FormKeys.loadFile),
+      ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'viewDomainTable',
+          label: 'View Loaded Data',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: domainTableViewerPath,
+          navigationParams: {'table': 3}),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'addClient',
           label: 'Add Client',
           style: ActionStyle.secondary,
-          isTableEditablePrecondition: null,
-          isEnabledWhenTableEditablePrecondition: null,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
           configForm: FormKeys.addClient),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -270,6 +293,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: false,
     rowsPerPage: 10,
   ),
+
+  // Pipeline Execution Status Data Table
   DTKeys.pipelineExecStatusTable: TableConfig(
     key: DTKeys.pipelineExecStatusTable,
     schemaName: 'jetsapi',
@@ -285,16 +310,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'startPipeline',
           label: 'Start New Pipeline',
           style: ActionStyle.primary,
-          isTableEditablePrecondition: null,
-          isEnabledWhenTableEditablePrecondition: null,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
           configForm: "newPipeline"),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'startE2E',
           label: 'Load & Start Pipeline',
           style: ActionStyle.secondary,
-          isTableEditablePrecondition: null,
-          isEnabledWhenTableEditablePrecondition: true,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
           configForm: "newPipeline"),
     ],
     formStateConfig:
@@ -375,6 +400,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: false,
     rowsPerPage: 10,
   ),
+
+  // Pipeline Execution Details Data Table
   DTKeys.pipelineExecDetailsTable: TableConfig(
     key: DTKeys.pipelineExecDetailsTable,
     schemaName: 'jetsapi',
@@ -471,7 +498,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: true,
     rowsPerPage: 10,
   ),
-  // Clients Table
+
+  // Clients Data Table
   DTKeys.clientsTable: TableConfig(
     key: DTKeys.clientsTable,
     schemaName: 'jetsapi',
@@ -489,7 +517,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           configForm: FormKeys.addClient),
     ],
-    // FORM STATE CONFIG
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
@@ -510,7 +537,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: true,
     rowsPerPage: 10,
   ),
-  // Source Config Table
+
+  // Source Config Data Table
   DTKeys.sourceConfigsTable: TableConfig(
     key: DTKeys.sourceConfigsTable,
     schemaName: 'jetsapi',
@@ -528,7 +556,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           configForm: "newPipeline"),
     ],
-    // FORM STATE CONFIG
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
@@ -580,6 +607,60 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Domain Table Viewer Data Table
+  DTKeys.inputTable: TableConfig(
+      key: DTKeys.inputTable,
+      schemaName: 'public',
+      tableName: '',
+      label: 'Input Data Staging',
+      apiPath: '/dataTable',
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
+      whereClauses: [],
+      actions: [],
+      columns: [],
+      sortColumnName: '',
+      sortAscending: false,
+      rowsPerPage: 10),
+
+  // Users Data Table
+  DTKeys.usersTable: TableConfig(
+    key: DTKeys.usersTable,
+    schemaName: 'jetsapi',
+    tableName: 'users',
+    label: 'User Registry',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "name",
+          label: 'Name',
+          tooltips: 'User Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "user_email",
+          label: 'Email',
+          tooltips: 'User Email',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "last_update",
+          label: 'Last Updated',
+          tooltips: 'Last Updated',
+          isNumeric: false),
+    ],
+    sortColumnName: 'name',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
   //* DEMO FORM - DEMO MAIN DATA TABLE
   "dataTableDemoMainTableConfig": TableConfig(
     key: "dataTableDemoMainTableConfig",
@@ -598,33 +679,32 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           configForm: "newPipeline"),
       ActionConfig(
-          actionType: DataTableActionType.makeCheckboxVisible,
+          actionType: DataTableActionType.toggleCheckboxVisible,
           key: 'edit',
           label: 'Edit Table',
           style: ActionStyle.secondary,
-          isTableEditablePrecondition: false),
+          isVisibleWhenCheckboxVisible: false),
       ActionConfig(
           actionType: DataTableActionType.saveDirtyRows,
           key: 'save',
           label: 'Save Changes',
           style: ActionStyle.primary,
-          isTableEditablePrecondition: true,
+          isVisibleWhenCheckboxVisible: true,
           apiKey: 'updatePipeline'),
       ActionConfig(
           actionType: DataTableActionType.deleteSelectedRows,
           key: 'delete',
           label: 'Delete Rows',
           style: ActionStyle.danger,
-          isTableEditablePrecondition: true,
+          isVisibleWhenCheckboxVisible: true,
           apiKey: 'deletePipelines'),
       ActionConfig(
           actionType: DataTableActionType.cancelModifications,
           key: 'cancel',
           label: 'Cancel Changes',
           style: ActionStyle.primary,
-          isTableEditablePrecondition: true),
+          isVisibleWhenCheckboxVisible: true),
     ],
-    // FORM STATE CONFIG
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: "dataTableDemoClient",
@@ -685,6 +765,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: true,
     rowsPerPage: 10,
   ),
+
   //* DEMO FORM - DEMO SUPPORT DATA TABLE
   "dataTableDemoSupportTableConfig": TableConfig(
     key: "dataTableDemoSupportTableConfig",
@@ -698,7 +779,6 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "table_name", formStateKey: "dataTableDemoMainTable")
     ],
     actions: [],
-    // FORM STATE CONFIG
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: "dataProperties",
@@ -773,6 +853,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: true,
     rowsPerPage: 10,
   ),
+
   //* DEMO ** TABLE ** CODE
   DTKeys.pipelineDemo: TableConfig(
     key: DTKeys.pipelineDemo,
@@ -827,57 +908,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: true,
     rowsPerPage: 10,
   ),
-  DTKeys.usersTable: TableConfig(
-    key: DTKeys.usersTable,
-    schemaName: 'jetsapi',
-    tableName: 'users',
-    label: 'User Registry',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: false,
-    whereClauses: [],
-    actions: [],
-    //* DEMO CODE
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "name",
-          label: 'Name',
-          tooltips: 'User Name',
-          isNumeric: false),
-      ColumnConfig(
-          index: 1,
-          name: "user_email",
-          label: 'Email',
-          tooltips: 'User Email',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "last_update",
-          label: 'Last Updated',
-          tooltips: 'Last Updated',
-          isNumeric: false),
-    ],
-    sortColumnName: 'name',
-    sortAscending: true,
-    rowsPerPage: 10,
-  ),
-  DTKeys.inputTable: TableConfig(
-      key: 'inputTable',
-      schemaName: 'public',
-      tableName: '',
-      label: 'Input Data',
-      apiPath: '/dataTable',
-      isCheckboxVisible: false,
-      isCheckboxSingleSelect: false,
-      whereClauses: [],
-      actions: [],
-      columns: [],
-      sortColumnName: '',
-      sortAscending: false,
-      rowsPerPage: 10),
 };
 
 TableConfig getTableConfig(String key) {

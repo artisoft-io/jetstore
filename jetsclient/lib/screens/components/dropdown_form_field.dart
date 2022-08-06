@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/export_routes.dart';
@@ -13,11 +14,13 @@ class JetsDropdownButtonFormField extends StatefulWidget {
     required this.formFieldConfig,
     required this.onChanged,
     required this.formValidator,
+    required this.formState,
     this.flex = 1,
   });
   final JetsRouteData screenPath;
   final FormDropdownFieldConfig formFieldConfig;
   final void Function(String?) onChanged;
+  final JetsFormState formState;
 
   /// Note: (Future requirements) validator is require as this control needs to be part of a form
   ///       so to have formFieldConfig. We need to externalize the widget
@@ -43,17 +46,26 @@ class _JetsDropdownButtonFormFieldState
     super.initState();
     httpClient = Provider.of<HttpClient>(context, listen: false);
     _config = widget.formFieldConfig;
-    items.addAll(_config.items);
     if (_config.dropdownItemsQuery != null) {
+      if (_config.stateKeyPredicates.isNotEmpty) {
+        widget.formState.addListener(stateListener);
+      }
       if (JetsRouterDelegate().user.isAuthenticated) {
         queryDropdownItems();
       } else {
         // Get the first batch of data when navigated to screenPath
         JetsRouterDelegate().addListener(navListener);
       }
-    } else if (items.isNotEmpty) {
-      selectedValue = items[_config.defaultItemPos].value;
+    } else {
+      items.addAll(_config.items);
+      if (items.isNotEmpty) {
+        selectedValue = items[_config.defaultItemPos].value;
+      }
     }
+  }
+
+  void stateListener() async {
+    queryDropdownItems();
   }
 
   void navListener() async {
@@ -62,13 +74,42 @@ class _JetsDropdownButtonFormFieldState
     }
   }
 
+  @override
+  void dispose() {
+    if (_config.dropdownItemsQuery != null) {
+      if (_config.stateKeyPredicates.isNotEmpty) {
+        widget.formState.removeListener(stateListener);
+      }
+      JetsRouterDelegate().addListener(navListener);
+    }
+    super.dispose();
+  }
+
   void queryDropdownItems() async {
     // if (_config.dropdownItemLoaded) return;
+    // Check if we have predicate on formState
+    var query = _config.dropdownItemsQuery;
+    if (query == null) return;
+
+    if (_config.stateKeyPredicates.isNotEmpty) {
+      for (var key in _config.stateKeyPredicates) {
+        var value = widget.formState.getValue(_config.group, key);
+        if (value == null) return;
+        assert((value is String) || (value is List<String>),
+            "Error: unexpected type in dropdown formState");
+        if (value is String) {
+          query = query!.replaceAll(RegExp('{$key}'), "'$value'");
+        } else {
+          query = query!.replaceAll(RegExp('{$key}'), "'$value[0]'");
+        }
+      }
+    }
+
     var msg = <String, dynamic>{
       'action': 'raw_query',
       'nbrColumns': 1,
     };
-    msg['query'] = _config.dropdownItemsQuery;
+    msg['query'] = query;
     var encodedMsg = json.encode(msg);
     var result = await httpClient.sendRequest(
         path: "/dataTable",

@@ -17,9 +17,9 @@ const PARAM_CHAR = ':';
 const homePath = '/';
 const sourceConfigPath = '/sourceConfig';
 const processInputPath = '/processInput';
-const inputMappingPath = '/processInput/mapping/:pi';
+const domainTableViewerPath = '/domainTableViewer/:table';
+
 const processConfigPath = '/processConfig';
-const ruleConfigPath = '/processConfig/ruleConfig/:pc';
 const pipelineConfigPath = '/pipelineConfig';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
@@ -40,6 +40,7 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.home),
       formValidatorDelegate: homeFormValidator,
       formActionsDelegate: homeFormActions),
+
   // Source Config
   sourceConfigPath: ScreenWithForm(
       key: const Key(ScreenKeys.sourceConfig),
@@ -57,6 +58,7 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.login),
       formValidatorDelegate: loginFormValidator,
       formActionsDelegate: loginFormActions),
+
   // Register Screen
   registerPath: ScreenWithForm(
       key: const Key(ScreenKeys.register),
@@ -65,6 +67,15 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.register),
       formValidatorDelegate: registrationFormValidator,
       formActionsDelegate: registrationFormActions),
+
+  // Domain Table Viewer
+  domainTableViewerPath: ScreenOne(
+      key: const Key(ScreenKeys.fileRegistryTable),
+      screenPath: JetsRouteData(domainTableViewerPath),
+      screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
+      validatorDelegate: (context, formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey) {},
+      tableConfig: getTableConfig(DTKeys.inputTable)),
 
   // Page Not Found
   pageNotFoundPath: const MessageScreen(message: "Opps 404!"),

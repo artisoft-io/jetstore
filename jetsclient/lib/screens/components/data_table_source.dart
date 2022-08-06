@@ -19,6 +19,14 @@ class JetsDataTableSource extends ChangeNotifier {
   int get rowCount => model != null ? model!.length : 0;
   int get totalRowCount => _totalRowCount;
 
+  /// returns true if table has selected row(s)
+  bool hasSelectedRows() {
+    for (var b in selectedRows) {
+      if (b) return true;
+    }
+    return false;
+  }
+
   /// Update the form state:
   /// This is in response to a gesture of selecting or de-selecting a row.
   ///  if [isAdd] is true, add row identified by index to the form state
@@ -49,7 +57,7 @@ class JetsDataTableSource extends ChangeNotifier {
     formState.resetUpdatedKeys(config.group);
     var selRowPKs = <String>[];
     Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
-    if(itor != null) {
+    if (itor != null) {
       for (final JetsRow selRow in itor) {
         final value = selRow[formStateConfig.keyColumnIdx];
         if (value != null) {
@@ -157,9 +165,9 @@ class JetsDataTableSource extends ChangeNotifier {
         return null; // Use default value for other states and odd rows.
       }),
       cells: state.columnsConfig
-        .where((e) => !e.isHidden)
-        .map((e) => DataCell(Text(model![index][e.index] ?? 'null')))
-        .toList(),
+          .where((e) => !e.isHidden)
+          .map((e) => DataCell(Text(model![index][e.index] ?? 'null')))
+          .toList(),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable
           ? (bool? value) {

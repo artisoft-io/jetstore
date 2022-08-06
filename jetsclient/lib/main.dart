@@ -10,7 +10,9 @@ final jetsRouteDelegate = JetsRouterDelegate();
 final jetsRouteInformationParser = JetsRouteInformationParser();
 
 void main() {
-  runApp(const JetsClient(serverOrigin: 'http://localhost:8080'));
+  var serverOrigin = const String.fromEnvironment("API_HOST",
+      defaultValue: "http://localhost:8080");
+  runApp(JetsClient(serverOrigin: serverOrigin));
 }
 
 class JetsClient extends StatefulWidget {
@@ -36,7 +38,7 @@ class JetsClientState extends State<JetsClient> {
           // colorSchemeSeed: const Color.fromARGB(255, 137, 28, 63)),
           colorSchemeSeed: const Color.fromRGBO(53, 69, 79, 1.0),
           fontFamily: 'Roboto'),
-          // colorSchemeSeed: const Color.fromRGBO(118, 219, 21, 1.0)),
+      // colorSchemeSeed: const Color.fromRGBO(118, 219, 21, 1.0)),
       initial: AdaptiveThemeMode.light,
       builder: (theme, darkTheme) => MultiProvider(
         providers: [

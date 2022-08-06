@@ -117,13 +117,13 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                 )
             ];
             headerRow.addAll(tableConfig.actions
-                .where((ac) => ac.predicate(state.isTableEditable))
+                .where((ac) => ac.isVisible(state))
                 .expand((ac) => [
                       const SizedBox(width: defaultPadding),
                       ElevatedButton(
                         style: ac.buttonStyle(themeData),
-                        onPressed: () => ac.isEnabled(state.isTableEditable)
-                            ? state.actionDispatcher(context, ac)
+                        onPressed: ac.isEnabled(state)
+                            ? () => state.actionDispatcher(context, ac)
                             : null,
                         child: Text(ac.label),
                       )
@@ -395,7 +395,8 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     super.dispose();
   }
 
-  void dialogResultHandler(BuildContext context, JetsFormState dialogFormState, DTActionResult? result) {
+  void dialogResultHandler(BuildContext context, JetsFormState dialogFormState,
+      DTActionResult? result) {
     switch (result) {
       case DTActionResult.ok:
       case DTActionResult.canceled:
@@ -435,6 +436,27 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
           resultHandler: dialogResultHandler,
         );
         break;
+      // Navigate to a page
+      case DataTableActionType.showScreen:
+        if (ac.configScreenPath == null) return;
+        // find the first selected row
+        List<String?>? row;
+        for (int i = 0; i < dataSource.rowCount; i++) {
+          if (dataSource.selectedRows[i]) {
+            row = dataSource.model?[i];
+            break;
+          }
+        }
+        // check if no row is selected while we expect to have one selected
+        if (row == null && ac.navigationParams != null) return;
+        var params = ac.navigationParams?.map((key, value) {
+          if (value is String?) return MapEntry(key, value);
+          return MapEntry(key, row![value]);
+        });
+        // print("NAVIGATING to ${ac.configScreenPath}, with ${params}");
+        JetsRouterDelegate()(
+            JetsRouteData(ac.configScreenPath!, params: params));
+        break;
       // case 'edit':
       //   setState(() => isTableEditable = true);
       //   break;
@@ -460,7 +482,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   }
 
   void _sortTable(int columnIndex, bool ascending) async {
-    //* TODO ? add sort on client side with time-based order from server ?
     // dataSource.sortModelData(columnIndex, ascending);
     setSortingColumn(columnIndex: columnIndex);
     dataSource.getModelData();

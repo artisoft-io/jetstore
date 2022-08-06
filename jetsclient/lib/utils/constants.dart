@@ -5,6 +5,7 @@ const defaultPadding = 16.0;
 class ScreenKeys {
   static const home = "homeScreen";
   static const sourceConfig = "sourceConfigScreen";
+  static const domainTableViewer = "domainTableViewerScreen";
 
   static const login = "loginScreen";
   static const register = "registerScreen";
@@ -80,12 +81,13 @@ class DTKeys {
   // Source Config DT
   static const clientsTable = "clientsTable";
   static const sourceConfigsTable = "sourceConfigsTable";
+  // Domain Table Viewer DT
+  static const inputTable = "inputTable";
 
   // DEMO keys
   static const pipelineDemo = "pipelineTable";
   static const registryDemo = "inputLoaderStatusTable"; // repurposed
   static const usersTable = "userTable";
-  static const inputTable = "inputTable";
 }
 
 /// API Server endpoints

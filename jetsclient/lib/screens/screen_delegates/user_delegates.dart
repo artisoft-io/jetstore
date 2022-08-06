@@ -44,10 +44,7 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
       }
       // Use a JSON encoded string to send
       var client = context.read<HttpClient>();
-      // Note: using the same keys for FormState (class FSK)
-      // as the message structure (User class of api server)
-      // May not be ideal and might need to have separate
-      // keys.
+      var messenger = ScaffoldMessenger.of(context);
       var result = await client.sendRequest(
           path: loginPath, encodedJsonBody: formState.encodeState(0));
 
@@ -60,7 +57,7 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
         const snackBar = SnackBar(
           content: Text('Login Successful!'),
         );
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        messenger.showSnackBar(snackBar);
         JetsRouterDelegate()(JetsRouteData(homePath));
       } else if (result.statusCode == 401 || result.statusCode == 422) {
         showAlertDialog(context, 'Invalid email and/or password.');
