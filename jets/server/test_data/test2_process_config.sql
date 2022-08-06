@@ -10,9 +10,16 @@ INSERT INTO jetsapi.source_config (key, object_type, client, table_name, groupin
   (291, 'Simulator', 'Zeme', 'test2', NULL, 'user@mail.com')
 ;
 
+TRUNCATE jetsapi.object_type_registry;
 INSERT INTO jetsapi.object_type_registry (object_type, details) VALUES
   ('Claim', 'Healthcare Claim'),
   ('Network', 'Network Transparency file')
+;
+
+TRUNCATE jetsapi.file_key_staging;
+INSERT INTO jetsapi.file_key_staging (client, object_type, file_key) VALUES
+  ('Zeme', 'Claim', 'client=Zeme/ot=Claim/object.csv'),
+  ('abc', 'Network', 'client=abc/ot=Network/object.csv')
 ;
 
 INSERT INTO jetsapi.process_input (key, client, object_type, table_name, source_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES

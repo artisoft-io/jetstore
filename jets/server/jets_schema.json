@@ -62,6 +62,33 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName":  "file_key_staging",
+    "columns": [
+      {
+        "columnName": "client",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "object_type",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "file_key",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "last_update",
+        "dataType":   "datetime",
+        "default":    "now()",
+        "isNotNull":  true
+      }
+    ],
+    "tableConstraints": [
+      "UNIQUE (client, object_type, file_key)"
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName":  "source_config",
     "columns": [
       {

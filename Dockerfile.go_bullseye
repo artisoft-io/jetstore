@@ -34,13 +34,19 @@ RUN \
     cmake \
     curl \
     flex \
+    fonts-droid-fallback \
     gcc \
+    git \
     gnupg \
     less \
     libboost-all-dev \
     # libevent-dev \
+    lib32stdc++6 \
+    libgconf-2-4 \
+    libglu1-mesa \
     libjemalloc-dev \
     libpq-dev \
+    libstdc++6 \
     libssl-dev \
     libtool \
     make \
@@ -52,12 +58,23 @@ RUN \
     python3-dev \
     python3-pip \
     python3-setuptools \
+    sed \
     unzip \
     wget \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN dpkg -l
 
+# Clone the flutter repo
+RUN git clone https://github.com/flutter/flutter.git /usr/local/flutter
+
+# Set flutter path
+ENV PATH="${PATH}:/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin"
+
+# Run flutter doctor
+RUN flutter doctor -v
+RUN flutter channel master
+RUN flutter upgrade
 
 # ARG PQXX_VERSION="7.6.0"
 # ENV PQXX_VERSION=${PQXX_VERSION}
@@ -140,6 +157,9 @@ RUN wget -q "https://github.com/google/benchmark/archive/e33986a000987387c92ad29
 
 # JetStore Build
 ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+ENV JETS_BUILD_DIR /usr/local/go/build
+ENV JETS_BIN_DIR /usr/local/go/bin
+
 RUN mkdir -p ${JETS_SOURCE_DIR}
 WORKDIR ${JETS_SOURCE_DIR}
 
@@ -147,9 +167,6 @@ COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
 COPY go.mod              ${JETS_SOURCE_DIR}/
 COPY setup.py            ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
-
-ENV JETS_BUILD_DIR /usr/local/go/build
-ENV JETS_BIN_DIR /usr/local/go/bin
 
 RUN \
   mkdir -p ${JETS_BUILD_DIR}                                   \
@@ -171,10 +188,17 @@ RUN go mod download
 
 RUN go install jetstore/jets/loader
 RUN go install jetstore/jets/server
+RUN go install jetstore/jets/apiserver
 RUN go install jetstore/jets/bridge
 RUN go install jetstore/jets/update_db
 
+# JETSTORE FRONT END == FLUTTER BUILD ==
+COPY jetsclient      ${JETS_SOURCE_DIR}/jetsclient
+WORKDIR ${JETS_SOURCE_DIR}/jetsclient
+RUN flutter build web
+
 # Copy programs resources
+COPY utils  ${JETS_BUILD_DIR}/utils
 RUN cp ${JETS_SOURCE_DIR}/jets/server/jets_schema.json ${JETS_BUILD_DIR}
 
 

@@ -23,10 +23,12 @@ COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
 COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+COPY --from=builder ${JETS_BUILD_DIR}/utils/start_ui.sh /usr/local/bin/
 COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 # Go commands
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 
@@ -34,6 +36,11 @@ COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
 # Set env to find the jets_schema.json by update_db (migrate_db.go)
 ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
+
+# Install Client UI == Flutter App ==
+ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
+COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
 
 RUN \
     cd /usr/local/lib/ \
@@ -54,6 +61,21 @@ RUN groupadd -g ${GROUP_ID} jsuser \
 ENV PYTHONPATH "$PYTHONPATH:/go/lib:/usr/local/lib"
 ENV CLASSPATH ".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
 
+# Jets Application ENV Variable
+# jetsclient ui
+ENV UI_PORT 5001
+# apiserver
+ENV API_SECRET 'JetStore Dev Mode - Override This'
+# postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres
+ENV PG_DATABASE=postgres
+ENV PG_HOST=172.17.0.2
+ENV PG_PORT=5432
+ENV PG_USER=postgres
+ENV PG_PASSWORD=XXX
+
+ENV API_SERVER_ADDR ':8080'
+ENV API_TOKEN_EXPIRATION_MIN 60
+
 # put the argo scripts in /go/lib ?
 
 ENV WORKSPACES_HOME /go/workspaces
@@ -67,6 +89,7 @@ RUN \
   && mkdir -p ${WORK_HOME}/output_params 
 
 RUN chown -Rc jsuser /go
+USER jsuser
 
 # # Copy source and define the target (APP_HOME) where we will put the compiled artifacts
 # ENV JETS_SOURCE_DIR /home/michel/projects/repos/jetstore
