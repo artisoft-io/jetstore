@@ -8,7 +8,6 @@ class JetsTextFormField extends StatefulWidget {
     required this.formFieldConfig,
     required this.onChanged,
     required this.formValidator,
-    this.flex = 1,
   });
   final FormInputFieldConfig formFieldConfig;
   final void Function(String) onChanged;
@@ -17,7 +16,6 @@ class JetsTextFormField extends StatefulWidget {
   //       config (as done for data table) to to be able to use the widget
   //       without a form. Same applies to dropdown widget.
   final JetsFormFieldValidator formValidator;
-  final int flex;
 
   @override
   State<JetsTextFormField> createState() => _JetsTextFormFieldState();
@@ -98,7 +96,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      flex: widget.flex,
+      flex: widget.formFieldConfig.flex,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
         child: TextFormField(

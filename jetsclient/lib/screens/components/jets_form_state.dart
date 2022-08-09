@@ -30,6 +30,8 @@ typedef ValidationGroup = Map<String, dynamic>;
 /// Consist of List of validation groups.
 typedef InternalFormState = List<ValidationGroup>;
 
+typedef InternalCache = Map<String, dynamic>;
+
 /// Mapping of widget's key with associated selected rows.
 /// Note this applied only to data table widgets.
 typedef ValidationGroupSelectedRow = Map<String, SelectedRows>;
@@ -53,6 +55,9 @@ class JetsFormState extends ChangeNotifier {
   /// The actual state of the form, keyed by validation group (list item)
   ///  and widget key
   final InternalFormState _state;
+
+  /// A cache mainly for form builders to access metadata information
+  final InternalCache _cache = {};
 
   /// Keep track of selected rows for data table form widgets
   ///  using the same keying as [_state] does (group and widget key).
@@ -129,6 +134,14 @@ class JetsFormState extends ChangeNotifier {
     // print(
     //     "FormState.getValue called for group $group, key $key, returning $value");
     return value;
+  }
+
+  void addCacheValue(String key, dynamic value) {
+    _cache[key] = value;
+  }
+
+  dynamic getCacheValue(String key) {
+    return _cache[key];
   }
 
   /// Add a selected row from a data table

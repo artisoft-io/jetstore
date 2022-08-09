@@ -20,7 +20,6 @@ import (
 type DataTableAction struct {
 	Action         string        `json:"action"`
 	RawQuery       string        `json:"query"`
-	NbrColumns     int           `json:"nbrColumns"`	// used for rawQuery
 	Schema         string        `json:"schema"`
 	Table          string        `json:"table"`
 	Columns        []string      `json:"columns"`
@@ -112,7 +111,7 @@ func isNumeric(dtype string) bool {
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
-	resultRows, err := execQuery(server.dbpool, dataTableAction, &dataTableAction.RawQuery, dataTableAction.NbrColumns)
+	resultRows, err := execQuery(server.dbpool, dataTableAction, &dataTableAction.RawQuery)
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while executing raw query"))
 		return
@@ -157,7 +156,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 }
 
 // utility method
-func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string, nCol int) (*[][]interface{}, error) {
+func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
 	//*
 	log.Println("Query:", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
@@ -167,7 +166,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 		return &resultRows, err
 	}
 	defer rows.Close()
-
+	nCol := len(rows.FieldDescriptions())
 	for rows.Next() {
 		dataRow := make([]interface{}, nCol)
 		for i:=0; i<nCol; i++ {
@@ -312,7 +311,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 	// Perform the query
 	query := buf.String()
-	resultRows, err := execQuery(server.dbpool, &dataTableAction, &query, len(dataTableAction.Columns))
+	resultRows, err := execQuery(server.dbpool, &dataTableAction, &query)
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while executing query"))
 		return
