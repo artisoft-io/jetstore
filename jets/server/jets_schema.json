@@ -48,6 +48,24 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName":  "mapping_function_registry",
+    "columns": [
+      {
+        "columnName": "function_name",
+        "dataType":   "text",
+        "isPK":  true        
+      }, {
+        "columnName": "is_argument_required",
+        "dataType":   "bool",
+        "isNotNull":  true
+      }, {
+        "columnName": "details",
+        "dataType":   "text"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName":  "object_type_registry",
     "columns": [
       {
@@ -55,9 +73,38 @@
         "dataType":   "text",
         "isPK":  true        
       }, {
+        "columnName": "entity_rdf_type",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
         "columnName": "details",
         "dataType":   "text"
       }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName":  "object_type_mapping_details",
+    "columns": [
+      {
+        "columnName": "object_type",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "data_property",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "is_required",
+        "dataType":   "bool",
+        "isNotNull":  true
+      }, {
+        "columnName": "details",
+        "dataType":   "text"
+      }
+    ],
+    "tableConstraints": [
+      "UNIQUE (object_type, data_property)"
     ]
   },
   {

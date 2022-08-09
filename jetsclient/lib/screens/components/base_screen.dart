@@ -29,7 +29,8 @@ class BaseScreenState extends State<BaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: appBar(context, widget.screenConfig.appBarLabel,
+      appBar: appBar(
+          context, widget.screenConfig.appBarLabel, widget.screenConfig,
           showLogout: widget.screenConfig.showLogout),
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

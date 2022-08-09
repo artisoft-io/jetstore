@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:jetsclient/routes/jets_route_data.dart';
+import 'package:jetsclient/screens/components/dropdown_shared_items.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
@@ -22,12 +23,52 @@ typedef FormActionsDelegate = void Function(BuildContext context,
 typedef JetsFormFieldValidator = String? Function(
     int group, String key, dynamic v);
 
+typedef JetsFormFieldRowBuilder1 = List<FormFieldConfig> Function(
+    int index, List<String?> labels, JetsFormState formState);
+
+typedef JetsFormFieldRowBuilder = List<FormFieldConfig> Function(
+    int index, List<String?> inputFieldRow, JetsFormState formState);
+
+/// Form Configuration
+/// Simple case  is when [inputFields] are provided (most case)
+/// Special case, when [inputFields] is empty, then [inputFieldRowBuilder]
+/// shall be provided along with [inputFieldsQuery] and optionally
+/// [dropdownItemsQueries], [metadataQueries], and [stateKeyPredicates].
+/// [inputFieldsQuery] is to provide the list of data properties of the
+/// input canonical model that must be mapped.
+/// This query the object_type_mapping_details table and returns 2 columns:
+/// data_property (domain class data property)
+/// and is_required (indicating that mapping must be specified).
+/// The returned data elements are provided to the [inputFieldRow] argument of the
+/// [JetsFormFieldRowBuilder].
+/// [dropdownItemsQueries] is to provide a cache of dropdown items for use
+/// by [JetsDropdownWithSharedItemsFormField].
+/// [dropdownItemsQueries] is a map, the key correspond to the
+/// [FormFieldConfig] key build by the [inputFieldRowBuilder].
+/// Similarily [metadataQueries] is a map, the key is known by the
+/// [inputFieldRowBuilder], for example the key [FSK.savedStateCache] correspond
+/// to the previously saved values.
 class FormConfig {
-  FormConfig(
-      {required this.key, required this.inputFields, required this.actions});
+  FormConfig({
+    required this.key,
+    this.inputFields = const [],
+    this.inputFieldRowBuilder,
+    required this.actions,
+    this.inputFieldsQuery,
+    this.savedStateQuery,
+    this.dropdownItemsQueries,
+    this.metadataQueries,
+    this.stateKeyPredicates,
+  });
   final String key;
   final List<List<FormFieldConfig>> inputFields;
+  final JetsFormFieldRowBuilder? inputFieldRowBuilder;
   final List<FormActionConfig> actions;
+  final String? inputFieldsQuery;
+  final String? savedStateQuery;
+  final Map<String, String>? dropdownItemsQueries;
+  final Map<String, String>? metadataQueries;
+  final List<String>? stateKeyPredicates;
 
   int groupCount() {
     var unique = <int>{};
@@ -37,10 +78,6 @@ class FormConfig {
       }
     }
     return unique.length;
-  }
-
-  List<String?>? findFirst(JetsFormState formState, String key) {
-    return formState.findFirst(key);
   }
 
   JetsFormState makeFormState() {
@@ -124,7 +161,6 @@ class FormInputFieldConfig extends FormFieldConfig {
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
       formValidator: formFieldValidator,
-      flex: flex,
     );
   }
 }
@@ -173,7 +209,44 @@ class FormDropdownFieldConfig extends FormFieldConfig {
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
       formValidator: formFieldValidator,
       formState: state,
-      flex: flex,
+    );
+  }
+}
+
+/// Dropdown Widget with Shared [items], [items] is provided via
+/// the [dropdownMenuItemCacheKey] form state cache key.
+/// [defaultItem] is specified here a the actual value (which can be null)
+/// of the dropdown.
+/// [isRequired] is to indicate if a value must be selected, i.e. the
+/// dropdown value cannot be null when the form is being validated.
+class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
+  FormDropdownWithSharedItemsFieldConfig({
+    required super.key,
+    super.group = 0,
+    super.flex = 1,
+    required this.dropdownMenuItemCacheKey,
+    this.defaultItem,
+    required this.isRequired,
+  });
+  final String dropdownMenuItemCacheKey;
+  final String? defaultItem;
+  final bool isRequired;
+
+  @override
+  Widget makeFormField({
+    required JetsRouteData screenPath,
+    required JetsFormState state,
+    required JetsFormFieldValidator formFieldValidator,
+    required ValidatorDelegate formValidator,
+    required FormActionsDelegate formActionsDelegate,
+  }) {
+    return JetsDropdownWithSharedItemsFormField(
+      key: Key(key),
+      screenPath: screenPath,
+      formFieldConfig: this,
+      onChanged: (p0) => state.setValueAndNotify(group, key, p0),
+      formValidator: formFieldValidator,
+      formState: state,
     );
   }
 }
@@ -450,7 +523,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Select a file key'),
             ],
             dropdownItemsQuery:
-                "SELECT file_key FROM jetsapi.file_key_staging WHERE client = {client} AND object_type = {object_type} ORDER BY file_key ASC LIMIT 100",
+                "SELECT file_key FROM jetsapi.file_key_staging WHERE client = '{client}' AND object_type = '{object_type}' ORDER BY file_key ASC LIMIT 100",
             stateKeyPredicates: [FSK.client, FSK.objectType]),
 
         FormInputFieldConfig(
@@ -464,6 +537,92 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 60), // ],
       ],
     ],
+  ),
+  // processMapping - Dialog to mapping intake file structure to canonical model
+  FormKeys.processMapping: FormConfig(
+    key: FormKeys.processMapping,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.mapperOk,
+          label: "Save",
+          buttonStyle: ButtonStyle.primary),
+      FormActionConfig(
+          key: ActionKeys.mapperDraft,
+          label: "Save as Draft",
+          buttonStyle: ButtonStyle.primary),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ButtonStyle.secondary),
+    ],
+    inputFieldsQuery:
+        "SELECT data_property, is_required FROM jetsapi.object_type_mapping_details WHERE object_type = '{object_type}' ORDER BY data_property ASC LIMIT 300",
+    savedStateQuery:
+        "SELECT data_property, input_column, function_name, argument, default_value, error_message,  FROM jetsapi.process_mapping WHERE process_input_key = {process_input_key} ORDER BY data_property ASC LIMIT 300",
+    dropdownItemsQueries: {
+      FSK.inputColumnsDropdownItemsCache:
+          "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
+      FSK.mappingFunctionsDropdownItemsCache:
+          "SELECT function_name FROM jetsapi.mapping_function_registry ORDER BY function_name ASC LIMIT 50",
+    },
+    metadataQueries: {
+      FSK.mappingFunctionDetailsCache:
+          "SELECT function_name, is_argument_required FROM jetsapi.mapping_function_registry ORDER BY function_name ASC LIMIT 50",
+      FSK.inputColumnsCache:
+          "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
+    },
+    stateKeyPredicates: [FSK.objectType, FSK.processInputKey],
+    inputFieldRowBuilder: (index, inputFieldRow, formState) {
+      // savedState is List<String?>? with values as per savedStateQuery
+      final savedState = formState.getCacheValue(FSK.savedStateCache) as List?;
+      final isRequired = inputFieldRow[1]! == '1';
+      final isRequiredIndicator = isRequired ? '*' : '';
+      final savedInputColumn = savedState?[index][1];
+      final inputColumnList =
+          formState.getCacheValue(FSK.inputColumnsCache) as List;
+      final inputColumnDefault =
+          inputColumnList.contains(inputFieldRow[0]) ? inputFieldRow[0] : null;
+      return [
+        TextFieldConfig(
+            label: "$index: ${inputFieldRow[0]}$isRequiredIndicator"),
+        FormDropdownWithSharedItemsFieldConfig(
+          key: FSK.inputColumn,
+          group: index,
+          flex: 1,
+          dropdownMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
+          defaultItem: savedInputColumn ?? inputColumnDefault,
+          isRequired: isRequired,
+        ),
+        FormDropdownWithSharedItemsFieldConfig(
+          key: FSK.functionName,
+          group: index,
+          flex: 1,
+          dropdownMenuItemCacheKey: FSK.mappingFunctionsDropdownItemsCache,
+          defaultItem: savedState?[index][2],
+          isRequired: false,
+        ),
+        FormInputFieldConfig(
+            key: FSK.mappingDefaultValue,
+            label: "Default Value",
+            hint:
+                "Default value to use if input value is not provided or cleansing function returns null",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512),
+        FormInputFieldConfig(
+            key: FSK.mappingErrorMessage,
+            label: "Error Message",
+            hint:
+                "Error message to raise if input value is not provided or cleansing function returns null and there is no default value",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 125),
+      ];
+    },
   ),
 
   //* DEMO FORM

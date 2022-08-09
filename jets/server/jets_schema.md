@@ -15,6 +15,36 @@ Is a utility table defining Client identifiers for relating configuration inform
 processing results by client. Clients are uniquely defined using a `client` text identifier
 of at most 25 characters.
 
+## Table `mapping_function_registry`
+
+Is a utility table defining the available mapping function used to cleanse and transform
+the input data.
+
+These function are used in `process_mapping` in column `function_name`.
+
+This table is initialized using a initialization script provided by the Knowledge Engineer
+in the Workspace.
+
+## Table `object_type_registry`
+
+Is a utility table defining the object type corresponding to the input file.
+This is essentially a mapping of a logical name (`object_type`) to a domain
+class (`entity_rdf_type`).
+
+This table is initialized using a initialization script provided by the Knowledge Engineer
+in the Workspace.
+
+## Table `object_type_mapping_details`
+
+Is a utility table defining required `data_property` of the corresponding `entity_rdf_type`
+of the `object_type`.
+
+This table is used by the UI form configuring `process_input` and the associated
+entries in `process_mapping`.
+
+This table is initialized using a initialization script provided by the Knowledge Engineer
+in the Workspace.
+
 ## Table `source_config`
 
 Defines tables where input files are loaded and associate the table with an `object_type`.

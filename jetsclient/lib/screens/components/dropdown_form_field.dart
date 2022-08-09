@@ -15,7 +15,6 @@ class JetsDropdownButtonFormField extends StatefulWidget {
     required this.onChanged,
     required this.formValidator,
     required this.formState,
-    this.flex = 1,
   });
   final JetsRouteData screenPath;
   final FormDropdownFieldConfig formFieldConfig;
@@ -27,7 +26,6 @@ class JetsDropdownButtonFormField extends StatefulWidget {
   ///       config (as done for data table) to to be able to use the widget
   ///       without a form. Same applies to input text from.
   final JetsFormFieldValidator formValidator;
-  final int flex;
 
   @override
   State<JetsDropdownButtonFormField> createState() =>
@@ -98,16 +96,15 @@ class _JetsDropdownButtonFormFieldState
         assert((value is String) || (value is List<String>),
             "Error: unexpected type in dropdown formState");
         if (value is String) {
-          query = query!.replaceAll(RegExp('{$key}'), "'$value'");
+          query = query!.replaceAll(RegExp('{$key}'), value);
         } else {
-          query = query!.replaceAll(RegExp('{$key}'), "'$value[0]'");
+          query = query!.replaceAll(RegExp('{$key}'), value[0]);
         }
       }
     }
 
     var msg = <String, dynamic>{
       'action': 'raw_query',
-      'nbrColumns': 1,
     };
     msg['query'] = query;
     var encodedMsg = json.encode(msg);
@@ -145,7 +142,7 @@ class _JetsDropdownButtonFormFieldState
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      flex: widget.flex,
+      flex: widget.formFieldConfig.flex,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
         child: DropdownButtonFormField<String>(
