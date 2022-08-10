@@ -75,10 +75,11 @@ class JetsFormState extends ChangeNotifier {
   final InternalUpdatedKeys _updatedKeys;
 
   void resizeFormState(int newGroupCount) {
-    print("Resizing formState from $groupCount to $newGroupCount");
+    // print("Resizing formState from $groupCount to $newGroupCount");
     var n = newGroupCount - groupCount;
     if (n > 0) {
       _state.addAll(InternalFormState.filled(n, <String, dynamic>{}));
+      groupCount = _state.length;
       _selectedRows
           .addAll(InternalSelectedRow.filled(n, <String, SelectedRows>{}));
       _updatedKeys.addAll(InternalUpdatedKeys.filled(n, <String>{}));
@@ -107,12 +108,11 @@ class JetsFormState extends ChangeNotifier {
   /// Set a form state [value] for widget [key]
   /// for validation [group]
   void setValue(int group, String key, dynamic value) {
+    // print(
+    //     "setValue: group $group, key $key, value $value :: groupCount $groupCount");
     assert(group < groupCount, "invalid group $group key is $key value $value");
     assert((value is String?) || (value is WidgetField?),
         "form state values are expected to be String? or WidgetField? (List<String>?), got ${value.runtimeType}");
-    // //*
-    // print(
-    //     "FormState.setValue called for group $group, key $key, with value $value");
     var didit = false;
     if (value == null) {
       // remove the binding if any
@@ -153,9 +153,6 @@ class JetsFormState extends ChangeNotifier {
   dynamic getValue(int group, String key) {
     assert(group < groupCount, "invalid group");
     final value = _state[group][key];
-    // //*
-    // print(
-    //     "FormState.getValue called for group $group, key $key, returning $value");
     return value;
   }
 
