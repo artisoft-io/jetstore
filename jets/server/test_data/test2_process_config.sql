@@ -1,6 +1,6 @@
 DELETE FROM jetsapi.source_config WHERE key in (291);
 DELETE FROM jetsapi.process_input WHERE key in (271, 272, 273, 274);
-DELETE FROM jetsapi.process_mapping WHERE process_input_key in (271, 272, 273, 274);
+DELETE FROM jetsapi.process_mapping WHERE table_name in ('test2','hc:SimulatedPatient','hc:ProfessionalClaim','hc:InstitutionalClaim');
 DELETE FROM jetsapi.process_config WHERE key in (251, 252, 253, 254);
 DELETE FROM jetsapi.rule_config    WHERE process_config_key in (251, 252, 253, 254);
 DELETE FROM jetsapi.pipeline_config WHERE key in (201, 202, 203, 204);
@@ -45,31 +45,31 @@ INSERT INTO jetsapi.process_input (key, client, object_type, table_name, source_
   (274, 'Zeme', 'InstitutionalClaim', 'hc:InstitutionalClaim', 'domain_table', 'hc:InstitutionalClaim', 'hc:member_number' , NULL , 'user@mail.com')
 ;
 
-INSERT INTO jetsapi.process_mapping (process_input_key, table_name, input_column, data_property, function_name, argument, default_value, error_message, user_email) VALUES
-  (271, 'test2'                , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (271, 'test2'                , 'anchor_date'               , 'aspec:anchor_date'         , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (271, 'test2'                , 'nbr_entities'              , 'aspec:nbr_entities'        , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (271, 'test2'                , 'entity_key_prefix'         , 'aspec:entity_key_prefix'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (271, 'test2'                , 'entity_persona_lk'         , 'aspec:entity_persona_lk'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'asim:anchor_date'          , 'asim:anchor_date'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'asim:persona_key'          , 'asim:persona_key'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'asim:demographic_group_key', 'asim:demographic_group_key', NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'asim:event_group1_lk'      , 'asim:event_group1_lk'      , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'asim:description'          , 'asim:description'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'hc:patient_number'         , 'hc:patient_number'         , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'hc:dob'                    , 'hc:dob'                    , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'hc:gender'                 , 'hc:gender'                 , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'asim:claim_group_lk'       , 'asim:claim_group_lk'       , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (272, 'hc:SimulatedPatient'  , 'rdf:type'                  , 'rdf:type'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (273, 'hc:ProfessionalClaim' , 'hc:member_number'          , 'hc:member_number'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (273, 'hc:ProfessionalClaim' , 'hc:claim_number'           , 'hc:claim_number'           , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (273, 'hc:ProfessionalClaim' , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (273, 'hc:ProfessionalClaim' , 'rdf:type'                  , 'rdf:type'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (274, 'hc:InstitutionalClaim', 'hc:member_number'          , 'hc:member_number'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (274, 'hc:InstitutionalClaim', 'hc:claim_number'           , 'hc:claim_number'           , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (274, 'hc:InstitutionalClaim', 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  (274, 'hc:InstitutionalClaim', 'rdf:type'                  , 'rdf:type'                  , NULL, NULL, NULL, NULL, 'user@mail.com')
+INSERT INTO jetsapi.process_mapping (table_name, input_column, data_property, function_name, argument, default_value, error_message, user_email) VALUES
+  ('test2'                , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('test2'                , 'anchor_date'               , 'aspec:anchor_date'         , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('test2'                , 'nbr_entities'              , 'aspec:nbr_entities'        , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('test2'                , 'entity_key_prefix'         , 'aspec:entity_key_prefix'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('test2'                , 'entity_persona_lk'         , 'aspec:entity_persona_lk'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'asim:anchor_date'          , 'asim:anchor_date'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'asim:persona_key'          , 'asim:persona_key'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'asim:demographic_group_key', 'asim:demographic_group_key', NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'asim:event_group1_lk'      , 'asim:event_group1_lk'      , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'asim:description'          , 'asim:description'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'hc:patient_number'         , 'hc:patient_number'         , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'hc:dob'                    , 'hc:dob'                    , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'hc:gender'                 , 'hc:gender'                 , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'asim:claim_group_lk'       , 'asim:claim_group_lk'       , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:SimulatedPatient'  , 'rdf:type'                  , 'rdf:type'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:ProfessionalClaim' , 'hc:member_number'          , 'hc:member_number'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:ProfessionalClaim' , 'hc:claim_number'           , 'hc:claim_number'           , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:ProfessionalClaim' , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:ProfessionalClaim' , 'rdf:type'                  , 'rdf:type'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:InstitutionalClaim', 'hc:member_number'          , 'hc:member_number'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:InstitutionalClaim', 'hc:claim_number'           , 'hc:claim_number'           , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:InstitutionalClaim', 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('hc:InstitutionalClaim', 'rdf:type'                  , 'rdf:type'                  , NULL, NULL, NULL, NULL, 'user@mail.com')
 ;
 
 INSERT INTO jetsapi.process_config (key, process_name, main_rules, is_rule_set, output_tables, user_email) VALUES

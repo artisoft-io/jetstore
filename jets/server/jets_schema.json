@@ -71,7 +71,7 @@
       {
         "columnName": "object_type",
         "dataType":   "text",
-        "isPK":  true        
+        "isPK":  true
       }, {
         "columnName": "entity_rdf_type",
         "dataType":   "text",
@@ -347,6 +347,11 @@
         "columnName": "key_column",
         "dataType":   "text"
       }, {
+        "columnName": "status",
+        "dataType":   "text",
+        "default":   "'created'",
+        "isNotNull":  true
+        }, {
         "columnName": "user_email",
         "dataType":   "text",
         "isNotNull":  true
@@ -378,10 +383,6 @@
         "columnName": "key",
         "dataType":   "int",
         "isPK":       true
-      }, {
-        "columnName": "process_input_key",
-        "dataType":   "int",
-        "isNotNull":  true
       }, {
         "columnName": "table_name",
         "dataType":   "text",
@@ -421,9 +422,6 @@
       {
         "indexName": "process_mapping_table_name_idx",
         "indexDef": "CREATE INDEX process_mapping_table_name_idx ON jetsapi.process_mapping (table_name ASC)"
-      }, {
-        "indexName": "process_mapping_process_input_key_idx",
-        "indexDef": "CREATE INDEX process_mapping_process_input_key_idx ON jetsapi.process_mapping (process_input_key ASC)"
       }
     ],
     "tableConstraints": [

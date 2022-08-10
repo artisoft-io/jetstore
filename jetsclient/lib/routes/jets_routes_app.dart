@@ -50,6 +50,15 @@ final Map<String, Widget> jetsRoutesMap = {
       formValidatorDelegate: homeFormValidator,
       formActionsDelegate: homeFormActions),
 
+  // Process Input and Mapping
+  processInputPath: ScreenWithForm(
+      key: const Key(ScreenKeys.processInput),
+      screenPath: JetsRouteData(processInputPath),
+      screenConfig: getScreenConfig(ScreenKeys.processInput),
+      formConfig: getFormConfig(FormKeys.processInput),
+      formValidatorDelegate: processInputFormValidator,
+      formActionsDelegate: processInputFormActions),
+
   // Login Screen
   loginPath: ScreenWithForm(
       key: const Key(ScreenKeys.login),

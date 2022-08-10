@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/screens/components/data_table_model.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:provider/provider.dart';
@@ -425,6 +426,17 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         final dialogFormKey = GlobalKey<FormState>();
         final formConfig = getFormConfig(ac.configForm!);
         final dialogFormState = formConfig.makeFormState();
+        // check if we expect to have a selected row
+        JetsRow? row = dataSource.getFirstSelectedRow();
+        if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
+        // add state information to dialogFormState if navigationParams exists
+        ac.navigationParams?.forEach((key, value) {
+          if (value is String?) {
+            dialogFormState.setValue(0, key, value);
+          } else {
+            dialogFormState.setValue(0, key, row![value]);
+          }
+        });
         showFormDialog<DTActionResult>(
           formKey: dialogFormKey,
           screenPath: _dataTableWidget.screenPath,
@@ -440,15 +452,9 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       case DataTableActionType.showScreen:
         if (ac.configScreenPath == null) return;
         // find the first selected row
-        List<String?>? row;
-        for (int i = 0; i < dataSource.rowCount; i++) {
-          if (dataSource.selectedRows[i]) {
-            row = dataSource.model?[i];
-            break;
-          }
-        }
+        JetsRow? row = dataSource.getFirstSelectedRow();
         // check if no row is selected while we expect to have one selected
-        if (row == null && ac.navigationParams != null) return;
+        if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
         var params = ac.navigationParams?.map((key, value) {
           if (value is String?) return MapEntry(key, value);
           return MapEntry(key, row![value]);

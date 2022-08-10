@@ -21,10 +21,11 @@ class JetsDropdownButtonFormField extends StatefulWidget {
   final void Function(String?) onChanged;
   final JetsFormState formState;
 
-  /// Note: (Future requirements) validator is require as this control needs to be part of a form
-  ///       so to have formFieldConfig. We need to externalize the widget
-  ///       config (as done for data table) to to be able to use the widget
-  ///       without a form. Same applies to input text from.
+  /// Note: Validator is required as this control needs to be part of a form
+  ///       so to have formFieldConfig. 
+  /// (Future requirements) We need to externalize the widget
+  /// config (as done for data table) to to be able to use the widget
+  /// without a form. Same applies to input text from.
   final JetsFormFieldValidator formValidator;
 
   @override

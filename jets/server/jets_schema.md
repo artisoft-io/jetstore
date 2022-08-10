@@ -110,8 +110,7 @@ Depends on: `source_config` (for `file`) and `object_type_definition` (workspace
 Define the configuration for mapping the input data defined in the `process_input` to the canonical
 model, the canonical model is specified by `entity_rdf_type` of `process_input`.
 
-The associated `process_input` record is specified by `process_input_key`,
-which specify the `table_name` (for a given `grouping_column`).
+The associated `process_input` records is specified by `table_name`.
 
 This table specify clean up functions that must be applied to data loaded from external files.
 

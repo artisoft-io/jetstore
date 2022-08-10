@@ -6,6 +6,7 @@ class ScreenKeys {
   static const home = "homeScreen";
   static const sourceConfig = "sourceConfigScreen";
   static const domainTableViewer = "domainTableViewerScreen";
+  static const processInput = "processInputScreen";
 
   static const login = "loginScreen";
   static const register = "registerScreen";
@@ -23,6 +24,9 @@ class FormKeys {
   static const sourceConfig = "sourceConfigForm";
   static const addClient = "addClientDialog";
   static const loadFile = "loadFileDialog";
+
+  static const processInput = "processInputForm";
+  static const addProcessInput = "addProcessInputDialog";
   static const processMapping = "processMappingDialog";
 
   static const login = "login";
@@ -47,11 +51,17 @@ class FSK {
   static const details = "details";
 
   static const objectType = "object_type";
+  static const sourceType = "source_type";
   static const groupingColumn = "grouping_column";
+  static const entityRdfType = "entity_rdf_type";
 
   // keys used for mapping
   // key for domain classes data properties
-  static const processInputKey = "process_input_key";
+  // processInputKey is a proxy to update process_input table's key
+  // isRequiredFlag is a flag not corresponding to a specific model
+  // data element.
+  static const isRequiredFlag = "flag.is_required";
+  static const processInputKey = "process_input.key";
   static const dataProperty = "data_property";
   static const inputColumn = "input_column";
   static const functionName = "function_name";
@@ -75,17 +85,20 @@ class FSK {
 
   // mappingFunctionDetailsCache: cache value is a list<String?>
   // based on metadata query mappingFunctionDetailsCache
-  static const mappingFunctionDetailsCache =
-      "cache.mapping_function_details";
+  static const mappingFunctionDetailsCache = "cache.mapping_function_details";
 
   // inputColumnsCache: cache value is a list<String?> of input columns
   // based on metadata query inputColumnsCache
-  static const inputColumnsCache =
-      "cache.input_columns";
+  static const inputColumnsCache = "cache.input_columns";
 
   // savedStateCache: cache value is a list<String?>
   // based on query savedStateQuery
   static const savedStateCache = "cache.saved_state";
+
+  // objectTypeRegistryCache: cache value is a list<list<String?>> (model)
+  // from table object_type_registry based on query objectTypeRegistryQuery
+  // provides mapping between object_type and entity_rdf_type
+  static const objectTypeRegistryCache = "cache.object_type_registry";
 
   // reserve key to hold an error to display to user
   static const serverError = "server_error";
@@ -100,6 +113,8 @@ class ActionKeys {
   static const dialogCancel = "dialog.cancelAction";
   // for load file dialog
   static const loaderOk = "loader.ok";
+  // for add process input dialog
+  static const addProcessInputOk = "addProcessInputOk";
   // for process mapping dialog
   static const mapperOk = "mapper.ok";
   static const mapperDraft = "mapper.draft";
@@ -121,11 +136,17 @@ class DTKeys {
   static const inputLoaderStatusTable = "inputLoaderStatusTable";
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
+
   // Source Config DT
   static const clientsTable = "clientsTable";
   static const sourceConfigsTable = "sourceConfigsTable";
+
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
+
+  // Process Input & Mapping DT
+  static const processInputTable = "processInputTable";
+  static const processMappingTable = "processMappingTable";
 
   // DEMO keys
   static const pipelineDemo = "pipelineTable";
