@@ -37,12 +37,11 @@ class _JetsFormState extends State<JetsForm> {
   // alternate to widget.formConfig.inputFields when
   // widget.formConfig.inputFields.isEmpty() and are
   // build in [queryInputFieldItems]
-  List<List<FormFieldConfig>> alternateInputFields = [];
+  InputFieldType alternateInputFields = [];
 
-  List<List<FormFieldConfig>> get inputFields =>
-      widget.formConfig.inputFields.isEmpty
-          ? alternateInputFields
-          : widget.formConfig.inputFields;
+  InputFieldType get inputFields => widget.formConfig.inputFields.isEmpty
+      ? alternateInputFields
+      : widget.formConfig.inputFields;
 
   @override
   void initState() {
@@ -77,7 +76,6 @@ class _JetsFormState extends State<JetsForm> {
   }
 
   void queryInputFieldItems() async {
-    print("queryInputFieldItems: Enter...");
     // Check if we have a builder
     assert(widget.formConfig.inputFieldRowBuilder != null,
         "Jets Form with empty inputFields and no builder!");
@@ -102,8 +100,9 @@ class _JetsFormState extends State<JetsForm> {
     if (widget.formConfig.stateKeyPredicates != null) {
       for (var stateKey in widget.formConfig.stateKeyPredicates!) {
         var value = widget.formState.getValue(0, stateKey);
-        
-        assert(value != null, "queryInputFieldItems: Unexpected null stateKey $stateKey");
+
+        assert(value != null,
+            "queryInputFieldItems: Unexpected null stateKey $stateKey");
         if (value == null) return;
         assert((value is String) || (value is List<String>),
             "Error: unexpected type in formState passed to form");
@@ -121,8 +120,8 @@ class _JetsFormState extends State<JetsForm> {
       }
     }
 
-    print("queryInputFieldItems: queryMap is $queryMap");
-    
+    // print("queryInputFieldItems: queryMap is $queryMap");
+
     // Action: raw_query_map
     // input is: map[query_key, query]
     // server returns in field 'result_map':
@@ -132,7 +131,6 @@ class _JetsFormState extends State<JetsForm> {
     };
     msg['query_map'] = queryMap;
     var encodedMsg = json.encode(msg);
-    print("queryInputFieldItems: encoded message is $encodedMsg");
     var result = await httpClient.sendRequest(
         path: "/dataTable",
         token: JetsRouterDelegate().user.token,
@@ -161,7 +159,12 @@ class _JetsFormState extends State<JetsForm> {
           ];
           dropdownItemList.addAll(
               model.map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
-          widget.formState.addCacheValue(key, dropdownItemList);
+          widget.formState.addCacheValue(
+              key,
+              dropdownItemList
+                  .map((e) => DropdownMenuItem<String>(
+                      value: e.value, child: Text(e.label)))
+                  .toList());
         }
       }
 
@@ -176,14 +179,14 @@ class _JetsFormState extends State<JetsForm> {
       }
 
       // Construct the inputFields [FormFieldConfig] using the builder
-      var index = 0;
       var inputFieldData = data[FSK.inputFieldsCache] as List;
       widget.formState.resizeFormState(inputFieldData.length);
-      alternateInputFields = inputFieldData
-          .map((e) => (e as List).cast<String?>())
-          .map((e) => widget.formConfig.inputFieldRowBuilder!(
-              index++, e, widget.formState))
-          .toList();
+      inputFieldData =
+          inputFieldData.map((e) => (e as List).cast<String?>()).toList();
+      alternateInputFields = InputFieldType.generate(
+          inputFieldData.length,
+          (index) => widget.formConfig.inputFieldRowBuilder!(
+              index, inputFieldData[index], widget.formState));
       // Notify that we now have inputFields ready
       setState(() {});
     } else if (result.statusCode == 401) {

@@ -29,7 +29,31 @@ INSERT INTO jetsapi.object_type_registry (object_type, entity_rdf_type, details)
 TRUNCATE jetsapi.object_type_mapping_details;
 INSERT INTO jetsapi.object_type_mapping_details (object_type, data_property, is_required) VALUES
   ('Claim', 'hc:serviceDate', '1'),
-  ('Claim', 'hc:procedureCode', '1')
+  ('Claim', 'hc:procedureCode', '1'),
+  ('test2'                , 'jets:key'                  , '1'),
+  ('test2'                , 'aspec:anchor_date'         , '1'),
+  ('test2'                , 'aspec:nbr_entities'        , '1'),
+  ('test2'                , 'aspec:entity_key_prefix'   , '0'),
+  ('test2'                , 'aspec:entity_persona_lk'   , '0'),
+  ('SimulatedPatient'  , 'asim:anchor_date'          , '1'),
+  ('SimulatedPatient'  , 'asim:persona_key'          , '1'),
+  ('SimulatedPatient'  , 'asim:demographic_group_key', '1'),
+  ('SimulatedPatient'  , 'asim:event_group1_lk'      , '0'),
+  ('SimulatedPatient'  , 'asim:description'          , '1'),
+  ('SimulatedPatient'  , 'hc:patient_number'         , '1'),
+  ('SimulatedPatient'  , 'hc:dob'                    , '1'),
+  ('SimulatedPatient'  , 'hc:gender'                 , '0'),
+  ('SimulatedPatient'  , 'asim:claim_group_lk'       , '1'),
+  ('SimulatedPatient'  , 'jets:key'                  , '1'),
+  ('SimulatedPatient'  , 'rdf:type'                  , '1'),
+  ('ProfessionalClaim' , 'hc:member_number'          , '1'),
+  ('ProfessionalClaim' , 'hc:claim_number'           , '1'),
+  ('ProfessionalClaim' , 'jets:key'                  , '1'),
+  ('ProfessionalClaim' , 'rdf:type'                  , '1'),
+  ('InstitutionalClaim', 'hc:member_number'          , '1'),
+  ('InstitutionalClaim', 'hc:claim_number'           , '1'),
+  ('InstitutionalClaim', 'jets:key'                  , '1'),
+  ('InstitutionalClaim', 'rdf:type'                  , '1')
 ;
 
 TRUNCATE jetsapi.file_key_staging;

@@ -18,16 +18,17 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 type DataTableAction struct {
-	Action         string        `json:"action"`
-	RawQuery       string        `json:"query"`
-	Schema         string        `json:"schema"`
-	Table          string        `json:"table"`
-	Columns        []string      `json:"columns"`
-	WhereClauses   []WhereClause `json:"whereClauses"`
-	SortColumn     string        `json:"sortColumn"`
-	SortAscending   bool         `json:"sortAscending"`
-	Offset         int           `json:"offset"`
-	Limit          int           `json:"limit"`
+	Action         string              `json:"action"`
+	RawQuery       string              `json:"query"`
+	RawQueryMap    map[string]string   `json:"query_map"`
+	Schema         string              `json:"schema"`
+	Table          string              `json:"table"`
+	Columns        []string            `json:"columns"`
+	WhereClauses   []WhereClause       `json:"whereClauses"`
+	SortColumn     string              `json:"sortColumn"`
+	SortAscending   bool               `json:"sortAscending"`
+	Offset         int                 `json:"offset"`
+	Limit          int                 `json:"limit"`
 	Data           []map[string]interface{} `json:"data"`
 }
 type WhereClause struct {
@@ -108,6 +109,15 @@ func isNumeric(dtype string) bool {
 // 	return dataTableAction.Schema+"_"+dataTableAction.Table
 // }
 
+func makeResult(r *http.Request) map[string]interface{} {
+	results := make(map[string]interface{}, 3)
+	token, ok := r.Header["Token"]
+	if ok {
+		results["token"] = token[0]
+	}
+	return results	
+}
+
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
@@ -117,12 +127,29 @@ func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataT
 		return
 	}
 
-	results := make(map[string]interface{}, 3)
-	token, ok := r.Header["Token"]
-	if ok {
-		results["token"] = token[0]
-	}
+	results := makeResult(r)
 	results["rows"] = resultRows
+	JSON(w, http.StatusOK, results)
+}
+
+// ExecRawQueryMap ------------------------------------------------------
+// These are queries to load reference data for widget, e.g. dropdown list of items
+func (server *Server) ExecRawQueryMap(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
+
+	fmt.Println("ExecRawQueryMap:")
+	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
+	for k,v := range dataTableAction.RawQueryMap {
+		fmt.Println("Query:",v)
+		resultRows, err := execQuery(server.dbpool, dataTableAction, &v)
+		if err != nil {
+			ERROR(w, http.StatusInternalServerError, errors.New("error while executing raw query"))
+			return
+		}
+		resultMap[k] = resultRows
+	}
+	results := makeResult(r)
+	results["result_map"] = resultMap
+
 	JSON(w, http.StatusOK, results)
 }
 
@@ -207,8 +234,13 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	}
 	// Intercept special case
 	switch dataTableAction.Action {
+
 	case "raw_query":
 		server.ExecRawQuery(w, r, &dataTableAction)
+		return
+
+	case "raw_query_map":
+		server.ExecRawQueryMap(w, r, &dataTableAction)
 		return
 
 	case "insert_rows":

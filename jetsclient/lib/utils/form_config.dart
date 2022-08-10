@@ -29,6 +29,8 @@ typedef JetsFormFieldRowBuilder1 = List<FormFieldConfig> Function(
 typedef JetsFormFieldRowBuilder = List<FormFieldConfig> Function(
     int index, List<String?> inputFieldRow, JetsFormState formState);
 
+typedef InputFieldType = List<List<FormFieldConfig>>;
+
 /// Form Configuration
 /// Simple case  is when [inputFields] are provided (most case)
 /// Special case, when [inputFields] is empty, then [inputFieldRowBuilder]
@@ -61,7 +63,7 @@ class FormConfig {
     this.stateKeyPredicates,
   });
   final String key;
-  final List<List<FormFieldConfig>> inputFields;
+  final InputFieldType inputFields;
   final JetsFormFieldRowBuilder? inputFieldRowBuilder;
   final List<FormActionConfig> actions;
   final String? inputFieldsQuery;
@@ -655,7 +657,8 @@ final Map<String, FormConfig> _formConfigurations = {
       if (isRequired) formState.setValue(index, FSK.isRequiredFlag, "1");
       // set the default values to the formState
       formState.setValue(index, FSK.dataProperty, inputFieldRow[0]);
-      formState.setValue(index, FSK.inputColumn, savedInputColumn ?? inputColumnDefault);
+      formState.setValue(
+          index, FSK.inputColumn, savedInputColumn ?? inputColumnDefault);
       formState.setValue(index, FSK.functionName, savedState?[index][2]);
       formState.setValue(index, FSK.functionArgument, savedState?[index][3]);
       formState.setValue(index, FSK.mappingDefaultValue, savedState?[index][4]);
