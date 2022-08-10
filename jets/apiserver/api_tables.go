@@ -141,7 +141,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		}
 		_, err := server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
 		if err != nil {
-			log.Printf("while inserting in client_registry: %v", err)
+			log.Printf("while executing inser_rows action '%s': %v", dataTableAction.Table, err)
 			ERROR(w, http.StatusConflict, errors.New("error while executing insert"))
 			return
 		}
@@ -218,6 +218,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	case "read":
 		// continue
 	default:
+		log.Printf("Error: unknown action: %v", dataTableAction.Action)
 		ERROR(w, http.StatusUnprocessableEntity, fmt.Errorf("error: unknown action"))
 		return
 	}

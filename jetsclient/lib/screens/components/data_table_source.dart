@@ -27,6 +27,16 @@ class JetsDataTableSource extends ChangeNotifier {
     return false;
   }
 
+  /// returns the first selected row
+  JetsRow? getFirstSelectedRow() {
+    for (int i = 0; i < rowCount; i++) {
+      if (selectedRows[i]) {
+        return model?[i];
+      }
+    }
+    return null;
+  }
+
   /// Update the form state:
   /// This is in response to a gesture of selecting or de-selecting a row.
   ///  if [isAdd] is true, add row identified by index to the form state

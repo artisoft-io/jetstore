@@ -22,7 +22,7 @@ class JetsTextFormField extends StatefulWidget {
 }
 
 class _JetsTextFormFieldState extends State<JetsTextFormField> {
-  final TextEditingController _controller = TextEditingController();
+  late final TextEditingController _controller;
 
   late FocusNode _node;
   bool _focused = false;
@@ -39,6 +39,8 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
   @override
   void initState() {
     super.initState();
+    _config = widget.formFieldConfig;
+    _controller = TextEditingController(text: _config.defaultValue);
     _controller.addListener(() {
       if (_config.textRestriction == TextRestriction.allLower) {
         final String text = _controller.text.toLowerCase();
@@ -80,7 +82,6 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
       }
       // debugPrint("Controller listener called for ${_config.key}");
     });
-    _config = widget.formFieldConfig;
     _node = FocusNode(debugLabel: _config.key);
     _node.addListener(_handleFocusChange);
   }

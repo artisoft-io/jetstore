@@ -56,11 +56,16 @@ enum DataTableActionType {
 /// case isEnabledWhenHavingSelectedRows is null, action always enable when visible
 /// case isEnabledWhenHavingSelectedRows == false, action always enabled when table check boxes are visible
 /// case isEnabledWhenHavingSelectedRows == true, action enabled when table HAVE selected row(s)
-/// [navigationParams] hold param information for navigating to a screen (action type showScreen):
+/// [navigationParams] hold param information for:
+///   - navigating to a screen (action type showScreen) with key corresponding
+///     to the key to provide to navigator's param
+///   - navigating to a dialog (action type showDialog) with key corresponding
+///     to the key to provide dialog form state
 ///   - key correspond to the key to provide to navigator's param
-///   - value correspond to a column index to take the associated value of the selected row.
-///     Note: if the value is a String (rather than an int), then use it as the value to pass to the navigator.
-///     (see data table state method [actionDispatcher])
+/// The value associated to the [navigationParam]'s key correspond to a column
+/// index to take the associated value of the selected row.
+/// Note: if the value is a String (rather than an int), then use it as the value to pass to the navigator.
+/// (see data table state method [actionDispatcher])
 class ActionConfig {
   ActionConfig(
       {required this.actionType,
@@ -196,6 +201,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configScreenPath: domainTableViewerPath,
+          //* normally we should use a FSK key so it works
+          // for both show dialog and show screen
           navigationParams: {'table': 3}),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -211,7 +218,7 @@ final Map<String, TableConfig> _tableConfigurations = {
         // an example, not really needed...
         stateKey: FSK.tableName,
         columnIdx: 3,
-      )
+      ),
     ]),
     columns: [
       ColumnConfig(
@@ -604,6 +611,196 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'last_update',
     sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Process Input Data Table
+  DTKeys.processInputTable: TableConfig(
+    key: DTKeys.inputLoaderStatusTable,
+    schemaName: 'jetsapi',
+    tableName: 'process_input',
+    label: 'Process Input',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addProcessInput',
+          label: 'Add Process Input',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.addProcessInput),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'configureMapping',
+          label: 'Configure Mapping',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.processMapping,
+          navigationParams: {FSK.tableName: 3, FSK.processInputKey: 0, FSK.objectType: 2}),
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.tableName,
+        columnIdx: 3,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Object Type',
+          tooltips: 'Type of objects in file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the file was loaded',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 4,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "entity_rdf_type",
+          label: 'Domain Class',
+          tooltips: 'Canonical model for the Object Type',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "grouping_column",
+          label: 'Grouping Column',
+          tooltips: 'Column for grouping rows (typically is the member key)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "status",
+          label: 'Status',
+          tooltips: "Status of the Process Input and it's mapping",
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Process Mapping Data Table
+  DTKeys.processMappingTable: TableConfig(
+    key: DTKeys.processMappingTable,
+    schemaName: 'jetsapi',
+    tableName: 'process_mapping',
+    label: 'Process Input Mapping',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(
+          column: "table_name", formStateKey: FSK.tableName)
+    ],
+    actions: [],
+    // No formStateConfig since rows are not selectable
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the Process Input data reside',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "data_property",
+          label: 'Target Data Property',
+          tooltips: 'Canonical model data property',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "input_column",
+          label: 'Source Input Column',
+          tooltips: 'Column from the input data',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "function_name",
+          label: 'Cleansing Function',
+          tooltips: 'Function to cleanse input data',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "argument",
+          label: 'Cleansing Function Argument',
+          tooltips:
+              "Argument for the cleansing function (is either required or ignored)",
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "default_value",
+          label: 'Default Value',
+          tooltips:
+              "Data Property default value if none in the input or the cleansing function returned null",
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "error_message",
+          label: 'Error Message',
+          tooltips:
+              "Error message if no value is provided in the input or returned by cleansing function",
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'data_property',
+    sortAscending: true,
     rowsPerPage: 10,
   ),
 

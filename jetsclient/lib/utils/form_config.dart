@@ -81,7 +81,7 @@ class FormConfig {
   }
 
   JetsFormState makeFormState() {
-    return JetsFormState(groupCount: groupCount());
+    return JetsFormState(initialGroupCount: groupCount());
   }
 }
 
@@ -138,12 +138,14 @@ class FormInputFieldConfig extends FormFieldConfig {
       required this.hint,
       required this.autofocus,
       this.obscureText = false,
+      this.defaultValue,
       required this.textRestriction,
       required this.maxLength});
   final String label;
   final String hint;
   final bool autofocus;
   final bool obscureText;
+  final String? defaultValue;
   final TextRestriction textRestriction;
   // 0 for unbound
   final int maxLength;
@@ -185,11 +187,14 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     super.flex = 1,
     this.defaultItemPos = 0,
     this.dropdownItemsQuery,
+    this.returnedModelCacheKey,
     this.stateKeyPredicates = const [],
     required this.items,
   });
   final String? dropdownItemsQuery;
   final List<String> stateKeyPredicates;
+  // save the returned model from query and put it in the form state cache if not null
+  final String? returnedModelCacheKey;
   final int defaultItemPos;
   final List<DropdownItemConfig> items;
   bool dropdownItemLoaded = false;
@@ -217,8 +222,6 @@ class FormDropdownFieldConfig extends FormFieldConfig {
 /// the [dropdownMenuItemCacheKey] form state cache key.
 /// [defaultItem] is specified here a the actual value (which can be null)
 /// of the dropdown.
-/// [isRequired] is to indicate if a value must be selected, i.e. the
-/// dropdown value cannot be null when the form is being validated.
 class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
   FormDropdownWithSharedItemsFieldConfig({
     required super.key,
@@ -226,11 +229,9 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
     super.flex = 1,
     required this.dropdownMenuItemCacheKey,
     this.defaultItem,
-    required this.isRequired,
   });
   final String dropdownMenuItemCacheKey;
   final String? defaultItem;
-  final bool isRequired;
 
   @override
   Widget makeFormField({
@@ -538,6 +539,75 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
+  // Process Input Form (table as actionless form)
+  FormKeys.processInput: FormConfig(
+    key: FormKeys.processInput,
+    actions: [
+      // Action-less form
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.processInputTable,
+            dataTableConfig: DTKeys.processInputTable)
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.processMappingTable,
+            dataTableConfig: DTKeys.processMappingTable)
+      ],
+    ],
+  ),
+  // addProcessInput - Dialog to add process input
+  FormKeys.addProcessInput: FormConfig(
+    key: FormKeys.addProcessInput,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.addProcessInputOk,
+          label: "Add",
+          buttonStyle: ButtonStyle.primary),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ButtonStyle.secondary),
+    ],
+    inputFields: [
+      [
+        FormDropdownFieldConfig(
+            key: FSK.client,
+            items: [
+              DropdownItemConfig(label: 'Select a Client'),
+            ],
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+        FormDropdownFieldConfig(
+            key: FSK.objectType,
+            returnedModelCacheKey: FSK.objectTypeRegistryCache,
+            items: [
+              DropdownItemConfig(label: 'Select an Object Type'),
+            ],
+            dropdownItemsQuery:
+                "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
+      ],
+      [
+        FormDropdownFieldConfig(
+            key: FSK.sourceType,
+            items: [
+              DropdownItemConfig(label: 'File', value: 'file'),
+              DropdownItemConfig(label: 'Domain Table', value: 'domain_table'),
+            ],
+            defaultItemPos: 0),
+        FormDropdownFieldConfig(
+            key: FSK.groupingColumn,
+            items: [
+              DropdownItemConfig(label: 'Select a Grouping Column'),
+            ],
+            dropdownItemsQuery:
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
+            stateKeyPredicates: [FSK.tableName]),
+      ],
+    ],
+  ),
   // processMapping - Dialog to mapping intake file structure to canonical model
   FormKeys.processMapping: FormConfig(
     key: FormKeys.processMapping,
@@ -558,7 +628,7 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFieldsQuery:
         "SELECT data_property, is_required FROM jetsapi.object_type_mapping_details WHERE object_type = '{object_type}' ORDER BY data_property ASC LIMIT 300",
     savedStateQuery:
-        "SELECT data_property, input_column, function_name, argument, default_value, error_message,  FROM jetsapi.process_mapping WHERE process_input_key = {process_input_key} ORDER BY data_property ASC LIMIT 300",
+        "SELECT data_property, input_column, function_name, argument, default_value, error_message FROM jetsapi.process_mapping WHERE table_name = '{table_name}' ORDER BY data_property ASC LIMIT 300",
     dropdownItemsQueries: {
       FSK.inputColumnsDropdownItemsCache:
           "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
@@ -571,7 +641,7 @@ final Map<String, FormConfig> _formConfigurations = {
       FSK.inputColumnsCache:
           "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
     },
-    stateKeyPredicates: [FSK.objectType, FSK.processInputKey],
+    stateKeyPredicates: [FSK.objectType, FSK.tableName],
     inputFieldRowBuilder: (index, inputFieldRow, formState) {
       // savedState is List<String?>? with values as per savedStateQuery
       final savedState = formState.getCacheValue(FSK.savedStateCache) as List?;
@@ -582,25 +652,47 @@ final Map<String, FormConfig> _formConfigurations = {
           formState.getCacheValue(FSK.inputColumnsCache) as List;
       final inputColumnDefault =
           inputColumnList.contains(inputFieldRow[0]) ? inputFieldRow[0] : null;
+      if (isRequired) formState.setValue(index, FSK.isRequiredFlag, "1");
+      // set the default values to the formState
+      formState.setValue(index, FSK.dataProperty, inputFieldRow[0]);
+      formState.setValue(index, FSK.inputColumn, savedInputColumn ?? inputColumnDefault);
+      formState.setValue(index, FSK.functionName, savedState?[index][2]);
+      formState.setValue(index, FSK.functionArgument, savedState?[index][3]);
+      formState.setValue(index, FSK.mappingDefaultValue, savedState?[index][4]);
+      formState.setValue(index, FSK.mappingErrorMessage, savedState?[index][5]);
       return [
+        // data_property
         TextFieldConfig(
             label: "$index: ${inputFieldRow[0]}$isRequiredIndicator"),
+        // input_column
         FormDropdownWithSharedItemsFieldConfig(
           key: FSK.inputColumn,
           group: index,
           flex: 1,
           dropdownMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
           defaultItem: savedInputColumn ?? inputColumnDefault,
-          isRequired: isRequired,
         ),
+        // function_name
         FormDropdownWithSharedItemsFieldConfig(
           key: FSK.functionName,
           group: index,
           flex: 1,
           dropdownMenuItemCacheKey: FSK.mappingFunctionsDropdownItemsCache,
           defaultItem: savedState?[index][2],
-          isRequired: false,
         ),
+        // argument
+        FormInputFieldConfig(
+            key: FSK.functionArgument,
+            label: "Function Argument",
+            hint:
+                "Cleansing function argument, it is either required or ignored",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            defaultValue: savedState?[index][3],
+            maxLength: 512),
+        // default_value
         FormInputFieldConfig(
             key: FSK.mappingDefaultValue,
             label: "Default Value",
@@ -610,7 +702,9 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
+            defaultValue: savedState?[index][4],
             maxLength: 512),
+        // error_message
         FormInputFieldConfig(
             key: FSK.mappingErrorMessage,
             label: "Error Message",
@@ -620,6 +714,7 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
+            defaultValue: savedState?[index][5],
             maxLength: 125),
       ];
     },

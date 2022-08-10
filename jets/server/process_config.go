@@ -463,8 +463,8 @@ func (pc *ProcessConfig) loadProcessConfig(dbpool *pgxpool.Pool) error {
 // read mapping definitions
 func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]ProcessMap, error) {
 	rows, err := dbpool.Query(context.Background(),
-		`SELECT table_name, input_column, data_property, function_name, argument, default_value, error_message
-		FROM jetsapi.process_mapping WHERE process_input_key = $1`, processInputKey)
+		`SELECT pm.table_name, input_column, data_property, function_name, argument, default_value, error_message
+		FROM jetsapi.process_mapping pm, jetsapi.process_input pi WHERE pi.key = $1 AND pm.table_name=pi.table_name`, processInputKey)
 	if err != nil {
 		return nil, err
 	}

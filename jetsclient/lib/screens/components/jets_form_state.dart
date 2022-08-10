@@ -45,12 +45,19 @@ typedef InternalSelectedRow = List<ValidationGroupSelectedRow>;
 typedef InternalUpdatedKeys = List<Set<String>>;
 
 class JetsFormState extends ChangeNotifier {
-  JetsFormState({required this.groupCount})
-      : _state = InternalFormState.filled(groupCount, <String, dynamic>{}),
-        _selectedRows =
-            InternalSelectedRow.filled(groupCount, <String, SelectedRows>{}),
-        _updatedKeys = InternalUpdatedKeys.filled(groupCount, <String>{});
-  final int groupCount;
+  JetsFormState({required initialGroupCount})
+      : groupCount = initialGroupCount > 0 ? initialGroupCount : 1,
+        _state = InternalFormState.filled(
+            initialGroupCount > 0 ? initialGroupCount : 1, <String, dynamic>{},
+            growable: true),
+        _selectedRows = InternalSelectedRow.filled(
+            initialGroupCount > 0 ? initialGroupCount : 1,
+            <String, SelectedRows>{},
+            growable: true),
+        _updatedKeys = InternalUpdatedKeys.filled(
+            initialGroupCount > 0 ? initialGroupCount : 1, <String>{},
+            growable: true);
+  int groupCount;
 
   /// The actual state of the form, keyed by validation group (list item)
   ///  and widget key
@@ -66,6 +73,17 @@ class JetsFormState extends ChangeNotifier {
 
   /// Keep track of keys that have value that changed
   final InternalUpdatedKeys _updatedKeys;
+
+  void resizeFormState(int newGroupCount) {
+    print("Resizing formState from $groupCount to $newGroupCount");
+    var n = newGroupCount - groupCount;
+    if (n > 0) {
+      _state.addAll(InternalFormState.filled(n, <String, dynamic>{}));
+      _selectedRows
+          .addAll(InternalSelectedRow.filled(n, <String, SelectedRows>{}));
+      _updatedKeys.addAll(InternalUpdatedKeys.filled(n, <String>{}));
+    }
+  }
 
   void resetUpdatedKeys(int group) {
     assert(group < groupCount, "invalid group");
@@ -89,7 +107,7 @@ class JetsFormState extends ChangeNotifier {
   /// Set a form state [value] for widget [key]
   /// for validation [group]
   void setValue(int group, String key, dynamic value) {
-    assert(group < groupCount, "invalid group");
+    assert(group < groupCount, "invalid group $group key is $key value $value");
     assert((value is String?) || (value is WidgetField?),
         "form state values are expected to be String? or WidgetField? (List<String>?), got ${value.runtimeType}");
     // //*
@@ -116,6 +134,11 @@ class JetsFormState extends ChangeNotifier {
     resetUpdatedKeys(group);
     setValue(group, key, value);
     notifyListeners();
+  }
+
+  /// return the full model (aka state) as a list of ValidationGroup
+  InternalFormState getInternalState() {
+    return _state;
   }
 
   /// return the model value (aka state) for validation [group]

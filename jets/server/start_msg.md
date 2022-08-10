@@ -119,63 +119,12 @@ as described above.
 
 `process_merge` table defines the merge of transactional tables into a main
 table:
-  - `entity_rdf_type` is the entity being merged.
-  - `query_rdf_property_list` comma-separated list of rdf property to select
-  - `grouping_rdf_property` property used for synchronizing the merge with the
+
+- `entity_rdf_type` is the entity being merged.
+- `query_rdf_property_list` comma-separated list of rdf property to select
+- `grouping_rdf_property` property used for synchronizing the merge with the
   main table.
 
-```
-DROP TABLE IF EXISTS pipeline_config;
-CREATE TABLE IF NOT EXISTS pipeline_config (
-    key SERIAL PRIMARY KEY  ,
-    client text  ,
-    description text  ,
-    main_entity_rdf_type text ,
-    last_update timestamp without time zone DEFAULT now() NOT NULL
-);
-
-DROP TABLE IF EXISTS process_input;
-CREATE TABLE IF NOT EXISTS process_input (
-    key SERIAL PRIMARY KEY  ,
-    process_key integer REFERENCES pipeline_config ON DELETE CASCADE ,
-    table_name text  ,
-    entity_rdf_type text ,
-    UNIQUE (process_key, table_name)
-);
-CREATE INDEX IF NOT EXISTS process_input_process_key_idx ON process_input (process_key);
-
-DROP TABLE IF EXISTS process_mapping;
-CREATE TABLE IF NOT EXISTS process_mapping (
-    process_input_key integer REFERENCES process_input ON DELETE CASCADE ,
-    input_column text  ,
-    data_property text  ,
-    function_name text  ,
-    argument text  ,
-    default text ,
-    PRIMARY KEY (process_input_key, input_column, data_property)
-);
-CREATE INDEX IF NOT EXISTS process_mapping_process_input_key_idx ON process_mapping (process_input_key);
-
-DROP TABLE IF EXISTS rule_config;
-CREATE TABLE IF NOT EXISTS rule_config (
-    process_key integer REFERENCES pipeline_config ON DELETE CASCADE ,
-    subject text  ,
-    predicate text  ,
-    object text  ,
-    type text  ,
-    default text 
-);
-CREATE INDEX IF NOT EXISTS rule_config_process_key_idx ON rule_config (process_key);
-
-DROP TABLE IF EXISTS process_merge;
-CREATE TABLE IF NOT EXISTS process_merge (
-    process_key integer REFERENCES pipeline_config ON DELETE CASCADE ,
-    entity_rdf_type text  ,
-    query_rdf_property_list text ,
-    grouping_rdf_property text
-);
-CREATE INDEX IF NOT EXISTS process_merge_process_key_idx ON process_merge (process_key);
-```
 
 ## Running the server process with logging
 
