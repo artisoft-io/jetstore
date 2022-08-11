@@ -22,7 +22,7 @@ class JetsDropdownButtonFormField extends StatefulWidget {
   final JetsFormState formState;
 
   /// Note: Validator is required as this control needs to be part of a form
-  ///       so to have formFieldConfig. 
+  ///       so to have formFieldConfig.
   /// (Future requirements) We need to externalize the widget
   /// config (as done for data table) to to be able to use the widget
   /// without a form. Same applies to input text from.
@@ -58,7 +58,9 @@ class _JetsDropdownButtonFormFieldState
     } else {
       items.addAll(_config.items);
       if (items.isNotEmpty) {
-        selectedValue = items[_config.defaultItemPos].value;
+        selectedValue = widget.formState.getValue(_config.group, _config.key) ??
+            items[_config.defaultItemPos].value;
+        widget.formState.setValue(_config.group, _config.key, selectedValue);
       }
     }
   }
@@ -89,6 +91,13 @@ class _JetsDropdownButtonFormFieldState
     // Check if we have predicate on formState
     var query = _config.dropdownItemsQuery;
     if (query == null) return;
+
+    // check if the notification came from this widget
+    // if so ignore it otherwise we'll overite the user's
+    // choice in the formState
+    if (widget.formState.isKeyUpdated(_config.group, _config.key)) {
+      return;
+    }
 
     if (_config.stateKeyPredicates.isNotEmpty) {
       for (var key in _config.stateKeyPredicates) {
@@ -122,9 +131,13 @@ class _JetsDropdownButtonFormFieldState
       items.addAll(_config.items);
       items.addAll(
           model.map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
+      if (_config.returnedModelCacheKey != null) {
+        widget.formState.addCacheValue(_config.returnedModelCacheKey!, model);
+      }
       setState(() {
         if (items.isNotEmpty) {
           selectedValue = items[_config.defaultItemPos].value;
+          widget.formState.setValue(_config.group, _config.key, selectedValue);
         }
       });
     } else if (result.statusCode == 401) {

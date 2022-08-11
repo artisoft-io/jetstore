@@ -113,7 +113,8 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
             labelText: _config.label,
           ),
           onChanged: widget.onChanged,
-          validator: (p0) => widget.formValidator(_config.group, _config.key, p0),
+          validator: (p0) =>
+              widget.formValidator(_config.group, _config.key, p0),
         ),
       ),
     );

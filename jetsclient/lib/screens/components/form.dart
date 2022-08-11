@@ -5,6 +5,7 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
+import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -141,21 +142,36 @@ class _JetsFormState extends State<JetsForm> {
       final data = result.body['result_map'] as Map<String, dynamic>?;
       if (data == null) return;
 
+      // Let's make sure the input table exist otherwise there are no
+      // input column to map to
+      final ic = (data[FSK.inputColumnsDropdownItemsCache] as List?);
+      if (ic == null || ic.isEmpty) {
+        widget.formState.setValue(0, FSK.serverError,
+            "It appear that the data has not been loaded yet. We need to load the data to configure the mapping.");
+        Navigator.of(context).pop(DTActionResult.statusError);
+      }
+
       // Prepare the saved state cache
       final savedStateModel = (data[FSK.savedStateCache] as List?)
           ?.map((e) => (e as List).cast<String?>())
           .toList();
-      widget.formState
-          .addCacheValue(FSK.inputColumnsDropdownItemsCache, savedStateModel);
+      if (savedStateModel != null && savedStateModel.isNotEmpty) {
+        widget.formState.addCacheValue(FSK.savedStateCache, savedStateModel);
+      }
 
       // Prepare the dropdown item list caches
+      var label0 = "Select an item";
       if (widget.formConfig.dropdownItemsQueries != null) {
         for (var key in widget.formConfig.dropdownItemsQueries!.keys) {
           final model = (data[key] as List)
               .map((e) => (e as List).cast<String?>())
               .toList();
+          var maxlength = 0;
+          for (var e in model) {
+            if (e[0]!.length > maxlength) maxlength = e[0]!.length;
+          }
           var dropdownItemList = [
-            DropdownItemConfig(label: "Please select an item")
+            DropdownItemConfig(label: label0.length < maxlength ? label0 : "")
           ];
           dropdownItemList.addAll(
               model.map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
@@ -230,7 +246,7 @@ class _JetsFormState extends State<JetsForm> {
                   }
                   // case last: row of buttons
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 0, 0),
+                    padding: const EdgeInsets.fromLTRB(10, 10, 0, 0),
                     child: Center(
                       child: Row(
                           children: List<Widget>.from(

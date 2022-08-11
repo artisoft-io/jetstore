@@ -17,7 +17,6 @@ String? homeFormValidator(BuildContext context, JetsFormState formState,
   switch (key) {
     case FSK.client:
       String? value = v;
-      print('Validating client $value');
       if (value != null && value.characters.length > 1) {
         return null;
       }
@@ -27,7 +26,6 @@ String? homeFormValidator(BuildContext context, JetsFormState formState,
       return "Client name must be provided.";
     case FSK.objectType:
       String? value = v;
-      print('Validating object type $value');
       if (value != null && value.characters.length > 1) {
         return null;
       }
@@ -41,8 +39,10 @@ String? homeFormValidator(BuildContext context, JetsFormState formState,
     case FSK.details:
       // always good
       return null;
+    case FSK.groupingColumn:
+      return null;
     default:
-      print('Oops login form has no validator configured for form field $key');
+      print('Oops home form has no validator configured for form field $key');
   }
   return null;
 }
@@ -132,18 +132,18 @@ String? processInputFormValidator(BuildContext context, JetsFormState formState,
   assert((v is String?) || (v is List<String>?),
       "Process Input Form has unexpected data type");
   var isRequired = formState.getValue(group, FSK.isRequiredFlag);
+  // print(
+  //     "Validator Called for $group ($isRequired), $key, $v, state is ${formState.getValue(group, key)}");
   switch (key) {
     // Add Process Input Dialog Validations
     case FSK.client:
       String? value = v;
-      print('Validating client $value');
       if (value != null && value.characters.length > 1) {
         return null;
       }
       return "Client name must be provided.";
     case FSK.objectType:
       String? value = v;
-      print('Validating object type $value');
       if (value != null && value.characters.length > 1) {
         return null;
       }
@@ -160,16 +160,23 @@ String? processInputFormValidator(BuildContext context, JetsFormState formState,
 
     // Process Mapping Dialog Validation
     case FSK.inputColumn:
-      if (v != null) return null;
-      if (isRequired == null) return null;
-      var defaultValue = formState.getValue(group, FSK.mappingDefaultValue);
-      if (defaultValue != null) return null;
-      return "Source Input Column must be selected or a default must be provided.";
+      String? value = v;
+      if (value != null && value.isNotEmpty) return null;
+      if (isRequired == null || isRequired == false) return null;
+      var defaultValue =
+          formState.getValue(group, FSK.mappingDefaultValue) as String?;
+      if (defaultValue != null && defaultValue.isNotEmpty) return null;
+      var errorMsg =
+          formState.getValue(group, FSK.mappingErrorMessage) as String?;
+      if (errorMsg != null && errorMsg.isNotEmpty) return null;
+      return "Input Column must be selected or either a default or an error message must be provided.";
     case FSK.functionName:
       return null;
     case FSK.functionArgument:
-      if (v != null) return null;
-      var functionName = formState.getValue(group, FSK.functionName);
+      String? value = v;
+      if (value != null && value.isNotEmpty) return null;
+      var functionName = formState.getValue(group, FSK.functionName) as String?;
+      if (functionName == null || functionName.isEmpty) return null;
       var mappingFunctionDetails =
           formState.getCacheValue(FSK.mappingFunctionDetailsCache) as List?;
       if (mappingFunctionDetails == null) {
@@ -186,10 +193,18 @@ String? processInputFormValidator(BuildContext context, JetsFormState formState,
       if (row[1] != "1") return null;
       return "Cleansing function argument is required";
     case FSK.mappingDefaultValue:
-      var errorMsg = formState.getValue(group, FSK.mappingErrorMessage);
-      if (v != null && errorMsg == null) return null;
-      if (v == null && errorMsg != null) return null;
-      if (v != null && errorMsg != null) {
+      String? value = v;
+      if (value != null && value.isEmpty) {
+        value = null;
+      }
+      var errorMsg =
+          formState.getValue(group, FSK.mappingErrorMessage) as String?;
+      if (errorMsg != null && errorMsg.isEmpty) {
+        errorMsg = null;
+      }
+      if (value != null && errorMsg == null) return null;
+      if (value == null && errorMsg != null) return null;
+      if (value != null && errorMsg != null) {
         return "Cannot specify both a default value and an error message";
       }
       return null;
@@ -236,6 +251,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
         // entity_rdf_type is the table_name for domain_table sources
         formState.setValue(0, FSK.tableName, row[1]);
       }
+      formState.setValue(0, FSK.userEmail, JetsRouterDelegate().user.email);
 
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
@@ -244,6 +260,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
       });
       postInsertRows(context, formKey, formState, encodedJsonBody);
       break;
+
     // Process Mapping Dialog
     case ActionKeys.mapperOk:
     case ActionKeys.mapperDraft:
@@ -285,10 +302,18 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
           'action': 'insert_rows',
           'table': 'update/process_input',
           'data': [
-            {'key': processInputKey, 'status': processInputStatus}
+            {
+              'key': processInputKey,
+              'user_email': JetsRouterDelegate().user.email,
+              'status': processInputStatus
+            }
           ],
         });
         postInsertRows(context, formKey, formState, encodedJsonBody);
+        // trigger a refresh of the process_mapping table
+        formState.parentFormState?.setValue(0, FSK.tableName, null);
+        formState.parentFormState
+            ?.setValueAndNotify(0, FSK.tableName, tableName);
       } else if (result.statusCode == 400 ||
           result.statusCode == 406 ||
           result.statusCode == 422) {
