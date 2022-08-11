@@ -425,7 +425,8 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         if (ac.configForm == null) return;
         final dialogFormKey = GlobalKey<FormState>();
         final formConfig = getFormConfig(ac.configForm!);
-        final dialogFormState = formConfig.makeFormState();
+        final dialogFormState =
+            formConfig.makeFormState(parentFormState: formState);
         // check if we expect to have a selected row
         JetsRow? row = dataSource.getFirstSelectedRow();
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;

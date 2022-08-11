@@ -82,8 +82,9 @@ class FormConfig {
     return unique.length;
   }
 
-  JetsFormState makeFormState() {
-    return JetsFormState(initialGroupCount: groupCount());
+  JetsFormState makeFormState({JetsFormState? parentFormState}) {
+    return JetsFormState(
+        initialGroupCount: groupCount(), parentFormState: parentFormState);
   }
 }
 
@@ -163,7 +164,8 @@ class FormInputFieldConfig extends FormFieldConfig {
     return JetsTextFormField(
       key: Key(key),
       formFieldConfig: this,
-      onChanged: (p0) => state.setValueAndNotify(group, key, p0),
+      onChanged: (p0) =>
+          state.setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
       formValidator: formFieldValidator,
     );
   }
@@ -250,6 +252,7 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
       formValidator: formFieldValidator,
       formState: state,
+      selectedValue: state.getValue(group, key),
     );
   }
 }
@@ -666,12 +669,14 @@ final Map<String, FormConfig> _formConfigurations = {
       return [
         // data_property
         TextFieldConfig(
-            label: "$index: ${inputFieldRow[0]}$isRequiredIndicator"),
+            label: "$index: ${inputFieldRow[0]}$isRequiredIndicator",
+            group: index,
+            flex: 2),
         // input_column
         FormDropdownWithSharedItemsFieldConfig(
           key: FSK.inputColumn,
           group: index,
-          flex: 1,
+          flex: 3,
           dropdownMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
           defaultItem: savedInputColumn ?? inputColumnDefault,
         ),
@@ -679,7 +684,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDropdownWithSharedItemsFieldConfig(
           key: FSK.functionName,
           group: index,
-          flex: 1,
+          flex: 2,
           dropdownMenuItemCacheKey: FSK.mappingFunctionsDropdownItemsCache,
           defaultItem: savedState?[index][2],
         ),
@@ -689,7 +694,8 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Function Argument",
             hint:
                 "Cleansing function argument, it is either required or ignored",
-            flex: 1,
+            group: index,
+            flex: 2,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
@@ -701,7 +707,8 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Default Value",
             hint:
                 "Default value to use if input value is not provided or cleansing function returns null",
-            flex: 1,
+            group: index,
+            flex: 2,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
@@ -713,7 +720,8 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Error Message",
             hint:
                 "Error message to raise if input value is not provided or cleansing function returns null and there is no default value",
-            flex: 1,
+            group: index,
+            flex: 2,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,

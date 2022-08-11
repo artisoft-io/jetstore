@@ -45,19 +45,28 @@ typedef InternalSelectedRow = List<ValidationGroupSelectedRow>;
 typedef InternalUpdatedKeys = List<Set<String>>;
 
 class JetsFormState extends ChangeNotifier {
-  JetsFormState({required initialGroupCount})
+  JetsFormState({required initialGroupCount, this.parentFormState})
       : groupCount = initialGroupCount > 0 ? initialGroupCount : 1,
-        _state = InternalFormState.filled(
-            initialGroupCount > 0 ? initialGroupCount : 1, <String, dynamic>{},
-            growable: true),
-        _selectedRows = InternalSelectedRow.filled(
+        _state = InternalFormState.generate(
             initialGroupCount > 0 ? initialGroupCount : 1,
-            <String, SelectedRows>{},
+            (index) => <String, dynamic>{},
             growable: true),
-        _updatedKeys = InternalUpdatedKeys.filled(
-            initialGroupCount > 0 ? initialGroupCount : 1, <String>{},
+        _selectedRows = InternalSelectedRow.generate(
+            initialGroupCount > 0 ? initialGroupCount : 1,
+            (index) => <String, SelectedRows>{},
+            growable: true),
+        _updatedKeys = InternalUpdatedKeys.generate(
+            initialGroupCount > 0 ? initialGroupCount : 1,
+            (index) => <String>{},
             growable: true);
   int groupCount;
+
+  /// Applicable to form state for dialogs;
+  /// To have access to the form state of the parent form who
+  /// created this state for a dialog form.
+  /// Typically used to mark keys as dirty to refresh table having
+  /// a where clause.
+  final JetsFormState? parentFormState;
 
   /// The actual state of the form, keyed by validation group (list item)
   ///  and widget key
@@ -78,11 +87,13 @@ class JetsFormState extends ChangeNotifier {
     // print("Resizing formState from $groupCount to $newGroupCount");
     var n = newGroupCount - groupCount;
     if (n > 0) {
-      _state.addAll(InternalFormState.filled(n, <String, dynamic>{}));
+      _state.addAll(
+          InternalFormState.generate(n, (index) => <String, dynamic>{}));
       groupCount = _state.length;
-      _selectedRows
-          .addAll(InternalSelectedRow.filled(n, <String, SelectedRows>{}));
-      _updatedKeys.addAll(InternalUpdatedKeys.filled(n, <String>{}));
+      _selectedRows.addAll(
+          InternalSelectedRow.generate(n, (index) => <String, SelectedRows>{}));
+      _updatedKeys
+          .addAll(InternalUpdatedKeys.generate(n, (index) => <String>{}));
     }
   }
 

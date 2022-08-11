@@ -10,6 +10,14 @@ INSERT INTO jetsapi.source_config (key, object_type, client, table_name, groupin
   (291, 'Simulator', 'Zeme', 'test2', NULL, 'user@mail.com')
 ;
 
+TRUNCATE jetsapi.client_registry;
+INSERT INTO jetsapi.client_registry (client, details) VALUES
+  ('Zeme', 'Unit test client'),
+  ('cHealth', NULL),
+  ('dHealth', 'Some client'),
+  ('pHealth', NULL)
+;
+
 TRUNCATE jetsapi.mapping_function_registry;
 INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_required) VALUES
   ('to_upper', '0'),
@@ -22,6 +30,10 @@ INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_requir
 
 TRUNCATE jetsapi.object_type_registry;
 INSERT INTO jetsapi.object_type_registry (object_type, entity_rdf_type, details) VALUES
+  ('Simulator', 'aspec:Simulator', 'Healthcare Simulated Data Generation'),
+  ('SimulatedPatient', 'hc:SimulatedPatient', 'Healthcare SimulatedPatient'),
+  ('ProfessionalClaim', 'hc:ProfessionalClaim', 'Healthcare ProfessionalClaim'),
+  ('InstitutionalClaim', 'hc:InstitutionalClaim', 'Healthcare InstitutionalClaim'),
   ('Claim', 'hc:Claim', 'Healthcare Claim'),
   ('Network', 'hc:NetworkTransparency', 'Network Transparency file')
 ;
@@ -30,11 +42,11 @@ TRUNCATE jetsapi.object_type_mapping_details;
 INSERT INTO jetsapi.object_type_mapping_details (object_type, data_property, is_required) VALUES
   ('Claim', 'hc:serviceDate', '1'),
   ('Claim', 'hc:procedureCode', '1'),
-  ('test2'                , 'jets:key'                  , '1'),
-  ('test2'                , 'aspec:anchor_date'         , '1'),
-  ('test2'                , 'aspec:nbr_entities'        , '1'),
-  ('test2'                , 'aspec:entity_key_prefix'   , '0'),
-  ('test2'                , 'aspec:entity_persona_lk'   , '0'),
+  ('Simulator'         , 'jets:key'                  , '1'),
+  ('Simulator'         , 'aspec:anchor_date'         , '1'),
+  ('Simulator'         , 'aspec:nbr_entities'        , '1'),
+  ('Simulator'         , 'aspec:entity_key_prefix'   , '0'),
+  ('Simulator'         , 'aspec:entity_persona_lk'   , '0'),
   ('SimulatedPatient'  , 'asim:anchor_date'          , '1'),
   ('SimulatedPatient'  , 'asim:persona_key'          , '1'),
   ('SimulatedPatient'  , 'asim:demographic_group_key', '1'),
@@ -58,8 +70,16 @@ INSERT INTO jetsapi.object_type_mapping_details (object_type, data_property, is_
 
 TRUNCATE jetsapi.file_key_staging;
 INSERT INTO jetsapi.file_key_staging (client, object_type, file_key) VALUES
+  ('Zeme', 'Simulator', 'client=Zeme/ot=Simulator/object.csv'),
+  ('Zeme', 'SimulatedPatient', 'client=Zeme/ot=SimulatedPatient/object.csv'),
+  ('Zeme', 'ProfessionalClaim', 'client=Zeme/ot=ProfessionalClaim/object.csv'),
+  ('Zeme', 'InstitutionalClaim', 'client=Zeme/ot=InstitutionalClaim/object.csv'),
   ('Zeme', 'Claim', 'client=Zeme/ot=Claim/object.csv'),
-  ('abc', 'Network', 'client=abc/ot=Network/object.csv')
+  ('Zeme', 'Network', 'client=Zeme/ot=Network/object.csv'),
+  ('cHealth', 'Simulator',        'client=cHealth/ot=Simulator/object.csv'),
+  ('cHealth', 'SimulatedPatient', 'client=cHealth/ot=SimulatedPatient/object.csv'),
+  ('dHealth', 'Simulator',        'dlient=cHealth/ot=Simulator/object.csv'),
+  ('dHealth', 'SimulatedPatient', 'dlient=cHealth/ot=SimulatedPatient/object.csv')
 ;
 
 INSERT INTO jetsapi.process_input (key, client, object_type, table_name, source_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES
