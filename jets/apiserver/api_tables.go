@@ -166,9 +166,10 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		for jcol, colKey := range sqlStmt.columnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
+		log.Printf("Insert Row Stmt: %s", sqlStmt.stmt)
 		_, err := server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
 		if err != nil {
-			log.Printf("while executing inser_rows action '%s': %v", dataTableAction.Table, err)
+			log.Printf("while executing insert_rows action '%s': %v", dataTableAction.Table, err)
 			ERROR(w, http.StatusConflict, errors.New("error while executing insert"))
 			return
 		}

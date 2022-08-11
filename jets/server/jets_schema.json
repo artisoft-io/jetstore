@@ -104,7 +104,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (object_type, data_property)"
+      "CONSTRAINT object_type_mapping_details_unique_cstraint UNIQUE (object_type, data_property)"
     ]
   },
   {
@@ -131,7 +131,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (client, object_type, file_key)"
+      "CONSTRAINT file_key_staging_unique_cstraint UNIQUE (client, object_type, file_key)"
     ]
   },
   {
@@ -178,7 +178,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (table_name)"
+      "CONSTRAINT source_config_unique_cstraint UNIQUE (table_name)"
     ]
   },
   {
@@ -251,7 +251,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (table_name, session_id, node_id)"
+      "CONSTRAINT input_loader_status_unique_cstraint UNIQUE (table_name, session_id, node_id)"
     ]
   },
   {
@@ -309,7 +309,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (table_name, session_id)"
+      "CONSTRAINT input_registry_unique_cstraint UNIQUE (table_name, session_id)"
     ]
   },
   {
@@ -372,7 +372,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (table_name, grouping_column)"
+      "CONSTRAINT process_input_unique_cstraint UNIQUE (table_name, grouping_column)"
     ]
   },
   {
@@ -425,7 +425,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (table_name, input_column, data_property)"
+      "CONSTRAINT process_mapping_unique_cstraint UNIQUE (table_name, input_column, data_property)"
    ]
   },
   {
@@ -474,7 +474,7 @@
       }
     ],
     "tableConstraints": [
-      "UNIQUE (process_name)"
+      "CONSTRAINT process_config_unique_cstraint UNIQUE (process_name)"
    ]
   },
   {
@@ -516,6 +516,9 @@
         "indexName": "rule_config_process_config_key_client_idx",
         "indexDef": "CREATE INDEX rule_config_process_config_key_client_idx ON jetsapi.rule_config (process_config_key ASC, client ASC)"
       }
+    ],
+    "tableConstraints": [
+      "CONSTRAINT rule_config_unique_cstraint UNIQUE (process_name, client, subject, predicate, object)"
    ]
   },
   {
