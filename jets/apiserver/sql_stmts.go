@@ -40,12 +40,23 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	"process_mapping": {
 		stmt: `INSERT INTO jetsapi.process_mapping 
 			(table_name, input_column, data_property, function_name, argument, default_value, error_message, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT ON CONSTRAINT process_mapping_unique_cstraint
+			DO UPDATE SET (function_name, argument, default_value, error_message, user_email, last_update) =
+			(EXCLUDED.function_name, EXCLUDED.argument, EXCLUDED.default_value, EXCLUDED.error_message, EXCLUDED.user_email, DEFAULT)`,
 		columnKeys: []string{"table_name", "input_column", "data_property", "function_name", "argument", "default_value", "error_message", "user_email"},
 	},
 	"update/process_input": {
-		stmt: "UPDATE jetsapi.process_input SET status = $1 WHERE key = $2",
-		columnKeys: []string{"status", "key"},
+		stmt: "UPDATE jetsapi.process_input SET (status, user_email, last_update) = ($1, $2, DEFAULT) WHERE key = $3",
+		columnKeys: []string{"status", "user_email", "key"},
+	},
+	"rule_config": {
+		stmt: `INSERT INTO jetsapi.rule_config 
+			(process_config_key, process_name, client, subject, predicate, object, rdf_type) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT ON CONSTRAINT rule_config_unique_cstraint
+			DO UPDATE SET rdf_type = EXCLUDED.rdf_type`,
+		columnKeys: []string{"process_config_key", "process_name", "client", "subject", "predicate", "object", "rdf_type"},
 	},
 
 }
