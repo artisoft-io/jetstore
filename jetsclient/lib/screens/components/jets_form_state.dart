@@ -58,6 +58,10 @@ class JetsFormState extends ChangeNotifier {
         _updatedKeys = InternalUpdatedKeys.generate(
             initialGroupCount > 0 ? initialGroupCount : 1,
             (index) => <String>{},
+            growable: true),
+        _invalidKeys = InternalUpdatedKeys.generate(
+            initialGroupCount > 0 ? initialGroupCount : 1,
+            (index) => <String>{},
             growable: true);
   int groupCount;
 
@@ -83,6 +87,11 @@ class JetsFormState extends ChangeNotifier {
   /// Keep track of keys that have value that changed
   final InternalUpdatedKeys _updatedKeys;
 
+  /// Keep track of keys that have value that are invalid based on
+  /// form validation. This is used when form fields are setup
+  /// to autovalidate (typically used with form builder, see [JetsForm] class)
+  final InternalUpdatedKeys _invalidKeys;
+
   void resizeFormState(int newGroupCount) {
     // print("Resizing formState from $groupCount to $newGroupCount");
     var n = newGroupCount - groupCount;
@@ -93,6 +102,8 @@ class JetsFormState extends ChangeNotifier {
       _selectedRows.addAll(
           InternalSelectedRow.generate(n, (index) => <String, SelectedRows>{}));
       _updatedKeys
+          .addAll(InternalUpdatedKeys.generate(n, (index) => <String>{}));
+      _invalidKeys
           .addAll(InternalUpdatedKeys.generate(n, (index) => <String>{}));
     }
   }
@@ -114,6 +125,29 @@ class JetsFormState extends ChangeNotifier {
   bool isKeyUpdated(int group, String key) {
     assert(group < groupCount, "invalid group");
     return _updatedKeys[group].contains(key);
+  }
+
+  /// Check for keys marked as invalid, if any are found then the form does not
+  /// pass validation
+  bool isFormValid() {
+    for (var keys in _invalidKeys) {
+      if (keys.isNotEmpty) return false;
+    }
+    return true;
+  }
+
+  /// Mark form element identified by [key] as not passing form validation
+  void markFormKeyAsInvalid(int group, String key) {
+    assert(group < groupCount, "invalid group");
+    _invalidKeys[group].add(key);
+    notifyListeners();
+  }
+
+  /// Mark form element identified by [key] as not passing form validation
+  void markFormKeyAsValid(int group, String key) {
+    assert(group < groupCount, "invalid group");
+    _invalidKeys[group].remove(key);
+    notifyListeners();
   }
 
   /// Set a form state [value] for widget [key]

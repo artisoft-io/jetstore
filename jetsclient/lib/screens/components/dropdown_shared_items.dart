@@ -32,6 +32,7 @@ class JetsDropdownWithSharedItemsFormField extends StatelessWidget {
               formState.setValue(formFieldConfig.group, formFieldConfig.key, newValue);
               onChanged(newValue);
             },
+            autovalidateMode: formFieldConfig.autovalidateMode,
             validator: (p0) =>
                 formValidator(formFieldConfig.group, formFieldConfig.key, p0),
             items: formState.getCacheValue(formFieldConfig.dropdownMenuItemCacheKey),

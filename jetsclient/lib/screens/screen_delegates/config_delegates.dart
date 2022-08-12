@@ -47,8 +47,8 @@ String? homeFormValidator(BuildContext context, JetsFormState formState,
   return null;
 }
 
-void postInsertRows(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String encodedJsonBody) async {
+void postInsertRows(BuildContext context, JetsFormState formState,
+    String encodedJsonBody) async {
   var navigator = Navigator.of(context);
   var messenger = ScaffoldMessenger.of(context);
   var result = await context.read<HttpClient>().sendRequest(
@@ -98,7 +98,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
         'table': 'client_registry',
         'data': [formState.getState(0)],
       });
-      postInsertRows(context, formKey, formState, encodedJsonBody);
+      postInsertRows(context, formState, encodedJsonBody);
       break;
     case ActionKeys.loaderOk:
       var valid = formKey.currentState!.validate();
@@ -115,7 +115,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
         'table': 'input_loader_status',
         'data': [state],
       });
-      postInsertRows(context, formKey, formState, encodedJsonBody);
+      postInsertRows(context, formState, encodedJsonBody);
       break;
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
@@ -161,37 +161,68 @@ String? processInputFormValidator(BuildContext context, JetsFormState formState,
     // Process Mapping Dialog Validation
     case FSK.inputColumn:
       String? value = v;
-      if (value != null && value.isNotEmpty) return null;
-      if (isRequired == null || isRequired == false) return null;
+      if (value != null && value.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      if (isRequired == null || isRequired == false) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
       var defaultValue =
           formState.getValue(group, FSK.mappingDefaultValue) as String?;
-      if (defaultValue != null && defaultValue.isNotEmpty) return null;
+      if (defaultValue != null && defaultValue.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
       var errorMsg =
           formState.getValue(group, FSK.mappingErrorMessage) as String?;
-      if (errorMsg != null && errorMsg.isNotEmpty) return null;
+      if (errorMsg != null && errorMsg.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      formState.markFormKeyAsInvalid(group, key);
       return "Input Column must be selected or either a default or an error message must be provided.";
+
     case FSK.functionName:
       return null;
+
     case FSK.functionArgument:
       String? value = v;
-      if (value != null && value.isNotEmpty) return null;
       var functionName = formState.getValue(group, FSK.functionName) as String?;
-      if (functionName == null || functionName.isEmpty) return null;
+      // print("Validating argument '$value' for function $functionName");
+      if (functionName == null || functionName.isEmpty) {
+        if (value != null && value.isNotEmpty) {
+          formState.markFormKeyAsInvalid(group, key);
+          return "Remove the argument when no function is selected";
+        } else {
+          formState.markFormKeyAsValid(group, key);
+          return null;
+        }
+      }
+      if (value != null && value.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
       var mappingFunctionDetails =
           formState.getCacheValue(FSK.mappingFunctionDetailsCache) as List?;
+      assert(mappingFunctionDetails != null,
+          "processInputFormActions error: mappingFunctionDetails is null");
       if (mappingFunctionDetails == null) {
-        print("processInputFormActions error: mappingFunctionDetails is null");
-        return "processInputFormActions error: mappingFunctionDetails is null";
+        formState.markFormKeyAsValid(group, key);
+        return null;
       }
-      var row = mappingFunctionDetails.firstWhere((e) => e[0] == functionName);
-      if (row == null) {
-        print(
-            "processInputFormActions error: can't find object_type in objectTypeRegistry");
-        return "processInputFormActions error: can't find function_name in mappingFunctionDetails";
-      }
+      var row = mappingFunctionDetails.firstWhere(
+        (e) => e[0] == functionName,
+      );
       // check if function argument is required
-      if (row[1] != "1") return null;
+      if (row[1] != "1") {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      formState.markFormKeyAsInvalid(group, key);
       return "Cleansing function argument is required";
+
     case FSK.mappingDefaultValue:
       String? value = v;
       if (value != null && value.isEmpty) {
@@ -202,12 +233,21 @@ String? processInputFormValidator(BuildContext context, JetsFormState formState,
       if (errorMsg != null && errorMsg.isEmpty) {
         errorMsg = null;
       }
-      if (value != null && errorMsg == null) return null;
-      if (value == null && errorMsg != null) return null;
+      if (value != null && errorMsg == null) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      if (value == null && errorMsg != null) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
       if (value != null && errorMsg != null) {
+        formState.markFormKeyAsInvalid(group, key);
         return "Cannot specify both a default value and an error message";
       }
+      formState.markFormKeyAsValid(group, key);
       return null;
+      
     case FSK.mappingErrorMessage:
       return null;
     default:
@@ -258,7 +298,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
         'table': 'process_input',
         'data': [formState.getState(0)],
       });
-      postInsertRows(context, formKey, formState, encodedJsonBody);
+      postInsertRows(context, formState, encodedJsonBody);
       break;
 
     // Process Mapping Dialog
@@ -267,8 +307,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
       var processInputStatus = 'saved as draft';
       if (actionKey == ActionKeys.mapperOk) {
         processInputStatus = 'configured';
-        var valid = formKey.currentState!.validate();
-        if (!valid) {
+        if (!formState.isFormValid()) {
           return;
         }
       }
@@ -309,7 +348,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
             }
           ],
         });
-        postInsertRows(context, formKey, formState, encodedJsonBody);
+        postInsertRows(context, formState, encodedJsonBody);
         // trigger a refresh of the process_mapping table
         formState.parentFormState?.setValue(0, FSK.tableName, null);
         formState.parentFormState

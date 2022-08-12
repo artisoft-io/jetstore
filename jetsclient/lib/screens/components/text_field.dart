@@ -16,7 +16,11 @@ class JetsTextField extends StatelessWidget {
     return Expanded(
         flex: flex,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
+          padding: EdgeInsets.fromLTRB(
+              fieldConfig.leftMargin,
+              fieldConfig.topMargin,
+              fieldConfig.rightMargin,
+              fieldConfig.bottomMargin),
           child: Text(
             fieldConfig.label,
             style: themeData.textTheme.labelLarge?.copyWith(fontSize: 16),

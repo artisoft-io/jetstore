@@ -167,6 +167,7 @@ class _JetsDropdownButtonFormFieldState
               });
               widget.onChanged(newValue);
             },
+            autovalidateMode: _config.autovalidateMode,
             validator: (p0) =>
                 widget.formValidator(_config.group, _config.key, p0),
             items: items
