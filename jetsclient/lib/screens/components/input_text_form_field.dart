@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 class JetsTextFormField extends StatefulWidget {
@@ -8,6 +9,7 @@ class JetsTextFormField extends StatefulWidget {
     required this.formFieldConfig,
     required this.onChanged,
     required this.formValidator,
+    required this.formState,
   });
   final FormInputFieldConfig formFieldConfig;
   final void Function(String) onChanged;
@@ -16,6 +18,7 @@ class JetsTextFormField extends StatefulWidget {
   //       config (as done for data table) to to be able to use the widget
   //       without a form. Same applies to dropdown widget.
   final JetsFormFieldValidator formValidator;
+  final JetsFormState formState;
 
   @override
   State<JetsTextFormField> createState() => _JetsTextFormFieldState();
@@ -40,7 +43,8 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
   void initState() {
     super.initState();
     _config = widget.formFieldConfig;
-    _controller = TextEditingController(text: _config.defaultValue);
+    _controller = TextEditingController(
+        text: widget.formState.getValue(_config.group, _config.key));
     _controller.addListener(() {
       if (_config.textRestriction == TextRestriction.allLower) {
         final String text = _controller.text.toLowerCase();
@@ -115,6 +119,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
           onChanged: widget.onChanged,
           validator: (p0) =>
               widget.formValidator(_config.group, _config.key, p0),
+          autovalidateMode: _config.autovalidateMode,
         ),
       ),
     );

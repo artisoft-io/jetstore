@@ -6,6 +6,7 @@ import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
+import 'package:jetsclient/screens/components/form_button.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -83,32 +84,21 @@ class _JetsFormState extends State<JetsForm> {
     assert(widget.formConfig.inputFieldsQuery != null,
         "Jets Form with empty inputFields and no inputFieldsQuery!");
 
-    var queryMap = <String, String>{
-      FSK.inputFieldsCache: widget.formConfig.inputFieldsQuery!,
-    };
-    if (widget.formConfig.savedStateQuery != null) {
-      queryMap.addAll({
-        FSK.savedStateCache: widget.formConfig.savedStateQuery!,
-      });
-    }
-    if (widget.formConfig.dropdownItemsQueries != null) {
-      queryMap.addAll(widget.formConfig.dropdownItemsQueries!);
-    }
-    if (widget.formConfig.metadataQueries != null) {
-      queryMap.addAll(widget.formConfig.metadataQueries!);
-    }
-
+    var queryMap = widget.formConfig.queries;
+    assert(queryMap != null,
+        "queryInputFieldItems: Expecting to find queries in form config");
+    if (queryMap == null) return;
+    // apply the parameter substitutions in the queries
     if (widget.formConfig.stateKeyPredicates != null) {
       for (var stateKey in widget.formConfig.stateKeyPredicates!) {
         var value = widget.formState.getValue(0, stateKey);
-
         assert(value != null,
             "queryInputFieldItems: Unexpected null stateKey $stateKey");
         if (value == null) return;
         assert((value is String) || (value is List<String>),
             "Error: unexpected type in formState passed to form");
         var tempMap = <String, String>{};
-        for (var item in queryMap.entries) {
+        for (var item in queryMap!.entries) {
           var query = "";
           if (value is String) {
             query = item.value.replaceAll(RegExp('{$stateKey}'), value);
@@ -139,22 +129,27 @@ class _JetsFormState extends State<JetsForm> {
     if (!mounted) return;
     if (result.statusCode == 200) {
       // Processing the server result: preparing caches in formState
-      final data = result.body['result_map'] as Map<String, dynamic>?;
-      if (data == null) return;
+      final rawData = result.body['result_map'] as Map<String, dynamic>?;
+      if (rawData == null) return;
+      final data = <String, List<List<String?>>>{};
+      for (var item in rawData.entries) {
+        data[item.key] = (item.value as List)
+            .map((e) => (e as List).cast<String?>())
+            .toList();
+      }
 
+      //* THIS IS SPECIFIC TO PROCESS MAPPING ADD CONFIG
       // Let's make sure the input table exist otherwise there are no
       // input column to map to
-      final ic = (data[FSK.inputColumnsDropdownItemsCache] as List?);
-      if (ic == null || ic.isEmpty) {
+      final ic = data["inputColumnsQuery"];
+      if (ic != null && ic.isEmpty) {
         widget.formState.setValue(0, FSK.serverError,
             "It appear that the data has not been loaded yet. We need to load the data to configure the mapping.");
         Navigator.of(context).pop(DTActionResult.statusError);
       }
 
       // Prepare the saved state cache
-      final savedStateModel = (data[FSK.savedStateCache] as List?)
-          ?.map((e) => (e as List).cast<String?>())
-          .toList();
+      final savedStateModel = data[widget.formConfig.savedStateQuery];
       if (savedStateModel != null && savedStateModel.isNotEmpty) {
         widget.formState.addCacheValue(FSK.savedStateCache, savedStateModel);
       }
@@ -162,21 +157,15 @@ class _JetsFormState extends State<JetsForm> {
       // Prepare the dropdown item list caches
       var label0 = "Select an item";
       if (widget.formConfig.dropdownItemsQueries != null) {
-        for (var key in widget.formConfig.dropdownItemsQueries!.keys) {
-          final model = (data[key] as List)
-              .map((e) => (e as List).cast<String?>())
-              .toList();
-          var maxlength = 0;
-          for (var e in model) {
-            if (e[0]!.length > maxlength) maxlength = e[0]!.length;
-          }
-          var dropdownItemList = [
-            DropdownItemConfig(label: label0.length < maxlength ? label0 : "")
-          ];
-          dropdownItemList.addAll(
-              model.map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
+        for (var item in widget.formConfig.dropdownItemsQueries!.entries) {
+          final model = data[item.value];
+          assert(model != null,
+              "queryInputFieldItems: Form is missconfigured, dropdown query is missing");
+          var dropdownItemList = [DropdownItemConfig(label: label0)];
+          dropdownItemList.addAll(model!
+              .map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
           widget.formState.addCacheValue(
-              key,
+              item.key,
               dropdownItemList
                   .map((e) => DropdownMenuItem<String>(
                       value: e.value, child: Text(e.label)))
@@ -186,23 +175,24 @@ class _JetsFormState extends State<JetsForm> {
 
       // Prepare the metadata item list caches
       if (widget.formConfig.metadataQueries != null) {
-        for (var key in widget.formConfig.metadataQueries!.keys) {
-          final model = (data[key] as List)
-              .map((e) => (e as List).cast<String?>())
-              .toList();
-          widget.formState.addCacheValue(key, model);
+        for (var item in widget.formConfig.metadataQueries!.entries) {
+          final model = data[item.value];
+          assert(model != null,
+              "queryInputFieldItems: Form is missconfigured, metadata query is missing");
+          widget.formState.addCacheValue(item.key, model);
         }
       }
 
       // Construct the inputFields [FormFieldConfig] using the builder
-      var inputFieldData = data[FSK.inputFieldsCache] as List;
+      var inputFieldData = data[widget.formConfig.inputFieldsQuery];
+      assert(inputFieldData != null,
+          "queryInputFieldItems: Form is missconfigured, inputFieldQuery is missing");
+      if (inputFieldData == null) return;
       widget.formState.resizeFormState(inputFieldData.length);
-      inputFieldData =
-          inputFieldData.map((e) => (e as List).cast<String?>()).toList();
-      alternateInputFields = InputFieldType.generate(
-          inputFieldData.length,
-          (index) => widget.formConfig.inputFieldRowBuilder!(
-              index, inputFieldData[index], widget.formState));
+      for (var index = 0; index < inputFieldData.length; index++) {
+        alternateInputFields.addAll(widget.formConfig.inputFieldRowBuilder!(
+            index, inputFieldData[index], widget.formState));
+      }
       // Notify that we now have inputFields ready
       setState(() {});
     } else if (result.statusCode == 401) {
@@ -220,7 +210,6 @@ class _JetsFormState extends State<JetsForm> {
 
   @override
   Widget build(BuildContext context) {
-    final themeData = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       child: FocusTraversalGroup(
@@ -249,19 +238,13 @@ class _JetsFormState extends State<JetsForm> {
                     padding: const EdgeInsets.fromLTRB(10, 10, 0, 0),
                     child: Center(
                       child: Row(
-                          children: List<Widget>.from(
-                        widget.formConfig.actions.map((e) => ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              // Foreground color
-                              foregroundColor: themeData.colorScheme.onPrimary,
-                              backgroundColor: themeData.colorScheme.primary,
-                            ).copyWith(
-                                elevation: ButtonStyleButton.allOrNull(0.0)),
-                            onPressed: () => widget.actionsDelegate(context,
-                                widget.formKey, widget.formState, e.key),
-                            child: Text(e.label))),
-                        growable: false,
-                      )
+                          children: widget.formConfig.actions
+                              .map((e) => JetsFormButton(
+                                  key: Key(e.key),
+                                  formActionConfig: e,
+                                  formKey: widget.formKey,
+                                  formState: widget.formState,
+                                  actionsDelegate: widget.actionsDelegate))
                               .expand((element) => [
                                     const SizedBox(width: defaultPadding),
                                     element

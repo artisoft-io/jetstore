@@ -26,7 +26,7 @@ typedef JetsFormFieldValidator = String? Function(
 typedef JetsFormFieldRowBuilder1 = List<FormFieldConfig> Function(
     int index, List<String?> labels, JetsFormState formState);
 
-typedef JetsFormFieldRowBuilder = List<FormFieldConfig> Function(
+typedef JetsFormFieldRowBuilder = List<List<FormFieldConfig>> Function(
     int index, List<String?> inputFieldRow, JetsFormState formState);
 
 typedef InputFieldType = List<List<FormFieldConfig>>;
@@ -50,12 +50,17 @@ typedef InputFieldType = List<List<FormFieldConfig>>;
 /// Similarily [metadataQueries] is a map, the key is known by the
 /// [inputFieldRowBuilder], for example the key [FSK.savedStateCache] correspond
 /// to the previously saved values.
+///
+/// Note that all queries are grouped into the map [queries] with a query key
+/// used by [inputFieldsQuery], [dropdownItemsQueries], [metadataQueries],
+/// and [stateKeyPredicates].
 class FormConfig {
   FormConfig({
     required this.key,
     this.inputFields = const [],
     this.inputFieldRowBuilder,
     required this.actions,
+    this.queries,
     this.inputFieldsQuery,
     this.savedStateQuery,
     this.dropdownItemsQueries,
@@ -68,6 +73,7 @@ class FormConfig {
   final List<FormActionConfig> actions;
   final String? inputFieldsQuery;
   final String? savedStateQuery;
+  final Map<String, String>? queries;
   final Map<String, String>? dropdownItemsQueries;
   final Map<String, String>? metadataQueries;
   final List<String>? stateKeyPredicates;
@@ -93,10 +99,12 @@ abstract class FormFieldConfig {
     required this.key,
     required this.group,
     required this.flex,
+    required this.autovalidateMode,
   });
   final String key;
   final int group;
   final int flex;
+  final AutovalidateMode autovalidateMode;
 
   /// make the form widget
   /// formFieldValidator and formValidator are both the same functon,
@@ -113,9 +121,22 @@ abstract class FormFieldConfig {
 }
 
 class TextFieldConfig extends FormFieldConfig {
-  TextFieldConfig(
-      {super.key = '', super.group = 0, super.flex = 1, required this.label});
+  TextFieldConfig({
+    super.key = '',
+    super.group = 0,
+    super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    required this.label,
+    this.leftMargin = 16.0,
+    this.topMargin = 0.0,
+    this.rightMargin = 16.0,
+    this.bottomMargin = 0.0,
+  });
   final String label;
+  final double leftMargin;
+  final double topMargin;
+  final double rightMargin;
+  final double bottomMargin;
 
   @override
   Widget makeFormField({
@@ -133,22 +154,22 @@ class TextFieldConfig extends FormFieldConfig {
 }
 
 class FormInputFieldConfig extends FormFieldConfig {
-  FormInputFieldConfig(
-      {required super.key,
-      super.group = 0,
-      super.flex = 1,
-      required this.label,
-      required this.hint,
-      required this.autofocus,
-      this.obscureText = false,
-      this.defaultValue,
-      required this.textRestriction,
-      required this.maxLength});
+  FormInputFieldConfig({
+    required super.key,
+    super.group = 0,
+    super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    required this.label,
+    required this.hint,
+    required this.autofocus,
+    this.obscureText = false,
+    required this.textRestriction,
+    required this.maxLength,
+  });
   final String label;
   final String hint;
   final bool autofocus;
   final bool obscureText;
-  final String? defaultValue;
   final TextRestriction textRestriction;
   // 0 for unbound
   final int maxLength;
@@ -167,6 +188,7 @@ class FormInputFieldConfig extends FormFieldConfig {
       onChanged: (p0) =>
           state.setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
       formValidator: formFieldValidator,
+      formState: state,
     );
   }
 }
@@ -189,6 +211,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     required super.key,
     super.group = 0,
     super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
     this.defaultItemPos = 0,
     this.dropdownItemsQuery,
     this.returnedModelCacheKey,
@@ -231,6 +254,7 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
     required super.key,
     super.group = 0,
     super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
     required this.dropdownMenuItemCacheKey,
     this.defaultItem,
   });
@@ -258,13 +282,15 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
 }
 
 class FormDataTableFieldConfig extends FormFieldConfig {
-  FormDataTableFieldConfig(
-      {required super.key,
-      super.group = 0,
-      super.flex = 1,
-      this.tableWidth = double.infinity,
-      this.tableHeight = 400,
-      required this.dataTableConfig});
+  FormDataTableFieldConfig({
+    required super.key,
+    super.group = 0,
+    super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    this.tableWidth = double.infinity,
+    this.tableHeight = 400,
+    required this.dataTableConfig,
+  });
   final double tableWidth;
   final double tableHeight;
   final String dataTableConfig;
@@ -297,11 +323,16 @@ class FormDataTableFieldConfig extends FormFieldConfig {
 }
 
 class FormActionConfig {
-  FormActionConfig(
-      {required this.key, required this.label, required this.buttonStyle});
+  FormActionConfig({
+    required this.key,
+    required this.label,
+    required this.buttonStyle,
+    this.enableOnlyWhenFormValid = false,
+  });
   final String key;
   final String label;
   final ButtonStyle buttonStyle;
+  final bool enableOnlyWhenFormValid;
 }
 
 final Map<String, FormConfig> _formConfigurations = {
@@ -620,6 +651,7 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.mapperOk,
           label: "Save",
+          enableOnlyWhenFormValid: true,
           buttonStyle: ButtonStyle.primary),
       FormActionConfig(
           key: ActionKeys.mapperDraft,
@@ -630,21 +662,23 @@ final Map<String, FormConfig> _formConfigurations = {
           label: "Cancel",
           buttonStyle: ButtonStyle.secondary),
     ],
-    inputFieldsQuery:
-        "SELECT data_property, is_required FROM jetsapi.object_type_mapping_details WHERE object_type = '{object_type}' ORDER BY data_property ASC LIMIT 300",
-    savedStateQuery:
-        "SELECT data_property, input_column, function_name, argument, default_value, error_message FROM jetsapi.process_mapping WHERE table_name = '{table_name}' ORDER BY data_property ASC LIMIT 300",
-    dropdownItemsQueries: {
-      FSK.inputColumnsDropdownItemsCache:
+    queries: {
+      "inputFieldsQuery":
+          "SELECT md.data_property, md.is_required, pm.input_column, pm.function_name, pm.argument, pm.default_value, pm.error_message FROM jetsapi.object_type_mapping_details md, jetsapi.process_mapping pm WHERE md.object_type = '{object_type}' AND table_name = '{table_name}' AND pm.data_property = md.data_property ORDER BY md.data_property ASC LIMIT 300",
+      "inputColumnsQuery":
           "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
-      FSK.mappingFunctionsDropdownItemsCache:
-          "SELECT function_name FROM jetsapi.mapping_function_registry ORDER BY function_name ASC LIMIT 50",
+      "mappingFunctionsQuery":
+          "SELECT function_name, is_argument_required FROM jetsapi.mapping_function_registry ORDER BY function_name ASC LIMIT 50",
+    },
+    inputFieldsQuery: "inputFieldsQuery",
+    savedStateQuery: "inputFieldsQuery",
+    dropdownItemsQueries: {
+      FSK.inputColumnsDropdownItemsCache: "inputColumnsQuery",
+      FSK.mappingFunctionsDropdownItemsCache: "mappingFunctionsQuery",
     },
     metadataQueries: {
-      FSK.mappingFunctionDetailsCache:
-          "SELECT function_name, is_argument_required FROM jetsapi.mapping_function_registry ORDER BY function_name ASC LIMIT 50",
-      FSK.inputColumnsCache:
-          "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
+      FSK.mappingFunctionDetailsCache: "mappingFunctionsQuery",
+      FSK.inputColumnsCache: "inputColumnsQuery",
     },
     stateKeyPredicates: [FSK.objectType, FSK.tableName],
     inputFieldRowBuilder: (index, inputFieldRow, formState) {
@@ -652,7 +686,7 @@ final Map<String, FormConfig> _formConfigurations = {
       final savedState = formState.getCacheValue(FSK.savedStateCache) as List?;
       final isRequired = inputFieldRow[1]! == '1';
       final isRequiredIndicator = isRequired ? '*' : '';
-      final savedInputColumn = savedState?[index][1];
+      final savedInputColumn = savedState?[index][2];
       final inputColumnList =
           formState.getCacheValue(FSK.inputColumnsCache) as List;
       final inputColumnDefault =
@@ -662,71 +696,80 @@ final Map<String, FormConfig> _formConfigurations = {
       formState.setValue(index, FSK.dataProperty, inputFieldRow[0]);
       formState.setValue(
           index, FSK.inputColumn, savedInputColumn ?? inputColumnDefault);
-      formState.setValue(index, FSK.functionName, savedState?[index][2]);
-      formState.setValue(index, FSK.functionArgument, savedState?[index][3]);
-      formState.setValue(index, FSK.mappingDefaultValue, savedState?[index][4]);
-      formState.setValue(index, FSK.mappingErrorMessage, savedState?[index][5]);
+      formState.setValue(index, FSK.functionName, savedState?[index][3]);
+      formState.setValue(index, FSK.functionArgument, savedState?[index][4]);
+      formState.setValue(index, FSK.mappingDefaultValue, savedState?[index][5]);
+      formState.setValue(index, FSK.mappingErrorMessage, savedState?[index][6]);
+      // print("Form BUILDER savedState row ${savedState![index]}");
       return [
-        // data_property
-        TextFieldConfig(
-            label: "$index: ${inputFieldRow[0]}$isRequiredIndicator",
+        [
+          // data_property
+          TextFieldConfig(
+              label: "$index: ${inputFieldRow[0]}$isRequiredIndicator",
+              group: index,
+              flex: 1,
+              topMargin: 20.0)
+        ],
+        [
+          // input_column
+          FormDropdownWithSharedItemsFieldConfig(
+            key: FSK.inputColumn,
             group: index,
-            flex: 2),
-        // input_column
-        FormDropdownWithSharedItemsFieldConfig(
-          key: FSK.inputColumn,
-          group: index,
-          flex: 3,
-          dropdownMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
-          defaultItem: savedInputColumn ?? inputColumnDefault,
-        ),
-        // function_name
-        FormDropdownWithSharedItemsFieldConfig(
-          key: FSK.functionName,
-          group: index,
-          flex: 2,
-          dropdownMenuItemCacheKey: FSK.mappingFunctionsDropdownItemsCache,
-          defaultItem: savedState?[index][2],
-        ),
-        // argument
-        FormInputFieldConfig(
+            flex: 2,
+            autovalidateMode: AutovalidateMode.always,
+            dropdownMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
+            defaultItem: savedInputColumn ?? inputColumnDefault,
+          ),
+          // function_name
+          FormDropdownWithSharedItemsFieldConfig(
+            key: FSK.functionName,
+            group: index,
+            flex: 1,
+            dropdownMenuItemCacheKey: FSK.mappingFunctionsDropdownItemsCache,
+            defaultItem: savedState?[index][3],
+          ),
+          // argument
+          FormInputFieldConfig(
             key: FSK.functionArgument,
             label: "Function Argument",
             hint:
                 "Cleansing function argument, it is either required or ignored",
             group: index,
-            flex: 2,
+            flex: 1,
+            autovalidateMode: AutovalidateMode.always,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            defaultValue: savedState?[index][3],
-            maxLength: 512),
-        // default_value
-        FormInputFieldConfig(
+            maxLength: 512,
+          ),
+          // default_value
+          FormInputFieldConfig(
             key: FSK.mappingDefaultValue,
             label: "Default Value",
             hint:
                 "Default value to use if input value is not provided or cleansing function returns null",
             group: index,
-            flex: 2,
+            flex: 1,
+            autovalidateMode: AutovalidateMode.always,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            defaultValue: savedState?[index][4],
-            maxLength: 512),
-        // error_message
-        FormInputFieldConfig(
+            maxLength: 512,
+          ),
+          // error_message
+          FormInputFieldConfig(
             key: FSK.mappingErrorMessage,
             label: "Error Message",
             hint:
                 "Error message to raise if input value is not provided or cleansing function returns null and there is no default value",
             group: index,
-            flex: 2,
+            flex: 1,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            defaultValue: savedState?[index][5],
-            maxLength: 125),
+            maxLength: 125,
+          ),
+        ],
       ];
     },
   ),

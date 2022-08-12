@@ -30,7 +30,9 @@ class JetsDataTableWidget extends FormField<WidgetField> {
               ? (WidgetField? value) => formFieldValidator(
                   formFieldConfig.group, formFieldConfig.key, value)
               : null,
-          autovalidateMode: AutovalidateMode.disabled,
+          autovalidateMode: formFieldConfig != null
+              ? formFieldConfig.autovalidateMode
+              : AutovalidateMode.disabled,
           builder: (FormFieldState<WidgetField> field) {
             final state = field as JetsDataTableState;
             final context = field.context;
