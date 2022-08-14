@@ -15,9 +15,11 @@ class JetsDataTableSource extends ChangeNotifier {
   JetsDataModel? model;
   int _totalRowCount = 0;
   List<bool> selectedRows = <bool>[];
+  bool _whereClauseSatisfied = false;
 
   int get rowCount => model != null ? model!.length : 0;
   int get totalRowCount => _totalRowCount;
+  bool get isWhereClauseSatisfied => _whereClauseSatisfied;
 
   /// returns true if table has selected row(s)
   bool hasSelectedRows() {
@@ -316,11 +318,13 @@ class JetsDataTableSource extends ChangeNotifier {
       }
     }
     if (hasBlockingFilter) {
+      _whereClauseSatisfied = false;
       model = null;
       _totalRowCount = 0;
       notifyListeners();
       return;
     }
+    _whereClauseSatisfied = true;
     var data = await fetchData();
     if (data != null) {
       // Check if we got columnDef back

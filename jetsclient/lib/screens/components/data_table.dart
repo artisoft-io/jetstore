@@ -18,17 +18,16 @@ class JetsDataTableWidget extends FormField<WidgetField> {
     this.formFieldConfig,
     required this.tableConfig,
     this.formState,
-    this.formFieldValidator,
-    required this.dialogValidatorDelegate,
+    required this.validatorDelegate,
     required this.actionsDelegate,
   })  : assert((formState != null && formFieldConfig != null) ||
             (formState == null && formFieldConfig == null)),
         super(
           initialValue:
               formState?.getValue(formFieldConfig!.group, formFieldConfig.key),
-          validator: formFieldConfig != null && formFieldValidator != null
-              ? (WidgetField? value) => formFieldValidator(
-                  formFieldConfig.group, formFieldConfig.key, value)
+          validator: formFieldConfig != null
+              ? (WidgetField? value) => validatorDelegate(
+                  formState!, formFieldConfig.group, formFieldConfig.key, value)
               : null,
           autovalidateMode: formFieldConfig != null
               ? formFieldConfig.autovalidateMode
@@ -124,7 +123,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                 .expand((ac) => [
                       const SizedBox(width: defaultPadding),
                       ElevatedButton(
-                        style: ac.buttonStyle(themeData),
+                        style: buttonStyle(ac.style, themeData),
                         onPressed: ac.isEnabled(state)
                             ? () => state.actionDispatcher(context, ac)
                             : null,
@@ -221,8 +220,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
   final TableConfig tableConfig;
   final FormDataTableFieldConfig? formFieldConfig;
   final JetsFormState? formState;
-  final JetsFormFieldValidator? formFieldValidator;
-  final ValidatorDelegate dialogValidatorDelegate;
+  final ValidatorDelegate validatorDelegate;
   final FormActionsDelegate actionsDelegate;
 
   @override
@@ -256,7 +254,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   FormDataTableFieldConfig? get formFieldConfig =>
       _dataTableWidget.formFieldConfig;
   ValidatorDelegate get dialogValidatorDelegate =>
-      _dataTableWidget.dialogValidatorDelegate;
+      _dataTableWidget.validatorDelegate;
   FormActionsDelegate get actionsDelegate => _dataTableWidget.actionsDelegate;
 
   @override
@@ -359,10 +357,13 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   }
 
   void refreshOnFormStateChange() {
+    print("refreshOnFormStateChange called on ${formFieldConfig?.key}");
     assert(formState != null);
     assert(formFieldConfig != null);
     for (final whereClause in tableConfig.whereClauses) {
       if (whereClause.formStateKey != null) {
+        print(
+            "whereClause on group ${formFieldConfig!.group}, key ${whereClause.formStateKey} for ${formFieldConfig?.key}");
         if (formState!
             .isKeyUpdated(formFieldConfig!.group, whereClause.formStateKey!)) {
           // where clause have changed, refresh the table, make sure to go to
@@ -433,13 +434,24 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         JetsRow? row = dataSource.getFirstSelectedRow();
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
         // add state information to dialogFormState if navigationParams exists
-        ac.navigationParams?.forEach((key, value) {
-          if (value is String?) {
-            dialogFormState.setValue(0, key, value);
-          } else {
-            dialogFormState.setValue(0, key, row![value]);
-          }
-        });
+        if (ac.stateFormNavigationParams != null) {
+          ac.stateFormNavigationParams?.forEach((key, npKey) {
+            var value = formState?.getValue(0, npKey);
+            if(value is List<String>) {
+              dialogFormState.setValue(0, key, value[0]);  
+            } else {
+              dialogFormState.setValue(0, key, value);
+            }
+          });
+        } else {
+          ac.navigationParams?.forEach((key, value) {
+            if (value is String?) {
+              dialogFormState.setValue(0, key, value);
+            } else {
+              dialogFormState.setValue(0, key, row![value]);
+            }
+          });
+        }
         showFormDialog<DTActionResult>(
           formKey: dialogFormKey,
           screenPath: _dataTableWidget.screenPath,

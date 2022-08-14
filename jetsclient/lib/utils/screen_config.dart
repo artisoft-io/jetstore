@@ -79,6 +79,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
 
+  // Process Config Screen
+  ScreenKeys.processConfig: ScreenConfig(
+      key: ScreenKeys.processConfig,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Process and Client Rule Config',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
   // Login Screen
   ScreenKeys.login: ScreenConfig(
       key: ScreenKeys.login,

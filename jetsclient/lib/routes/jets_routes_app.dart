@@ -59,6 +59,15 @@ final Map<String, Widget> jetsRoutesMap = {
       formValidatorDelegate: processInputFormValidator,
       formActionsDelegate: processInputFormActions),
 
+  // Process Config and Client Rule Config
+  processConfigPath: ScreenWithForm(
+      key: const Key(ScreenKeys.processConfig),
+      screenPath: JetsRouteData(processConfigPath),
+      screenConfig: getScreenConfig(ScreenKeys.processConfig),
+      formConfig: getFormConfig(FormKeys.processConfig),
+      formValidatorDelegate: processConfigFormValidator,
+      formActionsDelegate: processConfigFormActions),
+
   // Login Screen
   loginPath: ScreenWithForm(
       key: const Key(ScreenKeys.login),
@@ -82,8 +91,8 @@ final Map<String, Widget> jetsRoutesMap = {
       key: const Key(ScreenKeys.fileRegistryTable),
       screenPath: JetsRouteData(domainTableViewerPath),
       screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
-      validatorDelegate: (context, formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey) {},
+      validatorDelegate: (formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
       tableConfig: getTableConfig(DTKeys.inputTable)),
 
   // Page Not Found
@@ -95,8 +104,8 @@ final Map<String, Widget> jetsRoutesMap = {
       key: const Key(ScreenKeys.pipelines),
       screenPath: JetsRouteData(pipelinePath),
       screenConfig: getScreenConfig(ScreenKeys.pipelines),
-      validatorDelegate: (context, formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey) {},
+      validatorDelegate: (formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
       tableConfig: getTableConfig(DTKeys.pipelineDemo)),
   //* TEST SCREEN
   // mappingConfigPath: TestScreen(
@@ -109,16 +118,16 @@ final Map<String, Widget> jetsRoutesMap = {
       key: const Key(ScreenKeys.fileRegistry),
       screenPath: JetsRouteData(fileRegistryPath),
       screenConfig: getScreenConfig(ScreenKeys.fileRegistry),
-      validatorDelegate: (context, formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey) {},
+      validatorDelegate: (formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
       tableConfig: getTableConfig(DTKeys.registryDemo)),
   // File Registry Table Screen
   fileRegistryTablePath: ScreenOne(
       key: const Key(ScreenKeys.fileRegistryTable),
       screenPath: JetsRouteData(fileRegistryTablePath),
       screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
-      validatorDelegate: (context, formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey) {},
+      validatorDelegate: (formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
       tableConfig: getTableConfig(DTKeys.inputTable)),
 };
 const noAuthRequiredPaths = {loginPath, registerPath, pageNotFoundPath};

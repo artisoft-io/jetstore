@@ -10,8 +10,8 @@ import 'package:provider/provider.dart';
 
 /// Validation and Actions delegates for the user-related forms
 /// Login Form Validator
-String? loginFormValidator(BuildContext context, JetsFormState formState,
-    int group, String key, dynamic v) {
+String? loginFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
   // This form does not use data table, therefore v is String?
   assert(v is String?, "Login Form has unexpected data type");
   String? value = v;
@@ -27,15 +27,14 @@ String? loginFormValidator(BuildContext context, JetsFormState formState,
       }
       return "Password must be provided.";
     default:
-      showAlertDialog(context,
-          'Oops login form has no validator configured for form field $key');
+      print('Oops login form has no validator configured for form field $key');
   }
   return null;
 }
 
 /// Login Form Actions
 void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey) async {
+    JetsFormState formState, String actionKey, {int group = 0}) async {
   switch (actionKey) {
     case ActionKeys.login:
       var valid = formKey.currentState!.validate();
@@ -75,8 +74,8 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
 }
 
 // Registration Form Validator
-String? registrationFormValidator(BuildContext context, JetsFormState formState,
-    int group, String key, dynamic v) {
+String? registrationFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
   // This form does not use data table, therefore v is String?
   assert(v is String?, "Registration Form has unexpected data type");
   String? value = v;
@@ -116,7 +115,7 @@ String? registrationFormValidator(BuildContext context, JetsFormState formState,
       }
       return null;
     default:
-      showAlertDialog(context,
+      print(
           'Oops registration form has no validator configured for form field $key');
   }
   return null;
@@ -124,7 +123,7 @@ String? registrationFormValidator(BuildContext context, JetsFormState formState,
 
 /// Registration Form Actions
 void registrationFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey) async {
+    JetsFormState formState, String actionKey, {int group = 0}) async {
   var valid = formKey.currentState!.validate();
   if (!valid) {
     return;

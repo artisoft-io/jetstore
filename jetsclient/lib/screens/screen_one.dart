@@ -18,7 +18,7 @@ class ScreenOne extends BaseScreen {
               key: Key(screenConfig.key),
               screenPath: screenPath,
               tableConfig: tableConfig,
-              dialogValidatorDelegate: validatorDelegate,
+              validatorDelegate: validatorDelegate,
               actionsDelegate: actionsDelegate);
         });
   final TableConfig tableConfig;

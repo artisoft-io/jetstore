@@ -3,8 +3,6 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/utils/constants.dart';
 
-enum ActionStyle { primary, secondary, danger }
-
 class TableConfig {
   TableConfig(
       {required this.key,
@@ -53,9 +51,14 @@ enum DataTableActionType {
 /// case isVisibleWhenCheckboxVisible == false, action visible when table check boxes are NOT visible
 /// case isVisibleWhenCheckboxVisible == true, action visible when table check boxes ARE visble
 ///
-/// case isEnabledWhenHavingSelectedRows is null, action always enable when visible
+/// case isEnabledWhenHavingSelectedRows is null, action always enable when visible (unless other conditions exist)
 /// case isEnabledWhenHavingSelectedRows == false, action always enabled when table check boxes are visible
 /// case isEnabledWhenHavingSelectedRows == true, action enabled when table HAVE selected row(s)
+///
+/// case isEnabledWhenWhereClauseSatisfied is null, action always enabled when visible (unless other conditions exists)
+/// case isEnabledWhenWhereClauseSatisfied == false, action enabled when where clause fails (perhaps to have a 'show all rows' option)
+/// case isEnabledWhenWhereClauseSatisfied == true, action enabled when where clause exists and is satisfied
+///
 /// [navigationParams] hold param information for:
 ///   - navigating to a screen (action type showScreen) with key corresponding
 ///     to the key to provide to navigator's param
@@ -65,6 +68,10 @@ enum DataTableActionType {
 /// The value associated to the [navigationParam]'s key correspond to a column
 /// index to take the associated value of the selected row.
 /// Note: if the value is a String (rather than an int), then use it as the value to pass to the navigator.
+/// [stateFormNavigationParams] is similar to [navigationParams] with the difference
+/// that the value are string corresponding to state form keys.
+/// Therefore the navigation params' values are resolved by looking up the value
+/// in the state form.
 /// (see data table state method [actionDispatcher])
 class ActionConfig {
   ActionConfig(
@@ -73,7 +80,9 @@ class ActionConfig {
       required this.label,
       this.isVisibleWhenCheckboxVisible,
       this.isEnabledWhenHavingSelectedRows,
+      this.isEnabledWhenWhereClauseSatisfied,
       this.navigationParams,
+      this.stateFormNavigationParams,
       required this.style,
       this.configForm,
       this.configScreenPath,
@@ -83,7 +92,9 @@ class ActionConfig {
   final String label;
   final bool? isVisibleWhenCheckboxVisible;
   final bool? isEnabledWhenHavingSelectedRows;
+  final bool? isEnabledWhenWhereClauseSatisfied;
   final Map<String, dynamic>? navigationParams;
+  final Map<String, String>? stateFormNavigationParams;
   final ActionStyle style;
   final String? configForm;
   final String? configScreenPath;
@@ -103,29 +114,11 @@ class ActionConfig {
       return isEnabledWhenHavingSelectedRows ==
           widgetState.dataSource.hasSelectedRows();
     }
-    return true;
-  }
-
-  ButtonStyle buttonStyle(ThemeData td) {
-    switch (style) {
-      case ActionStyle.danger:
-        return ElevatedButton.styleFrom(
-          foregroundColor: td.colorScheme.onErrorContainer,
-          backgroundColor: td.colorScheme.errorContainer,
-        ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
-
-      case ActionStyle.secondary:
-        return ElevatedButton.styleFrom(
-          foregroundColor: td.colorScheme.onPrimaryContainer,
-          backgroundColor: td.colorScheme.primaryContainer,
-        ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
-
-      default: // primary
-        return ElevatedButton.styleFrom(
-          foregroundColor: td.colorScheme.onSecondaryContainer,
-          backgroundColor: td.colorScheme.secondaryContainer,
-        ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+    if (isEnabledWhenWhereClauseSatisfied != null) {
+      return isEnabledWhenWhereClauseSatisfied ==
+          widgetState.dataSource.isWhereClauseSatisfied;
     }
+    return true;
   }
 }
 
@@ -545,6 +538,85 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Process Name Table
+  DTKeys.processNameTable: TableConfig(
+    key: DTKeys.processNameTable,
+    schemaName: 'jetsapi',
+    tableName: 'process_config',
+    label: 'Rule Processes',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.processName,
+        columnIdx: 1,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "process_name",
+          label: 'Process Name',
+          tooltips: 'Business Rules Process name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "description",
+          label: 'Process description',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'process_name',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // Client Name Table
+  DTKeys.clientsNameTable: TableConfig(
+    key: DTKeys.clientsNameTable,
+    schemaName: 'jetsapi',
+    tableName: 'client_registry',
+    label: 'Clients',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.client,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client Name',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "details",
+          label: 'Client details',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'client',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
   // Source Config Data Table
   DTKeys.sourceConfigsTable: TableConfig(
     key: DTKeys.sourceConfigsTable,
@@ -641,7 +713,11 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.processMapping,
-          navigationParams: {FSK.tableName: 3, FSK.processInputKey: 0, FSK.objectType: 2}),
+          navigationParams: {
+            FSK.tableName: 3,
+            FSK.processInputKey: 0,
+            FSK.objectType: 2
+          }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
@@ -728,8 +804,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
     whereClauses: [
-      WhereClause(
-          column: "table_name", formStateKey: FSK.tableName)
+      WhereClause(column: "table_name", formStateKey: FSK.tableName)
     ],
     actions: [],
     // No formStateConfig since rows are not selectable
@@ -800,6 +875,86 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
     ],
     sortColumnName: 'data_property',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // Rule Config Data Table
+  DTKeys.ruleConfigTable: TableConfig(
+    key: DTKeys.ruleConfigTable,
+    schemaName: 'jetsapi',
+    tableName: 'rule_config',
+    label: 'Rules Configuration',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(column: "process_name", formStateKey: FSK.processName),
+      WhereClause(column: "client", formStateKey: FSK.client),
+    ],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'ruleConfigAction',
+          label: 'Edit Rule Configuration Triples',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          isEnabledWhenWhereClauseSatisfied: true,
+          configForm: FormKeys.rulesConfig,
+          stateFormNavigationParams: {
+            FSK.processConfigKey: FSK.processConfigKey,
+            FSK.client: FSK.client,
+            FSK.processName: FSK.processName
+          }),
+    ],
+    // No formStateConfig since rows are not selectable
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "process_config_key",
+          label: 'Process Config Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "process_name",
+          label: 'Process',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "subject",
+          label: 'Subject',
+          tooltips: 'Rule config subject',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "predicate",
+          label: 'Predicate',
+          tooltips: 'Rule config predicate',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "object",
+          label: 'Object',
+          tooltips: 'Rule config object',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "rdf_type",
+          label: 'Object' 's rdf type',
+          tooltips: 'Object' 's rdf type',
+          isNumeric: false),
+    ],
+    sortColumnName: 'subject',
     sortAscending: true,
     rowsPerPage: 10,
   ),
