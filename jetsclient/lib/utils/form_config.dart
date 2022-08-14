@@ -182,7 +182,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsTextFormField(
-      key: Key(key),
+      key: Key("${key}_$group"),
       formFieldConfig: this,
       onChanged: (p0) => jetsFormWidgetState.widget.formState
           .setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
@@ -233,7 +233,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsDropdownButtonFormField(
-      key: Key(key),
+      key: Key("${key}_$group"),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => jetsFormWidgetState.widget.formState
@@ -244,6 +244,20 @@ class FormDropdownFieldConfig extends FormFieldConfig {
       formState: jetsFormWidgetState.widget.formState,
     );
   }
+
+  static final List<DropdownItemConfig> rdfDropdownItems = [
+    DropdownItemConfig(label: 'Select...', value: ''),
+    DropdownItemConfig(label: 'Boolean', value: 'bool'),
+    DropdownItemConfig(label: 'Date', value: 'date'),
+    DropdownItemConfig(label: 'Datetime', value: 'datetime'),
+    DropdownItemConfig(label: 'Double', value: 'double'),
+    DropdownItemConfig(label: 'Int', value: 'int'),
+    DropdownItemConfig(label: 'Long', value: 'long'),
+    DropdownItemConfig(label: 'Resource', value: 'resource'),
+    DropdownItemConfig(label: 'Text', value: 'text'),
+    DropdownItemConfig(label: 'Unsigned Int', value: 'uint'),
+    DropdownItemConfig(label: 'Unsigned Long', value: 'ulong'),
+  ];
 }
 
 /// Dropdown Widget with Shared [items], [items] is provided via
@@ -269,7 +283,7 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
   }) {
     var state = jetsFormWidgetState.widget.formState;
     return JetsDropdownWithSharedItemsFormField(
-      key: Key(key),
+      key: Key("${key}_$group"),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
@@ -306,7 +320,7 @@ class FormDataTableFieldConfig extends FormFieldConfig {
         width: tableWidth,
         height: tableHeight,
         child: JetsDataTableWidget(
-          key: Key(key),
+          key: Key("${key}_$group"),
           screenPath: screenPath,
           formFieldConfig: this,
           tableConfig: getTableConfig(dataTableConfig),
@@ -360,7 +374,7 @@ class FormActionConfig extends FormFieldConfig {
     required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsFormButton(
-        key: Key(key),
+        key: Key("${key}_$group"),
         formActionConfig: this,
         formKey: jetsFormWidgetState.widget.formKey,
         formState: jetsFormWidgetState.widget.formState,
@@ -422,11 +436,15 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.login,
           label: "Sign in",
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.register,
           label: "Register",
-          buttonStyle: ActionStyle.secondary),
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
     ],
     inputFields: [
       [
@@ -458,7 +476,9 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.register,
           label: "Register",
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: defaultPadding),
     ],
     inputFields: [
       [
@@ -525,11 +545,15 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.clientOk,
           label: "Insert",
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.secondary),
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
     ],
     inputFields: [
       [
@@ -563,11 +587,15 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.loaderOk,
           label: "Load",
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.secondary),
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
     ],
     inputFields: [
       [
@@ -634,11 +662,15 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.addProcessInputOk,
           label: "Add",
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.secondary),
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
     ],
     inputFields: [
       [
@@ -685,15 +717,21 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.mapperOk,
           label: "Save",
           enableOnlyWhenFormValid: true,
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.mapperDraft,
           label: "Save as Draft",
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.secondary),
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
     ],
     queries: {
       "inputFieldsQuery":
@@ -818,11 +856,15 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.ruleConfigOk,
           label: "Save",
           enableOnlyWhenFormValid: true,
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.secondary),
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
     ],
     queries: {
       "inputFieldsQuery":
@@ -839,88 +881,83 @@ final Map<String, FormConfig> _formConfigurations = {
       formState.setValue(index, FSK.predicate, inputFieldRow[1]);
       formState.setValue(index, FSK.object, inputFieldRow[2]);
       formState.setValue(index, FSK.rdfType, inputFieldRow[3]);
-      // pre compute the rdf type dropdown items
-      var rdfTypeDropdownItems = [
-        if(isLastRow) DropdownItemConfig(label: '', value: ''),
-        if(!isLastRow) DropdownItemConfig(label: 'Boolean', value: 'bool'),
-        if(!isLastRow) DropdownItemConfig(label: 'Date', value: 'date'),
-        if(!isLastRow) DropdownItemConfig(label: 'Datetime', value: 'datetime'),
-        if(!isLastRow) DropdownItemConfig(label: 'Double', value: 'double'),
-        if(!isLastRow) DropdownItemConfig(label: 'Int', value: 'int'),
-        if(!isLastRow) DropdownItemConfig(label: 'Long', value: 'long'),
-        if(!isLastRow) DropdownItemConfig(label: 'Resource', value: 'resource'),
-        if(!isLastRow) DropdownItemConfig(label: 'Text', value: 'text'),
-        if(!isLastRow) DropdownItemConfig(label: 'Unsigned Int', value: 'uint'),
-        if(!isLastRow) DropdownItemConfig(label: 'Unsigned Long', value: 'ulong'),
-      ];
       var client = formState.getValue(index, FSK.client);
       var processName = formState.getValue(index, FSK.processName);
       // print("Form BUILDER savedState row $inputFieldRow");
       return [
-        if (index == 0)
-          [
-            TextFieldConfig(
-                label: "$processName Rules Configuration for $client",
-                group: index,
-                topMargin: 20.0)
-          ],
+        // if (index == 0)
+        //   [
+        //     TextFieldConfig(
+        //         label: "$processName Rules Configuration for $client",
+        //         group: index,
+        //         topMargin: 20.0)
+        //   ],
         [
+          // NOTE: ** if the layout of the input field row changes,
+          // need to also reflect the change in config_delegate.dart
+          // for the Add Row action. **
           // subject
-          if(!isLastRow) FormInputFieldConfig(
-                      key: FSK.subject,
-                      label: "Subject",
-                      hint: "Rule config subject",
-                      group: index,
-                      flex: 2,
-                      autovalidateMode: AutovalidateMode.always,
-                      autofocus: false,
-                      obscureText: false,
-                      textRestriction: TextRestriction.none,
-                      maxLength: 512,
-                    ),
-          if(isLastRow) TextFieldConfig(label: '', flex: 2),
+          if (!isLastRow)
+            FormInputFieldConfig(
+              key: FSK.subject,
+              label: "Subject",
+              hint: "Rule config subject",
+              group: index,
+              flex: 2,
+              autovalidateMode: AutovalidateMode.always,
+              autofocus: false,
+              obscureText: false,
+              textRestriction: TextRestriction.none,
+              maxLength: 512,
+            ),
+          if (isLastRow) TextFieldConfig(label: '', flex: 2),
           // predicate
-          if(!isLastRow) FormInputFieldConfig(
-            key: FSK.predicate,
-            label: "Predicate",
-            hint: "Rule config predicate",
-            group: index,
-            flex: 2,
-            autovalidateMode: AutovalidateMode.always,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 512,
-          ),
-          if(isLastRow) TextFieldConfig(label: '', flex: 2),
+          if (!isLastRow)
+            FormInputFieldConfig(
+              key: FSK.predicate,
+              label: "Predicate",
+              hint: "Rule config predicate",
+              group: index,
+              flex: 2,
+              autovalidateMode: AutovalidateMode.always,
+              autofocus: false,
+              obscureText: false,
+              textRestriction: TextRestriction.none,
+              maxLength: 512,
+            ),
+          if (isLastRow) TextFieldConfig(label: '', flex: 2),
           // object
-          if(!isLastRow) FormInputFieldConfig(
-            key: FSK.object,
-            label: "Object",
-            hint: "Rule config object",
-            group: index,
-            flex: 2,
-            autovalidateMode: AutovalidateMode.always,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 512,
-          ),
-          if(isLastRow) TextFieldConfig(label: '', flex: 2),
+          if (!isLastRow)
+            FormInputFieldConfig(
+              key: FSK.object,
+              label: "Object",
+              hint: "Rule config object",
+              group: index,
+              flex: 2,
+              autovalidateMode: AutovalidateMode.always,
+              autofocus: false,
+              obscureText: false,
+              textRestriction: TextRestriction.none,
+              maxLength: 512,
+            ),
+          if (isLastRow) TextFieldConfig(label: '', flex: 2),
           // rdf type
-          FormDropdownFieldConfig(
-            key: FSK.rdfType,
-            group: index,
-            flex: 1,
-            items: rdfTypeDropdownItems,
-            defaultItemPos: 0,
-          ),
+          if (!isLastRow)
+            FormDropdownFieldConfig(
+              key: FSK.rdfType,
+              group: index,
+              flex: 1,
+              autovalidateMode: AutovalidateMode.always,
+              items: FormDropdownFieldConfig.rdfDropdownItems,
+              defaultItemPos: 0,
+            ),
+          if (isLastRow) TextFieldConfig(label: '', flex: 1),
           // add / delete row button
           FormActionConfig(
             key: isLastRow
                 ? ActionKeys.ruleConfigAdd
                 : ActionKeys.ruleConfigDelete,
-            group: index,
+            group: isLastRow ? 0 : index,
             flex: 1,
             label: isLastRow ? 'Add Row' : '',
             labelByStyle: {
@@ -929,7 +966,8 @@ final Map<String, FormConfig> _formConfigurations = {
             },
             buttonStyle:
                 isLastRow ? ActionStyle.secondary : ActionStyle.alternate,
-            leftMargin: 16.0,
+            leftMargin: defaultPadding,
+            rightMargin: defaultPadding,
           ),
         ],
       ];
@@ -969,7 +1007,9 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: "dataTableDemoAction1",
           label: "Do it!",
-          buttonStyle: ActionStyle.primary),
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: defaultPadding),
     ],
     inputFields: [
       [

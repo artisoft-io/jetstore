@@ -6,6 +6,7 @@ import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 
 /// Validation and Actions delegates for the source to pipeline config forms
@@ -439,6 +440,7 @@ void processConfigFormActions(BuildContext context,
         return;
       }
       // Insert rows to rule_config table
+      var processConfigKey = formState.getValue(0, FSK.processConfigKey);
       var processName = formState.getValue(0, FSK.processName);
       var client = formState.getValue(0, FSK.client);
       if (processName == null || client == null) {
@@ -447,13 +449,15 @@ void processConfigFormActions(BuildContext context,
       }
       for (var i = 0; i < formState.groupCount; i++) {
         formState.setValue(i, FSK.client, client);
+        formState.setValue(i, FSK.processConfigKey, processConfigKey);
         formState.setValue(i, FSK.processName, processName);
         formState.setValue(i, FSK.userEmail, JetsRouterDelegate().user.email);
       }
+      var stateList = formState.getInternalState();
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'table': 'rule_config',
-        'data': formState.getInternalState(),
+        'data': stateList.getRange(0, stateList.length-1).toList(),
       }, toEncodable: (_) => '');
       // Insert rows to process_mapping
       var navigator = Navigator.of(context);
@@ -468,6 +472,8 @@ void processConfigFormActions(BuildContext context,
         formState.parentFormState?.setValue(0, FSK.processName, null);
         formState.parentFormState
             ?.setValueAndNotify(0, FSK.processName, processName);
+        navigator.pop(DTActionResult.okDataTableDirty); 
+
       } else if (result.statusCode == 400 ||
           result.statusCode == 406 ||
           result.statusCode == 422) {
@@ -495,7 +501,60 @@ void processConfigFormActions(BuildContext context,
       break;
 
     case ActionKeys.ruleConfigAdd:
-      print("ADD row HERE");
+      var index = formState.groupCount - 1;
+      formState.resizeFormState(formState.groupCount + 1);
+      formState.activeFormWidgetState?.alternateInputFields.insert(index, [
+        FormInputFieldConfig(
+            key: FSK.subject,
+            label: 'Subject',
+            hint: 'Rule config subject',
+            group: index,
+            flex: 2,
+            autovalidateMode: AutovalidateMode.always,
+            autofocus: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512),
+        FormInputFieldConfig(
+            key: FSK.predicate,
+            label: 'Predicate',
+            hint: 'Rule config predicate',
+            group: index,
+            flex: 2,
+            autovalidateMode: AutovalidateMode.always,
+            autofocus: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512),
+        FormInputFieldConfig(
+            key: FSK.object,
+            label: 'Object',
+            hint: 'Rule config object',
+            group: index,
+            flex: 2,
+            autovalidateMode: AutovalidateMode.always,
+            autofocus: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512),
+        FormDropdownFieldConfig(
+            key: FSK.rdfType,
+            group: index,
+            flex: 1,
+            autovalidateMode: AutovalidateMode.always,
+            items: FormDropdownFieldConfig.rdfDropdownItems,
+            defaultItemPos: 0),
+        FormActionConfig(
+            key: ActionKeys.ruleConfigDelete,
+            group: index,
+            flex: 1,
+            label: '',
+            labelByStyle: {
+              ActionStyle.alternate: 'Delete',
+              ActionStyle.danger: 'Confirm',
+            },
+            buttonStyle: ActionStyle.alternate,
+            leftMargin: defaultPadding,
+            rightMargin: defaultPadding),
+      ]);
+      formState.activeFormWidgetState?.markAsDirty();
       break;
 
     case ActionKeys.dialogCancel:

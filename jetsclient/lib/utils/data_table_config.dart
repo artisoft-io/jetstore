@@ -903,7 +903,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenWhereClauseSatisfied: true,
           configForm: FormKeys.rulesConfig,
           stateFormNavigationParams: {
-            FSK.processConfigKey: FSK.processConfigKey,
+            FSK.processConfigKey: DTKeys.processNameTable,
             FSK.client: FSK.client,
             FSK.processName: FSK.processName
           }),

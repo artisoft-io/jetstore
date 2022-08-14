@@ -357,13 +357,12 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   }
 
   void refreshOnFormStateChange() {
-    print("refreshOnFormStateChange called on ${formFieldConfig?.key}");
     assert(formState != null);
     assert(formFieldConfig != null);
     for (final whereClause in tableConfig.whereClauses) {
       if (whereClause.formStateKey != null) {
-        print(
-            "whereClause on group ${formFieldConfig!.group}, key ${whereClause.formStateKey} for ${formFieldConfig?.key}");
+        // print(
+        //     "whereClause on group ${formFieldConfig!.group}, key ${whereClause.formStateKey} for ${formFieldConfig?.key}");
         if (formState!
             .isKeyUpdated(formFieldConfig!.group, whereClause.formStateKey!)) {
           // where clause have changed, refresh the table, make sure to go to
