@@ -1,4 +1,37 @@
+import 'package:flutter/material.dart';
+
 const defaultPadding = 16.0;
+
+/// Button action style, used by both JetsDataTable and JetsForm
+enum ActionStyle { primary, secondary, alternate, danger }
+
+ButtonStyle buttonStyle(ActionStyle style, ThemeData td) {
+  switch (style) {
+    case ActionStyle.danger:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onErrorContainer,
+        backgroundColor: td.colorScheme.errorContainer,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.secondary:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.alternate:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: Colors.orange.shade200,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    default: // primary
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+  }
+}
 
 /// Screen ID Keys
 /// standard keys to identify screen config key
@@ -7,6 +40,7 @@ class ScreenKeys {
   static const sourceConfig = "sourceConfigScreen";
   static const domainTableViewer = "domainTableViewerScreen";
   static const processInput = "processInputScreen";
+  static const processConfig = "processConfigScreen";
 
   static const login = "loginScreen";
   static const register = "registerScreen";
@@ -28,6 +62,8 @@ class FormKeys {
   static const processInput = "processInputForm";
   static const addProcessInput = "addProcessInputDialog";
   static const processMapping = "processMappingDialog";
+  static const processConfig = "processConfigForm";
+  static const rulesConfig = "rulesConfigDialog";
 
   static const login = "login";
   static const register = "register";
@@ -68,6 +104,15 @@ class FSK {
   static const functionArgument = "argument";
   static const mappingDefaultValue = "default_value";
   static const mappingErrorMessage = "error_message";
+
+  // Process and Rule Config keys
+  static const processConfigKey = "process_config.key";
+  static const processName = "process_name";
+  static const description = "description";
+  static const subject = "subject";
+  static const predicate = "predicate";
+  static const object = "object";
+  static const rdfType = "rdfType";
 
   // reserved keys for cache
 
@@ -113,11 +158,17 @@ class ActionKeys {
   static const dialogCancel = "dialog.cancelAction";
   // for load file dialog
   static const loaderOk = "loader.ok";
+
   // for add process input dialog
   static const addProcessInputOk = "addProcessInputOk";
   // for process mapping dialog
   static const mapperOk = "mapper.ok";
   static const mapperDraft = "mapper.draft";
+  
+  // for process and rules config dialog
+  static const ruleConfigOk = "ruleConfig.ok";
+  static const ruleConfigAdd = "ruleConfig.add";
+  static const ruleConfigDelete = "ruleConfig.delete";
 }
 
 /// Form Action Keys
@@ -147,6 +198,12 @@ class DTKeys {
   // Process Input & Mapping DT
   static const processInputTable = "processInputTable";
   static const processMappingTable = "processMappingTable";
+
+// Process and Rules Config DT
+  static const processNameTable = "processNameTable";
+  static const clientsNameTable = "clientsNameTable";
+  static const processConfigTable = "processConfigTable";
+  static const ruleConfigTable = "ruleConfigTable";
 
   // DEMO keys
   static const pipelineDemo = "pipelineTable";

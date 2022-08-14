@@ -10,8 +10,8 @@ import 'package:provider/provider.dart';
 
 /// Validation and Actions delegates for the source to pipeline config forms
 /// Login Form Validator
-String? homeFormValidator(BuildContext context, JetsFormState formState,
-    int group, String key, dynamic v) {
+String? homeFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
       "sourceConfig Form has unexpected data type");
   switch (key) {
@@ -86,7 +86,8 @@ void postInsertRows(BuildContext context, JetsFormState formState,
 
 /// Source Configuration Form Actions
 void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey) async {
+    JetsFormState formState, String actionKey,
+    {group = 0}) async {
   switch (actionKey) {
     case ActionKeys.clientOk:
       var valid = formKey.currentState!.validate();
@@ -97,7 +98,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
         'action': 'insert_rows',
         'table': 'client_registry',
         'data': [formState.getState(0)],
-      });
+      }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
       break;
     case ActionKeys.loaderOk:
@@ -114,7 +115,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
         'action': 'insert_rows',
         'table': 'input_loader_status',
         'data': [state],
-      });
+      }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
       break;
     case ActionKeys.dialogCancel:
@@ -122,13 +123,12 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       break;
     default:
       print('Oops unknown ActionKey for home form: $actionKey');
-      Navigator.of(context).pop();
   }
 }
 
 /// Process Input Form / Dialog Validator
-String? processInputFormValidator(BuildContext context, JetsFormState formState,
-    int group, String key, dynamic v) {
+String? processInputFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
       "Process Input Form has unexpected data type");
   var isRequired = formState.getValue(group, FSK.isRequiredFlag);
@@ -247,7 +247,7 @@ String? processInputFormValidator(BuildContext context, JetsFormState formState,
       }
       formState.markFormKeyAsValid(group, key);
       return null;
-      
+
     case FSK.mappingErrorMessage:
       return null;
     default:
@@ -257,9 +257,62 @@ String? processInputFormValidator(BuildContext context, JetsFormState formState,
   return null;
 }
 
-/// Source Configuration Form Actions
+/// Process and Rules Config Form / Dialog Validator
+String? processConfigFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
+  assert((v is String?) || (v is List<String>?),
+      "Process Config Form has unexpected data type");
+  // print(
+  //     "Validator Called for $group, $key, $v, state is ${formState.getValue(group, key)}");
+  switch (key) {
+    // Rule Config Dialog Validation
+    case FSK.subject:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      formState.markFormKeyAsInvalid(group, key);
+      return "Rule Config Subject must be provided.";
+
+    case FSK.predicate:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      formState.markFormKeyAsInvalid(group, key);
+      return "Rule Config Predicate must be provided.";
+
+    case FSK.object:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      formState.markFormKeyAsInvalid(group, key);
+      return "Rule Config Object must be provided.";
+
+    case FSK.rdfType:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        formState.markFormKeyAsValid(group, key);
+        return null;
+      }
+      formState.markFormKeyAsInvalid(group, key);
+      return "Rule Config Object rdf type must be provided.";
+
+    default:
+      print(
+          'Oops process / rules config form has no validator configured for form field $key');
+  }
+  return null;
+}
+
+/// Process Input and Mapping Form Actions
 void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey) async {
+    JetsFormState formState, String actionKey,
+    {group = 0}) async {
   switch (actionKey) {
     case ActionKeys.addProcessInputOk:
       var valid = formKey.currentState!.validate();
@@ -297,7 +350,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
         'action': 'insert_rows',
         'table': 'process_input',
         'data': [formState.getState(0)],
-      });
+      }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
       break;
 
@@ -327,7 +380,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
         'action': 'insert_rows',
         'table': 'process_mapping',
         'data': formState.getInternalState(),
-      });
+      }, toEncodable: (_) => '');
       // Insert rows to process_mapping
       var navigator = Navigator.of(context);
       var result = await context.read<HttpClient>().sendRequest(
@@ -347,7 +400,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
               'status': processInputStatus
             }
           ],
-        });
+        }, toEncodable: (_) => '');
         postInsertRows(context, formState, encodedJsonBody);
         // trigger a refresh of the process_mapping table
         formState.parentFormState?.setValue(0, FSK.tableName, null);
@@ -371,6 +424,86 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
       break;
     default:
       print('Oops unknown ActionKey for process input form: $actionKey');
+  }
+}
+
+/// Process and Rules Config Form Actions
+void processConfigFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
+    {required int group}) async {
+  switch (actionKey) {
+
+    // Rule Config Dialog
+    case ActionKeys.ruleConfigOk:
+      if (!formState.isFormValid()) {
+        return;
+      }
+      // Insert rows to rule_config table
+      var processName = formState.getValue(0, FSK.processName);
+      var client = formState.getValue(0, FSK.client);
+      if (processName == null || client == null) {
+        print("processConfigFormActions error: save rule config");
+        return;
+      }
+      for (var i = 0; i < formState.groupCount; i++) {
+        formState.setValue(i, FSK.client, client);
+        formState.setValue(i, FSK.processName, processName);
+        formState.setValue(i, FSK.userEmail, JetsRouterDelegate().user.email);
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': 'rule_config',
+        'data': formState.getInternalState(),
+      }, toEncodable: (_) => '');
+      // Insert rows to process_mapping
+      var navigator = Navigator.of(context);
+      var result = await context.read<HttpClient>().sendRequest(
+          path: ServerEPs.dataTableEP,
+          token: JetsRouterDelegate().user.token,
+          encodedJsonBody: encodedJsonBody);
+
+      if (result.statusCode == 200) {
+        // insert successfull
+        // trigger a refresh of the rule_config table
+        formState.parentFormState?.setValue(0, FSK.processName, null);
+        formState.parentFormState
+            ?.setValueAndNotify(0, FSK.processName, processName);
+      } else if (result.statusCode == 400 ||
+          result.statusCode == 406 ||
+          result.statusCode == 422) {
+        // http Bad Request / Not Acceptable / Unprocessable
+        formState.setValue(
+            0, FSK.serverError, "Something went wrong. Please try again.");
+        navigator.pop(DTActionResult.statusError);
+      } else {
+        formState.setValue(
+            0, FSK.serverError, "Got a server error. Please try again.");
+        navigator.pop(DTActionResult.statusError);
+      }
+      break;
+
+    case ActionKeys.ruleConfigDelete:
+      var style = formState.getValue(group, ActionKeys.ruleConfigDelete);
+      assert(style is ActionStyle?,
+          'error: invalid formState value for ActionKeys.ruleConfigDelete');
+      if (style == ActionStyle.alternate) {
+        formState.setValueAndNotify(
+            group, ActionKeys.ruleConfigDelete, ActionStyle.danger);
+      } else {
+        print("OK delete row with index $group");
+      }
+      break;
+
+    case ActionKeys.ruleConfigAdd:
+      print("ADD row HERE");
+      break;
+
+    case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
+      break;
+
+    default:
+      print(
+          'Oops unknown ActionKey for process and rules config form: $actionKey');
   }
 }

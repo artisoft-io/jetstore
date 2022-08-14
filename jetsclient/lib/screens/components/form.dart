@@ -31,10 +31,10 @@ class JetsForm extends StatefulWidget {
   final JetsRouteData formPath;
 
   @override
-  State<JetsForm> createState() => _JetsFormState();
+  State<JetsForm> createState() => JetsFormWidgetState();
 }
 
-class _JetsFormState extends State<JetsForm> {
+class JetsFormWidgetState extends State<JetsForm> {
   late final HttpClient httpClient;
   // alternate to widget.formConfig.inputFields when
   // widget.formConfig.inputFields.isEmpty() and are
@@ -92,9 +92,11 @@ class _JetsFormState extends State<JetsForm> {
     if (widget.formConfig.stateKeyPredicates != null) {
       for (var stateKey in widget.formConfig.stateKeyPredicates!) {
         var value = widget.formState.getValue(0, stateKey);
-        assert(value != null,
-            "queryInputFieldItems: Unexpected null stateKey $stateKey");
-        if (value == null) return;
+        if (value == null) {
+          print(
+              "ERROR QueryMap substitution: unexpected null from formState for key $stateKey");
+          return;
+        }
         assert((value is String) || (value is List<String>),
             "Error: unexpected type in formState passed to form");
         var tempMap = <String, String>{};
@@ -188,10 +190,20 @@ class _JetsFormState extends State<JetsForm> {
       assert(inputFieldData != null,
           "queryInputFieldItems: Form is missconfigured, inputFieldQuery is missing");
       if (inputFieldData == null) return;
-      widget.formState.resizeFormState(inputFieldData.length);
+      var sz = inputFieldData.length;
+      if (widget.formConfig.formWithDynamicRows == true) {
+        sz += 1;
+      }
+      // print("GOT result of inputFieldQuery size: ${inputFieldData.length}, resiziformState to $sz");
+      widget.formState.resizeFormState(sz);
       for (var index = 0; index < inputFieldData.length; index++) {
         alternateInputFields.addAll(widget.formConfig.inputFieldRowBuilder!(
             index, inputFieldData[index], widget.formState));
+      }
+      // Check if we add one extra row to add items dynamically
+      if (widget.formConfig.formWithDynamicRows == true) {
+        alternateInputFields.addAll(widget.formConfig.inputFieldRowBuilder!(
+            inputFieldData.length, null, widget.formState));
       }
       // Notify that we now have inputFields ready
       setState(() {});
@@ -223,12 +235,7 @@ class _JetsFormState extends State<JetsForm> {
                       children: fc
                           .map((e) => e.makeFormField(
                                 screenPath: widget.formPath,
-                                state: widget.formState,
-                                formFieldValidator: (group, key, v) =>
-                                    widget.validatorDelegate(context,
-                                        widget.formState, group, key, v),
-                                formValidator: widget.validatorDelegate,
-                                formActionsDelegate: widget.actionsDelegate,
+                                jetsFormWidgetState: this,
                               ))
                           .toList(),
                     );

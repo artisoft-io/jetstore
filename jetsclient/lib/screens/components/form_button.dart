@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 class JetsFormButton extends StatefulWidget {
@@ -21,43 +22,62 @@ class JetsFormButton extends StatefulWidget {
 }
 
 class _JetsFormButtonState extends State<JetsFormButton> {
+  late ActionStyle _buttonStyle;
+
+  JetsFormState get formState => widget.formState;
+  FormActionConfig get config => widget.formActionConfig;
+
   @override
   void initState() {
     super.initState();
-    if (widget.formActionConfig.enableOnlyWhenFormValid) {
-      widget.formState.addListener(_handleStateChange);
+    _buttonStyle = config.buttonStyle;
+    formState.setValue(config.group, config.key, _buttonStyle);
+    formState.addListener(_handleStateChange);
+  }
+
+  String? get label {
+    if (widget.formActionConfig.label.isNotEmpty) {
+      return widget.formActionConfig.label;
     }
+    return widget.formActionConfig.labelByStyle[_buttonStyle];
   }
 
   void _handleStateChange() {
     Future.delayed(Duration.zero, () {
       if (!mounted) return;
-      setState(() {});
+      setState(() {
+        _buttonStyle = formState.getValue(config.group, config.key);
+      });
     });
   }
 
   @override
   void dispose() {
-    if (widget.formActionConfig.enableOnlyWhenFormValid) {
-      widget.formState.removeListener(_handleStateChange);
-    }
+    formState.removeListener(_handleStateChange);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final themeData = Theme.of(context);
-    return ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          // Foreground color
-          foregroundColor: themeData.colorScheme.onPrimary,
-          backgroundColor: themeData.colorScheme.primary,
-        ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
-        onPressed: !widget.formActionConfig.enableOnlyWhenFormValid ||
-                widget.formState.isFormValid()
-            ? () => widget.actionsDelegate(context, widget.formKey,
-                widget.formState, widget.formActionConfig.key)
-            : null,
-        child: Text(widget.formActionConfig.label));
+    return Expanded(
+      flex: widget.formActionConfig.flex,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            widget.formActionConfig.leftMargin,
+            widget.formActionConfig.topMargin,
+            widget.formActionConfig.rightMargin,
+            widget.formActionConfig.bottomMargin),
+        child: ElevatedButton(
+            style: buttonStyle(_buttonStyle, themeData),
+            onPressed: !widget.formActionConfig.enableOnlyWhenFormValid ||
+                    widget.formState.isFormValid()
+                ? () => widget.actionsDelegate(
+                    context, widget.formKey, formState, config.key,
+                    group: config.group)
+                : null,
+            child: Text(label ?? '')),
+      ),
+    );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/screens/components/dropdown_shared_items.dart';
+import 'package:jetsclient/screens/components/form.dart';
+import 'package:jetsclient/screens/components/form_button.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
@@ -12,11 +14,11 @@ import 'package:jetsclient/screens/components/dropdown_form_field.dart';
 
 enum TextRestriction { none, allLower, allUpper, digitsOnly }
 
-enum ButtonStyle { primary, secondary, other }
-
-/// Form action delegate for dialog presented from a data table button
+/// Form action delegate for [JetsForm] also used for dialogs presented from a
+/// data table button
 typedef FormActionsDelegate = void Function(BuildContext context,
-    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey);
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
+    {required int group});
 
 /// Form Field Validator, this correspond to ValidatorDelegate with
 /// the context and the formState curried by the JetsForm when calling makeFormField
@@ -27,7 +29,7 @@ typedef JetsFormFieldRowBuilder1 = List<FormFieldConfig> Function(
     int index, List<String?> labels, JetsFormState formState);
 
 typedef JetsFormFieldRowBuilder = List<List<FormFieldConfig>> Function(
-    int index, List<String?> inputFieldRow, JetsFormState formState);
+    int index, List<String?>? inputFieldRow, JetsFormState formState);
 
 typedef InputFieldType = List<List<FormFieldConfig>>;
 
@@ -51,6 +53,10 @@ typedef InputFieldType = List<List<FormFieldConfig>>;
 /// [inputFieldRowBuilder], for example the key [FSK.savedStateCache] correspond
 /// to the previously saved values.
 ///
+/// [formWithDynamicRows] is to allow the user to delete rows or add new rows
+/// to the input field list. Currently working in conjuction with a
+/// [inputFieldRowBuilder].
+///
 /// Note that all queries are grouped into the map [queries] with a query key
 /// used by [inputFieldsQuery], [dropdownItemsQueries], [metadataQueries],
 /// and [stateKeyPredicates].
@@ -66,6 +72,7 @@ class FormConfig {
     this.dropdownItemsQueries,
     this.metadataQueries,
     this.stateKeyPredicates,
+    this.formWithDynamicRows,
   });
   final String key;
   final InputFieldType inputFields;
@@ -77,6 +84,7 @@ class FormConfig {
   final Map<String, String>? dropdownItemsQueries;
   final Map<String, String>? metadataQueries;
   final List<String>? stateKeyPredicates;
+  final bool? formWithDynamicRows;
 
   int groupCount() {
     var unique = <int>{};
@@ -113,10 +121,7 @@ abstract class FormFieldConfig {
   /// it's a FormField and must have arguments context and formState erased.
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormState state,
-    required JetsFormFieldValidator formFieldValidator,
-    required ValidatorDelegate formValidator,
-    required FormActionsDelegate formActionsDelegate,
+    required JetsFormWidgetState jetsFormWidgetState,
   });
 }
 
@@ -141,10 +146,7 @@ class TextFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormState state,
-    required JetsFormFieldValidator formFieldValidator,
-    required ValidatorDelegate formValidator,
-    required FormActionsDelegate formActionsDelegate,
+    required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsTextField(
       fieldConfig: this,
@@ -177,18 +179,17 @@ class FormInputFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormState state,
-    required JetsFormFieldValidator formFieldValidator,
-    required ValidatorDelegate formValidator,
-    required FormActionsDelegate formActionsDelegate,
+    required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsTextFormField(
       key: Key(key),
       formFieldConfig: this,
-      onChanged: (p0) =>
-          state.setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
-      formValidator: formFieldValidator,
-      formState: state,
+      onChanged: (p0) => jetsFormWidgetState.widget.formState
+          .setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
+      formValidator: ((group, key, v) => jetsFormWidgetState.widget
+          .validatorDelegate(
+              jetsFormWidgetState.widget.formState, group, key, v)),
+      formState: jetsFormWidgetState.widget.formState,
     );
   }
 }
@@ -229,18 +230,18 @@ class FormDropdownFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormState state,
-    required JetsFormFieldValidator formFieldValidator,
-    required ValidatorDelegate formValidator,
-    required FormActionsDelegate formActionsDelegate,
+    required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsDropdownButtonFormField(
       key: Key(key),
       screenPath: screenPath,
       formFieldConfig: this,
-      onChanged: (p0) => state.setValueAndNotify(group, key, p0),
-      formValidator: formFieldValidator,
-      formState: state,
+      onChanged: (p0) => jetsFormWidgetState.widget.formState
+          .setValueAndNotify(group, key, p0),
+      formValidator: ((group, key, v) => jetsFormWidgetState.widget
+          .validatorDelegate(
+              jetsFormWidgetState.widget.formState, group, key, v)),
+      formState: jetsFormWidgetState.widget.formState,
     );
   }
 }
@@ -264,17 +265,16 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormState state,
-    required JetsFormFieldValidator formFieldValidator,
-    required ValidatorDelegate formValidator,
-    required FormActionsDelegate formActionsDelegate,
+    required JetsFormWidgetState jetsFormWidgetState,
   }) {
+    var state = jetsFormWidgetState.widget.formState;
     return JetsDropdownWithSharedItemsFormField(
       key: Key(key),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
-      formValidator: formFieldValidator,
+      formValidator: ((group, key, v) =>
+          jetsFormWidgetState.widget.validatorDelegate(state, group, key, v)),
       formState: state,
       selectedValue: state.getValue(group, key),
     );
@@ -298,11 +298,9 @@ class FormDataTableFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormState state,
-    required JetsFormFieldValidator formFieldValidator,
-    required ValidatorDelegate formValidator,
-    required FormActionsDelegate formActionsDelegate,
+    required JetsFormWidgetState jetsFormWidgetState,
   }) {
+    var state = jetsFormWidgetState.widget.formState;
     return Expanded(
       child: SizedBox(
         width: tableWidth,
@@ -313,26 +311,61 @@ class FormDataTableFieldConfig extends FormFieldConfig {
           formFieldConfig: this,
           tableConfig: getTableConfig(dataTableConfig),
           formState: state,
-          formFieldValidator: formFieldValidator,
-          dialogValidatorDelegate: formValidator,
-          actionsDelegate: formActionsDelegate,
+          validatorDelegate: jetsFormWidgetState.widget.validatorDelegate,
+          actionsDelegate: jetsFormWidgetState.widget.actionsDelegate,
         ),
       ),
     );
   }
 }
 
-class FormActionConfig {
+/// This class can be used in 2 ways:
+///   1. as the form actions in the last row of the form
+///   2. as a form field within the form
+/// In both cases it is an action button with the action implementation
+/// in the form action delegate.
+/// Note that this class is somewhat similar to [ActionConfig] which is the
+/// configuration for buttons of [JetsDataTable] while
+/// [FormActionConfig] is for the configuration for buttons of [JetsForm]
+/// [label] is the fixed label to use, when it is empty, a value is
+/// looked up in [labelByStyle] using the [buttonStyle].
+/// An empty label is used when not found.
+class FormActionConfig extends FormFieldConfig {
   FormActionConfig({
-    required this.key,
-    required this.label,
+    required super.key,
+    super.group = 0,
+    super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    this.label = '',
     required this.buttonStyle,
+    this.labelByStyle = const <ActionStyle, String>{},
     this.enableOnlyWhenFormValid = false,
+    this.leftMargin = 0.0,
+    this.topMargin = 0.0,
+    this.rightMargin = 0.0,
+    this.bottomMargin = 0.0,
   });
-  final String key;
   final String label;
-  final ButtonStyle buttonStyle;
+  final Map<ActionStyle, String> labelByStyle;
+  final ActionStyle buttonStyle;
   final bool enableOnlyWhenFormValid;
+  final double leftMargin;
+  final double topMargin;
+  final double rightMargin;
+  final double bottomMargin;
+
+  @override
+  Widget makeFormField({
+    required JetsRouteData screenPath,
+    required JetsFormWidgetState jetsFormWidgetState,
+  }) {
+    return JetsFormButton(
+        key: Key(key),
+        formActionConfig: this,
+        formKey: jetsFormWidgetState.widget.formKey,
+        formState: jetsFormWidgetState.widget.formState,
+        actionsDelegate: jetsFormWidgetState.widget.actionsDelegate);
+  }
 }
 
 final Map<String, FormConfig> _formConfigurations = {
@@ -389,11 +422,11 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.login,
           label: "Sign in",
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
       FormActionConfig(
           key: ActionKeys.register,
           label: "Register",
-          buttonStyle: ButtonStyle.secondary),
+          buttonStyle: ActionStyle.secondary),
     ],
     inputFields: [
       [
@@ -425,7 +458,7 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.register,
           label: "Register",
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
     ],
     inputFields: [
       [
@@ -492,11 +525,11 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.clientOk,
           label: "Insert",
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ButtonStyle.secondary),
+          buttonStyle: ActionStyle.secondary),
     ],
     inputFields: [
       [
@@ -530,11 +563,11 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.loaderOk,
           label: "Load",
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ButtonStyle.secondary),
+          buttonStyle: ActionStyle.secondary),
     ],
     inputFields: [
       [
@@ -601,11 +634,11 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.addProcessInputOk,
           label: "Add",
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ButtonStyle.secondary),
+          buttonStyle: ActionStyle.secondary),
     ],
     inputFields: [
       [
@@ -652,15 +685,15 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.mapperOk,
           label: "Save",
           enableOnlyWhenFormValid: true,
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
       FormActionConfig(
           key: ActionKeys.mapperDraft,
           label: "Save as Draft",
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ButtonStyle.secondary),
+          buttonStyle: ActionStyle.secondary),
     ],
     queries: {
       "inputFieldsQuery":
@@ -682,6 +715,10 @@ final Map<String, FormConfig> _formConfigurations = {
     },
     stateKeyPredicates: [FSK.objectType, FSK.tableName],
     inputFieldRowBuilder: (index, inputFieldRow, formState) {
+      assert(inputFieldRow != null, 'error inputFieldRow should not be null');
+      if (inputFieldRow == null) {
+        return [];
+      }
       // savedState is List<String?>? with values as per savedStateQuery
       final savedState = formState.getCacheValue(FSK.savedStateCache) as List?;
       final isRequired = inputFieldRow[1]! == '1';
@@ -773,6 +810,157 @@ final Map<String, FormConfig> _formConfigurations = {
       ];
     },
   ),
+  // ruleConfig - Dialog to enter rule config triples
+  FormKeys.rulesConfig: FormConfig(
+    key: FormKeys.rulesConfig,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.ruleConfigOk,
+          label: "Save",
+          enableOnlyWhenFormValid: true,
+          buttonStyle: ActionStyle.primary),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary),
+    ],
+    queries: {
+      "inputFieldsQuery":
+          "SELECT subject, predicate, object, rdf_type FROM jetsapi.rule_config WHERE client = '{client}' AND process_name = '{process_name}' ORDER BY subject ASC, predicate ASC, object ASC LIMIT 300",
+    },
+    inputFieldsQuery: "inputFieldsQuery",
+    stateKeyPredicates: [FSK.client, FSK.processName],
+    formWithDynamicRows: true,
+    inputFieldRowBuilder: (index, inputFieldRow, formState) {
+      var isLastRow = inputFieldRow == null;
+      inputFieldRow ??= List<String?>.filled(4, '');
+      // set the default values to the formState
+      formState.setValue(index, FSK.subject, inputFieldRow[0]);
+      formState.setValue(index, FSK.predicate, inputFieldRow[1]);
+      formState.setValue(index, FSK.object, inputFieldRow[2]);
+      formState.setValue(index, FSK.rdfType, inputFieldRow[3]);
+      // pre compute the rdf type dropdown items
+      var rdfTypeDropdownItems = [
+        if(isLastRow) DropdownItemConfig(label: '', value: ''),
+        if(!isLastRow) DropdownItemConfig(label: 'Boolean', value: 'bool'),
+        if(!isLastRow) DropdownItemConfig(label: 'Date', value: 'date'),
+        if(!isLastRow) DropdownItemConfig(label: 'Datetime', value: 'datetime'),
+        if(!isLastRow) DropdownItemConfig(label: 'Double', value: 'double'),
+        if(!isLastRow) DropdownItemConfig(label: 'Int', value: 'int'),
+        if(!isLastRow) DropdownItemConfig(label: 'Long', value: 'long'),
+        if(!isLastRow) DropdownItemConfig(label: 'Resource', value: 'resource'),
+        if(!isLastRow) DropdownItemConfig(label: 'Text', value: 'text'),
+        if(!isLastRow) DropdownItemConfig(label: 'Unsigned Int', value: 'uint'),
+        if(!isLastRow) DropdownItemConfig(label: 'Unsigned Long', value: 'ulong'),
+      ];
+      var client = formState.getValue(index, FSK.client);
+      var processName = formState.getValue(index, FSK.processName);
+      // print("Form BUILDER savedState row $inputFieldRow");
+      return [
+        if (index == 0)
+          [
+            TextFieldConfig(
+                label: "$processName Rules Configuration for $client",
+                group: index,
+                topMargin: 20.0)
+          ],
+        [
+          // subject
+          if(!isLastRow) FormInputFieldConfig(
+                      key: FSK.subject,
+                      label: "Subject",
+                      hint: "Rule config subject",
+                      group: index,
+                      flex: 2,
+                      autovalidateMode: AutovalidateMode.always,
+                      autofocus: false,
+                      obscureText: false,
+                      textRestriction: TextRestriction.none,
+                      maxLength: 512,
+                    ),
+          if(isLastRow) TextFieldConfig(label: '', flex: 2),
+          // predicate
+          if(!isLastRow) FormInputFieldConfig(
+            key: FSK.predicate,
+            label: "Predicate",
+            hint: "Rule config predicate",
+            group: index,
+            flex: 2,
+            autovalidateMode: AutovalidateMode.always,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512,
+          ),
+          if(isLastRow) TextFieldConfig(label: '', flex: 2),
+          // object
+          if(!isLastRow) FormInputFieldConfig(
+            key: FSK.object,
+            label: "Object",
+            hint: "Rule config object",
+            group: index,
+            flex: 2,
+            autovalidateMode: AutovalidateMode.always,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512,
+          ),
+          if(isLastRow) TextFieldConfig(label: '', flex: 2),
+          // rdf type
+          FormDropdownFieldConfig(
+            key: FSK.rdfType,
+            group: index,
+            flex: 1,
+            items: rdfTypeDropdownItems,
+            defaultItemPos: 0,
+          ),
+          // add / delete row button
+          FormActionConfig(
+            key: isLastRow
+                ? ActionKeys.ruleConfigAdd
+                : ActionKeys.ruleConfigDelete,
+            group: index,
+            flex: 1,
+            label: isLastRow ? 'Add Row' : '',
+            labelByStyle: {
+              ActionStyle.alternate: 'Delete',
+              ActionStyle.danger: 'Confirm',
+            },
+            buttonStyle:
+                isLastRow ? ActionStyle.secondary : ActionStyle.alternate,
+            leftMargin: 16.0,
+          ),
+        ],
+      ];
+    },
+  ),
+
+  // Process & Rules Config (actionless)
+  FormKeys.processConfig: FormConfig(
+    key: FormKeys.processConfig,
+    actions: [
+      // Action-less form
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.clientsNameTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.clientsNameTable),
+        FormDataTableFieldConfig(
+            key: DTKeys.processNameTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.processNameTable)
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.ruleConfigTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.ruleConfigTable)
+      ],
+    ],
+  ),
 
   //* DEMO FORM
   "dataTableDemoForm": FormConfig(
@@ -781,7 +969,7 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: "dataTableDemoAction1",
           label: "Do it!",
-          buttonStyle: ButtonStyle.primary),
+          buttonStyle: ActionStyle.primary),
     ],
     inputFields: [
       [

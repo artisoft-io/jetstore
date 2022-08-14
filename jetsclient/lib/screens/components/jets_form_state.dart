@@ -5,7 +5,7 @@ import 'package:jetsclient/screens/components/data_table_model.dart';
 /// Jets Form validator
 /// The last argument is either String? or List<String?>
 typedef ValidatorDelegate = String? Function(
-    BuildContext context, JetsFormState formState, int, String, dynamic);
+    JetsFormState formState, int, String, dynamic);
 
 /// Selected rows mapping, key is row primary key
 typedef SelectedRows = Map<String, JetsRow>;
@@ -110,6 +110,7 @@ class JetsFormState extends ChangeNotifier {
 
   void resetUpdatedKeys(int group) {
     assert(group < groupCount, "invalid group");
+    // print("resetUpdatedKeys clearing out group $group, keys ${_updatedKeys[group]}");
     _updatedKeys[group].clear();
   }
 
@@ -117,6 +118,7 @@ class JetsFormState extends ChangeNotifier {
   /// [key] is widget key
   void markKeyAsUpdated(int group, String key) {
     assert(group < groupCount, "invalid group");
+    // print("markKeyAsUpdated add group $group, key $key");
     _updatedKeys[group].add(key);
   }
 
@@ -156,8 +158,6 @@ class JetsFormState extends ChangeNotifier {
     // print(
     //     "setValue: group $group, key $key, value $value :: groupCount $groupCount");
     assert(group < groupCount, "invalid group $group key is $key value $value");
-    assert((value is String?) || (value is WidgetField?),
-        "form state values are expected to be String? or WidgetField? (List<String>?), got ${value.runtimeType}");
     var didit = false;
     if (value == null) {
       // remove the binding if any
@@ -276,7 +276,7 @@ class JetsFormState extends ChangeNotifier {
   }
 
   String _encodeObject(Object state, String? indent) {
-    final JsonEncoder encoder = JsonEncoder.withIndent(indent);
+    final JsonEncoder encoder = JsonEncoder.withIndent(indent, (_) => '');
     return encoder.convert(state);
   }
 
