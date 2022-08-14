@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 const defaultPadding = 16.0;
+const betweenTheButtonsPadding = 8.0;
 
 /// Button action style, used by both JetsDataTable and JetsForm
 enum ActionStyle { primary, secondary, alternate, danger }
@@ -106,13 +107,13 @@ class FSK {
   static const mappingErrorMessage = "error_message";
 
   // Process and Rule Config keys
-  static const processConfigKey = "process_config.key";
+  static const processConfigKey = "process_config_key";
   static const processName = "process_name";
   static const description = "description";
   static const subject = "subject";
   static const predicate = "predicate";
   static const object = "object";
-  static const rdfType = "rdfType";
+  static const rdfType = "rdf_type";
 
   // reserved keys for cache
 

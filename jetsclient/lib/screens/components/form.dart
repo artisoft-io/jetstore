@@ -49,6 +49,7 @@ class JetsFormWidgetState extends State<JetsForm> {
   void initState() {
     super.initState();
     httpClient = Provider.of<HttpClient>(context, listen: false);
+    widget.formState.activeFormWidgetState = this;
     if (inputFields.isEmpty) {
       if (JetsRouterDelegate().user.isAuthenticated) {
         queryInputFieldItems();
@@ -59,8 +60,9 @@ class JetsFormWidgetState extends State<JetsForm> {
     }
   }
 
-  void stateListener() async {
-    queryInputFieldItems();
+  void markAsDirty() {
+    if (!mounted) return;
+    setState(() { });
   }
 
   void navListener() async {
@@ -241,9 +243,9 @@ class JetsFormWidgetState extends State<JetsForm> {
                     );
                   }
                   // case last: row of buttons
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 10, 0, 0),
-                    child: Center(
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
                       child: Row(
                           children: widget.formConfig.actions
                               .map((e) => JetsFormButton(
@@ -252,10 +254,6 @@ class JetsFormWidgetState extends State<JetsForm> {
                                   formKey: widget.formKey,
                                   formState: widget.formState,
                                   actionsDelegate: widget.actionsDelegate))
-                              .expand((element) => [
-                                    const SizedBox(width: defaultPadding),
-                                    element
-                                  ])
                               .toList()),
                     ),
                   );

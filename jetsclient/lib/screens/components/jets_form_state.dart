@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/data_table_model.dart';
+import 'package:jetsclient/screens/components/form.dart';
 
 /// Jets Form validator
 /// The last argument is either String? or List<String?>
@@ -63,7 +64,14 @@ class JetsFormState extends ChangeNotifier {
             initialGroupCount > 0 ? initialGroupCount : 1,
             (index) => <String>{},
             growable: true);
+
+  /// number of validation groups in the form state
   int groupCount;
+
+  /// Active [JetsForm] instance associated with this [JetsFormState]
+  /// Usefull when need to modify the list of input fields such as for
+  /// dialog having a [FormConfig] with [formWithDynamicRows] set to [true]
+  JetsFormWidgetState? activeFormWidgetState;
 
   /// Applicable to form state for dialogs;
   /// To have access to the form state of the parent form who
