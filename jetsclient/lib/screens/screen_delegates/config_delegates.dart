@@ -377,13 +377,36 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
         formState.setValue(i, FSK.tableName, tableName);
         formState.setValue(i, FSK.userEmail, JetsRouterDelegate().user.email);
       }
+      var navigator = Navigator.of(context);
+      // first issue a delete statement to make sure we replace all mappings
+      var deleteJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': 'delete/process_mapping',
+        'data': [
+          {
+            FSK.tableName: tableName,
+            FSK.userEmail: JetsRouterDelegate().user.email,
+          }
+        ],
+      }, toEncodable: (_) => '');
+      var deleteResult = await context.read<HttpClient>().sendRequest(
+          path: ServerEPs.dataTableEP,
+          token: JetsRouterDelegate().user.token,
+          encodedJsonBody: deleteJsonBody);
+
+      if (deleteResult.statusCode != 200) {
+        formState.setValue(
+            0, FSK.serverError, "Something went wrong. Please try again.");
+        navigator.pop(DTActionResult.statusError);
+        return;
+      }
+      // delete successfull, update process_mapping
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'table': 'process_mapping',
         'data': formState.getInternalState(),
       }, toEncodable: (_) => '');
       // Insert rows to process_mapping
-      var navigator = Navigator.of(context);
       var result = await context.read<HttpClient>().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
@@ -521,7 +544,7 @@ void processConfigFormActions(BuildContext context,
         }
         //* PROBLEM - Need to stop using group 0 as a special group with validation keys
         //  since removing group 0 creates a problem
-        if(group == 0) {
+        if (group == 0) {
           // Need to carry over context keys
           var processConfigKey = formState.getValue(0, FSK.processConfigKey);
           var processName = formState.getValue(0, FSK.processName);
