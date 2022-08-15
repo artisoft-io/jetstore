@@ -14,6 +14,7 @@ class TableConfig {
       required this.isCheckboxSingleSelect,
       required this.actions,
       required this.columns,
+      this.defaultToAllRows = false,
       required this.whereClauses,
       this.formStateConfig,
       required this.sortColumnName,
@@ -28,6 +29,7 @@ class TableConfig {
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
   final List<ColumnConfig> columns;
+  final bool defaultToAllRows;
   final List<WhereClause> whereClauses;
   final DataTableFormStateConfig? formStateConfig;
   final String sortColumnName;
@@ -499,45 +501,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Clients Data Table
-  DTKeys.clientsTable: TableConfig(
-    key: DTKeys.clientsTable,
-    schemaName: 'jetsapi',
-    tableName: 'client_registry',
-    label: 'Clients',
-    apiPath: '/dataTable',
-    isCheckboxVisible: false,
-    isCheckboxSingleSelect: false,
-    whereClauses: [],
-    actions: [
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'addClient',
-          label: 'Add New Client',
-          style: ActionStyle.primary,
-          configForm: FormKeys.addClient),
-    ],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "client",
-          label: 'Client Name',
-          tooltips: 'Client name',
-          isNumeric: false),
-      ColumnConfig(
-          index: 1,
-          name: "details",
-          label: 'Notes',
-          tooltips: '',
-          isNumeric: false),
-    ],
-    sortColumnName: 'client',
-    sortAscending: true,
-    rowsPerPage: 10,
-  ),
-
   // Process Name Table
   DTKeys.processNameTable: TableConfig(
     key: DTKeys.processNameTable,
@@ -617,68 +580,86 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Source Config Data Table
-  DTKeys.sourceConfigsTable: TableConfig(
-    key: DTKeys.sourceConfigsTable,
+  // Object Type Registry Data Table
+  DTKeys.objectTypeRegistryTable: TableConfig(
+    key: DTKeys.objectTypeRegistryTable,
     schemaName: 'jetsapi',
-    tableName: 'source_config',
-    label: 'File Input Source Configuration',
+    tableName: 'object_type_registry',
+    label: 'Object Type Registry',
     apiPath: '/dataTable',
-    isCheckboxVisible: false,
-    isCheckboxSingleSelect: false,
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
     whereClauses: [],
-    actions: [
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'addSource',
-          label: 'Add New Source',
-          style: ActionStyle.primary,
-          configForm: "newPipeline"),
-    ],
+    actions: [],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
-          isNumeric: true),
+          name: "object_type",
+          label: 'Object Type',
+          tooltips: 'The type of object the file contains',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "entity_rdf_type",
+          label: 'Class Name',
+          tooltips: 'Entity class name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "details",
+          label: 'Description',
+          tooltips: 'Details about the class',
+          isNumeric: false),
+    ],
+    sortColumnName: 'object_type',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // File Key Staging Data Table
+  DTKeys.fileKeyStagingTable: TableConfig(
+    key: DTKeys.fileKeyStagingTable,
+    schemaName: 'jetsapi',
+    tableName: 'file_key_staging',
+    label: 'File Key Staging',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    defaultToAllRows: true, // when where clause fails
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: DTKeys.clientsNameTable),
+      WhereClause(
+          column: "object_type", formStateKey: DTKeys.objectTypeRegistryTable),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client providing the input files',
+          isNumeric: false),
       ColumnConfig(
           index: 1,
           name: "object_type",
           label: 'Object Type',
-          tooltips: 'Type of object in file',
+          tooltips: 'The type of object the file contains',
           isNumeric: false),
       ColumnConfig(
           index: 2,
-          name: "client",
-          label: 'Client Name',
-          tooltips: 'Client name',
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File key or path',
           isNumeric: false),
       ColumnConfig(
           index: 3,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where to load the data',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "grouping_column",
-          label: 'Grouping Column',
-          tooltips: 'Column to group the rows into a single rete session',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
           name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the records was created',
+          label: 'Last Update',
+          tooltips: 'When the file was received',
           isNumeric: false),
     ],
     sortColumnName: 'last_update',
@@ -956,6 +937,289 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'subject',
     sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // Process Input Data Table
+  DTKeys.pipelineConfigTable: TableConfig(
+    key: DTKeys.pipelineConfigTable,
+    schemaName: 'jetsapi',
+    tableName: 'pipeline_config',
+    label: 'Pipeline Configuration',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'newPipelineConfig',
+          label: 'New Pipeline Config',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.pipelineConfig),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'configurePipeline',
+          label: 'Configure Pipeline',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.pipelineConfig,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.processName: 1,
+            FSK.client: 2,
+            FSK.processConfigKey: 3,
+            FSK.mainProcessInputKey: 4,
+            FSK.mergedProcessInputKeys: 5,
+            FSK.mainTableName: 6,
+            FSK.description: 7
+          }),
+    ],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "process_name",
+          label: 'Process',
+          tooltips: 'Process Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "process_config_key",
+          label: 'Process Config',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 4,
+          name: "main_process_input_key",
+          label: 'Main Process Input',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 5,
+          name: "merged_process_input_keys",
+          label: 'Merged Process Inputs',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 6,
+          name: "main_table_name",
+          label: 'Main Input Table',
+          tooltips: 'Main input table loaded with client data',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "description",
+          label: 'Description',
+          tooltips: 'Pipeline description',
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfig)
+  // for selecting FSK.mainProcessInputKey
+  FSK.mainProcessInputKey: TableConfig(
+    key: FSK.mainProcessInputKey,
+    schemaName: 'jetsapi',
+    tableName: 'process_input',
+    label: 'Main Process Input',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+    ],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.mainTableName,
+        columnIdx: 3,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Object Type',
+          tooltips: 'Type of objects in file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the file was loaded',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "entity_rdf_type",
+          label: 'Domain Class',
+          tooltips: 'Canonical model for the Object Type',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "grouping_column",
+          label: 'Grouping Column',
+          tooltips: 'Column for grouping rows (typically is the member key)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "status",
+          label: 'Status',
+          tooltips: "Status of the Process Input and it's mapping",
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfig)
+  // for selecting FSK.mergedProcessInputKeys
+  FSK.mergedProcessInputKeys: TableConfig(
+    key: FSK.mergedProcessInputKeys,
+    schemaName: 'jetsapi',
+    tableName: 'process_input',
+    label: 'Merged Process Inputs',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Object Type',
+          tooltips: 'Type of objects in file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the file was loaded',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "entity_rdf_type",
+          label: 'Domain Class',
+          tooltips: 'Canonical model for the Object Type',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "grouping_column",
+          label: 'Grouping Column',
+          tooltips: 'Column for grouping rows (typically is the member key)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "status",
+          label: 'Status',
+          tooltips: "Status of the Process Input and it's mapping",
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
     rowsPerPage: 10,
   ),
 

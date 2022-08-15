@@ -27,7 +27,7 @@ class MenuEntry {
 
 final defaultMenuEntries = [
   MenuEntry(
-      key: 'sourceConfig', label: 'Source Config', routePath: sourceConfigPath),
+      key: 'sourceConfig', label: 'File Staging Area', routePath: sourceConfigPath),
   MenuEntry(
       key: 'processInput',
       label: 'Process Input Config',
@@ -56,7 +56,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.sourceConfig: ScreenConfig(
       key: ScreenKeys.sourceConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'File Source Configuration',
+      title: 'File Staging Area',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
@@ -84,6 +84,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       key: ScreenKeys.processConfig,
       appBarLabel: 'JetStore Workspace',
       title: 'Process and Client Rule Config',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
+  // Process Config Screen
+  ScreenKeys.pipelineConfig: ScreenConfig(
+      key: ScreenKeys.pipelineConfig,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Pipeline Config',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),

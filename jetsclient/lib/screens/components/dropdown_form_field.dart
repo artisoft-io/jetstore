@@ -45,6 +45,11 @@ class _JetsDropdownButtonFormFieldState
     super.initState();
     httpClient = Provider.of<HttpClient>(context, listen: false);
     _config = widget.formFieldConfig;
+    // Check if there is a selection made in the form state
+    // (case we are editing existing record versus add where there would be no
+    //  existing value)
+    selectedValue = widget.formState.getValue(_config.group, _config.key);
+
     if (_config.dropdownItemsQuery != null) {
       if (_config.stateKeyPredicates.isNotEmpty) {
         widget.formState.addListener(stateListener);
@@ -58,8 +63,7 @@ class _JetsDropdownButtonFormFieldState
     } else {
       items.addAll(_config.items);
       if (items.isNotEmpty) {
-        selectedValue = widget.formState.getValue(_config.group, _config.key) ??
-            items[_config.defaultItemPos].value;
+        selectedValue = selectedValue ?? items[_config.defaultItemPos].value;
         widget.formState.setValue(_config.group, _config.key, selectedValue);
       }
     }
@@ -136,7 +140,7 @@ class _JetsDropdownButtonFormFieldState
       }
       setState(() {
         if (items.isNotEmpty) {
-          selectedValue = items[_config.defaultItemPos].value;
+          selectedValue = selectedValue ?? items[_config.defaultItemPos].value;
           widget.formState.setValue(_config.group, _config.key, selectedValue);
         }
       });

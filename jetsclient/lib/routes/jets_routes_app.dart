@@ -68,6 +68,15 @@ final Map<String, Widget> jetsRoutesMap = {
       formValidatorDelegate: processConfigFormValidator,
       formActionsDelegate: processConfigFormActions),
 
+  // Pipeline Config
+  pipelineConfigPath: ScreenOne(
+      key: const Key(ScreenKeys.pipelineConfig),
+      screenPath: JetsRouteData(pipelineConfigPath),
+      screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
+      validatorDelegate: pipelineConfigFormValidator,
+      actionsDelegate: pipelineConfigFormActions,
+      tableConfig: getTableConfig(DTKeys.pipelineConfigTable),),
+
   // Login Screen
   loginPath: ScreenWithForm(
       key: const Key(ScreenKeys.login),
