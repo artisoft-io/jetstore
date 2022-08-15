@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 /// our basic alert dialog, may need some upgrade
@@ -44,14 +45,31 @@ Future<void> showFormDialog<T>(
       await showDialog<T>(
         context: context,
         builder: (context) => Dialog(
-          child: JetsForm(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Flexible(
+                flex: 1,
+                fit: FlexFit.tight,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(defaultPadding, 2*defaultPadding, 0, 0),
+                  child: Text(
+                    formConfig.title ?? "",
+                    style: Theme.of(context).textTheme.headline4,
+                  ),
+                ),
+              ),
+              Flexible(
+                flex: 8,
+                fit: FlexFit.tight,
+                child: JetsForm(
             formKey: formKey,
             formPath: screenPath,
             formState: formState,
             formConfig: formConfig,
             validatorDelegate: validatorDelegate,
             actionsDelegate: actionsDelegate,
-          ),
+          )
+              ),
+            ])
         ),
       ));
 }

@@ -82,13 +82,16 @@ class BaseScreenState extends State<BaseScreen> {
             fit: FlexFit.tight,
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const SizedBox(height: 2 * defaultPadding),
               Flexible(
                 flex: 1,
                 fit: FlexFit.tight,
-                child: Text(
-                  widget.screenConfig.title,
-                  style: Theme.of(context).textTheme.headline4,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      defaultPadding, 2 * defaultPadding, 0, 0),
+                  child: Text(
+                    widget.screenConfig.title,
+                    style: Theme.of(context).textTheme.headline4,
+                  ),
                 ),
               ),
               Flexible(

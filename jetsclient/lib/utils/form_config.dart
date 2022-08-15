@@ -34,6 +34,7 @@ typedef JetsFormFieldRowBuilder = List<List<FormFieldConfig>> Function(
 typedef InputFieldType = List<List<FormFieldConfig>>;
 
 /// Form Configuration
+/// [title] is used mostly for dialog forms.
 /// Simple case  is when [inputFields] are provided (most case)
 /// Special case, when [inputFields] is empty, then [inputFieldRowBuilder]
 /// shall be provided along with [inputFieldsQuery] and optionally
@@ -63,6 +64,7 @@ typedef InputFieldType = List<List<FormFieldConfig>>;
 class FormConfig {
   FormConfig({
     required this.key,
+    this.title,
     this.inputFields = const [],
     this.inputFieldRowBuilder,
     required this.actions,
@@ -75,6 +77,7 @@ class FormConfig {
     this.formWithDynamicRows,
   });
   final String key;
+  final String? title;
   final InputFieldType inputFields;
   final JetsFormFieldRowBuilder? inputFieldRowBuilder;
   final List<FormActionConfig> actions;
@@ -110,6 +113,7 @@ abstract class FormFieldConfig {
     required this.autovalidateMode,
   });
   final String key;
+
   /// group is not final to enable dynamic list of form field elements.
   /// The validation group needs to be re-assigned since the form field elements
   /// are arranged in a positional list.
@@ -126,6 +130,29 @@ abstract class FormFieldConfig {
     required JetsRouteData screenPath,
     required JetsFormWidgetState jetsFormWidgetState,
   });
+}
+
+class PaddingConfig extends FormFieldConfig {
+  PaddingConfig(
+      {super.key = '',
+      super.group = 0,
+      super.flex = 1,
+      super.autovalidateMode = AutovalidateMode.disabled,
+      this.height = defaultPadding,
+      this.width = defaultPadding});
+  final double height;
+  final double width;
+
+  @override
+  Widget makeFormField({
+    required JetsRouteData screenPath,
+    required JetsFormWidgetState jetsFormWidgetState,
+  }) {
+    return SizedBox(
+      height: height,
+      width: width,
+    );
+  }
 }
 
 class TextFieldConfig extends FormFieldConfig {
@@ -185,7 +212,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsTextFormField(
-      key: Key("${key}_$group"),
+      key: UniqueKey(),
       formFieldConfig: this,
       onChanged: (p0) => jetsFormWidgetState.widget.formState
           .setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
@@ -236,7 +263,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsDropdownButtonFormField(
-      key: Key("${key}_$group"),
+      key: UniqueKey(),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => jetsFormWidgetState.widget.formState
@@ -286,7 +313,7 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
   }) {
     var state = jetsFormWidgetState.widget.formState;
     return JetsDropdownWithSharedItemsFormField(
-      key: Key("${key}_$group"),
+      key: UniqueKey(),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
@@ -323,7 +350,7 @@ class FormDataTableFieldConfig extends FormFieldConfig {
         width: tableWidth,
         height: tableHeight,
         child: JetsDataTableWidget(
-          key: Key("${key}_$group"),
+          key: UniqueKey(),
           screenPath: screenPath,
           formFieldConfig: this,
           tableConfig: getTableConfig(dataTableConfig),
@@ -377,7 +404,7 @@ class FormActionConfig extends FormFieldConfig {
     required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsFormButton(
-        key: Key("${key}_$group"),
+        key:UniqueKey(),
         formActionConfig: this,
         formKey: jetsFormWidgetState.widget.formKey,
         formState: jetsFormWidgetState.widget.formState,
@@ -403,11 +430,11 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.pipelineExecStatusTable,
             dataTableConfig: DTKeys.pipelineExecStatusTable)
       ],
-      [
-        FormDataTableFieldConfig(
-            key: DTKeys.pipelineExecDetailsTable,
-            dataTableConfig: DTKeys.pipelineExecDetailsTable)
-      ],
+      // [
+      //   FormDataTableFieldConfig(
+      //       key: DTKeys.pipelineExecDetailsTable,
+      //       dataTableConfig: DTKeys.pipelineExecDetailsTable)
+      // ],
     ],
   ),
   // Source Config (actionless)
@@ -419,15 +446,20 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: DTKeys.clientsTable,
+            key: DTKeys.clientsNameTable,
             tableHeight: 400,
-            dataTableConfig: DTKeys.clientsTable)
+            dataTableConfig: DTKeys.clientsNameTable),
+
+        FormDataTableFieldConfig(
+            key: DTKeys.objectTypeRegistryTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.objectTypeRegistryTable),
       ],
       [
         FormDataTableFieldConfig(
-            key: DTKeys.sourceConfigsTable,
+            key: DTKeys.fileKeyStagingTable,
             tableHeight: 400,
-            dataTableConfig: DTKeys.sourceConfigsTable)
+            dataTableConfig: DTKeys.fileKeyStagingTable),
       ],
     ],
   ),
@@ -544,6 +576,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // Add Client Dialog
   FormKeys.addClient: FormConfig(
     key: FormKeys.addClient,
+    title: "Add Client",
     actions: [
       FormActionConfig(
           key: ActionKeys.clientOk,
@@ -586,6 +619,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // loadFile - Dialog to load file by client and file type
   FormKeys.loadFile: FormConfig(
     key: FormKeys.loadFile,
+    title: "Load File",
     actions: [
       FormActionConfig(
           key: ActionKeys.loaderOk,
@@ -661,6 +695,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // addProcessInput - Dialog to add process input
   FormKeys.addProcessInput: FormConfig(
     key: FormKeys.addProcessInput,
+    title: "Add Process Input",
     actions: [
       FormActionConfig(
           key: ActionKeys.addProcessInputOk,
@@ -715,6 +750,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // processMapping - Dialog to mapping intake file structure to canonical model
   FormKeys.processMapping: FormConfig(
     key: FormKeys.processMapping,
+    title: "Process Mapping",
     actions: [
       FormActionConfig(
           key: ActionKeys.mapperOk,
@@ -722,19 +758,22 @@ final Map<String, FormConfig> _formConfigurations = {
           enableOnlyWhenFormValid: true,
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
       FormActionConfig(
           key: ActionKeys.mapperDraft,
           label: "Save as Draft",
           buttonStyle: ActionStyle.primary,
           leftMargin: betweenTheButtonsPadding,
-          rightMargin: betweenTheButtonsPadding),
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.secondary,
           leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
     ],
     queries: {
       "inputFieldsQuery":
@@ -854,6 +893,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // ruleConfig - Dialog to enter rule config triples
   FormKeys.rulesConfig: FormConfig(
     key: FormKeys.rulesConfig,
+    title: "Rule Configuration",
     actions: [
       FormActionConfig(
           key: ActionKeys.ruleConfigOk,
@@ -884,17 +924,8 @@ final Map<String, FormConfig> _formConfigurations = {
       formState.setValue(index, FSK.predicate, inputFieldRow[1]);
       formState.setValue(index, FSK.object, inputFieldRow[2]);
       formState.setValue(index, FSK.rdfType, inputFieldRow[3]);
-      var client = formState.getValue(index, FSK.client);
-      var processName = formState.getValue(index, FSK.processName);
       // print("Form BUILDER savedState row $inputFieldRow");
       return [
-        // if (index == 0)
-        //   [
-        //     TextFieldConfig(
-        //         label: "$processName Rules Configuration for $client",
-        //         group: index,
-        //         topMargin: 20.0)
-        //   ],
         [
           // NOTE: ** if the layout of the input field row changes,
           // need to also reflect the change in config_delegate.dart
@@ -999,6 +1030,75 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.ruleConfigTable,
             tableHeight: 400,
             dataTableConfig: DTKeys.ruleConfigTable)
+      ],
+    ],
+  ),
+
+  // Add/Edit pipelineConfig - Dialog to add / edit pipeline config
+  FormKeys.pipelineConfig: FormConfig(
+    key: FormKeys.pipelineConfig,
+    title: "Pipeline Configuration",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.pipelineConfigOk,
+          label: "Save",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormDropdownFieldConfig(
+            key: FSK.processName,
+            returnedModelCacheKey: FSK.processConfigCache,
+            items: [
+              DropdownItemConfig(label: 'Select a process'),
+            ],
+            dropdownItemsQuery:
+                "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"),
+        FormDropdownFieldConfig(
+            key: FSK.client,
+            items: [
+              DropdownItemConfig(label: 'Select a Client'),
+            ],
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+      ],
+      [
+        PaddingConfig(height: defaultPadding),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.description,
+            label: "Description",
+            hint: "Pipeline configuration description",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512),
+      ],
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: FSK.mainProcessInputKey,
+            dataTableConfig: FSK.mainProcessInputKey),
+      ],
+      [
+        PaddingConfig(),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: FSK.mergedProcessInputKeys,
+            dataTableConfig: FSK.mergedProcessInputKeys),
       ],
     ],
   ),

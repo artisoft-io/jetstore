@@ -626,3 +626,130 @@ void processConfigFormActions(BuildContext context,
           'Oops unknown ActionKey for process and rules config form: $actionKey');
   }
 }
+
+/// Pipeline Config Form / Dialog Validator
+String? pipelineConfigFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
+  print(
+      "Validator Called for $group, $key, $v, state is ${formState.getValue(group, key)}");
+  assert((v is String?) || (v is List<String>?),
+      "Pipeline Config Form has unexpected data type");
+  switch (key) {
+    // Pipeline Config Dialog Validation
+    case FSK.processName:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        return null;
+      }
+      return "Process name must be provided.";
+
+    case FSK.client:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        return null;
+      }
+      return "Client must be provided.";
+
+    case FSK.mainProcessInputKey:
+      if (v != null && v.isNotEmpty) {
+        return null;
+      }
+      return "Main process input must be selected.";
+
+    case FSK.mergedProcessInputKeys:
+      return null;
+
+    default:
+      print(
+          'Oops process / rules config form has no validator configured for form field $key');
+  }
+  return null;
+}
+
+/// Pipeline Config Form Actions
+void pipelineConfigFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
+    {group = 0}) async {
+  switch (actionKey) {
+    // Pipeline Config Dialog
+    case ActionKeys.pipelineConfigOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return;
+      }
+
+      // Get the Pipeline Config key (case update)
+      // if no key is present then it's an add
+      var updateState = <String, dynamic>{};
+      var updateKey = formState.getValue(0, FSK.key);
+      var query = 'pipeline_config'; // case add
+      if (updateKey != null) {
+        query = 'update/pipeline_config';
+        updateState[FSK.key] = updateKey;
+      }
+      var processName = formState.getValue(0, FSK.processName);
+      updateState[FSK.processName] = processName;
+      updateState[FSK.client] = formState.getValue(0, FSK.client);
+
+      // add process_config_key based on process_name
+      var processConfigCache =
+          formState.getCacheValue(FSK.processConfigCache) as List?;
+      if (processConfigCache == null) {
+        print("pipelineConfigFormActions error: processConfigCache is null");
+        return;
+      }
+      var row = processConfigCache.firstWhere((e) => e[0] == processName);
+      if (row == null) {
+        print(
+            "pipelineConfigFormActions error: can't find process_name in processConfigCache");
+        return;
+      }
+      updateState[FSK.processConfigKey] = row[1];
+
+      // mainProcessInputKey & main_table_name are either pre-populated as String
+      // from the data table action
+      // from the selected row to update or is a List<String?> if user have selected
+      // a row from the data table
+      var mainProcessInputKey = formState.getValue(0, FSK.mainProcessInputKey);
+      assert(mainProcessInputKey != null, "unexpected null value");
+      if (mainProcessInputKey is List<String?>) {
+        updateState[FSK.mainProcessInputKey] = mainProcessInputKey[0];
+      } else {
+        updateState[FSK.mainProcessInputKey] = mainProcessInputKey;
+      }
+      var mainTableName = formState.getValue(0, FSK.mainTableName);
+      assert(mainTableName != null, "unexpected null value");
+      if (mainTableName is List<String?>) {
+        updateState[FSK.mainTableName] = mainTableName[0];
+      } else {
+        updateState[FSK.mainTableName] = mainTableName;
+      }
+      // same pattern for merged_process_input_keys
+      var mergedProcessInputKeys =
+          formState.getValue(0, FSK.mergedProcessInputKeys);
+      if (mergedProcessInputKeys != null) {
+        assert(mergedProcessInputKeys is List<String>, "Unexpected type");
+        final buf = StringBuffer();
+        buf.write("{");
+        buf.writeAll(mergedProcessInputKeys, ",");
+        buf.write("}");
+        updateState[FSK.mergedProcessInputKeys] = buf.toString();
+      }
+      updateState[FSK.description] = formState.getValue(0, FSK.description);
+      updateState[FSK.userEmail] = JetsRouterDelegate().user.email;
+
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': query,
+        'data': [updateState],
+      }, toEncodable: (_) => '');
+      postInsertRows(context, formState, encodedJsonBody);
+      break;
+
+    case ActionKeys.dialogCancel:
+      Navigator.of(context).pop();
+      break;
+    default:
+      print('Oops unknown ActionKey for pipeline config form: $actionKey');
+  }
+}

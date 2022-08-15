@@ -19,7 +19,8 @@ class JetsDataTableSource extends ChangeNotifier {
 
   int get rowCount => model != null ? model!.length : 0;
   int get totalRowCount => _totalRowCount;
-  bool get isWhereClauseSatisfied => _whereClauseSatisfied;
+  bool get isWhereClauseSatisfied =>
+      _whereClauseSatisfied || state.tableConfig.defaultToAllRows;
 
   /// returns true if table has selected row(s)
   bool hasSelectedRows() {
@@ -131,8 +132,24 @@ class JetsDataTableSource extends ChangeNotifier {
     }
     var config = state.formFieldConfig!;
     // Expecting WidgetField from form state
-    WidgetField? selValues = formState.getValue(config.group, config.key);
-    if (selValues == null) return;
+    // Although it may be a String if the formState was initialized from
+    // a Data Table row (case update a record)
+    var value = formState.getValue(config.group, config.key);
+    if (value == null) return;
+    assert((value is String) || (value is List<String>), 'Unexpected type');
+    if (value.isEmpty) return;
+    WidgetField? selValues = [];
+    if (value is List<String>) {
+      selValues = value;
+    } else {
+      String str = value;
+      if (str[0] == '{') {
+        selValues = str.substring(1, str.length - 1).split(',');
+      } else {
+        selValues = [value];
+      }
+    }
+
     // update selectedRows based on form state,
     // also drop selected row in form state that are no longer in the model
     // in case the where clause has changed
@@ -219,7 +236,8 @@ class JetsDataTableSource extends ChangeNotifier {
           });
         }
       } else {
-        var values = state.formState?.getValue(config.group, wc.formStateKey!);
+        var values =
+            state.formState?.getValue(config.group, wc.formStateKey!);
         if (values != null) {
           if (values is String?) {
             whereClauses.add(<String, dynamic>{
@@ -227,7 +245,8 @@ class JetsDataTableSource extends ChangeNotifier {
               'values': [values],
             });
           } else {
-            assert(values is List<String>?, "Incorrect data type in for state");
+            assert(
+                values is List<String>?, "Incorrect data type in for state");
             var l = values as List<String>;
             if (l.isNotEmpty) {
               whereClauses.add(<String, dynamic>{
@@ -317,14 +336,16 @@ class JetsDataTableSource extends ChangeNotifier {
         }
       }
     }
+    _whereClauseSatisfied = true;
     if (hasBlockingFilter) {
       _whereClauseSatisfied = false;
-      model = null;
-      _totalRowCount = 0;
-      notifyListeners();
-      return;
+      if (!state.tableConfig.defaultToAllRows) {
+        model = null;
+        _totalRowCount = 0;
+        notifyListeners();
+        return;
+      }
     }
-    _whereClauseSatisfied = true;
     var data = await fetchData();
     if (data != null) {
       // Check if we got columnDef back

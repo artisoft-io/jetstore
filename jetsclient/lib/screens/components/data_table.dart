@@ -11,6 +11,14 @@ import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/data_table_source.dart';
 
+List<String>? castInitialValue(
+    int? group, String? key, JetsFormState? formState) {
+  if (group == null || key == null || formState == null) return null;
+  var value = formState.getValue(group, key);
+  if (value is String) return [value];
+  return value;
+}
+
 class JetsDataTableWidget extends FormField<WidgetField> {
   JetsDataTableWidget({
     required super.key,
@@ -23,8 +31,8 @@ class JetsDataTableWidget extends FormField<WidgetField> {
   })  : assert((formState != null && formFieldConfig != null) ||
             (formState == null && formFieldConfig == null)),
         super(
-          initialValue:
-              formState?.getValue(formFieldConfig!.group, formFieldConfig.key),
+          initialValue: castInitialValue(
+              formFieldConfig?.group, formFieldConfig?.key, formState),
           validator: formFieldConfig != null
               ? (WidgetField? value) => validatorDelegate(
                   formState!, formFieldConfig.group, formFieldConfig.key, value)
@@ -113,9 +121,12 @@ class JetsDataTableWidget extends FormField<WidgetField> {
             // Header row - label + action buttons
             final headerRow = <Widget>[
               if (tableConfig.label.isNotEmpty)
-                Text(
-                  tableConfig.label,
-                  style: Theme.of(context).textTheme.headline5,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(defaultPadding, 0, 0, 0),
+                  child: Text(
+                    tableConfig.label,
+                    style: Theme.of(context).textTheme.headline5,
+                  ),
                 )
             ];
             headerRow.addAll(tableConfig.actions
@@ -436,8 +447,8 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         if (ac.stateFormNavigationParams != null) {
           ac.stateFormNavigationParams?.forEach((key, npKey) {
             var value = formState?.getValue(0, npKey);
-            if(value is List<String>) {
-              dialogFormState.setValue(0, key, value[0]);  
+            if (value is List<String>) {
+              dialogFormState.setValue(0, key, value[0]);
             } else {
               dialogFormState.setValue(0, key, value);
             }
@@ -451,6 +462,9 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             }
           });
         }
+        // reset the updated keys since these updates is to put default values
+        // and is not from user interactions
+        dialogFormState.resetUpdatedKeys(0);
         showFormDialog<DTActionResult>(
           formKey: dialogFormKey,
           screenPath: _dataTableWidget.screenPath,

@@ -42,6 +42,7 @@ class ScreenKeys {
   static const domainTableViewer = "domainTableViewerScreen";
   static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
+  static const pipelineConfig = "pipelineConfigScreen";
 
   static const login = "loginScreen";
   static const register = "registerScreen";
@@ -65,6 +66,7 @@ class FormKeys {
   static const processMapping = "processMappingDialog";
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
+  static const pipelineConfig = "pipelineConfigDialog";
 
   static const login = "login";
   static const register = "register";
@@ -75,6 +77,7 @@ class FormKeys {
 /// These are universal keys used across forms and generally correspond
 /// to keys expected in message sent to apiserver
 class FSK {
+  static const key = "key";
   static const tableName = "table_name";
   static const fileKey = "file_key";
 
@@ -115,6 +118,11 @@ class FSK {
   static const object = "object";
   static const rdfType = "rdf_type";
 
+  // Pipeline Config keys
+  static const mainProcessInputKey = "main_process_input_key";
+  static const mergedProcessInputKeys = "merged_process_input_keys";
+  static const mainTableName = "main_table_name";
+
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -146,6 +154,11 @@ class FSK {
   // provides mapping between object_type and entity_rdf_type
   static const objectTypeRegistryCache = "cache.object_type_registry";
 
+  // processConfigCache: cache value is a list<list<String?>> (model)
+  // from table process_config provides [key, process_name] 
+  // The query is in FSK.processName drowpdown initaization query
+  static const processConfigCache = "cache.process_config";
+
   // reserve key to hold an error to display to user
   static const serverError = "server_error";
 }
@@ -165,11 +178,14 @@ class ActionKeys {
   // for process mapping dialog
   static const mapperOk = "mapper.ok";
   static const mapperDraft = "mapper.draft";
-  
+
   // for process and rules config dialog
   static const ruleConfigOk = "ruleConfig.ok";
   static const ruleConfigAdd = "ruleConfig.add";
   static const ruleConfigDelete = "ruleConfig.delete";
+
+  // for add / edit pipeline config dialog
+  static const pipelineConfigOk = "pipelineConfig.ok";
 }
 
 /// Form Action Keys
@@ -189,9 +205,11 @@ class DTKeys {
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
 
-  // Source Config DT
-  static const clientsTable = "clientsTable";
-  static const sourceConfigsTable = "sourceConfigsTable";
+  // File Staging Area / Source Config DT
+  // opting to display object_type_registry rather than source_config
+  // for now since table_name is determined automatically
+  static const objectTypeRegistryTable = "objectTypeRegistryTable";
+  static const fileKeyStagingTable = "fileKeyStagingTable";
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
@@ -205,6 +223,9 @@ class DTKeys {
   static const clientsNameTable = "clientsNameTable";
   static const processConfigTable = "processConfigTable";
   static const ruleConfigTable = "ruleConfigTable";
+
+// Pipeline Config DT
+  static const pipelineConfigTable = "pipelineConfigTable";
 
   // DEMO keys
   static const pipelineDemo = "pipelineTable";
