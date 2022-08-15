@@ -116,6 +116,15 @@ class JetsFormState extends ChangeNotifier {
     }
   }
 
+  void removeValidationGroup(int group) {
+    assert(group < groupCount, "invalid group");
+    _state.removeAt(group);
+    _selectedRows.removeAt(group);
+    _updatedKeys.removeAt(group);
+    _invalidKeys.removeAt(group);
+    groupCount = _state.length;
+  }
+
   void resetUpdatedKeys(int group) {
     assert(group < groupCount, "invalid group");
     // print("resetUpdatedKeys clearing out group $group, keys ${_updatedKeys[group]}");
@@ -204,7 +213,11 @@ class JetsFormState extends ChangeNotifier {
   /// validation group [group] and key [key]
   /// [key] is widget key.
   dynamic getValue(int group, String key) {
-    assert(group < groupCount, "invalid group");
+    if (!(group < groupCount)) {
+      print(
+          "Error in getValue with group $group while groupCount is $groupCount and _state length is ${_state.length}");
+      return;
+    }
     final value = _state[group][key];
     return value;
   }
@@ -222,7 +235,12 @@ class JetsFormState extends ChangeNotifier {
   /// [key] is the widget key
   /// [rowPK] is row's primary key
   void addSelectedRow(int group, String key, String rowPK, JetsRow row) {
-    assert(group < groupCount, "invalid group argument");
+    if (!(group < groupCount)) {
+      print(
+          "Error in addSelectedRow with group $group while groupCount is $groupCount and _selectedRows length is ${_selectedRows.length}");
+      return;
+    }
+
     SelectedRows? selectedRows = _selectedRows[group][key];
     if (selectedRows == null) {
       _selectedRows[group][key] = <String, JetsRow>{rowPK: row};

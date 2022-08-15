@@ -433,7 +433,6 @@ void processConfigFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {required int group}) async {
   switch (actionKey) {
-
     // Rule Config Dialog
     case ActionKeys.ruleConfigOk:
       if (!formState.isFormValid()) {
@@ -454,29 +453,42 @@ void processConfigFormActions(BuildContext context,
         formState.setValue(i, FSK.userEmail, JetsRouterDelegate().user.email);
       }
       var stateList = formState.getInternalState();
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
+
+      var deleteJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'rule_config',
-        'data': stateList.getRange(0, stateList.length-1).toList(),
+        'table': 'delete/rule_config',
+        'data': [
+          {
+            FSK.client: client,
+            FSK.processConfigKey: processConfigKey,
+            FSK.processName: processName,
+            FSK.userEmail: JetsRouterDelegate().user.email,
+          }
+        ],
       }, toEncodable: (_) => '');
-      // Insert rows to process_mapping
       var navigator = Navigator.of(context);
-      var result = await context.read<HttpClient>().sendRequest(
+      // First delete existing rule config triples
+      var deleteResult = await context.read<HttpClient>().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
-          encodedJsonBody: encodedJsonBody);
+          encodedJsonBody: deleteJsonBody);
 
-      if (result.statusCode == 200) {
+      if (deleteResult.statusCode == 200) {
+        // now insert the new triples
+        var insertJsonBody = jsonEncode(<String, dynamic>{
+          'action': 'insert_rows',
+          'table': 'rule_config',
+          'data': stateList.getRange(0, stateList.length - 1).toList(),
+        }, toEncodable: (_) => '');
+        postInsertRows(context, formState, insertJsonBody);
         // insert successfull
         // trigger a refresh of the rule_config table
         formState.parentFormState?.setValue(0, FSK.processName, null);
         formState.parentFormState
             ?.setValueAndNotify(0, FSK.processName, processName);
-        navigator.pop(DTActionResult.okDataTableDirty); 
-
-      } else if (result.statusCode == 400 ||
-          result.statusCode == 406 ||
-          result.statusCode == 422) {
+      } else if (deleteResult.statusCode == 400 ||
+          deleteResult.statusCode == 406 ||
+          deleteResult.statusCode == 422) {
         // http Bad Request / Not Acceptable / Unprocessable
         formState.setValue(
             0, FSK.serverError, "Something went wrong. Please try again.");
@@ -488,6 +500,7 @@ void processConfigFormActions(BuildContext context,
       }
       break;
 
+    // delete rule config triple
     case ActionKeys.ruleConfigDelete:
       var style = formState.getValue(group, ActionKeys.ruleConfigDelete);
       assert(style is ActionStyle?,
@@ -496,7 +509,31 @@ void processConfigFormActions(BuildContext context,
         formState.setValueAndNotify(
             group, ActionKeys.ruleConfigDelete, ActionStyle.danger);
       } else {
-        print("OK delete row with index $group");
+        var altInputFields =
+            formState.activeFormWidgetState?.alternateInputFields;
+        assert(altInputFields != null);
+        if (altInputFields == null) return;
+        altInputFields.removeAt(group);
+        for (var i = group; i < altInputFields.length; i++) {
+          for (var j = 0; j < altInputFields[i].length; j++) {
+            altInputFields[i][j].group = i;
+          }
+        }
+        //* PROBLEM - Need to stop using group 0 as a special group with validation keys
+        //  since removing group 0 creates a problem
+        if(group == 0) {
+          // Need to carry over context keys
+          var processConfigKey = formState.getValue(0, FSK.processConfigKey);
+          var processName = formState.getValue(0, FSK.processName);
+          var client = formState.getValue(0, FSK.client);
+          formState.setValue(1, FSK.client, client);
+          formState.setValue(1, FSK.processConfigKey, processConfigKey);
+          formState.setValue(1, FSK.processName, processName);
+          formState.setValue(1, FSK.userEmail, JetsRouterDelegate().user.email);
+        }
+        formState.removeValidationGroup(group);
+        formState.activeFormWidgetState?.markAsDirty();
+        print("OK row with index $group should be deleted");
       }
       break;
 

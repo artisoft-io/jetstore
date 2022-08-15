@@ -50,12 +50,17 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 		stmt: "UPDATE jetsapi.process_input SET (status, user_email, last_update) = ($1, $2, DEFAULT) WHERE key = $3",
 		columnKeys: []string{"status", "user_email", "key"},
 	},
+
+	"delete/rule_config": {
+		stmt: `DELETE FROM jetsapi.rule_config 
+			WHERE (process_config_key, process_name, client) = 
+			($1, $2, $3)`,
+		columnKeys: []string{"process_config_key", "process_name", "client"},
+	},
 	"rule_config": {
 		stmt: `INSERT INTO jetsapi.rule_config 
 			(process_config_key, process_name, client, subject, predicate, object, rdf_type) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			ON CONFLICT ON CONSTRAINT rule_config_unique_cstraint
-			DO UPDATE SET rdf_type = EXCLUDED.rdf_type`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		columnKeys: []string{"process_config_key", "process_name", "client", "subject", "predicate", "object", "rdf_type"},
 	},
 
