@@ -25,9 +25,6 @@ const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
 
-// Old test pages
-const pipelinePath = '/dataPipelines';
-const mappingConfigPath = '/mappingConfig';
 const fileRegistryPath = '/fileRegistry';
 const fileRegistryTablePath = '/fileRegistry/table/:table';
 
@@ -106,38 +103,6 @@ final Map<String, Widget> jetsRoutesMap = {
 
   // Page Not Found
   pageNotFoundPath: const MessageScreen(message: "Opps 404!"),
-
-  //* DEMO
-  // Pipeline Screen
-  pipelinePath: ScreenOne(
-      key: const Key(ScreenKeys.pipelines),
-      screenPath: JetsRouteData(pipelinePath),
-      screenConfig: getScreenConfig(ScreenKeys.pipelines),
-      validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
-      tableConfig: getTableConfig(DTKeys.pipelineDemo)),
-  //* TEST SCREEN
-  // mappingConfigPath: TestScreen(
-  //     key: const Key('testScreen'),
-  //     screenPath: JetsRouteData(mappingConfigPath),
-  //     screenConfig: getScreenConfig("testScreen"),
-  //     formConfig: getFormConfig("dataTableDemoForm")),
-  // File Registry Screen
-  fileRegistryPath: ScreenOne(
-      key: const Key(ScreenKeys.fileRegistry),
-      screenPath: JetsRouteData(fileRegistryPath),
-      screenConfig: getScreenConfig(ScreenKeys.fileRegistry),
-      validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
-      tableConfig: getTableConfig(DTKeys.registryDemo)),
-  // File Registry Table Screen
-  fileRegistryTablePath: ScreenOne(
-      key: const Key(ScreenKeys.fileRegistryTable),
-      screenPath: JetsRouteData(fileRegistryTablePath),
-      screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
-      validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
-      tableConfig: getTableConfig(DTKeys.inputTable)),
 };
 const noAuthRequiredPaths = {loginPath, registerPath, pageNotFoundPath};
 
