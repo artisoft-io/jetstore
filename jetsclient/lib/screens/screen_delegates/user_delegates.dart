@@ -108,12 +108,6 @@ String? registrationFormValidator(
         return null;
       }
       return "Passwords does not match.";
-    //* REMOVE THIS DEMO CODE
-    case 'emailType':
-      if (value == null) {
-        return "Please select an email type";
-      }
-      return null;
     default:
       print(
           'Oops registration form has no validator configured for form field $key');

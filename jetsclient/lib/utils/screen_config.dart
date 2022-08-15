@@ -115,28 +115,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: []),
 
-  //* DEMOS
-  "testScreen": ScreenConfig(
-      key: "testScreen",
-      appBarLabel: 'JetStore Workspace',
-      title: 'Test Screen',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
-  ScreenKeys.pipelines: ScreenConfig(
-      key: ScreenKeys.pipelines,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Data Pipelines',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
-  ScreenKeys.fileRegistry: ScreenConfig(
-      key: ScreenKeys.fileRegistry,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Input File Registry',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
   ScreenKeys.fileRegistryTable: ScreenConfig(
       key: ScreenKeys.fileRegistryTable,
       appBarLabel: 'JetStore Workspace',

@@ -47,9 +47,8 @@ class ScreenKeys {
   static const login = "loginScreen";
   static const register = "registerScreen";
 
-  //* DEMO
-  static const pipelines = "pipelinesScreen";
-  static const fileRegistry = "fileRegistryScreen";
+  // static const pipelines = "pipelinesScreen";
+  // static const fileRegistry = "fileRegistryScreen";
   static const fileRegistryTable = "fileRegistryTableScreen";
 }
 
@@ -224,12 +223,10 @@ class DTKeys {
   static const processConfigTable = "processConfigTable";
   static const ruleConfigTable = "ruleConfigTable";
 
-// Pipeline Config DT
+  // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
 
-  // DEMO keys
-  static const pipelineDemo = "pipelineTable";
-  static const registryDemo = "inputLoaderStatusTable"; // repurposed
+  // Not used yet
   static const usersTable = "userTable";
 }
 

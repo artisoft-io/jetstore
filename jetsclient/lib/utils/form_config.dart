@@ -517,59 +517,46 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     inputFields: [
       [
-        TextFieldConfig(label: 'This is the First Item'),
         FormInputFieldConfig(
             key: FSK.userName,
             label: "Name",
             hint: "Enter your name",
-            flex: 2,
+            flex: 1,
             autofocus: true,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 80), // ],
-        // [
+            maxLength: 80),
+
         FormInputFieldConfig(
             key: FSK.userEmail,
             label: "Email",
             hint: "Your email address",
-            flex: 2,
+            flex: 1,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.allLower,
             maxLength: 80),
-        //* REMOVE THIS DEMO CODE
-        FormDropdownFieldConfig(key: 'emailType', items: [
-          DropdownItemConfig(label: 'Work', value: 'work'),
-          DropdownItemConfig(label: 'Home', value: 'home'),
-        ]),
       ],
       [
-        TextFieldConfig(label: 'This is the Second Item'),
         FormInputFieldConfig(
             key: FSK.userPassword,
             label: "Password",
             hint: "Your password",
-            flex: 2,
+            flex: 1,
             autofocus: false,
             obscureText: true,
             textRestriction: TextRestriction.none,
-            maxLength: 80), // ],
-        // [
+            maxLength: 80), 
+
         FormInputFieldConfig(
             key: FSK.userPasswordConfirm,
             label: "Password Confirmation",
             hint: "Re-enter your password",
-            flex: 2,
+            flex: 1,
             autofocus: false,
             obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 80),
-        //* REMOVE THIS DEMO CODE
-        FormDropdownFieldConfig(key: 'emailType', items: [
-          DropdownItemConfig(label: ''),
-          DropdownItemConfig(label: 'Work', value: 'work'),
-          DropdownItemConfig(label: 'Home', value: 'home'),
-        ]),
       ],
     ],
   ),
