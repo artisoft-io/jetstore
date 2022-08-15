@@ -37,13 +37,15 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "grouping_column", "user_email"},
 	},
+	"delete/process_mapping": {
+		stmt: `DELETE FROM jetsapi.process_mapping 
+			WHERE table_name = $1`,
+		columnKeys: []string{"table_name"},
+	},
 	"process_mapping": {
 		stmt: `INSERT INTO jetsapi.process_mapping 
 			(table_name, input_column, data_property, function_name, argument, default_value, error_message, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			ON CONFLICT ON CONSTRAINT process_mapping_unique_cstraint
-			DO UPDATE SET (function_name, argument, default_value, error_message, user_email, last_update) =
-			(EXCLUDED.function_name, EXCLUDED.argument, EXCLUDED.default_value, EXCLUDED.error_message, EXCLUDED.user_email, DEFAULT)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		columnKeys: []string{"table_name", "input_column", "data_property", "function_name", "argument", "default_value", "error_message", "user_email"},
 	},
 	"update/process_input": {
