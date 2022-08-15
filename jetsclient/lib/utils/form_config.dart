@@ -110,7 +110,10 @@ abstract class FormFieldConfig {
     required this.autovalidateMode,
   });
   final String key;
-  final int group;
+  /// group is not final to enable dynamic list of form field elements.
+  /// The validation group needs to be re-assigned since the form field elements
+  /// are arranged in a positional list.
+  int group;
   final int flex;
   final AutovalidateMode autovalidateMode;
 
