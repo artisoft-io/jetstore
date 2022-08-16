@@ -74,15 +74,23 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	// pipeline config
 	"update/pipeline_config": {
 		stmt: `UPDATE jetsapi.pipeline_config SET 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_table_name, description, user_email, last_update) = 
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, description, user_email, last_update) = 
 			($1, $2, $3, $4, $5, $6, $7, $8, DEFAULT) 
 			WHERE key = $9`,
-		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_table_name", "description", "user_email", "key"},
+		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "description", "user_email", "key"},
 	},
 	"pipeline_config": {
 		stmt: `INSERT INTO jetsapi.pipeline_config 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_table_name, description, user_email) 
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, description, user_email) 
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_table_name", "description", "user_email"},
+		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "description", "user_email"},
+	},
+
+	// pipeline_execution_status 
+	"pipeline_execution_status": {
+		stmt: `INSERT INTO jetsapi.pipeline_execution_status 
+			(pipeline_config_key, main_input_registry_key, main_input_file_key, merged_input_registry_keys, client, process_name, main_object_type, input_session_id, session_id, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		columnKeys: []string{"pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"},
 	},
 }

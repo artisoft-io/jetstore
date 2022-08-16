@@ -120,7 +120,7 @@ class FSK {
   // Pipeline Config keys
   static const mainProcessInputKey = "main_process_input_key";
   static const mergedProcessInputKeys = "merged_process_input_keys";
-  static const mainTableName = "main_table_name";
+  static const mainObjectType = "main_object_type";
 
   // reserved keys for cache
 
