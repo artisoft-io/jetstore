@@ -706,7 +706,7 @@ void pipelineConfigFormActions(BuildContext context,
       }
       updateState[FSK.processConfigKey] = row[1];
 
-      // mainProcessInputKey & main_table_name are either pre-populated as String
+      // mainProcessInputKey & main_object_type are either pre-populated as String
       // from the data table action
       // from the selected row to update or is a List<String?> if user have selected
       // a row from the data table
@@ -717,12 +717,12 @@ void pipelineConfigFormActions(BuildContext context,
       } else {
         updateState[FSK.mainProcessInputKey] = mainProcessInputKey;
       }
-      var mainTableName = formState.getValue(0, FSK.mainTableName);
-      assert(mainTableName != null, "unexpected null value");
-      if (mainTableName is List<String?>) {
-        updateState[FSK.mainTableName] = mainTableName[0];
+      var mainObjectType = formState.getValue(0, FSK.mainObjectType);
+      assert(mainObjectType != null, "unexpected null value");
+      if (mainObjectType is List<String?>) {
+        updateState[FSK.mainObjectType] = mainObjectType[0];
       } else {
-        updateState[FSK.mainTableName] = mainTableName;
+        updateState[FSK.mainObjectType] = mainObjectType;
       }
       // same pattern for merged_process_input_keys
       var mergedProcessInputKeys =
