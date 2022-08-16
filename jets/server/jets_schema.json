@@ -552,10 +552,10 @@
         "default":    "'{}'",
         "isNotNull":  true
       }, {
-        "columnName": "main_table_name",
+        "columnName": "main_object_type",
         "dataType":   "text",
         "isNotNull":  true
-        }, {
+      }, {
         "columnName": "description",
         "dataType":   "text"
       }, {
@@ -578,7 +578,7 @@
         "indexDef": "CREATE INDEX pipeline_config_process_name_idx ON jetsapi.pipeline_config (process_name ASC)"
       }, {
         "indexName": "pipeline_config_main_table_name_idx",
-        "indexDef": "CREATE INDEX pipeline_config_main_table_name_idx ON jetsapi.pipeline_config (main_table_name ASC)"
+        "indexDef": "CREATE INDEX pipeline_config_main_object_type_idx ON jetsapi.pipeline_config (main_object_type ASC)"
       }
    ]
   },
@@ -596,8 +596,10 @@
         "isNotNull":  true
       }, {
         "columnName": "main_input_registry_key",
-        "dataType":   "int",
-        "isNotNull":  true
+        "dataType":   "int"
+      }, {
+        "columnName": "main_input_file_key",
+        "dataType":   "text"
       }, {
         "columnName": "merged_input_registry_keys",
         "dataType":   "int",
@@ -610,6 +612,10 @@
         "isNotNull":  true
       }, {
         "columnName": "process_name",
+        "dataType":   "text",
+        "isNotNull":  true
+      }, {
+        "columnName": "main_object_type",
         "dataType":   "text",
         "isNotNull":  true
       }, {

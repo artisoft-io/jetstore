@@ -974,7 +974,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.processConfigKey: 3,
             FSK.mainProcessInputKey: 4,
             FSK.mergedProcessInputKeys: 5,
-            FSK.mainTableName: 6,
+            FSK.mainObjectType: 6,
             FSK.description: 7
           }),
     ],
@@ -1023,9 +1023,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 6,
-          name: "main_table_name",
-          label: 'Main Input Table',
-          tooltips: 'Main input table loaded with client data',
+          name: "main_object_type",
+          label: 'Main Object Type',
+          tooltips: 'Object Type of main input table',
           isNumeric: false),
       ColumnConfig(
           index: 7,
@@ -1067,7 +1067,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.mainTableName,
+        stateKey: FSK.mainObjectType,
         columnIdx: 3,
       ),
     ]),
