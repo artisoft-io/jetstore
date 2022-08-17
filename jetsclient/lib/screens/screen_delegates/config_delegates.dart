@@ -806,12 +806,15 @@ void pipelineConfigFormActions(BuildContext context,
       var mergedProcessInputKeys =
           formState.getValue(0, FSK.mergedProcessInputKeys);
       if (mergedProcessInputKeys != null) {
-        assert(mergedProcessInputKeys is List<String>, "Unexpected type");
-        final buf = StringBuffer();
-        buf.write("{");
-        buf.writeAll(mergedProcessInputKeys, ",");
-        buf.write("}");
-        updateState[FSK.mergedProcessInputKeys] = buf.toString();
+        if(mergedProcessInputKeys is List<String>) {
+          final buf = StringBuffer();
+          buf.write("{");
+          buf.writeAll(mergedProcessInputKeys, ",");
+          buf.write("}");
+          updateState[FSK.mergedProcessInputKeys] = buf.toString();
+        } else {
+          updateState[FSK.mergedProcessInputKeys] = mergedProcessInputKeys;
+        }
       } else {
         updateState[FSK.mergedProcessInputKeys] = '{}';
       }
