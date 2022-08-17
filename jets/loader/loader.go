@@ -426,11 +426,12 @@ func coordinateWork() error {
 	err = processFile(dbpool)
 	if err != nil {
 		for i := 0; i < nbrNodes; i++ {
-			err = registerCurrentLoad(0, 0, dbpool[i], i, "failed")
-			if err != nil {
+			err2 := registerCurrentLoad(0, 0, dbpool[i], i, "failed")
+			if err2 != nil {
 				return fmt.Errorf("error while registering the load: %v", err)
 			}
 		}
+		return err
 	}
 	return nil
 }
