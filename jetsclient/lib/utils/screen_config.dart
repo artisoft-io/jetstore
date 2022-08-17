@@ -88,7 +88,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
 
-  // Process Config Screen
+  // Pipeline Config Screen
   ScreenKeys.pipelineConfig: ScreenConfig(
       key: ScreenKeys.pipelineConfig,
       appBarLabel: 'JetStore Workspace',

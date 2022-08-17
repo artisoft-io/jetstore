@@ -162,12 +162,14 @@ class TextFieldConfig extends FormFieldConfig {
     super.flex = 1,
     super.autovalidateMode = AutovalidateMode.disabled,
     required this.label,
+    this.maxLines,
     this.leftMargin = 16.0,
     this.topMargin = 0.0,
     this.rightMargin = 16.0,
     this.bottomMargin = 0.0,
   });
   final String label;
+  final int? maxLines;
   final double leftMargin;
   final double topMargin;
   final double rightMargin;
@@ -404,7 +406,7 @@ class FormActionConfig extends FormFieldConfig {
     required JetsFormWidgetState jetsFormWidgetState,
   }) {
     return JetsFormButton(
-        key:UniqueKey(),
+        key: UniqueKey(),
         formActionConfig: this,
         formKey: jetsFormWidgetState.widget.formKey,
         formState: jetsFormWidgetState.widget.formState,
@@ -449,7 +451,6 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.clientsNameTable,
             tableHeight: 400,
             dataTableConfig: DTKeys.clientsNameTable),
-
         FormDataTableFieldConfig(
             key: DTKeys.objectTypeRegistryTable,
             tableHeight: 400,
@@ -526,7 +527,6 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLength: 80),
-
         FormInputFieldConfig(
             key: FSK.userEmail,
             label: "Email",
@@ -546,8 +546,7 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: true,
             textRestriction: TextRestriction.none,
-            maxLength: 80), 
-
+            maxLength: 80),
         FormInputFieldConfig(
             key: FSK.userPasswordConfirm,
             label: "Password Confirmation",
@@ -888,13 +887,15 @@ final Map<String, FormConfig> _formConfigurations = {
           enableOnlyWhenFormValid: true,
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.secondary,
           leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
     ],
     queries: {
       "inputFieldsQuery":
@@ -1031,13 +1032,15 @@ final Map<String, FormConfig> _formConfigurations = {
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.secondary,
           leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
     ],
     inputFields: [
       [
@@ -1090,65 +1093,119 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
   ),
 
-  //* DEMO FORM
-  "dataTableDemoForm": FormConfig(
-    key: "dataTableDemoForm",
+  // Start Pipeline - Dialog
+  FormKeys.startPipeline: FormConfig(
+    key: FormKeys.startPipeline,
+    title: "Start Pipeline",
     actions: [
       FormActionConfig(
-          key: "dataTableDemoAction1",
-          label: "Do it!",
+          key: ActionKeys.startPipelineOk,
+          label: "Start",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
-          rightMargin: defaultPadding),
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
     ],
     inputFields: [
       [
-        FormInputFieldConfig(
-            key: "object_type",
-            label: "S3 Folder",
-            hint: "Folder where the files are dropped",
-            flex: 2,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 80), // ],
-        FormDropdownFieldConfig(
-            key: FSK.client,
-            items: [
-              DropdownItemConfig(label: ''),
-            ],
-            dropdownItemsQuery:
-                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+        // Instruction
+        TextFieldConfig(
+            label:
+                "To start a pipeline using input data from a source that was"
+                " previously loaded, first select a Pipeline Configuration and"
+                " then select the Main Input Source (required) and optionally"
+                " the Merge-In Input Sources.",
+            maxLines: 5,
+            topMargin: defaultPadding,
+            bottomMargin: defaultPadding)
       ],
       [
-        FormInputFieldConfig(
-            key: "table_name",
-            label: "Client Table Name",
-            hint: "Table where client file is loaded into",
-            flex: 2,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 60), // ],
-        FormInputFieldConfig(
-            key: "grouping_column",
-            label: "Grouping Column",
-            hint: "Column containing Member Key",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 60), // ],
+        // Pipeline Configuration Table (note using FSK key)
+        FormDataTableFieldConfig(
+            key: FSK.pipelineConfigKey,
+            dataTableConfig: FSK.pipelineConfigKey),
+      ],
+      [
+        PaddingConfig(),
       ],
       [
         FormDataTableFieldConfig(
-            key: "dataTableDemoMainTable",
-            dataTableConfig: "dataTableDemoMainTableConfig")
+            key: FSK.mainInputRegistryKey,
+            dataTableConfig: FSK.mainInputRegistryKey),
+      ],
+      [
+        PaddingConfig(),
       ],
       [
         FormDataTableFieldConfig(
-            key: "dataTableDemoSupportTable",
-            dataTableConfig: "dataTableDemoSupportTableConfig")
+            key: FSK.mergedInputRegistryKeys,
+            dataTableConfig: FSK.mergedProcessInputKeys),
+      ],
+    ],
+  ),
+
+  // Load & Start Pipeline - Dialog
+  FormKeys.loadAndStartPipeline: FormConfig(
+    key: FormKeys.loadAndStartPipeline,
+    title: "Load File & Start Pipeline",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.loadAndStartPipelineOk,
+          label: "Load & Start",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        // Instruction
+        TextFieldConfig(
+            label:
+                "To load a file and start a pipeline using it,"
+                " first select a Pipeline Configuration and"
+                " then select a File Key to load and then use as the"
+                " Main Input Source and optionally select"
+                " the Merge-In Input Sources (previously loaded or computed).",
+            maxLines: 5,
+            topMargin: defaultPadding,
+            bottomMargin: defaultPadding)
+      ],
+      [
+        // Pipeline Configuration Table (note using FSK key)
+        FormDataTableFieldConfig(
+            key: FSK.pipelineConfigKey,
+            dataTableConfig: FSK.pipelineConfigKey),
+      ],
+      [
+        PaddingConfig(),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.fileKeyStagingForPipelineExecTable,
+            dataTableConfig: DTKeys.fileKeyStagingForPipelineExecTable),
+      ],
+      [
+        PaddingConfig(),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: FSK.mergedProcessInputKeys,
+            dataTableConfig: FSK.mergedProcessInputKeys),
       ],
     ],
   ),
