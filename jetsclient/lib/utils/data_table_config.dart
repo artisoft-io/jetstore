@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/utils/constants.dart';
 
+/// Data Table Configuration class
+/// [refreshOnKeyUpdateEvent] contains list of key that will trigger a table
+/// refresh, used when underlying table is updated independently of this table.
 class TableConfig {
   TableConfig(
       {required this.key,
@@ -16,6 +18,7 @@ class TableConfig {
       required this.columns,
       this.defaultToAllRows = false,
       required this.whereClauses,
+      this.refreshOnKeyUpdateEvent = const[],
       this.formStateConfig,
       required this.sortColumnName,
       required this.sortAscending,
@@ -31,6 +34,7 @@ class TableConfig {
   final List<ColumnConfig> columns;
   final bool defaultToAllRows;
   final List<WhereClause> whereClauses;
+  final List<String> refreshOnKeyUpdateEvent;
   final DataTableFormStateConfig? formStateConfig;
   final String sortColumnName;
   final bool sortAscending;
@@ -179,6 +183,9 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [],
+    // use FSK.key to trigger table refresh when load & Start Pipeline action
+    // add a row to input_loader_status table
+    refreshOnKeyUpdateEvent: [FSK.key],
     actions: [
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -303,26 +310,26 @@ final Map<String, TableConfig> _tableConfigurations = {
     tableName: 'pipeline_execution_status',
     label: 'Pipeline Execution Status',
     apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
     whereClauses: [],
     actions: [
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'startPipeline',
-          label: 'Start New Pipeline',
+          label: 'Start Pipeline',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
-          configForm: "newPipeline"),
+          configForm: FormKeys.startPipeline),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'startE2E',
           label: 'Load & Start Pipeline',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: true,
-          configForm: "newPipeline"),
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.loadAndStartPipeline),
     ],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
@@ -331,71 +338,85 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 0,
           name: "key",
           label: 'Key',
-          tooltips: 'Row Primary Key',
+          tooltips: '',
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
           index: 1,
           name: "pipeline_config_key",
           label: 'Pipeline Config',
-          tooltips: 'Pipeline configuration key',
+          tooltips: '',
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
           index: 2,
-          name: "main_input_registry_key",
-          label: 'Main Input Registry',
-          tooltips: 'Main input registry key',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 3,
-          name: "merged_input_registry_keys",
-          label: 'Merge-In Input Registry',
-          tooltips: 'Merged entities input registry keys',
-          isNumeric: false,
-          isHidden: true),
-      ColumnConfig(
-          index: 4,
           name: "client",
           label: 'Client',
-          tooltips: '',
+          tooltips: 'Client name for this run',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "process_name",
+          label: 'Process Name',
+          tooltips:
+              'Process submitted for execution, will pick up client-specific rule config',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "main_object_type",
+          label: 'Main Object Type',
+          tooltips: 'Type of object contained in the main input source',
           isNumeric: false),
       ColumnConfig(
           index: 5,
-          name: "process_name",
-          label: 'Process Name',
-          tooltips: 'Process executed',
-          isNumeric: false),
+          name: "main_input_registry_key",
+          label: 'Main Input Registry',
+          tooltips:
+              'Main input from previously loaded file, this specify the input session id',
+          isNumeric: true),
       ColumnConfig(
           index: 6,
-          name: "status",
-          label: 'Status',
-          tooltips: 'Status of the load',
+          name: "main_input_file_key",
+          label: 'Main Input File Key',
+          tooltips:
+              'Start the process by loading the this file and then execute the rule process',
           isNumeric: false),
       ColumnConfig(
           index: 7,
+          name: "merged_input_registry_keys",
+          label: 'Merge-In Input Registry',
+          tooltips:
+              'Indicate the session id of the input sources to be merged with the main input source',
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "status",
+          label: 'Status',
+          tooltips: 'Status of the pipeline execution',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
           name: "input_session_id",
           label: 'Input Session',
           tooltips: 'Input session used (overriding input registry)',
           isNumeric: false),
       ColumnConfig(
-          index: 8,
+          index: 10,
           name: "session_id",
           label: 'Session ID',
-          tooltips: 'Data Pipeline Job Key',
+          tooltips: 'Data Pipeline session identifier',
           isNumeric: false),
       ColumnConfig(
-          index: 9,
+          index: 11,
           name: "user_email",
           label: 'User',
-          tooltips: 'Who started the pipeline',
+          tooltips: 'Who submitted the pipeline',
           isNumeric: false),
       ColumnConfig(
-          index: 10,
+          index: 12,
           name: "last_update",
           label: 'Loaded At',
-          tooltips: 'Indicates when the file was loaded',
+          tooltips: 'Indicates when the pipeline was submitted',
           isNumeric: false),
     ],
     sortColumnName: 'last_update',
@@ -639,24 +660,31 @@ final Map<String, TableConfig> _tableConfigurations = {
     columns: [
       ColumnConfig(
           index: 0,
+          name: "key",
+          label: 'Primary Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
           name: "client",
           label: 'Client',
           tooltips: 'Client providing the input files',
           isNumeric: false),
       ColumnConfig(
-          index: 1,
+          index: 2,
           name: "object_type",
           label: 'Object Type',
           tooltips: 'The type of object the file contains',
           isNumeric: false),
       ColumnConfig(
-          index: 2,
+          index: 3,
           name: "file_key",
           label: 'File Key',
           tooltips: 'File key or path',
           isNumeric: false),
       ColumnConfig(
-          index: 3,
+          index: 4,
           name: "last_update",
           label: 'Last Update',
           tooltips: 'When the file was received',
@@ -940,7 +968,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Process Input Data Table
+  // Pipeline Config Data Table for Pipeline Config Forms
   DTKeys.pipelineConfigTable: TableConfig(
     key: DTKeys.pipelineConfigTable,
     schemaName: 'jetsapi',
@@ -1068,7 +1096,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.mainObjectType,
-        columnIdx: 3,
+        columnIdx: 2,
       ),
     ]),
     columns: [
@@ -1223,6 +1251,297 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Pipeline Config Data Table for Pipeline Execution Forms
+  FSK.pipelineConfigKey: TableConfig(
+    key: FSK.pipelineConfigKey,
+    schemaName: 'jetsapi',
+    tableName: 'pipeline_config',
+    label: 'Pipeline Configuration',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.processName, columnIdx: 1),
+      DataTableFormStateOtherColumnConfig(stateKey: FSK.client, columnIdx: 2),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.mainObjectType, columnIdx: 6),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "process_name",
+          label: 'Process',
+          tooltips: 'Process Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "process_config_key",
+          label: 'Process Config',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 4,
+          name: "main_process_input_key",
+          label: 'Main Process Input',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 5,
+          name: "merged_process_input_keys",
+          label: 'Merged Process Inputs',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 6,
+          name: "main_object_type",
+          label: 'Main Object Type',
+          tooltips: 'Object Type of main input table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "description",
+          label: 'Description',
+          tooltips: 'Pipeline description',
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Input Registry Table for Pipeline Exec Dialog (FormKeys.startPipeline)
+  // for selecting FSK.mainInputRegistryKey
+  FSK.mainInputRegistryKey: TableConfig(
+    key: FSK.mainInputRegistryKey,
+    schemaName: 'jetsapi',
+    tableName: 'input_registry',
+    label: 'Main Process Input Source',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Object Type',
+          tooltips: 'Type of objects in file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File Key of the loaded file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "session_id",
+          label: 'Session ID',
+          tooltips: 'Session ID of the file load job',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // File Key Staging Data Table for Pipeline Exec Dialog (FormKeys.startPipeline)
+  // for selecting FSK.mainInputFileKey
+  DTKeys.fileKeyStagingForPipelineExecTable: TableConfig(
+    key: DTKeys.fileKeyStagingForPipelineExecTable,
+    schemaName: 'jetsapi',
+    tableName: 'file_key_staging',
+    label: 'Main Input Source - File Key Staging',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
+    ],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.mainInputFileKey, columnIdx: 3),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Primary Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client providing the input files',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Object Type',
+          tooltips: 'The type of object the file contains',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File key or path',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "last_update",
+          label: 'Last Update',
+          tooltips: 'When the file was received',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Input Registry Table for Pipeline Exec Dialog (FormKeys.startPipeline)
+  // for selecting FSK.mergeInputRegistryKeys
+  FSK.mergedInputRegistryKeys: TableConfig(
+    key: FSK.mergedInputRegistryKeys,
+    schemaName: 'jetsapi',
+    tableName: 'input_registry',
+    label: 'Merged-In Process Input Sources',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Object Type',
+          tooltips: 'Type of objects in file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File Key of the loaded file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "session_id",
+          label: 'Session ID',
+          tooltips: 'Session ID of the file load job',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
   // Domain Table Viewer Data Table
   DTKeys.inputTable: TableConfig(
       key: DTKeys.inputTable,
@@ -1273,111 +1592,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
     ],
     sortColumnName: 'name',
-    sortAscending: true,
-    rowsPerPage: 10,
-  ),
-
-  //* DEMO FORM - DEMO MAIN DATA TABLE
-  "dataTableDemoMainTableConfig": TableConfig(
-    key: "dataTableDemoMainTableConfig",
-    schemaName: 'jetsapi',
-    tableName: 'process_input',
-    label: 'Client Input',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
-    whereClauses: [WhereClause(column: "client", formStateKey: "client")],
-    actions: [
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'new',
-          label: 'New Row',
-          style: ActionStyle.primary,
-          configForm: "newPipeline"),
-      ActionConfig(
-          actionType: DataTableActionType.toggleCheckboxVisible,
-          key: 'edit',
-          label: 'Edit Table',
-          style: ActionStyle.secondary,
-          isVisibleWhenCheckboxVisible: false),
-      ActionConfig(
-          actionType: DataTableActionType.saveDirtyRows,
-          key: 'save',
-          label: 'Save Changes',
-          style: ActionStyle.primary,
-          isVisibleWhenCheckboxVisible: true,
-          apiKey: 'updatePipeline'),
-      ActionConfig(
-          actionType: DataTableActionType.deleteSelectedRows,
-          key: 'delete',
-          label: 'Delete Rows',
-          style: ActionStyle.danger,
-          isVisibleWhenCheckboxVisible: true,
-          apiKey: 'deletePipelines'),
-      ActionConfig(
-          actionType: DataTableActionType.cancelModifications,
-          key: 'cancel',
-          label: 'Cancel Changes',
-          style: ActionStyle.primary,
-          isVisibleWhenCheckboxVisible: true),
-    ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-        stateKey: "dataTableDemoClient",
-        columnIdx: 1,
-      )
-    ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Input Data Table Name',
-          isNumeric: false),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Secondary Key',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "source_type",
-          label: 'Source Type',
-          tooltips: 'Source Type can be file or domain_table',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "entity_rdf_type",
-          label: 'RDF Type',
-          tooltips: 'Entity rdf type',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "grouping_column",
-          label: 'Grouping Column',
-          tooltips: 'Input record grouping column',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "key_column",
-          label: 'Key Column',
-          tooltips: 'Input record key column',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'User who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "last_update",
-          label: 'Last Update',
-          tooltips: 'When the record was created or last update',
-          isNumeric: false),
-    ],
-    sortColumnName: 'table_name',
     sortAscending: true,
     rowsPerPage: 10,
   ),

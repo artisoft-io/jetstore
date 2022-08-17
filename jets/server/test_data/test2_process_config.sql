@@ -130,14 +130,14 @@ INSERT INTO jetsapi.rule_config (process_config_key, process_name, client, subje
   (254, 'AllE2E'     , 'Zeme', 'jets:iState', 'rdf:type', 'jets:State', 'resource')
 ;
 
-INSERT INTO jetsapi.pipeline_config (key, process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_table_name, user_email) VALUES
-  (201, 'PatientGen' , 'Zeme', 251, 271, '{}'        , 'test2'              , 'user@mail.com'),
-  (202, 'ClaimGen'   , 'Zeme', 252, 272, '{}'        , 'hc:SimulatedPatient', 'user@mail.com'),
-  (203, 'PatientAdum', 'Zeme', 253, 272, '{273, 274}', 'hc:SimulatedPatient', 'user@mail.com'),
-  (204, 'AllE2E'     , 'Zeme', 254, 271, '{}'        , 'test2'              , 'user@mail.com')
+INSERT INTO jetsapi.pipeline_config (key, process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, user_email) VALUES
+  (201, 'PatientGen' , 'Zeme', 251, 271, '{}'        , 'Simulator'        , 'user@mail.com'),
+  (202, 'ClaimGen'   , 'Zeme', 252, 272, '{}'        , 'SimulatedPatient' , 'user@mail.com'),
+  (203, 'PatientAdum', 'Zeme', 253, 272, '{273,274}' , 'SimulatedPatient' , 'user@mail.com'),
+  (204, 'AllE2E'     , 'Zeme', 254, 271, '{}'        , 'Simulator'        , 'user@mail.com')
 ;
 
-INSERT INTO jetsapi.pipeline_execution_status (key, pipeline_config_key, process_name, client, main_input_registry_key, merged_input_registry_keys, input_session_id, session_id, status, user_email) VALUES
-  (281, 204, 'AllE2E', 'Zeme', 1, '{}', NULL, '1230789', 'in progress', 'user@mail.com')
+INSERT INTO jetsapi.pipeline_execution_status (key, pipeline_config_key, process_name, client, main_object_type, main_input_registry_key, merged_input_registry_keys, input_session_id, session_id, status, user_email) VALUES
+  (281, 204, 'AllE2E', 'Zeme', 'Simulator', 1, '{}', NULL, '1230789', 'in progress', 'user@mail.com')
 ;
 

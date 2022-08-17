@@ -98,7 +98,7 @@ class JetsDataTableSource extends ChangeNotifier {
     // but should not update it since they are reset here regardless
     // of the other widgets.
     List<Set<String>> secondaryValues =
-        List.filled(formStateConfig.otherColumns.length, <String>{});
+        List.generate(formStateConfig.otherColumns.length, (_) => <String>{});
     itor = formState.selectedRows(config.group, config.key);
     if (itor != null) {
       for (final JetsRow selRow in itor) {
@@ -236,8 +236,7 @@ class JetsDataTableSource extends ChangeNotifier {
           });
         }
       } else {
-        var values =
-            state.formState?.getValue(config.group, wc.formStateKey!);
+        var values = state.formState?.getValue(config.group, wc.formStateKey!);
         if (values != null) {
           if (values is String?) {
             whereClauses.add(<String, dynamic>{
@@ -245,8 +244,7 @@ class JetsDataTableSource extends ChangeNotifier {
               'values': [values],
             });
           } else {
-            assert(
-                values is List<String>?, "Incorrect data type in for state");
+            assert(values is List<String>?, "Incorrect data type in form state");
             var l = values as List<String>;
             if (l.isNotEmpty) {
               whereClauses.add(<String, dynamic>{

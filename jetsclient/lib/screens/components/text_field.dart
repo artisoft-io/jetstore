@@ -23,6 +23,7 @@ class JetsTextField extends StatelessWidget {
               fieldConfig.bottomMargin),
           child: Text(
             fieldConfig.label,
+            maxLines: fieldConfig.maxLines,
             style: themeData.textTheme.labelLarge?.copyWith(fontSize: 16),
           ),
         ));

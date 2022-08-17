@@ -112,6 +112,10 @@
     "tableName":  "file_key_staging",
     "columns": [
       {
+        "columnName": "key",
+        "dataType":   "int",
+        "isPK":       true
+      }, {
         "columnName": "client",
         "dataType":   "text",
         "isNotNull":  true
@@ -577,7 +581,7 @@
         "indexName": "pipeline_config_process_name_idx",
         "indexDef": "CREATE INDEX pipeline_config_process_name_idx ON jetsapi.pipeline_config (process_name ASC)"
       }, {
-        "indexName": "pipeline_config_main_table_name_idx",
+        "indexName": "pipeline_config_main_object_type_idx",
         "indexDef": "CREATE INDEX pipeline_config_main_object_type_idx ON jetsapi.pipeline_config (main_object_type ASC)"
       }
    ]

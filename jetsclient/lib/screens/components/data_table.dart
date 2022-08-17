@@ -297,11 +297,11 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       formState!.addListener(refreshOnFormStateChange);
     }
 
-    if (_dataTableWidget.screenPath.path == homePath) {
+    if (JetsRouterDelegate().user.isAuthenticated) {
+      dataSource.getModelData();
+    } else {
       // Get the first batch of data when navigated to screenPath
       JetsRouterDelegate().addListener(navListener);
-    } else {
-      dataSource.getModelData();
     }
   }
 
@@ -367,31 +367,41 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     setState(() {});
   }
 
+  void _refreshTable() {
+    currentDataPage = 0;
+    rowsPerPage = 10;
+    final config = formFieldConfig!;
+    formState!.clearSelectedRow(config.group, config.key);
+    formState!.setValue(config.group, config.key, null);
+    if (tableConfig.formStateConfig != null) {
+      for (final field in tableConfig.formStateConfig!.otherColumns) {
+        formState!.setValue(config.group, field.stateKey, null);
+      }
+    }
+    dataSource.getModelData();
+  }
+
   void refreshOnFormStateChange() {
     assert(formState != null);
     assert(formFieldConfig != null);
+    var group = formFieldConfig!.group;
     for (final whereClause in tableConfig.whereClauses) {
       if (whereClause.formStateKey != null) {
         // print(
         //     "whereClause on group ${formFieldConfig!.group}, key ${whereClause.formStateKey} for ${formFieldConfig?.key}");
-        if (formState!
-            .isKeyUpdated(formFieldConfig!.group, whereClause.formStateKey!)) {
+        if (formState!.isKeyUpdated(group, whereClause.formStateKey!)) {
           // where clause have changed, refresh the table, make sure to go to
           // first page of data and clear the selected rows & secondary fields
           // in the form state
-          currentDataPage = 0;
-          rowsPerPage = 10;
-          final config = formFieldConfig!;
-          formState!.clearSelectedRow(config.group, config.key);
-          formState!.setValue(config.group, config.key, null);
-          if (tableConfig.formStateConfig != null) {
-            for (final field in tableConfig.formStateConfig!.otherColumns) {
-              formState!.setValue(config.group, field.stateKey, null);
-            }
-          }
-          dataSource.getModelData();
-          return;
+          _refreshTable();
+          break;
         }
+      }
+    }
+    for (final key in tableConfig.refreshOnKeyUpdateEvent) {
+      if (formState!.isKeyUpdated(group, key)) {
+        _refreshTable();
+        break;
       }
     }
   }

@@ -59,13 +59,17 @@ class FormKeys {
   static const sourceConfig = "sourceConfigForm";
   static const addClient = "addClientDialog";
   static const loadFile = "loadFileDialog";
-
+  // Process Input Forms
   static const processInput = "processInputForm";
   static const addProcessInput = "addProcessInputDialog";
   static const processMapping = "processMappingDialog";
+  // Process Config Forms
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
+  // Pipeline Config & Exec Forms
   static const pipelineConfig = "pipelineConfigDialog";
+  static const startPipeline = "startPipelineDialog";
+  static const loadAndStartPipeline = "loadAndStartPipelineDialog";
 
   static const login = "login";
   static const register = "register";
@@ -122,6 +126,12 @@ class FSK {
   static const mergedProcessInputKeys = "merged_process_input_keys";
   static const mainObjectType = "main_object_type";
 
+  // Pipeline Exec keys
+  static const pipelineConfigKey = "pipeline_config_key";
+  static const mainInputRegistryKey = "main_input_registry_key";
+  static const mainInputFileKey = "main_input_file_key";
+  static const mergedInputRegistryKeys = "merged_input_registry_keys";
+
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -154,7 +164,7 @@ class FSK {
   static const objectTypeRegistryCache = "cache.object_type_registry";
 
   // processConfigCache: cache value is a list<list<String?>> (model)
-  // from table process_config provides [key, process_name] 
+  // from table process_config provides [key, process_name]
   // The query is in FSK.processName drowpdown initaization query
   static const processConfigCache = "cache.process_config";
 
@@ -185,6 +195,10 @@ class ActionKeys {
 
   // for add / edit pipeline config dialog
   static const pipelineConfigOk = "pipelineConfig.ok";
+
+  // for pipeline execution dialogs
+  static const startPipelineOk = "startPipeline.ok";
+  static const loadAndStartPipelineOk = "loadAndStartPipeline.ok";
 }
 
 /// Form Action Keys
@@ -225,6 +239,7 @@ class DTKeys {
 
   // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
+  static const fileKeyStagingForPipelineExecTable = "fileKeyStagingForPipelineExecTable";
 
   // Not used yet
   static const usersTable = "userTable";

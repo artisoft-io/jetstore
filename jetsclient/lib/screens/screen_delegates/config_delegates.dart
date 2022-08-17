@@ -42,6 +42,23 @@ String? homeFormValidator(
       return null;
     case FSK.groupingColumn:
       return null;
+
+    // Start Pipeline Dialog
+    case FSK.pipelineConfigKey:
+      if (v != null) return null;
+      return "Pipeline configuration row must be selected";
+    case FSK.mainInputRegistryKey:
+      if (v != null) return null;
+      return "Main input source row must be selected";
+
+    case DTKeys.fileKeyStagingForPipelineExecTable:
+      if (v != null) return null;
+      return "File Key row must be selected";
+
+    case FSK.mergedInputRegistryKeys:
+    case FSK.mergedProcessInputKeys:
+      return null;
+
     default:
       print('Oops home form has no validator configured for form field $key');
   }
@@ -119,6 +136,66 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
       break;
+
+    // Start Pipeline Dialogs
+    case ActionKeys.startPipelineOk:
+    case ActionKeys.loadAndStartPipelineOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return;
+      }
+      var state = formState.getState(0);
+      if (state[FSK.mergedInputRegistryKeys] == null) {
+        state[FSK.mergedInputRegistryKeys] = '{}';
+      }
+      state[FSK.pipelineConfigKey] = state[FSK.pipelineConfigKey][0];
+      var w = state[FSK.mainInputRegistryKey];
+      if (w != null) state[FSK.mainInputRegistryKey] = w[0];
+      w = state[FSK.mainInputFileKey];
+      if (w != null) state[FSK.mainInputFileKey] = w[0];
+      state[FSK.client] = state[FSK.client][0];
+      state[FSK.processName] = state[FSK.processName][0];
+      state[FSK.mainObjectType] = state[FSK.mainObjectType][0];
+      state['status'] = StatusKeys.submitted;
+      state['user_email'] = JetsRouterDelegate().user.email;
+      state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
+      if (actionKey == ActionKeys.loadAndStartPipelineOk) {
+        state[FSK.fileKey] = state[FSK.mainInputFileKey];
+        state[FSK.objectType] = state[FSK.mainObjectType];
+        state['input_session_id'] = state['session_id'];
+        state['table_name'] =
+            state[FSK.client] + '_' + state[FSK.mainObjectType];
+      }
+      var navigator = Navigator.of(context);
+      if (actionKey == ActionKeys.loadAndStartPipelineOk) {
+        // Send the load insert
+        var encodedJsonBody = jsonEncode(<String, dynamic>{
+          'action': 'insert_rows',
+          'table': 'input_loader_status',
+          'data': [state],
+        }, toEncodable: (_) => '');
+        var loadResult = await context.read<HttpClient>().sendRequest(
+            path: ServerEPs.dataTableEP,
+            token: JetsRouterDelegate().user.token,
+            encodedJsonBody: encodedJsonBody);
+        if (loadResult.statusCode != 200) {
+          formState.setValue(
+              0, FSK.serverError, "Something went wrong. Please try again.");
+          navigator.pop(DTActionResult.statusError);
+          return;
+        }
+        formState.parentFormState
+            ?.setValueAndNotify(group, FSK.key, state['session_id']);
+      }
+      // Send the pipeline start insert
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': 'pipeline_execution_status',
+        'data': [state],
+      }, toEncodable: (_) => '');
+      postInsertRows(context, formState, encodedJsonBody);
+      break;
+
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
       break;
@@ -630,8 +707,8 @@ void processConfigFormActions(BuildContext context,
 /// Pipeline Config Form / Dialog Validator
 String? pipelineConfigFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
-  print(
-      "Validator Called for $group, $key, $v, state is ${formState.getValue(group, key)}");
+  // print(
+  //     "Validator Called for $group, $key, $v, state is ${formState.getValue(group, key)}");
   assert((v is String?) || (v is List<String>?),
       "Pipeline Config Form has unexpected data type");
   switch (key) {
@@ -656,12 +733,13 @@ String? pipelineConfigFormValidator(
       }
       return "Main process input must be selected.";
 
+    case FSK.description:
     case FSK.mergedProcessInputKeys:
       return null;
 
     default:
       print(
-          'Oops process / rules config form has no validator configured for form field $key');
+          'Oops pipeline config form has no validator configured for form field $key');
   }
   return null;
 }
@@ -734,6 +812,8 @@ void pipelineConfigFormActions(BuildContext context,
         buf.writeAll(mergedProcessInputKeys, ",");
         buf.write("}");
         updateState[FSK.mergedProcessInputKeys] = buf.toString();
+      } else {
+        updateState[FSK.mergedProcessInputKeys] = '{}';
       }
       updateState[FSK.description] = formState.getValue(0, FSK.description);
       updateState[FSK.userEmail] = JetsRouterDelegate().user.email;
