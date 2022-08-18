@@ -6,11 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
 	// lru "github.com/hashicorp/golang-lru"
@@ -86,6 +90,46 @@ func (dtq *DataTableAction) makeWhereClause() string {
 		}
 	}
 	return buf.String()
+}
+
+// DoDataTableAction ------------------------------------------------------
+// Entry point function
+func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) {
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	dataTableAction := DataTableAction{Limit: 200}
+	err = json.Unmarshal(body, &dataTableAction)
+	if err != nil {
+		ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	// Intercept specific dataTable action
+	switch dataTableAction.Action {
+
+	case "raw_query":
+		server.ExecRawQuery(w, r, &dataTableAction)
+		return
+
+	case "raw_query_map":
+		server.ExecRawQueryMap(w, r, &dataTableAction)
+		return
+
+	case "insert_rows":
+		server.InsertRows(w, r, &dataTableAction)
+		return
+
+	case "read":
+		server.DoReadAction(w, r, &dataTableAction)
+		return
+	default:
+		log.Printf("Error: unknown action: %v", dataTableAction.Action)
+		ERROR(w, http.StatusUnprocessableEntity, fmt.Errorf("error: unknown action"))
+		return
+	}
 }
 
 func isNumeric(dtype string) bool {
@@ -219,41 +263,17 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 	return &resultRows, nil
 }
 
-// ReadDataTable ------------------------------------------------------
-func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) {
+// DoReadAction ------------------------------------------------------
+func (server *Server) DoReadAction(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-	dataTableAction := DataTableAction{Limit: 200}
-	err = json.Unmarshal(body, &dataTableAction)
-	if err != nil {
-		ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-	// Intercept special case
-	switch dataTableAction.Action {
-
-	case "raw_query":
-		server.ExecRawQuery(w, r, &dataTableAction)
-		return
-
-	case "raw_query_map":
-		server.ExecRawQueryMap(w, r, &dataTableAction)
-		return
-
-	case "insert_rows":
-		server.InsertRows(w, r, &dataTableAction)
-		return
-
-	case "read":
-		// continue
-	default:
-		log.Printf("Error: unknown action: %v", dataTableAction.Action)
-		ERROR(w, http.StatusUnprocessableEntity, fmt.Errorf("error: unknown action"))
-		return
+	// Check if we're in dev mode and the query is delegated to a proxy implementation
+	if devMode {
+		// We're in dev mode, see if we override the table being queried
+		switch dataTableAction.Table {
+		case "file_key_staging":
+			server.readLocalFiles(w, r, dataTableAction)
+			return
+		}
 	}
 
 	// to package up the result
@@ -345,7 +365,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 	// Perform the query
 	query := buf.String()
-	resultRows, err := execQuery(server.dbpool, &dataTableAction, &query)
+	resultRows, err := execQuery(server.dbpool, dataTableAction, &query)
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while executing query"))
 		return
@@ -367,6 +387,56 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results["token"] = token[0]
 	}
 	results["totalRowCount"] = totalRowCount
+	results["rows"] = resultRows
+	JSON(w, http.StatusOK, results)
+}
+
+func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
+	fileSystem := os.DirFS(*unitTestDir)
+	dirData := make([]map[string]string, 0)
+	key := 1
+	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			log.Printf("ERROR while walking unit test directory %q: %v", path, err)
+			return err
+		}
+		if info.IsDir() {
+			// fmt.Printf("visiting directory: %+v \n", info.Name())
+			return nil
+		}
+		// fmt.Printf("visited file: %q\n", path)
+		pathSplit := strings.Split(path, "/")
+		if len(pathSplit) != 3 {
+			log.Printf("Invalid path found while walking unit test directory %q: skipping it", path)
+			return nil
+		}
+		data := make(map[string]string, 5)
+		data["key"] = strconv.Itoa(key)
+		key += 1
+		data["client"] = pathSplit[0]
+		data["object_type"] = pathSplit[1]
+		data["file_key"] = *unitTestDir + "/" + path
+		data["last_update"] = time.Now().Format(time.RFC3339)
+		dirData = append(dirData, data)
+		return nil
+	})
+	if err != nil {
+		log.Printf("error walking the path %q: %v\n", *unitTestDir, err)
+		ERROR(w, http.StatusInternalServerError, errors.New("error while walking the unit test directory"))	
+		return
+	}
+
+	// package the result, sending back only the requested collumns
+	resultRows := make([][]string, 0, len(dirData))
+	for iRow := range dirData {
+		row := make([]string, len(dataTableAction.Columns))
+		for iCol, col := range dataTableAction.Columns {
+			row[iCol] = dirData[iRow][col]
+		}
+		resultRows = append(resultRows, row)
+	}
+
+	results := makeResult(r)
 	results["rows"] = resultRows
 	JSON(w, http.StatusOK, results)
 }
