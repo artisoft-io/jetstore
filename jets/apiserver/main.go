@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 var apiSecret          = flag.String("API_SECRET", "", "Secret used for signing jwt tokens (required)")
 var dsn                = flag.String("dsn", "", "primary database connection string (required)")
 var serverAddr         = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
 var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
+var unitTestDir        = flag.String("unitTestDir", "./data/unit_test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only")
+var devMode bool
 
 func main() {
 	flag.Parse()
@@ -40,12 +43,27 @@ func main() {
 		os.Exit((1))
 	}
 
+	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
+	if devMode {
+		if strings.HasPrefix(*unitTestDir, ".") {
+			v1, ok := os.LookupEnv("WORKSPACES_HOME")
+				if ok {
+					v2, ok := os.LookupEnv("WORKSPACE")
+					if ok {
+						*unitTestDir = v1 + "/" + v2 + "/" + *unitTestDir
+					}
+				}
+		}
+	}
+	
 	fmt.Println("apiserver argument:")
 	fmt.Println("-------------------")
 	fmt.Println("Got argument: apiSecret",*apiSecret)
 	fmt.Println("Got argument: dsn",*dsn)
 	fmt.Println("Got argument: serverAddr",*serverAddr)
 	fmt.Println("Got argument: tokenExpiration",*tokenExpiration, "min")
-
+	if devMode {
+		fmt.Println("Running in DEV MODE: unitTestDir", *unitTestDir)
+	}
 	log.Fatal(listenAndServe())
 }
