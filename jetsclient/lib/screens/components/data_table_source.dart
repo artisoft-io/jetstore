@@ -228,7 +228,14 @@ class JetsDataTableSource extends ChangeNotifier {
     List<Map<String, dynamic>> whereClauses = [];
     final config = state.formFieldConfig;
     for (final wc in state.tableConfig.whereClauses) {
-      if (config == null || wc.formStateKey == null) {
+      var value =
+          JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
+      if (value != null) {
+        whereClauses.add(<String, dynamic>{
+          'column': wc.column,
+          'values': [value],
+        });
+      } else if (config == null || wc.formStateKey == null) {
         if (wc.defaultValue.isNotEmpty) {
           whereClauses.add(<String, dynamic>{
             'column': wc.column,
@@ -244,7 +251,8 @@ class JetsDataTableSource extends ChangeNotifier {
               'values': [values],
             });
           } else {
-            assert(values is List<String>?, "Incorrect data type in form state");
+            assert(
+                values is List<String>?, "Incorrect data type in form state");
             var l = values as List<String>;
             if (l.isNotEmpty) {
               whereClauses.add(<String, dynamic>{
@@ -281,6 +289,7 @@ class JetsDataTableSource extends ChangeNotifier {
       }
     }
     msg['sortAscending'] = state.sortAscending;
+    // print("*** Query object $msg");
     return msg;
   }
 
