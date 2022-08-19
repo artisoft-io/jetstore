@@ -17,16 +17,13 @@ const PARAM_CHAR = ':';
 const homePath = '/';
 const sourceConfigPath = '/sourceConfig';
 const processInputPath = '/processInput';
-const domainTableViewerPath = '/domainTableViewer/:table';
+const domainTableViewerPath = '/domainTableViewer/:table/:session_id';
 
 const processConfigPath = '/processConfig';
 const pipelineConfigPath = '/pipelineConfig';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
-
-const fileRegistryPath = '/fileRegistry';
-const fileRegistryTablePath = '/fileRegistry/table/:table';
 
 final Map<String, Widget> jetsRoutesMap = {
   // Home Screen

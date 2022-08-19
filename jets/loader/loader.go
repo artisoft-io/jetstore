@@ -50,10 +50,10 @@ var userEmail = flag.String("userEmail", "", "User identifier to register the lo
 var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
-var sep_flag chartype = '|'
+var sep_flag chartype = '€'
 
 func init() {
-	flag.Var(&sep_flag, "sep", "Field separator, default is pipe ('|')")
+	flag.Var(&sep_flag, "sep", "Field separator, default is auto detect between pipe ('|') or comma (',')")
 }
 
 // Support Functions
@@ -141,7 +141,10 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 	stmt := `INSERT INTO jetsapi.input_loader_status (
 		object_type, table_name, client, file_key, session_id, status,
 		load_count, bad_row_count, node_id, user_email) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT ON CONSTRAINT input_loader_status_unique_cstraint
+			DO UPDATE SET (status, load_count, bad_row_count, node_id, user_email, last_update) =
+			(EXCLUDED.status, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.node_id, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt, 
 		*objectType, *tblName, *client, *inFile, *sessionId, status, copyCount, badRowCount, nodeId, *userEmail)
 	if err != nil {
@@ -174,6 +177,30 @@ func processFile(dbpool []*pgxpool.Pool) error {
 		return fmt.Errorf("error while opening csv file: %v", err)
 	}
 	defer file.Close()
+	if sep_flag == '€' {
+		// auto detect the separator based on the first line
+		buf := make([]byte, 2048)
+		nb, err := file.Read(buf)
+		if err != nil {
+			return fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
+		}
+		txt := string(buf[0:nb])
+		cn := strings.Count(txt, ",")
+		pn := strings.Count(txt, "|")
+		if cn == pn {
+			return fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
+		}
+		if cn > pn {
+			sep_flag = ','
+		} else {
+			sep_flag = '|'
+		}
+		_, err = file.Seek(0, 0)
+		if err != nil {
+			return fmt.Errorf("error while returning to beginning of in_file %s: %v", *inFile, err)
+		}
+	}
+	fmt.Println("Got argument: sep_flag", sep_flag)
 	reader := csv.NewReader(file)
 	reader.Comma = rune(sep_flag)
 
@@ -490,7 +517,6 @@ func main() {
 	fmt.Println("Got argument: groupingColumn", *groupingColumn)
 	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: sessionId", *sessionId)
-	fmt.Println("Got argument: sep_flag", sep_flag)
 
 	err := coordinateWork()
 	if err != nil {

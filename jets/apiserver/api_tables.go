@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"os/exec"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -165,6 +166,17 @@ func makeResult(r *http.Request) map[string]interface{} {
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
+
+	// Check if we're in dev mode and the query is delegated to a proxy implementation
+	if devMode {
+		// We're in dev mode, see if we override the table being queried
+		switch {
+		case strings.Contains(dataTableAction.RawQuery, "file_key_staging"):
+			server.readLocalFiles(w, r, dataTableAction)
+			return
+		}
+	}
+
 	resultRows, err := execQuery(server.dbpool, dataTableAction, &dataTableAction.RawQuery)
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, errors.New("error while executing raw query"))
@@ -216,6 +228,40 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 			log.Printf("while executing insert_rows action '%s': %v", dataTableAction.Table, err)
 			ERROR(w, http.StatusConflict, errors.New("error while executing insert"))
 			return
+		}
+	}
+
+	if devMode {
+		switch dataTableAction.Table {
+		case "input_loader_status":
+			// Run the loader
+			row := make(map[string]string, len(sqlStmt.columnKeys))
+			for irow := range dataTableAction.Data {
+				for _, colKey := range sqlStmt.columnKeys {
+					if colKey != "node_id" {
+						row[colKey] = dataTableAction.Data[irow][colKey].(string)
+					}
+				}
+				objType := row["object_type"]
+				tableName := row["table_name"]
+				client := row["client"]
+				fileKey := row["file_key"]
+				sessionId := row["session_id"]
+				userEmail := row["user_email"]
+				loaderArgs := []string{"-in_file", fileKey, 
+					"-dsn", *dsn, "-table", tableName, "-client", client, "-objectType", objType,
+				  "-sessionId", sessionId,"-userEmail", userEmail}
+				// log.Printf("Run loader: %s", loaderArgs)
+				out, err := exec.Command("/usr/local/bin/loader", loaderArgs...).Output()
+				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+				if err != nil {
+					log.Printf("while executing loader command '%v': %v", loaderArgs, err)
+					log.Println(string(out))
+					ERROR(w, http.StatusInternalServerError, errors.New("error while running loader command"))
+					return
+				}
+				log.Println(string(out))
+			}
 		}
 	}
 
@@ -410,6 +456,10 @@ func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dat
 			log.Printf("Invalid path found while walking unit test directory %q: skipping it", path)
 			return nil
 		}
+		if strings.HasPrefix(pathSplit[2], "err_") {
+			log.Printf("Found loader error file while walking unit test directory %q: skipping it", path)
+			return nil
+		}
 		data := make(map[string]string, 5)
 		data["key"] = strconv.Itoa(key)
 		key += 1
@@ -429,14 +479,24 @@ func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dat
 	// package the result, sending back only the requested collumns
 	resultRows := make([][]string, 0, len(dirData))
 	for iRow := range dirData {
-		row := make([]string, len(dataTableAction.Columns))
-		for iCol, col := range dataTableAction.Columns {
-			row[iCol] = dirData[iRow][col]
+		var row []string
+		//* Need to port the raw queries to named parametrized queries as non raw queries!
+		if len(dataTableAction.Columns) > 0 {
+			row = make([]string, len(dataTableAction.Columns))
+			for iCol, col := range dataTableAction.Columns {
+				row[iCol] = dirData[iRow][col]
+			}	
+		} else {
+			row = make([]string, 1)
+				row[0] = dirData[iRow]["file_key"]
 		}
 		resultRows = append(resultRows, row)
 	}
 
 	results := makeResult(r)
 	results["rows"] = resultRows
+	results["totalRowCount"] = len(dirData)
+	// fmt.Println("file_key_staging DEV MODE:")
+	json.NewEncoder(os.Stdout).Encode(results)
 	JSON(w, http.StatusOK, results)
 }

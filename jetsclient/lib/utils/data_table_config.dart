@@ -205,7 +205,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           configScreenPath: domainTableViewerPath,
           //* normally we should use a FSK key so it works
           // for both show dialog and show screen
-          navigationParams: {'table': 3}),
+          navigationParams: {'table': 3, 'session_id': 8}),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'addClient',
@@ -1551,7 +1551,9 @@ final Map<String, TableConfig> _tableConfigurations = {
       apiPath: '/dataTable',
       isCheckboxVisible: false,
       isCheckboxSingleSelect: false,
-      whereClauses: [],
+      whereClauses: [
+        WhereClause(column: "session_id", formStateKey: FSK.sessionId),
+      ],
       actions: [],
       columns: [],
       sortColumnName: '',
