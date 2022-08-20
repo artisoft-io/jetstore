@@ -20,7 +20,7 @@ class HttpClient {
   Future<HttpResponse> sendRequest(
       {required String path, String? token, String? encodedJsonBody}) async {
     try {
-      // print('Request: $encodedJsonBody');
+      // print('*** Request: $encodedJsonBody');
       var h = <String, String>{'Content-Type': 'application/json'};
       if (token != null) {
         h['Authorization'] = 'token $token';

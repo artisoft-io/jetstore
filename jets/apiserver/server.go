@@ -65,15 +65,15 @@ type OptionConfig struct {
 	AllowedHeaders string
 }
 func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) {
-	//*
-	log.Println("* Options for", r.URL, "method:",r.Method)
+	// //*
+	// log.Println("* Options for", r.URL, "method:",r.Method)
 
 	// write cors headers
 	//* TODO check that origin is what we expect
 	//*
-	for key, value := range r.Header {
-		log.Println("OptionConfig: ",key,value)
-	}
+	// for key, value := range r.Header {
+	// 	log.Println("OptionConfig: ",key,value)
+	// }
 	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	if len(optionConfig.AllowedMethods) > 0 {
 		w.Header().Set("Access-Control-Allow-Methods", optionConfig.AllowedMethods)

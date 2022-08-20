@@ -18,10 +18,9 @@ import (
 // Command line arguments
 var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
 var dropExisting  = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
-// var dsn           = flag.String("dsn", "", "database connection string (ommit to write sql to stdout)")
 var dsnList       = flag.String("dsn", "", "comma-separated list of database connection string (required)")
 var workspaceDb   = flag.String("workspaceDb", "", "workspace db path (required)")
-var migrateDb     = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version (default: false)")
+var migrateDb     = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
 var extTables workspace.ExtTableInfo = make(map[string][]string)
 
 func init() {

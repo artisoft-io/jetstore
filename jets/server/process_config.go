@@ -285,7 +285,7 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 	pc := PipelineConfig{key: pcKey}
 	var err error
 	var inSessId, sessId sql.NullString
-	mainInputRegistryKey := -1
+	mainInputRegistryKey := sql.NullInt64{}
 	var mergedInputRegistryKeys []int
 	if peKey > -1 {
 		err = dbpool.QueryRow(context.Background(),
@@ -353,13 +353,13 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 		for i := range pc.mergedProcessInput {
 			pc.mergedProcessInput[i].sessionId = *inSessionIdOverride
 		}
-	} else if mainInputRegistryKey > -1 {
+	} else if mainInputRegistryKey.Valid {
 		// take the specific input session id as specified in the pipeline execution status table
 		if len(mergedInputRegistryKeys) != len(pc.mergedProcessInput) {
 			return &pc, fmt.Errorf("error: nbr of merged table in process exec is %d != nbr in process config %d",
 				len(mergedInputRegistryKeys), len(pc.mergedProcessInput))
 		}
-		pc.mainProcessInput.sessionId, err = getSessionId(dbpool, mainInputRegistryKey)
+		pc.mainProcessInput.sessionId, err = getSessionId(dbpool, int(mainInputRegistryKey.Int64))
 		if err != nil {
 			return &pc, fmt.Errorf("while reading session id for main table: %v", err)
 		}
