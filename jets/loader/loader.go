@@ -50,6 +50,7 @@ var userEmail = flag.String("userEmail", "", "User identifier to register the lo
 var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
+var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
 var sep_flag chartype = '€'
 
 func init() {
@@ -402,7 +403,7 @@ func processFile(dbpool []*pgxpool.Pool) error {
 		status = "errors"
 	}
 	// register the session if status is completed
-	if status == "completed" {
+	if status == "completed" && !*doNotLockSessionId {
 		err:= schema.RegisterSession(dbpool[0], *sessionId)
 		if err != nil {
 			return fmt.Errorf("error while registering the session id: %v", err)
@@ -517,6 +518,7 @@ func main() {
 	fmt.Println("Got argument: groupingColumn", *groupingColumn)
 	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: sessionId", *sessionId)
+	fmt.Println("Got argument: doNotLockSessionId", *doNotLockSessionId)
 
 	err := coordinateWork()
 	if err != nil {

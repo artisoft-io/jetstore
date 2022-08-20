@@ -25,8 +25,8 @@ type dbConnections struct {
 
 // Command Line Arguments
 var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
-var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required)")
-var lookupDb = flag.String("lookupDb", "", "lookup data path")
+var workspaceDb = flag.String("workspaceDb", "", "workspace db path, if not proveded will use env WORKSPACE_DB_PATH if defined (required)")
+var lookupDb = flag.String("lookupDb", "", "lookup data path (if not provided will use env WORKSPACE_LOOKUPS_DB_PATH if defined")
 var ruleset = flag.String("ruleset", "", "main rule set name (override pipeline process config)")
 var ruleseq = flag.String("ruleseq", "", "rule set sequence (override pipeline process config)")
 var pipelineConfigKey = flag.Int("pcKey", -1, "Pipeline config key (required or -peKey)")
@@ -205,8 +205,19 @@ func main() {
 		errMsg = append(errMsg, "user email (-userEmail) must be provided.")
 	}
 	if *workspaceDb == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")
+		v := os.Getenv("WORKSPACE_DB_PATH")
+		if v == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")	
+		} else {
+			workspaceDb = &v
+		}
+	}
+	if *lookupDb == "" {
+		v := os.Getenv("WORKSPACE_LOOKUPS_DB_PATH")
+		if v != "" {
+			lookupDb = &v
+		}
 	}
 	if *ruleset != "" && *ruleseq != "" {
 		hasErr = true

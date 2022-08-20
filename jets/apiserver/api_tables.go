@@ -217,17 +217,27 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		ERROR(w, http.StatusBadRequest, errors.New("error: unknown table"))
 		return
 	}
+	returndKey := -1
 	row := make([]interface{}, len(sqlStmt.columnKeys))
 	for irow := range dataTableAction.Data {
 		for jcol, colKey := range sqlStmt.columnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
 		log.Printf("Insert Row Stmt: %s", sqlStmt.stmt)
-		_, err := server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
-		if err != nil {
-			log.Printf("while executing insert_rows action '%s': %v", dataTableAction.Table, err)
-			ERROR(w, http.StatusConflict, errors.New("error while executing insert"))
-			return
+		if strings.Contains(sqlStmt.stmt, "RETURNING key") {
+			err := server.dbpool.QueryRow(context.Background(), sqlStmt.stmt).Scan(&returndKey)
+			if err != nil {
+				log.Printf("While getting table's total row count: %v", err)
+				ERROR(w, http.StatusInternalServerError, errors.New("error while getting table's total row count"))	
+				return
+			}
+		} else {
+			_, err := server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
+			if err != nil {
+				log.Printf("while executing insert_rows action '%s': %v", dataTableAction.Table, err)
+				ERROR(w, http.StatusConflict, errors.New("error while executing insert"))
+				return
+			}			
 		}
 	}
 
@@ -238,19 +248,22 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 			row := make(map[string]string, len(sqlStmt.columnKeys))
 			for irow := range dataTableAction.Data {
 				for _, colKey := range sqlStmt.columnKeys {
-					if colKey != "node_id" {
-						row[colKey] = dataTableAction.Data[irow][colKey].(string)
-					}
+					row[colKey] = dataTableAction.Data[irow][colKey].(string)
 				}
+				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 				objType := row["object_type"]
 				tableName := row["table_name"]
 				client := row["client"]
 				fileKey := row["file_key"]
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
+				doNotLockSessionId := ""
+				if row["load_and_start"] == "true" {
+					doNotLockSessionId = "-doNotLockSessionId"
+				}
 				loaderArgs := []string{"-in_file", fileKey, 
 					"-dsn", *dsn, "-table", tableName, "-client", client, "-objectType", objType,
-				  "-sessionId", sessionId,"-userEmail", userEmail}
+				  "-sessionId", sessionId,"-userEmail", userEmail, doNotLockSessionId}
 				// log.Printf("Run loader: %s", loaderArgs)
 				out, err := exec.Command("/usr/local/bin/loader", loaderArgs...).Output()
 				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
@@ -262,6 +275,28 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 				}
 				log.Println(string(out))
 			}
+		case "pipeline_execution_status":
+			// Run the server
+			row := make(map[string]string, len(sqlStmt.columnKeys))
+			for irow := range dataTableAction.Data {
+				for _, colKey := range sqlStmt.columnKeys {
+					row[colKey] = dataTableAction.Data[irow][colKey].(string)
+				}
+				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string) //* not needed here, needed for argo
+				peKey := strconv.Itoa(returndKey)
+				userEmail := row["user_email"]
+				serverArgs := []string{ "-peKey", peKey, "-dsn", *dsn,"-userEmail", userEmail }
+				log.Printf("Run server: %s", serverArgs)
+				out, err := exec.Command("/usr/local/bin/server", serverArgs...).Output()
+				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+				if err != nil {
+					log.Printf("while executing server command '%v': %v", serverArgs, err)
+					log.Println(string(out))
+					ERROR(w, http.StatusInternalServerError, errors.New("error while running server command"))
+					return
+				}
+				log.Println(string(out))
+			}
 		}
 	}
 
@@ -269,6 +304,9 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 	token, ok := r.Header["Token"]
 	if ok {
 		results["token"] = token[0]
+	}
+	if returndKey >= 0 {
+		results["returned_key"] = returndKey
 	}
 	JSON(w, http.StatusOK, results)
 }

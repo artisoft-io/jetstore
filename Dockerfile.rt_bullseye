@@ -34,8 +34,10 @@ COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 
 # Resource files
 COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
+COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
 # Set env to find the jets_schema.json by update_db (migrate_db.go)
 ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
+ENV JETS_INIT_DB_SCRIPT /usr/local/bin/jets_init_db.sql
 
 # Install Client UI == Flutter App ==
 ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
