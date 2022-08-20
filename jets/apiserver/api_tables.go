@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -11,10 +12,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
-	"os/exec"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -192,10 +193,10 @@ func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataT
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (server *Server) ExecRawQueryMap(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
 
-	fmt.Println("ExecRawQueryMap:")
+	// fmt.Println("ExecRawQueryMap:")
 	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
 	for k,v := range dataTableAction.RawQueryMap {
-		fmt.Println("Query:",v)
+		// fmt.Println("Query:",v)
 		resultRows, err := execQuery(server.dbpool, dataTableAction, &v)
 		if err != nil {
 			ERROR(w, http.StatusInternalServerError, errors.New("error while executing raw query"))
@@ -223,9 +224,9 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		for jcol, colKey := range sqlStmt.columnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
-		log.Printf("Insert Row Stmt: %s", sqlStmt.stmt)
+		// fmt.Printf("Insert Row Stmt: %s", sqlStmt.stmt)
 		if strings.Contains(sqlStmt.stmt, "RETURNING key") {
-			err := server.dbpool.QueryRow(context.Background(), sqlStmt.stmt).Scan(&returndKey)
+			err := server.dbpool.QueryRow(context.Background(), sqlStmt.stmt, row...).Scan(&returndKey)
 			if err != nil {
 				log.Printf("While getting table's total row count: %v", err)
 				ERROR(w, http.StatusInternalServerError, errors.New("error while getting table's total row count"))	
@@ -245,10 +246,13 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		switch dataTableAction.Table {
 		case "input_loader_status":
 			// Run the loader
-			row := make(map[string]string, len(sqlStmt.columnKeys))
+			row := make(map[string]interface{}, len(sqlStmt.columnKeys))
 			for irow := range dataTableAction.Data {
 				for _, colKey := range sqlStmt.columnKeys {
-					row[colKey] = dataTableAction.Data[irow][colKey].(string)
+					v := dataTableAction.Data[irow][colKey]
+					if(v != nil) {
+						row[colKey] = v.(string)
+					}
 				}
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 				objType := row["object_type"]
@@ -258,44 +262,93 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
 				doNotLockSessionId := ""
-				if row["load_and_start"] == "true" {
-					doNotLockSessionId = "-doNotLockSessionId"
-				}
-				loaderArgs := []string{"-in_file", fileKey, 
-					"-dsn", *dsn, "-table", tableName, "-client", client, "-objectType", objType,
-				  "-sessionId", sessionId,"-userEmail", userEmail, doNotLockSessionId}
-				// log.Printf("Run loader: %s", loaderArgs)
-				out, err := exec.Command("/usr/local/bin/loader", loaderArgs...).Output()
-				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
-				if err != nil {
-					log.Printf("while executing loader command '%v': %v", loaderArgs, err)
-					log.Println(string(out))
+				if objType == nil || tableName == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
+					log.Printf(
+						"error while preparing to run loader: unexpected nil among: objType: %v, tableName: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
+						objType, tableName, client, fileKey, sessionId, userEmail)
 					ERROR(w, http.StatusInternalServerError, errors.New("error while running loader command"))
 					return
 				}
-				log.Println(string(out))
+				if row["load_and_start"] == "true" {
+					doNotLockSessionId = "-doNotLockSessionId"
+				}
+				loaderArgs := []string{"-in_file", fileKey.(string), 
+					"-dsn", *dsn, "-table", tableName.(string), "-client", client.(string), "-objectType", objType.(string),
+				  "-sessionId", sessionId.(string),"-userEmail", userEmail.(string), doNotLockSessionId}
+				// log.Printf("Run loader: %s", loaderArgs)
+				cmd := exec.Command("/usr/local/bin/loader", loaderArgs...)
+				var b bytes.Buffer
+				cmd.Stdout = &b
+				cmd.Stderr = &b
+				err := cmd.Run()
+				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+				if err != nil {
+					log.Printf("while executing loader command '%v': %v", loaderArgs, err)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("LOADER CAPTURED OUTPUT BEGIN")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					b.WriteTo(os.Stdout)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("LOADER CAPTURED OUTPUT END")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					ERROR(w, http.StatusInternalServerError, errors.New("error while running loader command"))
+					return
+				}
+				log.Println("============================")
+				log.Println("LOADER CAPTURED OUTPUT BEGIN")
+				log.Println("============================")
+				b.WriteTo(os.Stdout)
+				log.Println("============================")
+				log.Println("LOADER CAPTURED OUTPUT END")
+				log.Println("============================")
 			}
 		case "pipeline_execution_status":
 			// Run the server
-			row := make(map[string]string, len(sqlStmt.columnKeys))
+			row := make(map[string]interface{}, len(sqlStmt.columnKeys))
 			for irow := range dataTableAction.Data {
 				for _, colKey := range sqlStmt.columnKeys {
-					row[colKey] = dataTableAction.Data[irow][colKey].(string)
+					v := dataTableAction.Data[irow][colKey]
+					if(v != nil) {
+						row[colKey] = v.(string)
+					}
 				}
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string) //* not needed here, needed for argo
 				peKey := strconv.Itoa(returndKey)
 				userEmail := row["user_email"]
-				serverArgs := []string{ "-peKey", peKey, "-dsn", *dsn,"-userEmail", userEmail }
-				log.Printf("Run server: %s", serverArgs)
-				out, err := exec.Command("/usr/local/bin/server", serverArgs...).Output()
-				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
-				if err != nil {
-					log.Printf("while executing server command '%v': %v", serverArgs, err)
-					log.Println(string(out))
+				if userEmail == nil {
+					log.Printf(
+						"error while preparing to run server: unexpected nil among: userEmail %v", 
+						userEmail)
 					ERROR(w, http.StatusInternalServerError, errors.New("error while running server command"))
 					return
 				}
-				log.Println(string(out))
+				serverArgs := []string{ "-peKey", peKey, "-dsn", *dsn,"-userEmail", userEmail.(string) }
+				// log.Printf("Run server: %s", serverArgs)
+				cmd := exec.Command("/usr/local/bin/server", serverArgs...)
+				var b bytes.Buffer
+				cmd.Stdout = &b
+				cmd.Stderr = &b
+				err := cmd.Run()
+				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+				if err != nil {
+					log.Printf("while executing server command '%v': %v", serverArgs, err)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("SERVER CAPTURED OUTPUT BEGIN")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					b.WriteTo(os.Stdout)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("SERVER CAPTURED OUTPUT END")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					ERROR(w, http.StatusInternalServerError, errors.New("error while running server command"))
+					return
+				}
+				log.Println("============================")
+				log.Println("SERVER CAPTURED OUTPUT BEGIN")
+				log.Println("============================")
+				b.WriteTo(os.Stdout)
+				log.Println("============================")
+				log.Println("SERVER CAPTURED OUTPUT END")
+				log.Println("============================")
 			}
 		}
 	}
@@ -313,8 +366,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 
 // utility method
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
-	//*
-	log.Println("Query:", *query)
+	// fmt.Println("Query:", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
@@ -495,7 +547,7 @@ func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dat
 			return nil
 		}
 		if strings.HasPrefix(pathSplit[2], "err_") {
-			log.Printf("Found loader error file while walking unit test directory %q: skipping it", path)
+			// log.Printf("Found loader error file while walking unit test directory %q: skipping it", path)
 			return nil
 		}
 		data := make(map[string]string, 5)

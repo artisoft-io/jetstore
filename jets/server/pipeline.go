@@ -61,12 +61,22 @@ type writeResult struct {
 func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
 	var err error
 
-	// Register the outSessionId
+	// Register the outSessionId && Update execution status to pipeline_execution_status table
 	//* isSingleNodeRun: adjust for multi node or sharded run
-	if isSingleNodeRun {
+	if pr.Status == "completed" && isSingleNodeRun {
+		// Lock the session
 		err = schema.RegisterSession(dbpool, *outSessionId)
 		if err != nil {
 			return fmt.Errorf("while recording out session id: %v", err)
+		}	
+		// Record the status of the pipeline execution
+		log.Printf("Inserting status '%s' to pipeline_execution_status table", pr.Status)
+		stmt := `UPDATE jetsapi.pipeline_execution_status SET (status, user_email, last_update) =
+							($1, $2, DEFAULT)
+							WHERE key = $3`
+		_, err = dbpool.Exec(context.Background(), stmt, pr.Status, *userEmail, *pipelineExecKey)
+		if err != nil {
+			log.Printf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
 		}	
 	}
 
