@@ -1,14 +1,14 @@
 DELETE FROM jetsapi.source_config WHERE key in (291);
 DELETE FROM jetsapi.process_input WHERE key in (271, 272, 273, 274);
-DELETE FROM jetsapi.process_mapping WHERE table_name in ('test2','hc:SimulatedPatient','hc:ProfessionalClaim','hc:InstitutionalClaim');
+DELETE FROM jetsapi.process_mapping WHERE table_name in ('Zeme_Simulator','hc:SimulatedPatient','hc:ProfessionalClaim','hc:InstitutionalClaim');
 DELETE FROM jetsapi.process_config WHERE key in (251, 252, 253, 254);
 DELETE FROM jetsapi.rule_config    WHERE process_config_key in (251, 252, 253, 254);
 DELETE FROM jetsapi.pipeline_config WHERE key in (201, 202, 203, 204);
 DELETE FROM jetsapi.pipeline_execution_status WHERE pipeline_config_key in (201, 202, 203, 204);
 
-INSERT INTO jetsapi.source_config (key, object_type, client, table_name, grouping_column, user_email) VALUES
-  (291, 'Simulator', 'Zeme', 'test2', NULL, 'user@mail.com')
-;
+-- INSERT INTO jetsapi.source_config (key, object_type, client, table_name, grouping_column, user_email) VALUES
+--   (291, 'Simulator', 'Zeme', 'Zeme_Simulator', NULL, 'user@mail.com')
+-- ;
 
 TRUNCATE jetsapi.client_registry;
 INSERT INTO jetsapi.client_registry (client, details) VALUES
@@ -18,15 +18,15 @@ INSERT INTO jetsapi.client_registry (client, details) VALUES
   ('pHealth', NULL)
 ;
 
-TRUNCATE jetsapi.mapping_function_registry;
-INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_required) VALUES
-  ('to_upper', '0'),
-  ('parse_amount', '1'),
-  ('reformat0', '1'),
-  ('apply_regex', '1'),
-  ('scale_units', '1'),
-  ('to_zip5', '0')
-;
+-- TRUNCATE jetsapi.mapping_function_registry;
+-- INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_required) VALUES
+--   ('to_upper', '0'),
+--   ('parse_amount', '1'),
+--   ('reformat0', '1'),
+--   ('apply_regex', '1'),
+--   ('scale_units', '1'),
+--   ('to_zip5', '0')
+-- ;
 
 TRUNCATE jetsapi.object_type_registry;
 INSERT INTO jetsapi.object_type_registry (object_type, entity_rdf_type, details) VALUES
@@ -83,18 +83,18 @@ INSERT INTO jetsapi.file_key_staging (client, object_type, file_key) VALUES
 ;
 
 INSERT INTO jetsapi.process_input (key, client, object_type, table_name, source_type, entity_rdf_type, grouping_column, key_column, user_email) VALUES
-  (271, 'Zeme', 'Simulator'         , 'test2'                , 'file',         'aspec:Simulator'      , NULL               , NULL , 'user@mail.com'),
+  (271, 'Zeme', 'Simulator'         , 'Zeme_Simulator'       , 'file',         'aspec:Simulator'      , NULL               , NULL , 'user@mail.com'),
   (272, 'Zeme', 'SimulatedPatient'  , 'hc:SimulatedPatient'  , 'domain_table', 'hc:SimulatedPatient'  , 'hc:patient_number', NULL , 'user@mail.com'),
   (273, 'Zeme', 'ProfessionalClaim' , 'hc:ProfessionalClaim' , 'domain_table', 'hc:ProfessionalClaim' , 'hc:member_number' , NULL , 'user@mail.com'),
   (274, 'Zeme', 'InstitutionalClaim', 'hc:InstitutionalClaim', 'domain_table', 'hc:InstitutionalClaim', 'hc:member_number' , NULL , 'user@mail.com')
 ;
 
 INSERT INTO jetsapi.process_mapping (table_name, input_column, data_property, function_name, argument, default_value, error_message, user_email) VALUES
-  ('test2'                , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  ('test2'                , 'anchor_date'               , 'aspec:anchor_date'         , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  ('test2'                , 'nbr_entities'              , 'aspec:nbr_entities'        , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  ('test2'                , 'entity_key_prefix'         , 'aspec:entity_key_prefix'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
-  ('test2'                , 'entity_persona_lk'         , 'aspec:entity_persona_lk'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('Zeme_Simulator'       , 'jets:key'                  , 'jets:key'                  , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('Zeme_Simulator'       , 'anchor_date'               , 'aspec:anchor_date'         , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('Zeme_Simulator'       , 'nbr_entities'              , 'aspec:nbr_entities'        , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('Zeme_Simulator'       , 'entity_key_prefix'         , 'aspec:entity_key_prefix'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
+  ('Zeme_Simulator'       , 'entity_persona_lk'         , 'aspec:entity_persona_lk'   , NULL, NULL, NULL, NULL, 'user@mail.com'),
   ('hc:SimulatedPatient'  , 'asim:anchor_date'          , 'asim:anchor_date'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
   ('hc:SimulatedPatient'  , 'asim:persona_key'          , 'asim:persona_key'          , NULL, NULL, NULL, NULL, 'user@mail.com'),
   ('hc:SimulatedPatient'  , 'asim:demographic_group_key', 'asim:demographic_group_key', NULL, NULL, NULL, NULL, 'user@mail.com'),

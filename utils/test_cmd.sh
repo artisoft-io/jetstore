@@ -1,3 +1,8 @@
 #!/bin/bash
 set -e
 echo "TEST CMD ARGUMENTS:  $@"
+echo "WORKSPACE_DB_PATH: $WORKSPACE_DB_PATH"
+echo "WORKSPACE_LOOKUPS_DB_PATH: $WORKSPACE_LOOKUPS_DB_PATH"
+
+# to test:
+# WORKSPACE_DB_PATH=1 WORKSPACE_LOOKUPS_DB_PATH=2 ./utils/test_cmd.sh -a a -b b 

@@ -107,6 +107,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
     JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
+    // Add Client
     case ActionKeys.clientOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
@@ -119,6 +120,8 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
       break;
+
+    // Start loader
     case ActionKeys.loaderOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
@@ -129,6 +132,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       state['user_email'] = JetsRouterDelegate().user.email;
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
       state['table_name'] = state[FSK.client] + '_' + state[FSK.objectType];
+      state['load_and_start'] = 'false';
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'table': 'input_loader_status',
@@ -138,6 +142,7 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       break;
 
     // Start Pipeline Dialogs
+    // Load & Start Pipeline Dialogs
     case ActionKeys.startPipelineOk:
     case ActionKeys.loadAndStartPipelineOk:
       var valid = formKey.currentState!.validate();
@@ -160,11 +165,14 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       state['user_email'] = JetsRouterDelegate().user.email;
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
       if (actionKey == ActionKeys.loadAndStartPipelineOk) {
+        state['load_and_start'] = 'true';
         state[FSK.fileKey] = state[FSK.mainInputFileKey];
         state[FSK.objectType] = state[FSK.mainObjectType];
         state['input_session_id'] = state['session_id'];
         state['table_name'] =
             state[FSK.client] + '_' + state[FSK.mainObjectType];
+      } else {
+        state['load_and_start'] = 'false';
       }
       var navigator = Navigator.of(context);
       if (actionKey == ActionKeys.loadAndStartPipelineOk) {
@@ -806,7 +814,7 @@ void pipelineConfigFormActions(BuildContext context,
       var mergedProcessInputKeys =
           formState.getValue(0, FSK.mergedProcessInputKeys);
       if (mergedProcessInputKeys != null) {
-        if(mergedProcessInputKeys is List<String>) {
+        if (mergedProcessInputKeys is List<String>) {
           final buf = StringBuffer();
           buf.write("{");
           buf.writeAll(mergedProcessInputKeys, ",");

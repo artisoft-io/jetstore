@@ -25,21 +25,24 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	"source_config": {
 		stmt: `INSERT INTO jetsapi.source_config 
 			(object_type, client, table_name, grouping_column, user_email) 
-			VALUES ($1, $2, $3, $4, $5)`,
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING key`,
 		columnKeys: []string{"object_type", "client", "table_name", "grouping_column", "user_email"},
 	},
 	// input loader status
 	"input_loader_status": {
 		stmt: `INSERT INTO jetsapi.input_loader_status 
 			(object_type, client, table_name, file_key, session_id, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING key`,
 		columnKeys: []string{"object_type", "client", "table_name", "file_key", "session_id", "status", "user_email"},
 	},
 	// process input
 	"process_input": {
 		stmt: `INSERT INTO jetsapi.process_input 
 			(client, object_type, table_name, source_type, entity_rdf_type, grouping_column, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING key`,
 		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "grouping_column", "user_email"},
 	},
 	"update/process_input": {
@@ -90,7 +93,8 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	"pipeline_execution_status": {
 		stmt: `INSERT INTO jetsapi.pipeline_execution_status 
 			(pipeline_config_key, main_input_registry_key, main_input_file_key, merged_input_registry_keys, client, process_name, main_object_type, input_session_id, session_id, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			RETURNING key`,
 		columnKeys: []string{"pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"},
 	},
 }
