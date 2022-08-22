@@ -242,7 +242,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		}
 	}
 
-	if devMode {
+	if devMode || argoCmd != "" {
 		switch dataTableAction.Table {
 		case "input_loader_status":
 			// Run the loader
@@ -259,6 +259,11 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 				tableName := row["table_name"]
 				client := row["client"]
 				fileKey := row["file_key"]
+				gc := row["grouping_column"]
+				groupingColumn := "''"
+				if gc != nil {
+					groupingColumn = gc.(string)
+				}
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
 				doNotLockSessionId := ""
@@ -272,35 +277,85 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 				if row["load_and_start"] == "true" {
 					doNotLockSessionId = "-doNotLockSessionId"
 				}
-				loaderArgs := []string{"-in_file", fileKey.(string), 
-					"-dsn", *dsn, "-table", tableName.(string), "-client", client.(string), "-objectType", objType.(string),
-				  "-sessionId", sessionId.(string),"-userEmail", userEmail.(string), doNotLockSessionId}
-				// log.Printf("Run loader: %s", loaderArgs)
-				cmd := exec.Command("/usr/local/bin/loader", loaderArgs...)
-				var b bytes.Buffer
-				cmd.Stdout = &b
-				cmd.Stderr = &b
-				err := cmd.Run()
-				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
-				if err != nil {
-					log.Printf("while executing loader command '%v': %v", loaderArgs, err)
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+				switch {
+				// Call loader synchronously
+				case devMode:
+					loaderArgs := []string{
+						"-in_file", fileKey.(string), 
+						"-dsn", *dsn, 
+						"-table", tableName.(string), 
+						"-client", client.(string), 
+						"-objectType", objType.(string),
+						"-sessionId", sessionId.(string),
+						"-userEmail", userEmail.(string), 
+						doNotLockSessionId,
+					}
+					if groupingColumn != "" {
+						loaderArgs = append(loaderArgs, "-groupingColumn")
+						loaderArgs = append(loaderArgs, groupingColumn)
+					}
+					// log.Printf("Run loader: %s", loaderArgs)
+					cmd := exec.Command("/usr/local/bin/loader", loaderArgs...)
+					var b bytes.Buffer
+					cmd.Stdout = &b
+					cmd.Stderr = &b
+					err := cmd.Run()
+					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+					if err != nil {
+						log.Printf("while executing loader command '%v': %v", loaderArgs, err)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("LOADER CAPTURED OUTPUT BEGIN")
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						b.WriteTo(os.Stdout)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("LOADER CAPTURED OUTPUT END")
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						ERROR(w, http.StatusInternalServerError, errors.New("error while running loader command"))
+						return
+					}
+					log.Println("============================")
 					log.Println("LOADER CAPTURED OUTPUT BEGIN")
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("============================")
 					b.WriteTo(os.Stdout)
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("============================")
 					log.Println("LOADER CAPTURED OUTPUT END")
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					ERROR(w, http.StatusInternalServerError, errors.New("error while running loader command"))
-					return
+					log.Println("============================")
+				
+				case argoCmd != "":
+				// Invoke argo to load file
+					argoArgs := []string{
+						"-run_loader", "True",
+						"-inFile", fileKey.(string), 
+						"-table", tableName.(string), 
+						"-client", client.(string), 
+						"-objectType", objType.(string),
+						"-s3InputDirectory", fmt.Sprintf("client=%s/ot=%s",client.(string), objType.(string)),
+						"-loaderSessionId", sessionId.(string),
+						"-userEmail", userEmail.(string), 
+						doNotLockSessionId,
+					}
+					if groupingColumn != "" {
+						argoArgs = append(argoArgs, "-groupingColumn")
+						argoArgs = append(argoArgs, groupingColumn)
+					}
+					log.Printf("Run argo: %s", argoArgs)
+					cmd := exec.Command(argoCmd, argoArgs...)
+					var b bytes.Buffer
+					cmd.Stdout = &b
+					cmd.Stderr = &b
+					err := cmd.Run()
+					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+					if err != nil {
+						log.Printf("while executing argo command '%v': %v", argoArgs, err)
+						b.WriteTo(os.Stdout)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						ERROR(w, http.StatusInternalServerError, errors.New("error while running argo command"))
+						return
+					}
+					log.Println("ARGO CAPTURED OUTPUT")
+					b.WriteTo(os.Stdout)
+					log.Println("=====================")
 				}
-				log.Println("============================")
-				log.Println("LOADER CAPTURED OUTPUT BEGIN")
-				log.Println("============================")
-				b.WriteTo(os.Stdout)
-				log.Println("============================")
-				log.Println("LOADER CAPTURED OUTPUT END")
-				log.Println("============================")
 			}
 		case "pipeline_execution_status":
 			// Run the server

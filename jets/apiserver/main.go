@@ -14,6 +14,7 @@ var serverAddr         = flag.String("serverAddr", ":8080", "server address to L
 var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only")
 var devMode bool
+var argoCmd string
 
 func main() {
 	flag.Parse()
@@ -69,5 +70,12 @@ func main() {
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("ENV WORKSPACE_DB_PATH:",os.Getenv("WORKSPACE_DB_PATH"))
 	fmt.Println("ENV WORKSPACE_LOOKUPS_DB_PATH:",os.Getenv("WORKSPACE_LOOKUPS_DB_PATH"))
+	fmt.Println("ENV ARGO_COMMAND:",os.Getenv("ARGO_COMMAND"))
+	if !devMode {
+		argoCmd = os.Getenv("ARGO_COMMAND")
+		if argoCmd != "" {
+			fmt.Println("Loader and Server command will be forwarded to argo command")
+		}	
+	}
 	log.Fatal(listenAndServe())
 }
