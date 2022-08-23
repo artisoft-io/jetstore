@@ -60,24 +60,27 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 			IsArray: true,
 		})
 	}
-	// Add jetstore engine columns
+	// Add jetstore engine built-in columns
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "session_id",
 		DataType: "text",
 		IsNotNull: true,
 	})
+	targetCols["session_id"] = true
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "shard_id",
 		DataType: "int",
 		Default: "0",
 		IsNotNull: true,
 	})
+	targetCols["shard_id"] = true
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "last_update",
 		DataType: "datetime",
 		Default: "now()",
 		IsNotNull: true,
 	})
+	targetCols["last_update"] = true
 	// Primary index definitions
 	idxname := tableSpec.TableName + "_primary_idx"
 	tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{

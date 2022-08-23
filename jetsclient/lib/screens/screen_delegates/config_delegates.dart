@@ -10,7 +10,7 @@ import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 
 /// Validation and Actions delegates for the source to pipeline config forms
-/// Login Form Validator
+/// Home Forms Validator
 String? homeFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
