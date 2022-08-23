@@ -218,15 +218,15 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		ERROR(w, http.StatusBadRequest, errors.New("error: unknown table"))
 		return
 	}
-	returndKey := -1
+	returnedKey := -1
 	row := make([]interface{}, len(sqlStmt.columnKeys))
 	for irow := range dataTableAction.Data {
 		for jcol, colKey := range sqlStmt.columnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
-		// fmt.Printf("Insert Row Stmt: %s", sqlStmt.stmt)
+		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.Table, row)
 		if strings.Contains(sqlStmt.stmt, "RETURNING key") {
-			err := server.dbpool.QueryRow(context.Background(), sqlStmt.stmt, row...).Scan(&returndKey)
+			err := server.dbpool.QueryRow(context.Background(), sqlStmt.stmt, row...).Scan(&returnedKey)
 			if err != nil {
 				log.Printf("While getting table's total row count: %v", err)
 				ERROR(w, http.StatusInternalServerError, errors.New("error while getting table's total row count"))	
@@ -254,12 +254,14 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 						row[colKey] = v.(string)
 					}
 				}
+				// expected collumns in the incoming request that are not columns in the input_loader_status table
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
+				gc := dataTableAction.Data[irow]["grouping_column"]
+				// extract the columns we need for the loader
 				objType := row["object_type"]
 				tableName := row["table_name"]
 				client := row["client"]
 				fileKey := row["file_key"]
-				gc := row["grouping_column"]
 				groupingColumn := "''"
 				if gc != nil {
 					groupingColumn = gc.(string)
@@ -321,7 +323,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					log.Println("LOADER CAPTURED OUTPUT END")
 					log.Println("============================")
 				
-				case argoCmd != "":
+				case argoCmd != "" && row["load_and_start"] != "true":
 				// Invoke argo to load file
 					argoArgs := []string{
 						"-run_loader", "True",
@@ -355,10 +357,18 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					log.Println("ARGO CAPTURED OUTPUT")
 					b.WriteTo(os.Stdout)
 					log.Println("=====================")
+				default:
+					log.Printf("input_loader_status insert DO NOTHIG: load_and_start: %s, devMode: %v, argoCmd: %s\n", row["load_and_start"],devMode, argoCmd)
 				}
 			}
 		case "pipeline_execution_status":
-			// Run the server
+		// Run the server
+			if returnedKey < 0 {
+				log.Printf(
+					"error while preparing to run server/argo: unexpected value for returnedKey from insert to pipeline_execution_status table: %v",	returnedKey)
+				ERROR(w, http.StatusInternalServerError, errors.New("error while preparing server command"))
+				return
+			}
 			row := make(map[string]interface{}, len(sqlStmt.columnKeys))
 			for irow := range dataTableAction.Data {
 				for _, colKey := range sqlStmt.columnKeys {
@@ -367,54 +377,141 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 						row[colKey] = v.(string)
 					}
 				}
-				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string) //* not needed here, needed for argo
-				peKey := strconv.Itoa(returndKey)
+				// expected collumns in the incoming request that are not columns in the input_loader_status table
+				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string) // needed for argo
+				gc := dataTableAction.Data[irow]["grouping_column"]
+				peKey := strconv.Itoa(returnedKey)
+				objType := dataTableAction.Data[irow]["object_type"]
+				tableName := dataTableAction.Data[irow]["table_name"]
+				client := row["client"]
+				fileKey := dataTableAction.Data[irow]["file_key"]
+				groupingColumn := "''"
+				if gc != nil {
+					groupingColumn = gc.(string)
+				}
+				//* DO WE NEED THIS??
+				// isi := row["input_session_id"]
+				// inSessionId := "''"
+				// if isi != nil {
+				// 	inSessionId = isi.(string)
+				// }
+				sessionId := row["session_id"]
 				userEmail := row["user_email"]
-				if userEmail == nil {
+				// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
+				if userEmail == nil || sessionId == nil {
 					log.Printf(
-						"error while preparing to run server: unexpected nil among: userEmail %v", 
-						userEmail)
-					ERROR(w, http.StatusInternalServerError, errors.New("error while running server command"))
+						"error while preparing to run server: unexpected nil among: userEmail %v, sessionId %v", userEmail, sessionId)
+					ERROR(w, http.StatusInternalServerError, errors.New("error while preparing argo/server command"))
 					return
 				}
-				serverArgs := []string{ "-peKey", peKey, "-dsn", *dsn,"-userEmail", userEmail.(string) }
-				// log.Printf("Run server: %s", serverArgs)
-				cmd := exec.Command("/usr/local/bin/server", serverArgs...)
-				var b bytes.Buffer
-				cmd.Stdout = &b
-				cmd.Stderr = &b
-				err := cmd.Run()
-				// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
-				if err != nil {
-					log.Printf("while executing server command '%v': %v", serverArgs, err)
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+				// Check required params for loader/server if load+start
+				if row["load_and_start"] == "true" {
+					if objType == nil || tableName == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
+						log.Printf(
+							"error while preparing to run loader: unexpected nil among: objType: %v, tableName: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
+							objType, tableName, client, fileKey, sessionId, userEmail)
+						ERROR(w, http.StatusInternalServerError, errors.New("error while preparing argo command for server/argo(load+start) and run"))
+						return
+					}	
+				}
+				switch {
+				// Call server synchronously
+				case devMode:	
+					serverArgs := []string{ "-peKey", peKey, "-dsn", *dsn,"-userEmail", userEmail.(string) }
+					log.Printf("Run server: %s", serverArgs)
+					cmd := exec.Command("/usr/local/bin/server", serverArgs...)
+					var b bytes.Buffer
+					cmd.Stdout = &b
+					cmd.Stderr = &b
+					err := cmd.Run()
+					if err != nil {
+						log.Printf("while executing server command '%v': %v", serverArgs, err)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("SERVER CAPTURED OUTPUT BEGIN")
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						b.WriteTo(os.Stdout)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("SERVER CAPTURED OUTPUT END")
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						ERROR(w, http.StatusInternalServerError, errors.New("error while running server command"))
+						return
+					}
+					log.Println("============================")
 					log.Println("SERVER CAPTURED OUTPUT BEGIN")
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("============================")
 					b.WriteTo(os.Stdout)
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("============================")
 					log.Println("SERVER CAPTURED OUTPUT END")
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					ERROR(w, http.StatusInternalServerError, errors.New("error while running server command"))
-					return
+					log.Println("============================")
+				
+				case argoCmd != "":
+				// Invoke argo to load+execute or execute only a process
+					argoArgs := []string{
+						// server params
+						"-run_server", "True",
+						"-serverSessionId",  sessionId.(string),
+						// common params
+						"-userEmail", userEmail.(string), 
+						"-peKey", peKey, 
+					}
+					if row["load_and_start"] == "true" {
+						// loader params
+						argoArgs = append(argoArgs, "-inFile")
+						argoArgs = append(argoArgs, fileKey.(string))
+
+						argoArgs = append(argoArgs, "-table")
+						argoArgs = append(argoArgs, tableName.(string))
+
+						argoArgs = append(argoArgs, "-client")
+						argoArgs = append(argoArgs, client.(string))
+
+						argoArgs = append(argoArgs, "-objectType")
+						argoArgs = append(argoArgs, objType.(string))
+
+						argoArgs = append(argoArgs, "-s3InputDirectory")
+						argoArgs = append(argoArgs, fmt.Sprintf("client=%s/ot=%s",client.(string), objType.(string)))
+
+						argoArgs = append(argoArgs, "-loaderSessionId")
+						argoArgs = append(argoArgs, sessionId.(string))
+
+						argoArgs = append(argoArgs, "-run_loader")
+						argoArgs = append(argoArgs, "True")
+						argoArgs = append(argoArgs, "-doNotLockSessionId")
+						if groupingColumn != "" {
+							argoArgs = append(argoArgs, "-groupingColumn")
+							argoArgs = append(argoArgs, groupingColumn)
+						}
+					}
+
+					log.Printf("Run argo: %s", argoArgs)
+					cmd := exec.Command(argoCmd, argoArgs...)
+					var b bytes.Buffer
+					cmd.Stdout = &b
+					cmd.Stderr = &b
+					err := cmd.Run()
+					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+					if err != nil {
+						log.Printf("while executing argo command '%v': %v", argoArgs, err)
+						b.WriteTo(os.Stdout)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						ERROR(w, http.StatusInternalServerError, errors.New("error while running argo command"))
+						return
+					}
+					log.Println("ARGO CAPTURED OUTPUT")
+					b.WriteTo(os.Stdout)
+					log.Println("=====================")
 				}
-				log.Println("============================")
-				log.Println("SERVER CAPTURED OUTPUT BEGIN")
-				log.Println("============================")
-				b.WriteTo(os.Stdout)
-				log.Println("============================")
-				log.Println("SERVER CAPTURED OUTPUT END")
-				log.Println("============================")
-			}
-		}
-	}
+			}	// irow := range dataTableAction.Data
+		}	// switch dataTableAction.Table 
+	}	// if devMode || argoCmd != "" 
 
 	results := make(map[string]interface{}, 3)
 	token, ok := r.Header["Token"]
 	if ok {
 		results["token"] = token[0]
 	}
-	if returndKey >= 0 {
-		results["returned_key"] = returndKey
+	if returnedKey >= 0 {
+		results["returned_key"] = returnedKey
 	}
 	JSON(w, http.StatusOK, results)
 }

@@ -1178,7 +1178,7 @@ final Map<String, FormConfig> _formConfigurations = {
             label:
                 "To load a file and start a pipeline using it,"
                 " first select a Pipeline Configuration and"
-                " then select a File Key to load and then use as the"
+                " then select a File Key and it's grouping column to load and then use as the"
                 " Main Input Source and optionally select"
                 " the Merge-In Input Sources (previously loaded or computed).",
             maxLines: 5,
@@ -1198,6 +1198,24 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.fileKeyStagingForPipelineExecTable,
             dataTableConfig: DTKeys.fileKeyStagingForPipelineExecTable),
+      ],
+      [
+        TextFieldConfig(
+            label:
+                "Please indicate the Grouping Column in the file to use.",
+            topMargin: defaultPadding,
+            bottomMargin: defaultPadding)
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.groupingColumn,
+            label: "Grouping Column",
+            hint: "Column containing Member Key (optional)",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 60),
       ],
       [
         PaddingConfig(),
