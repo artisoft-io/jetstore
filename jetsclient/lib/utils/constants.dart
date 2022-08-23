@@ -47,9 +47,8 @@ class ScreenKeys {
   static const login = "loginScreen";
   static const register = "registerScreen";
 
-  // static const pipelines = "pipelinesScreen";
-  // static const fileRegistry = "fileRegistryScreen";
   static const fileRegistryTable = "fileRegistryTableScreen";
+  static const execStatusDetailsTable = "execStatusDetailsTable";
 }
 
 /// Form ID Keys

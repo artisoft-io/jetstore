@@ -54,8 +54,9 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
         JetsRouterDelegate().user.name = result.body[FSK.userName];
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
         final devMode = result.body[FSK.devMode];
+        JetsRouterDelegate().devMode = false;
         if (devMode != null) {
-          JetsRouterDelegate().devMode = devMode;
+          JetsRouterDelegate().devMode = devMode == "true";
         }
         // Inform the user and transition
         const snackBar = SnackBar(
