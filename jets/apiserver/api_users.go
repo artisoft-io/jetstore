@@ -51,6 +51,9 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
+	if devMode {
+		user.DevMode = "true"
+	}
 	JSON(w, http.StatusOK, user)
 }
 

@@ -21,6 +21,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Token     string    `json:"token"`
+	DevMode   string 		`json:"dev_mode"`
 }
 
 func Hash(password string) ([]byte, error) {

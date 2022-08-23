@@ -34,7 +34,8 @@ String? loginFormValidator(
 
 /// Login Form Actions
 void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey, {int group = 0}) async {
+    JetsFormState formState, String actionKey,
+    {int group = 0}) async {
   switch (actionKey) {
     case ActionKeys.login:
       var valid = formKey.currentState!.validate();
@@ -52,6 +53,10 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
         // update the [UserModel]
         JetsRouterDelegate().user.name = result.body[FSK.userName];
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
+        final devMode = result.body[FSK.devMode];
+        if (devMode != null) {
+          JetsRouterDelegate().devMode = devMode;
+        }
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Login Successful!'),
@@ -117,7 +122,8 @@ String? registrationFormValidator(
 
 /// Registration Form Actions
 void registrationFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey, {int group = 0}) async {
+    JetsFormState formState, String actionKey,
+    {int group = 0}) async {
   var valid = formKey.currentState!.validate();
   if (!valid) {
     return;
