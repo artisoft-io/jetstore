@@ -501,6 +501,11 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         JetsRouterDelegate()(
             JetsRouteData(ac.configScreenPath!, params: params));
         break;
+      // Refresh data table
+      case DataTableActionType.refreshTable:
+        _refreshTable();
+        break;
+
       // case 'edit':
       //   setState(() => isTableEditable = true);
       //   break;

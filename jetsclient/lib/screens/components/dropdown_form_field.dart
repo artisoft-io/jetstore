@@ -85,7 +85,7 @@ class _JetsDropdownButtonFormFieldState
       if (_config.stateKeyPredicates.isNotEmpty) {
         widget.formState.removeListener(stateListener);
       }
-      JetsRouterDelegate().addListener(navListener);
+      JetsRouterDelegate().removeListener(navListener);
     }
     super.dispose();
   }

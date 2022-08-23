@@ -50,6 +50,7 @@ enum DataTableActionType {
   saveDirtyRows,
   deleteSelectedRows,
   cancelModifications,
+  refreshTable
 }
 
 /// Table Action Configuration
@@ -214,6 +215,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
           configForm: FormKeys.addClient),
+      ActionConfig(
+          actionType: DataTableActionType.refreshTable,
+          key: 'refreshTable',
+          label: 'Refresh',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
@@ -310,8 +318,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     tableName: 'pipeline_execution_status',
     label: 'Pipeline Execution Status',
     apiPath: '/dataTable',
-    isCheckboxVisible: false,
-    isCheckboxSingleSelect: false,
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
     whereClauses: [],
     actions: [
       ActionConfig(
@@ -330,6 +338,22 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
           configForm: FormKeys.loadAndStartPipeline),
+      ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'viewStatusDetails',
+          label: 'View Execution Details',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: executionStatusDetailsPath,
+          navigationParams: {'session_id': 10}),
+      ActionConfig(
+          actionType: DataTableActionType.refreshTable,
+          key: 'refreshTable',
+          label: 'Refresh',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
     ],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
@@ -424,7 +448,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Pipeline Execution Details Data Table
+  // Pipeline Execution Status Details Data Table
   DTKeys.pipelineExecDetailsTable: TableConfig(
     key: DTKeys.pipelineExecDetailsTable,
     schemaName: 'jetsapi',
@@ -435,9 +459,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(
-          column: "pipeline_execution_status_key",
-          formStateKey: DTKeys.pipelineExecStatusTable,
-          defaultValue: ["NULL"])
+          column: "session_id",
+          formStateKey: FSK.sessionId),
     ],
     actions: [],
     formStateConfig:

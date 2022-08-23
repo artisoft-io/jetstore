@@ -34,9 +34,15 @@ class BaseScreenState extends State<BaseScreen> {
   }
 
   void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path == homePath) {
+    if (JetsRouterDelegate().currentConfiguration?.path == homePath && mounted) {
       setState(() {});
     }
+  }
+
+  @override
+  void dispose() {
+    JetsRouterDelegate().removeListener(navListener);
+    super.dispose();
   }
 
   @override

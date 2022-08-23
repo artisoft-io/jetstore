@@ -74,7 +74,7 @@ class JetsFormWidgetState extends State<JetsForm> {
   @override
   void dispose() {
     if (widget.formConfig.inputFields.isEmpty) {
-      JetsRouterDelegate().addListener(navListener);
+      JetsRouterDelegate().removeListener(navListener);
     }
     super.dispose();
   }
