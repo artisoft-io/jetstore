@@ -9,10 +9,11 @@ import 'package:jetsclient/utils/screen_config.dart';
 
 AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
     {bool showLogout = false}) {
+  final appTitle = JetsRouterDelegate().devMode ? "$title (DEV MODE)" : title;
   return AppBar(
     automaticallyImplyLeading:
         screenConfig.key == ScreenKeys.login ? false : true,
-    title: Text(title),
+    title: Text(appTitle),
     actions: <Widget>[
       IconButton(
         icon: const Icon(Icons.dark_mode_sharp),

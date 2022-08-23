@@ -17,6 +17,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   JetsRouteData routeData = JetsRouteData(homePath);
 
   var user = UserModel();
+  var devMode = false;
   List<MaterialPage> _pages = [];
   Map<String, List<MaterialPage>> routesPagesMap = {};
   Map<String, String> routePrevMap = {};

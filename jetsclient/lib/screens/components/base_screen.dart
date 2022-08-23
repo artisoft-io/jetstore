@@ -26,6 +26,19 @@ class BaseScreen extends StatefulWidget {
 }
 
 class BaseScreenState extends State<BaseScreen> {
+  
+  @override
+  void initState() {
+    super.initState();
+    JetsRouterDelegate().addListener(navListener);
+  }
+
+  void navListener() async {
+    if (JetsRouterDelegate().currentConfiguration?.path == homePath) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,7 +103,7 @@ class BaseScreenState extends State<BaseScreen> {
                       defaultPadding, 2 * defaultPadding, 0, 0),
                   child: Text(
                     widget.screenConfig.title,
-                    style: Theme.of(context).textTheme.headline4,
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
                 ),
               ),
