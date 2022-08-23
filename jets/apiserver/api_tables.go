@@ -418,7 +418,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 				// Call server synchronously
 				case devMode:	
 					serverArgs := []string{ "-peKey", peKey, "-dsn", *dsn,"-userEmail", userEmail.(string) }
-					log.Printf("Run server: %s", serverArgs)
+					// log.Printf("Run server: %s", serverArgs)
 					cmd := exec.Command("/usr/local/bin/server", serverArgs...)
 					var b bytes.Buffer
 					cmd.Stdout = &b
@@ -739,6 +739,6 @@ func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dat
 	results["rows"] = resultRows
 	results["totalRowCount"] = len(dirData)
 	// fmt.Println("file_key_staging DEV MODE:")
-	json.NewEncoder(os.Stdout).Encode(results)
+	// json.NewEncoder(os.Stdout).Encode(results)
 	JSON(w, http.StatusOK, results)
 }

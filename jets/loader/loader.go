@@ -52,6 +52,7 @@ var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding th
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
 var sep_flag chartype = '€'
+var errOutDir string
 
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator, default is auto detect between pipe ('|') or comma (',')")
@@ -207,7 +208,12 @@ func processFile(dbpool []*pgxpool.Pool) error {
 
 	// open err file where we'll put the bad rows
 	dp, fn := filepath.Split(*inFile)
-	badRowsfile, err := os.Create(dp + "err_" + fn)
+	var badRowsfile *os.File
+	if len(errOutDir) == 0 {
+		badRowsfile, err = os.Create(dp + "err_" + fn)
+	} else {
+		badRowsfile, err = os.Create(fmt.Sprintf("%s/err_%s", errOutDir, fn))
+	}
 	if err != nil {
 		return fmt.Errorf("error while opening output csv err file: %v", err)
 	}
@@ -506,6 +512,8 @@ func main() {
 		log.Println("sessionId is set to", *sessionId)
 	}
 
+	errOutDir = os.Getenv("LOADER_ERR_DIR")
+
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
 	fmt.Println("Got argument: inFile", *inFile)
@@ -519,7 +527,11 @@ func main() {
 	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: doNotLockSessionId", *doNotLockSessionId)
-
+	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
+	if len(errOutDir) == 0 {
+		fmt.Println("Loader error file will be in same directory as input file.")
+	}
+ 
 	err := coordinateWork()
 	if err != nil {
 		flag.Usage()
