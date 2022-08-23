@@ -83,12 +83,14 @@ ENV API_TOKEN_EXPIRATION_MIN 60
 
 ENV WORKSPACES_HOME /go/workspaces
 ENV WORK_HOME /go/work
+ENV LOADER_ERR_DIR /go/work/errors
 RUN \
   mkdir -p ${WORKSPACES_HOME}           \
   && mkdir -p ${WORK_HOME}/output       \
   && mkdir -p ${WORK_HOME}/input        \ 
   && mkdir -p ${WORK_HOME}/metrics      \
   && mkdir -p ${WORK_HOME}/sm           \
+  && mkdir -p ${WORK_HOME}/errors       \
   && mkdir -p ${WORK_HOME}/output_params 
 
 RUN chown -Rc jsuser /go
