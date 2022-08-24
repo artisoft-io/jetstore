@@ -213,12 +213,31 @@ func (server *Server) ExecRawQueryMap(w http.ResponseWriter, r *http.Request, da
 // InsertRows ------------------------------------------------------
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
 func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
-	sqlStmt, ok := sqlInsertStmts[dataTableAction.Table]
-	if !ok {
-		ERROR(w, http.StatusBadRequest, errors.New("error: unknown table"))
+	returnedKey, httpStatus, err := server.ProcessInsertRows(dataTableAction)
+	if httpStatus != http.StatusOK {
+		ERROR(w, httpStatus, err)
 		return
 	}
-	returnedKey := -1
+	//* BACKWARD COMPATIBILITY returning the first returnedKey (should return the array)
+	results := makeResult(r)
+	if returnedKey[0] >= 0 {
+		results["returned_key"] = returnedKey[0]
+	}
+	JSON(w, http.StatusOK, results)
+}
+
+// ProcessInsertRows ------------------------------------------------------
+// Main insert row function with post processing hooks for starting pipelines
+// Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
+func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (returnedKey []int, httpStatus int, err error) {
+	returnedKey = make([]int, len(dataTableAction.Data))
+	httpStatus = http.StatusOK
+	sqlStmt, ok := sqlInsertStmts[dataTableAction.Table]
+	if !ok {
+		httpStatus = http.StatusBadRequest
+		err = errors.New("error: unknown table")
+		return
+	}
 	row := make([]interface{}, len(sqlStmt.columnKeys))
 	for irow := range dataTableAction.Data {
 		for jcol, colKey := range sqlStmt.columnKeys {
@@ -226,17 +245,20 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 		}
 		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.Table, row)
 		if strings.Contains(sqlStmt.stmt, "RETURNING key") {
-			err := server.dbpool.QueryRow(context.Background(), sqlStmt.stmt, row...).Scan(&returnedKey)
+			err = server.dbpool.QueryRow(context.Background(), sqlStmt.stmt, row...).Scan(&returnedKey[irow])
 			if err != nil {
-				log.Printf("While getting table's total row count: %v", err)
-				ERROR(w, http.StatusInternalServerError, errors.New("error while getting table's total row count"))	
+				log.Printf("While inserting in table %s: %v", dataTableAction.Table, err)
+				httpStatus = http.StatusInternalServerError
+				err = errors.New("error while inserting into a table")
 				return
 			}
+			// fmt.Println("*** Returned Key is",returnedKey[irow])
 		} else {
-			_, err := server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
+			_, err = server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
 			if err != nil {
 				log.Printf("while executing insert_rows action '%s': %v", dataTableAction.Table, err)
-				ERROR(w, http.StatusConflict, errors.New("error while executing insert"))
+				httpStatus = http.StatusConflict
+				err = errors.New("error while executing insert")
 				return
 			}			
 		}
@@ -273,7 +295,8 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					log.Printf(
 						"error while preparing to run loader: unexpected nil among: objType: %v, tableName: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
 						objType, tableName, client, fileKey, sessionId, userEmail)
-					ERROR(w, http.StatusInternalServerError, errors.New("error while running loader command"))
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while running loader command")
 					return
 				}
 				if row["load_and_start"] == "true" {
@@ -301,7 +324,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					var b bytes.Buffer
 					cmd.Stdout = &b
 					cmd.Stderr = &b
-					err := cmd.Run()
+					err = cmd.Run()
 					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
 					if err != nil {
 						log.Printf("while executing loader command '%v': %v", loaderArgs, err)
@@ -312,7 +335,8 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Println("LOADER CAPTURED OUTPUT END")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						ERROR(w, http.StatusInternalServerError, errors.New("error while running loader command"))
+						httpStatus = http.StatusInternalServerError
+						err = errors.New("error while running loader command")
 						return
 					}
 					log.Println("============================")
@@ -345,13 +369,14 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					var b bytes.Buffer
 					cmd.Stdout = &b
 					cmd.Stderr = &b
-					err := cmd.Run()
+					err = cmd.Run()
 					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
 					if err != nil {
 						log.Printf("while executing argo command '%v': %v", argoArgs, err)
 						b.WriteTo(os.Stdout)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						ERROR(w, http.StatusInternalServerError, errors.New("error while running argo command"))
+						httpStatus = http.StatusInternalServerError
+						err = errors.New("error while running argo command")
 						return
 					}
 					log.Println("ARGO CAPTURED OUTPUT")
@@ -361,17 +386,18 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					log.Printf("input_loader_status insert DO NOTHIG: load_and_start: %s, devMode: %v, argoCmd: %s\n", row["load_and_start"],devMode, argoCmd)
 				}
 			}
-		case "pipeline_execution_status":
+		case "pipeline_execution_status", "short/pipeline_execution_status":
 		// Run the server
-			if returnedKey < 0 {
-				log.Printf(
-					"error while preparing to run server/argo: unexpected value for returnedKey from insert to pipeline_execution_status table: %v",	returnedKey)
-				ERROR(w, http.StatusInternalServerError, errors.New("error while preparing server command"))
-				return
-			}
 			row := make(map[string]interface{}, len(sqlStmt.columnKeys))
 			for irow := range dataTableAction.Data {
-				for _, colKey := range sqlStmt.columnKeys {
+				if returnedKey[irow] <= 0 {
+					log.Printf(
+						"error while preparing to run server/argo: unexpected value for returnedKey from insert to pipeline_execution_status table: %v",	returnedKey)
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while preparing server command")
+					return
+				}
+					for _, colKey := range sqlStmt.columnKeys {
 					v := dataTableAction.Data[irow][colKey]
 					if(v != nil) {
 						row[colKey] = v.(string)
@@ -380,7 +406,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 				// expected collumns in the incoming request that are not columns in the input_loader_status table
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string) // needed for argo
 				gc := dataTableAction.Data[irow]["grouping_column"]
-				peKey := strconv.Itoa(returnedKey)
+				peKey := strconv.Itoa(returnedKey[irow])
 				objType := dataTableAction.Data[irow]["object_type"]
 				tableName := dataTableAction.Data[irow]["table_name"]
 				client := row["client"]
@@ -401,7 +427,8 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 				if userEmail == nil || sessionId == nil {
 					log.Printf(
 						"error while preparing to run server: unexpected nil among: userEmail %v, sessionId %v", userEmail, sessionId)
-					ERROR(w, http.StatusInternalServerError, errors.New("error while preparing argo/server command"))
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while preparing argo/server command")
 					return
 				}
 				// Check required params for loader/server if load+start
@@ -410,7 +437,8 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 						log.Printf(
 							"error while preparing to run loader: unexpected nil among: objType: %v, tableName: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
 							objType, tableName, client, fileKey, sessionId, userEmail)
-						ERROR(w, http.StatusInternalServerError, errors.New("error while preparing argo command for server/argo(load+start) and run"))
+						httpStatus = http.StatusInternalServerError
+						err = errors.New("error while preparing argo command for server/argo(load+start) and run")
 						return
 					}	
 				}
@@ -423,7 +451,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					var b bytes.Buffer
 					cmd.Stdout = &b
 					cmd.Stderr = &b
-					err := cmd.Run()
+					err = cmd.Run()
 					if err != nil {
 						log.Printf("while executing server command '%v': %v", serverArgs, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -433,7 +461,8 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Println("SERVER CAPTURED OUTPUT END")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						ERROR(w, http.StatusInternalServerError, errors.New("error while running server command"))
+						httpStatus = http.StatusInternalServerError
+						err = errors.New("error while running server command")
 						return
 					}
 					log.Println("============================")
@@ -488,13 +517,14 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 					var b bytes.Buffer
 					cmd.Stdout = &b
 					cmd.Stderr = &b
-					err := cmd.Run()
+					err = cmd.Run()
 					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
 					if err != nil {
 						log.Printf("while executing argo command '%v': %v", argoArgs, err)
 						b.WriteTo(os.Stdout)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						ERROR(w, http.StatusInternalServerError, errors.New("error while running argo command"))
+						httpStatus = http.StatusInternalServerError
+						err = errors.New("error while running argo command")
 						return
 					}
 					log.Println("ARGO CAPTURED OUTPUT")
@@ -504,16 +534,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 			}	// irow := range dataTableAction.Data
 		}	// switch dataTableAction.Table 
 	}	// if devMode || argoCmd != "" 
-
-	results := make(map[string]interface{}, 3)
-	token, ok := r.Header["Token"]
-	if ok {
-		results["token"] = token[0]
-	}
-	if returnedKey >= 0 {
-		results["returned_key"] = returnedKey
-	}
-	JSON(w, http.StatusOK, results)
+	return
 }
 
 // utility method
@@ -565,7 +586,7 @@ func (server *Server) DoReadAction(w http.ResponseWriter, r *http.Request, dataT
 	}
 
 	// to package up the result
-	results := make(map[string]interface{}, 5)
+	results := makeResult(r)
 
 	var columnsDef []DataTableColumnDef
 	if len(dataTableAction.Columns) == 0 {
@@ -670,10 +691,6 @@ func (server *Server) DoReadAction(w http.ResponseWriter, r *http.Request, dataT
 		return
 	}
 
-	token, ok := r.Header["Token"]
-	if ok {
-		results["token"] = token[0]
-	}
 	results["totalRowCount"] = totalRowCount
 	results["rows"] = resultRows
 	JSON(w, http.StatusOK, results)

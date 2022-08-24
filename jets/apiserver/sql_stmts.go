@@ -97,4 +97,20 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 			RETURNING key`,
 		columnKeys: []string{"pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"},
 	},
+	"short/pipeline_execution_status": {
+		stmt: `INSERT INTO jetsapi.pipeline_execution_status 
+			(pipeline_config_key, main_input_file_key, client, process_name, main_object_type, input_session_id, session_id, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			RETURNING key`,
+		columnKeys: []string{"pipeline_config_key", "main_input_file_key", "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"},
+	},
+
+	// file_key_staging -- for DoRegisterFileKeyAction 
+	"file_key_staging": {
+		stmt: `INSERT INTO jetsapi.file_key_staging 
+			(client, object_type, file_key) 
+			VALUES ($1, $2, $3)
+			ON CONFLICT DO NOTHING`,
+		columnKeys: []string{"client", "object_type", "file_key"},
+	},
 }
