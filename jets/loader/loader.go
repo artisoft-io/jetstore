@@ -474,6 +474,10 @@ func main() {
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
+	// if grouping_column is '' it means it's actually empty
+	if *groupingColumn == "''" {
+		*groupingColumn = ""
+	}
 	if *client == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Client name must be provided (-client).")

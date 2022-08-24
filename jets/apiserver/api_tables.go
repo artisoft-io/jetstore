@@ -276,7 +276,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 						row[colKey] = v.(string)
 					}
 				}
-				// expected collumns in the incoming request that are not columns in the input_loader_status table
+				// expected columns in the incoming request that are not columns in the input_loader_status table
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 				gc := dataTableAction.Data[irow]["grouping_column"]
 				// extract the columns we need for the loader

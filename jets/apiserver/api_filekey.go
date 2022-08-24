@@ -83,7 +83,27 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 				ERROR(w, http.StatusInternalServerError, errors.New("error while fetching pipeline_config key"))	
 				return
 			}
+			// insert into input_loader_status and kick off loader (dev mode)
 			dataTableAction := DataTableAction {
+				Action: "insert_rows", 
+				Table: "input_loader_status",
+				Data: []map[string]interface{}{{
+					"load_and_start": "true",
+					"file_key": fileKey,
+					"table_name": fmt.Sprintf("%s_%s", client, objectType),
+					"client": client,
+					"object_type": objectType,
+					"session_id": sessionId,
+					"status": "submitted",
+					"user_email": "system"},
+			}}
+			_, httpStatus, err := server.ProcessInsertRows(&dataTableAction)
+			if(httpStatus != http.StatusOK) {
+				ERROR(w, httpStatus, err)	
+				return
+			}
+			// insert into pipeline_execution_status and kick off server (dev mode) or argo load+start (prod mode)
+			dataTableAction = DataTableAction {
 				Action: "insert_rows", 
 				Table: "short/pipeline_execution_status",
 				Data: []map[string]interface{}{
@@ -103,7 +123,7 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					"status": "submitted",
 					"user_email": "system"},
 			}}
-			_, httpStatus, err := server.ProcessInsertRows(&dataTableAction)
+			_, httpStatus, err = server.ProcessInsertRows(&dataTableAction)
 			if(httpStatus != http.StatusOK) {
 				ERROR(w, httpStatus, err)	
 				return
