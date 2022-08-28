@@ -47,4 +47,5 @@ RUN pip3 install --no-input \
     psycopg[binary,pool] \
     PyYAML \
     yamlconf \
+    requests \
     && pip3 list
