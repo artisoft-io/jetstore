@@ -24,6 +24,7 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 COPY --from=builder ${JETS_BUILD_DIR}/utils/start_ui.sh /usr/local/bin/
+COPY --from=builder ${JETS_BUILD_DIR}/utils/argo_cmd.py /usr/local/bin/
 COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 # Go commands
