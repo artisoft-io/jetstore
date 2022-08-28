@@ -66,7 +66,7 @@ def main(argv):
   if client:
     params.append({"name":"client", "value":client})
   if doNotLockSessionId:
-    params.append({"name":"doNotLockSessionId", "value":doNotLockSessionId})
+    params.append({"name":"doNotLockSessionId", "value":'-doNotLockSessionId'})
   if groupingColumn:
     params.append({"name":"groupingColumn", "value":groupingColumn})
   if inFile:
