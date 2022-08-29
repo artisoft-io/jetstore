@@ -76,8 +76,9 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 			fileKey := registerFileKeyAction.Data[irow]["file_key"]
 			sessionId := strconv.FormatInt(time.Now().UnixMilli(), 10)
 			var pipelineConfigKey int
-			stmt := "SELECT key FROM jetsapi.pipeline_config WHERE process_name=$1 AND client=$2 AND main_object_type=$3"
-			err := server.dbpool.QueryRow(context.Background(), stmt, processName, client, objectType).Scan(&pipelineConfigKey)
+			var grouping_column string
+			stmt := "SELECT pc.key, pi.grouping_column FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.process_name=$1 AND pc.client=$2 AND pc.main_object_type=$3 AND pc.main_process_input_key = pi.key"
+			err := server.dbpool.QueryRow(context.Background(), stmt, processName, client, objectType).Scan(&pipelineConfigKey, &grouping_column)
 			if err != nil {
 				log.Printf("in RegisterKeys while querying pipeline_config to start a process: %v", err)
 				ERROR(w, http.StatusInternalServerError, errors.New("error while fetching pipeline_config key"))	
@@ -93,6 +94,7 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					"table_name": fmt.Sprintf("%s_%s", client, objectType),
 					"client": client,
 					"object_type": objectType,
+					"grouping_column": grouping_column,
 					"session_id": sessionId,
 					"status": "submitted",
 					"user_email": "system"},
