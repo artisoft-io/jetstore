@@ -115,6 +115,7 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					"main_input_file_key": fileKey,
 					"file_key": fileKey,
 					"table_name": fmt.Sprintf("%s_%s", client, objectType),
+					"grouping_column": grouping_column,
 					// "merged_input_registry_keys": "'{33}'",
 					"client": client,
 					"process_name": processName,
