@@ -383,7 +383,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 					b.WriteTo(os.Stdout)
 					log.Println("=====================")
 				default:
-					log.Printf("input_loader_status insert DO NOTHIG: load_and_start: %s, devMode: %v, argoCmd: %s\n", row["load_and_start"],devMode, argoCmd)
+					log.Printf("input_loader_status insert DO NOTHING: load_and_start: %s, devMode: %v, argoCmd: %s\n", row["load_and_start"],devMode, argoCmd)
 				}
 			}
 		case "pipeline_execution_status", "short/pipeline_execution_status":
