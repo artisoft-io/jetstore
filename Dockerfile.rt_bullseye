@@ -33,6 +33,9 @@ COPY --from=builder ${JETS_BIN_DIR}/status_update /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
+# Copy the jetsclient source for building in the flutter app in workspace build
+ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient /usr/local/jetsclient
 
 # Resource files
 COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
@@ -41,10 +44,11 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
 ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
 ENV JETS_INIT_DB_SCRIPT /usr/local/bin/jets_init_db.sql
 
+# Disabled since we now build the app in the workspace image using a builder
 # Install Client UI == Flutter App ==
-ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
-ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
-COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
+# ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+# ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
+# COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
 
 RUN \
     cd /usr/local/lib/ \
