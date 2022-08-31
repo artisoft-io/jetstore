@@ -432,11 +432,6 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.pipelineExecStatusTable,
             dataTableConfig: DTKeys.pipelineExecStatusTable)
       ],
-      // [
-      //   FormDataTableFieldConfig(
-      //       key: DTKeys.pipelineExecDetailsTable,
-      //       dataTableConfig: DTKeys.pipelineExecDetailsTable)
-      // ],
     ],
   ),
   // Source Config (actionless)
@@ -1198,24 +1193,6 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.fileKeyStagingForPipelineExecTable,
             dataTableConfig: DTKeys.fileKeyStagingForPipelineExecTable),
-      ],
-      [
-        TextFieldConfig(
-            label:
-                "Please indicate the Grouping Column in the file to use.",
-            topMargin: defaultPadding,
-            bottomMargin: defaultPadding)
-      ],
-      [
-        FormInputFieldConfig(
-            key: FSK.groupingColumn,
-            label: "Grouping Column",
-            hint: "Column containing Member Key (optional)",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 60),
       ],
       [
         PaddingConfig(),
