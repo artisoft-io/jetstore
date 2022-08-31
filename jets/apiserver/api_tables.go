@@ -276,6 +276,11 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 						row[colKey] = v.(string)
 					}
 				}
+				// Add process_name if present in dataTableAction.Data[irow]
+				v := dataTableAction.Data[irow]["process_name"]
+				if(v != nil) {
+					row["process_name"] = v.(string)
+				}
 				// expected columns in the incoming request that are not columns in the input_loader_status table
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 				gc := dataTableAction.Data[irow]["grouping_column"]
@@ -285,8 +290,22 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 				client := row["client"]
 				fileKey := row["file_key"]
 				groupingColumn := "''"
-				if gc != nil {
+				switch {
+				case gc != nil:
 					groupingColumn = gc.(string)
+				case row["load_and_start"] == "true":
+					// get the grouping column from the process input table
+					objType := dataTableAction.Data[irow]["object_type"]
+					client := row["client"]
+					processName := row["process_name"]
+					stmt := "SELECT pi.grouping_column FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.process_name=$1 AND pc.client=$2 AND pc.main_object_type=$3 AND pc.main_process_input_key = pi.key"
+					err = server.dbpool.QueryRow(context.Background(), stmt, processName, client, objType).Scan(&groupingColumn)
+					if err != nil {
+						log.Printf("in preparing to start loader (load_and_start case) while querying pipeline_config for client %s, process_name %s, and object_type %s to get the grouping_key: %v", client, processName, objType, err)
+						httpStatus = http.StatusInternalServerError
+						err = errors.New("error while querying process_input table to get grouping_column")
+						return
+					}
 				}
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
@@ -390,6 +409,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 		// Run the server
 			row := make(map[string]interface{}, len(sqlStmt.columnKeys))
 			for irow := range dataTableAction.Data {
+				// returnedKey is the key of the row inserted in the db, here it correspond to peKey
 				if returnedKey[irow] <= 0 {
 					log.Printf(
 						"error while preparing to run server/argo: unexpected value for returnedKey from insert to pipeline_execution_status table: %v",	returnedKey)
@@ -397,30 +417,31 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 					err = errors.New("error while preparing server command")
 					return
 				}
-					for _, colKey := range sqlStmt.columnKeys {
+				for _, colKey := range sqlStmt.columnKeys {
 					v := dataTableAction.Data[irow][colKey]
 					if(v != nil) {
 						row[colKey] = v.(string)
 					}
 				}
-				// expected collumns in the incoming request that are not columns in the input_loader_status table
+				// expected load_and_start in the incoming request
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string) // needed for argo
-				gc := dataTableAction.Data[irow]["grouping_column"]
 				peKey := strconv.Itoa(returnedKey[irow])
 				objType := dataTableAction.Data[irow]["object_type"]
 				tableName := dataTableAction.Data[irow]["table_name"]
 				client := row["client"]
+				processName := row["process_name"]
 				fileKey := dataTableAction.Data[irow]["file_key"]
-				groupingColumn := "''"
-				if gc != nil {
-					groupingColumn = gc.(string)
+				// Get the gouping column from the process input table
+				var groupingColumn string
+				stmt := "SELECT pi.grouping_column FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.process_name=$1 AND pc.client=$2 AND pc.main_object_type=$3 AND pc.main_process_input_key = pi.key"
+				err = server.dbpool.QueryRow(context.Background(), stmt, processName, client, objType).Scan(&groupingColumn)
+				if err != nil {
+					log.Printf("in preparing to start server while querying pipeline_config for client %s, process_name %s, and object_type %s to get the grouping_key: %v", client, processName, objType, err)
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while querying process_input table to get grouping_column")
+					return
 				}
-				//* DO WE NEED THIS??
-				// isi := row["input_session_id"]
-				// inSessionId := "''"
-				// if isi != nil {
-				// 	inSessionId = isi.(string)
-				// }
+
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
 				// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
