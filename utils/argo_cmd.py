@@ -14,7 +14,7 @@ argo_token = os.getenv('ARGO_TOKEN', '')
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("client", None, "")
-flags.DEFINE_string("doNotLockSessionId", None, "")
+flags.DEFINE_boolean("doNotLockSessionId", False, "")
 flags.DEFINE_string("groupingColumn", None, "")
 flags.DEFINE_string("inFile", None, "")
 flags.DEFINE_string("loaderSessionId", None, "")
