@@ -64,3 +64,4 @@ jets/server/test_data/*.jrc.json
 jets/apiserver/apiserver
 jets/jloader/jloader
 jets/status_update/status_update
+jets/run_reports/run_reports
