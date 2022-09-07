@@ -52,6 +52,18 @@ func coordinateWork() error {
 		}
 		name = strings.TrimSpace(name)
 		name = name[2:len(name)-1]
+		// // Check if name contains patterns for substitutions
+		// // {SESSIONID} is replaced with session_id
+		// // {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
+		// name = strings.Replace(name, "{SESSIONID}", *sessionId, 1)
+		// head, tail, found := strings.Cut(name, "{D:")
+		// if found {
+		// 	pattern, remainder, found := strings.Cut(tail, "}")
+		// 	if !found {
+		// 		return fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
+		// 	}
+
+		// }
 		options := "format text"
 		if strings.Contains(name, ".csv") {
 			options = "format csv"
