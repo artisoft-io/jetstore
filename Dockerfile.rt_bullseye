@@ -32,6 +32,7 @@ COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/status_update /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 # Copy the jetsclient source for building in the flutter app in workspace build
 ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
