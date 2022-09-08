@@ -17,7 +17,7 @@ import (
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
 var dsn = flag.String("dsn", "", "Database connection string (required)")
-var processName = flag.String("process", "", "Process name to run the reports (reports definitions are taken from the workspace reports section) (required)")
+var processName = flag.String("processName", "", "Process name to run the reports (reports definitions are taken from the workspace reports section) (required)")
 var sessionId = flag.String("sessionId", "", "Process session ID. (required)")
 var bucket = flag.String("bucket", "", "AWS bucket name for output files. (required)")
 var filePath = flag.String("filePath", "", "File path for output files. (required)")
@@ -151,7 +151,7 @@ func main() {
 	}
 	if *processName == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Process name must be provided (-process).")
+		errMsg = append(errMsg, "Process name must be provided (-processName).")
 	}
 	if *sessionId == "" {
 		hasErr = true

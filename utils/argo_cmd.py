@@ -26,6 +26,7 @@ flags.DEFINE_string("s3InputDirectory", None, "")
 flags.DEFINE_string("serverSessionId", None, "")
 flags.DEFINE_string("table", None, "")
 flags.DEFINE_string("userEmail", None, "")
+flags.DEFINE_string("processName", None, "")
 
 
 payload = { "workflow": {
@@ -62,6 +63,7 @@ def main(argv):
   serverSessionId     = FLAGS.serverSessionId
   table               = FLAGS.table
   userEmail           = FLAGS.userEmail
+  processName         = FLAGS.processName
 
   params = []
 
@@ -91,6 +93,8 @@ def main(argv):
     params.append({"name":"table", "value":table})
   if userEmail:
     params.append({"name":"userEmail", "value":userEmail})
+  if processName:
+    params.append({"name":"processName", "value":processName})
 
 
   payload["workflow"]["spec"]["arguments"]["parameters"].extend(params)  

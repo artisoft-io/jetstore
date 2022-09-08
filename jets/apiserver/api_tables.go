@@ -503,6 +503,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 						// common params
 						"-userEmail", userEmail.(string), 
 						"-peKey", peKey, 
+						"-processName", processName.(string),
 					}
 					if row["load_and_start"] == "true" {
 						// loader params
