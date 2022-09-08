@@ -10,6 +10,8 @@ import (
 	"log"
 	"os"
 	"strings"
+	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -21,6 +23,7 @@ var processName = flag.String("processName", "", "Process name to run the report
 var sessionId = flag.String("sessionId", "", "Process session ID. (required)")
 var bucket = flag.String("bucket", "", "AWS bucket name for output files. (required)")
 var filePath = flag.String("filePath", "", "File path for output files. (required)")
+var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
 var region = flag.String("region", "", "AWS region of the bucket. (required)")
 var reportDefinitions string
 
@@ -52,18 +55,24 @@ func coordinateWork() error {
 		}
 		name = strings.TrimSpace(name)
 		name = name[2:len(name)-1]
-		// // Check if name contains patterns for substitutions
-		// // {SESSIONID} is replaced with session_id
-		// // {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
-		// name = strings.Replace(name, "{SESSIONID}", *sessionId, 1)
-		// head, tail, found := strings.Cut(name, "{D:")
-		// if found {
-		// 	pattern, remainder, found := strings.Cut(tail, "}")
-		// 	if !found {
-		// 		return fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
-		// 	}
-
-		// }
+		// Check if name contains patterns for substitutions
+		// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
+		// {SESSIONID} is replaced with session_id
+		// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
+		name = strings.Replace(name, "{SESSIONID}", *sessionId, 1)
+		name = strings.Replace(name, "{ORIGINALFILENAME}", *originalFileName, 1)
+		head, tail, found := strings.Cut(name, "{D:")
+		if found {
+			pattern, remainder, found := strings.Cut(tail, "}")
+			if !found {
+				return fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
+			}
+			y, m, d := time.Now().Date()
+			pattern = strings.Replace(pattern, "YYYY", strconv.Itoa(y), 1)
+			pattern = strings.Replace(pattern, "MM", fmt.Sprintf("%02d", int(m)), 1)
+			pattern = strings.Replace(pattern, "DD", fmt.Sprintf("%02d", d), 1)
+			name = fmt.Sprintf("%s%s%s", head, pattern, remainder)
+		}
 		options := "format text"
 		if strings.Contains(name, ".csv") {
 			options = "format csv"
@@ -145,6 +154,14 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Env variable WORKSPACE must be set.")
 	}
+	if *originalFileName == "" {
+		idx := strings.LastIndex(*filePath, "/")
+		if idx >= 0 || idx <len(*filePath)-1 {
+			fmt.Println("Extracting originalFileName from filePath", *filePath)
+			*originalFileName = (*filePath)[idx+1:]
+			*filePath = (*filePath)[0:idx]
+		}
+	}
 	if *dsn == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Data Source Name (dsn) must be provided (-dsn).")
@@ -193,6 +210,7 @@ func main() {
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: bucket", *bucket)
 	fmt.Println("Got argument: filePath", *filePath)
+	fmt.Println("Got argument: originalFilePath", *originalFileName)
 	fmt.Println("Got argument: region", *region)
 	fmt.Println("Report definitions file:", reportDefinitions)
 
