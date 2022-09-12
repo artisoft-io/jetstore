@@ -560,6 +560,11 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
+        "columnName": "automated",
+        "dataType":   "bool",
+        "default":    "0",
+        "isNotNull":  true
+      }, {
         "columnName": "description",
         "dataType":   "text"
       }, {

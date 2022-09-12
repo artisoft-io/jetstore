@@ -1026,7 +1026,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.mainProcessInputKey: 4,
             FSK.mergedProcessInputKeys: 5,
             FSK.mainObjectType: 6,
-            FSK.description: 7
+            FSK.automated: 7,
+            FSK.description: 8
           }),
     ],
     formStateConfig:
@@ -1080,18 +1081,24 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 7,
+          name: "automated",
+          label: 'Automated',
+          tooltips: 'Is pipeline automated? (true: 1, false: 0)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
           name: "description",
           label: 'Description',
           tooltips: 'Pipeline description',
           isNumeric: false),
       ColumnConfig(
-          index: 8,
+          index: 9,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 9,
+          index: 10,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',

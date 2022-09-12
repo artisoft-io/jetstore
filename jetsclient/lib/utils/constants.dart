@@ -125,6 +125,7 @@ class FSK {
   static const mainProcessInputKey = "main_process_input_key";
   static const mergedProcessInputKeys = "merged_process_input_keys";
   static const mainObjectType = "main_object_type";
+  static const automated = "automated";
 
   // Pipeline Exec keys
   static const pipelineConfigKey = "pipeline_config_key";
