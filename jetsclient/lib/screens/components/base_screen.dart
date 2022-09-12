@@ -26,7 +26,6 @@ class BaseScreen extends StatefulWidget {
 }
 
 class BaseScreenState extends State<BaseScreen> {
-  
   @override
   void initState() {
     super.initState();
@@ -34,7 +33,8 @@ class BaseScreenState extends State<BaseScreen> {
   }
 
   void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path == homePath && mounted) {
+    if (JetsRouterDelegate().currentConfiguration?.path == homePath &&
+        mounted) {
       setState(() {});
     }
   }
@@ -47,6 +47,7 @@ class BaseScreenState extends State<BaseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData themeData = Theme.of(context);
     return Scaffold(
       appBar: appBar(
           context, widget.screenConfig.appBarLabel, widget.screenConfig,
@@ -77,17 +78,13 @@ class BaseScreenState extends State<BaseScreen> {
                     itemBuilder: (BuildContext context, int index) {
                       final menuEntry = widget.screenConfig.menuEntries[index];
                       return ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                        ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0)),
+                        style: buttonStyle(menuEntry.style, themeData),
                         onPressed: () => menuEntry.routePath != null
                             ? JetsRouterDelegate()(
                                 JetsRouteData(menuEntry.routePath!))
-                            : null,
+                            : menuEntry.menuAction != null
+                                ? menuEntry.menuAction!(context)
+                                : null,
                         child: Center(child: Text(menuEntry.label)),
                       );
                     },

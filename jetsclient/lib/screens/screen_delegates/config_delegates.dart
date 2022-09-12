@@ -164,10 +164,10 @@ void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       state['status'] = StatusKeys.submitted;
       state['user_email'] = JetsRouterDelegate().user.email;
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
+      state[FSK.objectType] = state[FSK.mainObjectType];
       if (actionKey == ActionKeys.loadAndStartPipelineOk) {
         state['load_and_start'] = 'true';
         state[FSK.fileKey] = state[FSK.mainInputFileKey];
-        state[FSK.objectType] = state[FSK.mainObjectType];
         state['input_session_id'] = state['session_id'];
         state['table_name'] =
             state[FSK.client] + '_' + state[FSK.mainObjectType];

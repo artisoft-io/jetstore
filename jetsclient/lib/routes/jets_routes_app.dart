@@ -25,6 +25,7 @@ const pipelineConfigPath = '/pipelineConfig';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
+const purgeDataPath = '/purgeData';
 
 final Map<String, Widget> jetsRoutesMap = {
   // Home Screen

@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/screens/components/menu_delegates/menu_delegates.dart';
 
 import '../routes/jets_routes_app.dart';
 
@@ -18,16 +20,32 @@ class ScreenConfig {
   final List<MenuEntry> menuEntries;
 }
 
+/// MenuActionDelegate is action function used by menu items
+/// that does not require to navigate to a new form but perform the action
+/// "in place" on the screen having the menu item
+/// The functions are defined in menu_delegates folder
+typedef MenuActionDelegate = void Function(BuildContext context);
+
 class MenuEntry {
-  MenuEntry({required this.key, required this.label, this.routePath});
+  MenuEntry({
+    this.style = ActionStyle.primary,
+    required this.key,
+    required this.label,
+    this.routePath,
+    this.menuAction,
+  });
+  final ActionStyle style;
   final String key;
   final String label;
   final String? routePath;
+  final MenuActionDelegate? menuAction;
 }
 
 final defaultMenuEntries = [
   MenuEntry(
-      key: 'sourceConfig', label: 'File Staging Area', routePath: sourceConfigPath),
+      key: 'sourceConfig',
+      label: 'File Staging Area',
+      routePath: sourceConfigPath),
   MenuEntry(
       key: 'processInput',
       label: 'Process Input Config',
@@ -40,6 +58,10 @@ final defaultMenuEntries = [
       key: 'pipelineConfig',
       label: 'Data Pipeline Config',
       routePath: pipelineConfigPath),
+  MenuEntry(
+      style: ActionStyle.danger,
+      key: 'dataPurge', label: 'Purge Client Data', 
+      menuAction: purgeDataAction),
 ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {

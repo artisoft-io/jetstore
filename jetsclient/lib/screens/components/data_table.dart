@@ -47,7 +47,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
             final MaterialLocalizations localizations =
                 MaterialLocalizations.of(context);
             // prepare the footer widgets
-            final TextStyle? footerTextStyle = themeData.textTheme.caption;
+            final TextStyle? footerTextStyle = themeData.textTheme.bodySmall;
             List<DropdownMenuItem<int>> rowsPerPageItems =
                 state.availableRowsPerPage
                     .map<DropdownMenuItem<int>>((e) => DropdownMenuItem<int>(

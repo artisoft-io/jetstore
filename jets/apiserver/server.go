@@ -144,6 +144,13 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/registerFileKey", registerFileKeyOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/registerFileKey", jsonh(corsh(authh(server.DoRegisterFileKeyAction)))).Methods("POST")
 
+	// PurgeData route
+	purgeDataOptions := OptionConfig{	Origin: "", 
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"	}
+	server.Router.HandleFunc("/purgeData", purgeDataOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/purgeData", jsonh(corsh(authh(server.DoPurgeDataAction)))).Methods("POST")
+
 	//* TODO add options and corrs check - Users routes
 	// server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
 	server.Router.HandleFunc("/users", jsonh(authh(server.GetUsers))).Methods("GET")

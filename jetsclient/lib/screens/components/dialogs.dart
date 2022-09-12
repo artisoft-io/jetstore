@@ -21,6 +21,32 @@ void showAlertDialog(BuildContext context, String message) {
   );
 }
 
+/// Danger Zone alert dialog, requesting user confirmation to proceed
+Future<String?> showDangerZoneDialog(BuildContext context, String message) async {
+  final ThemeData td = Theme.of(context);
+  return showDialog<String?>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: const Text('Danger Zone'),
+      content: Text(message),
+      titleTextStyle: TextStyle(color: td.colorScheme.onErrorContainer),
+      contentTextStyle: TextStyle(color: td.colorScheme.onErrorContainer),
+      backgroundColor: td.colorScheme.errorContainer,
+      actions: [
+        TextButton(
+          child: const Text('CANCEL'),
+          onPressed: () => Navigator.of(context).pop('CANCEL'),
+        ),
+        TextButton(
+          child: const Text('OK'),
+          onPressed: () => Navigator.of(context).pop('OK'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Enum to record the action result for data table actions
 /// Used as the template type for DialogResultHandler when used
 /// with data table actions
@@ -53,7 +79,7 @@ Future<void> showFormDialog<T>(
                   padding: const EdgeInsets.fromLTRB(defaultPadding, 2*defaultPadding, 0, 0),
                   child: Text(
                     formConfig.title ?? "",
-                    style: Theme.of(context).textTheme.headline4,
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
                 ),
               ),
