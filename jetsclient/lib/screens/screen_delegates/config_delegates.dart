@@ -741,6 +741,12 @@ String? pipelineConfigFormValidator(
       }
       return "Main process input must be selected.";
 
+    case FSK.automated:
+      if (v != null && v.isNotEmpty) {
+        return null;
+      }
+      return "Pipeline automation status must be selected.";
+
     case FSK.description:
     case FSK.mergedProcessInputKeys:
       return null;
@@ -826,6 +832,7 @@ void pipelineConfigFormActions(BuildContext context,
       } else {
         updateState[FSK.mergedProcessInputKeys] = '{}';
       }
+      updateState[FSK.automated] = formState.getValue(0, FSK.automated);
       updateState[FSK.description] = formState.getValue(0, FSK.description);
       updateState[FSK.userEmail] = JetsRouterDelegate().user.email;
 

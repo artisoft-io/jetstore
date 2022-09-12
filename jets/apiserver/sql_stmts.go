@@ -77,16 +77,16 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	// pipeline config
 	"update/pipeline_config": {
 		stmt: `UPDATE jetsapi.pipeline_config SET 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, description, user_email, last_update) = 
-			($1, $2, $3, $4, $5, $6, $7, $8, DEFAULT) 
-			WHERE key = $9`,
-		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "description", "user_email", "key"},
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, automated, description, user_email, last_update) = 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9, DEFAULT) 
+			WHERE key = $10`,
+		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "automated", "description", "user_email", "key"},
 	},
 	"pipeline_config": {
 		stmt: `INSERT INTO jetsapi.pipeline_config 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, description, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "description", "user_email"},
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, automated, description, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "automated", "description", "user_email"},
 	},
 
 	// pipeline_execution_status 

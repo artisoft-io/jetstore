@@ -1059,11 +1059,20 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(height: defaultPadding),
       ],
       [
+        FormDropdownFieldConfig(
+            key: FSK.automated,
+            items: [
+              DropdownItemConfig(label: 'Select...'),
+              DropdownItemConfig(label: 'Automated', value: '1'),
+              DropdownItemConfig(label: 'Manual', value: '0'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
         FormInputFieldConfig(
             key: FSK.description,
             label: "Description",
             hint: "Pipeline configuration description",
-            flex: 1,
+            flex: 3,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
