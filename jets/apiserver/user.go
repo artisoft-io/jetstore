@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Token     string    `json:"token"`
 	DevMode   string 		`json:"dev_mode"`
+	IsAdmin   bool   		`json:"is_admin"`
 }
 
 func Hash(password string) ([]byte, error) {
@@ -49,6 +51,10 @@ func (u *User) Prepare() {
 }
 
 func (u *User) Validate(action string) error {
+	adminEmail, ok := os.LookupEnv("JETS_ADMIN_EMAIL")
+	if ok && adminEmail == u.Email {
+		u.IsAdmin = true
+	}
 	switch strings.ToLower(action) {
 	case "login":
 		if u.Password == "" {
@@ -57,8 +63,10 @@ func (u *User) Validate(action string) error {
 		if u.Email == "" {
 			return errors.New("Required Email")
 		}
-		if err := checkmail.ValidateFormat(u.Email); err != nil {
-			return errors.New("Invalid Email")
+		if !u.IsAdmin {
+			if err := checkmail.ValidateFormat(u.Email); err != nil {
+				return errors.New("Invalid Email")
+			}	
 		}
 		return nil
 

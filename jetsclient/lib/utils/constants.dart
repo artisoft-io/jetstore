@@ -89,6 +89,7 @@ class FSK {
   static const userPasswordConfirm = "passwordConfirm";
   static const sessionId = "session_id";
   static const devMode = "dev_mode";
+  static const isAdmin = "is_admin";
 
   static const client = "client";
   static const details = "details";

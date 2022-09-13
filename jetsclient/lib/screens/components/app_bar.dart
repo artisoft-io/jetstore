@@ -9,7 +9,7 @@ import 'package:jetsclient/utils/screen_config.dart';
 
 AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
     {bool showLogout = false}) {
-  final appTitle = JetsRouterDelegate().devMode ? "$title (DEV MODE)" : title;
+  final appTitle = JetsRouterDelegate().devMode ? "$title (DEV MODE)" : JetsRouterDelegate().user.isAdmin ? "$title (ADMIN)" : title;
   return AppBar(
     automaticallyImplyLeading:
         screenConfig.key == ScreenKeys.login ? false : true,
@@ -32,6 +32,7 @@ AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
             user.email = "";
             user.password = "";
             user.token = "";
+            user.isAdmin = false;
             JetsRouterDelegate().user = user;
             JetsRouterDelegate()(JetsRouteData(loginPath));
           },

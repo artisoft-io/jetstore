@@ -90,6 +90,8 @@ ENV API_TOKEN_EXPIRATION_MIN 60
 ENV WORKSPACES_HOME /go/workspaces
 ENV WORK_HOME /go/work
 ENV LOADER_ERR_DIR /go/work/errors
+ENV JETS_ADMIN_EMAIL admin
+# ENV JETS_ADMIN_PASSWORD XXX
 RUN \
   mkdir -p ${WORKSPACES_HOME}           \
   && mkdir -p ${WORK_HOME}/output       \

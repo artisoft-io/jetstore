@@ -53,6 +53,7 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
         // update the [UserModel]
         JetsRouterDelegate().user.name = result.body[FSK.userName];
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
+        JetsRouterDelegate().user.isAdmin = result.body[FSK.isAdmin];
         final devMode = result.body[FSK.devMode];
         JetsRouterDelegate().devMode = false;
         if (devMode != null) {
