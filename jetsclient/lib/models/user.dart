@@ -12,7 +12,10 @@ class UserModel {
   /// The user's password (used in login form)
   String? password;
 
-  UserModel({this.name, this.email, this.token, this.password});
+  /// The user's password (used in login form)
+  bool isAdmin;
+
+  UserModel({this.name, this.email, this.token, this.password, this.isAdmin=false});
 
   bool get isAuthenticated => token != null && token!.isNotEmpty;
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/gorilla/mux"
@@ -88,6 +89,44 @@ func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) 
 	// }
 }
 
+// Validate the user table exeist and create admin if not already created
+func (server *Server) initUsers() error {
+	usersTableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "users")
+	if err != nil {
+		return fmt.Errorf("while verifying that the users table exists: %v", err)
+	}
+	if !usersTableExists {
+		return fmt.Errorf("error: user table does not exist, please update database schema")
+	}
+	// Check the admin user exists
+	adminEmail, ok := os.LookupEnv("JETS_ADMIN_EMAIL")
+	if !ok {
+		return fmt.Errorf("Default admin id is not defined (env JETS_ADMIN_EMAIL), it must be defined")
+	}
+	stmt := "SELECT user_email FROM jetsapi.users WHERE user_email=$1"
+	var v string
+	err = server.dbpool.QueryRow(context.Background(), stmt, adminEmail).Scan(&v)
+	if err != nil {
+		log.Println("Admin User is not defined in users table, creating it")
+		adminPassword, ok := os.LookupEnv("JETS_ADMIN_PASSWORD")
+		if !ok {
+			return fmt.Errorf("Default admin password is not defined (env JETS_ADMIN_PASSWORD), it must be defined")
+		}
+		// hash the password
+		hashedPassword, err := Hash(adminPassword)
+		if err != nil {
+			return fmt.Errorf("while hashing admin password: %v", err)
+		}
+		adminPassword = string(hashedPassword)
+			stmt = "INSERT INTO jetsapi.users (user_email, name, password, is_active) VALUES ($1, 'Admin', $2, 1)"
+		_, err = server.dbpool.Exec(context.Background(), stmt, adminEmail, adminPassword)
+		if err != nil {
+			return fmt.Errorf("while inserting admin into users table: %v", err)
+		}
+	}
+	return nil
+}
+
 // processFile
 // --------------------------------------------------------------------------------------
 func listenAndServe() error {
@@ -99,13 +138,10 @@ func listenAndServe() error {
 	}
 	defer server.dbpool.Close()	
 
-	// Check that the users table exists
-	usersTableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "users")
+	// Check that the users table and admin user exists
+	err = server.initUsers()
 	if err != nil {
-		return fmt.Errorf("while verifying that the users table exists: %v", err)
-	}
-	if !usersTableExists {
-		return fmt.Errorf("error: user table does not exist, please update database schema")
+		return fmt.Errorf("while calling initUsers: %v", err)
 	}
 
 	// setup the http routes
