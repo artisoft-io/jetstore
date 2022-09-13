@@ -72,7 +72,6 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 		client := registerFileKeyAction.Data[irow]["client"]
 		objectType := registerFileKeyAction.Data[irow]["object_type"]
 		fileKey := registerFileKeyAction.Data[irow]["file_key"]
-		sessionId := strconv.FormatInt(time.Now().UnixMilli(), 10)
 		pipelineConfigKey := make([]int, 0)
 		processNames := make([]string, 0)
 		grouping_column := make([]string, 0)
@@ -113,31 +112,32 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 				grouping_column = append(grouping_column, gc)
 			}
 		}
+		// sessionId := strconv.FormatInt(time.Now().UnixMilli(), 10)
+		sessionId := time.Now().UnixMilli()
 		for i := range pipelineConfigKey {
-			if i == 0 {
-				// insert into input_loader_status and kick off loader (dev mode)
-				dataTableAction := DataTableAction {
-					Action: "insert_rows", 
-					Table: "input_loader_status",
-					Data: []map[string]interface{}{{
-						"load_and_start": "true",
-						"file_key": fileKey,
-						"table_name": fmt.Sprintf("%s_%s", client, objectType),
-						"client": client,
-						"object_type": objectType,
-						"grouping_column": grouping_column[0],
-						"session_id": sessionId,
-						"status": "submitted",
-						"user_email": "system"},
-				}}
-				_, httpStatus, err := server.ProcessInsertRows(&dataTableAction)
-				if(httpStatus != http.StatusOK) {
-					ERROR(w, httpStatus, err)	
-					return
-				}
+			sessionId += 1
+			// insert into input_loader_status and kick off loader (dev mode)
+			dataTableAction := DataTableAction {
+				Action: "insert_rows", 
+				Table: "input_loader_status",
+				Data: []map[string]interface{}{{
+					"load_and_start": "true",
+					"file_key": fileKey,
+					"table_name": fmt.Sprintf("%s_%s", client, objectType),
+					"client": client,
+					"object_type": objectType,
+					"grouping_column": grouping_column[0],
+					"session_id": strconv.FormatInt(sessionId, 10),
+					"status": "submitted",
+					"user_email": "system"},
+			}}
+			_, httpStatus, err := server.ProcessInsertRows(&dataTableAction)
+			if(httpStatus != http.StatusOK) {
+				ERROR(w, httpStatus, err)	
+				return
 			}
 			// insert into pipeline_execution_status and kick off server (dev mode) or argo load+start (prod mode)
-			dataTableAction := DataTableAction {
+			dataTableAction = DataTableAction {
 				Action: "insert_rows", 
 				Table: "short/pipeline_execution_status",
 				Data: []map[string]interface{}{
@@ -153,12 +153,12 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					"process_name": processNames[i],
 					"main_object_type": objectType,
 					"object_type": objectType,
-					"input_session_id": sessionId,
-					"session_id": sessionId,
+					"input_session_id": strconv.FormatInt(sessionId, 10),
+					"session_id": strconv.FormatInt(sessionId, 10),
 					"status": "submitted",
 					"user_email": "system"},
 			}}
-			_, httpStatus, err := server.ProcessInsertRows(&dataTableAction)
+			_, httpStatus, err = server.ProcessInsertRows(&dataTableAction)
 			if(httpStatus != http.StatusOK) {
 				ERROR(w, httpStatus, err)	
 				return
