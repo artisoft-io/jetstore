@@ -73,9 +73,9 @@ func coordinateWork() error {
 			pattern = strings.Replace(pattern, "DD", fmt.Sprintf("%02d", d), 1)
 			name = fmt.Sprintf("%s%s%s", head, pattern, remainder)
 		}
-		options := "format text"
+		options := "format TEXT"
 		if strings.Contains(name, ".csv") {
-			options = "format csv"
+			options = "format CSV, HEADER"
 		}
 		stmt, err = reader.ReadString(';')
 		if len(stmt) == 0 {
@@ -125,7 +125,7 @@ func coordinateWork() error {
 			// save  to s3 mode
 			stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("''%s''", *sessionId))
 			fmt.Println("STMT: name:",name, "fname:", fname,"stmt:",stmt)
-			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s','%s')", stmt, *bucket, fname, *region, options)
+			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, *bucket, fname, *region, options)
 			fmt.Println("S3 QUERY:", s3Stmt)
 			fmt.Println("------")
 			var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
