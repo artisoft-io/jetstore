@@ -106,13 +106,14 @@ String? registrationFormValidator(
       }
       return "Email must be provided.";
     case FSK.userPassword:
-      if (value != null && value.length >= 4) {
+      if (value != null && value.length >= 14) {
         var hasNum = value.contains(RegExp(r'[0-9]'));
         var hasUpper = value.contains(RegExp(r'[A-Z]'));
         var hasLower = value.contains(RegExp(r'[a-z]'));
-        if (hasNum && hasUpper && hasLower) return null;
+        var hasSpecial = value.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|'']'));
+        if (hasNum && hasUpper && hasLower && hasSpecial) return null;
       }
-      return "Password must have at least 4 charaters and contain at least one of: upper and lower case letter, and number.";
+      return "Password must have at least 14 charaters and contain at least one of: upper and lower case letter, number, and special characters.";
     case FSK.userPasswordConfirm:
       // Expecting [WidgetField]
       String? formValue = formState.getValue(group, FSK.userPassword);
