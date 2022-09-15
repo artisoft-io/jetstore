@@ -82,7 +82,8 @@ func (u *User) Validate(action string) error {
 		hasDigit, _ := regexp.MatchString("[0-9]", u.Password)
 		hasUpper, _ := regexp.MatchString("[A-Z]", u.Password)
 		hasLower, _ := regexp.MatchString("[a-z]", u.Password)
-		if !hasDigit || !hasUpper || !hasLower {
+		hasSpecial, _ := regexp.MatchString(`[!@#$%^&*()_+-=\[\]{}|']`, u.Password)
+		if !hasDigit || !hasUpper || !hasLower || !hasSpecial || len(u.Password)<14 {
 			return errors.New("Invalid Password")
 		}
 		if u.Email == "" {
