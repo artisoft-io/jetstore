@@ -113,4 +113,10 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 			ON CONFLICT DO NOTHING`,
 		columnKeys: []string{"client", "object_type", "file_key"},
 	},
+
+	// User Admin: update users.is_active
+	"update/users": {
+		stmt: `UPDATE jetsapi.users SET is_active = $1	WHERE user_email = $2`,
+		columnKeys: []string{"is_active", "user_email"},
+	},
 }

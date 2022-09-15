@@ -3,6 +3,7 @@ import 'dart:async';
 import 'jets_route_information_parser.dart';
 import 'jets_routes_app.dart';
 import 'jets_route_data.dart';
+import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:jetsclient/models/user.dart';
 
 class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
@@ -27,6 +28,10 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
 
   @override
   JetsRouteData? get currentConfiguration => routeData;
+
+  bool isDarkMode(BuildContext context) {
+    return AdaptiveTheme.of(context).mode == AdaptiveThemeMode.dark;
+  }
 
   void _setRoutePages(JetsRouteData routeData) {
     this.routeData = routeData;

@@ -9,12 +9,23 @@ import 'package:jetsclient/utils/screen_config.dart';
 
 AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
     {bool showLogout = false}) {
-  final appTitle = JetsRouterDelegate().devMode ? "$title (DEV MODE)" : JetsRouterDelegate().user.isAdmin ? "$title (ADMIN)" : title;
+  final appTitle = JetsRouterDelegate().devMode
+      ? "$title (DEV MODE)"
+      : JetsRouterDelegate().user.isAdmin
+          ? "$title (ADMIN)"
+          : title;
+  final ThemeData themeData = Theme.of(context);
   return AppBar(
     automaticallyImplyLeading:
         screenConfig.key == ScreenKeys.login ? false : true,
     title: Text(appTitle),
     actions: <Widget>[
+      ElevatedButton(
+          style: JetsRouterDelegate().isDarkMode(context)
+              ? buttonStyle(ActionStyle.primary, themeData)
+              : null,
+          onPressed: () {},
+          child: Center(child: Text(JetsRouterDelegate().user.name ?? ''))),
       IconButton(
         icon: const Icon(Icons.dark_mode_sharp),
         tooltip: 'Toggle Theme',

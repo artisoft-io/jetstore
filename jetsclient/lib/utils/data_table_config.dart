@@ -50,7 +50,8 @@ enum DataTableActionType {
   saveDirtyRows,
   deleteSelectedRows,
   cancelModifications,
-  refreshTable
+  refreshTable,
+  doAction
 }
 
 /// Table Action Configuration
@@ -80,6 +81,8 @@ enum DataTableActionType {
 /// Therefore the navigation params' values are resolved by looking up the value
 /// in the state form.
 /// (see data table state method [actionDispatcher])
+/// actionName is used for DataTableActionType.doAction, corresponding to the action
+/// to invoke when the ActionConfig button is pressed
 class ActionConfig {
   ActionConfig(
       {required this.actionType,
@@ -93,7 +96,7 @@ class ActionConfig {
       required this.style,
       this.configForm,
       this.configScreenPath,
-      this.apiKey});
+      this.actionName});
   final DataTableActionType actionType;
   final String key;
   final String label;
@@ -105,7 +108,7 @@ class ActionConfig {
   final ActionStyle style;
   final String? configForm;
   final String? configScreenPath;
-  final String? apiKey;
+  final String? actionName;
 
   /// returns true if action button is visible
   bool isVisible(JetsDataTableState widgetState) {
@@ -1590,19 +1593,31 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortAscending: false,
       rowsPerPage: 10),
 
-  // Users Data Table
+  // Users Administration Data Table
   DTKeys.usersTable: TableConfig(
     key: DTKeys.usersTable,
     schemaName: 'jetsapi',
     tableName: 'users',
-    label: 'User Registry',
+    label: 'User Administration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
     whereClauses: [],
-    actions: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'toggleUserActive',
+          label: 'Toggle Active',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.toggleUserActive),
+    ],
     formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
+        DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: [
+          DataTableFormStateOtherColumnConfig(
+              stateKey: FSK.isActive, columnIdx: 2),
+        ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -1618,6 +1633,12 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 2,
+          name: "is_active",
+          label: 'Active User?',
+          tooltips: 'Is user active? (true:1, false:0)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Last Updated',

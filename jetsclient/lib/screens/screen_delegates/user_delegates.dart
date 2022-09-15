@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
@@ -33,8 +35,8 @@ String? loginFormValidator(
 }
 
 /// Login Form Actions
-void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey,
+Future<void> loginFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {int group = 0}) async {
   switch (actionKey) {
     case ActionKeys.login:
@@ -64,9 +66,12 @@ void loginFormActions(BuildContext context, GlobalKey<FormState> formKey,
           content: Text('Login Successful!'),
         );
         messenger.showSnackBar(snackBar);
-        JetsRouterDelegate()(JetsRouteData(homePath));
-      } else if (result.statusCode == 401 || result.statusCode == 422) {
+        JetsRouterDelegate()(JetsRouteData(
+            JetsRouterDelegate().user.isAdmin ? userAdminPath : homePath));
+      } else if (result.statusCode == 401) {
         showAlertDialog(context, 'Invalid email and/or password.');
+      } else if (result.statusCode == 422) {
+        showAlertDialog(context, result.body[FSK.error]);
       } else {
         showAlertDialog(context, 'Something went wrong. Please try again.');
       }
@@ -123,8 +128,8 @@ String? registrationFormValidator(
 }
 
 /// Registration Form Actions
-void registrationFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey,
+Future<void> registrationFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {int group = 0}) async {
   var valid = formKey.currentState!.validate();
   if (!valid) {
@@ -134,6 +139,7 @@ void registrationFormActions(BuildContext context, GlobalKey<FormState> formKey,
     case ActionKeys.register:
       // Use a JSON encoded string to send
       var client = context.read<HttpClient>();
+      var messenger = ScaffoldMessenger.of(context);
       var result = await client.sendRequest(
           path: registerPath, encodedJsonBody: formState.encodeState(0));
       // if (!mounted) return; needed?
@@ -143,10 +149,10 @@ void registrationFormActions(BuildContext context, GlobalKey<FormState> formKey,
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
         // Inform the user and transition
         const snackBar = SnackBar(
-          content: Text('Registration Successful, you are now signed in'),
+          content: Text('Registration Successful'),
         );
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        JetsRouterDelegate()(JetsRouteData("/"));
+        messenger.showSnackBar(snackBar);
+        JetsRouterDelegate()(JetsRouteData(loginPath));
       } else if (result.statusCode == 406 || result.statusCode == 422) {
         // http Not Acceptable / Unprocessable
         showAlertDialog(context, 'Invalid email or password.');
@@ -160,5 +166,53 @@ void registrationFormActions(BuildContext context, GlobalKey<FormState> formKey,
     default:
       showAlertDialog(
           context, 'Oops unknown ActionKey for login form: $actionKey');
+  }
+}
+
+/// User Administration Form Actions
+Future<void> userAdminFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
+    {int group = 0}) async {
+  switch (actionKey) {
+    case ActionKeys.toggleUserActive:
+      // Use a JSON encoded string to send
+      var client = context.read<HttpClient>();
+      var messenger = ScaffoldMessenger.of(context);
+      var data = [];
+      var emails = formState.getValue(0, DTKeys.usersTable) as List<dynamic>;
+      var areActive = formState.getValue(0, FSK.isActive) as List<dynamic>;
+      var isActive = '1';
+      if (areActive[0] == '1') {
+        isActive = '0';
+      }
+      for (int i = 0; i < emails.length; i++) {
+        data.add(<String, dynamic>{
+          FSK.userEmail: emails[i],
+          FSK.isActive: isActive,
+        });
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': 'update/users',
+        'data': data,
+      }, toEncodable: (_) => '');
+      var result = await client.sendRequest(
+          path: '/dataTable',
+          token: JetsRouterDelegate().user.token,
+          encodedJsonBody: encodedJsonBody);
+      // handling server reply
+      if (result.statusCode == 200) {
+        // Inform the user and transition
+        const snackBar = SnackBar(
+          content: Text('Update Successful'),
+        );
+        messenger.showSnackBar(snackBar);
+      } else {
+        showAlertDialog(context, 'Something went wrong. Please try again.');
+      }
+      break;
+    default:
+      showAlertDialog(
+          context, 'Oops unknown ActionKey for userAdmin form: $actionKey');
   }
 }

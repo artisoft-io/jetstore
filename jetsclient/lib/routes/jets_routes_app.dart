@@ -25,6 +25,7 @@ const pipelineConfigPath = '/pipelineConfig';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
+const userAdminPath = '/userAdmin';
 const purgeDataPath = '/purgeData';
 
 final Map<String, Widget> jetsRoutesMap = {
@@ -91,13 +92,22 @@ final Map<String, Widget> jetsRoutesMap = {
       formValidatorDelegate: registrationFormValidator,
       formActionsDelegate: registrationFormActions),
 
+  // User Adminstration Screen
+  userAdminPath: ScreenWithForm(
+      key: const Key(ScreenKeys.userAdmin),
+      screenPath: JetsRouteData(userAdminPath),
+      screenConfig: getScreenConfig(ScreenKeys.userAdmin),
+      formConfig: getFormConfig(FormKeys.userAdmin),
+      formValidatorDelegate: (formState, p2, p3, p4) => null,
+      formActionsDelegate: userAdminFormActions),
+
   // Domain Table Viewer
   domainTableViewerPath: ScreenOne(
       key: const Key(ScreenKeys.fileRegistryTable),
       screenPath: JetsRouteData(domainTableViewerPath),
       screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
       tableConfig: getTableConfig(DTKeys.inputTable)),
 
   // Pipeline Execution Status Details Viewer
@@ -106,7 +116,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(executionStatusDetailsPath),
       screenConfig: getScreenConfig(ScreenKeys.execStatusDetailsTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) {},
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
       tableConfig: getTableConfig(DTKeys.pipelineExecDetailsTable)),
 
   // Page Not Found
@@ -148,7 +158,7 @@ class MessageScreen extends StatelessWidget {
         ],
       ),
       body: Center(
-        child: Text(message, style: Theme.of(context).textTheme.headline2),
+        child: Text(message, style: Theme.of(context).textTheme.displayMedium),
       ),
     );
   }

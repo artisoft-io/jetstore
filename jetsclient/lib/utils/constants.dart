@@ -46,6 +46,7 @@ class ScreenKeys {
 
   static const login = "loginScreen";
   static const register = "registerScreen";
+  static const userAdmin = "userAdminScreen";
 
   static const fileRegistryTable = "fileRegistryTableScreen";
   static const execStatusDetailsTable = "execStatusDetailsTable";
@@ -69,9 +70,10 @@ class FormKeys {
   static const pipelineConfig = "pipelineConfigDialog";
   static const startPipeline = "startPipelineDialog";
   static const loadAndStartPipeline = "loadAndStartPipelineDialog";
-
+  // Admin forms
   static const login = "login";
   static const register = "register";
+  static const userAdmin = "userAdmin";
 }
 
 /// Form State Keys
@@ -90,6 +92,7 @@ class FSK {
   static const sessionId = "session_id";
   static const devMode = "dev_mode";
   static const isAdmin = "is_admin";
+  static const isActive = "is_active";
 
   static const client = "client";
   static const details = "details";
@@ -172,6 +175,9 @@ class FSK {
 
   // reserve key to hold an error to display to user
   static const serverError = "server_error";
+
+  // key for error message from server
+  static const error = "error";
 }
 
 /// Form Action Keys
@@ -181,6 +187,7 @@ class ActionKeys {
   static const register = "registerAction";
   static const clientOk = "client.ok";
   static const dialogCancel = "dialog.cancelAction";
+  static const toggleUserActive = "toggleUserActive";
   // for load file dialog
   static const loaderOk = "loader.ok";
 
@@ -243,7 +250,7 @@ class DTKeys {
   static const pipelineConfigTable = "pipelineConfigTable";
   static const fileKeyStagingForPipelineExecTable = "fileKeyStagingForPipelineExecTable";
 
-  // Not used yet
+  // User administration
   static const usersTable = "userTable";
 }
 

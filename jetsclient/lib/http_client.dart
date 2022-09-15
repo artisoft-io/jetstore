@@ -27,9 +27,9 @@ class HttpClient {
       }
       var response = await httpClient.post(serverAdd.replace(path: path),
           headers: h, body: encodedJsonBody);
-      // print('Response status: ${response.statusCode} body: ${response.body}');
-      // print('Response headers: ${response.headers}');
-      // print('---');
+      print('Response status: ${response.statusCode} body: ${response.body}');
+      print('Response headers: ${response.headers}');
+      print('---');
       if (response.statusCode == 401) {
         // redirect to login page
         JetsRouterDelegate()(JetsRouteData(loginPath));

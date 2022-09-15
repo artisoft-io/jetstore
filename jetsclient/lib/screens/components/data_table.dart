@@ -441,7 +441,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   }
 
   /// Dispatcher to handled the data table actions
-  void actionDispatcher(BuildContext context, ActionConfig ac) {
+  void actionDispatcher(BuildContext context, ActionConfig ac) async {
     switch (ac.actionType) {
       // Show a modal dialog
       case DataTableActionType.showDialog:
@@ -503,6 +503,16 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         break;
       // Refresh data table
       case DataTableActionType.refreshTable:
+        _refreshTable();
+        break;
+      // Refresh data table
+      case DataTableActionType.doAction:
+        JetsRow? row = dataSource.getFirstSelectedRow();
+        // check if no row is selected while we expect to have one selected
+        if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
+        if (formState == null || ac.actionName == null) return;
+        // perform the action then refresh the table
+        await actionsDelegate(context, GlobalKey<FormState>(), formState!, ac.actionName!, group: 0);
         _refreshTable();
         break;
 
