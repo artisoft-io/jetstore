@@ -31,6 +31,9 @@ AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
         tooltip: 'Toggle Theme',
         onPressed: () {
           AdaptiveTheme.of(context).toggleThemeMode();
+          if(AdaptiveTheme.of(context).mode == AdaptiveThemeMode.system) {
+            AdaptiveTheme.of(context).toggleThemeMode();
+          }
         },
       ),
       if (showLogout)
