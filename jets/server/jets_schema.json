@@ -18,7 +18,7 @@
       }, {
         "columnName": "is_active",
         "dataType":   "int",
-        "default":    "1",
+        "default":    "0",
         "isNotNull":  true
       }, {
         "columnName": "last_update",

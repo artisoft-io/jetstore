@@ -48,6 +48,9 @@ class BaseScreenState extends State<BaseScreen> {
   @override
   Widget build(BuildContext context) {
     final ThemeData themeData = Theme.of(context);
+    final menuEntries = JetsRouterDelegate().user.isAdmin
+        ? adminMenuEntries
+        : widget.screenConfig.menuEntries;
     return Scaffold(
       appBar: appBar(
           context, widget.screenConfig.appBarLabel, widget.screenConfig,
@@ -74,9 +77,9 @@ class BaseScreenState extends State<BaseScreen> {
                   flex: 8,
                   child: ListView.separated(
                     padding: const EdgeInsets.all(defaultPadding),
-                    itemCount: widget.screenConfig.menuEntries.length,
+                    itemCount: menuEntries.length,
                     itemBuilder: (BuildContext context, int index) {
-                      final menuEntry = widget.screenConfig.menuEntries[index];
+                      final menuEntry = menuEntries[index];
                       return ElevatedButton(
                         style: buttonStyle(menuEntry.style, themeData),
                         onPressed: () => menuEntry.routePath != null

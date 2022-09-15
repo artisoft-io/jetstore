@@ -60,8 +60,17 @@ final defaultMenuEntries = [
       routePath: pipelineConfigPath),
   MenuEntry(
       style: ActionStyle.danger,
-      key: 'dataPurge', label: 'Purge Client Data', 
+      key: 'dataPurge',
+      label: 'Purge Client Data',
       menuAction: purgeDataAction),
+];
+
+final adminMenuEntries = [
+  MenuEntry(
+      style: ActionStyle.primary,
+      key: 'userAdmin',
+      label: 'User Administration',
+      routePath: userAdminPath),
 ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {
@@ -136,6 +145,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: false,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: []),
+
+  // UserAdmin Screen
+  ScreenKeys.userAdmin: ScreenConfig(
+      key: ScreenKeys.userAdmin,
+      appBarLabel: 'JetStore Workspace',
+      title: 'User Administration',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: adminMenuEntries),
 
   ScreenKeys.fileRegistryTable: ScreenConfig(
       key: ScreenKeys.fileRegistryTable,

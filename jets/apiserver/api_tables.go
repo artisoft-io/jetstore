@@ -227,6 +227,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 }
 
 // ProcessInsertRows ------------------------------------------------------
+// Main insert row function with pre processing hooks for validating/authorizing the request
 // Main insert row function with post processing hooks for starting pipelines
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
 func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (returnedKey []int, httpStatus int, err error) {

@@ -16,7 +16,7 @@ enum TextRestriction { none, allLower, allUpper, digitsOnly }
 
 /// Form action delegate for [JetsForm] also used for dialogs presented from a
 /// data table button
-typedef FormActionsDelegate = void Function(BuildContext context,
+typedef FormActionsDelegate = Future<void> Function(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {required int group});
 
@@ -551,6 +551,19 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 80),
+      ],
+    ],
+  ),
+  // User Administration Form (actionless -- user table has the actions)
+  FormKeys.userAdmin: FormConfig(
+    key: FormKeys.userAdmin,
+    actions: [
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.usersTable,
+            dataTableConfig: DTKeys.usersTable)
       ],
     ],
   ),

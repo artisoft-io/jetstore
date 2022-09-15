@@ -40,6 +40,10 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
+	if user.IsActive != 1 {
+		ERROR(w, http.StatusUnprocessableEntity, errors.New("User is not active, please contact your Administrator"))
+		return
+	}
 	err = VerifyPassword(user.Password, password)
 	user.Password = ""
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
@@ -58,7 +62,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func IsDuplicateUserError(err string) bool {
-	return strings.Contains(err, "users_email_key")
+	return strings.Contains(err, "duplicate key")
 }
 
 func FormatError(err string) error {

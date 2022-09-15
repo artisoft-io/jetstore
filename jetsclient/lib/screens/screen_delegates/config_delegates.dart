@@ -103,7 +103,7 @@ void postInsertRows(BuildContext context, JetsFormState formState,
 }
 
 /// Source Configuration Form Actions
-void homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
+Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
     JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
@@ -396,7 +396,7 @@ String? processConfigFormValidator(
 }
 
 /// Process Input and Mapping Form Actions
-void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
+Future<void> processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
     JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
@@ -537,7 +537,7 @@ void processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
 }
 
 /// Process and Rules Config Form Actions
-void processConfigFormActions(BuildContext context,
+Future<void> processConfigFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {required int group}) async {
   switch (actionKey) {
@@ -759,7 +759,7 @@ String? pipelineConfigFormValidator(
 }
 
 /// Pipeline Config Form Actions
-void pipelineConfigFormActions(BuildContext context,
+Future<void> pipelineConfigFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
