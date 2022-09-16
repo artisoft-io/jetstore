@@ -1,15 +1,10 @@
 module github.com/artisoft-io/jetstore
 
-go 1.18
+go 1.19
 
-require github.com/jackc/pgx/v4 v4.17.1
+require github.com/jackc/pgx/v4 v4.17.2
 
-require (
-	github.com/golang-jwt/jwt/v4 v4.4.2
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-require github.com/stretchr/testify v1.8.0 // indirect
+require github.com/golang-jwt/jwt/v4 v4.4.2
 
 require (
 	github.com/badoux/checkmail v1.2.1
