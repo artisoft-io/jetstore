@@ -1,7 +1,7 @@
 # DEV BUILDER NOTES
 
 ```bash
-docker pull golang:1.18-bullseye
+docker pull golang:1.19-bullseye
 docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t dev:latest -f Dockerfile.dev_go . 
 ```
 
@@ -48,7 +48,7 @@ python3 jetrule_compiler.py --base_path test_data --in_file test_rule_file3.jr
 Using Dockerfile.go_bullseye as the *builder* image:
 
 ```bash
-docker pull golang:1.18-bullseye
+docker pull golang:1.19-bullseye
 docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
 ```
 
