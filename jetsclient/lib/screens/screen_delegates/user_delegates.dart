@@ -113,7 +113,7 @@ String? registrationFormValidator(
         var hasSpecial = value.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|'']'));
         if (hasNum && hasUpper && hasLower && hasSpecial) return null;
       }
-      return "Password must have at least 14 charaters and contain at least one of: upper and lower case letter, number, and special characters.";
+      return "At least 14 charaters, one of: upper, lower char, number, and special char.";
     case FSK.userPasswordConfirm:
       // Expecting [WidgetField]
       String? formValue = formState.getValue(group, FSK.userPassword);

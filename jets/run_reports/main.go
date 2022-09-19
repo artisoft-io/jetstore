@@ -61,6 +61,7 @@ func coordinateWork() error {
 		// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
 		name = strings.Replace(name, "{SESSIONID}", *sessionId, 1)
 		name = strings.Replace(name, "{ORIGINALFILENAME}", *originalFileName, 1)
+		name = strings.Replace(name, "{PROCESSNAME}", *processName, 1)
 		head, tail, found := strings.Cut(name, "{D:")
 		if found {
 			pattern, remainder, found := strings.Cut(tail, "}")
