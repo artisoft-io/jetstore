@@ -241,9 +241,29 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 	}
 	row := make([]interface{}, len(sqlStmt.columnKeys))
 	for irow := range dataTableAction.Data {
+		// Pre-Processing hook
+		switch dataTableAction.Table {
+		case "pipeline_execution_status", "short/pipeline_execution_status":
+			if dataTableAction.Data[irow]["input_session_id"] == nil {
+				inSessionId := dataTableAction.Data[irow]["session_id"]
+				inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
+				if inputRegistryKey != nil {
+						stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
+					err = server.dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
+					if err != nil {
+						log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.Table, err)
+						httpStatus = http.StatusInternalServerError
+						err = errors.New("error while reading from a table")
+						return
+					}
+				}
+				dataTableAction.Data[irow]["input_session_id"] = inSessionId
+			}
+		}
 		for jcol, colKey := range sqlStmt.columnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
+
 		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.Table, row)
 		if strings.Contains(sqlStmt.stmt, "RETURNING key") {
 			err = server.dbpool.QueryRow(context.Background(), sqlStmt.stmt, row...).Scan(&returnedKey[irow])
@@ -264,7 +284,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 			}			
 		}
 	}
-
+	// Post Processing Hook
 	if devMode || argoCmd != "" {
 		switch dataTableAction.Table {
 		case "input_loader_status":
