@@ -199,6 +199,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     this.obscureText = false,
     required this.textRestriction,
     required this.maxLength,
+    this.autofillHints,
   });
   final String label;
   final String hint;
@@ -207,6 +208,7 @@ class FormInputFieldConfig extends FormFieldConfig {
   final TextRestriction textRestriction;
   // 0 for unbound
   final int maxLength;
+  final List<String>? autofillHints;
 
   @override
   Widget makeFormField({
@@ -484,6 +486,7 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Email",
             hint: "Your email address",
             autofocus: true,
+            autofillHints: [AutofillHints.email],
             obscureText: false,
             textRestriction: TextRestriction.allLower,
             maxLength: 80)
@@ -494,6 +497,7 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Password",
             hint: "Your password",
             autofocus: false,
+            autofillHints: [AutofillHints.password],
             obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 80)
@@ -528,6 +532,7 @@ final Map<String, FormConfig> _formConfigurations = {
             hint: "Your email address",
             flex: 1,
             autofocus: false,
+            autofillHints: [AutofillHints.email],
             obscureText: false,
             textRestriction: TextRestriction.allLower,
             maxLength: 80),
@@ -539,6 +544,7 @@ final Map<String, FormConfig> _formConfigurations = {
             hint: "Your password",
             flex: 1,
             autofocus: false,
+            autofillHints: [AutofillHints.newPassword],
             obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 80),
@@ -548,6 +554,7 @@ final Map<String, FormConfig> _formConfigurations = {
             hint: "Re-enter your password",
             flex: 1,
             autofocus: false,
+            autofillHints: [AutofillHints.newPassword],
             obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 80),
@@ -557,13 +564,11 @@ final Map<String, FormConfig> _formConfigurations = {
   // User Administration Form (actionless -- user table has the actions)
   FormKeys.userAdmin: FormConfig(
     key: FormKeys.userAdmin,
-    actions: [
-    ],
+    actions: [],
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: DTKeys.usersTable,
-            dataTableConfig: DTKeys.usersTable)
+            key: DTKeys.usersTable, dataTableConfig: DTKeys.usersTable)
       ],
     ],
   ),
@@ -1024,8 +1029,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label:
-                "To view and/or edit the Client Rule Configuration,"
+            label: "To view and/or edit the Client Rule Configuration,"
                 " select a Client and a Rule Process above "
                 " to see the configuration triples below.",
             maxLines: 5,
@@ -1145,8 +1149,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label:
-                "To start a pipeline using input data from a source that was"
+            label: "To start a pipeline using input data from a source that was"
                 " previously loaded, first select a Pipeline Configuration and"
                 " then select the Main Input Source (required) and optionally"
                 " the Merge-In Input Sources.",
@@ -1157,8 +1160,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Pipeline Configuration Table (note using FSK key)
         FormDataTableFieldConfig(
-            key: FSK.pipelineConfigKey,
-            dataTableConfig: FSK.pipelineConfigKey),
+            key: FSK.pipelineConfigKey, dataTableConfig: FSK.pipelineConfigKey),
       ],
       [
         PaddingConfig(),
@@ -1203,8 +1205,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label:
-                "To load a file and start a pipeline using it,"
+            label: "To load a file and start a pipeline using it,"
                 " first select a Pipeline Configuration and"
                 " then select a File Key and it's grouping column to load and then use as the"
                 " Main Input Source and optionally select"
@@ -1216,8 +1217,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Pipeline Configuration Table (note using FSK key)
         FormDataTableFieldConfig(
-            key: FSK.pipelineConfigKey,
-            dataTableConfig: FSK.pipelineConfigKey),
+            key: FSK.pipelineConfigKey, dataTableConfig: FSK.pipelineConfigKey),
       ],
       [
         PaddingConfig(),

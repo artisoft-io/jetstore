@@ -229,36 +229,38 @@ class JetsFormWidgetState extends State<JetsForm> {
       child: FocusTraversalGroup(
         child: Form(
             key: widget.formKey,
-            child: ListView.builder(
-                itemBuilder: (BuildContext context, int index) {
-                  if (index < inputFields.length) {
-                    var fc = inputFields[index];
-                    return Row(
-                      children: fc
-                          .map((e) => e.makeFormField(
-                                screenPath: widget.formPath,
-                                jetsFormWidgetState: this,
-                              ))
-                          .toList(),
+            child: AutofillGroup(
+              child: ListView.builder(
+                  itemBuilder: (BuildContext context, int index) {
+                    if (index < inputFields.length) {
+                      var fc = inputFields[index];
+                      return Row(
+                        children: fc
+                            .map((e) => e.makeFormField(
+                                  screenPath: widget.formPath,
+                                  jetsFormWidgetState: this,
+                                ))
+                            .toList(),
+                      );
+                    }
+                    // case last: row of buttons
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
+                        child: Row(
+                            children: widget.formConfig.actions
+                                .map((e) => JetsFormButton(
+                                    key: Key(e.key),
+                                    formActionConfig: e,
+                                    formKey: widget.formKey,
+                                    formState: widget.formState,
+                                    actionsDelegate: widget.actionsDelegate))
+                                .toList()),
+                      ),
                     );
-                  }
-                  // case last: row of buttons
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
-                      child: Row(
-                          children: widget.formConfig.actions
-                              .map((e) => JetsFormButton(
-                                  key: Key(e.key),
-                                  formActionConfig: e,
-                                  formKey: widget.formKey,
-                                  formState: widget.formState,
-                                  actionsDelegate: widget.actionsDelegate))
-                              .toList()),
-                    ),
-                  );
-                },
-                itemCount: inputFields.length + 1)),
+                  },
+                  itemCount: inputFields.length + 1),
+            )),
       ),
     );
   }

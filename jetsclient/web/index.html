@@ -54,5 +54,26 @@
       });
     });
   </script>
+  <script type="application/javascript">
+
+    // Disable shadow dom for FLT-GLASS-PANE by overriding 
+    // `attachShadow` to avoid the following issue:
+    // https://github.com/flutter/flutter/issues/87735
+
+    Element.prototype._attachShadow = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init) {
+
+      if (this.tagName == "FLT-GLASS-PANE") {
+
+        _element = document.createElement('flt-element-host-node');
+        this.appendChild(_element);
+
+        return _element;
+      }
+
+      return this._attachShadow(init);
+    };
+
+  </script>
 </body>
 </html>

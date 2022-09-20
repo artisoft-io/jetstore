@@ -120,6 +120,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
           validator: (p0) =>
               widget.formValidator(_config.group, _config.key, p0),
           autovalidateMode: _config.autovalidateMode,
+          autofillHints: _config.autofillHints,
         ),
       ),
     );
