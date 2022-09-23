@@ -1109,13 +1109,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Pipeline description',
           isNumeric: false),
       ColumnConfig(
-          index: 9,
+          index: 10,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 10,
+          index: 11,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
