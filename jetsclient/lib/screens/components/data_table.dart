@@ -468,7 +468,9 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             if (value is String?) {
               dialogFormState.setValue(0, key, value);
             } else {
-              dialogFormState.setValue(0, key, row![value]);
+              if (row != null) {
+                dialogFormState.setValue(0, key, row[value]);
+              }
             }
           });
         }
@@ -512,7 +514,9 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
         if (formState == null || ac.actionName == null) return;
         // perform the action then refresh the table
-        await actionsDelegate(context, GlobalKey<FormState>(), formState!, ac.actionName!, group: 0);
+        await actionsDelegate(
+            context, GlobalKey<FormState>(), formState!, ac.actionName!,
+            group: 0);
         _refreshTable();
         break;
 

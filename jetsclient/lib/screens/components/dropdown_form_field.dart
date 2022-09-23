@@ -138,6 +138,20 @@ class _JetsDropdownButtonFormFieldState
       if (_config.returnedModelCacheKey != null) {
         widget.formState.addCacheValue(_config.returnedModelCacheKey!, model);
       }
+      var gotit = false;
+      if (selectedValue != null) {
+        // make sure selectedValue is in the returned list, otherwise set it to null
+        for (var items in model) {
+          for (var item in items) {
+            if (selectedValue == item) {
+              gotit = true;
+              break;
+            }
+          }
+          if (gotit) break;
+        }
+      }
+      if (!gotit) selectedValue = null;
       setState(() {
         if (items.isNotEmpty) {
           selectedValue = selectedValue ?? items[_config.defaultItemPos].value;

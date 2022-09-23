@@ -220,6 +220,40 @@ String? processInputFormValidator(
   var isRequired = formState.getValue(group, FSK.isRequiredFlag);
   // print(
   //     "Validator Called for $group ($isRequired), $key, $v, state is ${formState.getValue(group, key)}");
+  // Check if we have client, object_type, and source_type to pupulate table_name
+  // add entity_rdf_type based on object_type
+  var objectTypeRegistry =
+      formState.getCacheValue(FSK.objectTypeRegistryCache) as List?;
+  var objectType = formState.getValue(0, FSK.objectType) as String?;
+  var client = formState.getValue(0, FSK.client) as String?;
+  var sourceType = formState.getValue(0, FSK.sourceType) as String?;
+  // print("GOT $client, $objectType, $sourceType");
+
+  if (objectTypeRegistry != null &&
+      objectType != null &&
+      client != null &&
+      sourceType != null) {
+    var row = objectTypeRegistry.firstWhere((e) => e[0] == objectType);
+    if (row == null) {
+      print(
+          "processInputFormActions error: can't find object_type in objectTypeRegistry");
+    } else {
+      formState.setValue(0, FSK.entityRdfType, row[1]);
+      // add table_name to form state based on source_type
+      String? tableName;
+      if (sourceType == 'file') {
+        tableName = "${client}_$objectType";
+      } else {
+        // entity_rdf_type is the table_name for domain_table sources
+        tableName = row[1];
+      }
+      if (formState.getValue(0, FSK.tableName) != tableName) {
+        // print("SET AND NOTIFY TABLENAME $tableName");
+        formState.setValueAndNotify(0, FSK.tableName, tableName);
+      }
+    }
+  }
+
   switch (key) {
     // Add Process Input Dialog Validations
     case FSK.client:
@@ -396,8 +430,8 @@ String? processConfigFormValidator(
 }
 
 /// Process Input and Mapping Form Actions
-Future<void> processInputFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey,
+Future<void> processInputFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
     case ActionKeys.addProcessInputOk:
@@ -406,35 +440,14 @@ Future<void> processInputFormActions(BuildContext context, GlobalKey<FormState> 
         return;
       }
 
-      // add entity_rdf_type based on object_type
-      var objectTypeRegistry =
-          formState.getCacheValue(FSK.objectTypeRegistryCache) as List?;
-      String objectType = formState.getValue(0, FSK.objectType) as String;
-      if (objectTypeRegistry == null) {
-        print("processInputFormActions error: objectTypeRegistry is null");
-        return;
-      }
-      var row = objectTypeRegistry.firstWhere((e) => e[0] == objectType);
-      if (row == null) {
-        print(
-            "processInputFormActions error: can't find object_type in objectTypeRegistry");
-        return;
-      }
-      formState.setValue(0, FSK.entityRdfType, row[1]);
-
-      // add table_name to form state based on source_type
-      if (formState.getValue(0, FSK.sourceType) == 'file') {
-        String client = formState.getValue(0, FSK.client) as String;
-        formState.setValue(0, FSK.tableName, "${client}_$objectType");
-      } else {
-        // entity_rdf_type is the table_name for domain_table sources
-        formState.setValue(0, FSK.tableName, row[1]);
-      }
       formState.setValue(0, FSK.userEmail, JetsRouterDelegate().user.email);
-
+      var query = 'process_input'; // case add
+      if (formState.getValue(0, FSK.key) != null) {
+        query = 'update2/process_input';
+      }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'process_input',
+        'table': query,
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
@@ -798,8 +811,8 @@ Future<void> pipelineConfigFormActions(BuildContext context,
       }
       updateState[FSK.processConfigKey] = row[1];
 
-      // mainProcessInputKey & main_object_type are either pre-populated as String
-      // from the data table action
+      // mainProcessInputKey, mainObjectType, and mainSourceType are either 
+      // pre-populated as String from the data table action
       // from the selected row to update or is a List<String?> if user have selected
       // a row from the data table
       var mainProcessInputKey = formState.getValue(0, FSK.mainProcessInputKey);
@@ -815,6 +828,13 @@ Future<void> pipelineConfigFormActions(BuildContext context,
         updateState[FSK.mainObjectType] = mainObjectType[0];
       } else {
         updateState[FSK.mainObjectType] = mainObjectType;
+      }
+      var mainSourceType = formState.getValue(0, FSK.mainSourceType);
+      assert(mainSourceType != null, "unexpected null value");
+      if (mainSourceType is List<String?>) {
+        updateState[FSK.mainSourceType] = mainSourceType[0];
+      } else {
+        updateState[FSK.mainSourceType] = mainSourceType;
       }
       // same pattern for merged_process_input_keys
       var mergedProcessInputKeys =

@@ -101,6 +101,7 @@ class FSK {
   static const sourceType = "source_type";
   static const groupingColumn = "grouping_column";
   static const entityRdfType = "entity_rdf_type";
+  static const status = "status";
 
   // keys used for mapping
   // key for domain classes data properties
@@ -129,6 +130,7 @@ class FSK {
   static const mainProcessInputKey = "main_process_input_key";
   static const mergedProcessInputKeys = "merged_process_input_keys";
   static const mainObjectType = "main_object_type";
+  static const mainSourceType = "main_source_type";
   static const automated = "automated";
 
   // Pipeline Exec keys

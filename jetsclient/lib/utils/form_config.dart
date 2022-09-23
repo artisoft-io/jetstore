@@ -698,7 +698,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addProcessInputOk,
-          label: "Add",
+          label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
@@ -716,6 +716,7 @@ final Map<String, FormConfig> _formConfigurations = {
             items: [
               DropdownItemConfig(label: 'Select a Client'),
             ],
+            autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
         FormDropdownFieldConfig(
@@ -724,6 +725,7 @@ final Map<String, FormConfig> _formConfigurations = {
             items: [
               DropdownItemConfig(label: 'Select an Object Type'),
             ],
+            autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
                 "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
       ],
@@ -731,9 +733,11 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDropdownFieldConfig(
             key: FSK.sourceType,
             items: [
+              DropdownItemConfig(label: 'Select a Source Type'),
               DropdownItemConfig(label: 'File', value: 'file'),
               DropdownItemConfig(label: 'Domain Table', value: 'domain_table'),
             ],
+            autovalidateMode: AutovalidateMode.always,
             defaultItemPos: 0),
         FormDropdownFieldConfig(
             key: FSK.groupingColumn,
@@ -776,7 +780,7 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     queries: {
       "inputFieldsQuery":
-          "SELECT md.data_property, md.is_required, pm.input_column, pm.function_name, pm.argument, pm.default_value, pm.error_message FROM jetsapi.object_type_mapping_details md, jetsapi.process_mapping pm WHERE md.object_type = '{object_type}' AND table_name = '{table_name}' AND pm.data_property = md.data_property ORDER BY md.data_property ASC LIMIT 300",
+          "SELECT md.data_property, md.is_required, pm.input_column, pm.function_name, pm.argument, pm.default_value, pm.error_message FROM jetsapi.object_type_mapping_details md LEFT JOIN (SELECT * FROM jetsapi.process_mapping WHERE table_name = '{table_name}') pm ON md.data_property = pm.data_property WHERE md.object_type = '{object_type}' ORDER BY md.data_property ASC LIMIT 300",
       "inputColumnsQuery":
           "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
       "mappingFunctionsQuery":
