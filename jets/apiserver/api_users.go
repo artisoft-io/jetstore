@@ -47,7 +47,8 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	err = VerifyPassword(user.Password, password)
 	user.Password = ""
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
-		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
+		log.Println("ERROR",err)
+		ERROR(w, http.StatusUnprocessableEntity, errors.New("Invalid User or Password"))
 		return
 	}
 	user.Token, err = CreateToken(user.Email)
@@ -67,17 +68,18 @@ func IsDuplicateUserError(err string) bool {
 
 func FormatError(err string) error {
 	log.Println("ERROR:",err)
-	if strings.Contains(err, "name") {
-		return errors.New("Name Already Taken")
-	}
+	// if strings.Contains(err, "name") {
+	// 	return errors.New("Name Already Taken")
+	// }
 
-	if strings.Contains(err, "email") {
-		return errors.New("Email Already Taken")
-	}
-	if strings.Contains(err, "hashedPassword") {
-		return errors.New("Incorrect Password")
-	}
-	return errors.New("Unknown Error")
+	// if strings.Contains(err, "email") {
+	// 	return errors.New("Email Already Taken")
+	// }
+	// if strings.Contains(err, "hashedPassword") {
+	// 	return errors.New("Incorrect Password")
+	// }
+	//* Leave the error as is for now
+	return errors.New(err)
 }
 
 // User Management Functions

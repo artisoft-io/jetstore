@@ -45,6 +45,12 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 			RETURNING key`,
 		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "grouping_column", "user_email"},
 	},
+	"update2/process_input": {
+		stmt: `UPDATE jetsapi.process_input SET 
+			(client, object_type, table_name, source_type, entity_rdf_type, grouping_column, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, $7, DEFAULT) WHERE key = $8`,
+		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "grouping_column", "user_email", "key"},
+	},
 	"update/process_input": {
 		stmt: "UPDATE jetsapi.process_input SET (status, user_email, last_update) = ($1, $2, DEFAULT) WHERE key = $3",
 		columnKeys: []string{"status", "user_email", "key"},
@@ -77,16 +83,16 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	// pipeline config
 	"update/pipeline_config": {
 		stmt: `UPDATE jetsapi.pipeline_config SET 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, automated, description, user_email, last_update) = 
-			($1, $2, $3, $4, $5, $6, $7, $8, $9, DEFAULT) 
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, user_email, last_update) = 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, DEFAULT) 
 			WHERE key = $10`,
-		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "automated", "description", "user_email", "key"},
+		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "user_email", "key"},
 	},
 	"pipeline_config": {
 		stmt: `INSERT INTO jetsapi.pipeline_config 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, automated, description, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "automated", "description", "user_email"},
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "user_email"},
 	},
 
 	// pipeline_execution_status 

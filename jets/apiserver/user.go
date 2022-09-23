@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"html"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -72,6 +72,9 @@ func (u *User) Validate(action string) error {
 		return nil
 
 	default:
+		if u.IsAdmin {
+			return errors.New("Login Reserved for Administrator")
+		}
 		if u.Name == "" {
 			return errors.New("Required Name")
 		}
@@ -100,15 +103,15 @@ func (u *User) InsertUser(dbpool *pgxpool.Pool) error {
 	// hash the password
 	err := u.BeforeSave()
 	if err != nil {
-		fmt.Println("while hashing user's password before save in db:", err)
-		return fmt.Errorf("while hashing user's password before save in db: %v", err)
+		log.Println("while hashing user's password before save in db:", err)
+		return errors.New("Unknown error while saving user")
 	}
 	// insert in db
 	stmt := `INSERT INTO jetsapi.users (name, user_email, password) VALUES ($1, $2, $3)`
 	_, err = dbpool.Exec(context.Background(), stmt, u.Name, u.Email, u.Password)
 	if err != nil {
-		fmt.Println("while inserting in db:", err)
-		return fmt.Errorf("while inserting in db: %v", err)
+		log.Println("while inserting in db:", err)
+		return errors.New("Unknown error while saving user")
 	}
 	return nil
 }
@@ -118,8 +121,8 @@ func (u *User) GetUserByEmail(dbpool *pgxpool.Pool) error {
 	stmt := `SELECT name, password, is_active FROM jetsapi.users WHERE user_email = $1`
 	err := dbpool.QueryRow(context.Background(), stmt, u.Email).Scan(&u.Name, &u.Password, &u.IsActive)
 	if err != nil {
-		fmt.Println("while select user by user_email from db:", err)
-		return fmt.Errorf("while select user by user_email from db: %v", err)
+		log.Println("while select user by user_email from db:", err)
+		return errors.New("Invalid User or Password")
 	}
 	return nil
 }

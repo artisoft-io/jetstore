@@ -735,11 +735,18 @@ final Map<String, TableConfig> _tableConfigurations = {
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'addProcessInput',
-          label: 'Add Process Input',
+          label: 'Add/Update Process Input',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.addProcessInput),
+          configForm: FormKeys.addProcessInput,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.client: 1,
+            FSK.objectType: 2,
+            FSK.sourceType: 4,
+            FSK.groupingColumn: 6,
+          }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'configureMapping',
@@ -1029,8 +1036,9 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.mainProcessInputKey: 4,
             FSK.mergedProcessInputKeys: 5,
             FSK.mainObjectType: 6,
-            FSK.automated: 7,
-            FSK.description: 8
+            FSK.mainSourceType: 7,
+            FSK.automated: 8,
+            FSK.description: 9
           }),
     ],
     formStateConfig:
@@ -1084,12 +1092,18 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 7,
+          name: "main_source_type",
+          label: 'Main Object Type',
+          tooltips: 'Source of main input table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
           name: "automated",
           label: 'Automated',
           tooltips: 'Is pipeline automated? (true: 1, false: 0)',
           isNumeric: false),
       ColumnConfig(
-          index: 8,
+          index: 9,
           name: "description",
           label: 'Description',
           tooltips: 'Pipeline description',
@@ -1130,6 +1144,10 @@ final Map<String, TableConfig> _tableConfigurations = {
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.mainObjectType,
         columnIdx: 2,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.mainSourceType,
+        columnIdx: 4,
       ),
     ]),
     columns: [

@@ -393,8 +393,7 @@
         "isNotNull":  true
       }, {
         "columnName": "input_column",
-        "dataType":   "text",
-        "isNotNull":  true
+        "dataType":   "text"
       }, {
         "columnName": "data_property",
         "dataType":   "text",
@@ -560,6 +559,10 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
+        "columnName": "main_source_type",
+        "dataType":   "text",
+        "isNotNull":  true
+        }, {
         "columnName": "automated",
         "dataType":   "bool",
         "default":    "0",
