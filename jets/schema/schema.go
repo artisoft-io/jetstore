@@ -133,6 +133,9 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 	if dbpool == nil || len(tableDefinition.Columns) == 0 {
 		return errors.New("error: arguments dbpool and tableDefinition are required")
 	}
+	if tableDefinition.TableName == "users" {
+		dropExisting = false
+	}
 	// make sure the table schema exists
 	stmt := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", pgx.Identifier{tableDefinition.SchemaName}.Sanitize())
 	log.Println(stmt)
