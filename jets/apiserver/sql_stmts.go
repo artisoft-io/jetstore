@@ -85,7 +85,7 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 		stmt: `UPDATE jetsapi.pipeline_config SET 
 			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, user_email, last_update) = 
 			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, DEFAULT) 
-			WHERE key = $10`,
+			WHERE key = $11`,
 		columnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "user_email", "key"},
 	},
 	"pipeline_config": {
