@@ -72,6 +72,7 @@ func (rw *ReteWorkspace) Release() error {
 
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
+	workerId int,
 	workspaceMgr *workspace.WorkspaceDb,
 	dataInputc <-chan inputBundle,
 	outputSpecs workspace.OutputTableSpecs,
@@ -133,7 +134,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		for iset, ruleset := range rw.ruleset {
 			if glogv > 0 {
-				log.Println("Start Rete Session", session_count, "for ruleset", ruleset, "with grouping key", inBundle.groupingValue)
+				log.Println("thread",workerId,":: Start Rete Session", session_count, "for ruleset", ruleset, "with grouping key", inBundle.groupingValue)
 			}
 			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
@@ -168,7 +169,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			// do for iloop <= maxloop (since loop start at one!)
 			for iloop = 0; iloop <= nloop; iloop++ {
 				if glogv > 1 {
-					log.Println("Calling Execute Rules, loop:", iloop, ", session count:", session_count, ", for ruleset:", ruleset, ", with grouping key:", inBundle.groupingValue)
+					log.Println("thread",workerId,":: Calling Execute Rules, loop:", iloop, ", session count:", session_count, ", for ruleset:", ruleset, ", with grouping key:", inBundle.groupingValue)
 				}
 				if iloop > 0 {
 					r, err := reteSession.NewIntLiteral(int(iloop))

@@ -43,7 +43,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 	if !jets__key.Valid || err != nil {
 		return fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
 	}
-	if glogv > 0 {
+	if glogv > 2 {
 		log.Printf("Asserting Entity with jets:key %s", jets__key.String)
 	}
 	// For Each Column

@@ -320,16 +320,16 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 	}
 	wg.Add(ps)
 	for i := 0; i < ps; i++ {
-		go func() {
+		go func(workerId int) {
 			// Start the execute rules workers
-			result, err := reteWorkspace.ExecuteRules(workspaceMgr, dataInputc, outputMapping, writeOutputc)
+			result, err := reteWorkspace.ExecuteRules(workerId, workspaceMgr, dataInputc, outputMapping, writeOutputc)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)
 			}
 			errc <- execResult{result: *result, err: err}
 			wg.Done()
-		}()
+		}(i)
 	}
 	go func() {
 		wg.Wait()
