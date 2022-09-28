@@ -183,8 +183,8 @@ class LookupTable {
  public:
   using ColumnInfo = std::pair<rdf::r_index, int>; // column name as resource, range type (which code)
   using LookupInfoV = std::vector<ColumnInfo>;
-  LookupTable(rdf::RDFGraph * meta_graph, int lookup_key, std::string_view lookup_name, std::string_view lookup_db_path)
-    : meta_graph_(meta_graph),
+  LookupTable(rdf::RManager * rmgr, int lookup_key, std::string_view lookup_name, std::string_view lookup_db_path)
+    : rmgr_(rmgr),
     lookup_key_(lookup_key),
     lookup_name_(lookup_name),
     cache_uri_(nullptr),
@@ -196,15 +196,15 @@ class LookupTable {
     rand_eng_(),
     uniform_dist_()
   {
-    this->cache_uri_ = this->meta_graph_->rmgr()->create_resource(this->lookup_name_);
+    this->cache_uri_ = this->rmgr_->create_resource(this->lookup_name_);
     this->subject_prefix_.append(this->lookup_name_).push_back(':');
     this->subject_rand_prefix_.append(this->lookup_name_).push_back(':');
   }
 
   int initialize(sqlite3 * workspace_db, sqlite3 * lookup_db)
   {
-    if(not meta_graph_ or not workspace_db) {
-      LOG(ERROR) << "LookupTable::initialize: ERROR: Arguments meta_graph and workspace_db are required";
+    if(not this->rmgr_ or not workspace_db) {
+      LOG(ERROR) << "LookupTable::initialize: ERROR: Arguments rmgr and workspace_db are required";
       return -1;
     }
     int err = 0;
@@ -294,8 +294,7 @@ class LookupTable {
     // name             0  STRING NOT NULL,
     // type             1  STRING NOT NULL,
     // as_array         2  BOOL, (not implemented)
-    auto rmgr = this->meta_graph_->rmgr();
-    this->columns_.push_back({rmgr->create_resource(argv[0]), rdf::type_name2which(argv[1])});
+    this->columns_.push_back({this->rmgr_->create_resource(argv[0]), rdf::type_name2which(argv[1])});
     return 0;
   }
 
@@ -307,7 +306,7 @@ class LookupTable {
 
  private:
 
-  rdf::RDFGraph *                    meta_graph_;
+  rdf::RManager *                    rmgr_;
   int                                lookup_key_;
   std::string                        lookup_name_;
   rdf::r_index                       cache_uri_;
@@ -321,9 +320,9 @@ class LookupTable {
 };
 
 inline LookupTablePtr 
-create_lookup_table(rdf::RDFGraph * meta_graph, int lookup_key, std::string_view lookup_name, std::string_view lookup_db_path)
+create_lookup_table(rdf::RManager * rmgr, int lookup_key, std::string_view lookup_name, std::string_view lookup_db_path)
 {
-  return std::make_shared<LookupTable>(meta_graph, lookup_key, lookup_name, lookup_db_path);
+  return std::make_shared<LookupTable>(rmgr, lookup_key, lookup_name, lookup_db_path);
 }
 
 // //////////////////////////////////////////////////////////////////////////////////////
@@ -335,18 +334,13 @@ using TypeOfPtr = std::shared_ptr<TypeOf>;
 
 class TypeOf {
  public:
-  TypeOf(rdf::RDFGraph * meta_graph, std::string_view workspace_db_path)
-    : meta_graph_(meta_graph),
-    db_pool_(workspace_db_path)
+  TypeOf(std::string_view workspace_db_path)
+    : db_pool_(workspace_db_path)
   {
   }
 
   int initialize(sqlite3 * )
   {
-    if(not meta_graph_) {
-      LOG(ERROR) << "TypeOf::initialize: ERROR: Constructor's Arguments meta_graph and workspace_db_path_ are required";
-      return -1;
-    }
     // Create statement and cnx pool
     this->db_pool_.initialize("SELECT type, as_array FROM data_properties WHERE name = ?", "");
 
@@ -386,15 +380,13 @@ class TypeOf {
   }
 
  private:
-
-  rdf::RDFGraph *     meta_graph_;
   DBConnectionPool    db_pool_;
 };
 
 inline TypeOfPtr 
-create_type_of(rdf::RDFGraph * meta_graph, std::string_view workspace_db_path)
+create_type_of(std::string_view workspace_db_path)
 {
-  return std::make_shared<TypeOf>(meta_graph, workspace_db_path);
+  return std::make_shared<TypeOf>(workspace_db_path);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -423,7 +415,7 @@ class LookupSqlHelper {
   /**
    * @brief Initialize the helper, open database connections
    */
-  inline int initialize(rdf::RDFGraph * meta_graph)
+  inline int initialize(rdf::RManager * rmgr)
   {
     int err = 0;
     err = sqlite3_open(this->workspace_db_path_.c_str(), &this->workspace_db_);
@@ -439,7 +431,6 @@ class LookupSqlHelper {
 
     // Prepare the LookupTable that will cast the retured columns
     err = 0;
-    auto rmgr = meta_graph->rmgr();
     // open a connection to lookup_db to get max(__key__) during initialization
     sqlite3 * lkdb;
     err = sqlite3_open(this->lookup_db_path_.c_str(), &lkdb);
@@ -449,7 +440,7 @@ class LookupSqlHelper {
       return err;
     }
     for(auto const& info: this->lookup_tbl_info_) {
-      auto l = create_lookup_table(meta_graph, info.first, info.second, this->lookup_db_path_);
+      auto l = create_lookup_table(rmgr, info.first, info.second, this->lookup_db_path_);
       this->lookup_tbl_map_.insert({info.second, l});
       int xerr = l->initialize(this->workspace_db_, lkdb);
       if(xerr) {
@@ -468,7 +459,7 @@ class LookupSqlHelper {
     if( err ) return err;
 
     // Prepare the type_of struct for casting
-    this->type_of_ = create_type_of(meta_graph, this->workspace_db_path_);
+    this->type_of_ = create_type_of(this->workspace_db_path_);
     this->type_of_->initialize(this->workspace_db_);
 
     // All good!

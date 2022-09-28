@@ -26,7 +26,7 @@ class LookupSqlHelperTest : public ::testing::Test {
 
     // Create the rdf_session and the rete_session and initialize them
     // Initialize the rete_session now that the rule base is ready
-    this->rdf_session = rdf::create_rdf_session(factory.get_meta_graph());
+    this->rdf_session = rdf::create_rdf_session(rdf::create_rdf_graph(factory.get_rmgr()));
     this->rete_session = create_rete_session(meta_store, this->rdf_session.get());
     this->rete_session->initialize();
 
