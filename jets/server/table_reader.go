@@ -142,7 +142,10 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 				result <- readResult{rowCount, errors.New("error while reading main input table, got row with null in grouping column")}
 				return
 			}
-			if glogv > 0 {
+			if dataGrps.groupingValue == "" {
+				dataGrps.groupingValue = dataGrp.String
+			}
+			if glogv > 2 {
 				if mainInput.sourceType == "file" {
 					log.Printf("Got text-based input record with grouping key %s", dataGrp.String)
 				} else {
@@ -210,7 +213,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 							result <- readResult{rowCount, errors.New("error while reading join input table, got row with null in grouping column")}
 							return
 						}
-						if glogv > 0 {
+						if glogv > 2 {
 							log.Printf("Got join input record with grouping key %s", dataGrp.String)
 						}
 						joinQueries[iqr].groupingValue = dataGrp.String

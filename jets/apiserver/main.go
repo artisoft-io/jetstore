@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +16,7 @@ var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in mi
 var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only")
 var devMode bool
 var argoCmd string
+var nbrShards int
 
 func main() {
 	flag.Parse()
@@ -44,6 +46,17 @@ func main() {
 		os.Exit((1))
 	}
 
+	// This is used only in DEV MODE
+	nbrShards = 1
+	ns, ok := os.LookupEnv("NBR_SHARDS")
+	var err error
+	if ok {
+		nbrShards, err = strconv.Atoi(ns)
+		if err != nil {
+			log.Println("Invalid ENV NBR_SHARDS, expecting an int, got", ns)
+		}
+	}
+
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if devMode {
 		if strings.HasPrefix(*unitTestDir, ".") {
@@ -65,6 +78,7 @@ func main() {
 	fmt.Println("Got argument: tokenExpiration",*tokenExpiration, "min")
 	if devMode {
 		fmt.Println("Running in DEV MODE: unitTestDir", *unitTestDir)
+		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
 	}
 	fmt.Println("ENV WORKSPACES_HOME:",os.Getenv("WORKSPACES_HOME"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))

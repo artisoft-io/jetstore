@@ -353,6 +353,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 						"-objectType", objType.(string),
 						"-sessionId", sessionId.(string),
 						"-userEmail", userEmail.(string), 
+						"-nbrShards", strconv.Itoa(nbrShards),
 						doNotLockSessionId,
 					}
 					if groupingColumn != "" {
@@ -486,34 +487,42 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 				}
 				switch {
 				// Call server synchronously
-				case devMode:	
-					serverArgs := []string{ "-peKey", peKey, "-dsn", *dsn,"-userEmail", userEmail.(string) }
-					// log.Printf("Run server: %s", serverArgs)
-					cmd := exec.Command("/usr/local/bin/server", serverArgs...)
-					var b bytes.Buffer
-					cmd.Stdout = &b
-					cmd.Stderr = &b
-					err = cmd.Run()
-					if err != nil {
-						log.Printf("while executing server command '%v': %v", serverArgs, err)
-						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+				case devMode:
+					for shardId:=0; shardId<nbrShards; shardId++ {
+						serverArgs := []string{ 
+							"-peKey", peKey, 
+							"-dsn", *dsn,
+							"-userEmail", userEmail.(string),
+							"-shardId", strconv.Itoa(shardId),
+							"-nbrShards", strconv.Itoa(nbrShards),
+						}
+						log.Printf("Run server: %s", serverArgs)
+						cmd := exec.Command("/usr/local/bin/server", serverArgs...)
+						var b bytes.Buffer
+						cmd.Stdout = &b
+						cmd.Stderr = &b
+						err = cmd.Run()
+						if err != nil {
+							log.Printf("while executing server command '%v': %v", serverArgs, err)
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							log.Println("SERVER CAPTURED OUTPUT BEGIN")
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							b.WriteTo(os.Stdout)
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							log.Println("SERVER CAPTURED OUTPUT END")
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							httpStatus = http.StatusInternalServerError
+							err = errors.New("error while running server command")
+							return
+						}
+						log.Println("============================")
 						log.Println("SERVER CAPTURED OUTPUT BEGIN")
-						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("============================")
 						b.WriteTo(os.Stdout)
-						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("============================")
 						log.Println("SERVER CAPTURED OUTPUT END")
-						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						httpStatus = http.StatusInternalServerError
-						err = errors.New("error while running server command")
-						return
-					}
-					log.Println("============================")
-					log.Println("SERVER CAPTURED OUTPUT BEGIN")
-					log.Println("============================")
-					b.WriteTo(os.Stdout)
-					log.Println("============================")
-					log.Println("SERVER CAPTURED OUTPUT END")
-					log.Println("============================")
+						log.Println("============================")	
+					}	
 				
 				case argoCmd != "":
 				// Invoke argo to load+execute or execute only a process
