@@ -32,7 +32,7 @@ int delete_jetstore_hdl( HJETS handle )
   return 0;
 }
 
-int create_rdf_session( HJETS jets_hdl, HJRDF * handle )
+int create_rdf_session(char const * jetrule_name, HJETS jets_hdl, HJRDF * handle )
 {
   if(not jets_hdl or not handle) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(jets_hdl);
@@ -40,7 +40,12 @@ int create_rdf_session( HJETS jets_hdl, HJRDF * handle )
     LOG(ERROR) << "create_rdf_session: ERROR NULL factory!";
     return -1;
   }
-  auto * rdf_session = jets::rdf::RDFSession::create_raw_ptr(factory->get_meta_graph());
+  auto ms = factory->get_rete_meta_store(jetrule_name);
+  if(not ms) {
+    LOG(ERROR) << "::create_rdf_session: ERROR ReteMetaStore not found for main_rule file ";
+    return -1;
+  }
+  auto * rdf_session = jets::rdf::RDFSession::create_raw_ptr(ms->get_meta_graph());
   *handle = rdf_session;
   if(not rdf_session) return -1;
   return 0;
@@ -93,14 +98,14 @@ int create_meta_null(HJETS js_hdl, HJR * handle)
 {
   if(not js_hdl) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
-  * handle = factory->meta_graph()->get_rmgr()->get_null();
+  * handle = factory->get_rmgr()->get_null();
   return 0;
 }
 int create_meta_blanknode(HJETS js_hdl, int v, HJR * handle)
 {
   if(not js_hdl) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
-  * handle = factory->meta_graph()->get_rmgr()->create_bnode(v);
+  * handle = factory->get_rmgr()->create_bnode(v);
   return 0;
 }
 
@@ -113,7 +118,7 @@ int create_meta_resource(HJETS js_hdl, char const * name, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->create_resource(name);
+  * handle = factory->get_rmgr()->create_resource(name);
   return 0;
 }
 
@@ -126,7 +131,7 @@ int get_meta_resource(HJETS js_hdl, char const * name, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->get_resource(name);
+  * handle = factory->get_rmgr()->get_resource(name);
   return 0;
 }
 int create_meta_text(HJETS js_hdl, char const * name, HJR * handle)
@@ -138,7 +143,7 @@ int create_meta_text(HJETS js_hdl, char const * name, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(name);
+  * handle = factory->get_rmgr()->create_literal(name);
   return 0;
 }
 int create_meta_int(HJETS js_hdl, int v, HJR * handle)
@@ -150,7 +155,7 @@ int create_meta_int(HJETS js_hdl, int v, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  * handle = factory->get_rmgr()->create_literal(v);
   return 0;
 }
 int create_meta_uint(HJETS js_hdl, uint v, HJR * handle)
@@ -162,7 +167,7 @@ int create_meta_uint(HJETS js_hdl, uint v, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  * handle = factory->get_rmgr()->create_literal(v);
   return 0;
 }
 int create_meta_long(HJETS js_hdl, long v, HJR * handle)
@@ -174,7 +179,7 @@ int create_meta_long(HJETS js_hdl, long v, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  * handle = factory->get_rmgr()->create_literal(v);
   return 0;
 }
 int create_meta_ulong(HJETS js_hdl, ulong v, HJR * handle)
@@ -186,7 +191,7 @@ int create_meta_ulong(HJETS js_hdl, ulong v, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  * handle = factory->get_rmgr()->create_literal(v);
   return 0;
 }
 int create_meta_double(HJETS js_hdl, double v, HJR * handle)
@@ -198,7 +203,7 @@ int create_meta_double(HJETS js_hdl, double v, HJR * handle)
     return -1;
   }
 
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(v);
+  * handle = factory->get_rmgr()->create_literal(v);
   return 0;
 }
 int create_meta_date(HJETS js_hdl, char const * v, HJR * handle)
@@ -211,7 +216,7 @@ int create_meta_date(HJETS js_hdl, char const * v, HJR * handle)
   }
   auto d = parse_date(v);
   if(d.is_not_a_date()) return -2;
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
+  * handle = factory->get_rmgr()->create_literal(d);
   return 0;
 }
 
@@ -221,12 +226,16 @@ int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle)
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
   auto d = parse_datetime(v);
   if(d.is_not_a_date_time()) return -2;
-  * handle = factory->meta_graph()->get_rmgr()->create_literal(d);
+  * handle = factory->get_rmgr()->create_literal(d);
   return 0;
 }
 
-int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+int insert_meta_graph(char const * jetrule_name, HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
 {
+  if(not jetrule_name) {
+    LOG(ERROR) << "ERROR: jetrule_name is NULL in cwrapper";
+    return -1;
+  }
   if(not js_hdl) {
     LOG(ERROR) << "ERROR: js_hdl is NULL in cwrapper";
     return -1;
@@ -239,7 +248,12 @@ int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
   auto const* o =  static_cast<r_index>(o_hdl);
-  return factory->get_meta_graph()->insert(s, p, o);
+  auto ms = factory->get_rete_meta_store(jetrule_name);
+  if(not ms) {
+    LOG(ERROR) << "::create_rdf_session: ERROR ReteMetaStore not found for main_rule file ";
+    return -1;
+  }
+  return ms->get_meta_graph()->insert(s, p, o);
 }
 
 // Creating resources and literals

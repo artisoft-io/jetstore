@@ -17,7 +17,7 @@ namespace jets::rete {
 ReteMetaStoreFactory::ReteMetaStoreFactory()
   : jetrule_rete_db_(), 
   lookup_data_db_(), 
-  meta_graph_(), 
+  rmgr_(), 
   r_map_(),
   v_map_(),
   jr_map_(),
@@ -102,23 +102,17 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     LOG(ERROR) << "Load Workspace DB: ERROR while preparing statement";
     return err;
   }
-
-  // load meta data triples
-  err = this->load_meta_triples();
-  if(err) {
-    LOG(ERROR) << "Load Workspace DB: ERROR while loading meta graph triples";
-    return err;
-  }
   
   // Load LookupSqlHelper
   auto lookup_sql_helper = create_lookup_sql_helper(this->jetrule_rete_db_, this->lookup_data_db_);
-  err = lookup_sql_helper->initialize(this->meta_graph_.get());
+  err = lookup_sql_helper->initialize(this->rmgr_.get());
   if(err) {
     LOG(ERROR) << "Load Workspace DB: ERROR while initializing lookup helper";
     return err;
   }
 
   // Load each main rule file as a ReteMetaStore
+  // Create a meta graph for each ReteMetaStore
   for(auto const& item: this->jr_map_) {
     int file_key = item.second;
 
@@ -139,8 +133,17 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     }
 
     // Create the ReteMetaStore
+    // create meta graph and load meta data triples
+    rdf::RDFGraphPtr meta_graph = rdf::create_rdf_graph(this->rmgr_);
+    meta_graph->rmgr()->initialize();
+
+    err = this->load_meta_triples(meta_graph, file_key);
+    if(err) {
+      LOG(ERROR) << "Load Workspace DB: ERROR while loading meta graph triples";
+      return err;
+    }
     // create & initalize the meta store
-    auto rete_meta_store = rete::create_rete_meta_store(this->meta_graph_, lookup_sql_helper, alpha_nodes, node_vertexes);
+    auto rete_meta_store = rete::create_rete_meta_store(meta_graph, lookup_sql_helper, alpha_nodes, node_vertexes);
     err = rete_meta_store->initialize();
     if(err) {
       LOG(ERROR) << "Load Workspace DB: ERROR while initializing meta store "<<item.first;
@@ -155,7 +158,6 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
 
   // All good!, release the stmts and db connection
   VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
-  VLOG(1)<< "The meta graph contains:"<<std::endl<<this->meta_graph() <<"---"<<std::endl;
   return this->reset();
 }
 
@@ -205,15 +207,15 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
     if(value) {
       
       // main case, use the value to create the resource
-      this->r_map_.insert({key, this->meta_graph_->rmgr()->create_resource(value)});
+      this->r_map_.insert({key, this->rmgr_->create_resource(value)});
     } else {
 
       // special case, use symbol or operator/function
       if( strcmp(symbol, "null") == 0) {
-        this->r_map_.insert({key, this->meta_graph_->rmgr()->get_null()});
+        this->r_map_.insert({key, this->rmgr_->get_null()});
 
       } else if( strcmp(symbol, "create_uuid_resource()") == 0) {
-        this->r_map_.insert({key, this->meta_graph_->rmgr()->create_uuid_resource()});
+        this->r_map_.insert({key, this->rmgr_->create_uuid_resource()});
 
       } else {
         LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: read_resources_cb: unknown symbol: "<<std::string(symbol);
@@ -227,7 +229,7 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
     if(value) {
       std::string v("_0:");
       v += value;
-      this->r_map_.insert({key, this->meta_graph_->rmgr()->create_resource(v)});
+      this->r_map_.insert({key, this->rmgr_->create_resource(v)});
       return SQLITE_OK;
     }
     LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: read_resources_cb: volatile_resource with no value!";
@@ -241,37 +243,37 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   }
   
   if( strcmp(type, "text") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(value)});
+    this->r_map_.insert({key, this->rmgr_->create_literal(value)});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "int") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoi(value))});
+    this->r_map_.insert({key, this->rmgr_->create_literal(std::stoi(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "date") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(rdf::parse_date(value))});
+    this->r_map_.insert({key, this->rmgr_->create_literal(rdf::parse_date(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "double") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stod(value))});
+    this->r_map_.insert({key, this->rmgr_->create_literal(std::stod(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "bool") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(rdf::to_bool(std::string_view(value)))});
+    this->r_map_.insert({key, this->rmgr_->create_literal(rdf::to_bool(std::string_view(value)))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "datetime") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(rdf::parse_datetime(value))});
+    this->r_map_.insert({key, this->rmgr_->create_literal(rdf::parse_datetime(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "long") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stol(value))});
+    this->r_map_.insert({key, this->rmgr_->create_literal(std::stol(value))});
     return SQLITE_OK;
   }
   
@@ -282,26 +284,26 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
       LOG(ERROR) << "ReteMetaStoreFactory::create_rete_meta_store: ERROR: unsignd int overflow, use a unsigned long literal for resource with id: "<<(id?std::string(id):"NULL");
       return SQLITE_ERROR;
     }
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(u)});
+    this->r_map_.insert({key, this->rmgr_->create_literal(u)});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "ulong") == 0) {
-    this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(std::stoul(value))});
+    this->r_map_.insert({key, this->rmgr_->create_literal(std::stoul(value))});
     return SQLITE_OK;
   }
   
   if( strcmp(type, "keyword") == 0) {
     if( strcmp(value, "true") == 0) {
-      this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(1)});
+      this->r_map_.insert({key, this->rmgr_->create_literal(1)});
       return SQLITE_OK;
     }
     if( strcmp(value, "false") == 0) {
-      this->r_map_.insert({key, this->meta_graph_->rmgr()->create_literal(0)});
+      this->r_map_.insert({key, this->rmgr_->create_literal(0)});
       return SQLITE_OK;
     }
     if( strcmp(value, "null") == 0) {
-      this->r_map_.insert({key, this->meta_graph_->rmgr()->get_null()});
+      this->r_map_.insert({key, this->rmgr_->get_null()});
       return SQLITE_OK;
     }
   }

@@ -127,7 +127,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		// setup the rdf session for the grouping
 		session_count += 1
-		rdfSession, err := rw.js.NewRDFSession()
+		rdfSession, err := rw.js.NewRDFSession(rw.pipelineConfig.processConfig.mainRules)
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
@@ -359,6 +359,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")
 	}
+	
 	for _, t3 := range rw.pipelineConfig.ruleConfigs {
 		subject, err := rw.js.NewResource(t3.subject)
 		if err != nil {
@@ -439,7 +440,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		if err != nil {
 			return fmt.Errorf("while asserting rule config: %v", err)
 		}
-		rw.js.InsertRuleConfig(subject, predicate, object)
+		rw.js.InsertRuleConfig(rw.pipelineConfig.processConfig.mainRules, subject, predicate, object)
 	}
 	return nil
 }

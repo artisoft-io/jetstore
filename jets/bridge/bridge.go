@@ -102,9 +102,11 @@ func (jr *JetStore) ReleaseJetRules() error {
 	return nil
 }
 
-func (jr *JetStore) NewRDFSession() (*RDFSession, error) {
+func (jr *JetStore) NewRDFSession(jetrules_name string) (*RDFSession, error) {
 	var rdfs RDFSession
-	ret := int(C.create_rdf_session(jr.hdl, &rdfs.hdl))
+	cstr := C.CString(jetrules_name)
+	defer C.free(unsafe.Pointer(cstr))
+	ret := int(C.create_rdf_session(cstr, jr.hdl, &rdfs.hdl))
 	if ret != 0 {
 		fmt.Println("Got error in NewRDFSession ret code", ret)
 		return &rdfs, errors.New("ERROR calling NewRDFSession(), ret code: " + fmt.Sprint(ret))
@@ -270,11 +272,13 @@ func (js *JetStore) NewDatetimeLiteral(value string) (*Resource, error) {
 }
 
 // assert triple in meta graph
-func (js *JetStore) InsertRuleConfig(s *Resource, p *Resource, o *Resource) (int, error) {
+func (js *JetStore) InsertRuleConfig(jetrules_name string, s *Resource, p *Resource, o *Resource) (int, error) {
 	if s == nil || p == nil || o == nil {
 		return 0, fmt.Errorf("ERROR cannot have null args when calling InsertRuleConfig")
 	}
-	ret := int(C.insert_meta_graph(js.hdl, s.hdl, p.hdl, o.hdl))
+	cstr := C.CString(jetrules_name)
+	defer C.free(unsafe.Pointer(cstr))
+	ret := int(C.insert_meta_graph(cstr, js.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in JetStore.InsertRuleConfig ret code", ret)
 		return ret, errors.New("ERROR calling Insert(), ret code: " + fmt.Sprint(ret))
