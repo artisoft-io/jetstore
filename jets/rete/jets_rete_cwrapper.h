@@ -18,7 +18,7 @@ typedef void* HJRDF;
 
 // Create sessions
 // ---------------
-int create_rdf_session( char const * jetrule_name, HJETS jets_hdl, HJRDF * handle );
+int create_rdf_session( HJETS jets_hdl, HJRDF * handle );
 int delete_rdf_session( HJRDF rdf_session_hdl );
 
 int create_rete_session( HJETS jets_hdl, HJRDF rdf_hdl, char const * jetrule_name, HJRETE * handle );
@@ -41,7 +41,8 @@ int create_meta_double(HJETS js_hdl, double v, HJR * handle);
 int create_meta_date(HJETS js_hdl, char const * v, HJR * handle);
 int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle);
 
-int insert_meta_graph(char const * jetrule_name, HJETS js_hdl, HJR s, HJR p, HJR o);
+int load_process_meta_triples(char const * jetrule_name, HJETS js_hdl);
+int insert_meta_graph(HJETS js_hdl, HJR s, HJR p, HJR o);
 
 // rdf session methods
 // -------------------

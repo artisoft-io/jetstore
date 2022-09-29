@@ -17,7 +17,8 @@ namespace jets::rete {
 ReteMetaStoreFactory::ReteMetaStoreFactory()
   : jetrule_rete_db_(), 
   lookup_data_db_(), 
-  rmgr_(), 
+  rmgr_(),
+  meta_graph_(), 
   r_map_(),
   v_map_(),
   jr_map_(),
@@ -133,17 +134,8 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
     }
 
     // Create the ReteMetaStore
-    // create meta graph and load meta data triples
-    rdf::RDFGraphPtr meta_graph = rdf::create_rdf_graph(this->rmgr_);
-    meta_graph->rmgr()->initialize();
-
-    err = this->load_meta_triples(meta_graph, file_key);
-    if(err) {
-      LOG(ERROR) << "Load Workspace DB: ERROR while loading meta graph triples";
-      return err;
-    }
     // create & initalize the meta store
-    auto rete_meta_store = rete::create_rete_meta_store(meta_graph, lookup_sql_helper, alpha_nodes, node_vertexes);
+    auto rete_meta_store = rete::create_rete_meta_store(lookup_sql_helper, alpha_nodes, node_vertexes);
     err = rete_meta_store->initialize();
     if(err) {
       LOG(ERROR) << "Load Workspace DB: ERROR while initializing meta store "<<item.first;
@@ -158,7 +150,7 @@ ReteMetaStoreFactory::load_database(std::string const& jetrule_rete_db, std::str
 
   // All good!, release the stmts and db connection
   VLOG(1)<< "All Done! Contains "<<this->r_map_.size()<<" resource definitions";
-  return this->reset();
+  return 0;
 }
 
 int 

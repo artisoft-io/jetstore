@@ -18,6 +18,7 @@ import "C"
 
 type JetStore struct {
 	hdl C.HJETS
+	process_name string
 }
 
 type RDFSession struct {
@@ -76,8 +77,9 @@ func getTypeName(dtype int) string {
 	return "unknown";
 }
 
-func LoadJetRules(rete_db_path string, lookup_db_path string) (*JetStore, error) {
+func LoadJetRules(process_name string, rete_db_path string, lookup_db_path string) (*JetStore, error) {
 	var js JetStore
+	js.process_name = process_name
 	cstr := C.CString(rete_db_path)
 	defer C.free(unsafe.Pointer(cstr))
 	lk_cstr := C.CString(lookup_db_path)
@@ -102,11 +104,9 @@ func (jr *JetStore) ReleaseJetRules() error {
 	return nil
 }
 
-func (jr *JetStore) NewRDFSession(jetrules_name string) (*RDFSession, error) {
+func (jr *JetStore) NewRDFSession() (*RDFSession, error) {
 	var rdfs RDFSession
-	cstr := C.CString(jetrules_name)
-	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.create_rdf_session(cstr, jr.hdl, &rdfs.hdl))
+	ret := int(C.create_rdf_session(jr.hdl, &rdfs.hdl))
 	if ret != 0 {
 		fmt.Println("Got error in NewRDFSession ret code", ret)
 		return &rdfs, errors.New("ERROR calling NewRDFSession(), ret code: " + fmt.Sprint(ret))
@@ -271,17 +271,27 @@ func (js *JetStore) NewDatetimeLiteral(value string) (*Resource, error) {
 	return &r, nil
 }
 
+// load process meta triples in meta graph
+func (js *JetStore) LoadProcessMetaTriples(jetrules_name string) (int, error) {
+	cstr := C.CString(jetrules_name)
+	defer C.free(unsafe.Pointer(cstr))
+	ret := int(C.load_process_meta_triples(cstr, js.hdl))
+	if ret < 0 {
+		fmt.Println("ERROR in JetStore.LoadProcessMetaTriples ret code", ret)
+		return ret, errors.New("ERROR calling LoadProcessMetaTriples(), ret code: " + fmt.Sprint(ret))
+	}
+	return ret, nil
+}
+
 // assert triple in meta graph
-func (js *JetStore) InsertRuleConfig(jetrules_name string, s *Resource, p *Resource, o *Resource) (int, error) {
+func (js *JetStore) InsertRuleConfig(s *Resource, p *Resource, o *Resource) (int, error) {
 	if s == nil || p == nil || o == nil {
 		return 0, fmt.Errorf("ERROR cannot have null args when calling InsertRuleConfig")
 	}
-	cstr := C.CString(jetrules_name)
-	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.insert_meta_graph(cstr, js.hdl, s.hdl, p.hdl, o.hdl))
+	ret := int(C.insert_meta_graph(js.hdl, s.hdl, p.hdl, o.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in JetStore.InsertRuleConfig ret code", ret)
-		return ret, errors.New("ERROR calling Insert(), ret code: " + fmt.Sprint(ret))
+		return ret, errors.New("ERROR calling InsertRuleConfig(), ret code: " + fmt.Sprint(ret))
 	}
 	return ret, nil
 }

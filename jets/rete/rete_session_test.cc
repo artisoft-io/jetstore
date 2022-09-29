@@ -206,7 +206,7 @@ class ReteSessionTest : public ::testing::Test {
 
     // ReteMetaStore
     // create & initalize the meta store -- TODO have an expression builder with meta store
-    rete_meta_store = create_rete_meta_store(meta_graph, {}, alpha_nodes, node_vertexes);
+    rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
     rete_meta_store->initialize();
 
     // Cretae the rdf_session and the rete_session and initialize them

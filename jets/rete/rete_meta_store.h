@@ -52,35 +52,20 @@ class ReteMetaStore {
   using ExprVector = std::vector<ExprBasePtr>;
 
   ReteMetaStore()
-    : meta_graph_(),
-      lookup_sql_helper_(),
+    : lookup_sql_helper_(),
       alpha_nodes_(),
       node_vertexes_()
   {}  
-  ReteMetaStore(rdf::RDFGraphPtr meta_graph, LookupSqlHelperPtr lookup_sql_helper, AlphaNodeVector const& alpha_nodes, NodeVertexVector const& node_vertexes)
-    : meta_graph_(meta_graph),
-      lookup_sql_helper_(lookup_sql_helper),
+  ReteMetaStore(LookupSqlHelperPtr lookup_sql_helper, AlphaNodeVector const& alpha_nodes, NodeVertexVector const& node_vertexes)
+    : lookup_sql_helper_(lookup_sql_helper),
       alpha_nodes_(alpha_nodes), 
       node_vertexes_(node_vertexes)
   {}
-  ReteMetaStore(rdf::RDFGraphPtr meta_graph, LookupSqlHelperPtr lookup_sql_helper, AlphaNodeVector && alpha_nodes, NodeVertexVector && node_vertexes)
-    : meta_graph_(meta_graph),
-      lookup_sql_helper_(lookup_sql_helper),
+  ReteMetaStore(LookupSqlHelperPtr lookup_sql_helper, AlphaNodeVector && alpha_nodes, NodeVertexVector && node_vertexes)
+    : lookup_sql_helper_(lookup_sql_helper),
       alpha_nodes_(std::forward<AlphaNodeVector>(alpha_nodes)), 
       node_vertexes_(std::forward<NodeVertexVector>(node_vertexes))
   {}
-
-  inline rdf::RDFGraph const*
-  meta_graph()const
-  {
-    return this->meta_graph_.get();
-  }
-
-  inline rdf::RDFGraphPtr
-  get_meta_graph()const
-  {
-    return this->meta_graph_;
-  }
 
   inline LookupSqlHelperPtr
   get_lookup_sql_helper()const
@@ -132,9 +117,6 @@ class ReteMetaStore {
   int
   initialize()
   {
-    if(not this->meta_graph_) {
-      RETE_EXCEPTION("ERROR: ReteMetaStore::initialize: meta graph cannot be null!");
-    }
     // Perform reverse lookup of children NodeVertex using
     // NodeVertex parent_node property
     for(auto const& nodeptr: this->node_vertexes_) {
@@ -166,29 +148,25 @@ class ReteMetaStore {
 
  private:
   friend class ReteSession;
-  rdf::RDFGraphPtr meta_graph_;
   LookupSqlHelperPtr lookup_sql_helper_;
   AlphaNodeVector  alpha_nodes_;
   NodeVertexVector node_vertexes_;
 };
 
 inline ReteMetaStorePtr create_rete_meta_store(
-  rdf::RDFGraphPtr meta_graph,
   LookupSqlHelperPtr lookup_sql_helper,
   ReteMetaStore::AlphaNodeVector const& alpha_nodes,
   NodeVertexVector const& node_vertexes)
 {
-  return std::make_shared<ReteMetaStore>(meta_graph, lookup_sql_helper, alpha_nodes, node_vertexes);
+  return std::make_shared<ReteMetaStore>(lookup_sql_helper, alpha_nodes, node_vertexes);
 }
 
 inline ReteMetaStorePtr create_rete_meta_store(
-  rdf::RDFGraphPtr meta_graph,
   LookupSqlHelperPtr lookup_sql_helper,
   ReteMetaStore::AlphaNodeVector && alpha_nodes,
   NodeVertexVector && node_vertexes)
 {
   return std::make_shared<ReteMetaStore>(
-    meta_graph,
     lookup_sql_helper,
     std::forward<ReteMetaStore::AlphaNodeVector>(alpha_nodes),
     std::forward<NodeVertexVector>(node_vertexes) 

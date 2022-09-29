@@ -31,7 +31,7 @@ class ExprOpSpecialtyTest : public ::testing::Test {
     NodeVertexVector   node_vertexes;
     ReteMetaStore::AlphaNodeVector alpha_nodes;
     // create & initalize the meta store
-    rete_meta_store = create_rete_meta_store(meta_graph, {}, alpha_nodes, node_vertexes);
+    rete_meta_store = create_rete_meta_store({}, alpha_nodes, node_vertexes);
     rete_meta_store->initialize();
     rmgr->set_locked();
     meta_graph->set_locked();
