@@ -111,6 +111,18 @@ class ReteMetaStoreFactory {
     return mitor->second;
   }
 
+  rdf::RDFGraph const*
+  meta_graph()
+  {
+    return this->meta_graph_.get();
+  }
+
+  rdf::RDFGraphPtr
+  get_meta_graph()
+  {
+    return this->meta_graph_;
+  }
+
   int
   load_database(std::string const& jetrule_rete_db, std::string const& lookup_data_db);
 
@@ -125,8 +137,9 @@ class ReteMetaStoreFactory {
     int err = 0;
     char * err_msg = 0;
 
-    if(not this->rmgr_ ) {
-      this->rmgr_ = rdf::create_rmanager();
+    if(not this->meta_graph_ ) {
+      this->meta_graph_ = rdf::create_rdf_graph();
+      this->rmgr_ = this->meta_graph_->get_rmgr();
       this->rmgr_->initialize();
     }
     auto const* sql = "SELECT * from resources";
@@ -171,14 +184,22 @@ class ReteMetaStoreFactory {
     return 0;
   }
 
+  public:
   int
-  load_meta_triples(rdf::RDFGraphPtr meta_graph, int file_key)
+  load_meta_triples(std::string const& process_name)
   {
-    auto const* sql = "SELECT subject_key, predicate_key, object_key FROM triples";
+    auto const* sql = "SELECT t3.subject_key, t3.predicate_key, t3.object_key FROM triples t3, rule_sequences rs, main_rule_sets mrs WHERE t3.source_file_key = mrs.ruleset_file_key AND mrs.rule_sequence_key = rs.key AND rs.name = ?";
 
     sqlite3_stmt* stmt;
     int res = sqlite3_prepare_v2( this->db_, sql, -1, &stmt, 0 );
     if ( res != SQLITE_OK ) {
+      LOG(ERROR) << "ReteMetaStoreFactory::load_meta_triples: SQL error while sqlite3_prepare_v2: " << res;
+      return res;
+    }
+
+    res = sqlite3_bind_text(stmt, 1, process_name.c_str(), process_name.size(), nullptr);
+    if ( res != SQLITE_OK ) {
+      LOG(ERROR) << "ReteMetaStoreFactory::load_meta_triples: SQL error while sqlite3_bind_text: " << res;
       return res;
     }
 
@@ -212,12 +233,13 @@ class ReteMetaStoreFactory {
         LOG(ERROR) << "ReteMetaStoreFactory::load_meta_triples: object key not found in resource map, key: " << okey;
         return -1;
       }
-      meta_graph->insert(stor->second, ptor->second, otor->second);
+      this->meta_graph_->insert(stor->second, ptor->second, otor->second);
     }
     sqlite3_finalize( stmt );
     return 0;
   }
 
+ protected:
   int
   load_node_vertexes(int file_key, NodeVertexVector & node_vertexes);
 
@@ -310,6 +332,7 @@ class ReteMetaStoreFactory {
   std::string jetrule_rete_db_;
   std::string lookup_data_db_;
   rdf::RManagerPtr rmgr_;
+  rdf::RDFGraphPtr meta_graph_;
 
   ResourceLookup r_map_;
   VariableLookup v_map_;

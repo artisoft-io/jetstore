@@ -55,7 +55,7 @@ func LoadReteWorkspace(
 	if len(ruleset) > 0 {
 		reteWorkspace.ruleset = []string{ruleset}
 	}
-	reteWorkspace.js, err = bridge.LoadJetRules(workspaceDb, lookupDb)
+	reteWorkspace.js, err = bridge.LoadJetRules(pipelineConfig.processConfig.processName, workspaceDb, lookupDb)
 	if err != nil {
 		return &reteWorkspace, fmt.Errorf("while loading workspace db: %v", err)
 	}
@@ -127,7 +127,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		// setup the rdf session for the grouping
 		session_count += 1
-		rdfSession, err := rw.js.NewRDFSession(rw.pipelineConfig.processConfig.mainRules)
+		rdfSession, err := rw.js.NewRDFSession()
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
@@ -355,11 +355,15 @@ func (rw *ReteWorkspace) addEntityRdfType(processInput *ProcessInput) error {
 }
 
 // assertRuleConfig: assert rule config triples to metadata graph
+// This asserts client specific triples and loads process specific meta triples from workspace db
 func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")
 	}
-	
+	// Load process meta triples	
+	rw.js.LoadProcessMetaTriples(rw.pipelineConfig.processConfig.processName)
+
+	// Assert client specific triples
 	for _, t3 := range rw.pipelineConfig.ruleConfigs {
 		subject, err := rw.js.NewResource(t3.subject)
 		if err != nil {
@@ -440,7 +444,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		if err != nil {
 			return fmt.Errorf("while asserting rule config: %v", err)
 		}
-		rw.js.InsertRuleConfig(rw.pipelineConfig.processConfig.mainRules, subject, predicate, object)
+		rw.js.InsertRuleConfig(subject, predicate, object)
 	}
 	return nil
 }

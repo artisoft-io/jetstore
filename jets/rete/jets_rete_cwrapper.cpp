@@ -32,7 +32,7 @@ int delete_jetstore_hdl( HJETS handle )
   return 0;
 }
 
-int create_rdf_session(char const * jetrule_name, HJETS jets_hdl, HJRDF * handle )
+int create_rdf_session(HJETS jets_hdl, HJRDF * handle )
 {
   if(not jets_hdl or not handle) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(jets_hdl);
@@ -40,12 +40,13 @@ int create_rdf_session(char const * jetrule_name, HJETS jets_hdl, HJRDF * handle
     LOG(ERROR) << "create_rdf_session: ERROR NULL factory!";
     return -1;
   }
-  auto ms = factory->get_rete_meta_store(jetrule_name);
-  if(not ms) {
-    LOG(ERROR) << "::create_rdf_session: ERROR ReteMetaStore not found for main_rule file ";
+
+  auto mg = factory->get_meta_graph();
+  if(not mg) {
+    LOG(ERROR) << "::create_rdf_session: ERROR MetaGraph not found";
     return -1;
   }
-  auto * rdf_session = jets::rdf::RDFSession::create_raw_ptr(ms->get_meta_graph());
+  auto * rdf_session = jets::rdf::RDFSession::create_raw_ptr(mg);
   *handle = rdf_session;
   if(not rdf_session) return -1;
   return 0;
@@ -230,12 +231,22 @@ int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle)
   return 0;
 }
 
-int insert_meta_graph(char const * jetrule_name, HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+int load_process_meta_triples(char const * jetrule_name, HJETS js_hdl)
 {
   if(not jetrule_name) {
     LOG(ERROR) << "ERROR: jetrule_name is NULL in cwrapper";
     return -1;
   }
+  if(not js_hdl) {
+    LOG(ERROR) << "ERROR: js_hdl is NULL in cwrapper";
+    return -1;
+  }
+  auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
+  return factory->load_meta_triples(jetrule_name);
+}
+
+int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)
+{
   if(not js_hdl) {
     LOG(ERROR) << "ERROR: js_hdl is NULL in cwrapper";
     return -1;
@@ -248,12 +259,12 @@ int insert_meta_graph(char const * jetrule_name, HJETS js_hdl, HJR s_hdl, HJR p_
   auto const* s =  static_cast<r_index>(s_hdl);
   auto const* p =  static_cast<r_index>(p_hdl);
   auto const* o =  static_cast<r_index>(o_hdl);
-  auto ms = factory->get_rete_meta_store(jetrule_name);
-  if(not ms) {
-    LOG(ERROR) << "::create_rdf_session: ERROR ReteMetaStore not found for main_rule file ";
+  auto mg = factory->get_meta_graph();
+  if(not mg) {
+    LOG(ERROR) << "insert_meta_graph: while get_meta_graph: ERROR MetaGraph not found";
     return -1;
   }
-  return ms->get_meta_graph()->insert(s, p, o);
+  return mg->insert(s, p, o);
 }
 
 // Creating resources and literals
