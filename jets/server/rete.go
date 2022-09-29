@@ -229,7 +229,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 				continue
 			}
 			// extract entities by rdf type
+			fmt.Println(" ****** rdfSession.Find1 BEGIN")
 			ctor, err := rdfSession.Find(nil, ri.rdf__type, tableSpec.ClassResource)
+			fmt.Println(" ****** rdfSession.Find1 END")
 			if err != nil {
 				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.ClassName, err)
 			}
@@ -251,12 +253,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 						entityRow[i] = shard
 					default:
 						var data []interface{}
+						fmt.Println(" ****** rdfSession.Find_sp2 BEGIN")
 						itor, err := rdfSession.Find_sp(subject, domainColumn.Predicate)
+						fmt.Println(" ****** rdfSession.Find_sp2 END")
 						if err != nil {
 							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 						}
 						for !itor.IsEnd() {
+							fmt.Println(" ****** itor.GetObject().AsInterface BEGIN")
 							obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
+							fmt.Println(" ****** itor.GetObject().AsInterface END")
 							if err != nil {
 								var br BadRow
 								rowkey, err := subject.GetName()
@@ -300,7 +306,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 					}
 				}
 				// entityRow is complete
+				fmt.Println(" ****** WRITE to writeOutputc table ",tableName," BEGIN")
 				writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
+				fmt.Println(" ****** WRITE to writeOutputc table ",tableName," END")
 				ctor.Next()
 			}
 			ctor.ReleaseIterator()

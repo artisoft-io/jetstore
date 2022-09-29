@@ -25,7 +25,11 @@ type WriteTableSource struct {
 // pgx.CopyFromSource interface
 func (wt *WriteTableSource) Next() bool {
 	var ok bool
+	fmt.Println(" ****** WriteTableSource.NEXT BEGIN")
 	wt.pending,ok = <-wt.source
+	fmt.Println("OUTPUT ROW:")
+	fmt.Println(wt.pending...)
+	fmt.Println(" ****** WriteTableSource.NEXT END")
 	wt.count += 1
 	return ok
 }
@@ -60,7 +64,9 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 	default:
 		return nil, fmt.Errorf("error: invalid domain table name: %s",domainTable.TableName)
 	}
+	fmt.Println(" ****** dbpool.CopyFrom ",tableIdentifier.Sanitize()," BEGIN")
 	recCount, err := dbpool.CopyFrom(context.Background(), tableIdentifier, columns, wt)
+	fmt.Println(" ****** dbpool.CopyFrom ",tableIdentifier.Sanitize()," END")
 	if err != nil {
 		switch {
 		case wt.count == 0:
