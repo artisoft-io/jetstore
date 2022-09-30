@@ -273,7 +273,6 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 				err = errors.New("error while inserting into a table")
 				return
 			}
-			// fmt.Println("*** Returned Key is",returnedKey[irow])
 		} else {
 			_, err = server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
 			if err != nil {

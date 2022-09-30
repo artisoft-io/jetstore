@@ -9,7 +9,7 @@ func TestGetInt(t *testing.T) {
 
 	// load the workspace db
 	workspaceDb := "test_data/bridge_test1.db"
-	js, err := LoadJetRules(workspaceDb, "")
+	js, err := LoadJetRules("", workspaceDb, "")
 	if err != nil {
 		t.Errorf("while loading workspace db: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestGetInt(t *testing.T) {
 func TestGetDateDetails(t *testing.T) {
 	// load the workspace db
 	workspaceDb := "test_data/bridge_test1.db"
-	js, err := LoadJetRules(workspaceDb, "")
+	js, err := LoadJetRules("", workspaceDb, "")
 	if err != nil {
 		t.Errorf("while loading workspace db: %v", err)
 	}
