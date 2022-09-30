@@ -190,6 +190,7 @@ class ActionKeys {
   static const clientOk = "client.ok";
   static const dialogCancel = "dialog.cancelAction";
   static const toggleUserActive = "toggleUserActive";
+  static const deleteUser = "deleteUser";
   // for load file dialog
   static const loaderOk = "loader.ok";
 

@@ -99,7 +99,8 @@ func (server *Server) initUsers() error {
 		return fmt.Errorf("error: user table does not exist, please update database schema")
 	}
 	// Check the admin user exists
-	adminEmail, ok := os.LookupEnv("JETS_ADMIN_EMAIL")
+	var ok bool
+	adminEmail, ok = os.LookupEnv("JETS_ADMIN_EMAIL")
 	if !ok {
 		return fmt.Errorf("Default admin id is not defined (env JETS_ADMIN_EMAIL), it must be defined")
 	}

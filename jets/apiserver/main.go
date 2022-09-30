@@ -17,6 +17,7 @@ var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Te
 var devMode bool
 var argoCmd string
 var nbrShards int
+var adminEmail string
 
 func main() {
 	flag.Parse()

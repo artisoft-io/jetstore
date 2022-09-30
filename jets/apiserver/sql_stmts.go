@@ -6,6 +6,7 @@ package main
 type sqlInsertDefinition struct {
 	stmt string
 	columnKeys []string
+	adminOnly bool
 }
 // Note column keys are keys provided from the UI and may not
 // correspond to column name.
@@ -124,5 +125,12 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	"update/users": {
 		stmt: `UPDATE jetsapi.users SET is_active = $1	WHERE user_email = $2`,
 		columnKeys: []string{"is_active", "user_email"},
+	},
+
+	// User Admin: delete users
+	"delete/users": {
+		stmt: `DELETE FROM jetsapi.users WHERE user_email = $1`,
+		columnKeys: []string{"user_email"},
+		adminOnly: true,
 	},
 }
