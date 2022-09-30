@@ -131,7 +131,7 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					"status": "submitted",
 					"user_email": "system"},
 			}}
-			_, httpStatus, err := server.ProcessInsertRows(&dataTableAction)
+			_, httpStatus, err := server.ProcessInsertRows(&dataTableAction, r)
 			if(httpStatus != http.StatusOK) {
 				ERROR(w, httpStatus, err)	
 				return
@@ -158,7 +158,7 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					"status": "submitted",
 					"user_email": "system"},
 			}}
-			_, httpStatus, err = server.ProcessInsertRows(&dataTableAction)
+			_, httpStatus, err = server.ProcessInsertRows(&dataTableAction, r)
 			if(httpStatus != http.StatusOK) {
 				ERROR(w, httpStatus, err)	
 				return

@@ -213,7 +213,7 @@ func (server *Server) ExecRawQueryMap(w http.ResponseWriter, r *http.Request, da
 // InsertRows ------------------------------------------------------
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
 func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
-	returnedKey, httpStatus, err := server.ProcessInsertRows(dataTableAction)
+	returnedKey, httpStatus, err := server.ProcessInsertRows(dataTableAction, r)
 	if httpStatus != http.StatusOK {
 		ERROR(w, httpStatus, err)
 		return
@@ -230,7 +230,7 @@ func (server *Server) InsertRows(w http.ResponseWriter, r *http.Request, dataTab
 // Main insert row function with pre processing hooks for validating/authorizing the request
 // Main insert row function with post processing hooks for starting pipelines
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
-func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (returnedKey []int, httpStatus int, err error) {
+func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *http.Request) (returnedKey []int, httpStatus int, err error) {
 	returnedKey = make([]int, len(dataTableAction.Data))
 	httpStatus = http.StatusOK
 	sqlStmt, ok := sqlInsertStmts[dataTableAction.Table]
@@ -238,6 +238,15 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction) (retur
 		httpStatus = http.StatusBadRequest
 		err = errors.New("error: unknown table")
 		return
+	}
+	// Check if stmt is reserved for admin only
+	if sqlStmt.adminOnly {
+		userEmail, err2 := ExtractTokenID(r)
+		if err2 != nil || userEmail != adminEmail {
+			httpStatus = http.StatusUnauthorized
+			err = errors.New("error: unauthorized, only admin can delete users")
+			return	
+		}
 	}
 	row := make([]interface{}, len(sqlStmt.columnKeys))
 	for irow := range dataTableAction.Data {

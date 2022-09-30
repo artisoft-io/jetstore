@@ -1630,6 +1630,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
           actionName: ActionKeys.toggleUserActive),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteUser',
+          label: 'Delete User',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteUser),
     ],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: [

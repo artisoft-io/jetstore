@@ -174,11 +174,11 @@ Future<void> registrationFormActions(BuildContext context,
 Future<void> userAdminFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {int group = 0}) async {
+  var client = context.read<HttpClient>();
+  var messenger = ScaffoldMessenger.of(context);
   switch (actionKey) {
     case ActionKeys.toggleUserActive:
       // Use a JSON encoded string to send
-      var client = context.read<HttpClient>();
-      var messenger = ScaffoldMessenger.of(context);
       var data = [];
       var emails = formState.getValue(0, DTKeys.usersTable) as List<dynamic>;
       var areActive = formState.getValue(0, FSK.isActive) as List<dynamic>;
@@ -206,6 +206,39 @@ Future<void> userAdminFormActions(BuildContext context,
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Update Successful'),
+        );
+        messenger.showSnackBar(snackBar);
+      } else {
+        showAlertDialog(context, 'Something went wrong. Please try again.');
+      }
+      break;
+    case ActionKeys.deleteUser:
+      // Get confirmation to delete user
+      var uc = await showDangerZoneDialog(context,
+          'Are you sure you want to delete the selected user(s)?');
+      if (uc != 'OK') return;
+      // Use a JSON encoded string to send
+      var data = [];
+      var emails = formState.getValue(0, DTKeys.usersTable) as List<dynamic>;
+      for (int i = 0; i < emails.length; i++) {
+        data.add(<String, dynamic>{
+          FSK.userEmail: emails[i],
+        });
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': 'delete/users',
+        'data': data,
+      }, toEncodable: (_) => '');
+      var result = await client.sendRequest(
+          path: '/dataTable',
+          token: JetsRouterDelegate().user.token,
+          encodedJsonBody: encodedJsonBody);
+      // handling server reply
+      if (result.statusCode == 200) {
+        // Inform the user and transition
+        const snackBar = SnackBar(
+          content: Text('Delete User(s) Successful'),
         );
         messenger.showSnackBar(snackBar);
       } else {
