@@ -20,16 +20,17 @@ type WriteTableSource struct {
 	source <-chan []interface{}
 	pending []interface{}
 	count int
+	tableName string
 }
 
 // pgx.CopyFromSource interface
 func (wt *WriteTableSource) Next() bool {
 	var ok bool
-	fmt.Println(" ****** WriteTableSource.NEXT BEGIN")
+	fmt.Println(" ****** WriteTableSource.NEXT ",wt.tableName," BEGIN")
 	wt.pending,ok = <-wt.source
-	fmt.Println("OUTPUT ROW:")
-	fmt.Println(wt.pending...)
-	fmt.Println(" ****** WriteTableSource.NEXT END")
+	// fmt.Println("OUTPUT ROW for table",wt.tableName,":")
+	// fmt.Println(wt.pending...)
+	fmt.Println(" ****** WriteTableSource.NEXT ",wt.tableName," END")
 	wt.count += 1
 	return ok
 }

@@ -24,8 +24,6 @@ type bundleRow struct {
 
 func readRow(rows *pgx.Rows, processInput *ProcessInput) ([]interface{}, error) {
 	
-	fmt.Println(" ****** READ ROW BEGIN")
-	defer fmt.Println(" ****** READ ROW END")
 	nCol := len(processInput.processInputMapping)
 	dataRow := make([]interface{}, nCol)
 	if processInput.sourceType == "file" {

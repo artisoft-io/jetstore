@@ -369,7 +369,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 			wg2.Add(1)
 			go func(tableName string, tableSpec *workspace.DomainTable, idb int) {
 				// Start the write table workers
-				source := WriteTableSource{source: writeOutputc[tableName][idb]}
+				source := WriteTableSource{source: writeOutputc[tableName][idb], tableName: tableName}
 				result, err := source.writeTable(dbc.joinNodes[idb].dbpool, tableSpec)
 				if err != nil {
 					err = fmt.Errorf("while write table: %v", err)

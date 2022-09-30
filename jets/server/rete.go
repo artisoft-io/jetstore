@@ -165,9 +165,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			if nloop > 0 {
 				// log.Println("looping in use, max number of loops is ",nloop)
-				fmt.Println(" ****** rdfSession.Insert1 BEGIN")
 				rdfSession.Insert(ri.jets__istate, ri.rdf__type, ri.jets__state)
-				fmt.Println(" ****** rdfSession.Insert1 END")
 			}
 			// do for iloop <= maxloop (since loop start at one!)
 			for iloop = 0; iloop <= nloop; iloop++ {
@@ -179,9 +177,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					if err != nil {
 						return &result, fmt.Errorf("while NewIntLiteral for loop %s: %v", ruleset, err)
 					}
-					fmt.Println(" ****** rdfSession.Insert2 BEGIN")
 					rdfSession.Insert(ri.jets__istate, ri.jets__loop, r)
-					fmt.Println(" ****** rdfSession.Insert2 END")
 				}
 				fmt.Println(" ****** rdfSession.ExecuteRules BEGIN")
 				msg, err := reteSession.ExecuteRules()
@@ -195,12 +191,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 					break
 				}
 				// CHECK for jets__terminate and jets__exception
-				fmt.Println(" ****** rdfSession.ContainsSP BEGIN")
 				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err != nil {
 					// log.Println("Rete Session Looping Completed")
 					break
 				}
-				fmt.Println(" ****** rdfSession.ContainsSP END")
 			}
 			if nloop > 0 && iloop >= nloop {
 				var br BadRow
@@ -229,9 +223,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				continue
 			}
 			// extract entities by rdf type
-			fmt.Println(" ****** rdfSession.Find1 BEGIN")
 			ctor, err := rdfSession.Find(nil, ri.rdf__type, tableSpec.ClassResource)
-			fmt.Println(" ****** rdfSession.Find1 END")
 			if err != nil {
 				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.ClassName, err)
 			}
@@ -253,16 +245,12 @@ func (rw *ReteWorkspace) ExecuteRules(
 						entityRow[i] = shard
 					default:
 						var data []interface{}
-						fmt.Println(" ****** rdfSession.Find_sp2 BEGIN")
 						itor, err := rdfSession.Find_sp(subject, domainColumn.Predicate)
-						fmt.Println(" ****** rdfSession.Find_sp2 END")
 						if err != nil {
 							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 						}
 						for !itor.IsEnd() {
-							fmt.Println(" ****** itor.GetObject().AsInterface BEGIN")
 							obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
-							fmt.Println(" ****** itor.GetObject().AsInterface END")
 							if err != nil {
 								var br BadRow
 								rowkey, err := subject.GetName()
