@@ -133,7 +133,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 
 		for iset, ruleset := range rw.ruleset {
-			fmt.Println(" ****** Starting ruleset",ruleset," BEGIN")
 			if glogv > 0 {
 				log.Println("thread",workerId,":: Start Rete Session", session_count, "for ruleset", ruleset, "with grouping key", inBundle.groupingValue)
 			}
@@ -179,9 +178,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					}
 					rdfSession.Insert(ri.jets__istate, ri.jets__loop, r)
 				}
-				fmt.Println(" ****** rdfSession.ExecuteRules BEGIN")
 				msg, err := reteSession.ExecuteRules()
-				fmt.Println(" ****** rdfSession.ExecuteRules END")
 				if err != nil {
 					var br BadRow
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
@@ -204,10 +201,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 				break
 			}
-			fmt.Println(" ****** reteSession.ReleaseReteSession BEGIN")
 			reteSession.ReleaseReteSession()
-			fmt.Println(" ****** reteSession.ReleaseReteSession END")
-			fmt.Println(" ****** END ruleset",ruleset," END")
 		}
 
 		if *ps {
@@ -216,7 +210,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 
 		// pulling the data out of the rete session
-		fmt.Println(" ****** pulling the data out of the rete session BEGIN")
 		for tableName, tableSpec := range outputSpecs {
 			// check if this tableSpec is for the process_errors table
 			if tableName == "jetsapi.process_errors" {
@@ -294,14 +287,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 					}
 				}
 				// entityRow is complete
-				fmt.Println(" ****** WRITE to writeOutputc table ",tableName," BEGIN")
 				writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
-				fmt.Println(" ****** WRITE to writeOutputc table ",tableName," END")
 				ctor.Next()
 			}
 			ctor.ReleaseIterator()
 		}
-		fmt.Println(" ****** pulling the data out of the rete session END")
 		result.ExecuteRulesCount += 1
 		rdfSession.ReleaseRDFSession()
 	}
