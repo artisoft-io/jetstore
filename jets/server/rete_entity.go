@@ -47,6 +47,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		log.Printf("Asserting Entity with jets:key %s", jets__key.String)
 	}
 	// For Each Column
+	// Note that default value from mapping is not applied when input value (inBundleRow) is null
 	ncol := len(inBundleRow.inputRows)
 	for icol := 0; icol < ncol; icol++ {
 		inputColumnSpec := &inBundleRow.processInput.processInputMapping[icol]
@@ -138,7 +139,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 				}
 			}
 		default:
-			err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn, inputColumnSpec.rdfType)
+			err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn.String, inputColumnSpec.rdfType)
 		}
 	ERRCHECK:
 		if err != nil {
@@ -148,7 +149,11 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			if gp.Valid {
 				br.GroupingKey = sql.NullString{String: gp.String, Valid: true}
 			}
-			br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
+			if inputColumnSpec.inputColumn.Valid {
+				br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn.String, Valid: true}
+			} else {
+				br.InputColumn = sql.NullString{String: "UNNAMED", Valid: true}
+			}
 			br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
 			br.write2Chan((*writeOutputc)["jetsapi.process_errors"][0])
 			continue
