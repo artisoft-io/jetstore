@@ -109,7 +109,7 @@ type ProcessInput struct {
 
 type ProcessMap struct {
 	tableName    string
-	inputColumn  string
+	inputColumn  sql.NullString
 	dataProperty string
 	predicate    *bridge.Resource
 	rdfType      string // populated from workspace.db
@@ -142,8 +142,12 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		col := pgx.Identifier{spec.inputColumn}
-		buf.WriteString(col.Sanitize())
+		if spec.inputColumn.Valid {
+				col := pgx.Identifier{spec.inputColumn.String}
+				buf.WriteString(col.Sanitize())	
+		} else {
+			buf.WriteString(fmt.Sprintf("NULL as UNNAMMED%d", i))
+		}
 	}
 	buf.WriteString(" FROM ")
 	tbl := pgx.Identifier{processInput.tableName}
@@ -167,7 +171,7 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 // utility methods
 // prepare the sql statement for reading from domain table (persisted type)
 // Example from test2 of server unit tests:
-//   SELECT DISTINCT ON ("hc:patient_number", "jets:key", session_id) "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type"
+//   SELECT "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type"
 //   FROM "hc:SimulatedPatient"
 //   WHERE session_id=$1 AND shard_id=$2
 //   ORDER BY "hc:patient_number" ASC, "jets:key", session_id, last_update DESC
@@ -178,18 +182,17 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 	col := pgx.Identifier{processInput.groupingColumn}
 	grouping_col_name := col.Sanitize()
 	var buf strings.Builder
-	buf.WriteString("SELECT DISTINCT ON ( ")
-	if processInput.groupingColumn != "jets:key" {
-		buf.WriteString(grouping_col_name)
-		buf.WriteString(", ")
-	}
-	buf.WriteString(" \"jets:key\", session_id) ")
+	buf.WriteString("SELECT ")
 	for i, spec := range processInput.processInputMapping {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		col := pgx.Identifier{spec.inputColumn}
-		buf.WriteString(col.Sanitize())
+		if spec.inputColumn.Valid {
+			col := pgx.Identifier{spec.inputColumn.String}
+			buf.WriteString(col.Sanitize())	
+		} else {
+			buf.WriteString(fmt.Sprintf("NULL as UNNAMMED%d", i))
+		}
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(tbl_name)
@@ -214,7 +217,7 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 // Generate query for merged-in table
 // Example from test2 of server unit tests:
 //  case join using hc:member_number as grouping column:
-//     SELECT DISTINCT ON ("hc:member_number", "jets:key", session_id) "hc:member_number", session_id, "hc:claim_number", "jets:key", "rdf:type"
+//     SELECT "hc:member_number", session_id, "hc:claim_number", "jets:key", "rdf:type"
 //     FROM "hc:ProfessionalClaim"
 //     WHERE session_id=$1 AND "hc:member_number" >= $2
 //     ORDER BY "hc:member_number" ASC, "jets:key", session_id, last_update DESC
@@ -225,18 +228,17 @@ func (processInput *ProcessInput) makeJoinSqlStmt() string {
 	col := pgx.Identifier{processInput.groupingColumn}
 	grouping_col_name := col.Sanitize()
 	var buf strings.Builder
-	buf.WriteString("SELECT DISTINCT ON ( ")
-	if grouping_col_name != "jets:key" {
-		buf.WriteString(grouping_col_name)
-		buf.WriteString(", ")
-	}
-	buf.WriteString(" \"jets:key\", session_id) ")
+	buf.WriteString("SELECT ")
 	for i, spec := range processInput.processInputMapping {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		col := pgx.Identifier{spec.inputColumn}
-		buf.WriteString(col.Sanitize())
+		if(spec.inputColumn.Valid) {
+			col := pgx.Identifier{spec.inputColumn.String}
+			buf.WriteString(col.Sanitize())	
+		} else {
+			buf.WriteString(fmt.Sprintf("NULL as UNNAMMED%d", i))
+		}
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(tbl_name)
@@ -260,7 +262,7 @@ func (processInput *ProcessInput) makeJoinSqlStmt() string {
 // sets the grouping position
 func (processInput *ProcessInput) setGroupingPos() error {
 	for i, v := range processInput.processInputMapping {
-		if v.inputColumn == processInput.groupingColumn {
+		if v.inputColumn.Valid && v.inputColumn.String == processInput.groupingColumn {
 			processInput.groupingPosition = i
 			return nil
 		}
@@ -271,7 +273,7 @@ func (processInput *ProcessInput) setGroupingPos() error {
 // sets the record key position
 func (processInput *ProcessInput) setKeyPos() error {
 	for i, v := range processInput.processInputMapping {
-		if v.inputColumn == processInput.keyColumn {
+		if v.inputColumn.Valid && v.inputColumn.String == processInput.keyColumn {
 			processInput.keyPosition = i
 			return nil
 		}

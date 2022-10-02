@@ -120,7 +120,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						}
 					} else {
 						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn)
+						return fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn.String)
 					}
 				case "apply_regex":
 					if inputColumnSpec.argument.Valid {
@@ -137,7 +137,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						obj = re.FindString(row[icol].String)
 					} else {
 						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn)
+						return fmt.Errorf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn.String)
 					}
 				case "scale_units":
 					if inputColumnSpec.argument.Valid {
@@ -162,7 +162,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						}
 					} else {
 						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn)
+						return fmt.Errorf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn.String)
 					}
 				case "parse_amount":
 					// clean up the amount
@@ -207,7 +207,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			}
 		}
 		if err != nil || len(obj) == 0 {
-			// get the default or report error or ignore the filed if no default or error message is avail
+			// Value from input is null or empty or mapping function returned err or empty for this property,
+			// get the default or report error or ignore the field if no default or error message is avail
 			if inputColumnSpec.defaultValue.Valid {
 				obj = inputColumnSpec.defaultValue.String
 			} else {
@@ -218,7 +219,11 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 					if row[inBundleRow.processInput.groupingPosition].Valid {
 						br.GroupingKey = sql.NullString{String: row[inBundleRow.processInput.groupingPosition].String, Valid: true}
 					}
-					br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
+					if inputColumnSpec.inputColumn.Valid {
+						br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn.String, Valid: true}
+					} else {
+						br.InputColumn = sql.NullString{String: "UNNAMED", Valid: true}
+					}
 					if err != nil {
 						br.ErrorMessage = sql.NullString{String: fmt.Sprintf("%v", err), Valid: true}
 					} else {
@@ -292,7 +297,13 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		case "datetime":
 			object, err = reteSession.NewDatetimeLiteral(obj)
 		default:
-			err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn, inputColumnSpec.rdfType)
+			var cn string
+			if inputColumnSpec.inputColumn.Valid {
+				cn = inputColumnSpec.inputColumn.String
+			} else {
+				cn = "UNNAMED"
+			}
+			err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", cn, inputColumnSpec.rdfType)
 		}
 		if err != nil {
 			var br BadRow
@@ -300,7 +311,11 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			if row[inBundleRow.processInput.groupingPosition].Valid {
 				br.GroupingKey = sql.NullString{String: row[inBundleRow.processInput.groupingPosition].String, Valid: true}
 			}
-			br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn, Valid: true}
+			if inputColumnSpec.inputColumn.Valid {
+				br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn.String, Valid: true}
+			} else {
+				br.InputColumn = sql.NullString{String: "UNNAMED", Valid: true}
+			}
 			br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
 			log.Println("BAD Input ROW:", br)
 			br.write2Chan((*writeOutputc)["jetsapi.process_errors"][0])

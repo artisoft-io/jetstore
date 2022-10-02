@@ -63,7 +63,7 @@ func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
 
 	// Register the outSessionId && Update execution status to pipeline_execution_status table
 	//* isSingleNodeRun: adjust for multi node or sharded run
-	if pr.Status == "completed" && isSingleNodeRun {
+	if isSingleNodeRun {
 		// Lock the session
 		err = schema.RegisterSession(dbpool, *outSessionId)
 		if err != nil {
