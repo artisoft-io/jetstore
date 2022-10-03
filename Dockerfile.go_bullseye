@@ -198,7 +198,7 @@ RUN go install jetstore/jets/update_db
 # JETSTORE FRONT END == FLUTTER BUILD ==
 COPY jetsclient      ${JETS_SOURCE_DIR}/jetsclient
 WORKDIR ${JETS_SOURCE_DIR}/jetsclient
-RUN flutter build web
+RUN flutter build web --dart-define=API_HOST=CLOUD9_API_HOST
 
 # Copy programs resources
 COPY utils  ${JETS_BUILD_DIR}/utils

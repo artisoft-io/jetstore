@@ -45,11 +45,12 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
 ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
 ENV JETS_INIT_DB_SCRIPT /usr/local/bin/jets_init_db.sql
 
-# Copy the compiled ui for use in DEV MODE
+# Copy the compiled ui for use in Cloud9 DEV MODE
 # Install Client UI == Flutter App ==
 ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
 ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
-COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
+ENV JETSCLIENT_CLOUD9_HOME /go/jetsclient
+COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $JETSCLIENT_CLOUD9_HOME
 
 RUN \
     cd /usr/local/lib/ \
