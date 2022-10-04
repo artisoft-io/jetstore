@@ -17,6 +17,7 @@ type Server struct {
 	dbpool *pgxpool.Pool
 	Router *mux.Router
 }
+
 var server = Server{}
 
 // Middleware Function for json header
@@ -26,6 +27,7 @@ func jsonh(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
+
 // Middleware Function for validating jwt token
 func authh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +50,7 @@ func authh(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
+
 // Middleware Function for allowing selected cors client
 func corsh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -61,11 +64,12 @@ func corsh(next http.HandlerFunc) http.HandlerFunc {
 
 // Options ------------------------------------------------------------
 type OptionConfig struct {
-	Origin string
+	Origin         string
 	AllowedMethods string
 	AllowedHeaders string
 }
-func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) {
+
+func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request) {
 	// //*
 	// log.Println("* Options for", r.URL, "method:",r.Method)
 
@@ -85,7 +89,7 @@ func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	//*
 	for key, value := range w.Header() {
-		log.Println("Output Header: ",key,value)
+		log.Println("Output Header: ", key, value)
 	}
 }
 
@@ -119,7 +123,7 @@ func (server *Server) initUsers() error {
 			return fmt.Errorf("while hashing admin password: %v", err)
 		}
 		adminPassword = string(hashedPassword)
-			stmt = "INSERT INTO jetsapi.users (user_email, name, password, is_active) VALUES ($1, 'Admin', $2, 1)"
+		stmt = "INSERT INTO jetsapi.users (user_email, name, password, is_active) VALUES ($1, 'Admin', $2, 1)"
 		_, err = server.dbpool.Exec(context.Background(), stmt, adminEmail, adminPassword)
 		if err != nil {
 			return fmt.Errorf("while inserting admin into users table: %v", err)
@@ -137,7 +141,7 @@ func listenAndServe() error {
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}
-	defer server.dbpool.Close()	
+	defer server.dbpool.Close()
 
 	// Check that the users table and admin user exists
 	err = server.initUsers()
@@ -156,39 +160,70 @@ func listenAndServe() error {
 	// Serve the jetsclient app
 	fs := http.FileServer(http.Dir("/go/jetsclient"))
 	server.Router.Handle("/", fs).Methods("GET")
-
+	server.Router.Handle("/flutter.js", fs).Methods("GET")
+	server.Router.Handle("/manifest.json", fs).Methods("GET")
+	server.Router.Handle("/icons/Icon-192.png", fs).Methods("GET")
+	server.Router.Handle("/flutter_service_worker.js", fs).Methods("GET")
+	server.Router.Handle("/main.dart.js", fs).Methods("GET")
+	server.Router.Handle("/assets/AssetManifest.json", fs).Methods("GET")
+	server.Router.Handle("/assets/FontManifest.json", fs).Methods("GET")
+	server.Router.Handle("/index.html", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/images/logo.png", fs).Methods("GET")
+	server.Router.Handle("/assets/fonts/MaterialIcons-Regular.otf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Thin.ttf", fs).Methods("GET")
+	
+	server.Router.Handle("/assets/assets/fonts/Roboto-BlackItalic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Black.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-BoldItalic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Bold.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-BoldItalic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Bold.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Italic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-LightItalic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Light.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Regular.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Italic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-LightItalic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Light.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-MediumItalic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Medium.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Regular.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-ThinItalic.ttf", fs).Methods("GET")
+	server.Router.Handle("/assets/assets/fonts/Roboto-Thin.ttf", fs).Methods("GET")
+	// server.Router.Handle("", fs).Methods("GET")
+	
 	// Login Route
-	loginOptions := OptionConfig{	Origin: "", 
+	loginOptions := OptionConfig{Origin: "",
 		AllowedMethods: "POST, OPTIONS",
-		AllowedHeaders: "Content-Type"	}
-		server.Router.HandleFunc("/login", loginOptions.options).Methods("OPTIONS")
+		AllowedHeaders: "Content-Type"}
+	server.Router.HandleFunc("/login", loginOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/login", jsonh(corsh(server.Login))).Methods("POST")
 
 	// Register route
-	registerOptions := OptionConfig{	Origin: "", 
+	registerOptions := OptionConfig{Origin: "",
 		AllowedMethods: "POST, OPTIONS",
-		AllowedHeaders: "Content-Type"	}
-		server.Router.HandleFunc("/register", registerOptions.options).Methods("OPTIONS")
+		AllowedHeaders: "Content-Type"}
+	server.Router.HandleFunc("/register", registerOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/register", jsonh(corsh(server.CreateUser))).Methods("POST")
 
 	// DataTable route
-	dataTableOptions := OptionConfig{	Origin: "", 
+	dataTableOptions := OptionConfig{Origin: "",
 		AllowedMethods: "POST, OPTIONS",
-		AllowedHeaders: "Content-Type, Authorization"	}
+		AllowedHeaders: "Content-Type, Authorization"}
 	server.Router.HandleFunc("/dataTable", dataTableOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/dataTable", jsonh(corsh(authh(server.DoDataTableAction)))).Methods("POST")
 
 	// RegisterFileKey route
-	registerFileKeyOptions := OptionConfig{	Origin: "", 
+	registerFileKeyOptions := OptionConfig{Origin: "",
 		AllowedMethods: "POST, OPTIONS",
-		AllowedHeaders: "Content-Type, Authorization"	}
+		AllowedHeaders: "Content-Type, Authorization"}
 	server.Router.HandleFunc("/registerFileKey", registerFileKeyOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/registerFileKey", jsonh(corsh(authh(server.DoRegisterFileKeyAction)))).Methods("POST")
 
 	// PurgeData route
-	purgeDataOptions := OptionConfig{	Origin: "", 
+	purgeDataOptions := OptionConfig{Origin: "",
 		AllowedMethods: "POST, OPTIONS",
-		AllowedHeaders: "Content-Type, Authorization"	}
+		AllowedHeaders: "Content-Type, Authorization"}
 	server.Router.HandleFunc("/purgeData", purgeDataOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/purgeData", jsonh(corsh(authh(server.DoPurgeDataAction)))).Methods("POST")
 
@@ -200,13 +235,7 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
 	server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
 
-	// //Posts routes
-	// server.Router.HandleFunc("/posts", jsonh(server.CreatePost)).Methods("POST")
-	// server.Router.HandleFunc("/posts", jsonh(server.GetPosts)).Methods("GET")
-	// server.Router.HandleFunc("/posts/{id}", jsonh(server.GetPost)).Methods("GET")
-	// server.Router.HandleFunc("/posts/{id}", jsonh(authh(server.UpdatePost))).Methods("PUT")
-	// server.Router.HandleFunc("/posts/{id}", authh(server.DeletePost)).Methods("DELETE")
 
-	log.Println("Listening to address ",*serverAddr)
+	log.Println("Listening to address ", *serverAddr)
 	return http.ListenAndServe(*serverAddr, server.Router)
 }
