@@ -83,10 +83,10 @@ func (optionConfig OptionConfig)options(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Access-Control-Allow-Headers", optionConfig.AllowedHeaders)
 	}
 	w.WriteHeader(http.StatusOK)
-	// //*
-	// for key, value := range w.Header() {
-	// 	log.Println("Output Header: ",key,value)
-	// }
+	//*
+	for key, value := range w.Header() {
+		log.Println("Output Header: ",key,value)
+	}
 }
 
 // Validate the user table exeist and create admin if not already created
