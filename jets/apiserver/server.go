@@ -151,7 +151,11 @@ func listenAndServe() error {
 
 	// Set Routes
 	// Home Route
-	server.Router.HandleFunc("/", jsonh(server.Home)).Methods("GET")
+	// server.Router.HandleFunc("/", jsonh(server.Home)).Methods("GET")
+
+	// Serve the jetsclient app
+	fs := http.FileServer(http.Dir("/go/jetsclient"))
+	server.Router.Handle("/", fs).Methods("GET")
 
 	// Login Route
 	loginOptions := OptionConfig{	Origin: "", 
