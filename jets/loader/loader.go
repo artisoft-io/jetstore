@@ -20,6 +20,11 @@ import (
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // Command Line Arguments
@@ -40,6 +45,7 @@ func (s *chartype) Set(value string) error {
 	return nil
 }
 
+var bucket = flag.String("bucket", "", "Bucket having the the input csv file (aws integration)")
 var inFile = flag.String("in_file", "/work/input.csv", "the input csv file name")
 var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
 var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
@@ -47,7 +53,7 @@ var tblName = flag.String("table", "", "table name to load the data into (requir
 var client = flag.String("client", "", "Client associated with the source location (required)")
 var objectType = flag.String("objectType", "", "The type of object contained in the file (required)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
-var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column")
+var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column and shard the data")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
@@ -172,61 +178,48 @@ type writeResult struct {
 
 // processFile
 // --------------------------------------------------------------------------------------
-func processFile(dbpool []*pgxpool.Pool) error {
-	// open csv file
-	file, err := os.Open(*inFile)
-	if err != nil {
-		return fmt.Errorf("error while opening csv file: %v", err)
-	}
-	defer file.Close()
+func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error) {
+
+	// determine the csv separator
+	// ---------------------------------------
 	if sep_flag == '€' {
 		// auto detect the separator based on the first line
 		buf := make([]byte, 2048)
-		nb, err := file.Read(buf)
+		nb, err := fileHd.Read(buf)
 		if err != nil {
-			return fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
+			return false, fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
 		}
 		txt := string(buf[0:nb])
 		cn := strings.Count(txt, ",")
 		pn := strings.Count(txt, "|")
 		if cn == pn {
-			return fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
+			return false, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
 		}
 		if cn > pn {
 			sep_flag = ','
 		} else {
 			sep_flag = '|'
 		}
-		_, err = file.Seek(0, 0)
+		_, err = fileHd.Seek(0, 0)
 		if err != nil {
-			return fmt.Errorf("error while returning to beginning of in_file %s: %v", *inFile, err)
+			return false, fmt.Errorf("error while returning to beginning of in_file %s: %v", *inFile, err)
 		}
 	}
 	fmt.Println("Got argument: sep_flag", sep_flag)
-	reader := csv.NewReader(file)
-	reader.Comma = rune(sep_flag)
 
-	// open err file where we'll put the bad rows
-	dp, fn := filepath.Split(*inFile)
-	var badRowsfile *os.File
-	if len(errOutDir) == 0 {
-		badRowsfile, err = os.Create(dp + "err_" + fn)
-	} else {
-		badRowsfile, err = os.Create(fmt.Sprintf("%s/err_%s", errOutDir, fn))
-	}
-	if err != nil {
-		return fmt.Errorf("error while opening output csv err file: %v", err)
-	}
-	defer badRowsfile.Close()
-	badRowsWriter := bufio.NewWriter(badRowsfile)
+	// Get reader / writer for input and error file resp.
+	csvReader := csv.NewReader(fileHd)
+	csvReader.Comma = rune(sep_flag)
+	badRowsWriter := bufio.NewWriter(errFileHd)
 	defer badRowsWriter.Flush()
 
 	// read the headers, put them in err file and make them valid for db
-	rawHeaders, err := reader.Read()
+	// ---------------------------------------
+	rawHeaders, err := csvReader.Read()
 	if err == io.EOF {
-		return errors.New("input csv file is empty")
+		return false, errors.New("input csv file is empty")
 	} else if err != nil {
-		return fmt.Errorf("while reading csv headers: %v", err)
+		return false, fmt.Errorf("while reading csv headers: %v", err)
 	}
 	// Add sessionId and shardId to the headers,
 	// drop input column matching one of the reserve column name
@@ -247,7 +240,7 @@ func processFile(dbpool []*pgxpool.Pool) error {
 	}
 	// Check if we have grouping column if we should
 	if *groupingColumn != "" && groupingColumnPos < 0 {
-		return fmt.Errorf("error: grouping column '%s' not found in input file %s", *groupingColumn, *inFile)
+		return false, fmt.Errorf("error: grouping column '%s' not found in input file %s", *groupingColumn, *inFile)
 	}
 	// Adding reserve columns
 	fileNamePos := len(headers)
@@ -258,45 +251,47 @@ func processFile(dbpool []*pgxpool.Pool) error {
 	headers = append(headers, "shard_id")
 	for i := range rawHeaders {
 		if i > 0 {
-			badRowsWriter.WriteRune(reader.Comma)
+			badRowsWriter.WriteRune(csvReader.Comma)
 		}
 		badRowsWriter.WriteString(rawHeaders[i])
 	}
 	_, err = badRowsWriter.WriteRune('\n')
 	if err != nil {
-		return fmt.Errorf("while writing csv headers to err file: %v", err)
+		return false, fmt.Errorf("while writing csv headers to err file: %v", err)
 	}
 
-	// open db connections
+	// prepare db connections
+	// ---------------------------------------
 	nbrNodes := len(dbpool)
 	for i := range dbpool {
 		// validate table name
 		tblExists, err := tableExists(dbpool[i], "public", *tblName)
 		if err != nil {
-			return fmt.Errorf("while validating table name: %v", err)
+			return false, fmt.Errorf("while validating table name: %v", err)
 		}
 		if !tblExists || *dropTable {
 			if *dropTable {
 				// remove the previous input loader status associated with sessionId
 				err = truncateSessionId(dbpool[i], i)
 				if err != nil {
-					return fmt.Errorf("while truncating sessionId: %v", err)
+					return false, fmt.Errorf("while truncating sessionId: %v", err)
 				}
 			}
 			err = createTable(dbpool[i], headers)
 			if err != nil {
-				return fmt.Errorf("while creating table: %v", err)
+				return false, fmt.Errorf("while creating table: %v", err)
 			}
 		}
 	}
 
 	// read the rest of the file
+	// ---------------------------------------
 	var badRowsPos []int
 	var rowid int64
 	nshards64 := int64(*nbrShards)
 	inputRows := make([][][]interface{}, nbrNodes)
 	for {
-		record, err := reader.Read()
+		record, err := csvReader.Read()
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -308,7 +303,7 @@ func processFile(dbpool []*pgxpool.Pool) error {
 					badRowsPos = append(badRowsPos, i)
 				}
 			} else {
-				return fmt.Errorf("unknown error while reading csv records: %v", err)
+				return false, fmt.Errorf("unknown error while reading csv records: %v", err)
 			}
 		} else {
 			copyRec := make([]interface{}, len(headers))
@@ -333,6 +328,7 @@ func processFile(dbpool []*pgxpool.Pool) error {
 	}
 
 	// write the sharded rows to the db using go routines...
+	// ---------------------------------------
 	var copyCount int64
 	var badRowCount int
 	hasErrors := false
@@ -340,7 +336,7 @@ func processFile(dbpool []*pgxpool.Pool) error {
 		// everything is in shard 0
 		copyCount, err = dbpool[0].CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(inputRows[0]))
 		if err != nil {
-			return fmt.Errorf("while copy csv to table: %v", err)
+			return false, fmt.Errorf("while copy csv to table: %v", err)
 		}
 	} else {
 		// create a channel to writing the insert row results
@@ -370,18 +366,21 @@ func processFile(dbpool []*pgxpool.Pool) error {
 		}
 	}
 	if hasErrors {
-		return fmt.Errorf("error(s) while writing to database nodes")
+		return false, fmt.Errorf("error(s) while writing to database nodes")
 	}
 	log.Println("Inserted", copyCount, "rows in database!")
+
+	// Copy the bad rows from input file into the error file
+	// ---------------------------------------
 	badRowCount = len(badRowsPos)
+	hasBadRows := badRowCount > 0
 	if len(badRowsPos) > 0 {
 		log.Println("Got", len(badRowsPos), "bad rows in input file, copying them to the error file.")
-		file, err := os.Open(*inFile)
+		_, err = fileHd.Seek(0, 0)
 		if err != nil {
-			return fmt.Errorf("error while re-opening csv file: %v", err)
+			return false, fmt.Errorf("error while returning to beginning of in_file %s to write the bad rows to error file: %v", *inFile, err)
 		}
-		defer file.Close()
-		reader := bufio.NewReader(file)
+		reader := bufio.NewReader(fileHd)
 		filePos := 0
 		var line string
 		for _, errLinePos := range badRowsPos {
@@ -392,42 +391,74 @@ func processFile(dbpool []*pgxpool.Pool) error {
 						log.Panicf("Bug: reached EOF before getting to bad row %d", errLinePos)
 					}
 					if err != nil {
-						return fmt.Errorf("error while fetching bad rows from csv file: %v", err)
+						return false, fmt.Errorf("error while fetching bad rows from csv file: %v", err)
 					}
 				}
 				filePos += 1
 			}
 			_, err = badRowsWriter.WriteString(line)
 			if err != nil {
-				return fmt.Errorf("error while writing a bad csv row to err file: %v", err)
+				return false, fmt.Errorf("error while writing a bad csv row to err file: %v", err)
 			}
 		}
 	}
+
 	// registering the load
+	// ---------------------------------------
 	status := "completed"
-	if badRowCount != 0 {
+	if hasBadRows {
 		status = "errors"
 	}
 	// register the session if status is completed
 	if status == "completed" && !*doNotLockSessionId {
 		err:= schema.RegisterSession(dbpool[0], *sessionId)
 		if err != nil {
-			return fmt.Errorf("error while registering the session id: %v", err)
+			return false, fmt.Errorf("error while registering the session id: %v", err)
 		}
 	}
 	for i := 0; i < nbrNodes; i++ {
 		err = registerCurrentLoad(copyCount, badRowCount, dbpool[i], i, status)
 		if err != nil {
-			return fmt.Errorf("error while registering the load: %v", err)
+			return false, fmt.Errorf("error while registering the load: %v", err)
 		}
 	}
 
-	return nil
+	return hasBadRows, nil
 }
 
 func coordinateWork() error {
-	// open db connections
 	var err error
+	secretName := "jetstore/pgsql"
+	region := "us-east-1"
+	// if len(*bucket) > 0 { }
+	config, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+	 log.Fatal(err)
+	}
+ 
+	// Create Secrets Manager client
+	svc := secretsmanager.NewFromConfig(config)
+ 
+	input := &secretsmanager.GetSecretValueInput{
+	 SecretId:     aws.String(secretName),
+	 VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
+	}
+ 
+	result, err := svc.GetSecretValue(context.TODO(), input)
+	if err != nil {
+	 // For a list of exceptions thrown, see
+	 // https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+	 log.Fatal(err.Error())
+	}
+ 
+	// Decrypts secret using the associated KMS key.
+	var secretString string = *result.SecretString
+ 
+	// Your code goes here.
+	fmt.Println("GOT SECRET:",secretString)
+ 
+	// open db connections
+	// ---------------------------------------
 	dsnSplit := strings.Split(*dsnList, ",")
 	nbrNodes := len(dsnSplit)
 	dbpool := make([]*pgxpool.Pool, nbrNodes)
@@ -449,6 +480,7 @@ func coordinateWork() error {
 	}
 
 	// check the session is not already used
+	// ---------------------------------------
 	isInUse, err := schema.IsSessionExists(dbpool[0], *sessionId)
 	if err != nil {
 		return fmt.Errorf("while verifying is the session is in use: %v", err)
@@ -457,7 +489,72 @@ func coordinateWork() error {
 		return fmt.Errorf("error: the session id is already used")
 	}
 
-	err = processFile(dbpool)
+	var fileHd, errFileHd *os.File
+	var awsClient *s3.Client
+	if len(*bucket) > 0 {
+		// aws integration: Check if we read from bucket
+		// Open input and error files
+		// ---------------------------------------
+		// Load the SDK's configuration from environment and shared config, and
+		// create the client with this.
+		// ALREADY DONE ABOVE
+		// config, err := config.LoadDefaultConfig(context.TODO())
+		// if err != nil {
+		// 	log.Fatalf("failed to load SDK configuration, %v", err)
+		// }
+		awsClient = s3.NewFromConfig(config)
+
+		// Download object using a download manager to a temp file (fileHd)
+		fileHd, err = os.CreateTemp("", "jetstore")
+		if err != nil {
+			log.Fatalf("failed to open temp input file: %v", err)
+		}
+		fmt.Println("Temp input file name:", fileHd.Name())
+		defer os.Remove(fileHd.Name())
+
+		// Open the error file
+		errFileHd, err = os.CreateTemp("", "jetstore_err")
+		if err != nil {
+			log.Fatalf("failed to open temp error file: %v", err)
+		}
+		fmt.Println("Temp error file name:", errFileHd.Name())
+		defer os.Remove(errFileHd.Name())
+
+		// Download the object
+		downloader := manager.NewDownloader(awsClient)
+		nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: bucket, Key: inFile})
+		if err != nil {
+			log.Fatalf("failed to download input file: %v", err)
+		}
+		fmt.Println("downloaded", nsz,"bytes")
+
+		// Get ready to read the file
+		fileHd.Seek(0, 0)
+	
+	} else {
+
+		// open csv file
+		fileHd, err := os.Open(*inFile)
+		if err != nil {
+			return fmt.Errorf("error while opening csv file: %v", err)
+		}
+		defer fileHd.Close()
+
+		// open the error file
+		dp, fn := filepath.Split(*inFile)
+		if len(errOutDir) == 0 {
+			errFileHd, err = os.Create(dp + "err_" + fn)
+		} else {
+			errFileHd, err = os.Create(fmt.Sprintf("%s/err_%s", errOutDir, fn))
+		}
+		if err != nil {
+			return fmt.Errorf("error while opening output csv err file: %v", err)
+		}
+		defer errFileHd.Close()
+	}
+
+	// Process the downloaded file
+	hasBadRows, err := processFile(dbpool, fileHd, errFileHd)
 	if err != nil {
 		for i := 0; i < nbrNodes; i++ {
 			err2 := registerCurrentLoad(0, 0, dbpool[i], i, "failed")
@@ -466,6 +563,28 @@ func coordinateWork() error {
 			}
 		}
 		return err
+	}
+
+	if len(*bucket) > 0 && hasBadRows {
+
+		// aws integration: Copy the error file to bucket
+		errFileHd.Seek(0, 0)
+
+		// Create an uploader with the client and custom options
+		uploader := manager.NewUploader(awsClient)
+
+		// Create the error file key
+		dp, fn := filepath.Split(*inFile)
+		errFileKey := dp + "err_" + fn
+		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
+			Bucket: bucket,
+			Key:    &errFileKey,
+			Body:   bufio.NewReader(errFileHd),
+		})
+		if err != nil {
+			log.Fatalf("failed to upload error file: %v", err)
+		}
+		fmt.Println("uploaded", len(result.CompletedParts),"parts to bad rows file")		
 	}
 	return nil
 }
@@ -508,7 +627,7 @@ func main() {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
-		os.Exit((1))
+		os.Exit(1)
 	}
 	sessId := ""
 	if *sessionId == "" {
@@ -521,6 +640,7 @@ func main() {
 
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
+	fmt.Println("Got argument: bucket", *bucket)
 	fmt.Println("Got argument: inFile", *inFile)
 	fmt.Println("Got argument: dropTable", *dropTable)
 	fmt.Println("Got argument: dsnList", *dsnList)

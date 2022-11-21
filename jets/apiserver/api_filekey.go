@@ -61,7 +61,6 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 		for jcol, colKey := range sqlStmt.columnKeys {
 			row[jcol] = registerFileKeyAction.Data[irow][colKey]
 		}
-		// fmt.Printf("Insert Row for stmt on table %s: %v\n", registerFileKeyAction.Table, row)
 		_, err := server.dbpool.Exec(context.Background(), sqlStmt.stmt, row...)
 		if err != nil {
 			log.Printf("while inserting on table file_key_staging: %v", err)
