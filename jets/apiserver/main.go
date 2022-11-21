@@ -13,7 +13,8 @@ var apiSecret          = flag.String("API_SECRET", "", "Secret used for signing 
 var dsn                = flag.String("dsn", "", "primary database connection string (required)")
 var serverAddr         = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
 var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
-var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only")
+var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only)")
+var uiWebDir           = flag.String("WEB_APP_DEPLOYMENT_DIR", "/usr/local/lib/web", "UI static web app directory")
 var devMode bool
 var argoCmd string
 var nbrShards int
@@ -77,6 +78,7 @@ func main() {
 	fmt.Println("Got argument: dsn",*dsn)
 	fmt.Println("Got argument: serverAddr",*serverAddr)
 	fmt.Println("Got argument: tokenExpiration",*tokenExpiration, "min")
+	fmt.Println("Got argument: WEB_APP_DEPLOYMENT_DIR",*uiWebDir)
 	if devMode {
 		fmt.Println("Running in DEV MODE: unitTestDir", *unitTestDir)
 		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)

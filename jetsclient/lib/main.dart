@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:provider/provider.dart';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:jetsclient/http_client.dart';
 
 import 'package:jetsclient/routes/jets_route_information_parser.dart';
@@ -10,8 +12,15 @@ final jetsRouteDelegate = JetsRouterDelegate();
 final jetsRouteInformationParser = JetsRouteInformationParser();
 
 void main() {
-  var serverOrigin = const String.fromEnvironment("API_HOST",
-      defaultValue: "http://localhost:8080");
+  // final url = html.window.location.href;
+  final protocol = html.window.location.protocol;
+  final port = foundation.kDebugMode ? 8080 : html.window.location.port;
+  final hostname = html.window.location.hostname; // you probably need this one
+  // print("url: $url");
+  // print("protocol: $protocol");
+  // print("hostname: $hostname");
+  // print("port: $port");
+  var serverOrigin = "$protocol//$hostname:$port";
   runApp(JetsClient(serverOrigin: serverOrigin));
 }
 
