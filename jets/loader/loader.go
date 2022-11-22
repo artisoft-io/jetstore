@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"hash/fnv"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -45,10 +47,12 @@ func (s *chartype) Set(value string) error {
 	return nil
 }
 
-var bucket = flag.String("bucket", "", "Bucket having the the input csv file (aws integration)")
+var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
+var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
 var inFile = flag.String("in_file", "/work/input.csv", "the input csv file name")
 var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
-var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
+var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required unless -awsDsnSecret is provided)")
 var tblName = flag.String("table", "", "table name to load the data into (required)")
 var client = flag.String("client", "", "Client associated with the source location (required)")
 var objectType = flag.String("objectType", "", "The type of object contained in the file (required)")
@@ -59,6 +63,7 @@ var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -
 var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
 var sep_flag chartype = '€'
 var errOutDir string
+var nbrNodes int = 1
 
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator, default is auto detect between pipe ('|') or comma (',')")
@@ -262,7 +267,6 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 
 	// prepare db connections
 	// ---------------------------------------
-	nbrNodes := len(dbpool)
 	for i := range dbpool {
 		// validate table name
 		tblExists, err := tableExists(dbpool[i], "public", *tblName)
@@ -428,48 +432,78 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 
 func coordinateWork() error {
 	var err error
-	secretName := "jetstore/pgsql"
-	region := "us-east-1"
-	// if len(*bucket) > 0 { }
-	config, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
-	if err != nil {
-	 log.Fatal(err)
+	var cfg aws.Config
+	var dbpool []*pgxpool.Pool
+
+	if *awsBucket != "" || *awsDsnSecret != "" { 
+		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(*awsRegion))
+		if err != nil {
+			return fmt.Errorf("while loading aws configuration: %v", err)
+		}
 	}
- 
-	// Create Secrets Manager client
-	svc := secretsmanager.NewFromConfig(config)
- 
-	input := &secretsmanager.GetSecretValueInput{
-	 SecretId:     aws.String(secretName),
-	 VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
-	}
- 
-	result, err := svc.GetSecretValue(context.TODO(), input)
-	if err != nil {
-	 // For a list of exceptions thrown, see
-	 // https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-	 log.Fatal(err.Error())
-	}
- 
-	// Decrypts secret using the associated KMS key.
-	var secretString string = *result.SecretString
- 
-	// Your code goes here.
-	fmt.Println("GOT SECRET:",secretString)
- 
+
 	// open db connections
 	// ---------------------------------------
-	dsnSplit := strings.Split(*dsnList, ",")
-	nbrNodes := len(dsnSplit)
-	dbpool := make([]*pgxpool.Pool, nbrNodes)
-	for i := range dsnSplit {
-		dbpool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
+	if *awsDsnSecret != "" {
+	
+		// Create Secrets Manager client
+		svc := secretsmanager.NewFromConfig(cfg)
+	
+		input := &secretsmanager.GetSecretValueInput{
+			SecretId:     aws.String(*awsDsnSecret),
+			VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
+		}
+	
+		result, err := svc.GetSecretValue(context.TODO(), input)
+		if err != nil {
+			// For a list of exceptions thrown, see
+			// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+			return fmt.Errorf("while getting aws secret value for dsn: %v", err)
+		}
+	
+		// Decrypts secret using the associated KMS key.
+		// Expected a string with json element with keys: "username","password","engine","host","port","dbClusterIdentifier"
+		secretString := *result.SecretString
+		// parse the json into the map m
+		m := make(map[string]interface{})
+		err = json.Unmarshal([]byte(secretString), &m)
+		if err != nil {
+			return fmt.Errorf("while umarshaling dsn json: %v", err)
+		}
+		// fmt.Println(m)
+		// //* local testing using ssh tunnel
+		// m["host"] = "localhost"
+		// fmt.Println("LOCAL TESTING using ssh tunnel:",m)
+	
+		// here nbrNodes == 1, the default so dbpool is size of 1
+		dbpool = make([]*pgxpool.Pool, 1)
+		dsn := fmt.Sprintf("postgresql://%s:%s@%s:%.0f/postgres", 
+			m["username"].(string), url.QueryEscape(m["password"].(string)), m["host"].(string), m["port"].(float64))
+
+		dbpool[0], err = pgxpool.Connect(context.Background(), dsn)
 		if err != nil {
 			return fmt.Errorf("while opening db connection: %v", err)
 		}
-		defer dbpool[i].Close()
+		defer dbpool[0].Close()
 
-		// Make sure the jetstore schema exists
+	} else {
+
+		// using -dsn argument
+		dsnSplit := strings.Split(*dsnList, ",")
+		nbrNodes = len(dsnSplit)
+		dbpool = make([]*pgxpool.Pool, nbrNodes)
+		for i := range dsnSplit {
+			dbpool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
+			if err != nil {
+				return fmt.Errorf("while opening db connection: %v", err)
+			}
+			defer dbpool[i].Close()
+		}	
+	}
+
+	// Make sure the jetstore schema exists
+	// ---------------------------------------
+	for i := range dbpool {
 		tblExists, err := tableExists(dbpool[i], "jetsapi", "input_loader_status")
 		if err != nil {
 			return fmt.Errorf("while verifying the jetstore schema: %v", err)
@@ -490,19 +524,19 @@ func coordinateWork() error {
 	}
 
 	var fileHd, errFileHd *os.File
-	var awsClient *s3.Client
-	if len(*bucket) > 0 {
-		// aws integration: Check if we read from bucket
+	var s3Client *s3.Client
+	if len(*awsBucket) > 0 {
+		// aws integration: Check if we read from awsBucket
 		// Open input and error files
 		// ---------------------------------------
-		// Load the SDK's configuration from environment and shared config, and
+		// Load the SDK's configuration from environment and shared cfg, and
 		// create the client with this.
 		// ALREADY DONE ABOVE
-		// config, err := config.LoadDefaultConfig(context.TODO())
+		// cfg, err := config.LoadDefaultConfig(context.TODO())
 		// if err != nil {
 		// 	log.Fatalf("failed to load SDK configuration, %v", err)
 		// }
-		awsClient = s3.NewFromConfig(config)
+		s3Client = s3.NewFromConfig(cfg)
 
 		// Download object using a download manager to a temp file (fileHd)
 		fileHd, err = os.CreateTemp("", "jetstore")
@@ -521,8 +555,8 @@ func coordinateWork() error {
 		defer os.Remove(errFileHd.Name())
 
 		// Download the object
-		downloader := manager.NewDownloader(awsClient)
-		nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: bucket, Key: inFile})
+		downloader := manager.NewDownloader(s3Client)
+		nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: awsBucket, Key: inFile})
 		if err != nil {
 			log.Fatalf("failed to download input file: %v", err)
 		}
@@ -565,19 +599,19 @@ func coordinateWork() error {
 		return err
 	}
 
-	if len(*bucket) > 0 && hasBadRows {
+	if len(*awsBucket) > 0 && hasBadRows {
 
-		// aws integration: Copy the error file to bucket
+		// aws integration: Copy the error file to awsBucket
 		errFileHd.Seek(0, 0)
 
 		// Create an uploader with the client and custom options
-		uploader := manager.NewUploader(awsClient)
+		uploader := manager.NewUploader(s3Client)
 
 		// Create the error file key
 		dp, fn := filepath.Split(*inFile)
 		errFileKey := dp + "err_" + fn
 		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
-			Bucket: bucket,
+			Bucket: awsBucket,
 			Key:    &errFileKey,
 			Body:   bufio.NewReader(errFileHd),
 		})
@@ -618,9 +652,13 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Table name is not valid.")
 	}
-	if *dsnList == "" {
+	if *dsnList == "" && *awsDsnSecret == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Connection string must be provided.")
+		errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsnList.")
+	}
+	if (*awsBucket != "" || *awsDsnSecret != "") && *awsRegion == "" {
+		hasErr = true
+		errMsg = append(errMsg, "aws region must be provided when using either -awsDsnSecret or -awsBucket.")
 	}
 	if hasErr {
 		flag.Usage()
@@ -640,7 +678,9 @@ func main() {
 
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
-	fmt.Println("Got argument: bucket", *bucket)
+	fmt.Println("Got argument: awsDsnSecret", *awsDsnSecret)
+	fmt.Println("Got argument: awsBucket", *awsBucket)
+	fmt.Println("Got argument: awsRegion", *awsRegion)
 	fmt.Println("Got argument: inFile", *inFile)
 	fmt.Println("Got argument: dropTable", *dropTable)
 	fmt.Println("Got argument: dsnList", *dsnList)
@@ -655,6 +695,9 @@ func main() {
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
 	if len(errOutDir) == 0 {
 		fmt.Println("Loader error file will be in same directory as input file.")
+	}
+	if *dsnList != "" && *awsDsnSecret != "" {
+		fmt.Println("Both -awsDsnSecret and -dsnList are provided, will use argument -awsDsnSecret only")
 	}
  
 	err := coordinateWork()
