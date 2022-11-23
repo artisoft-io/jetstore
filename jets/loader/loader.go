@@ -4,14 +4,12 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"hash/fnv"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,14 +17,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // Command Line Arguments
@@ -50,6 +44,7 @@ func (s *chartype) Set(value string) error {
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
+var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var inFile = flag.String("in_file", "/work/input.csv", "the input csv file name")
 var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
 var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required unless -awsDsnSecret is provided)")
@@ -432,54 +427,19 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 
 func coordinateWork() error {
 	var err error
-	var cfg aws.Config
 	var dbpool []*pgxpool.Pool
-
-	if *awsBucket != "" || *awsDsnSecret != "" { 
-		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(*awsRegion))
-		if err != nil {
-			return fmt.Errorf("while loading aws configuration: %v", err)
-		}
-	}
 
 	// open db connections
 	// ---------------------------------------
 	if *awsDsnSecret != "" {
-	
-		// Create Secrets Manager client
-		svc := secretsmanager.NewFromConfig(cfg)
-	
-		input := &secretsmanager.GetSecretValueInput{
-			SecretId:     aws.String(*awsDsnSecret),
-			VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
-		}
-	
-		result, err := svc.GetSecretValue(context.TODO(), input)
+		// Get the dsn from the aws secret
+		dsn, err := awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, 10)
 		if err != nil {
-			// For a list of exceptions thrown, see
-			// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-			return fmt.Errorf("while getting aws secret value for dsn: %v", err)
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}
-	
-		// Decrypts secret using the associated KMS key.
-		// Expected a string with json element with keys: "username","password","engine","host","port","dbClusterIdentifier"
-		secretString := *result.SecretString
-		// parse the json into the map m
-		m := make(map[string]interface{})
-		err = json.Unmarshal([]byte(secretString), &m)
-		if err != nil {
-			return fmt.Errorf("while umarshaling dsn json: %v", err)
-		}
-		// fmt.Println(m)
-		// //* local testing using ssh tunnel
-		// m["host"] = "localhost"
-		// fmt.Println("LOCAL TESTING using ssh tunnel:",m)
-	
+
 		// here nbrNodes == 1, the default so dbpool is size of 1
 		dbpool = make([]*pgxpool.Pool, 1)
-		dsn := fmt.Sprintf("postgresql://%s:%s@%s:%.0f/postgres", 
-			m["username"].(string), url.QueryEscape(m["password"].(string)), m["host"].(string), m["port"].(float64))
-
 		dbpool[0], err = pgxpool.Connect(context.Background(), dsn)
 		if err != nil {
 			return fmt.Errorf("while opening db connection: %v", err)
@@ -524,24 +484,12 @@ func coordinateWork() error {
 	}
 
 	var fileHd, errFileHd *os.File
-	var s3Client *s3.Client
 	if len(*awsBucket) > 0 {
-		// aws integration: Check if we read from awsBucket
-		// Open input and error files
-		// ---------------------------------------
-		// Load the SDK's configuration from environment and shared cfg, and
-		// create the client with this.
-		// ALREADY DONE ABOVE
-		// cfg, err := config.LoadDefaultConfig(context.TODO())
-		// if err != nil {
-		// 	log.Fatalf("failed to load SDK configuration, %v", err)
-		// }
-		s3Client = s3.NewFromConfig(cfg)
 
 		// Download object using a download manager to a temp file (fileHd)
 		fileHd, err = os.CreateTemp("", "jetstore")
 		if err != nil {
-			log.Fatalf("failed to open temp input file: %v", err)
+			return fmt.Errorf("failed to open temp input file: %v", err)
 		}
 		fmt.Println("Temp input file name:", fileHd.Name())
 		defer os.Remove(fileHd.Name())
@@ -549,18 +497,17 @@ func coordinateWork() error {
 		// Open the error file
 		errFileHd, err = os.CreateTemp("", "jetstore_err")
 		if err != nil {
-			log.Fatalf("failed to open temp error file: %v", err)
+			return fmt.Errorf("failed to open temp error file: %v", err)
 		}
 		fmt.Println("Temp error file name:", errFileHd.Name())
 		defer os.Remove(errFileHd.Name())
 
 		// Download the object
-		downloader := manager.NewDownloader(s3Client)
-		nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: awsBucket, Key: inFile})
+		nsz, err := awsi.DownloadFromS3(*awsBucket, *awsRegion, *inFile, fileHd)
 		if err != nil {
-			log.Fatalf("failed to download input file: %v", err)
+			return fmt.Errorf("failed to download input file: %v", err)
 		}
-		fmt.Println("downloaded", nsz,"bytes")
+		fmt.Println("downloaded", nsz,"bytes from s3")
 
 		// Get ready to read the file
 		fileHd.Seek(0, 0)
@@ -604,21 +551,13 @@ func coordinateWork() error {
 		// aws integration: Copy the error file to awsBucket
 		errFileHd.Seek(0, 0)
 
-		// Create an uploader with the client and custom options
-		uploader := manager.NewUploader(s3Client)
-
 		// Create the error file key
 		dp, fn := filepath.Split(*inFile)
 		errFileKey := dp + "err_" + fn
-		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
-			Bucket: awsBucket,
-			Key:    &errFileKey,
-			Body:   bufio.NewReader(errFileHd),
-		})
+		err = awsi.UploadToS3(*awsBucket, *awsRegion, errFileKey, errFileHd)
 		if err != nil {
-			log.Fatalf("failed to upload error file: %v", err)
+			return fmt.Errorf("failed to upload error file: %v", err)
 		}
-		fmt.Println("uploaded", len(result.CompletedParts),"parts to bad rows file")		
 	}
 	return nil
 }
