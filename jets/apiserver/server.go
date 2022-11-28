@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -104,19 +103,21 @@ func (server *Server) initUsers() error {
 		return fmt.Errorf("error: user table does not exist, please update database schema")
 	}
 	// Check the admin user exists
-	var ok bool
-	adminEmail, ok = os.LookupEnv("JETS_ADMIN_EMAIL")
-	if !ok {
-		return fmt.Errorf("Default admin id is not defined (env JETS_ADMIN_EMAIL), it must be defined")
-	}
 	stmt := "SELECT user_email FROM jetsapi.users WHERE user_email=$1"
 	var v string
-	err = server.dbpool.QueryRow(context.Background(), stmt, adminEmail).Scan(&v)
+	err = server.dbpool.QueryRow(context.Background(), stmt, *adminEmail).Scan(&v)
 	if err != nil {
 		log.Println("Admin User is not defined in users table, creating it")
-		adminPassword, ok := os.LookupEnv("JETS_ADMIN_PASSWORD")
-		if !ok {
-			return fmt.Errorf("Default admin password is not defined (env JETS_ADMIN_PASSWORD), it must be defined")
+		if *awsAdminPwdSecret == "" && *adminPwd == "" {
+			return fmt.Errorf("admin password not defined and database not initialized, must be defined")
+		}
+		var adminPassword string = *adminPwd
+		var err error
+		if *awsAdminPwdSecret != "" {
+			adminPassword, err = awsi.GetSecretValue(*awsAdminPwdSecret, *awsRegion)
+			if err != nil {
+				return fmt.Errorf("while getting apiSecret from aws secret: %v", err)
+			}
 		}
 		// hash the password
 		hashedPassword, err := Hash(adminPassword)
@@ -125,7 +126,7 @@ func (server *Server) initUsers() error {
 		}
 		adminPassword = string(hashedPassword)
 		stmt = "INSERT INTO jetsapi.users (user_email, name, password, is_active) VALUES ($1, 'Admin', $2, 1)"
-		_, err = server.dbpool.Exec(context.Background(), stmt, adminEmail, adminPassword)
+		_, err = server.dbpool.Exec(context.Background(), stmt, *adminEmail, adminPassword)
 		if err != nil {
 			return fmt.Errorf("while inserting admin into users table: %v", err)
 		}

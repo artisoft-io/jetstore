@@ -20,16 +20,26 @@ var serverAddr         = flag.String("serverAddr", ":8080", "server address to L
 var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only)")
 var uiWebDir           = flag.String("WEB_APP_DEPLOYMENT_DIR", "/usr/local/lib/web", "UI static web app directory")
+var adminEmail         = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
+var awsAdminPwdSecret  = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
+var adminPwd           = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
 var devMode bool
 var argoCmd string
 var nbrShards int
-var adminEmail string
 
 func main() {
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
 
+	if *adminEmail == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Admin email (-adminEmail) must be provided.")
+	}
+	if *awsAdminPwdSecret == "" && *adminPwd == "" {
+		// hasErr = true
+		errMsg = append(errMsg, "-awsAdminPwdSecret or -adminPwd must be provided unless the database was initialized already.")
+	}
 	if *awsApiSecret == "" && *apiSecret == "" {
 		hasErr = true
 		errMsg = append(errMsg, "-awsApiSecret or -apiSecret must be provided.")
@@ -38,9 +48,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "dsn for primary database node (-awsDnsSecret or -dsn) must be provided.")
 	}
-	if (*awsApiSecret != "" || *awsDsnSecret != "") && *awsRegion == "" {
+	if (*awsApiSecret != "" || *awsDsnSecret != "" || *awsAdminPwdSecret != "") && *awsRegion == "" {
 		hasErr = true
-		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret or -awsApiSecret is provided.")
+		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret, -awsAdminPwdSecret or -awsApiSecret is provided.")
 	}
 	if *serverAddr == "" {
 		hasErr = true
@@ -93,6 +103,9 @@ func main() {
 	fmt.Println("Got argument: awsRegion",*awsRegion)
 	fmt.Println("Got argument: serverAddr",*serverAddr)
 	fmt.Println("Got argument: tokenExpiration",*tokenExpiration, "min")
+	fmt.Println("Got argument: adminEmail",*adminEmail)
+	fmt.Println("Got argument: awsAdminPwdSecret",*awsAdminPwdSecret)
+	fmt.Println("Got argument: adminPwd",*adminPwd)
 	fmt.Println("Got argument: WEB_APP_DEPLOYMENT_DIR",*uiWebDir)
 	if devMode {
 		fmt.Println("Running in DEV MODE: unitTestDir", *unitTestDir)
