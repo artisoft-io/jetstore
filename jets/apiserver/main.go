@@ -38,7 +38,8 @@ func main() {
 	}
 	if *awsAdminPwdSecret == "" && *adminPwd == "" {
 		// hasErr = true
-		errMsg = append(errMsg, "-awsAdminPwdSecret or -adminPwd must be provided unless the database was initialized already.")
+		// errMsg = append(errMsg, "-awsAdminPwdSecret or -adminPwd must be provided unless the database was initialized already.")
+		log.Println("-awsAdminPwdSecret or -adminPwd must be provided unless the database was initialized already.")
 	}
 	if *awsApiSecret == "" && *apiSecret == "" {
 		hasErr = true
