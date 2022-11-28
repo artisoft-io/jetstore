@@ -10,7 +10,11 @@ import (
 )
 
 var apiSecret          = flag.String("API_SECRET", "", "Secret used for signing jwt tokens (required)")
-var dsn                = flag.String("dsn", "", "primary database connection string (required)")
+var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var dbPoolSize         = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -awsDnsSecret (default 10)")
+var usingSshTunnel     = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var awsRegion          = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
+var dsn                = flag.String("dsn", "", "primary database connection string (required unless -awsDsnSecret is provided)")
 var serverAddr         = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
 var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only)")
@@ -28,9 +32,13 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "API_SECRET must be provided.")
 	}
-	if *dsn == "" {
+	if *dsn == "" && *awsDsnSecret == "" {
 		hasErr = true
-		errMsg = append(errMsg, "dsn for primary database node (-dsn) must be provided.")
+		errMsg = append(errMsg, "dsn for primary database node (-awsDnsSecret or -dsn) must be provided.")
+	}
+	if *awsDsnSecret != "" && *awsRegion == "" {
+		hasErr = true
+		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
 	if *serverAddr == "" {
 		hasErr = true
@@ -76,6 +84,10 @@ func main() {
 	fmt.Println("-------------------")
 	fmt.Println("Got argument: apiSecret",*apiSecret)
 	fmt.Println("Got argument: dsn",*dsn)
+	fmt.Println("Got argument: awsDsnSecret",*awsDsnSecret)
+	fmt.Println("Got argument: dbPoolSize",*dbPoolSize)
+	fmt.Println("Got argument: usingSshTunnel",*usingSshTunnel)
+	fmt.Println("Got argument: awsRegion",*awsRegion)
 	fmt.Println("Got argument: serverAddr",*serverAddr)
 	fmt.Println("Got argument: tokenExpiration",*tokenExpiration, "min")
 	fmt.Println("Got argument: WEB_APP_DEPLOYMENT_DIR",*uiWebDir)

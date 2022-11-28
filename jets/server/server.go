@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -24,22 +25,26 @@ type dbConnections struct {
 }
 
 // Command Line Arguments
-var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required)")
-var workspaceDb = flag.String("workspaceDb", "", "workspace db path, if not proveded will use env WORKSPACE_DB_PATH if defined (required)")
-var lookupDb = flag.String("lookupDb", "", "lookup data path (if not provided will use env WORKSPACE_LOOKUPS_DB_PATH if defined")
-var ruleset = flag.String("ruleset", "", "main rule set name (override process config)")
-var ruleseq = flag.String("ruleseq", "", "rule set sequence (override process config)")
-var pipelineConfigKey = flag.Int("pcKey", -1, "Pipeline config key (required or -peKey)")
-var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required or -pcKey)")
-var poolSize = flag.Int("poolSize", 10, "Pool size constraint")
-var outSessionId = flag.String("sessionId", "", "Process session ID for the output Domain Tables. (required)")
+var awsDsnSecret        = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var dbPoolSize          = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -awsDnsSecret (default 10)")
+var usingSshTunnel      = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var awsRegion           = flag.String("awsRegion", "", "aws region to connect to for aws secret (aws integration) (required if -awsDsnSecret is provided)")
+var dsnList             = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required unless -awsDsnSecret is provided)")
+var workspaceDb         = flag.String("workspaceDb", "", "workspace db path, if not proveded will use env WORKSPACE_DB_PATH if defined (required)")
+var lookupDb            = flag.String("lookupDb", "", "lookup data path (if not provided will use env WORKSPACE_LOOKUPS_DB_PATH if defined")
+var ruleset             = flag.String("ruleset", "", "main rule set name (override process config)")
+var ruleseq             = flag.String("ruleseq", "", "rule set sequence (override process config)")
+var pipelineConfigKey   = flag.Int("pcKey", -1, "Pipeline config key (required or -peKey)")
+var pipelineExecKey     = flag.Int("peKey", -1, "Pipeline execution key (required or -pcKey)")
+var poolSize            = flag.Int("poolSize", 10, "Coroutines pool size constraint")
+var outSessionId        = flag.String("sessionId", "", "Process session ID for the output Domain Tables. (required)")
 var inSessionIdOverride = flag.String("inSessionId", "", "Session ID for input domain table, defaults to latest in input_registry table.")
-var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
-var nodeId = flag.Int("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
-var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities")
-var outTables = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
-var shardId = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId.")
-var userEmail = flag.String("userEmail", "", "User identifier to register the execution results (required)")
+var limit               = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
+var nodeId              = flag.Int("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
+var nbrShards           = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities")
+var outTables           = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
+var shardId             = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId.")
+var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int // taken from env GLOG_v
@@ -73,9 +78,6 @@ func compute_shard_id(key string) int {
 	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
 	return res
 }
-func compute_node_id(key string) int {
-	return compute_shard_id(key) % nbrDbNodes
-}
 func compute_node_id_from_shard_id(shard int) int {
 	res := shard % nbrDbNodes
 	// log.Println("COMPUTE NODE for shard ",shard,"on",nbrDbNodes,"nodes, node id =",res)
@@ -83,9 +85,18 @@ func compute_node_id_from_shard_id(shard int) int {
 }
 
 // doJob main function
+// -------------------------------------
 func doJob() error {
 
 	// open db connections
+	var err error
+	if *awsDsnSecret != "" {
+		// Get the dsn from the aws secret
+		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		if err != nil {
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		}
+	}
 	dsnSplit := strings.Split(*dsnList, ",")
 	nbrDbNodes = len(dsnSplit)
 	if *shardId >= 0 {
@@ -94,6 +105,10 @@ func doJob() error {
 	if *nodeId >= nbrDbNodes {
 		return fmt.Errorf("error: nodeId is %d (-nodeId), we have %d nodes (-dsn): nodeId must be one of the db nodes", *nodeId, nbrDbNodes)
 	}
+	log.Println("Command Line Argument: awsDsnSecret",*awsDsnSecret)
+	log.Println("Command Line Argument: dbPoolSize",*dbPoolSize)
+	log.Println("Command Line Argument: usingSshTunnel",*usingSshTunnel)
+	log.Println("Command Line Argument: awsRegion",*awsRegion)
 	log.Printf("Command Line Argument: inSessionId: %s\n", *inSessionIdOverride)
 	log.Printf("Command Line Argument: limit: %d\n", *limit)
 	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
@@ -197,9 +212,13 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Do not provide both process config key (-pcKey) and process execution status key (-peKey), -peKey is sufficient.")
 	}
-	if *dsnList == "" {
+	if *dsnList == "" && *awsDsnSecret == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Connection string (-dsn) must be provided.")
+		errMsg = append(errMsg, "Connection string (-dsn or -awsDsnSecret) must be provided.")
+	}
+	if *awsDsnSecret != "" && *awsRegion == "" {
+		hasErr = true
+		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
 	if *userEmail == "" {
 		hasErr = true
