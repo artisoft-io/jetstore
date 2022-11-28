@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -137,6 +138,13 @@ func (server *Server) initUsers() error {
 func listenAndServe() error {
 	// Open db connection
 	var err error
+	if *awsDsnSecret != "" {
+		// Get the dsn from the aws secret
+		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		if err != nil {
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		}
+	}
 	server.dbpool, err = pgxpool.Connect(context.Background(), *dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)

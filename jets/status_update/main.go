@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -15,10 +16,14 @@ import (
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
 
-var dsn = flag.String("dsn", "", "Database connection string (required)")
-var peKey = flag.Int("peKey", -1, "Pipeline Execution Status key (required)")
-var status = flag.String("status", "", "Argo completion status ('completed' or 'failed') (required)")
-var sessionId = flag.String("sessionId", "", "Process session ID. (required)")
+var awsDsnSecret   = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var dbPoolSize     = flag.Int("dbPoolSize", 5, "DB connection pool size, used for -awsDnsSecret (default 10)")
+var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var awsRegion      = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
+var dsn            = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
+var peKey          = flag.Int("peKey", -1, "Pipeline Execution Status key (required)")
+var status         = flag.String("status", "", "Argo completion status ('completed' or 'failed') (required)")
+var sessionId      = flag.String("sessionId", "", "Process session ID. (required)")
 
 // Support Functions
 // --------------------------------------------------------------------------------------
@@ -49,6 +54,13 @@ func updateStatus(dbpool *pgxpool.Pool, pipelineKey int, status string) {
 func coordinateWork() error {
 	// open db connection
 	var err error
+	if *awsDsnSecret != "" {
+		// Get the dsn from the aws secret
+		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		if err != nil {
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		}
+	}
 	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
@@ -95,9 +107,13 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Session ID must be provided (-sessionId).")
 	}
-	if *dsn == "" {
+	if *dsn == "" && *awsDsnSecret == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Data Source Name (dsn) must be provided (-dsn).")
+		errMsg = append(errMsg, "Data Source Name (dsn) must be provided (-dsn or -awsDsnSecret).")
+	}
+	if *awsDsnSecret != "" && *awsRegion == "" {
+		hasErr = true
+		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
 	if hasErr {
 		flag.Usage()
@@ -110,6 +126,9 @@ func main() {
 	fmt.Println("Session Update argument:")
 	fmt.Println("----------------")
 	fmt.Println("Got argument: dsn", *dsn)
+	fmt.Println("Got argument: awsDsnSecret",*awsDsnSecret)
+	fmt.Println("Got argument: dbPoolSize",*dbPoolSize)
+	fmt.Println("Got argument: usingSshTunnel",*usingSshTunnel)
 	fmt.Println("Got argument: peKey", *peKey)
 	fmt.Println("Got argument: status", *status)
 	fmt.Println("Got argument: sessionId", *sessionId)

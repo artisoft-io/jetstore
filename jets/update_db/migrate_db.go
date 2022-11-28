@@ -10,7 +10,7 @@ import (
 )
 
 func migrate_db(dbpool []*pgxpool.Pool) error {
-	// read jstore sys tables definition from json location specified by env var
+	// read jetstore sys tables definition using schema in json from location specified by env var
 	schemaFname := os.Getenv("JETS_SCHEMA_FILE")
 	if len(schemaFname) == 0 {
 		schemaFname = "jets_schema.json"
@@ -21,7 +21,7 @@ func migrate_db(dbpool []*pgxpool.Pool) error {
 		return fmt.Errorf("error while opening jetstore schema file: %v", err)
 	}
 	defer file.Close()
-	// open and the schema definition
+	// open and decode the schema definition
 	dec := json.NewDecoder(file)
 	var schemaDef []schema.TableDefinition
 	if err := dec.Decode(&schemaDef); err != nil {

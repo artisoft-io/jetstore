@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -16,8 +17,12 @@ import (
 // cmd tool to manage db schema
 
 // Command line arguments
-var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
+var lvr           = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
 var dropExisting  = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
+var awsDsnSecret  = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var dbPoolSize    = flag.Int("dbPoolSize", 5, "DB connection pool size, used for -awsDnsSecret (default 10)")
+var usingSshTunnel= flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var awsRegion     = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
 var dsnList       = flag.String("dsn", "", "comma-separated list of database connection string (required)")
 var workspaceDb   = flag.String("workspaceDb", "", "workspace db path (required)")
 var migrateDb     = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
@@ -43,7 +48,13 @@ func init() {
 // Main function
 func doJob() error {
 	var err error
-
+	if *awsDsnSecret != "" {
+		// Get the dsn from the aws secret
+		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		if err != nil {
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		}
+	}
 	dsnSplit := strings.Split(*dsnList, ",")
 	dbslice := make([]*pgxpool.Pool, len(dsnSplit))
 	for i := range dsnSplit {
@@ -141,9 +152,13 @@ func main() {
 	// validate command line arguments
 	hasErr := false
 	var errMsg []string
-	if *dsnList == "" {
+	if *dsnList == "" && *awsDsnSecret == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Connection string (-dsn) must be provided.")
+		errMsg = append(errMsg, "Connection string (-dsn or -awsDsnSecret) must be provided.")
+	}
+	if *awsDsnSecret != "" && *awsRegion == "" {
+		hasErr = true
+		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
 	if *workspaceDb == "" && !*migrateDb {
 		hasErr = true
@@ -158,6 +173,9 @@ func main() {
 	}
 
 	log.Println("Here's what we got:")
+	log.Println("   -awsDsnSecret:",*awsDsnSecret)
+	log.Println("   -dbPoolSize:",*dbPoolSize)
+	log.Println("   -usingSshTunnel:",*usingSshTunnel)
 	log.Println("   -dsn:", *dsnList)
 	log.Println("   -workspaceDb:", *workspaceDb)
 	log.Println("   -migrateDb:", *migrateDb)

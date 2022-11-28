@@ -13,23 +13,34 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
-var dsn = flag.String("dsn", "", "Database connection string (required)")
-var processName = flag.String("processName", "", "Process name to run the reports (reports definitions are taken from the workspace reports section) (required)")
-var sessionId = flag.String("sessionId", "", "Process session ID. (required)")
-var bucket = flag.String("bucket", "", "AWS bucket name for output files. (required)")
-var filePath = flag.String("filePath", "", "File path for output files. (required)")
+var awsDsnSecret     = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var dbPoolSize       = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -awsDnsSecret (default 10)")
+var usingSshTunnel   = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var awsRegion        = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (required)")
+var awsBucket        = flag.String("awsBucket", "", "AWS bucket name for output files. (required)")
+var dsn              = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
+var processName      = flag.String("processName", "", "Process name to run the reports (reports definitions are taken from the workspace reports section) (required)")
+var sessionId        = flag.String("sessionId", "", "Process session ID. (required)")
+var filePath         = flag.String("filePath", "", "File path for output files. (required)")
 var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
-var region = flag.String("region", "", "AWS region of the bucket. (required)")
 var reportDefinitions string
 
 func coordinateWork() error {
 	// open db connection
 	var err error
+	if *awsDsnSecret != "" {
+		// Get the dsn from the aws secret
+		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		if err != nil {
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		}
+	}
 	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
@@ -87,7 +98,7 @@ func coordinateWork() error {
 		}
 		stmt = strings.TrimSpace(stmt)
 		fname := fmt.Sprintf("%s/%s", *filePath, name)
-		if *bucket=="" || *region=="" {
+		if *awsBucket=="" || *awsRegion=="" {
 			stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("'%s'", *sessionId))
 			fmt.Println("STMT: name:",name, "fname:", fname,"stmt:",stmt)
 			// local mode -- print results to output
@@ -123,10 +134,10 @@ func coordinateWork() error {
 			fmt.Println("------")
 
 		} else {
-			// save  to s3 mode
+			// save to s3 mode
 			stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("''%s''", *sessionId))
 			fmt.Println("STMT: name:",name, "fname:", fname,"stmt:",stmt)
-			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, *bucket, fname, *region, options)
+			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, *awsBucket, fname, *awsRegion, options)
 			fmt.Println("S3 QUERY:", s3Stmt)
 			fmt.Println("------")
 			var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
@@ -163,9 +174,13 @@ func main() {
 			*filePath = (*filePath)[0:idx]
 		}
 	}
-	if *dsn == "" {
+	if *dsn == "" && *awsDsnSecret == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Data Source Name (dsn) must be provided (-dsn).")
+		errMsg = append(errMsg, "Data Source Name (dsn) must be provided (-awsDnsSecret or -dsn).")
+	}
+	if *awsDsnSecret != "" && *awsRegion == "" {
+		hasErr = true
+		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
 	if *processName == "" {
 		hasErr = true
@@ -175,21 +190,21 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Session ID must be provided (-sessionId).")
 	}
-	if *bucket == "" {
+	if *awsBucket == "" {
 		// hasErr = true
-		errMsg = append(errMsg, "Bucket is not provided, results will be saved locally using filePath (-bucket).")
+		errMsg = append(errMsg, "Bucket is not provided, results will be saved locally using filePath (-awsBucket).")
 	}
 	if *filePath == "" {
 		hasErr = true
 		errMsg = append(errMsg, "File path must be provided (-filePath).")
 	}
-	if *region == "" {
+	if *awsRegion == "" {
 		// hasErr = true
-		errMsg = append(errMsg, "Region not provided, result wil be saved locally using filePath (-region).")
+		errMsg = append(errMsg, "Region not provided, result wil be saved locally using filePath (-awsRegion).")
 	}
-	if (*bucket!="" && *region=="") || (*bucket=="" && *region!="") {
+	if (*awsBucket!="" && *awsRegion=="") || (*awsBucket=="" && *awsRegion!="") {
 		hasErr = true
-		errMsg = append(errMsg, "Both bucket and region must be provided.")
+		errMsg = append(errMsg, "Both awsBucket and awsRegion must be provided.")
 	}
 	reportDefinitions = fmt.Sprintf("%s/%s/reports/%s.sql",wh,ws,*processName)
 	if reportDefinitions == "" {
@@ -207,12 +222,15 @@ func main() {
 	fmt.Println("Run Reports argument:")
 	fmt.Println("----------------")
 	fmt.Println("Got argument: dsn", *dsn)
+	fmt.Println("Got argument: awsDsnSecret",*awsDsnSecret)
+	fmt.Println("Got argument: dbPoolSize",*dbPoolSize)
+	fmt.Println("Got argument: usingSshTunnel",*usingSshTunnel)
+	fmt.Println("Got argument: awsRegion",*awsRegion)
 	fmt.Println("Got argument: processName", *processName)
 	fmt.Println("Got argument: sessionId", *sessionId)
-	fmt.Println("Got argument: bucket", *bucket)
+	fmt.Println("Got argument: awsBucket", *awsBucket)
 	fmt.Println("Got argument: filePath", *filePath)
 	fmt.Println("Got argument: originalFilePath", *originalFileName)
-	fmt.Println("Got argument: region", *region)
 	fmt.Println("Report definitions file:", reportDefinitions)
 
 	err := coordinateWork()
