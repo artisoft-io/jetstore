@@ -5,7 +5,6 @@ import (
 	"errors"
 	"html"
 	"log"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -52,8 +51,7 @@ func (u *User) Prepare() {
 }
 
 func (u *User) Validate(action string) error {
-	adminEmail, ok := os.LookupEnv("JETS_ADMIN_EMAIL")
-	if ok && adminEmail == u.Email {
+	if *adminEmail == u.Email {
 		u.IsAdmin = true
 	}
 	switch strings.ToLower(action) {

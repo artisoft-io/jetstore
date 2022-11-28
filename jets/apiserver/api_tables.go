@@ -242,7 +242,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 	// Check if stmt is reserved for admin only
 	if sqlStmt.adminOnly {
 		userEmail, err2 := ExtractTokenID(r)
-		if err2 != nil || userEmail != adminEmail {
+		if err2 != nil || userEmail != *adminEmail {
 			httpStatus = http.StatusUnauthorized
 			err = errors.New("error: unauthorized, only admin can delete users")
 			return	
