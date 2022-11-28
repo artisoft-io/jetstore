@@ -17,7 +17,7 @@ import (
 
 // This module provides aws integration for JetStore
 
-func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (string, error) {
+func GetSecretValue(secret, region string) (string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return "", fmt.Errorf("while loading aws configuration: %v", err)
@@ -39,8 +39,15 @@ func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (s
 	}
 
 	// Decrypts secret using the associated KMS key.
-	// Expected a string with json element with keys: "username","password","engine","host","port","dbClusterIdentifier"
 	secretString := *result.SecretString
+	return secretString, nil
+}
+
+func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (string, error) {
+	secretString, err := GetSecretValue(secret, region)
+	if err != nil {
+		return "", fmt.Errorf("while calling GetSecretValue: %v", err)
+	}
 
 	// parse the json into the map m
 	m := make(map[string]interface{})

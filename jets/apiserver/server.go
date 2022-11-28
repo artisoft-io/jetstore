@@ -136,8 +136,16 @@ func (server *Server) initUsers() error {
 // processFile
 // --------------------------------------------------------------------------------------
 func listenAndServe() error {
-	// Open db connection
 	var err error
+	// Get secret to sign jwt tokens
+	if *awsApiSecret != "" {
+		*apiSecret, err = awsi.GetSecretValue(*awsApiSecret, *awsRegion)
+		if err != nil {
+			return fmt.Errorf("while getting apiSecret from aws secret: %v", err)
+		}
+	}
+
+	// Open db connection
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
 		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
