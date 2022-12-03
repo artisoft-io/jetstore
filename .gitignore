@@ -67,3 +67,4 @@ jets/status_update/status_update
 jets/run_reports/run_reports
 jets/bridge/bridge.go
 jets/awstest/awstest
+jets/awssfntest/awssfntest

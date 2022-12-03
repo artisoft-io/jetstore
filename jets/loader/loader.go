@@ -592,8 +592,18 @@ func main() {
 		errMsg = append(errMsg, "Table name is not valid.")
 	}
 	if *dsnList == "" && *awsDsnSecret == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsnList.")
+		*dsnList = os.Getenv("JETS_DSN_VALUE")
+		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
+		if *dsnList == "" && *awsDsnSecret == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsnList.")	
+		}
+	}
+	if *awsBucket == "" {
+		*awsBucket = os.Getenv("JETS_BUCKET")
+	}
+	if *awsRegion == "" {
+		*awsRegion = os.Getenv("JETS_REGION")
 	}
 	if (*awsBucket != "" || *awsDsnSecret != "") && *awsRegion == "" {
 		hasErr = true
