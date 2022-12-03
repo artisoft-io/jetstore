@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
+	"time"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -112,4 +115,40 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 		return fmt.Errorf("failed to upload file to s3: %v", err)
 	}
 	return nil
+}
+
+func StartExecution(stateMachineARN string, stateMachineInput map[string]interface{}, name string) (string, error) {
+	// Load the SDK's configuration from environment and shared config, and
+	// create the client with this.
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return "", fmt.Errorf("while load SDK configuration: %v", err)
+	}
+	
+	smInputJson, err := json.Marshal(stateMachineInput)
+	if err != nil {
+		return "", fmt.Errorf("while marshalling smInput: %v", err)
+	}
+	smInputStr := string(smInputJson)
+
+	// Generate a name for the execution
+	if name == "" {
+		name = strconv.FormatInt(time.Now().UnixMilli(), 10)
+	}
+	fmt.Println("Start Machine Exec Name is:", name)
+
+	// Set the parameters for starting a process
+	params := &sfn.StartExecutionInput{
+		StateMachineArn: &stateMachineARN,
+		Input: &smInputStr,
+		Name: &name,
+	}
+
+	// Step Function client
+	client := sfn.NewFromConfig(cfg)
+	_, err = client.StartExecution(context.TODO(), params)
+	if err != nil {
+		return "", fmt.Errorf("while calling StartExecution: %v", err)
+	}
+	return name, nil
 }

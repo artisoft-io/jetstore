@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	// lru "github.com/hashicorp/golang-lru"
 	"github.com/jackc/pgx/v4"
@@ -293,7 +294,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 		}
 	}
 	// Post Processing Hook
-	if devMode || argoCmd != "" {
+	var name string
 		switch dataTableAction.Table {
 		case "input_loader_status":
 			// Run the loader
@@ -350,33 +351,31 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				if row["load_and_start"] == "true" {
 					doNotLockSessionId = "-doNotLockSessionId"
 				}
-				switch {
+				loaderCommand := []string{
+					"-in_file", fileKey.(string), 
+					"-table", tableName.(string), 
+					"-client", client.(string), 
+					"-objectType", objType.(string),
+					"-sessionId", sessionId.(string),
+					"-userEmail", userEmail.(string), 
+					"-nbrShards", strconv.Itoa(nbrShards),
+					doNotLockSessionId,
+				}
+				if groupingColumn != "" {
+					loaderCommand = append(loaderCommand, "-groupingColumn")
+					loaderCommand = append(loaderCommand, groupingColumn)
+				}
+			switch {
 				// Call loader synchronously
 				case devMode:
-					loaderArgs := []string{
-						"-in_file", fileKey.(string), 
-						"-dsn", *dsn, 
-						"-table", tableName.(string), 
-						"-client", client.(string), 
-						"-objectType", objType.(string),
-						"-sessionId", sessionId.(string),
-						"-userEmail", userEmail.(string), 
-						"-nbrShards", strconv.Itoa(nbrShards),
-						doNotLockSessionId,
-					}
-					if groupingColumn != "" {
-						loaderArgs = append(loaderArgs, "-groupingColumn")
-						loaderArgs = append(loaderArgs, groupingColumn)
-					}
-					// log.Printf("Run loader: %s", loaderArgs)
-					cmd := exec.Command("/usr/local/bin/loader", loaderArgs...)
+					cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
 					var b bytes.Buffer
 					cmd.Stdout = &b
 					cmd.Stderr = &b
 					err = cmd.Run()
-					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderCommand...).Output()
 					if err != nil {
-						log.Printf("while executing loader command '%v': %v", loaderArgs, err)
+						log.Printf("while executing loader command '%v': %v", loaderCommand, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Println("LOADER CAPTURED OUTPUT BEGIN")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -396,41 +395,18 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 					log.Println("LOADER CAPTURED OUTPUT END")
 					log.Println("============================")
 				
-				case argoCmd != "" && row["load_and_start"] != "true":
-				// Invoke argo to load file
-					argoArgs := []string{
-						"-run_loader", "True",
-						"-inFile", fileKey.(string), 
-						"-table", tableName.(string), 
-						"-client", client.(string), 
-						"-objectType", objType.(string),
-						"-s3InputDirectory", fmt.Sprintf("client=%s/ot=%s",client.(string), objType.(string)),
-						"-loaderSessionId", sessionId.(string),
-						"-userEmail", userEmail.(string), 
-						doNotLockSessionId,
-					}
-					if groupingColumn != "" {
-						argoArgs = append(argoArgs, "-groupingColumn")
-						argoArgs = append(argoArgs, groupingColumn)
-					}
-					log.Printf("Run argo: %s", argoArgs)
-					cmd := exec.Command(argoCmd, argoArgs...)
-					var b bytes.Buffer
-					cmd.Stdout = &b
-					cmd.Stderr = &b
-					err = cmd.Run()
-					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+				case row["load_and_start"] != "true":
+				// StartExecution load file
+					log.Printf("StartExecution command: %s", loaderCommand)
+
+					name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"), map[string]interface{}{"command": loaderCommand}, "")
+					fmt.Println("Loader State Machine",name, "started")
 					if err != nil {
-						log.Printf("while executing argo command '%v': %v", argoArgs, err)
-						b.WriteTo(os.Stdout)
-						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
 						httpStatus = http.StatusInternalServerError
-						err = errors.New("error while running argo command")
+						err = errors.New("error while calling StartExecution")
 						return
 					}
-					log.Println("ARGO CAPTURED OUTPUT")
-					b.WriteTo(os.Stdout)
-					log.Println("=====================")
 				default:
 					log.Printf("input_loader_status insert DO NOTHING: load_and_start: %s, devMode: %v, argoCmd: %s\n", row["load_and_start"],devMode, argoCmd)
 				}
@@ -534,7 +510,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				
 				case argoCmd != "":
 				// Invoke argo to load+execute or execute only a process
-					argoArgs := []string{
+					loaderCommand := []string{
 						// server params
 						"-run_server", "True",
 						"-serverSessionId",  sessionId.(string),
@@ -545,42 +521,42 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 					}
 					if row["load_and_start"] == "true" {
 						// loader params
-						argoArgs = append(argoArgs, "-inFile")
-						argoArgs = append(argoArgs, fileKey.(string))
+						loaderCommand = append(loaderCommand, "-inFile")
+						loaderCommand = append(loaderCommand, fileKey.(string))
 
-						argoArgs = append(argoArgs, "-table")
-						argoArgs = append(argoArgs, tableName.(string))
+						loaderCommand = append(loaderCommand, "-table")
+						loaderCommand = append(loaderCommand, tableName.(string))
 
-						argoArgs = append(argoArgs, "-client")
-						argoArgs = append(argoArgs, client.(string))
+						loaderCommand = append(loaderCommand, "-client")
+						loaderCommand = append(loaderCommand, client.(string))
 
-						argoArgs = append(argoArgs, "-objectType")
-						argoArgs = append(argoArgs, objType.(string))
+						loaderCommand = append(loaderCommand, "-objectType")
+						loaderCommand = append(loaderCommand, objType.(string))
 
-						argoArgs = append(argoArgs, "-s3InputDirectory")
-						argoArgs = append(argoArgs, fmt.Sprintf("client=%s/ot=%s",client.(string), objType.(string)))
+						loaderCommand = append(loaderCommand, "-s3InputDirectory")
+						loaderCommand = append(loaderCommand, fmt.Sprintf("client=%s/ot=%s",client.(string), objType.(string)))
 
-						argoArgs = append(argoArgs, "-loaderSessionId")
-						argoArgs = append(argoArgs, sessionId.(string))
+						loaderCommand = append(loaderCommand, "-loaderSessionId")
+						loaderCommand = append(loaderCommand, sessionId.(string))
 
-						argoArgs = append(argoArgs, "-run_loader")
-						argoArgs = append(argoArgs, "True")
-						argoArgs = append(argoArgs, "-doNotLockSessionId")
+						loaderCommand = append(loaderCommand, "-run_loader")
+						loaderCommand = append(loaderCommand, "True")
+						loaderCommand = append(loaderCommand, "-doNotLockSessionId")
 						if groupingColumn != "" {
-							argoArgs = append(argoArgs, "-groupingColumn")
-							argoArgs = append(argoArgs, groupingColumn)
+							loaderCommand = append(loaderCommand, "-groupingColumn")
+							loaderCommand = append(loaderCommand, groupingColumn)
 						}
 					}
 
-					log.Printf("Run argo: %s", argoArgs)
-					cmd := exec.Command(argoCmd, argoArgs...)
+					log.Printf("Run argo: %s", loaderCommand)
+					cmd := exec.Command(argoCmd, loaderCommand...)
 					var b bytes.Buffer
 					cmd.Stdout = &b
 					cmd.Stderr = &b
 					err = cmd.Run()
-					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderArgs...).Output()
+					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderCommand...).Output()
 					if err != nil {
-						log.Printf("while executing argo command '%v': %v", argoArgs, err)
+						log.Printf("while executing argo command '%v': %v", loaderCommand, err)
 						b.WriteTo(os.Stdout)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						httpStatus = http.StatusInternalServerError
@@ -593,7 +569,6 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				}
 			}	// irow := range dataTableAction.Data
 		}	// switch dataTableAction.Table 
-	}	// if devMode || argoCmd != "" 
 	return
 }
 
