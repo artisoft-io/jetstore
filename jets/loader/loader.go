@@ -41,6 +41,8 @@ func (s *chartype) Set(value string) error {
 	return nil
 }
 
+// Loader env variable
+// JETS_DSN_SECRET, JETS_REGION, JETS_BUCKET, JETS_DSN_URI_VALUE, JETS_DSN_JSON_VALUE, LOADER_ERR_DIR
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -567,6 +569,7 @@ func main() {
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
+	var err error
 	// if grouping_column is '' it means it's actually empty
 	if *groupingColumn == "''" {
 		*groupingColumn = ""
@@ -592,7 +595,14 @@ func main() {
 		errMsg = append(errMsg, "Table name is not valid.")
 	}
 	if *dsnList == "" && *awsDsnSecret == "" {
-		*dsnList = os.Getenv("JETS_DSN_VALUE")
+		*dsnList = os.Getenv("JETS_DSN_URI_VALUE")
+		if *dsnList == "" {
+			*dsnList, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, 20)
+			if err != nil {
+				log.Printf("while calling GetDsnFromJson: %v", err)
+				*dsnList = ""
+			}
+		}
 		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 		if *dsnList == "" && *awsDsnSecret == "" {
 			hasErr = true
@@ -649,7 +659,7 @@ func main() {
 		fmt.Println("Both -awsDsnSecret and -dsnList are provided, will use argument -awsDsnSecret only")
 	}
  
-	err := coordinateWork()
+	err = coordinateWork()
 	if err != nil {
 		flag.Usage()
 		log.Fatal(err)

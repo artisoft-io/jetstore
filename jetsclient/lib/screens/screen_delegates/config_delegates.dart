@@ -165,9 +165,9 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       state['user_email'] = JetsRouterDelegate().user.email;
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
       state[FSK.objectType] = state[FSK.mainObjectType];
+      state[FSK.fileKey] = state[FSK.mainInputFileKey];
       if (actionKey == ActionKeys.loadAndStartPipelineOk) {
         state['load_and_start'] = 'true';
-        state[FSK.fileKey] = state[FSK.mainInputFileKey];
         state['input_session_id'] = state['session_id'];
         state['table_name'] =
             state[FSK.client] + '_' + state[FSK.mainObjectType];

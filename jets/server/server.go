@@ -212,9 +212,26 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Do not provide both process config key (-pcKey) and process execution status key (-peKey), -peKey is sufficient.")
 	}
+
+	//*TODO Factor out code
 	if *dsnList == "" && *awsDsnSecret == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Connection string (-dsn or -awsDsnSecret) must be provided.")
+		*dsnList = os.Getenv("JETS_DSN_URI_VALUE")
+		if *dsnList == "" {
+			var err error
+			*dsnList, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, *dbPoolSize)
+			if err != nil {
+				log.Printf("while calling GetDsnFromJson: %v", err)
+				*dsnList = ""
+			}
+		}
+		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
+		if *dsnList == "" && *awsDsnSecret == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsnList.")	
+		}
+	}
+	if *awsRegion == "" {
+		*awsRegion = os.Getenv("JETS_REGION")
 	}
 	if *awsDsnSecret != "" && *awsRegion == "" {
 		hasErr = true

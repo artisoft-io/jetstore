@@ -1407,7 +1407,10 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     actions: [],
     formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+      DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+        DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.mainInputFileKey, columnIdx: 3),
+      ]),
     columns: [
       ColumnConfig(
           index: 0,
