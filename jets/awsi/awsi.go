@@ -46,15 +46,14 @@ func GetSecretValue(secret, region string) (string, error) {
 	return secretString, nil
 }
 
-func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (string, error) {
-	secretString, err := GetSecretValue(secret, region)
-	if err != nil {
-		return "", fmt.Errorf("while calling GetSecretValue: %v", err)
+func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, error) {
+	// Check if json is empty, if so return dsn empty
+	if dsnJson == "" {
+		return "", nil
 	}
-
 	// parse the json into the map m
 	m := make(map[string]interface{})
-	err = json.Unmarshal([]byte(secretString), &m)
+	err := json.Unmarshal([]byte(dsnJson), &m)
 	if err != nil {
 		return "", fmt.Errorf("while umarshaling dsn json: %v", err)
 	}
@@ -72,6 +71,19 @@ func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (s
 		m["host"].(string), 
 		m["port"].(float64),
 		poolSize)
+	return dsn, nil
+}
+
+func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (string, error) {
+	secretString, err := GetSecretValue(secret, region)
+	if err != nil {
+		return "", fmt.Errorf("while calling GetSecretValue: %v", err)
+	}
+
+	dsn, err := GetDsnFromJson(secretString, useLocalhost, poolSize)
+	if err != nil {
+		return "", fmt.Errorf("while calling GetDsnFromJson: %v", err)
+	}
 	return dsn, nil
 }
 

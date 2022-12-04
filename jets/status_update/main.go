@@ -22,7 +22,7 @@ var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ss
 var awsRegion      = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
 var dsn            = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
 var peKey          = flag.Int("peKey", -1, "Pipeline Execution Status key (required)")
-var status         = flag.String("status", "", "Argo completion status ('completed' or 'failed') (required)")
+var status         = flag.String("status", "", "Process completion status ('completed' or 'failed') (required)")
 var sessionId      = flag.String("sessionId", "", "Process session ID. (required)")
 
 // Support Functions
@@ -107,9 +107,25 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Session ID must be provided (-sessionId).")
 	}
+	//*TODO Factor out code
 	if *dsn == "" && *awsDsnSecret == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Data Source Name (dsn) must be provided (-dsn or -awsDsnSecret).")
+		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
+		if *dsn == "" {
+			var err error
+			*dsn, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, *dbPoolSize)
+			if err != nil {
+				log.Printf("while calling GetDsnFromJson: %v", err)
+				*dsn = ""
+			}
+		}
+		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
+		if *dsn == "" && *awsDsnSecret == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")	
+		}
+	}
+	if *awsRegion == "" {
+		*awsRegion = os.Getenv("JETS_REGION")
 	}
 	if *awsDsnSecret != "" && *awsRegion == "" {
 		hasErr = true

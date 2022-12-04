@@ -174,9 +174,25 @@ func main() {
 			*filePath = (*filePath)[0:idx]
 		}
 	}
+	//*TODO Factor out code
 	if *dsn == "" && *awsDsnSecret == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Data Source Name (dsn) must be provided (-awsDnsSecret or -dsn).")
+		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
+		if *dsn == "" {
+			var err error
+			*dsn, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, *dbPoolSize)
+			if err != nil {
+				log.Printf("while calling GetDsnFromJson: %v", err)
+				*dsn = ""
+			}
+		}
+		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
+		if *dsn == "" && *awsDsnSecret == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")	
+		}
+	}
+	if *awsRegion == "" {
+		*awsRegion = os.Getenv("JETS_REGION")
 	}
 	if *awsDsnSecret != "" && *awsRegion == "" {
 		hasErr = true
@@ -189,6 +205,9 @@ func main() {
 	if *sessionId == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Session ID must be provided (-sessionId).")
+	}
+	if *awsBucket == "" {
+		*awsBucket = os.Getenv("JETS_BUCKET")
 	}
 	if *awsBucket == "" {
 		// hasErr = true
