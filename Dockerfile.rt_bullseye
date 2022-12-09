@@ -51,6 +51,7 @@ ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
 ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
 ENV JETSCLIENT_CLOUD9_HOME /go/jetsclient
 COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $JETSCLIENT_CLOUD9_HOME
+COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
 
 RUN \
     cd /usr/local/lib/ \

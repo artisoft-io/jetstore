@@ -27,6 +27,7 @@ import (
 // # Also need env JETS_LOADER_SM_ARN state machine arn
 // # Also need env JETS_SERVER_SM_ARN state machine arn
 // # Also need env JETS_LOADER_SERVER_SM_ARN state machine arn
+// # Also need env NBR_SHARDS set the nbr of shard to use for loader and server
 
 var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret       = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
