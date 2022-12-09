@@ -20,8 +20,14 @@ import (
 
 // This module provides aws integration for JetStore
 
+func GetConfig(region string) (aws.Config,error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	return config.LoadDefaultConfig(ctx)
+}
+
 func GetSecretValue(secret, region string) (string, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	cfg, err := GetConfig(region)
 	if err != nil {
 		return "", fmt.Errorf("while loading aws configuration: %v", err)
 	}

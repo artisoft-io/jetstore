@@ -41,14 +41,39 @@ func getStatusCount(dbpool *pgxpool.Pool, pipelineKey int, sessionId, status str
 	}
 	return count
 }
-func updateStatus(dbpool *pgxpool.Pool, pipelineKey int, status string) {
+func updateStatus(dbpool *pgxpool.Pool, pipelineKey int, status string) error {
 		// Record the status of the pipeline execution
 		log.Printf("Inserting status '%s' to pipeline_execution_status table", status)
 		stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, last_update) = ($1, DEFAULT) WHERE key = $2"
 		_, err := dbpool.Exec(context.Background(), stmt, status, pipelineKey)
 		if err != nil {
-			log.Fatalf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
-		}	
+			return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
+		}
+		return nil
+}
+func registerDomainTables(dbpool *pgxpool.Pool, pipelineKey int, sessionId string) error {
+	// Register the domain tables - get the list of them from process_config table
+	outTables := make([]string, 0)
+	err := dbpool.QueryRow(context.Background(), 
+		"SELECT pc.output_tables from jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe where pc.key = plnc.process_config_key and plnc.key = pe.pipeline_config_key and pe.key = $1", 
+		pipelineKey).Scan(&outTables)
+	if err != nil {
+		msg := fmt.Sprintf("while getting output_tables from process config: %v", err)
+		return fmt.Errorf(msg)
+	}
+	log.Printf("Registring Domain Tables with sessionId '%s'", sessionId)
+	for i := range outTables {
+		stmt := `insert into jetsapi.input_registry (client, object_type, file_key, table_name, source_type, session_id, user_email)
+		select pe.client, plnc.main_object_type, pe.main_input_file_key, $1, 'domain_table', pe.session_id, pe.user_email
+		from jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
+		where pc.key = plnc.process_config_key and plnc.key = pe.pipeline_config_key and pe.key = $2`
+		
+		_, err = dbpool.Exec(context.Background(), stmt, outTables[i], pipelineKey)
+		if err != nil {
+			return fmt.Errorf("error unable to register out tables to input_registry: %v", err)
+		}
+	}
+	return nil
 }
 
 func coordinateWork() error {
@@ -70,16 +95,24 @@ func coordinateWork() error {
 	// Update the pipeline_execution_status based on worst case status
 	switch {
 	case *status == "failed":
-		updateStatus(dbpool, *peKey, "failed")
+		err = updateStatus(dbpool, *peKey, "failed")
 
 	case getStatusCount(dbpool, *peKey, *sessionId, "failed") > 0:
-		updateStatus(dbpool, *peKey, "failed")
+		err = updateStatus(dbpool, *peKey, "failed")
 
 	case getStatusCount(dbpool, *peKey, *sessionId, "errors") > 0:
-		updateStatus(dbpool, *peKey, "errors")
+		err = updateStatus(dbpool, *peKey, "errors")
 
 	default:
-		updateStatus(dbpool, *peKey, "completed")
+		err = updateStatus(dbpool, *peKey, "completed")
+	}
+	if err != nil {
+		return fmt.Errorf("while updating process execution status: %v", err)
+	}
+	// Register out tables
+	err = registerDomainTables(dbpool, *peKey, *sessionId)
+	if err != nil {
+		return fmt.Errorf("while registrying out tables to input_registry: %v", err)
 	}
 
 	// Lock the session
