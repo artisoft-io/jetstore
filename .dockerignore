@@ -1,6 +1,5 @@
 .antlr/
 __pycache__
-bin/
-pkg/
-jets/hello/hello
+jets/bin/
+jets/pkg/
 jetstore.egg-info
