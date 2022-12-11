@@ -1,17 +1,19 @@
 package main
 
 import (
-	"strings"
 	"os"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+
+	// "github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
-	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
+	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -33,6 +35,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
 		AutoDeleteObjects: jsii.Bool(true),
 		BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
+		BucketName: jsii.String("jetstoreone-sourcebucket"),
 	})
 	sourceBucket.DisallowPublicAccess()
 
@@ -72,12 +75,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
 		Subnets: subnetSelection[0],
-		Open: jsii.Bool(true),
+		// Open: jsii.Bool(true),
 	})
 	vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
 		Subnets: subnetSelection[0],
-		Open: jsii.Bool(true),
+		// Open: jsii.Bool(true),
 	})
 
 	// Add secret manager endpoint
@@ -102,8 +105,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Subnets: subnetSelection[0],
 	})
 
-	// Create the cluster.
-	cluster := awsecs.NewCluster(stack, jsii.String("ecsCluster"), &awsecs.ClusterProps{
+	// Create the ecsCluster.
+	ecsCluster := awsecs.NewCluster(stack, jsii.String("ecsCluster"), &awsecs.ClusterProps{
 		Vpc: vpc,
 	})
 
@@ -131,10 +134,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Actions:   jsii.Strings("logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"),
 		Resources: jsii.Strings("*"),
 	}))
-	tr.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions:   jsii.Strings("ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage", "logs:CreateLogStream", "logs:PutLogEvents", "ecr:GetAuthorizationToken"),
-		Resources: jsii.Strings("*"),
-	}))
 	sourceBucket.GrantRead(tr, nil)
 
 	// Define the task.
@@ -147,6 +146,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	taskContainer := td.AddContainer(jsii.String("taskContainer"), &awsecs.ContainerDefinitionOptions{
 		// Build and use the Dockerfile that's in the `../task` directory.
 		Image: awsecs.AssetImage_FromAsset(jsii.String("../task"), &awsecs.AssetImageProps{}),
+		// // Use Image in ecr
+		// Image: awsecs.AssetImage_FromEcrRepository(
+		// 	awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-ui"), jsii.String("arn:aws:ecr:us-east-1:470601442608:repository/jetstore_usi_ws")),
+		// 	jsii.String("20221207a")),
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
 		}),
@@ -159,7 +162,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	taskStarterRole.AddManagedPolicy(awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")))
 	taskStarterRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions:   jsii.Strings("ecs:RunTask"),
-		Resources: jsii.Strings(*cluster.ClusterArn(), *td.TaskDefinitionArn()),
+		Resources: jsii.Strings(*ecsCluster.ClusterArn(), *td.TaskDefinitionArn()),
 	}))
 	// Grant the Lambda permission to PassRole to enable it to tell ECS to start a task that uses the task execution role and task role.
 	td.ExecutionRole().GrantPassRole(taskStarterRole)
@@ -173,7 +176,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
-			"CLUSTER_ARN":         cluster.ClusterArn(),
+			"CLUSTER_ARN":         ecsCluster.ClusterArn(),
 			"CONTAINER_NAME":      taskContainer.ContainerName(),
 			"TASK_DEFINITION_ARN": td.TaskDefinitionArn(),
 			"SUBNETS":             jsii.String(strings.Join(*getSubnetIDs(vpc.IsolatedSubnets()), ",")),
@@ -183,6 +186,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Role:       taskStarterRole,
 		Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
 	})
+	// //* 
+	// fmt.Println(*taskContainer.ContainerName())
+
+	// Testing with python lamdba fnc
+	// taskStarter := awslambda.NewFunction(stack, jsii.String("taskStarter"), &awslambda.FunctionProps{
+	// 	Code: awslambda.NewAssetCode(jsii.String("../taskrunner"), nil),
+	// 	Handler: jsii.String("handler.main"),
+	// 	Timeout: awscdk.Duration_Seconds(jsii.Number(300)),
+	// 	Runtime: awslambda.Runtime_PYTHON_3_9(),
+	// });
 
 	// Run the task starter Lambda when an object is added to the S3 bucket.
 	taskStarter.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
