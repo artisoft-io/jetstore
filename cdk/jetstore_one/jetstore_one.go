@@ -1,18 +1,21 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
-
-	// "github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
+	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
+	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
+	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
@@ -61,7 +64,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 	s3Endpoint.AddToPolicy(
 		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			// Restrict to specific bucket and actions
 			Sid: jsii.String("bucketAccessPolicy"),
 			Principals: &[]awsiam.IPrincipal{
 				awsiam.NewAnyPrincipal(),
@@ -204,6 +206,106 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		},
 	}))
 
+	// JetStore Image from ecr -- referenced in most tasks
+	jetStoreImage := awsecs.AssetImage_FromEcrRepository(
+		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_usi_ws
+		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("JETS_ECR_REPO_ARN"))),
+		jsii.String(os.Getenv("JETS_IMAGE_TAG")))
+
+	// Define the loaderTask for the loaderSM
+	loaderTask := awsecs.NewFargateTaskDefinition(stack, jsii.String("loaderTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
+		MemoryLimitMiB: jsii.Number(3072),
+		Cpu:            jsii.Number(1024),
+		ExecutionRole:  ter,
+		TaskRole:       tr,
+		RuntimePlatform: &awsecs.RuntimePlatform{
+			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
+			CpuArchitecture: awsecs.CpuArchitecture_X86_64(),
+		},
+	})
+	loaderContainerDef := loaderTask.AddContainer(jsii.String("loaderContainer"), &awsecs.ContainerDefinitionOptions{
+		// Use JetStore Image in ecr
+		Image: jetStoreImage,
+		ContainerName: jsii.String("loaderContainer"),
+		Essential: jsii.Bool(true),
+		EntryPoint: jsii.Strings("loader"),
+		Environment: &map[string]*string{
+			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_BUCKET":  sourceBucket.BucketName(),
+		},
+		Secrets: &map[string]awsecs.Secret{
+			"JETS_DSN_JSON_VALUE":   awsecs.Secret_FromSecretsManager(awssm.Secret_FromSecretCompleteArn(stack, jsii.String("dsn-secret"), jsii.String("arn:aws:secretsmanager:us-east-1:470601442608:secret:jetstore/pgsql-VJwl6W")), nil),
+		},
+		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
+			StreamPrefix: jsii.String("task"),
+		}),
+	})
+
+	// // Create the role needed by loaderSM to run the loaderTask
+	// loaderSMRole := awsiam.NewRole(stack, jsii.String("loaderSMRole"), &awsiam.RoleProps{
+	// 	AssumedBy: awsiam.NewServicePrincipal(jsii.String("states.amazonaws.com"), &awsiam.ServicePrincipalOpts{}),
+	// })
+	// loaderSMRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+	// 	Actions:   jsii.Strings("ecs:RunTask"),
+	// 	Resources: jsii.Strings(*ecsCluster.ClusterArn(), *loaderTask.TaskDefinitionArn()),
+	// }))
+	// loaderSMRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+	// 	Actions:   jsii.Strings( "ecs:StopTask","ecs:DescribeTasks"),
+	// 	Resources: jsii.Strings("*"),
+	// }))
+	// loaderSMRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+	// 	Actions:   jsii.Strings("logs:CreateLogDelivery","logs:GetLogDelivery","logs:UpdateLogDelivery","logs:DeleteLogDelivery","logs:ListLogDeliveries","logs:PutResourcePolicy","logs:DescribeResourcePolicies","logs:DescribeLogGroups"),
+	// 	Resources: jsii.Strings("*"),
+	// }))
+	// // Grant the loaderSM permission to PassRole to enable it to tell ECS to start a task that uses the task execution role and task role.
+	// loaderTask.ExecutionRole().GrantPassRole(loaderSMRole)
+	// loaderTask.TaskRole().GrantPassRole(loaderSMRole)
+
+	// Create Loader State Machine
+	runLoaderTask := sfntask.NewEcsRunTask(stack, jsii.String("run-loader"), &sfntask.EcsRunTaskProps{
+		Comment: jsii.String("Run JetStore Loader Task"),
+		Cluster: ecsCluster,
+		Subnets: subnetSelection[0],
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: loaderTask,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: loaderContainerDef,
+				Command: sfn.JsonPath_ListAt(jsii.String("$.loaderCommand")),
+			},
+		},
+	})
+	
+	// //*
+	// // definition := sfn.Chain_Start(runLoaderTask).Next(sfn.NewSucceed(stack, jsii.String("loaderSM succeeded"), &sfn.SucceedProps{}))
+	// // definition := sfn.Chain_Sequence(runLoaderTask, sfn.NewSucceed(stack, jsii.String("succeed"), &sfn.SucceedProps{}))
+	// definition := sfn.Chain_Custom(runLoaderTask, &[]sfn.INextable{}, nil)
+	// fmt.Println("definition start state:",*definition.StartState().Comment())
+	// fmt.Println("definition end states:",*definition.EndStates())
+	// //*
+
+	// loaderSM := sfn.NewCfnStateMachine(stack, jsii.String("loaderSM"), &sfn.CfnStateMachineProps{
+	sfn.NewStateMachine(stack, jsii.String("loaderSM"), &sfn.StateMachineProps{
+		StateMachineName: jsii.String("loaderSM"),
+		// Definition: definition,
+		// Definition: sfn.NewPass(stack, jsii.String("pass1"), &sfn.PassProps{}).Next(sfn.NewSucceed(stack, jsii.String("succeed"), &sfn.SucceedProps{})),
+		Definition: runLoaderTask,
+		// StateMachineType: sfn.StateMachineType("STANDARD"),
+		// LoggingConfiguration: &sfn.CfnStateMachine_LoggingConfigurationProperty{
+		// 	Destinations: []interface{}{
+		// 		&sfn.CfnStateMachine_LogDestinationProperty{
+		// 			CloudWatchLogsLogGroup: &sfn.CfnStateMachine_CloudWatchLogsLogGroupProperty{
+		// 				// logGroupArn: jsii.String("logGroupArn"),
+		// 			},
+		// 		},
+		// 	},
+		// 	IncludeExecutionData: jsii.Bool(true),
+		// 	Level: jsii.String("ALL"),
+		// },
+	})
 
 	return stack
 }
@@ -219,6 +321,25 @@ func getSubnetIDs(subnets *[]awsec2.ISubnet) *[]string {
 
 func main() {
 	defer jsii.Close()
+
+	// Verify that we have all the required env variables
+	hasErr := false
+	var errMsg []string
+	if os.Getenv("JETS_ACCOUNT") == "" || os.Getenv("JETS_REGION") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variables 'JETS_ACCOUNT' and 'JETS_REGION' are required.")		
+	}
+	if os.Getenv("JETS_ECR_REPO_ARN") == "" || os.Getenv("JETS_IMAGE_TAG") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' and 'JETS_IMAGE_TAG' are required.")		
+		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' is the jetstore image with the workspace.")		
+	}
+	if hasErr {
+		for _, msg := range errMsg {
+			fmt.Println("**", msg)
+		}
+		os.Exit(1)
+	}
 
 	app := awscdk.NewApp(nil)
 
