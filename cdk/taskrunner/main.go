@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// Sample lambda function in go for future needs
+
 type config struct {
 	ClusterARN        string
 	ContainerName     string
