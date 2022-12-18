@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	// "strings"
+	"strconv"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -364,8 +365,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
-	// Create Rule Server State Machine
-	//* temp -- put a map here
 	runServerTask := sfntask.NewEcsRunTask(stack, jsii.String("run-server"), &sfntask.EcsRunTaskProps{
 		Comment: jsii.String("Run JetStore Rule Server Task"),
 		Cluster: ecsCluster,
@@ -382,10 +381,142 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			},
 		},
 	})
+	// Define the run_reports task, part of the runServerSM
+	runreportTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("runreportTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
+		MemoryLimitMiB: jsii.Number(3072),
+		Cpu:            jsii.Number(1024),
+		ExecutionRole:  ecsTaskExecutionRole,
+		TaskRole:       ecsTaskRole,
+		RuntimePlatform: &awsecs.RuntimePlatform{
+			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
+			CpuArchitecture: awsecs.CpuArchitecture_X86_64(),
+		},
+	})
+	runreportsContainerDef := runreportTaskDefinition.AddContainer(jsii.String("runreportsContainerDef"), &awsecs.ContainerDefinitionOptions{
+		// Use JetStore Image in ecr
+		Image: jetStoreImage,
+		ContainerName: jsii.String("runreportsContainer"),
+		Essential: jsii.Bool(true),
+		EntryPoint: jsii.Strings("run_reports"),
+		Environment: &map[string]*string{
+			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_BUCKET":  sourceBucket.BucketName(),
+		},
+		Secrets: &map[string]awsecs.Secret{
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+		},
+		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
+			StreamPrefix: jsii.String("task"),
+		}),
+	})
+	runReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-reports"), &sfntask.EcsRunTaskProps{
+		Comment: jsii.String("Run Reports Task"),
+		Cluster: ecsCluster,
+		Subnets: subnetSelection[ecsSubnetsIndex],
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: runreportTaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: runreportsContainerDef,
+				Command: sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
+			},
+		},
+	})
+	// Define the update_error_status task, part of the runServerSM
+	updateStatusTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("updateStatusTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
+		MemoryLimitMiB: jsii.Number(1024),
+		Cpu:            jsii.Number(256),
+		ExecutionRole:  ecsTaskExecutionRole,
+		TaskRole:       ecsTaskRole,
+		RuntimePlatform: &awsecs.RuntimePlatform{
+			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
+			CpuArchitecture: awsecs.CpuArchitecture_X86_64(),
+		},
+	})
+	updateStatusContainerDef := updateStatusTaskDefinition.AddContainer(jsii.String("updateStatusContainerDef"), &awsecs.ContainerDefinitionOptions{
+		// Use JetStore Image in ecr
+		Image: jetStoreImage,
+		ContainerName: jsii.String("updateStatusContainer"),
+		Essential: jsii.Bool(true),
+		EntryPoint: jsii.Strings("status_update"),
+		Environment: &map[string]*string{
+			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_BUCKET":  sourceBucket.BucketName(),
+		},
+		Secrets: &map[string]awsecs.Secret{
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+		},
+		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
+			StreamPrefix: jsii.String("task"),
+		}),
+	})
+	updateErrorStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-error"), &sfntask.EcsRunTaskProps{
+		Comment: jsii.String("Update Status with Error"),
+		Cluster: ecsCluster,
+		Subnets: subnetSelection[ecsSubnetsIndex],
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: updateStatusTaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: updateStatusContainerDef,
+				Command: sfn.JsonPath_ListAt(jsii.String("$.errorUpdate")),
+			},
+		},
+	})
+	updateSuccessStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-success"), &sfntask.EcsRunTaskProps{
+		Comment: jsii.String("Update Status with Success"),
+		Cluster: ecsCluster,
+		Subnets: subnetSelection[ecsSubnetsIndex],
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: updateStatusTaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: updateStatusContainerDef,
+				Command: sfn.JsonPath_ListAt(jsii.String("$.successUpdate")),
+			},
+		},
+	})
+	//*TODO SNS message
+	notifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
+	notifySuccess := sfn.NewPass(scope, jsii.String("notify-success"), &sfn.PassProps{})
+
+	// Create Rule Server State Machine
+	var maxConcurrency float64
+	if os.Getenv("TASK_MAX_CONCURRENCY") == "" {
+		maxConcurrency = 1
+	} else {
+		var err error
+		maxConcurrency, err = strconv.ParseFloat(os.Getenv("TASK_MAX_CONCURRENCY"), 64)
+		if err != nil {
+			maxConcurrency = 1
+		}
+	}
+	runServerMap := sfn.NewMap(stack, jsii.String("run-server-map"), &sfn.MapProps{
+		Comment: jsii.String("Run JetStore Rule Server Task"),
+		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),
+		MaxConcurrency: jsii.Number(maxConcurrency),
+		ResultPath: nil,
+	})
+	runServerMap.Iterator(runServerTask).Next(runReportsTask)
+	cp := &sfn.CatchProps{Errors: jsii.Strings("States.ALL")}
+	runReportsTask.AddCatch(updateErrorStatusTask, cp).Next(updateSuccessStatusTask)
+	updateSuccessStatusTask.AddCatch(notifyFailure, cp).Next(notifySuccess)
+	updateErrorStatusTask.AddCatch(notifyFailure, cp).Next(notifyFailure)
+
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
-		Definition: runServerTask,
-		Timeout: awscdk.Duration_Minutes(jsii.Number(5)),
+		Definition: runServerMap,
+		// NOTE 2h TIMEOUT of exec rules
+		Timeout: awscdk.Duration_Minutes(jsii.Number(120)),
 	})
 
 	//*TODO JetStore Run Loader & Rule Server State Machine
@@ -502,6 +633,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_ECR_REPO_ARN (required)
 // JETS_IMAGE_TAG (required)
 // NBR_SHARDS (defaults to 1)
+// TASK_MAX_CONCURRENCY (defaults to 1)
 
 func main() {
 	defer jsii.Close()
