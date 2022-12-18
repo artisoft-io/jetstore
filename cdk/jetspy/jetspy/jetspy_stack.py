@@ -1,6 +1,7 @@
 from aws_cdk import (
     aws_ec2 as ec2, 
     aws_ecs as ecs,
+    aws_rds as rds,
     aws_ecs_patterns as ecs_patterns,
     aws_stepfunctions as _aws_stepfunctions,
     aws_stepfunctions_tasks as _aws_stepfunctions_tasks,
@@ -72,16 +73,26 @@ class JetspyStack(Stack):
             timeout=Duration.minutes(5),
         )
 
-        # Create the Fargate cluster and service
+        # # Create the Fargate cluster and service
+        # vpc = ec2.Vpc(self, "jetspy", max_azs=3)     # default is all AZs in region
+
+        # ecsCluster = ecs.Cluster(self, "jetspyCluster", vpc=vpc)
+
+        # ecs_patterns.ApplicationLoadBalancedFargateService(self, "jetspyService",
+        #     cluster=ecsCluster,            # Required
+        #     cpu=512,                    # Default is 256
+        #     desired_count=1,            # Default is 1
+        #     task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+        #         image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample")),
+        #     memory_limit_mib=2048,      # Default is 512
+        #     public_load_balancer=True)  # Default is True
+
+        # Create db cluster
         vpc = ec2.Vpc(self, "jetspy", max_azs=3)     # default is all AZs in region
-
-        ecsCluster = ecs.Cluster(self, "jetspyCluster", vpc=vpc)
-
-        ecs_patterns.ApplicationLoadBalancedFargateService(self, "jetspyService",
-            cluster=ecsCluster,            # Required
-            cpu=512,                    # Default is 256
-            desired_count=1,            # Default is 1
-            task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample")),
-            memory_limit_mib=2048,      # Default is 512
-            public_load_balancer=True)  # Default is True
+        cluster = rds.ServerlessCluster(self, "AuroraCluster",
+            engine=rds.DatabaseClusterEngine.aurora_postgres(version=rds.AuroraPostgresEngineVersion.VER_14_5),
+            vpc=vpc,
+            # credentials={"username": "clusteradmin"},
+            cluster_identifier="db-endpoint-test",
+            default_database_name="demos"
+        )
