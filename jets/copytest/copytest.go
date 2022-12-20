@@ -17,7 +17,7 @@ func main() {
 	dbpool, err := pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 	defer dbpool.Close()
 
@@ -36,7 +36,7 @@ func main() {
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "CopyFrom failed: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	fmt.Println("The result is:", copyCount)
@@ -47,7 +47,7 @@ func main() {
 	rows, err := dbpool.Query(context.Background(), sqlstmt)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Query failed: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 	defer rows.Close()
 	rowCount := 0
@@ -66,7 +66,7 @@ func main() {
 		// scan the row
 		if err := rows.Scan(dataRow...); err != nil {
 			fmt.Fprintf(os.Stderr, "Scan failed: %v\n", err)
-			os.Exit(1)
+			panic(err)
 		}
 		dataGrps = append(dataGrps, dataRow)
 
@@ -79,7 +79,7 @@ func main() {
 		// // scan the row
 		// if err := rows.Scan(&v0, &v1, &v2, &v3, &v4); err != nil {
 		// 	fmt.Fprintf(os.Stderr, "Scan failed: %v\n", err)
-		// 	os.Exit(1)
+		// 	panic()
 		// }
 		// fmt.Println(" Got Row ",v0," ",v1," ",v2," ",v3," ",v4)
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 )
 
@@ -401,7 +400,7 @@ func main() {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
-		os.Exit((1))
+		panic(errMsg)
 	}
 
 	fmt.Println("jloader argument:")
@@ -412,6 +411,7 @@ func main() {
 	err := processFile()
 	if err != nil {
 		flag.Usage()
-		log.Fatal(err)
+		fmt.Println(err)
+		panic(err)
 	}
 }

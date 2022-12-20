@@ -122,7 +122,7 @@ func main() {
 		for _, msg := range errMsg {
 			fmt.Println("**",msg)
 		}
-		os.Exit((1))
+		panic(errMsg)
 	}
 
 	// This is used only in DEV MODE

@@ -624,7 +624,7 @@ func main() {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
-		os.Exit(1)
+		panic("Invalid arguments")
 	}
 	sessId := ""
 	if *sessionId == "" {
@@ -662,6 +662,7 @@ func main() {
 	err = coordinateWork()
 	if err != nil {
 		flag.Usage()
-		log.Fatal(err)
+		fmt.Println(err)
+		panic(err)
 	}
 }

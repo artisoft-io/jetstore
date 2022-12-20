@@ -116,7 +116,8 @@ func main() {
 	fmt.Println("file content length", fsz)
 
 	if err := scanner.Err(); err != nil {
-			log.Fatal(err)
+		fmt.Println(err)
+		panic(err)
 	}
 	fmt.Println("That's it for now!")
 
