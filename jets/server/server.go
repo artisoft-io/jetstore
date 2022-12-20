@@ -286,7 +286,7 @@ func main() {
 		for _, msg := range errMsg {
 			log.Println("**", msg)
 		}
-		os.Exit((1))
+		panic(errMsg)
 	}
 	v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
 	glogv = int(v)
@@ -294,6 +294,7 @@ func main() {
 	err := doJob()
 	if err != nil {
 		flag.Usage()
-		log.Fatal(err)
+		fmt.Println(err)
+		panic(err)
 	}
 }

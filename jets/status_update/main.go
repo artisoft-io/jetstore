@@ -170,7 +170,7 @@ func main() {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
-		os.Exit((1))
+		panic(errMsg)
 	}
 
 	fmt.Println("Session Update argument:")
@@ -186,6 +186,7 @@ func main() {
 	err := coordinateWork()
 	if err != nil {
 		flag.Usage()
-		log.Fatal(err)
+		fmt.Println(err)
+		panic(err)
 	}
 }

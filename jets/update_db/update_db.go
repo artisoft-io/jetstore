@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -169,7 +168,7 @@ func main() {
 		for _, msg := range errMsg {
 			log.Println("**", msg)
 		}
-		os.Exit((1))
+		panic(errMsg)
 	}
 
 	log.Println("Here's what we got:")
@@ -186,6 +185,7 @@ func main() {
 	err := doJob()
 	if err != nil {
 		flag.Usage()
-		log.Fatal(err)
+		fmt.Println(err)
+		panic(err)
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "log"
     "strings"
 	"reflect"
 )
@@ -26,8 +25,9 @@ func main2() {
     // read open bracket
     t, err := dec.Token()
     if err != nil {
-        log.Fatal(err)
-    }
+			fmt.Println(err)
+			panic(err)
+		}
 	
 	switch v := t.(type) { 
     default:
@@ -48,7 +48,8 @@ func main2() {
 	
 		t, err := dec.Token()
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println(err)
+			panic(err)
 		}
 		if reflect.ValueOf(t).Kind() == reflect.String {
 			fmt.Println("It's a string!")
@@ -60,7 +61,8 @@ func main2() {
         // decode an array value (Message)
 //        err := dec.Decode(&m)
 //        if err != nil {
-//            log.Fatal(err)
+	// fmt.Println(err)
+	// panic(err)
 //        }
 
 //        fmt.Printf("%v: %v\n", m.Name, m.Text)
@@ -69,8 +71,9 @@ func main2() {
     // read closing bracket
     t, err = dec.Token()
     if err != nil {
-        log.Fatal(err)
-    }
+			fmt.Println(err)
+			panic(err)
+			}
     fmt.Printf("%T: %v\n", t, t)
 
 }
