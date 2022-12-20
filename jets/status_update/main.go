@@ -63,10 +63,11 @@ func registerDomainTables(dbpool *pgxpool.Pool, pipelineKey int, sessionId strin
 	}
 	log.Printf("Registring Domain Tables with sessionId '%s'", sessionId)
 	for i := range outTables {
-		stmt := `insert into jetsapi.input_registry (client, object_type, file_key, table_name, source_type, session_id, user_email)
-		select pe.client, plnc.main_object_type, pe.main_input_file_key, $1, 'domain_table', pe.session_id, pe.user_email
-		from jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
-		where pc.key = plnc.process_config_key and plnc.key = pe.pipeline_config_key and pe.key = $2`
+		stmt := `INSERT INTO jetsapi.input_registry (client, object_type, file_key, table_name, source_type, session_id, user_email)
+		SELECT pe.client, plnc.main_object_type, pe.main_input_file_key, $1, 'domain_table', pe.session_id, pe.user_email
+		FROM jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
+		WHERE pc.key = plnc.process_config_key and plnc.key = pe.pipeline_config_key and pe.key = $2 
+		ON CONFLICT DO NOTHING`
 		
 		_, err = dbpool.Exec(context.Background(), stmt, outTables[i], pipelineKey)
 		if err != nil {

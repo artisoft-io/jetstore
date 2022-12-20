@@ -168,10 +168,12 @@ func main() {
 	}
 	if *originalFileName == "" {
 		idx := strings.LastIndex(*filePath, "/")
-		if idx >= 0 || idx <len(*filePath)-1 {
+		if idx >= 0 && idx <len(*filePath)-1 {
 			fmt.Println("Extracting originalFileName from filePath", *filePath)
 			*originalFileName = (*filePath)[idx+1:]
 			*filePath = (*filePath)[0:idx]
+		} else {
+			*originalFileName = *filePath
 		}
 	}
 	//*TODO Factor out code
@@ -235,12 +237,16 @@ func main() {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
-		os.Exit((1))
+		panic("Invalid argument(s)")
 	}
 
 	fmt.Println("Run Reports argument:")
 	fmt.Println("----------------")
-	fmt.Println("Got argument: dsn", *dsn)
+	if *dsn == "" {
+		fmt.Println("Got argument: dsn is empty")
+	} else {
+		fmt.Println("Got argument: dsn is non empty")
+	}
 	fmt.Println("Got argument: awsDsnSecret",*awsDsnSecret)
 	fmt.Println("Got argument: dbPoolSize",*dbPoolSize)
 	fmt.Println("Got argument: usingSshTunnel",*usingSshTunnel)
@@ -255,6 +261,6 @@ func main() {
 	err := coordinateWork()
 	if err != nil {
 		flag.Usage()
-		log.Fatal(err)
+		panic(err)
 	}
 }

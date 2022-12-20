@@ -305,7 +305,7 @@ func RegisterSession(dbpool *pgxpool.Pool, sessionId string) error {
 	if sessionId == "" {
 		return fmt.Errorf("error: cannot have empty session")
 	}
-	stmt := `INSERT INTO jetsapi.session_registry (session_id) VALUES ($1)`
+	stmt := `INSERT INTO jetsapi.session_registry (session_id) VALUES ($1) ON CONFLICT DO NOTHING`
 	_, err := dbpool.Exec(context.Background(), stmt, sessionId)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.session_registry table: %v", err)

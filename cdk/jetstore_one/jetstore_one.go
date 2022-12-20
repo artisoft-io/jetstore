@@ -62,7 +62,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	vpc := awsec2.NewVpc(stack, jsii.String("taskVpc"), &awsec2.VpcProps{
 		MaxAzs: jsii.Number(2),
 		NatGateways: jsii.Number(0),
+		EnableDnsHostnames: jsii.Bool(true),
+		EnableDnsSupport: jsii.Bool(true),
 		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
+			{
+				Name: jsii.String("public"),
+				SubnetType: awsec2.SubnetType_PUBLIC,
+			},
 			{
 				Name: jsii.String("jetstoreRds"),
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
@@ -77,7 +83,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// Add Endpoints
 	rdsSubnetsIndex := 0
-	ecsSubnetsIndex := 1
+	// ecsSubnetsIndex := 1
+	ecsSubnetsIndex := 0
 	subnetSelection := make([]*awsec2.SubnetSelection, 0)
 	subnetSelection = append(subnetSelection, &awsec2.SubnetSelection{
 		SubnetGroupName: jsii.String("jetstoreRds"),
@@ -167,6 +174,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			VpcSubnets: subnetSelection[ecsSubnetsIndex],
 			InstanceType: awsec2.NewInstanceType(jsii.String("serverless")),
 		},
+		S3ExportBuckets: &[]awss3.IBucket{
+			sourceBucket,
+		},
+		S3ImportBuckets: &[]awss3.IBucket{
+			sourceBucket,
+		},
+		StorageEncrypted: jsii.Bool(true),
 	})
 	awscdk.Aspects_Of(rdsCluster).Add(new(myAspect))
 
@@ -329,11 +343,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 				Command: sfn.JsonPath_ListAt(jsii.String("$.loaderCommand")),
 			},
 		},
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
+	runLoaderTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderTask"))
 	loaderSM := sfn.NewStateMachine(stack, jsii.String("loaderSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("loaderSM"),
 		Definition: runLoaderTask,
-		Timeout: awscdk.Duration_Minutes(jsii.Number(5)),
+		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
 	})
 
 	// JetStore Rule Server State Machine
@@ -377,10 +393,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		ContainerOverrides: &[]*sfntask.ContainerOverride{
 			{
 				ContainerDefinition: serverContainerDef,
-				Command: sfn.JsonPath_ListAt(jsii.String("$.serverCommand")),
+				Command: sfn.JsonPath_ListAt(jsii.String("$")),
 			},
 		},
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
+	runServerTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerTask"))
 	// Define the run_reports task, part of the runServerSM
 	runreportTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("runreportTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(3072),
@@ -424,7 +442,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 				Command: sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
 			},
 		},
+		ResultPath: sfn.JsonPath_DISCARD(),
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
+	runReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runReportsTask "))
 	// Define the update_error_status task, part of the runServerSM
 	updateStatusTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("updateStatusTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(1024),
@@ -468,7 +489,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 				Command: sfn.JsonPath_ListAt(jsii.String("$.errorUpdate")),
 			},
 		},
+		ResultPath: sfn.JsonPath_DISCARD(),
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
+	updateErrorStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from  updateErrorStatusTask"))
 	updateSuccessStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-success"), &sfntask.EcsRunTaskProps{
 		Comment: jsii.String("Update Status with Success"),
 		Cluster: ecsCluster,
@@ -484,7 +508,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 				Command: sfn.JsonPath_ListAt(jsii.String("$.successUpdate")),
 			},
 		},
+		ResultPath: sfn.JsonPath_DISCARD(),
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
+	updateSuccessStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from updateSuccessStatusTask"))
 	//*TODO SNS message
 	notifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
 	notifySuccess := sfn.NewPass(scope, jsii.String("notify-success"), &sfn.PassProps{})
@@ -504,7 +531,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Comment: jsii.String("Run JetStore Rule Server Task"),
 		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),
 		MaxConcurrency: jsii.Number(maxConcurrency),
-		ResultPath: nil,
+		ResultPath: sfn.JsonPath_DISCARD(),
 	})
 	runServerMap.Iterator(runServerTask).Next(runReportsTask)
 	cp := &sfn.CatchProps{Errors: jsii.Strings("States.ALL")}
@@ -516,10 +543,59 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		StateMachineName: jsii.String("serverSM"),
 		Definition: runServerMap,
 		// NOTE 2h TIMEOUT of exec rules
-		Timeout: awscdk.Duration_Minutes(jsii.Number(120)),
+		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
 	})
 
-	//*TODO JetStore Run Loader & Rule Server State Machine
+	// JetStore Run Loader & Rule Server State Machine
+	//*TODO SNS message
+	notifyFailure2 := sfn.NewPass(scope, jsii.String("notify-failure-loaderAndServerSM"), &sfn.PassProps{})
+	loaderStartExec := sfntask.NewStepFunctionsStartExecution(stack, jsii.String("loaderStartExec"), &sfntask.StepFunctionsStartExecutionProps{
+		StateMachine: loaderSM,
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		Input: sfn.TaskInput_FromObject(&map[string]interface{}{
+			"AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+			"loaderCommand.$": "$.loaderCommand",
+		}),
+		ResultPath: sfn.JsonPath_DISCARD(),
+		//* 2h TIMEOUT
+		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
+	})
+	loaderStartExec.AddCatch(notifyFailure2, cp)
+	serverStartExec := sfntask.NewStepFunctionsStartExecution(stack, jsii.String("serverStartExec"), &sfntask.StepFunctionsStartExecutionProps{
+		StateMachine: serverSM,
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		Input: sfn.TaskInput_FromObject(&map[string]interface{}{
+			"AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+			"serverCommands.$": "$.serverCommands",
+      "reportsCommand.$": "$.reportsCommand",
+      "successUpdate.$": "$.successUpdate",
+      "errorUpdate.$": "$.errorUpdate",
+		}),
+		ResultPath: sfn.JsonPath_DISCARD(),
+		//* 2h TIMEOUT
+		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
+	})
+	serverStartExec.AddCatch(notifyFailure2, cp)
+	loaderStartExec.Next(serverStartExec)
+	loaderAndServerSM := sfn.NewStateMachine(stack, jsii.String("loaderAndServerSM"), &sfn.StateMachineProps{
+		StateMachineName: jsii.String("loaderAndServerSM"),
+		Definition: loaderStartExec,
+		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
+	})
+
+	// ---------------------------------------
+	// Allow JetStore Tasks Running in JetStore Container
+	// permission to execute the StateMachines
+	// These execution are perfoemd in code so must give permission explicitly
+	// ---------------------------------------
+	ecsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions:   jsii.Strings("states:StartExecution"),
+		Resources: &[]*string{
+			loaderSM.StateMachineArn(),
+			serverSM.StateMachineArn(),
+			loaderAndServerSM.StateMachineArn(),
+		},
+	}))
 
 	// ---------------------------------------
 	// Define the JetStore UI Service
@@ -574,7 +650,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_BUCKET":  sourceBucket.BucketName(),
 			"JETS_LOADER_SM_ARN": loaderSM.StateMachineArn(),
 			"JETS_SERVER_SM_ARN": serverSM.StateMachineArn(),
-			"JETS_LOADER_SERVER_SM_ARN": jsii.String("XXX"),
+			"JETS_LOADER_SERVER_SM_ARN": loaderAndServerSM.StateMachineArn(),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -592,14 +668,22 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		VpcSubnets: subnetSelection[ecsSubnetsIndex],
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount: jsii.Number(1),
-	}) 
+	})
 	uiLoadBalancer := awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
 		Vpc: vpc,
 		InternetFacing: jsii.Bool(false),
 		VpcSubnets: subnetSelection[ecsSubnetsIndex],
 	})
+	var err error
+	var uiPort float64 = 8080
+	if os.Getenv("JETS_UI_PORT") != "" {
+		uiPort, err = strconv.ParseFloat(os.Getenv("JETS_UI_PORT"), 64)
+		if err != nil {
+			uiPort = 8080
+		}
+	}
 	listener := uiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
-		Port: jsii.Number(80),
+		Port: jsii.Number(uiPort),
 		Open: jsii.Bool(true),
 		Protocol: awselb.ApplicationProtocol_HTTP,
 	})
@@ -612,6 +696,19 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Protocol: awselb.ApplicationProtocol_HTTP,
 		}),
 	})
+	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
+
+	// Add jump server
+	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
+		Vpc: vpc,
+		InstanceName: jsii.String("JetstoreJumpServer"),
+		SubnetSelection: &awsec2.SubnetSelection{
+			SubnetType: awsec2.SubnetType_PUBLIC,
+		},
+	})
+	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), "test1-keypair")
+	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
+	bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
 
 	return stack
 }
@@ -632,6 +729,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_REGION (required)
 // JETS_ECR_REPO_ARN (required)
 // JETS_IMAGE_TAG (required)
+// JETS_UI_PORT (defaults 8080)
 // NBR_SHARDS (defaults to 1)
 // TASK_MAX_CONCURRENCY (defaults to 1)
 
