@@ -152,7 +152,7 @@ func main() {
 	fmt.Println("apiserver argument:")
 	fmt.Println("-------------------")
 	fmt.Println("Got argument: awsApiSecret",*awsApiSecret)
-	fmt.Println("Got argument: apiSecret",*apiSecret)
+	fmt.Println("Got argument: apiSecret len",len(*apiSecret))
 	fmt.Println("Got argument: dsn len",len(*dsn))
 	fmt.Println("Got argument: awsDsnSecret",*awsDsnSecret)
 	fmt.Println("Got argument: dbPoolSize",*dbPoolSize)
