@@ -175,7 +175,7 @@ func main() {
 
 	fmt.Println("Session Update argument:")
 	fmt.Println("----------------")
-	fmt.Println("Got argument: dsn", *dsn)
+	fmt.Println("Got argument: dsn, len", len(*dsn))
 	fmt.Println("Got argument: awsDsnSecret",*awsDsnSecret)
 	fmt.Println("Got argument: dbPoolSize",*dbPoolSize)
 	fmt.Println("Got argument: usingSshTunnel",*usingSshTunnel)
