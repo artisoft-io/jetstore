@@ -19,8 +19,8 @@ import (
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
-	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
-	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
 	// awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 )
 
@@ -251,7 +251,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// ecsSampleTaskDefinition.TaskRole().GrantPassRole(taskStarterLambdaRole)
 
 	// // Create a Sample Lambda function to start the sample container task.
-	// taskStarterLambda := awslambdago.NewGoFunction(stack, jsii.String("taskStarterLambda"), &awslambdago.GoFunctionProps{
+	// registerKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("registerKeyLambda"), &awslambdago.GoFunctionProps{
 	// 	Runtime: awslambda.Runtime_GO_1_X(),
 	// 	Entry:   jsii.String("../taskrunner"),
 	// 	Bundling: &awslambdago.BundlingOptions{
@@ -270,21 +270,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// })
 	// // //* 
 	// // fmt.Println(*ecsSampleTaskContainer.ContainerName())
-
-	// // ALTERNATE TO LAMBDA IN GO: Testing with python lamdba fnc
-	// // taskStarterLambda := awslambda.NewFunction(stack, jsii.String("taskStarterLambda"), &awslambda.FunctionProps{
-	// // 	Code: awslambda.NewAssetCode(jsii.String("../taskrunner"), nil),
-	// // 	Handler: jsii.String("handler.main"),
-	// // 	Timeout: awscdk.Duration_Seconds(jsii.Number(300)),
-	// // 	Runtime: awslambda.Runtime_PYTHON_3_9(),
-	// // });
-
-	// // Run the task starter Lambda when an object is added to the S3 bucket.
-	// taskStarterLambda.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
-	// 	Events: &[]awss3.EventType{
-	// 		awss3.EventType_OBJECT_CREATED,
-	// 	},
-	// }))
 	// // =================================================================================================================================
 
 	// JetStore Image from ecr -- referenced in most tasks
@@ -709,6 +694,32 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), "test1-keypair")
 	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
 	bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
+
+
+	// ALTERNATE TO LAMBDA IN GO: Testing with python lamdba fnc
+	// Lambda to register key from s3
+	registerKeyLambda := awslambda.NewFunction(stack, jsii.String("registerKeyLambda"), &awslambda.FunctionProps{
+		Description: jsii.String("Lambda to register s3 key to JetStore"),
+		Code: awslambda.NewAssetCode(jsii.String("lambdas"), nil),
+		Handler: jsii.String("handlers.register_key"),
+		Timeout: awscdk.Duration_Seconds(jsii.Number(300)),
+		Runtime: awslambda.Runtime_PYTHON_3_9(),
+		Environment: &map[string]*string{
+			"JETS_API_HOST":  jsii.String(fmt.Sprintf("%s:%.0f",*uiLoadBalancer.LoadBalancerDnsName(), uiPort)),
+			"SYSTEM_USER":    jsii.String("system@artisoft.io"),
+			"SYSTEM_PWD":     jsii.String("ArtiSoft!123456789"),
+		},
+		Vpc: vpc,
+		VpcSubnets: subnetSelection[ecsSubnetsIndex],
+	})
+
+	// Run the task starter Lambda when an object is added to the S3 bucket.
+	registerKeyLambda.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
+		Events: &[]awss3.EventType{
+			awss3.EventType_OBJECT_CREATED,
+		},
+	}))
+	registerKeyLambda.Connections().AllowTo(ecsUiService, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
 
 	return stack
 }
