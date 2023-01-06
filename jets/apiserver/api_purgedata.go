@@ -54,14 +54,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 func (server *Server) ResetDomainTables(w http.ResponseWriter, r *http.Request, 
 	purgeDataAction *PurgeDataAction) {
 	// Clear and rebuild the domain table using the update_db command line
-	workspaceDb := os.Getenv("WORKSPACE_DB_PATH")
-	if workspaceDb == "" {
-		log.Println("Error: workspace db path is unknown (missing env WORKSPACE_DB_PATH")
-		ERROR(w, http.StatusInternalServerError, 
-			fmt.Errorf("error: workspace db path is unknown"))
-		return
-	}
-	serverArgs := []string{ "-drop", "-dsn", *dsn,"-workspaceDb", workspaceDb }
+	serverArgs := []string{ "-drop" }
 	log.Printf("Run update_db: %s", serverArgs)
 	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
 	var b bytes.Buffer

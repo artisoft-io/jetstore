@@ -32,7 +32,7 @@ func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj st
 
 // main function for asserting input entity row (from persisted entities)
 func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSession, inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
-	// //*
+	// // For development
 	// log.Println("ASSERT ENTITY:")
 	// for ipos := range inBundleRow.inputRows {
 	// 	log.Println("    ",inBundleRow.processInput.processInputMapping[ipos].dataProperty,"  =  ",inBundleRow.inputRows[ipos], ", range ",inBundleRow.processInput.processInputMapping[ipos].rdfType,", array?",inBundleRow.processInput.processInputMapping[ipos].isArray)
@@ -51,6 +51,11 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 	ncol := len(inBundleRow.inputRows)
 	for icol := 0; icol < ncol; icol++ {
 		inputColumnSpec := &inBundleRow.processInput.processInputMapping[icol]
+		if inputColumnSpec.isDomainKey {
+			// Column added to ProcessMap to read grouping column,
+			// Not inserted in rdf graph
+			return nil
+		}
 		var object *bridge.Resource
 		var objectArr []*bridge.Resource
 		var err error

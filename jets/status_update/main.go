@@ -13,9 +13,15 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+// Env variable:
+// JETS_DSN_SECRET
+// JETS_REGION
+// JETS_BUCKET
+// JETS_DSN_URI_VALUE
+// JETS_DSN_JSON_VALUE
+
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
-
 var awsDsnSecret   = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var dbPoolSize     = flag.Int("dbPoolSize", 5, "DB connection pool size, used for -awsDnsSecret (default 10)")
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")

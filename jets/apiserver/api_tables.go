@@ -313,37 +313,17 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				}
 				// expected columns in the incoming request that are not columns in the input_loader_status table
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
-				gc := dataTableAction.Data[irow]["grouping_column"]
 				// extract the columns we need for the loader
 				objType := row["object_type"]
-				tableName := row["table_name"]
 				client := row["client"]
 				fileKey := row["file_key"]
-				groupingColumn := "''"
-				switch {
-				case gc != nil:
-					groupingColumn = gc.(string)
-				case row["load_and_start"] == "true":
-					// get the grouping column from the process input table
-					objType := dataTableAction.Data[irow]["object_type"]
-					client := row["client"]
-					processName := row["process_name"]
-					stmt := "SELECT pi.grouping_column FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.process_name=$1 AND pc.client=$2 AND pc.main_object_type=$3 AND pc.main_process_input_key = pi.key"
-					err = server.dbpool.QueryRow(context.Background(), stmt, processName, client, objType).Scan(&groupingColumn)
-					if err != nil {
-						log.Printf("in preparing to start loader (load_and_start case) while querying pipeline_config for client %s, process_name %s, and object_type %s to get the grouping_key: %v", client, processName, objType, err)
-						httpStatus = http.StatusInternalServerError
-						err = errors.New("error while querying process_input table to get grouping_column")
-						return
-					}
-				}
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
 				doNotLockSessionId := ""
-				if objType == nil || tableName == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
+				if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
 					log.Printf(
-						"error while preparing to run loader: unexpected nil among: objType: %v, tableName: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
-						objType, tableName, client, fileKey, sessionId, userEmail)
+						"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
+						objType, client, fileKey, sessionId, userEmail)
 					httpStatus = http.StatusInternalServerError
 					err = errors.New("error while running loader command")
 					return
@@ -353,17 +333,12 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				}
 				loaderCommand := []string{
 					"-in_file", fileKey.(string), 
-					"-table", tableName.(string), 
 					"-client", client.(string), 
 					"-objectType", objType.(string),
 					"-sessionId", sessionId.(string),
 					"-userEmail", userEmail.(string), 
 					"-nbrShards", strconv.Itoa(nbrShards),
 					doNotLockSessionId,
-				}
-				if groupingColumn != "" {
-					loaderCommand = append(loaderCommand, "-groupingColumn")
-					loaderCommand = append(loaderCommand, groupingColumn)
 				}
 			switch {
 				// Call loader synchronously
@@ -432,21 +407,9 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 				peKey := strconv.Itoa(returnedKey[irow])
 				objType := dataTableAction.Data[irow]["object_type"]
-				tableName := dataTableAction.Data[irow]["table_name"]
 				client := row["client"]
 				processName := row["process_name"]
 				fileKey := dataTableAction.Data[irow]["file_key"]
-				// Get the gouping column from the process input table
-				var groupingColumn string
-				stmt := "SELECT pi.grouping_column FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.process_name=$1 AND pc.client=$2 AND pc.main_object_type=$3 AND pc.main_process_input_key = pi.key"
-				err = server.dbpool.QueryRow(context.Background(), stmt, processName, client, objType).Scan(&groupingColumn)
-				if err != nil {
-					log.Printf("in preparing to start server while querying pipeline_config for client %s, process_name %s, and object_type %s to get the grouping_key: %v", client, processName, objType, err)
-					httpStatus = http.StatusInternalServerError
-					err = errors.New("error while querying process_input table to get grouping_column")
-					return
-				}
-
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
 				// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
@@ -459,10 +422,10 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				}
 				// Check required params for loader/server if load+start
 				if row["load_and_start"] == "true" {
-					if objType == nil || tableName == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
+					if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
 						log.Printf(
-							"error while preparing to run loader: unexpected nil among: objType: %v, tableName: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
-							objType, tableName, client, fileKey, sessionId, userEmail)
+							"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
+							objType, client, fileKey, sessionId, userEmail)
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while preparing argo command for server/argo(load+start) and run")
 						return
@@ -542,17 +505,12 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 						processArn = os.Getenv("JETS_LOADER_SERVER_SM_ARN")
 						loaderCommand := []string{
 							"-in_file", fileKey.(string), 
-							"-table", tableName.(string), 
 							"-client", client.(string), 
 							"-objectType", objType.(string),
 							"-sessionId", sessionId.(string),
 							"-userEmail", userEmail.(string), 
 							"-nbrShards", strconv.Itoa(nbrShards),
 							"-doNotLockSessionId",
-						}
-						if groupingColumn != "" {
-							loaderCommand = append(loaderCommand, "-groupingColumn")
-							loaderCommand = append(loaderCommand, groupingColumn)
 						}
 						smInput["loaderCommand"] = loaderCommand
 					}

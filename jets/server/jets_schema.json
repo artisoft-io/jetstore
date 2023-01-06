@@ -1,6 +1,27 @@
 [
   {
     "schemaName": "jetsapi",
+    "tableName":  "jetstore_release",
+    "columns": [
+      {
+        "columnName": "version",
+        "dataType":   "text",
+        "isPK":       true,
+        "isNotNull":  true
+      }, {
+        "columnName": "name",
+        "dataType":   "text",
+        "default":    "'JetStore Timestamp Version'",
+        "isNotNull":  true
+      }
+    ],
+    "indexes": [
+    ],
+    "tableConstraints": [
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName":  "users",
     "columns": [
       {
@@ -84,6 +105,25 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName":  "domain_keys_registry",
+    "columns": [
+      {
+        "columnName": "entity_rdf_type",
+        "dataType":   "text",
+        "isPK":  true
+      }, {
+        "columnName": "object_types",
+        "dataType":   "text",
+        "isArray":    true,
+        "isNotNull":  true
+      }, {
+        "columnName": "domain_keys_json",
+        "dataType":   "text"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName":  "object_type_mapping_details",
     "columns": [
       {
@@ -159,7 +199,7 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "grouping_column",
+        "columnName": "domain_keys_json",
         "dataType":   "text"
       }, {
         "columnName": "user_email",
@@ -210,11 +250,6 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "node_id",
-        "dataType":   "int",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
         "columnName": "bad_row_count",
         "dataType":   "int"
       }, {
@@ -255,7 +290,7 @@
       }
     ],
     "tableConstraints": [
-      "CONSTRAINT input_loader_status_unique_cstraint UNIQUE (table_name, session_id, node_id)"
+      "CONSTRAINT input_loader_status_unique_cstraint UNIQUE (table_name, session_id)"
     ]
   },
   {
@@ -345,9 +380,6 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "grouping_column",
-        "dataType":   "text"
-      }, {
         "columnName": "key_column",
         "dataType":   "text"
       }, {
@@ -376,7 +408,7 @@
       }
     ],
     "tableConstraints": [
-      "CONSTRAINT process_input_unique_cstraint UNIQUE (table_name, grouping_column)"
+      "CONSTRAINT process_input_unique_cstraint UNIQUE (client, object_type, table_name)"
     ]
   },
   {

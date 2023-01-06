@@ -10,12 +10,15 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/schema"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type WorkspaceDb struct {
 	Dsn string
 	db  *sql.DB
+	Dbpool *pgxpool.Pool
 }
 
 type DomainColumn struct {
@@ -28,10 +31,29 @@ type DomainColumn struct {
 }
 
 type DomainTable struct {
-	TableName     string
-	ClassName     string
-	ClassResource *bridge.Resource
-	Columns       []DomainColumn
+	TableName        string
+	ClassName        string
+	ClassResource    *bridge.Resource
+	Columns          []DomainColumn
+	DomainKeysInfo   *schema.HeadersAndDomainKeysInfo
+}
+
+func NewDomainTable(tableName string) DomainTable {
+	// Load the Domain Key info from domain_keys_registry
+	domainTable := DomainTable{
+		TableName: tableName, 
+		Columns: make([]DomainColumn, 0),
+		DomainKeysInfo: schema.NewHeadersAndDomainKeysInfo(tableName),
+	}
+	return domainTable
+}
+
+func (domainTable *DomainTable)DomainHeaders() *[]string {
+	domainHeaders := make([]string, len(domainTable.Columns))
+	for ipos := range domainTable.Columns {
+		domainHeaders[ipos] = domainTable.Columns[ipos].ColumnName
+	}
+	return &domainHeaders
 }
 
 type JetStoreProperties map[string]string
@@ -44,7 +66,7 @@ func OpenWorkspaceDb(dsn string) (*WorkspaceDb, error) {
 	if err != nil {
 		return nil, fmt.Errorf("while opening workspace db: %v", err)
 	}
-	return &WorkspaceDb{dsn, db}, nil
+	return &WorkspaceDb{Dsn: dsn, db: db}, nil
 }
 
 func (workspaceDb *WorkspaceDb) Close() {
@@ -62,7 +84,7 @@ func (workspaceDb *WorkspaceDb) GetTableNames() ([]string, error) {
 	}
 	tableNames = make([]string, 0)
 	defer rows.Close()
-	for rows.Next() { 
+	for rows.Next() {
 		var tblName string
 		rows.Scan(&tblName)
 		tableNames = append(tableNames, tblName)
@@ -95,7 +117,7 @@ func (workspaceDb *WorkspaceDb) GetRuleSetNames(ruleseq string) ([]string, error
 	}
 	rulesets = make([]string, 0)
 	defer rows.Close()
-	for rows.Next() { 
+	for rows.Next() {
 		var rs_name string
 		rows.Scan(&rs_name)
 		log.Println("  - rs_name:", rs_name)
@@ -120,18 +142,19 @@ func (workspaceDb *WorkspaceDb) GetVolatileResources() ([]string, error) {
 	return result, nil
 }
 
-// loadDomainColumnMapping: returns a mapping of the output domain tables with their column specs
+// LoadDomainTableDefinitions: Load the Domain Table Definition, including Domain Keys definition
+// returns a mapping of the output domain tables with their column specs
 // if allTble is true, return all otherwise, filter using outTableFilter
-func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(allTbl bool, outTableFilter map[string]bool) (OutputTableSpecs, error) {
-	columnMap := make(OutputTableSpecs)
+func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTableFilter map[string]bool) (OutputTableSpecs, error) {
+	domainTableMap := make(OutputTableSpecs)
 	if workspaceDb.db == nil {
-		return columnMap, fmt.Errorf("error while loading domain tables from workspace db, db connection is not opened")
+		return domainTableMap, fmt.Errorf("error while loading domain tables from workspace db, db connection is not opened")
 	}
 
-	// Get the the domainColumn infor for each table
+	// Get the the domainColumn info for each table
 	domainTablesRow, err := workspaceDb.db.Query("SELECT key, name FROM domain_tables")
 	if err != nil {
-		return columnMap, fmt.Errorf("while loading domain tables from workspace db: %v", err)
+		return domainTableMap, fmt.Errorf("while loading domain tables from workspace db: %v", err)
 	}
 	defer domainTablesRow.Close()
 	for domainTablesRow.Next() { // Iterate and fetch the records from result cursor
@@ -145,30 +168,48 @@ func (workspaceDb *WorkspaceDb) LoadDomainColumnMapping(allTbl bool, outTableFil
 			domainColumnsRow, err := workspaceDb.db.Query(
 				"SELECT dc.name, dp.name, dc.type, dc.as_array, dc.is_grouping FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
 			if err != nil {
-				return columnMap, fmt.Errorf("while loading domain table columns info from workspace db: %v", err)
+				return domainTableMap, fmt.Errorf("while loading domain table columns info from workspace db: %v", err)
 			}
 			defer domainColumnsRow.Close()
-			domainColumns := DomainTable{TableName: tableName, Columns: make([]DomainColumn, 0)}
+			domainTable := NewDomainTable(tableName)
 			for domainColumnsRow.Next() { // Iterate and fetch the records from result cursor
 				var domainColumn DomainColumn
 				domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray, &domainColumn.IsGrouping)
 				log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray, ", is_grouping?", domainColumn.IsGrouping)
-				domainColumns.Columns = append(domainColumns.Columns, domainColumn)
+				domainTable.Columns = append(domainTable.Columns, domainColumn)
 			}
-			log.Println("Got", len(domainColumns.Columns), "columns")
 
 			// add the corresponding class name
 			err = workspaceDb.db.QueryRow(
 				"SELECT dc.name FROM domain_tables dt LEFT JOIN domain_classes dc WHERE dt.name = ? AND dt.domain_class_key = dc.key",
-				tableName).Scan(&domainColumns.ClassName)
+				tableName).Scan(&domainTable.ClassName)
 
 			if err != nil {
-				return columnMap, fmt.Errorf("while loading ClassName from workspace db for TableName %s: %v", tableName, err)
+				return domainTableMap, fmt.Errorf("while loading ClassName from workspace db for TableName %s: %v", tableName, err)
 			}
-			columnMap[tableName] = &domainColumns
+			// Initializing Domain Keys Info
+			domainHeaders := domainTable.DomainHeaders()
+			objectTypes, domainKeysJson, err := GetDomainKeysInfo(workspaceDb.Dbpool, domainTable.ClassName)
+			if err != nil {
+				return domainTableMap, fmt.Errorf("while calling GetDomainKeysInfo: %v", err)
+			}
+			mainObjectType := ""
+			if len(*objectTypes) > 0 {
+				mainObjectType = (*objectTypes)[0]
+			}
+
+			err = domainTable.DomainKeysInfo.InitializeDomainTable(*domainHeaders, mainObjectType, domainKeysJson)
+			if err != nil {
+				return domainTableMap, fmt.Errorf("while calling domainTable.DomainKeysInfo.InitializeDomainTable: %v", err)
+			}
+
+			// // for devel
+			// fmt.Println("Domain Keys Info for table:",tableName)
+			// fmt.Println(domainTable.DomainKeysInfo)
+			domainTableMap[tableName] = &domainTable
 		}
 	}
-	return columnMap, nil
+	return domainTableMap, nil
 }
 
 // loadJetStoreProperties: returns a mapping of the output domain tables with their column specs

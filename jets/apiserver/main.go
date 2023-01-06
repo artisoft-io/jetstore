@@ -24,10 +24,27 @@ import (
 //   -awsAdminPwdSecret "${AWS_JETS_ADMIN_PWD_SECRET}" \
 //   -adminPwd "${JETS_ADMIN_PWD}" 
 //
-// # Also need env JETS_LOADER_SM_ARN state machine arn
-// # Also need env JETS_SERVER_SM_ARN state machine arn
-// # Also need env JETS_LOADER_SERVER_SM_ARN state machine arn
-// # Also need env NBR_SHARDS set the nbr of shard to use for loader and server
+// Env Variables
+// API_SECRET
+// API_SERVER_ADDR
+// API_TOKEN_EXPIRATION_MIN
+// AWS_API_SECRET
+// AWS_JETS_ADMIN_PWD_SECRET
+// JETS_ADMIN_EMAIL
+// JETS_ADMIN_PWD
+// JETS_DSN_SECRET
+// JETS_DSN_VALUE
+// JETS_LOADER_SERVER_SM_ARN state machine arn
+// JETS_LOADER_SM_ARN state machine arn
+// JETS_REGION
+// JETS_SERVER_SM_ARN state machine arn
+// JETSTORE_DEV_MODE Indicates running in dev mode
+// NBR_SHARDS set the nbr of shard to use for loader and server
+// WEB_APP_DEPLOYMENT_DIR
+// WORKSPACE Workspace currently in use
+// WORKSPACE_DB_PATH location of workspace db (sqlite db)
+// WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
+// WORKSPACES_HOME Home dir of workspaces
 
 var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret       = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -44,7 +61,6 @@ var adminEmail         = flag.String("adminEmail", "admin", "Admin email, may no
 var awsAdminPwdSecret  = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
 var adminPwd           = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
 var devMode bool
-var argoCmd string
 var nbrShards int
 
 func main() {
@@ -172,12 +188,5 @@ func main() {
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("ENV WORKSPACE_DB_PATH:",os.Getenv("WORKSPACE_DB_PATH"))
 	fmt.Println("ENV WORKSPACE_LOOKUPS_DB_PATH:",os.Getenv("WORKSPACE_LOOKUPS_DB_PATH"))
-	fmt.Println("ENV ARGO_COMMAND:",os.Getenv("ARGO_COMMAND"))
-	if !devMode {
-		argoCmd = os.Getenv("ARGO_COMMAND")
-		if argoCmd != "" {
-			fmt.Println("Loader and Server command will be forwarded to argo command")
-		}	
-	}
 	log.Fatal(listenAndServe())
 }

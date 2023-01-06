@@ -44,8 +44,8 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(sourceConfigPath),
       screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
       formConfig: getFormConfig(FormKeys.sourceConfig),
-      formValidatorDelegate: homeFormValidator,
-      formActionsDelegate: homeFormActions),
+      formValidatorDelegate: sourceConfigValidator,
+      formActionsDelegate: sourceConfigActions),
 
   // Process Input and Mapping
   processInputPath: ScreenWithForm(

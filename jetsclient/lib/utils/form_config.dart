@@ -198,6 +198,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     required this.autofocus,
     this.obscureText = false,
     required this.textRestriction,
+    this.maxLines = 1,
     required this.maxLength,
     this.autofillHints,
   });
@@ -206,6 +207,7 @@ class FormInputFieldConfig extends FormFieldConfig {
   final bool autofocus;
   final bool obscureText;
   final TextRestriction textRestriction;
+  final int maxLines;
   // 0 for unbound
   final int maxLength;
   final List<String>? autofillHints;
@@ -426,6 +428,11 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
+            key: DTKeys.inputRegistryTable,
+            dataTableConfig: DTKeys.inputRegistryTable)
+      ],
+      [
+        FormDataTableFieldConfig(
             key: DTKeys.inputLoaderStatusTable,
             dataTableConfig: DTKeys.inputLoaderStatusTable)
       ],
@@ -433,31 +440,6 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.pipelineExecStatusTable,
             dataTableConfig: DTKeys.pipelineExecStatusTable)
-      ],
-    ],
-  ),
-  // Source Config (actionless)
-  FormKeys.sourceConfig: FormConfig(
-    key: FormKeys.sourceConfig,
-    actions: [
-      // Action-less form
-    ],
-    inputFields: [
-      [
-        FormDataTableFieldConfig(
-            key: DTKeys.clientsNameTable,
-            tableHeight: 400,
-            dataTableConfig: DTKeys.clientsNameTable),
-        FormDataTableFieldConfig(
-            key: DTKeys.objectTypeRegistryTable,
-            tableHeight: 400,
-            dataTableConfig: DTKeys.objectTypeRegistryTable),
-      ],
-      [
-        FormDataTableFieldConfig(
-            key: DTKeys.fileKeyStagingTable,
-            tableHeight: 400,
-            dataTableConfig: DTKeys.fileKeyStagingTable),
       ],
     ],
   ),
@@ -572,6 +554,29 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
+
+  // Source Config
+  FormKeys.sourceConfig: FormConfig(
+    key: FormKeys.sourceConfig,
+    actions: [
+      // Action-less form
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.sourceConfigTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.sourceConfigTable)
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.fileKeyStagingTable,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.fileKeyStagingTable),
+      ],
+    ],
+  ),
+
   // Add Client Dialog
   FormKeys.addClient: FormConfig(
     key: FormKeys.addClient,
@@ -615,14 +620,14 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
-  // loadFile - Dialog to load file by client and file type
-  FormKeys.loadFile: FormConfig(
-    key: FormKeys.loadFile,
-    title: "Load File",
+  // addSourceConfig - Dialog to add/update Source Config
+  FormKeys.addSourceConfig: FormConfig(
+    key: FormKeys.addSourceConfig,
+    title: "Add/Update Source Config",
     actions: [
       FormActionConfig(
-          key: ActionKeys.loaderOk,
-          label: "Load",
+          key: ActionKeys.addSourceConfigOk,
+          label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
@@ -638,41 +643,50 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDropdownFieldConfig(
             key: FSK.client,
             items: [
-              DropdownItemConfig(label: 'Select a client'),
+              DropdownItemConfig(label: 'Select a Client'),
             ],
+            autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
         FormDropdownFieldConfig(
             key: FSK.objectType,
+            returnedModelCacheKey: FSK.objectTypeRegistryCache,
             items: [
-              DropdownItemConfig(label: 'Select a file type'),
+              DropdownItemConfig(label: 'Select an Object Type'),
             ],
+            autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
-                "SELECT object_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
+                "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
       ],
       [
-        FormDropdownFieldConfig(
-            key: FSK.fileKey,
-            items: [
-              DropdownItemConfig(label: 'Select a file key'),
-            ],
-            dropdownItemsQuery:
-                "SELECT file_key FROM jetsapi.file_key_staging WHERE client = '{client}' AND object_type = '{object_type}' ORDER BY file_key ASC LIMIT 100",
-            stateKeyPredicates: [FSK.client, FSK.objectType]),
-
+        PaddingConfig(),
+      ],
+      [
+        // Instruction
+        TextFieldConfig(
+            label: "Enter the Domain Keys as json-encoded text,"
+                " it can be a single column name, a list of column names, "
+                " or a mapping of Object Type to column name (single or list of).",
+            maxLines: 5,
+            topMargin: defaultPadding,
+            bottomMargin: defaultPadding)
+      ],
+      [
         FormInputFieldConfig(
-            key: FSK.groupingColumn,
-            label: "Grouping Column",
-            hint: "Column containing Member Key (optional)",
+            key: FSK.domainKeysJson,
+            label: "Domain Key(s) (json)",
+            hint: "Column(s) making the key of the Master Item",
             flex: 1,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 60), // ],
+            maxLines: 10,
+            maxLength: 51200),
       ],
     ],
   ),
   // Process Input Form (table as actionless form)
+  // Define ProcessInput and mapping definition
   FormKeys.processInput: FormConfig(
     key: FormKeys.processInput,
     actions: [
@@ -694,7 +708,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // addProcessInput - Dialog to add process input
   FormKeys.addProcessInput: FormConfig(
     key: FormKeys.addProcessInput,
-    title: "Add Process Input",
+    title: "Add/Update Process Input",
     actions: [
       FormActionConfig(
           key: ActionKeys.addProcessInputOk,
@@ -739,14 +753,6 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             autovalidateMode: AutovalidateMode.always,
             defaultItemPos: 0),
-        FormDropdownFieldConfig(
-            key: FSK.groupingColumn,
-            items: [
-              DropdownItemConfig(label: 'Select a Grouping Column'),
-            ],
-            dropdownItemsQuery:
-                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id')",
-            stateKeyPredicates: [FSK.tableName]),
       ],
     ],
   ),
@@ -1180,7 +1186,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormDataTableFieldConfig(
             key: FSK.mergedInputRegistryKeys,
-            dataTableConfig: FSK.mergedProcessInputKeys),
+            dataTableConfig: FSK.mergedInputRegistryKeys),
       ],
     ],
   ),

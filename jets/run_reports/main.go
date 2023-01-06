@@ -17,6 +17,15 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+// Env variable:
+// JETS_DSN_SECRET
+// JETS_REGION
+// JETS_BUCKET
+// JETS_DSN_URI_VALUE
+// JETS_DSN_JSON_VALUE
+// WORKSPACES_HOME Home dir of workspaces
+// WORKSPACE Workspace currently in use
+
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
 var awsDsnSecret     = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")

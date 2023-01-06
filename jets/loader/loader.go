@@ -3,22 +3,25 @@ package main
 import (
 	"bufio"
 	"context"
+	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
+
+	// "sync"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -41,122 +44,61 @@ func (s *chartype) Set(value string) error {
 	return nil
 }
 
-// Loader env variable
-// JETS_DSN_SECRET, JETS_REGION, JETS_BUCKET, JETS_DSN_URI_VALUE, JETS_DSN_JSON_VALUE, LOADER_ERR_DIR
+// Loader env variable:
+// JETS_DSN_SECRET
+// JETS_REGION
+// JETS_BUCKET
+// JETS_DSN_URI_VALUE
+// JETS_DSN_JSON_VALUE
+// LOADER_ERR_DIR
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
-var inFile = flag.String("in_file", "/work/input.csv", "the input csv file name")
+var inFile = flag.String("in_file", "", "the input csv file name (required)")
 var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
-var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required unless -awsDsnSecret is provided)")
-var tblName = flag.String("table", "", "table name to load the data into (required)")
+var dsn = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
 var client = flag.String("client", "", "Client associated with the source location (required)")
 var objectType = flag.String("objectType", "", "The type of object contained in the file (required)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
-var groupingColumn = flag.String("groupingColumn", "", "Grouping column used in server process. This will add an index to the table_name for that column and shard the data")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
+var tableName string
+var domainKeysJson string
 var sep_flag chartype = '€'
 var errOutDir string
-var nbrNodes int = 1
 
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator, default is auto detect between pipe ('|') or comma (',')")
 }
 
-// Support Functions
-// --------------------------------------------------------------------------------------
-func compute_shard_id(key string) int {
-	h := fnv.New32a()
-	h.Write([]byte(key))
-	res := int(h.Sum32()) % *nbrShards
-	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
-	return res
-}
-func tableExists(dbpool *pgxpool.Pool, schema, table string) (exists bool, err error) {
-	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = $1 and tablename = $2)", schema, table).Scan(&exists)
-	if err != nil {
-		err = fmt.Errorf("QueryRow failed: %v", err)
-	}
-	return exists, err
-}
 
-func isValidName(name string) bool {
-	return !strings.ContainsAny(name, "=;\t\n ")
-}
-
-func createTable(dbpool *pgxpool.Pool, headers []string) (err error) {
-	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{*tblName}.Sanitize())
-	_, err = dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return fmt.Errorf("error while droping table: %v", err)
-	}
-	var buf strings.Builder
-	buf.WriteString("CREATE TABLE IF NOT EXISTS ")
-	buf.WriteString(pgx.Identifier{*tblName}.Sanitize())
-	buf.WriteString("(")
-	for _, header := range headers {
-		switch header {
-		case "session_id", "shard_id", "file_key":
-		default:
-			buf.WriteString(pgx.Identifier{header}.Sanitize())
-			buf.WriteString(" TEXT, ")
-		}
-	}
-	buf.WriteString(" file_key TEXT,")
-	buf.WriteString(" \"jets:key\" TEXT DEFAULT gen_random_uuid ()::text NOT NULL,")
-	buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL,")
-	buf.WriteString(" shard_id integer DEFAULT 0 NOT NULL, ")
-	buf.WriteString(" last_update timestamp without time zone DEFAULT now() NOT NULL ")
-	buf.WriteString(");")
-	stmt = buf.String()
-	log.Println(stmt)
-	_, err = dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return fmt.Errorf("error while creating table: %v", err)
-	}
-	// Add grouping column index
-	if *groupingColumn != "" {
-		stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC);`,
-			pgx.Identifier{*tblName + "_grouping_idx"}.Sanitize(),
-			pgx.Identifier{*tblName}.Sanitize(),
-			pgx.Identifier{*groupingColumn}.Sanitize())
-		log.Println(stmt)
-		_, err := dbpool.Exec(context.Background(), stmt)
-		if err != nil {
-			return fmt.Errorf("error while creating primary index: %v", err)
-		}
-	}
-	return nil
-}
-
-func truncateSessionId(dbpool *pgxpool.Pool, nodeId int) error {
+func truncateSessionId(dbpool *pgxpool.Pool) error {
 	stmt := `DELETE FROM jetsapi.input_loader_status 
-						WHERE table_name = $1 AND session_id = $2 AND node_id = $3`
-	_, err := dbpool.Exec(context.Background(), stmt, *tblName, *sessionId, nodeId)
+						WHERE table_name = $1 AND session_id = $2`
+	_, err := dbpool.Exec(context.Background(), stmt, tableName, *sessionId)
 	if err != nil {
 		return fmt.Errorf("error deleting sessionId from jetsapi.input_loader_status table: %v", err)
 	}
 	stmt = `DELETE FROM jetsapi.input_registry WHERE table_name = $1 AND session_id = $2`
-	_, err = dbpool.Exec(context.Background(), stmt, *tblName, *sessionId)
+	_, err = dbpool.Exec(context.Background(), stmt, tableName, *sessionId)
 	if err != nil {
 		return fmt.Errorf("error deleting sessionId from jetsapi.input_registry table: %v", err)
 	}
 	return nil
 }
 
-func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, nodeId int, status string) error {
+func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, status string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
 		object_type, table_name, client, file_key, session_id, status,
-		load_count, bad_row_count, node_id, user_email) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		load_count, bad_row_count, user_email) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT ON CONSTRAINT input_loader_status_unique_cstraint
-			DO UPDATE SET (status, load_count, bad_row_count, node_id, user_email, last_update) =
-			(EXCLUDED.status, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.node_id, EXCLUDED.user_email, DEFAULT)`
+			DO UPDATE SET (status, load_count, bad_row_count, user_email, last_update) =
+			(EXCLUDED.status, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt, 
-		*objectType, *tblName, *client, *inFile, *sessionId, status, copyCount, badRowCount, nodeId, *userEmail)
+		*objectType, tableName, *client, *inFile, *sessionId, status, copyCount, badRowCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
@@ -165,7 +107,7 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 			client, object_type, file_key, table_name, source_type, session_id, user_email) 
 			VALUES ($1, $2, $3, $4, 'file', $5, $6)`
 		_, err = dbpool.Exec(context.Background(), stmt, 
-			*client, *objectType, *inFile, *tblName, *sessionId, *userEmail)
+			*client, *objectType, *inFile, tableName, *sessionId, *userEmail)
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 		}	
@@ -180,7 +122,7 @@ type writeResult struct {
 
 // processFile
 // --------------------------------------------------------------------------------------
-func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error) {
+func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error) {
 
 	// determine the csv separator
 	// ---------------------------------------
@@ -212,50 +154,32 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 	// Get reader / writer for input and error file resp.
 	csvReader := csv.NewReader(fileHd)
 	csvReader.Comma = rune(sep_flag)
+	csvReader.ReuseRecord = true
 	badRowsWriter := bufio.NewWriter(errFileHd)
 	defer badRowsWriter.Flush()
 
-	// read the headers, put them in err file and make them valid for db
+	// Read the headers, put them in err file and make them valid for db
+	// Contruct the domain keys based on domainKeysJson
 	// ---------------------------------------
+	headersDKInfo := schema.NewHeadersAndDomainKeysInfo(tableName)
 	rawHeaders, err := csvReader.Read()
 	if err == io.EOF {
 		return false, errors.New("input csv file is empty")
 	} else if err != nil {
 		return false, fmt.Errorf("while reading csv headers: %v", err)
 	}
-	// Add sessionId and shardId to the headers,
-	// drop input column matching one of the reserve column name
-	headers := make([]string, 0, len(rawHeaders)+5)
-	headerPos := make([]int, 0, len(rawHeaders)+5)
-	groupingColumnPos := -1
-	for ipos := range rawHeaders {
-		if rawHeaders[ipos] == *groupingColumn {
-			groupingColumnPos = ipos
-		}
-		switch rawHeaders[ipos] {
-		case "file_key", "jets:key", "last_update", "session_id", "shard_id":
-			log.Printf("Input file contains column named '%s', this is a reserve name. Droping the column", rawHeaders[ipos])
-		default:
-			headers = append(headers, rawHeaders[ipos])
-			headerPos = append(headerPos, ipos)
-		}
-	}
-	// Check if we have grouping column if we should
-	if *groupingColumn != "" && groupingColumnPos < 0 {
-		return false, fmt.Errorf("error: grouping column '%s' not found in input file %s", *groupingColumn, *inFile)
-	}
-	// Adding reserve columns
-	fileNamePos := len(headers)
-	headers = append(headers, "file_key")
-	sessionIdPos := len(headers)
-	headers = append(headers, "session_id")
-	shardIdPos := len(headers)
-	headers = append(headers, "shard_id")
-	for i := range rawHeaders {
+	headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson)
+
+	// // for development
+	// fmt.Println("Domain Keys Info for table", tableName)
+	// fmt.Println(headersDKInfo)
+
+	// Write raw header to error file
+	for i := range headersDKInfo.RawHeaders {
 		if i > 0 {
 			badRowsWriter.WriteRune(csvReader.Comma)
 		}
-		badRowsWriter.WriteString(rawHeaders[i])
+		badRowsWriter.WriteString(headersDKInfo.RawHeaders[i])
 	}
 	_, err = badRowsWriter.WriteRune('\n')
 	if err != nil {
@@ -264,24 +188,22 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 
 	// prepare db connections
 	// ---------------------------------------
-	for i := range dbpool {
-		// validate table name
-		tblExists, err := tableExists(dbpool[i], "public", *tblName)
-		if err != nil {
-			return false, fmt.Errorf("while validating table name: %v", err)
-		}
-		if !tblExists || *dropTable {
-			if *dropTable {
-				// remove the previous input loader status associated with sessionId
-				err = truncateSessionId(dbpool[i], i)
-				if err != nil {
-					return false, fmt.Errorf("while truncating sessionId: %v", err)
-				}
-			}
-			err = createTable(dbpool[i], headers)
+	// validate table name
+	tblExists, err := schema.TableExists(dbpool, "public", tableName)
+	if err != nil {
+		return false, fmt.Errorf("while validating table name: %v", err)
+	}
+	if !tblExists || *dropTable {
+		if *dropTable {
+			// remove the previous input loader status associated with sessionId
+			err = truncateSessionId(dbpool)
 			if err != nil {
-				return false, fmt.Errorf("while creating table: %v", err)
+				return false, fmt.Errorf("while truncating sessionId: %v", err)
 			}
+		}
+		err = headersDKInfo.CreateStagingTable(dbpool, tableName)
+		if err != nil {
+			return false, fmt.Errorf("while creating table: %v", err)
 		}
 	}
 
@@ -289,8 +211,35 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 	// ---------------------------------------
 	var badRowsPos []int
 	var rowid int64
-	nshards64 := int64(*nbrShards)
-	inputRows := make([][][]interface{}, nbrNodes)
+	headerPos := headersDKInfo.GetHeaderPos()
+	fileKeyPos := headersDKInfo.HeadersPosMap["file_key"]
+	sessionIdPos := headersDKInfo.HeadersPosMap["session_id"]
+	jetsKeyPos := headersDKInfo.HeadersPosMap["jets:key"]
+	lastUpdatePos := headersDKInfo.HeadersPosMap["last_update"]
+	lastUpdate := time.Now().UTC()
+
+	// Get the list of ObjectType from domainKeysJson if it's an elm, detault to *objectType
+	objTypes := make([]string, 0)
+	if domainKeysJson != "" {
+		var f interface{}
+		err = json.Unmarshal([]byte(domainKeysJson), &f)
+		if err != nil {
+			fmt.Println("while parsing domainKeysJson using json parser:", err)
+			return false, err
+		}
+		// Extract the domain keys structure from the json
+		switch value := f.(type) {
+		case map[string]interface{}:
+			for k := range value {
+				objTypes = append(objTypes, k)
+			}		
+		}
+	}
+	if len(objTypes) == 0 {
+		objTypes = append(objTypes, *objectType)
+	}
+	
+	inputRows := make([][]interface{}, 0)
 	for {
 		record, err := csvReader.Read()
 		if err == io.EOF {
@@ -307,23 +256,29 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 				return false, fmt.Errorf("unknown error while reading csv records: %v", err)
 			}
 		} else {
-			copyRec := make([]interface{}, len(headers))
+			copyRec := make([]interface{}, len(headersDKInfo.Headers))
 			for i, ipos := range headerPos {
-				copyRec[i] = record[ipos]
+				if ipos < len(record) {
+					copyRec[i] = record[ipos]
+				}
 			}
 			// Set the file_key, session_id, and shard_id
-			var nodeId int
-			copyRec[fileNamePos] = *inFile
+			copyRec[fileKeyPos] = *inFile
 			copyRec[sessionIdPos] = *sessionId
-			shardId := 0
-			if groupingColumnPos >= 0 {
-				shardId = compute_shard_id(record[groupingColumnPos])
-			} else {
-				shardId = int(rowid % nshards64)
+			jetsKeyStr := uuid.New().String()
+			copyRec[jetsKeyPos] = jetsKeyStr
+			copyRec[lastUpdatePos] = lastUpdate
+			for ipos := range objTypes {
+				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &objTypes[ipos], &record, &jetsKeyStr)
+				if err != nil {
+					return false, err
+				}
+				domainKeyPos := headersDKInfo.DomainKeysInfoMap[objTypes[ipos]].DomainKeyPos
+				copyRec[domainKeyPos] = groupingKey
+				shardIdPos := headersDKInfo.DomainKeysInfoMap[objTypes[ipos]].ShardIdPos
+				copyRec[shardIdPos] = shardId
 			}
-			copyRec[shardIdPos] = shardId
-			nodeId = shardId % nbrNodes
-			inputRows[nodeId] = append(inputRows[nodeId], copyRec)
+			inputRows = append(inputRows, copyRec)
 			rowid += 1
 		}
 	}
@@ -331,49 +286,44 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 	// write the sharded rows to the db using go routines...
 	// ---------------------------------------
 	var copyCount int64
-	var badRowCount int
-	hasErrors := false
-	if nbrNodes == 1 {
-		// everything is in shard 0
-		copyCount, err = dbpool[0].CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(inputRows[0]))
-		if err != nil {
-			return false, fmt.Errorf("while copy csv to table: %v", err)
-		}
-	} else {
-		// create a channel to writing the insert row results
-		var wg sync.WaitGroup
-		resultsChan := make(chan writeResult, nbrNodes)
-		wg.Add(nbrNodes)
-		for i := 0; i < nbrNodes; i++ {
-			go func(c chan writeResult, dbpool *pgxpool.Pool, data *[][]interface{}) {
-				var errMsg string
-				copyCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{*tblName}, headers, pgx.CopyFromRows(*data))
-				if err != nil {
-					errMsg = fmt.Sprintf("%v", err)
-				}
-				c <- writeResult{count: copyCount, errMsg: errMsg}
-				wg.Done()
-			}(resultsChan, dbpool[i], &inputRows[i])
-		}
-		wg.Wait()
-		log.Println("Writing to database nodes completed.")
-		close(resultsChan)
-		for res := range resultsChan {
-			copyCount += res.count
-			if len(res.errMsg) > 0 {
-				log.Println("Error writing to db node: ", res.errMsg)
-				hasErrors = true
-			}
-		}
+	copyCount, err = dbpool.CopyFrom(context.Background(), pgx.Identifier{tableName}, headersDKInfo.Headers, pgx.CopyFromRows(inputRows))
+	if err != nil {
+		return false, fmt.Errorf("while copy csv to table: %v", err)
 	}
-	if hasErrors {
-		return false, fmt.Errorf("error(s) while writing to database nodes")
-	}
+	// // create a channel to writing the insert row results
+	// //* EXAMPLE/STARTING POINT TO HAVE CONCURRENT DB WRITTERS
+	// hasErrors := false
+	// var wg sync.WaitGroup
+	// resultsChan := make(chan writeResult, nbrNodes)
+	// wg.Add(nbrNodes)
+	// for i := 0; i < nbrNodes; i++ {
+	// 	go func(c chan writeResult, dbpool *pgxpool.Pool, data *[][]interface{}) {
+	// 		var errMsg string
+	// 		copyCount, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{tableName}, headers, pgx.CopyFromRows(*data))
+	// 		if err != nil {
+	// 			errMsg = fmt.Sprintf("%v", err)
+	// 		}
+	// 		c <- writeResult{count: copyCount, errMsg: errMsg}
+	// 		wg.Done()
+	// 	}(resultsChan, dbpool[i], &inputRows[i])
+	// }
+	// wg.Wait()
+	// log.Println("Writing to database nodes completed.")
+	// close(resultsChan)
+	// for res := range resultsChan {
+	// 	copyCount += res.count
+	// 	if len(res.errMsg) > 0 {
+	// 		log.Println("Error writing to db node: ", res.errMsg)
+	// 		hasErrors = true
+	// 	}
+	// if hasErrors {
+	// 	return false, fmt.Errorf("error(s) while writing to database nodes")
+	// }
 	log.Println("Inserted", copyCount, "rows in database!")
 
 	// Copy the bad rows from input file into the error file
 	// ---------------------------------------
-	badRowCount = len(badRowsPos)
+	badRowCount := len(badRowsPos)
 	hasBadRows := badRowCount > 0
 	if len(badRowsPos) > 0 {
 		log.Println("Got", len(badRowsPos), "bad rows in input file, copying them to the error file.")
@@ -412,77 +362,67 @@ func processFile(dbpool []*pgxpool.Pool, fileHd, errFileHd *os.File) (bool, erro
 	}
 	// register the session if status is completed
 	if status == "completed" && !*doNotLockSessionId {
-		err:= schema.RegisterSession(dbpool[0], *sessionId)
+		err:= schema.RegisterSession(dbpool, *sessionId)
 		if err != nil {
 			return false, fmt.Errorf("error while registering the session id: %v", err)
 		}
 	}
-	for i := 0; i < nbrNodes; i++ {
-		err = registerCurrentLoad(copyCount, badRowCount, dbpool[i], i, status)
-		if err != nil {
-			return false, fmt.Errorf("error while registering the load: %v", err)
-		}
+	err = registerCurrentLoad(copyCount, badRowCount, dbpool, status)
+	if err != nil {
+		return false, fmt.Errorf("error while registering the load: %v", err)
 	}
 
 	return hasBadRows, nil
 }
 
 func coordinateWork() error {
-	var err error
-	var dbpool []*pgxpool.Pool
-
 	// open db connections
 	// ---------------------------------------
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		dsn, err := awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, 10)
+		dsnStr, err := awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, 10)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}
-
-		// here nbrNodes == 1, the default so dbpool is size of 1
-		dbpool = make([]*pgxpool.Pool, 1)
-		dbpool[0], err = pgxpool.Connect(context.Background(), dsn)
-		if err != nil {
-			return fmt.Errorf("while opening db connection: %v", err)
-		}
-		defer dbpool[0].Close()
-
-	} else {
-
-		// using -dsn argument
-		dsnSplit := strings.Split(*dsnList, ",")
-		nbrNodes = len(dsnSplit)
-		dbpool = make([]*pgxpool.Pool, nbrNodes)
-		for i := range dsnSplit {
-			dbpool[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
-			if err != nil {
-				return fmt.Errorf("while opening db connection: %v", err)
-			}
-			defer dbpool[i].Close()
-		}	
+		dsn = &dsnStr
 	}
+	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	if err != nil {
+		return fmt.Errorf("while opening db connection: %v", err)
+	}
+	defer dbpool.Close()
 
 	// Make sure the jetstore schema exists
 	// ---------------------------------------
-	for i := range dbpool {
-		tblExists, err := tableExists(dbpool[i], "jetsapi", "input_loader_status")
-		if err != nil {
-			return fmt.Errorf("while verifying the jetstore schema: %v", err)
-		}
-		if !tblExists {
-			return fmt.Errorf("error: JetStore schema does not exst in database, please run 'update_db -migrateDb'")
-		}
+	tblExists, err := schema.TableExists(dbpool, "jetsapi", "input_loader_status")
+	if err != nil {
+		return fmt.Errorf("while verifying the jetstore schema: %v", err)
+	}
+	if !tblExists {
+		return fmt.Errorf("error: JetStore schema does not exst in database, please run 'update_db -migrateDb'")
 	}
 
 	// check the session is not already used
 	// ---------------------------------------
-	isInUse, err := schema.IsSessionExists(dbpool[0], *sessionId)
+	isInUse, err := schema.IsSessionExists(dbpool, *sessionId)
 	if err != nil {
 		return fmt.Errorf("while verifying is the session is in use: %v", err)
 	}
 	if isInUse {
 		return fmt.Errorf("error: the session id is already used")
+	}
+
+	// Get the DomainKeysJson and tableName from source_config table
+	// ---------------------------------------
+	var dkJson sql.NullString
+	err = dbpool.QueryRow(context.Background(), 
+		"SELECT table_name, domain_keys_json FROM jetsapi.source_config WHERE client=$1 AND object_type=$2", 
+		*client, *objectType).Scan(&tableName, &dkJson)
+	if err != nil {
+		return fmt.Errorf("query table_name, domain_keys_json from jetsapi.source_config failed: %v", err)
+	}
+	if dkJson.Valid {
+		domainKeysJson = dkJson.String
 	}
 
 	var fileHd, errFileHd *os.File
@@ -539,11 +479,9 @@ func coordinateWork() error {
 	// Process the downloaded file
 	hasBadRows, err := processFile(dbpool, fileHd, errFileHd)
 	if err != nil {
-		for i := 0; i < nbrNodes; i++ {
-			err2 := registerCurrentLoad(0, 0, dbpool[i], i, "failed")
-			if err2 != nil {
-				return fmt.Errorf("error while registering the load: %v", err)
-			}
+		err2 := registerCurrentLoad(0, 0, dbpool, "failed")
+		if err2 != nil {
+			return fmt.Errorf("error while registering the load: %v", err)
 		}
 		return err
 	}
@@ -570,9 +508,9 @@ func main() {
 	hasErr := false
 	var errMsg []string
 	var err error
-	// if grouping_column is '' it means it's actually empty
-	if *groupingColumn == "''" {
-		*groupingColumn = ""
+	if *inFile == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Input file name must be provided (-in_file).")
 	}
 	if *client == "" {
 		hasErr = true
@@ -586,27 +524,19 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Source location must be provided (-objectType).")
 	}
-	if *tblName == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Table name must be provided.")
-	}
-	if !isValidName(*tblName) {
-		hasErr = true
-		errMsg = append(errMsg, "Table name is not valid.")
-	}
-	if *dsnList == "" && *awsDsnSecret == "" {
-		*dsnList = os.Getenv("JETS_DSN_URI_VALUE")
-		if *dsnList == "" {
-			*dsnList, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, 20)
+	if *dsn == "" && *awsDsnSecret == "" {
+		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
+		if *dsn == "" {
+			*dsn, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, 20)
 			if err != nil {
 				log.Printf("while calling GetDsnFromJson: %v", err)
-				*dsnList = ""
+				*dsn = ""
 			}
 		}
 		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
-		if *dsnList == "" && *awsDsnSecret == "" {
+		if *dsn == "" && *awsDsnSecret == "" {
 			hasErr = true
-			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsnList.")	
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")	
 		}
 	}
 	if *awsBucket == "" {
@@ -642,12 +572,10 @@ func main() {
 	fmt.Println("Got argument: awsRegion", *awsRegion)
 	fmt.Println("Got argument: inFile", *inFile)
 	fmt.Println("Got argument: dropTable", *dropTable)
-	fmt.Println("Got argument: dsnList", *dsnList)
+	fmt.Println("Got argument: dsn", *dsn)
 	fmt.Println("Got argument: client", *client)
 	fmt.Println("Got argument: objectType", *objectType)
 	fmt.Println("Got argument: userEmail", *userEmail)
-	fmt.Println("Got argument: tblName", *tblName)
-	fmt.Println("Got argument: groupingColumn", *groupingColumn)
 	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: doNotLockSessionId", *doNotLockSessionId)
@@ -655,8 +583,8 @@ func main() {
 	if len(errOutDir) == 0 {
 		fmt.Println("Loader error file will be in same directory as input file.")
 	}
-	if *dsnList != "" && *awsDsnSecret != "" {
-		fmt.Println("Both -awsDsnSecret and -dsnList are provided, will use argument -awsDsnSecret only")
+	if *dsn != "" && *awsDsnSecret != "" {
+		fmt.Println("Both -awsDsnSecret and -dsn are provided, will use argument -awsDsnSecret only")
 	}
  
 	err = coordinateWork()

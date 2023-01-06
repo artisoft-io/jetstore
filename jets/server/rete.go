@@ -224,18 +224,30 @@ func (rw *ReteWorkspace) ExecuteRules(
 				subject := ctor.GetSubject()
 				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
 				ncol := len(tableSpec.Columns)
-				jetsKey, _ := subject.AsText()
-				shard := compute_shard_id(jetsKey)
-				// log.Println("Found entity with subject:",stxt, "with",ncol,"columns")
+
+				// Compute the Domain Keys and ShardIds
 				entityRow := make([]interface{}, ncol)
 				for i := 0; i < ncol; i++ {
 					domainColumn := &tableSpec.Columns[i]
 					// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
-					switch domainColumn.ColumnName {
-					case "session_id":
+					switch {
+					case domainColumn.ColumnName == "session_id":
 						entityRow[i] = *outSessionId
-					case "shard_id":
-						entityRow[i] = shard
+			
+					case strings.HasSuffix(domainColumn.ColumnName, ":domain_key"):
+						domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &rw.pipelineConfig.mainProcessInput.objectType, &entityRow)
+						if err != nil {
+							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
+						}			
+						entityRow[i] = domainKey
+			
+					case strings.HasSuffix(domainColumn.ColumnName, ":shard_id"):
+						_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &rw.pipelineConfig.mainProcessInput.objectType, &entityRow)
+						if err != nil {
+							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
+						}			
+						entityRow[i] = shardId
+
 					default:
 						var data []interface{}
 						itor, err := rdfSession.Find_sp(subject, domainColumn.Predicate)
@@ -287,7 +299,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 					}
 				}
 				// entityRow is complete
-				writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
+				//* REMOVE MULTI DB CONNECTION BY NODES :: compute_node_id_from_shard_id
+				// writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
+				writeOutputc[tableName][0] <- entityRow
 				ctor.Next()
 			}
 			ctor.ReleaseIterator()
@@ -338,10 +352,12 @@ func (rw *ReteWorkspace) addOutputPredicate(domainColumns []workspace.DomainColu
 // addInputPredicate: add meta graph resource corresponding to input column names
 func (rw *ReteWorkspace) addInputPredicate(inputColumns []ProcessMap) error {
 	for ipos := range inputColumns {
-		var err error
-		inputColumns[ipos].predicate, err = rw.js.NewResource(inputColumns[ipos].dataProperty)
-		if err != nil {
-			return fmt.Errorf("while adding predicate to ProcessMap: %v", err)
+		if !inputColumns[ipos].isDomainKey {
+			var err error
+			inputColumns[ipos].predicate, err = rw.js.NewResource(inputColumns[ipos].dataProperty)
+			if err != nil {
+				return fmt.Errorf("while adding predicate to ProcessMap: %v", err)
+			}	
 		}
 	}
 	return nil
