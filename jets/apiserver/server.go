@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -70,7 +73,7 @@ type OptionConfig struct {
 }
 
 func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request) {
-	// //*
+	// // for devel
 	// log.Println("* Options for", r.URL, "method:",r.Method)
 
 	// write cors headers
@@ -87,13 +90,82 @@ func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Access-Control-Allow-Headers", optionConfig.AllowedHeaders)
 	}
 	w.WriteHeader(http.StatusOK)
-	//*
+	// // for devel
 	// for key, value := range w.Header() {
 	// 	log.Println("Output Header: ", key, value)
 	// }
 }
 
-// Validate the user table exeist and create admin if not already created
+// Validate the user table exists and create admin if not already created
+func (server *Server) checkJetStoreDbVersion() error {
+	tableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "jetstore_release")
+	if err != nil {
+		return fmt.Errorf("while verifying that the jetstore_release table exists: %v", err)
+	}
+	var serverArgs []string
+	var version string
+	jetstoreVersion := os.Getenv("JETS_VERSION")
+	if !tableExists {
+		// run update db with workspace init script
+		log.Println("JetStore version table does not exist, initializing the db")
+		serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
+	} else {
+
+		// Check the release in database vs current release
+		stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
+		
+		err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+		switch {
+		case err != nil:
+			log.Println("JetStore version is not defined in jetstore_release table, initializing the db")
+		serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
+
+		case jetstoreVersion > version:
+			log.Println("New JetStore Release deployed, updating the db")
+			serverArgs = []string{ "-migrateDb" }
+		}
+	}
+
+	if len(serverArgs) > 0 {
+		if *usingSshTunnel {
+			serverArgs = append(serverArgs, "-usingSshTunnel")
+		}
+		log.Printf("Run update_db: %s", serverArgs)
+		cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
+		var b bytes.Buffer
+		cmd.Stdout = &b
+		cmd.Stderr = &b
+		err := cmd.Run()
+		if err != nil {
+			log.Printf("while executing update_db command '%v': %v", serverArgs, err)
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			b.WriteTo(os.Stdout)
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			log.Println("UPDATE_DB CAPTURED OUTPUT END")
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			return err
+		}
+		log.Println("============================")
+		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+		log.Println("============================")
+		b.WriteTo(os.Stdout)
+		log.Println("============================")
+		log.Println("UPDATE_DB CAPTURED OUTPUT END")
+		log.Println("============================")
+
+		// Add version to db
+		stmt := "INSERT INTO jetsapi.jetstore_release (version) VALUES ($1)"
+		_, err = server.dbpool.Exec(context.Background(), stmt, jetstoreVersion)
+		if err != nil {
+			return fmt.Errorf("while inserting jetstore version into jetstore_release table: %v", err)
+		}
+	}
+	return nil
+}
+
+// Validate the user table exists and create admin if not already created
 func (server *Server) initUsers() error {
 	usersTableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "users")
 	if err != nil {
@@ -159,6 +231,12 @@ func listenAndServe() error {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}
 	defer server.dbpool.Close()
+
+	// Check database version, run update_db if needed
+	err = server.checkJetStoreDbVersion()
+	if err != nil {
+		return fmt.Errorf("while calling checkJetStoreDbVersion: %v", err)
+	}
 
 	// Check that the users table and admin user exists
 	err = server.initUsers()

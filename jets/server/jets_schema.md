@@ -95,12 +95,8 @@ However when the `source_type` is `file` this association is not unique and is d
 
 The `entity_rdf_type` is uniquely defined by `object_type`.
 This unique mapping is defined in the JetStore workspace (rule file definition).
-Although this mapping is unique, the
-`grouping_column` is not unique for a given `entity_rdf_type` since it is function
-of the business rules.
-For this reason, the `grouping_column` must be user specified.
 
-To avoid duplication, a unique (`table_name` and `grouping_column`) constraint is put
+To avoid duplication, a unique `table_name` constraint is put
 on the table.
 
 Depends on: `source_config` (for `file`) and `object_type_definition` (workspace) tables

@@ -9,62 +9,6 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 
-/// Validation and Actions delegates for the source to pipeline config forms
-/// Home Forms Validator
-String? homeFormValidator(
-    JetsFormState formState, int group, String key, dynamic v) {
-  assert((v is String?) || (v is List<String>?),
-      "sourceConfig Form has unexpected data type");
-  switch (key) {
-    case FSK.client:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      if (value != null && value.characters.length == 1) {
-        return "Client name is too short.";
-      }
-      return "Client name must be provided.";
-    case FSK.objectType:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Object Type name must be selected.";
-    case FSK.fileKey:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "File Key name must be selected.";
-    case FSK.details:
-      // always good
-      return null;
-    case FSK.groupingColumn:
-      return null;
-
-    // Start Pipeline Dialog
-    case FSK.pipelineConfigKey:
-      if (v != null) return null;
-      return "Pipeline configuration row must be selected";
-    case FSK.mainInputRegistryKey:
-      if (v != null) return null;
-      return "Main input source row must be selected";
-
-    case DTKeys.fileKeyStagingForPipelineExecTable:
-      if (v != null) return null;
-      return "File Key row must be selected";
-
-    case FSK.mergedInputRegistryKeys:
-    case FSK.mergedProcessInputKeys:
-      return null;
-
-    default:
-      print('Oops home form has no validator configured for form field $key');
-  }
-  return null;
-}
-
 void postInsertRows(BuildContext context, JetsFormState formState,
     String encodedJsonBody) async {
   var navigator = Navigator.of(context);
@@ -102,45 +46,65 @@ void postInsertRows(BuildContext context, JetsFormState formState,
   }
 }
 
+/// Validation and Actions delegates for the source to pipeline config forms
+/// Home Forms Validator
+String? homeFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
+  assert((v is String?) || (v is List<String>?),
+      "Home Form has unexpected data type");
+  switch (key) {
+    case FSK.client:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      if (value != null && value.characters.length == 1) {
+        return "Client name is too short.";
+      }
+      return "Client name must be provided.";
+    case FSK.objectType:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Object Type name must be selected.";
+    case FSK.fileKey:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "File Key name must be selected.";
+    case FSK.details:
+      // always good
+      return null;
+
+    // Start Pipeline Dialog
+    case FSK.pipelineConfigKey:
+      if (v != null) return null;
+      return "Pipeline configuration row must be selected";
+    case FSK.mainInputRegistryKey:
+      if (v != null) return null;
+      return "Main input source row must be selected";
+
+    case DTKeys.fileKeyStagingForPipelineExecTable:
+      if (v != null) return null;
+      return "File Key row must be selected";
+
+    case FSK.mergedInputRegistryKeys:
+    case FSK.mergedProcessInputKeys:
+      return null;
+
+    default:
+      print('Oops home form has no validator configured for form field $key');
+  }
+  return null;
+}
+
 /// Source Configuration Form Actions
 Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
     JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
-    // Add Client
-    case ActionKeys.clientOk:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return;
-      }
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'table': 'client_registry',
-        'data': [formState.getState(0)],
-      }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
-      break;
-
-    // Start loader
-    case ActionKeys.loaderOk:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return;
-      }
-      var state = formState.getState(0);
-      state['status'] = StatusKeys.submitted;
-      state['user_email'] = JetsRouterDelegate().user.email;
-      state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
-      state['table_name'] = state[FSK.client] + '_' + state[FSK.objectType];
-      state['load_and_start'] = 'false';
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'table': 'input_loader_status',
-        'data': [state],
-      }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
-      break;
-
     // Start Pipeline Dialogs
     // Load & Start Pipeline Dialogs
     case ActionKeys.startPipelineOk:
@@ -212,6 +176,121 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
   }
 }
 
+/// Validation and Actions delegates for the Source Config forms
+String? sourceConfigValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
+  assert((v is String?) || (v is List<String>?),
+      "Source Config Form has unexpected data type");
+  switch (key) {
+    case FSK.client:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      if (value != null && value.characters.length == 1) {
+        return "Client name is too short.";
+      }
+      return "Client name must be provided.";
+    case FSK.objectType:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Object Type name must be selected.";
+    case FSK.domainKeysJson:
+      String? value = v;
+      if (value == null) {
+        return null; // this field is nullable
+      }
+      // Validate that value is valid json
+      try {
+        jsonDecode(value);
+      } catch (e) {
+        return "Domain keys is not a valid json: ${e.toString()}";
+      }
+      return null;
+
+    default:
+      print('Oops Source Config Form has no validator configured for form field $key');
+  }
+  return null;
+}
+
+/// Source Configuration Form Actions
+Future<void> sourceConfigActions(BuildContext context, GlobalKey<FormState> formKey,
+    JetsFormState formState, String actionKey,
+    {group = 0}) async {
+  switch (actionKey) {
+    // Add Client
+    case ActionKeys.clientOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return;
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': 'client_registry',
+        'data': [formState.getState(0)],
+      }, toEncodable: (_) => '');
+      postInsertRows(context, formState, encodedJsonBody);
+      break;
+
+    // Add/Update Source Config
+    case ActionKeys.addSourceConfigOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return;
+      }
+      var state = formState.getState(0);
+      // print('Add Source Config state: $state');
+      var query = 'source_config'; // case add
+      if (formState.getValue(0, FSK.key) != null) {
+        query = 'update/source_config';
+      }
+
+      state['user_email'] = JetsRouterDelegate().user.email;
+      state['table_name'] = state[FSK.client] + '_' + state[FSK.objectType];
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': query,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      postInsertRows(context, formState, encodedJsonBody);
+      break;
+
+    // Start loader
+    case ActionKeys.loaderOk:
+      // No form validation since does not use widgets 
+      // var valid = formKey.currentState!.validate();
+      // if (!valid) {
+      //   return;
+      // }
+      var state = formState.getState(0);
+      // Fields comming from table selected row will be in array, unpack the value
+      state[FSK.client] = state[FSK.client][0];
+      state[FSK.objectType] = state[FSK.objectType][0];
+      state[FSK.tableName] = state[FSK.tableName][0];
+      state[FSK.fileKey] = state[FSK.fileKey][0];
+      state['status'] = StatusKeys.submitted;
+      state['user_email'] = JetsRouterDelegate().user.email;
+      state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
+      state['load_and_start'] = 'false';
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'table': 'input_loader_status',
+        'data': [state],
+      }, toEncodable: (_) => '');
+      postInsertRows(context, formState, encodedJsonBody);
+      break;
+
+    case ActionKeys.dialogCancel:
+      Navigator.of(context).pop();
+      break;
+    default:
+      print('Oops unknown ActionKey for Source Config Form: $actionKey');
+  }
+}
+
 /// Process Input Form / Dialog Validator
 String? processInputFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
@@ -255,7 +334,7 @@ String? processInputFormValidator(
   }
 
   switch (key) {
-    // Add Process Input Dialog Validations
+    // Add/Update Process Input Dialog Validations
     case FSK.client:
       String? value = v;
       if (value != null && value.characters.length > 1) {
@@ -274,9 +353,6 @@ String? processInputFormValidator(
         return null;
       }
       return "Source Type name must be selected.";
-    case FSK.groupingColumn:
-      // always good
-      return null;
 
     // Process Mapping Dialog Validation
     case FSK.inputColumn:
@@ -811,7 +887,7 @@ Future<void> pipelineConfigFormActions(BuildContext context,
       }
       updateState[FSK.processConfigKey] = row[1];
 
-      // mainProcessInputKey, mainObjectType, and mainSourceType are either 
+      // mainProcessInputKey, mainObjectType, and mainSourceType are either
       // pre-populated as String from the data table action
       // from the selected row to update or is a List<String?> if user have selected
       // a row from the data table

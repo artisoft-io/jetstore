@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -24,6 +25,16 @@ type dbConnections struct {
 	joinNodes []dbNode
 }
 
+// Env variable:
+// JETS_DSN_SECRET
+// JETS_REGION
+// JETS_BUCKET
+// JETS_DSN_URI_VALUE
+// JETS_DSN_JSON_VALUE
+// WORKSPACE_DB_PATH location of workspace db (sqlite db)
+// WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
+// GLOG_V log level
+
 // Command Line Arguments
 var awsDsnSecret        = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var dbPoolSize          = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -awsDnsSecret (default 10)")
@@ -37,13 +48,13 @@ var ruleseq             = flag.String("ruleseq", "", "rule set sequence (overrid
 var pipelineConfigKey   = flag.Int("pcKey", -1, "Pipeline config key (required or -peKey)")
 var pipelineExecKey     = flag.Int("peKey", -1, "Pipeline execution key (required or -pcKey)")
 var poolSize            = flag.Int("poolSize", 10, "Coroutines pool size constraint")
-var outSessionId        = flag.String("sessionId", "", "Process session ID for the output Domain Tables. (required)")
+var outSessionId        = flag.String("sessionId", "", "Process session ID for the output Domain Tables. Use 'autogen' to generate a new sessionId (required)")
 var inSessionIdOverride = flag.String("inSessionId", "", "Session ID for input domain table, defaults to latest in input_registry table.")
 var limit               = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
 var nodeId              = flag.Int("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
-var nbrShards           = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities")
+var nbrShards           = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
 var outTables           = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
-var shardId             = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId.")
+var shardId             = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
 var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var outTableSlice []string
 var extTables map[string][]string
@@ -166,7 +177,7 @@ func doJob() error {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
 
-	PipelineResult, err := ProcessData(reteWorkspace)
+	PipelineResult, err := ProcessData(dbpool, reteWorkspace)
 	if err != nil {
 		PipelineResult.Status = "failed"
 		err2 := PipelineResult.updateStatus(dbpool)
@@ -267,6 +278,9 @@ func main() {
 	if *nbrShards < 1 {
 		hasErr = true
 		errMsg = append(errMsg, "The number of shards (-nbrShards) for the output entities must at least be 1.")
+	}
+	if *outSessionId == "autogen" {
+		*outSessionId = strconv.FormatInt(time.Now().UnixMilli(), 10)
 	}
 	if *outSessionId == "" && *pipelineExecKey < 0 {
 		hasErr = true

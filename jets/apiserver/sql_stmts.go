@@ -25,10 +25,16 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	// source config
 	"source_config": {
 		stmt: `INSERT INTO jetsapi.source_config 
-			(object_type, client, table_name, grouping_column, user_email) 
+			(object_type, client, table_name, domain_keys_json, user_email) 
 			VALUES ($1, $2, $3, $4, $5)
 			RETURNING key`,
-		columnKeys: []string{"object_type", "client", "table_name", "grouping_column", "user_email"},
+		columnKeys: []string{"object_type", "client", "table_name", "domain_keys_json", "user_email"},
+	},
+	"update/source_config": {
+		stmt: `UPDATE jetsapi.source_config SET
+			(object_type, client, table_name, domain_keys_json, user_email) 
+			= ($1, $2, $3, $4, $5) WHERE key = $6`,
+		columnKeys: []string{"object_type", "client", "table_name", "domain_keys_json", "user_email", "key"},
 	},
 	// input loader status
 	"input_loader_status": {
@@ -41,16 +47,16 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	// process input
 	"process_input": {
 		stmt: `INSERT INTO jetsapi.process_input 
-			(client, object_type, table_name, source_type, entity_rdf_type, grouping_column, user_email) 
+			(client, object_type, table_name, source_type, entity_rdf_type, user_email) 
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING key`,
-		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "grouping_column", "user_email"},
+		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email"},
 	},
 	"update2/process_input": {
 		stmt: `UPDATE jetsapi.process_input SET 
-			(client, object_type, table_name, source_type, entity_rdf_type, grouping_column, user_email, last_update) 
+			(client, object_type, table_name, source_type, entity_rdf_type, user_email, last_update) 
 			= ($1, $2, $3, $4, $5, $6, $7, DEFAULT) WHERE key = $8`,
-		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "grouping_column", "user_email", "key"},
+		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email", "key"},
 	},
 	"update/process_input": {
 		stmt: "UPDATE jetsapi.process_input SET (status, user_email, last_update) = ($1, $2, DEFAULT) WHERE key = $3",

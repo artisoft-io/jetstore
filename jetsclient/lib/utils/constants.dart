@@ -56,7 +56,6 @@ class ScreenKeys {
 /// standard keys to identify form config key
 class FormKeys {
   static const home = "homeForm";
-  static const sourceConfig = "sourceConfigForm";
   static const addClient = "addClientDialog";
   static const loadFile = "loadFileDialog";
   // Process Input Forms
@@ -70,6 +69,9 @@ class FormKeys {
   static const pipelineConfig = "pipelineConfigDialog";
   static const startPipeline = "startPipelineDialog";
   static const loadAndStartPipeline = "loadAndStartPipelineDialog";
+  // File Staging Area
+  static const sourceConfig = "sourceConfigForm";
+  static const addSourceConfig = "addSourceConfigDialog";
   // Admin forms
   static const login = "login";
   static const register = "register";
@@ -99,7 +101,7 @@ class FSK {
 
   static const objectType = "object_type";
   static const sourceType = "source_type";
-  static const groupingColumn = "grouping_column";
+  static const domainKeysJson = "domain_keys_json";
   static const entityRdfType = "entity_rdf_type";
   static const status = "status";
 
@@ -191,7 +193,11 @@ class ActionKeys {
   static const dialogCancel = "dialog.cancelAction";
   static const toggleUserActive = "toggleUserActive";
   static const deleteUser = "deleteUser";
-  // for load file dialog
+  
+  // for Source Config dialog
+  static const addSourceConfigOk = "addSourceConfig.ok";
+
+  // for load file
   static const loaderOk = "loader.ok";
 
   // for add process input dialog
@@ -226,6 +232,7 @@ class StatusKeys {
 /// standard keys for data table config
 class DTKeys {
   // Home Screen DT
+  static const inputRegistryTable = "inputRegistryTable";
   static const inputLoaderStatusTable = "inputLoaderStatusTable";
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
@@ -243,7 +250,7 @@ class DTKeys {
   static const processInputTable = "processInputTable";
   static const processMappingTable = "processMappingTable";
 
-// Process and Rules Config DT
+  // Process and Rules Config DT
   static const processNameTable = "processNameTable";
   static const clientsNameTable = "clientsNameTable";
   static const processConfigTable = "processConfigTable";
@@ -252,6 +259,9 @@ class DTKeys {
   // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
   static const fileKeyStagingForPipelineExecTable = "fileKeyStagingForPipelineExecTable";
+
+  // File Staging Area
+  static const sourceConfigTable = "sourceConfigTable";
 
   // User administration
   static const usersTable = "userTable";

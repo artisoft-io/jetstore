@@ -95,12 +95,14 @@ func (br BadRow) write2Chan(ch chan<- []interface{}) {
 
 type ProcessInput struct {
 	key                   int
+	objectType            string
 	tableName             string
 	sourceType            string
 	entityRdfType         string
 	entityRdfTypeResource *bridge.Resource
 	groupingColumn        string
 	groupingPosition      int
+	shardIdColumn         string
 	keyColumn             string
 	keyPosition           int
 	processInputMapping   []ProcessMap
@@ -109,6 +111,7 @@ type ProcessInput struct {
 
 type ProcessMap struct {
 	tableName    string
+	isDomainKey  bool
 	inputColumn  sql.NullString
 	dataProperty string
 	predicate    *bridge.Resource
@@ -129,7 +132,7 @@ type RuleConfig struct {
 }
 
 // utility methods
-// prepare the sql statement for reading from input table (csv)
+// prepare the sql statement for reading from staging table (csv)
 // "SELECT  {{column_names}}
 //  FROM {{table_name}}
 //  WHERE session_id=$1 AND shard_id=$2
@@ -152,13 +155,15 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 	buf.WriteString(" FROM ")
 	tbl := pgx.Identifier{processInput.tableName}
 	buf.WriteString(tbl.Sanitize())
-	buf.WriteString(" WHERE session_id=$1 ")
+	buf.WriteString(" WHERE session_id = $1 ")
 	if *shardId >= 0 {
-		buf.WriteString(" AND shard_id=$2 ")
+		buf.WriteString(" AND ")
+		buf.WriteString(pgx.Identifier{processInput.shardIdColumn}.Sanitize())
+		buf.WriteString(" = $2 ")
 	}
 	buf.WriteString(" ORDER BY ")
-	col := pgx.Identifier{processInput.groupingColumn}
-	buf.WriteString(col.Sanitize())
+	buf.WriteString(
+		pgx.Identifier{processInput.groupingColumn}.Sanitize())
 	buf.WriteString(" ASC ")
 	if *limit > 0 {
 		buf.WriteString(" LIMIT ")
@@ -173,14 +178,10 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 // Example from test2 of server unit tests:
 //   SELECT "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type"
 //   FROM "hc:SimulatedPatient"
-//   WHERE session_id=$1 AND shard_id=$2
-//   ORDER BY "hc:patient_number" ASC, "jets:key", session_id, last_update DESC
+//   WHERE session_id = $1 AND "Member:shard_id" = $2
+//   ORDER BY "Member:domain_key" ASC
 //
 func (processInput *ProcessInput) makeSqlStmt() string {
-	tbl := pgx.Identifier{processInput.tableName}
-	tbl_name := tbl.Sanitize()
-	col := pgx.Identifier{processInput.groupingColumn}
-	grouping_col_name := col.Sanitize()
 	var buf strings.Builder
 	buf.WriteString("SELECT ")
 	for i, spec := range processInput.processInputMapping {
@@ -195,17 +196,17 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 		}
 	}
 	buf.WriteString(" FROM ")
-	buf.WriteString(tbl_name)
-	buf.WriteString(" WHERE session_id=$1 ")
+	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
+	buf.WriteString(" WHERE session_id = $1 ")
 	if *shardId >= 0 {
-		buf.WriteString(" AND shard_id=$2 ")
+		buf.WriteString(" AND ")
+		buf.WriteString(pgx.Identifier{processInput.shardIdColumn}.Sanitize())
+		buf.WriteString(" = $2 ")
 	}
 	buf.WriteString(" ORDER BY ")
-	if processInput.groupingColumn != "jets:key" {
-		buf.WriteString(grouping_col_name)
-		buf.WriteString(" ASC, ")
-	}
-	buf.WriteString(" \"jets:key\", session_id, last_update DESC ")
+	buf.WriteString(
+		pgx.Identifier{processInput.groupingColumn}.Sanitize())
+	buf.WriteString(" ASC ")
 	if *limit > 0 {
 		buf.WriteString(" LIMIT ")
 		buf.WriteString(strconv.Itoa(*limit))
@@ -216,18 +217,15 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 
 // Generate query for merged-in table
 // Example from test2 of server unit tests:
-//  case join using hc:member_number as grouping column:
+//  case join using Member:domain_key as grouping column:
 //     SELECT "hc:member_number", session_id, "hc:claim_number", "jets:key", "rdf:type"
 //     FROM "hc:ProfessionalClaim"
-//     WHERE session_id=$1 AND "hc:member_number" >= $2
-//     ORDER BY "hc:member_number" ASC, "jets:key", session_id, last_update DESC
+//     WHERE session_id=$1 AND "Member:domain_key" >= $2
+//     ORDER BY "Member:domain_key" ASC
 //
 func (processInput *ProcessInput) makeJoinSqlStmt() string {
-	tbl := pgx.Identifier{processInput.tableName}
-	tbl_name := tbl.Sanitize()
-	col := pgx.Identifier{processInput.groupingColumn}
-	grouping_col_name := col.Sanitize()
 	var buf strings.Builder
+	groupingColumn := pgx.Identifier{processInput.groupingColumn}.Sanitize()
 	buf.WriteString("SELECT ")
 	for i, spec := range processInput.processInputMapping {
 		if i > 0 {
@@ -241,16 +239,13 @@ func (processInput *ProcessInput) makeJoinSqlStmt() string {
 		}
 	}
 	buf.WriteString(" FROM ")
-	buf.WriteString(tbl_name)
-	buf.WriteString(" WHERE session_id=$1 AND ")
-	buf.WriteString(grouping_col_name)
+	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
+	buf.WriteString(" WHERE session_id = $1 AND ")
+	buf.WriteString(groupingColumn)
 	buf.WriteString(" >= $2 ")
 	buf.WriteString(" ORDER BY ")
-	if grouping_col_name != "jets:key" {
-		buf.WriteString(grouping_col_name)
-		buf.WriteString(" ASC, ")
-	}
-	buf.WriteString(" \"jets:key\", session_id, last_update DESC ")
+	buf.WriteString(groupingColumn)
+	buf.WriteString(" ASC ")
 	if *limit > 0 {
 		buf.WriteString(" LIMIT ")
 		buf.WriteString(strconv.Itoa(*limit))
@@ -424,19 +419,16 @@ func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 
 // load ProcessInput
 func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
-	var groupingCol, keyCol sql.NullString
+	var keyCol sql.NullString
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT table_name, source_type, entity_rdf_type, grouping_column, key_column
+		`SELECT object_type, table_name, source_type, entity_rdf_type, key_column
 		FROM jetsapi.process_input 
-		WHERE key = $1`, pi.key).Scan(&pi.tableName, &pi.sourceType, &pi.entityRdfType, &groupingCol, &keyCol)
+		WHERE key = $1`, pi.key).Scan(&pi.objectType, &pi.tableName, &pi.sourceType, &pi.entityRdfType, &keyCol)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.process_input table: %v", err)
 	}
-	if groupingCol.Valid {
-		pi.groupingColumn = groupingCol.String
-	} else {
-		pi.groupingColumn = "jets:key"
-	}
+	pi.groupingColumn = fmt.Sprintf("%s:domain_key", pi.objectType)
+	pi.shardIdColumn = fmt.Sprintf("%s:shard_id", pi.objectType)
 	if keyCol.Valid {
 		pi.keyColumn = keyCol.String
 	} else {
@@ -447,6 +439,19 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("while calling readProcessInputMapping: %v", err)
 	}
+	// Add the Domain Key for grouping columns into sessions
+	pi.processInputMapping = append(pi.processInputMapping, ProcessMap{
+		tableName: pi.tableName,
+		isDomainKey: true,
+		inputColumn: sql.NullString{Valid: true, String: fmt.Sprintf("%s:domain_key", pi.objectType)},
+		rdfType: "text",
+	})
+	pi.processInputMapping = append(pi.processInputMapping, ProcessMap{
+		tableName: pi.tableName,
+		isDomainKey: true,
+		inputColumn: sql.NullString{Valid: true, String: fmt.Sprintf("%s:shard_id", pi.objectType)},
+		rdfType: "int",
+	})
 	return nil
 }
 

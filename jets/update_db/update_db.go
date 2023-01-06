@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -15,16 +16,26 @@ import (
 
 // cmd tool to manage db schema
 
-// Command line arguments
-var lvr           = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
-var dropExisting  = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
-var awsDsnSecret  = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
-var dbPoolSize    = flag.Int("dbPoolSize", 5, "DB connection pool size, used for -awsDnsSecret (default 10)")
-var usingSshTunnel= flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
-var awsRegion     = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
-var dsnList       = flag.String("dsn", "", "comma-separated list of database connection string (required)")
-var workspaceDb   = flag.String("workspaceDb", "", "workspace db path (required)")
-var migrateDb     = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
+// Env variable:
+// JETS_BUCKET
+// JETS_DSN_JSON_VALUE
+// JETS_DSN_SECRET
+// JETS_DSN_URI_VALUE
+// JETS_REGION
+// JETS_SCHEMA_FILE (default: jets_schema.json)
+// JETSAPI_DB_INIT_PATH path to workspace_init_db.sql file (workspace specific)
+// WORKSPACE_DB_PATH location of workspace db (sqlite db)
+var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
+var dropExisting = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
+var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var dbPoolSize = flag.Int("dbPoolSize", 5, "DB connection pool size, used for -awsDnsSecret (default 10)")
+var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
+var dsn = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
+var jetsapiDbInitPath = flag.String("jetsapiDbInitPath", "", "jetsapi init db path (required, default from JETSAPI_DB_INIT_PATH)")
+var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required or env var WORKSPACE_DB_PATH)")
+var migrateDb = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
+var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsapi database, taking db init script path from env JETSAPI_DB_INIT_PATH (default: false)")
 var extTables workspace.ExtTableInfo = make(map[string][]string)
 
 func init() {
@@ -49,35 +60,44 @@ func doJob() error {
 	var err error
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}
 	}
-	dsnSplit := strings.Split(*dsnList, ",")
-	dbslice := make([]*pgxpool.Pool, len(dsnSplit))
-	for i := range dsnSplit {
-		dbslice[i], err = pgxpool.Connect(context.Background(), dsnSplit[i])
-		if err != nil {
-			return fmt.Errorf("while opening db connection on %s: %v", dsnSplit[i], err)
-		}
-		defer dbslice[i].Close()
+	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	if err != nil {
+		return fmt.Errorf("while opening db connection on %s: %v", *dsn, err)
 	}
+	defer dbpool.Close()
 	// JetStore system table migration
 	if *migrateDb {
-		err = migrate_db(dbslice)
+		log.Println("Migrating jetsapi database to latest schema")
+		err = MigrateDb(dbpool)
 		if err != nil {
 			return err
 		}
 	}
+
+	// Initialize jetsapi database with workspace-specific initalization
+	if *initWorkspaceDb && *jetsapiDbInitPath != "" {
+		log.Println("Initialize jetsapi database with workspace-specific initalization")
+		err = InitializeJetsapiDb(dbpool, jetsapiDbInitPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Create the domain tables
 	if *workspaceDb == "" {
 		return nil
 	}
-	
+	log.Println("Create / Update JetStore Domain Tables")
 	workspaceMgr, err := workspace.OpenWorkspaceDb(*workspaceDb)
 	if err != nil {
 		return fmt.Errorf("while opening workspace db: %v", err)
 	}
+	workspaceMgr.Dbpool = dbpool
 	defer workspaceMgr.Close()
 
 	// get the set of volatile resources
@@ -86,25 +106,25 @@ func doJob() error {
 		return fmt.Errorf("while reading volatile resource from workspace db: %v", err)
 	}
 	// get the table definitions from workspace db
-	tableSpecs, err := workspaceMgr.LoadDomainColumnMapping(true, make(map[string]bool))
+	tableSpecs, err := workspaceMgr.LoadDomainTableDefinitions(true, make(map[string]bool))
 	if err != nil {
 		return fmt.Errorf("while loading table definition from workspace db: %v", err)
 	}
 	if *lvr {
 		log.Println("List of volatile resources in workspace:")
 		for i := range vresources {
-			log.Println("  ",vresources[i])
-		} 
+			log.Println("  ", vresources[i])
+		}
 		log.Println("List of tables in workspace:")
 		for tableName := range tableSpecs {
-			log.Println("  ",tableName)
+			log.Println("  ", tableName)
 		}
 		return nil
 	}
 	vrSet := make(map[string]bool)
 	for i := range vresources {
 		vrSet[vresources[i]] = true
-	} 
+	}
 
 	// validate extTables (input) with workspace db
 	for tableName, extVR := range extTables {
@@ -134,14 +154,13 @@ func doJob() error {
 
 	// process tables
 	for tableName, tableSpec := range tableSpecs {
-		for i, dbpool := range dbslice {
-			log.Println("Processing table",tableName,"on dsn",dsnSplit[i])
-			err = tableSpec.UpdateDomainTableSchema(dbpool, *dropExisting, extTables[tableName])
-			if err != nil {
-				return fmt.Errorf("while updating table schema for table %s: %v", tableName, err)
-			}
+		log.Println("Processing table", tableName)
+		err = tableSpec.UpdateDomainTableSchema(dbpool, *dropExisting, extTables[tableName])
+		if err != nil {
+			return fmt.Errorf("while updating table schema for table %s: %v", tableName, err)
 		}
 	}
+
 	return nil
 }
 
@@ -151,17 +170,44 @@ func main() {
 	// validate command line arguments
 	hasErr := false
 	var errMsg []string
-	if *dsnList == "" && *awsDsnSecret == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Connection string (-dsn or -awsDsnSecret) must be provided.")
+	var err error
+	if *dsn == "" && *awsDsnSecret == "" {
+		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
+		if *dsn == "" {
+			*dsn, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, 20)
+			if err != nil {
+				log.Printf("while calling GetDsnFromJson: %v", err)
+				*dsn = ""
+			}
+		}
+		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
+		if *dsn == "" && *awsDsnSecret == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")
+		}
+	}
+	if *awsRegion == "" {
+		*awsRegion = os.Getenv("JETS_REGION")
 	}
 	if *awsDsnSecret != "" && *awsRegion == "" {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
-	if *workspaceDb == "" && !*migrateDb {
+	if *jetsapiDbInitPath == "" {
+		*jetsapiDbInitPath = os.Getenv(("JETSAPI_DB_INIT_PATH"))
+	}
+	if *initWorkspaceDb && *jetsapiDbInitPath == "" {
+		hasErr = true
+		errMsg = append(errMsg, "jetsapi dn init path (-jetsapiDbInitPath) must be provided when -initWorkspaceDb is provided.")
+	}
+	if *workspaceDb == "" {
+		*workspaceDb = os.Getenv("WORKSPACE_DB_PATH")
+	}
+	// if *migrateDb is true, then *workspaceDb can be empty (meaning only migrate the jetsapi table)
+	if (*workspaceDb == "" || *jetsapiDbInitPath == "") && !*migrateDb {
 		hasErr = true
 		errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")
+		errMsg = append(errMsg, "jetsapi init db path (-jetsapiDbInitPath) must be provided.")
 	}
 	if hasErr {
 		flag.Usage()
@@ -172,17 +218,21 @@ func main() {
 	}
 
 	log.Println("Here's what we got:")
-	log.Println("   -awsDsnSecret:",*awsDsnSecret)
-	log.Println("   -dbPoolSize:",*dbPoolSize)
-	log.Println("   -usingSshTunnel:",*usingSshTunnel)
-	log.Println("   -dsn:", *dsnList)
+	log.Println("   -awsDsnSecret:", *awsDsnSecret)
+	log.Println("   -dbPoolSize:", *dbPoolSize)
+	log.Println("   -usingSshTunnel:", *usingSshTunnel)
+	log.Println("   -dsn len:", len(*dsn))
+	log.Println("   -jetsapiDbInitPath:", *jetsapiDbInitPath)
 	log.Println("   -workspaceDb:", *workspaceDb)
 	log.Println("   -migrateDb:", *migrateDb)
+	log.Println("   -initWorkspaceDb:", *initWorkspaceDb)
+	log.Println("ENV JETSAPI_DB_INIT_PATH:", os.Getenv("JETSAPI_DB_INIT_PATH"))
+	log.Println("ENV WORKSPACE_DB_PATH:", os.Getenv("WORKSPACE_DB_PATH"))
 	for tableName, extColumns := range extTables {
-		log.Println("Table:",tableName,"Extended Columns:",strings.Join(extColumns, ","))
+		log.Println("Table:", tableName, "Extended Columns:", strings.Join(extColumns, ","))
 	}
 	//let's do it
-	err := doJob()
+	err = doJob()
 	if err != nil {
 		flag.Usage()
 		fmt.Println(err)

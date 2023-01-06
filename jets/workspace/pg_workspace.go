@@ -4,23 +4,44 @@ package workspace
 // for creating domain table and their extensions
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/artisoft-io/jetstore/jets/schema"
 )
 
 // ExtTableInfo: multi value arg for extending tables with volatile fields
 type ExtTableInfo map[string][]string
+
+func GetDomainKeysInfo(dbpool *pgxpool.Pool, rdfType string) (*[]string, *string, error) {
+	objectTypes := make([]string, 0)
+	var domainKeysJson string
+	stmt := "SELECT object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type=$1"
+	err := dbpool.QueryRow(context.Background(), stmt, rdfType).Scan(&objectTypes, &domainKeysJson)
+	if err != nil {
+		log.Printf("Error in GetDomainKeysInfo while querying domain_keys_registry: %v", err)
+		return &objectTypes, &domainKeysJson, 
+			fmt.Errorf("in GetDomainKeysInfo while querying domain_keys_registry: %w", err)
+	}	
+	return &objectTypes, &domainKeysJson, nil
+}
 
 func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, dropExisting bool, extVR []string) error {
 	var err error
 	if len(tableSpec.Columns) == 0 {
 		return errors.New("error: no tables provided from workspace")
 	}
+	// Get the ObjectTypes associated with the Domain Keys
+	objectTypes, _, err := GetDomainKeysInfo(dbpool, tableSpec.ClassName)
+	if err != nil {
+		return err
+	}	
+
 	// convert the virtual resource to column names
 	extCols := make([]string, len(extVR))
 	for i := range extVR {
@@ -67,13 +88,46 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 		IsNotNull: true,
 	})
 	targetCols["session_id"] = true
-	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
-		ColumnName: "shard_id",
-		DataType: "int",
-		Default: "0",
-		IsNotNull: true,
-	})
-	targetCols["shard_id"] = true
+
+	for _,objectType := range *objectTypes {
+		domainKey := fmt.Sprintf("%s:domain_key", objectType)
+		shardId := fmt.Sprintf("%s:shard_id", objectType)
+
+		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
+			ColumnName: domainKey,
+			DataType: "text",
+			Default: "",
+			IsNotNull: true,
+		})
+		targetCols[domainKey] = true
+
+		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
+			ColumnName: shardId,
+			DataType: "int",
+			Default: "0",
+			IsNotNull: true,
+		})
+		targetCols[shardId] = true
+
+		// Indexes on grouping columns
+		idxname := tableSpec.TableName+"_"+domainKey+"_idx"
+		tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
+			IndexName: idxname,
+			IndexDef: fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (session_id, %s ASC)`,
+				pgx.Identifier{idxname}.Sanitize(),
+				pgx.Identifier{tableSpec.TableName}.Sanitize(),
+				pgx.Identifier{domainKey}.Sanitize()),
+		})
+		idxname = tableSpec.TableName + "_" + shardId + "_idx"
+		tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
+			IndexName: idxname,
+			IndexDef: fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (session_id, %s)`,
+				pgx.Identifier{idxname}.Sanitize(),
+				pgx.Identifier{tableSpec.TableName}.Sanitize(),
+				pgx.Identifier{shardId}.Sanitize()),
+		})
+	}
+	
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "last_update",
 		DataType: "datetime",
@@ -81,36 +135,6 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 		IsNotNull: true,
 	})
 	targetCols["last_update"] = true
-	// Primary index definitions
-	idxname := tableSpec.TableName + "_primary_idx"
-	tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
-		IndexName: idxname,
-		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  ("jets:key", session_id, last_update DESC)`,
-			pgx.Identifier{idxname}.Sanitize(),
-			pgx.Identifier{tableSpec.TableName}.Sanitize()),
-	})
-	// Indexes on grouping columns
-	for icol := range tableSpec.Columns {
-		col := &tableSpec.Columns[icol]
-		if col.IsGrouping {
-			idxname := tableSpec.TableName+"_"+col.ColumnName+"_idx"
-			tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
-				IndexName: idxname,
-				IndexDef: fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (%s ASC, "jets:key", session_id, last_update DESC)`,
-					pgx.Identifier{idxname}.Sanitize(),
-					pgx.Identifier{tableSpec.TableName}.Sanitize(),
-					pgx.Identifier{col.ColumnName}.Sanitize()),
-			})
-		}
-	}	
-	// Shard index
-	idxname = tableSpec.TableName + "_shard_idx"
-	tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition {
-		IndexName: idxname,
-		IndexDef: fmt.Sprintf(`CREATE INDEX %s ON %s  (shard_id)`,
-			pgx.Identifier{idxname}.Sanitize(),
-			pgx.Identifier{tableSpec.TableName}.Sanitize()),
-	})
 
 	tableExists := false
 	if !dropExisting {
@@ -123,7 +147,7 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 	if tableExists {
 		existingSchema, err := schema.GetTableSchema(dbpool, "public", tableSpec.TableName)
 		if err != nil {
-			return fmt.Errorf("while UpdateTableSchema called GetDomainColumns: %w", err)
+			return fmt.Errorf("while UpdateTableSchema called GetTableSchema: %w", err)
 		}
 		// check we are not missing any column
 		for i := range existingSchema.Columns {
@@ -145,19 +169,3 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 	}
 	return nil
 }
-
-// func GetDomainColumns(dbpool *pgxpool.Pool, tableDefinition *schema.TableDefinition) (map[string]DomainColumn, error) {
-// 	if dbpool == nil {
-// 		return nil, errors.New("dbpool is required")
-// 	}
-// 	result := make(map[string]DomainColumn)
-// 	for i := range tableDefinition.Columns {
-// 		columnDef := &tableDefinition.Columns[i]
-// 		var dc DomainColumn
-// 		dc.ColumnName = columnDef.ColumnName
-// 		dc.DataType = columnDef.DataType
-// 		dc.IsArray = columnDef.IsArray
-// 		result[dc.ColumnName] = dc
-// 	}
-// 	return result, nil
-// }

@@ -62,13 +62,12 @@ func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
 	var err error
 
 	// Register the outSessionId && Update execution status to pipeline_execution_status table
-	//* isSingleNodeRun: adjust for multi node or sharded run
 	if isSingleNodeRun {
 		// Lock the session
 		err = schema.RegisterSession(dbpool, *outSessionId)
 		if err != nil {
 			return fmt.Errorf("while recording out session id: %v", err)
-		}	
+		}
 		// Record the status of the pipeline execution
 		log.Printf("Inserting status '%s' to pipeline_execution_status table", pr.Status)
 		stmt := `UPDATE jetsapi.pipeline_execution_status SET (status, user_email, last_update) =
@@ -77,11 +76,11 @@ func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
 		_, err = dbpool.Exec(context.Background(), stmt, pr.Status, *userEmail, *pipelineExecKey)
 		if err != nil {
 			log.Printf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
-		}	
+		}
 	}
 
 	var pipelineExexStatusKey sql.NullInt32
-	if(*pipelineExecKey >= 0) {
+	if *pipelineExecKey >= 0 {
 		pipelineExexStatusKey.Int32 = int32(*pipelineExecKey)
 		pipelineExexStatusKey.Valid = true
 	}
@@ -91,15 +90,14 @@ func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
 						pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, 
 						shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) 
 						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
-	_, err = dbpool.Exec(context.Background(), stmt, 
+	_, err = dbpool.Exec(context.Background(), stmt,
 		pipelineConfig.key, pipelineExexStatusKey,
-		pipelineConfig.clientName, pipelineConfig.processConfig.processName, 
-		pipelineConfig.mainProcessInput.sessionId, *outSessionId, *shardId, 
+		pipelineConfig.clientName, pipelineConfig.processConfig.processName,
+		pipelineConfig.mainProcessInput.sessionId, *outSessionId, *shardId,
 		pr.Status, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.pipeline_execution table: %v", err)
 	}
-	//* isSingleNodeRun: adjust for multi node or sharded run
 	if pr.Status == "completed" && isSingleNodeRun {
 		// Register the output domain tables to input_registry
 		var buf strings.Builder
@@ -111,21 +109,22 @@ func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
 				buf.WriteString(", ")
 			}
 			isFirst = false
+			//* FIX NOW!
 			tblSplit := strings.Split(pr.ReteWorkspace.outTables[i], ":")
-			buf.WriteString(fmt.Sprintf(" ('%s', '%s', '%s', 'domain_table', '%s', '%s') ", 
-				pipelineConfig.clientName, tblSplit[len(tblSplit)-1], pr.ReteWorkspace.outTables[i], 
+			buf.WriteString(fmt.Sprintf(" ('%s', '%s', '%s', 'domain_table', '%s', '%s') ",
+				pipelineConfig.clientName, tblSplit[len(tblSplit)-1], pr.ReteWorkspace.outTables[i],
 				*outSessionId, *userEmail))
 		}
 		_, err = dbpool.Exec(context.Background(), buf.String())
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
-		}	
+		}
 
 	}
 	return nil
 }
 
-func prepareProcessInput(processInput *ProcessInput, 
+func prepareProcessInput(processInput *ProcessInput,
 	reteWorkspace *ReteWorkspace, workspaceMgr *workspace.WorkspaceDb) error {
 	err := processInput.setGroupingPos()
 	if err != nil {
@@ -148,16 +147,18 @@ func prepareProcessInput(processInput *ProcessInput,
 	// Add range rdf type to data properties used in mapping spec
 	for ipos := range processInput.processInputMapping {
 		pim := &processInput.processInputMapping[ipos]
-		pim.rdfType, pim.isArray, err = workspaceMgr.GetRangeDataType(pim.dataProperty)
-		if err != nil {
-			return fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
+		if !pim.isDomainKey {
+			pim.rdfType, pim.isArray, err = workspaceMgr.GetRangeDataType(pim.dataProperty)
+			if err != nil {
+				return fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
+			}	
 		}
 	}
 	return nil
 }
 
 // Main pipeline processing function
-func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
+func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 	result := PipelineResult{ReteWorkspace: reteWorkspace}
 	var err error
 	done := make(chan struct{})
@@ -168,6 +169,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 	if err != nil {
 		return &result, fmt.Errorf("while opening workspace db: %v", err)
 	}
+	workspaceMgr.Dbpool = dbpool
 	defer workspaceMgr.Close()
 
 	// setup to read the primary input table
@@ -178,7 +180,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 		return &result, err
 	}
 	for i := range reteWorkspace.pipelineConfig.mergedProcessInput {
-		err = prepareProcessInput(&reteWorkspace.pipelineConfig.mergedProcessInput[i], 
+		err = prepareProcessInput(&reteWorkspace.pipelineConfig.mergedProcessInput[i],
 			reteWorkspace, workspaceMgr)
 		if err != nil {
 			return &result, err
@@ -265,7 +267,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
-	outputMapping, err := workspaceMgr.LoadDomainColumnMapping(false, outTableFilter)
+	outputMapping, err := workspaceMgr.LoadDomainTableDefinitions(false, outTableFilter)
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
 	}
@@ -287,23 +289,39 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
 
-		sessionCol := workspace.DomainColumn{ColumnName: "session_id", DataType: "text", IsArray: false}
-		domainTable.Columns = append(domainTable.Columns, sessionCol)
-		shardCol := workspace.DomainColumn{ColumnName: "shard_id", DataType: "int", IsArray: false}
-		domainTable.Columns = append(domainTable.Columns, shardCol)
+		// Add reserved columns and domain keys
+		for header := range domainTable.DomainKeysInfo.ReservedColumns {
+			switch {
+			case header == "session_id":
+				domainTable.Columns = append(domainTable.Columns, 
+					workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
+	
+			case strings.HasSuffix(header, ":domain_key"):
+				domainTable.Columns = append(domainTable.Columns, 
+					workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
+	
+			case strings.HasSuffix(header, ":shard_id"):
+				domainTable.Columns = append(domainTable.Columns, 
+					workspace.DomainColumn{ColumnName: header, DataType: "int", IsArray: false})
+			}	
+		}
 	}
 
-	// fmt.Println("outputMapping is complete, len is", len(outputMapping))
+	// For development
+	// fmt.Println("***-* outputMapping is complete, len is", len(outputMapping))
 	// for cname, domainTbl := range outputMapping {
 	// 	fmt.Println("  Output table:", cname)
-	// 	for icol := range domainTbl.Columns {
-	// 		fmt.Println(
-	// 			"PropertyName:", domainTbl.Columns[icol].PropertyName,
-	// 			"ColumnName:", domainTbl.Columns[icol].ColumnName,
-	// 			"Predicate:", domainTbl.Columns[icol].Predicate,
-	// 			"DataType:", domainTbl.Columns[icol].DataType,
-	// 			"IsArray:", domainTbl.Columns[icol].IsArray)
-	// 	}
+	// 	// for icol := range domainTbl.Columns {
+	// 	// 	fmt.Println(
+	// 	// 		"    PropertyName:", domainTbl.Columns[icol].PropertyName,
+	// 	// 		"ColumnName:", domainTbl.Columns[icol].ColumnName,
+	// 	// 		"Predicate:", domainTbl.Columns[icol].Predicate,
+	// 	// 		"DataType:", domainTbl.Columns[icol].DataType,
+	// 	// 		"IsArray:", domainTbl.Columns[icol].IsArray)
+	// 	// }
+	// 	fmt.Println("    * DOMAIN KEY INFO:")
+	// 	fmt.Println(domainTbl.DomainKeysInfo)
+	// 	fmt.Println("    * DOMAIN KEY INFO END")
 	// }
 
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
@@ -415,7 +433,7 @@ func ProcessData(reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 	log.Println("Done checking results of write2tables.")
 
 	if readResult.err != nil {
-		log.Println(fmt.Errorf("data load failed: %v", readResult.err))		
+		log.Println(fmt.Errorf("data load failed: %v", readResult.err))
 		return &result, readResult.err
 	}
 

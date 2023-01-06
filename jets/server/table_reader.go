@@ -226,7 +226,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 						dataGrps.inputRows = append(dataGrps.inputRows, bundleRow{
 							processInput: joinQueries[iqr].processInput,
 							inputRows:    joinQueries[iqr].pendingRow})
-						// //*
+						// // For development
 						// log.Println("GOT Join ROW:")
 						// for ipos := range joinQueries[iqr].pendingRow {
 						// 	log.Println("    ",joinQueries[iqr].processInput.processInputMapping[ipos].dataProperty,"  =  ",joinQueries[iqr].pendingRow[ipos])
