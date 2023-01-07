@@ -66,7 +66,7 @@ Build the runtime base image
 
 ```bash
 docker pull debian:bullseye
-docker build --build-arg JETS_VERSION=2022.1.0 -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+docker build -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
 ```
 
 Building the runtime image (PACKAGE THE BUILD)

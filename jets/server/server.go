@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"hash/fnv"
 	"log"
 	"os"
 	"strconv"
@@ -55,13 +54,13 @@ var nodeId              = flag.Int("nodeId", 0, "DB node id associated to this p
 var nbrShards           = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
 var outTables           = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
 var shardId             = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
+var doNotLockSessionId  = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId and register Domain Table output on successful completion")
 var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int // taken from env GLOG_v
 var dbc dbConnections
 var nbrDbNodes int
-var isSingleNodeRun bool
 
 func init() {
 	extTables = make(map[string][]string)
@@ -79,20 +78,6 @@ func init() {
 		extTables[split1[0]] = split2
 		return nil
 	})
-}
-
-//* TODO move this utility fnc somewhere where it would be reused
-func compute_shard_id(key string) int {
-	h := fnv.New32a()
-	h.Write([]byte(key))
-	res := int(h.Sum32()) % *nbrShards
-	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
-	return res
-}
-func compute_node_id_from_shard_id(shard int) int {
-	res := shard % nbrDbNodes
-	// log.Println("COMPUTE NODE for shard ",shard,"on",nbrDbNodes,"nodes, node id =",res)
-	return res
 }
 
 // doJob main function
@@ -137,8 +122,8 @@ func doJob() error {
 	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
 	log.Printf("Command Line Argument: userEmail: %s\n", *userEmail)
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
-	if isSingleNodeRun {
-		log.Printf("This is a single node run (no sharding)")
+	if !*doNotLockSessionId {
+		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
 	}
 	dsn := dsnSplit[*nodeId%nbrDbNodes]
 	dbpool, err := pgxpool.Connect(context.Background(), dsn)
@@ -180,7 +165,7 @@ func doJob() error {
 	PipelineResult, err := ProcessData(dbpool, reteWorkspace)
 	if err != nil {
 		PipelineResult.Status = "failed"
-		err2 := PipelineResult.updateStatus(dbpool)
+		err2 := PipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId)
 		if err2 != nil {
 			log.Printf("error while writing pipeline status: %v", err2)
 		}
@@ -196,7 +181,7 @@ func doJob() error {
 	}
 	// Update the pipeline_execution table with status and counts
 	PipelineResult.Status = "completed"
-	err2 := PipelineResult.updateStatus(dbpool)
+	err2 := PipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId)
 	if err2 != nil {
 		log.Printf("error while writing pipeline status: %v", err2)
 	}
@@ -208,9 +193,6 @@ func doJob() error {
 func main() {
 	fmt.Println("CMD LINE ARGS:",os.Args[1:])
 	flag.Parse()
-	
-	// Check if this is a isSingleNodeRun
-	isSingleNodeRun = *nbrShards == 1
 
 	// validate command line arguments
 	hasErr := false

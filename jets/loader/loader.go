@@ -89,7 +89,8 @@ func truncateSessionId(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
-func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, status string) error {
+func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, 
+	dkInfo *schema.HeadersAndDomainKeysInfo, status string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
 		object_type, table_name, client, file_key, session_id, status,
 		load_count, bad_row_count, user_email) 
@@ -102,23 +103,26 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
-	if status == "completed" {
-		stmt = `INSERT INTO jetsapi.input_registry (
-			client, object_type, file_key, table_name, source_type, session_id, user_email) 
-			VALUES ($1, $2, $3, $4, 'file', $5, $6)`
-		_, err = dbpool.Exec(context.Background(), stmt, 
-			*client, *objectType, *inFile, tableName, *sessionId, *userEmail)
-		if err != nil {
-			return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
-		}	
+	if status == "completed" && dkInfo != nil {
+		for objType := range dkInfo.DomainKeysInfoMap {
+			log.Println("Registering staging table with object type:", objType)
+			stmt = `INSERT INTO jetsapi.input_registry (
+				client, object_type, file_key, table_name, source_type, session_id, user_email) 
+				VALUES ($1, $2, $3, $4, 'file', $5, $6)`
+			_, err = dbpool.Exec(context.Background(), stmt, 
+				*client, objType, *inFile, tableName, *sessionId, *userEmail)
+			if err != nil {
+				return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+			}	
+		}
 	}
 	return nil
 }
 
-type writeResult struct {
-	count  int64
-	errMsg string
-}
+// type writeResult struct {
+// 	count  int64
+// 	errMsg string
+// }
 
 // processFile
 // --------------------------------------------------------------------------------------
@@ -367,7 +371,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 			return false, fmt.Errorf("error while registering the session id: %v", err)
 		}
 	}
-	err = registerCurrentLoad(copyCount, badRowCount, dbpool, status)
+	err = registerCurrentLoad(copyCount, badRowCount, dbpool, headersDKInfo, status)
 	if err != nil {
 		return false, fmt.Errorf("error while registering the load: %v", err)
 	}
@@ -479,7 +483,7 @@ func coordinateWork() error {
 	// Process the downloaded file
 	hasBadRows, err := processFile(dbpool, fileHd, errFileHd)
 	if err != nil {
-		err2 := registerCurrentLoad(0, 0, dbpool, "failed")
+		err2 := registerCurrentLoad(0, 0, dbpool, nil, "failed")
 		if err2 != nil {
 			return fmt.Errorf("error while registering the load: %v", err)
 		}
@@ -579,6 +583,7 @@ func main() {
 	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: doNotLockSessionId", *doNotLockSessionId)
+	fmt.Println("Got argument: usingSshTunnel", *usingSshTunnel)
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
 	if len(errOutDir) == 0 {
 		fmt.Println("Loader error file will be in same directory as input file.")

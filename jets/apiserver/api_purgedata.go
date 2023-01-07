@@ -55,7 +55,10 @@ func (server *Server) ResetDomainTables(w http.ResponseWriter, r *http.Request,
 	purgeDataAction *PurgeDataAction) {
 	// Clear and rebuild the domain table using the update_db command line
 	serverArgs := []string{ "-drop" }
-	log.Printf("Run update_db: %s", serverArgs)
+	if *usingSshTunnel {
+		serverArgs = append(serverArgs, "-usingSshTunnel")
+	}
+log.Printf("Run update_db: %s", serverArgs)
 	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
 	var b bytes.Buffer
 	cmd.Stdout = &b
