@@ -348,7 +348,7 @@
       }
     ],
     "tableConstraints": [
-      "CONSTRAINT input_registry_unique_cstraint UNIQUE (table_name, session_id)"
+      "CONSTRAINT input_registry_unique_cstraint UNIQUE (client, object_type, table_name, session_id)"
     ]
   },
   {
@@ -686,18 +686,6 @@
     ],
     "indexes": [
       {
-        "indexName": "pipeline_execution_status_client_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_status_client_idx ON jetsapi.pipeline_execution_status (client ASC)"
-      }, {
-        "indexName": "pipeline_execution_status_process_name_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_status_process_name_idx ON jetsapi.pipeline_execution_status (process_name ASC)"
-      }, {
-        "indexName": "pipeline_execution_status_pipeline_config_key_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_status_pipeline_config_key_idx ON jetsapi.pipeline_execution_status (pipeline_config_key ASC)"
-      }, {
-        "indexName": "pipeline_execution_status_session_id_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_status_session_id_idx ON jetsapi.pipeline_execution_status (session_id DESC)"
-      }, {
         "indexName": "pipeline_execution_status_last_update_idx",
         "indexDef": "CREATE INDEX pipeline_execution_status_last_update_idx ON jetsapi.pipeline_execution_status (last_update DESC)"
       }
@@ -717,7 +705,8 @@
         "isNotNull":  true
       }, {
         "columnName": "pipeline_execution_status_key",
-        "dataType":   "int"
+        "dataType":   "int",
+        "isNotNull":  true
       }, {
         "columnName": "client",
         "dataType":   "text",
@@ -765,23 +754,8 @@
     ],
     "indexes": [
       {
-        "indexName": "pipeline_execution_details_client_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_details_client_idx ON jetsapi.pipeline_execution_details (client ASC)"
-      }, {
-        "indexName": "pipeline_execution_details_process_name_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_details_process_name_idx ON jetsapi.pipeline_execution_details (process_name ASC)"
-      }, {
-        "indexName": "pipeline_execution_details_pipeline_config_key_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_details_pipeline_config_key_idx ON jetsapi.pipeline_execution_details (pipeline_config_key ASC)"
-      }, {
         "indexName": "pipeline_execution_details_pipeline_execution_status_key_idx",
         "indexDef": "CREATE INDEX pipeline_execution_details_pipeline_execution_status_key_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key ASC)"
-      }, {
-        "indexName": "pipeline_execution_details_main_input_session_id_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_details_main_input_session_id_idx ON jetsapi.pipeline_execution_details (main_input_session_id DESC)"
-      }, {
-        "indexName": "pipeline_execution_details_session_id_idx",
-        "indexDef": "CREATE INDEX pipeline_execution_details_session_id_idx ON jetsapi.pipeline_execution_details (session_id DESC)"
       }, {
         "indexName": "pipeline_execution_details_last_update_idx",
         "indexDef": "CREATE INDEX pipeline_execution_details_last_update_idx ON jetsapi.pipeline_execution_details (last_update DESC)"

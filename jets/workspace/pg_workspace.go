@@ -31,6 +31,44 @@ func GetDomainKeysInfo(dbpool *pgxpool.Pool, rdfType string) (*[]string, *string
 	return &objectTypes, &domainKeysJson, nil
 }
 
+func RegisterDomainTables(dbpool *pgxpool.Pool, pipelineExecutionKey int) error {
+	// Register the domain tables - get the list of them from process_config table
+	// Get the client from pipeline_execution_status table
+	outTables := make([]string, 0)
+	var client string
+	var userEmail string
+	var sessionId string
+	err := dbpool.QueryRow(context.Background(), 
+		`SELECT pe.client, pc.output_tables, pe.session_id, pe.user_email 
+		FROM jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
+		WHERE pc.key = plnc.process_config_key AND plnc.key = pe.pipeline_config_key AND pe.key = $1`, 
+		pipelineExecutionKey).Scan(&client, &outTables, &sessionId, &userEmail)
+	if err != nil {
+		msg := fmt.Sprintf("while getting output_tables from process config: %v", err)
+		return fmt.Errorf(msg)
+	}
+	log.Printf("Registring Domain Tables with sessionId '%s'", sessionId)
+	for i := range outTables {
+		// Get the ObjectTypes associated with Domain Table from domain_keys_registry
+		// Note: Using the fact that Domain Table is named from the assiciated rdf type
+		objectTypes, _, err := GetDomainKeysInfo(dbpool, outTables[i])
+		if err != nil {
+			return fmt.Errorf("while calling GetDomainKeysInfo for table %s: %v", outTables[i], err)
+		}
+		for j := range *objectTypes {
+			stmt := `INSERT INTO jetsapi.input_registry (client, object_type, table_name, source_type, session_id, user_email)
+			VALUES ($1, $2, $3, 'domain_table', $4, $5)
+			ON CONFLICT DO NOTHING`
+			_, err = dbpool.Exec(context.Background(), stmt, 
+				client, (*objectTypes)[j], outTables[i], sessionId, userEmail)
+			if err != nil {
+				return fmt.Errorf("error unable to register out tables to input_registry: %v", err)
+			}
+		}
+	}
+	return nil
+}
+
 func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, dropExisting bool, extVR []string) error {
 	var err error
 	if len(tableSpec.Columns) == 0 {

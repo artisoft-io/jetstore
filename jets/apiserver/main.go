@@ -34,6 +34,7 @@ import (
 // JETS_ADMIN_PWD
 // JETS_DSN_SECRET
 // JETS_DSN_VALUE
+// JETS_VERSION JetStore version
 // JETS_LOADER_SERVER_SM_ARN state machine arn
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_REGION
@@ -55,7 +56,7 @@ var awsRegion          = flag.String("awsRegion", "", "aws region to connect to 
 var dsn                = flag.String("dsn", "", "primary database connection string (required unless -awsDsnSecret is provided)")
 var serverAddr         = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
 var tokenExpiration    = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
-var unitTestDir        = flag.String("unitTestDir", "./data/test_data", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' (dev mode only)")
+var unitTestDir        = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
 var uiWebDir           = flag.String("WEB_APP_DEPLOYMENT_DIR", "/usr/local/lib/web", "UI static web app directory")
 var adminEmail         = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
 var awsAdminPwdSecret  = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
@@ -181,12 +182,16 @@ func main() {
 	fmt.Println("Got argument: adminPwd len", len(*adminPwd))
 	fmt.Println("Got argument: WEB_APP_DEPLOYMENT_DIR",*uiWebDir)
 	if devMode {
-		fmt.Println("Running in DEV MODE: unitTestDir", *unitTestDir)
+		fmt.Println("Running in DEV MODE")
+		if len(*unitTestDir) > 0 {
+			fmt.Println("Running in DEV MODE with unitTestDir", *unitTestDir)
+		}
 		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
 	}
 	fmt.Println("ENV WORKSPACES_HOME:",os.Getenv("WORKSPACES_HOME"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("ENV WORKSPACE_DB_PATH:",os.Getenv("WORKSPACE_DB_PATH"))
 	fmt.Println("ENV WORKSPACE_LOOKUPS_DB_PATH:",os.Getenv("WORKSPACE_LOOKUPS_DB_PATH"))
+	fmt.Println("ENV JETS_VERSION:",os.Getenv("JETS_VERSION"))
 	log.Fatal(listenAndServe())
 }

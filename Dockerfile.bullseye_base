@@ -5,14 +5,6 @@ ARG BASE_CONTAINER
 # Fix DL4006
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-ARG JETS_VERSION
-
-ENV JETS_VERSION=${JETS_VERSION}
-RUN echo "----------------jetserver-------------------------" >> /VERSION.txt && \
-    echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
-    echo "BASE: ${BASE_CONTAINER}=${BASE_VERSION}"            >> /VERSION.txt && \
-    echo "----------------*********************-------------" >> /VERSION.txt
-
 USER root
 
 ENV DEBIAN_FRONTEND noninteractive

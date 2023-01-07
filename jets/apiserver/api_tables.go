@@ -170,7 +170,7 @@ func makeResult(r *http.Request) map[string]interface{} {
 func (server *Server) ExecRawQuery(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
 
 	// Check if we're in dev mode and the query is delegated to a proxy implementation
-	if devMode {
+	if devMode && len(*unitTestDir) > 0 {
 		// We're in dev mode, see if we override the table being queried
 		switch {
 		case strings.Contains(dataTableAction.RawQuery, "file_key_staging"):
@@ -319,7 +319,6 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				fileKey := row["file_key"]
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
-				doNotLockSessionId := ""
 				if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
 					log.Printf(
 						"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
@@ -328,9 +327,6 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 					err = errors.New("error while running loader command")
 					return
 				}
-				if row["load_and_start"] == "true" {
-					doNotLockSessionId = "-doNotLockSessionId"
-				}
 				loaderCommand := []string{
 					"-in_file", fileKey.(string), 
 					"-client", client.(string), 
@@ -338,17 +334,22 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 					"-sessionId", sessionId.(string),
 					"-userEmail", userEmail.(string), 
 					"-nbrShards", strconv.Itoa(nbrShards),
-					doNotLockSessionId,
+				}
+				if row["load_and_start"] == "true" {
+						loaderCommand = append(loaderCommand, "-doNotLockSessionId")
 				}
 			switch {
 				// Call loader synchronously
 				case devMode:
+					if *usingSshTunnel {
+						loaderCommand = append(loaderCommand, "-usingSshTunnel")
+					}
 					cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
 					var b bytes.Buffer
 					cmd.Stdout = &b
 					cmd.Stderr = &b
+					log.Printf("Executing loader command '%v'", loaderCommand)
 					err = cmd.Run()
-					// out, err := exec.Command("/usr/local/bin/test_cmd.sh", loaderCommand...).Output()
 					if err != nil {
 						log.Printf("while executing loader command '%v': %v", loaderCommand, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -372,7 +373,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				
 				case row["load_and_start"] != "true":
 					// StartExecution load file
-					log.Printf("calling StartExecution command: %s", loaderCommand)
+					log.Printf("calling StartExecution loaderSM command: %s", loaderCommand)
 					name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"), map[string]interface{}{"loaderCommand": loaderCommand}, sessionId.(string))
 					if err != nil {
 						log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
@@ -434,6 +435,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				switch {
 				// Call server synchronously
 				case devMode:
+					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
 					for shardId:=0; shardId<nbrShards; shardId++ {
 						serverArgs := []string{ 
@@ -442,11 +444,18 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 							"-shardId", strconv.Itoa(shardId),
 							"-nbrShards", strconv.Itoa(nbrShards),
 						}
+						if *usingSshTunnel {
+							serverArgs = append(serverArgs, "-usingSshTunnel")
+						}				
+						if shardId < nbrShards-1 {
+							serverArgs = append(serverArgs, "-doNotLockSessionId")
+						}
 						log.Printf("Run server: %s", serverArgs)
 						cmd := exec.Command("/usr/local/bin/server", serverArgs...)
 						var b bytes.Buffer
 						cmd.Stdout = &b
 						cmd.Stderr = &b
+						log.Printf("Executing server command '%v'", serverArgs)
 						err = cmd.Run()
 						if err != nil {
 							log.Printf("while executing server command '%v': %v", serverArgs, err)
@@ -480,6 +489,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 							"-userEmail", userEmail.(string),
 							"-shardId", strconv.Itoa(shardId),
 							"-nbrShards", strconv.Itoa(nbrShards),
+							"-doNotLockSessionId",
 						})
 					}
 					smInput :=	map[string]interface{}{
@@ -491,12 +501,10 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 						},
 						"successUpdate": []string{ 
 							"-peKey", peKey, 
-							"-sessionId", sessionId.(string),
 							"-status", "completed",
 						},
 						"errorUpdate": []string{ 
 							"-peKey", peKey, 
-							"-sessionId", sessionId.(string),
 							"-status", "failed",
 						},
 					}
@@ -571,7 +579,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 func (server *Server) DoReadAction(w http.ResponseWriter, r *http.Request, dataTableAction *DataTableAction) {
 
 	// Check if we're in dev mode and the query is delegated to a proxy implementation
-	if devMode {
+	if devMode && len(*unitTestDir) > 0 {
 		// We're in dev mode, see if we override the table being queried
 		switch dataTableAction.Table {
 		case "file_key_staging":

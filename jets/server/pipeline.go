@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"strings"
@@ -55,71 +54,64 @@ type writeResult struct {
 	err    error
 }
 
-// PipelineResult Method to update status and execution count to jetsapi.pipeline_execution_details table
-// Will register the output domain tables to input_registry if this is a single node run (no sharding)
-// which is identified the global variable isSingleNodeRun
-func (pr *PipelineResult) updateStatus(dbpool *pgxpool.Pool) error {
-	var err error
+// PipelineResult Method to update status
+// Register the status details to pipeline_execution_details
+// Lock the sessionId and register output tables only if doNotLockSessionId is true
+// Do nothing if pipelineExecutionKey < 0
+func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, 
+	shardId int, doNotLockSessionId bool) error {
+	if pipelineExecutionKey < 0 {
+		return nil
+	}
+	var sessionId string
+	var userEmail string
+	err := dbpool.QueryRow(context.Background(), 
+		"SELECT session_id, user_email FROM jetsapi.pipeline_execution_status WHERE key=$1", 
+		pipelineExecutionKey).Scan(&sessionId, &userEmail)
+	if err != nil {
+		return fmt.Errorf("QueryRow on pipeline_execution_status failed: %v", err)
+	}
 
-	// Register the outSessionId && Update execution status to pipeline_execution_status table
-	if isSingleNodeRun {
-		// Lock the session
-		err = schema.RegisterSession(dbpool, *outSessionId)
+	// Register the sessionId && Update execution status to pipeline_execution_status table
+	if !doNotLockSessionId {
+		// Lock the session	
+		err = schema.RegisterSession(dbpool, sessionId)
 		if err != nil {
 			return fmt.Errorf("while recording out session id: %v", err)
 		}
+
 		// Record the status of the pipeline execution
-		log.Printf("Inserting status '%s' to pipeline_execution_status table", pr.Status)
-		stmt := `UPDATE jetsapi.pipeline_execution_status SET (status, user_email, last_update) =
-							($1, $2, DEFAULT)
-							WHERE key = $3`
-		_, err = dbpool.Exec(context.Background(), stmt, pr.Status, *userEmail, *pipelineExecKey)
+		log.Printf("Updating status '%s' to pipeline_execution_status table", pr.Status)
+		stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, last_update) = ($1, DEFAULT) WHERE key = $2"
+		_, err = dbpool.Exec(context.Background(), stmt, pr.Status, pipelineExecutionKey)
 		if err != nil {
-			log.Printf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
+			return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
 		}
 	}
 
-	var pipelineExexStatusKey sql.NullInt32
-	if *pipelineExecKey >= 0 {
-		pipelineExexStatusKey.Int32 = int32(*pipelineExecKey)
-		pipelineExexStatusKey.Valid = true
+	if shardId >= 0 {
+		pipelineConfig := pr.ReteWorkspace.pipelineConfig
+		log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
+		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
+							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, 
+							shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) 
+							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+		_, err = dbpool.Exec(context.Background(), stmt,
+			pipelineConfig.key, pipelineExecutionKey,
+			pipelineConfig.clientName, pipelineConfig.processConfig.processName,
+			pipelineConfig.mainProcessInput.sessionId, sessionId, shardId,
+			pr.Status, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, userEmail)
+		if err != nil {
+			return fmt.Errorf("error inserting in jetsapi.pipeline_execution table: %v", err)
+		}
 	}
-	pipelineConfig := pr.ReteWorkspace.pipelineConfig
-	log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
-	stmt := `INSERT INTO jetsapi.pipeline_execution_details (
-						pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, 
-						shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) 
-						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
-	_, err = dbpool.Exec(context.Background(), stmt,
-		pipelineConfig.key, pipelineExexStatusKey,
-		pipelineConfig.clientName, pipelineConfig.processConfig.processName,
-		pipelineConfig.mainProcessInput.sessionId, *outSessionId, *shardId,
-		pr.Status, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, *userEmail)
-	if err != nil {
-		return fmt.Errorf("error inserting in jetsapi.pipeline_execution table: %v", err)
-	}
-	if pr.Status == "completed" && isSingleNodeRun {
+
+	if pr.Status == "completed" && !doNotLockSessionId {
 		// Register the output domain tables to input_registry
-		var buf strings.Builder
-		buf.WriteString(`INSERT INTO jetsapi.input_registry (client, object_type, 
-			table_name, source_type, session_id, user_email) VALUES `)
-		isFirst := true
-		for i := range pr.ReteWorkspace.outTables {
-			if !isFirst {
-				buf.WriteString(", ")
-			}
-			isFirst = false
-			//* FIX NOW!
-			tblSplit := strings.Split(pr.ReteWorkspace.outTables[i], ":")
-			buf.WriteString(fmt.Sprintf(" ('%s', '%s', '%s', 'domain_table', '%s', '%s') ",
-				pipelineConfig.clientName, tblSplit[len(tblSplit)-1], pr.ReteWorkspace.outTables[i],
-				*outSessionId, *userEmail))
-		}
-		_, err = dbpool.Exec(context.Background(), buf.String())
+		err = workspace.RegisterDomainTables(dbpool, pipelineExecutionKey)
 		if err != nil {
-			return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+			return fmt.Errorf("while calling workspace.RegisterDomainTables: %v", err)
 		}
-
 	}
 	return nil
 }
