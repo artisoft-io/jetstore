@@ -696,7 +696,28 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
 
 
-	// ALTERNATE TO LAMBDA IN GO: Testing with python lamdba fnc
+	// BEGIN Create a Sample Lambda function to start the sample container task.
+	// registerKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("registerKeyLambda"), &awslambdago.GoFunctionProps{
+	// 	Description: jsii.String("Lambda function to register file key with jetstore db"),
+	// 	Runtime: awslambda.Runtime_GO_1_X(),
+	// 	Entry:   jsii.String("lambdas"),
+	// 	Bundling: &awslambdago.BundlingOptions{
+	// 		GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
+	// 	},
+	// 	Environment: &map[string]*string{
+	// 		"JETS_REGION":         jsii.String(os.Getenv("JETS_REGION")),
+	// 		"JETS_DSN_SECRET":     rdsSecret.SecretName(),
+	// 	},
+	// 	MemorySize: jsii.Number(128),
+	// 	Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
+	// 	Vpc: vpc,
+	// 	VpcSubnets: subnetSelection[ecsSubnetsIndex],
+	// })
+	// registerKeyLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from registerKeyLambda"))
+	// rdsSecret.GrantRead(registerKeyLambda, nil)
+	// END Create a Sample Lambda function to start the sample container task.
+
+	// BEGIN ALTERNATE with python lamdba fnc
 	// Lambda to register key from s3
 	registerKeyLambda := awslambda.NewFunction(stack, jsii.String("registerKeyLambda"), &awslambda.FunctionProps{
 		Description: jsii.String("Lambda to register s3 key to JetStore"),
@@ -705,21 +726,27 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Timeout: awscdk.Duration_Seconds(jsii.Number(300)),
 		Runtime: awslambda.Runtime_PYTHON_3_9(),
 		Environment: &map[string]*string{
-			"JETS_API_HOST":  jsii.String(fmt.Sprintf("%s:%.0f",*uiLoadBalancer.LoadBalancerDnsName(), uiPort)),
-			"SYSTEM_USER":    jsii.String("system@artisoft.io"),
-			"SYSTEM_PWD":     jsii.String("ArtiSoft!123456789"),
+			"JETS_REGION":           jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_API_HOST":         jsii.String(fmt.Sprintf("%s:%.0f",*uiLoadBalancer.LoadBalancerDnsName(), uiPort)),
+			"SYSTEM_USER":           jsii.String("admin"),
+			"SYSTEM_PWD_SECRET":     adminPwdSecret.SecretName(),
 		},
 		Vpc: vpc,
 		VpcSubnets: subnetSelection[ecsSubnetsIndex],
 	})
+	registerKeyLambda.Connections().AllowTo(ecsUiService, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
+	adminPwdSecret.GrantRead(registerKeyLambda, nil)
+	// END ALTERNATE with python lamdba fnc
 
 	// Run the task starter Lambda when an object is added to the S3 bucket.
 	registerKeyLambda.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
 		Events: &[]awss3.EventType{
 			awss3.EventType_OBJECT_CREATED,
 		},
+		Filters: &[]*awss3.NotificationKeyFilter{
+			{Prefix: jsii.String("input")},
+		},
 	}))
-	registerKeyLambda.Connections().AllowTo(ecsUiService, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
 
 	return stack
 }
