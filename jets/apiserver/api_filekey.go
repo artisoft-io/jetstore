@@ -73,25 +73,25 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 		fileKey := registerFileKeyAction.Data[irow]["file_key"]
 		pipelineConfigKey := make([]int, 0)
 		processNames := make([]string, 0)
-		grouping_column := make([]string, 0)
+		tableName := make([]string, 0)
 		if len(registerFileKeyAction.ProcessName) > 0 {
 			processNames[0] = registerFileKeyAction.ProcessName
-			var gc string
+			var tn string
 			var pcKey int
-			stmt := "SELECT pc.key, pi.grouping_column FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.process_name=$1 AND pc.client=$2 AND pc.main_object_type=$3 AND pc.main_process_input_key = pi.key"
-			err := server.dbpool.QueryRow(context.Background(), stmt, processNames[0], client, objectType).Scan(&pcKey, &gc)
+			stmt := "SELECT pc.key, pi.table_name FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.process_name=$1 AND pc.client=$2 AND pc.main_object_type=$3 AND pc.main_process_input_key = pi.key"
+			err := server.dbpool.QueryRow(context.Background(), stmt, processNames[0], client, objectType).Scan(&pcKey, &tn)
 			if err != nil {
 				log.Printf("in RegisterKeys while querying pipeline_config to start a process: %v", err)
 				ERROR(w, http.StatusInternalServerError, errors.New("error while fetching pipeline_config key"))	
 				return
 			}	
-			grouping_column[0] = gc
+			tableName[0] = tn
 			pipelineConfigKey[0] = pcKey
 		} else {
 			// read all automated processes
-			var pn, gc string
+			var pn, tn string
 			var pcKey int
-			stmt := "SELECT pc.key, pc.process_name, pi.grouping_column FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.automated=1 AND pc.client=$1 AND pc.main_object_type=$2 AND pc.main_process_input_key = pi.key"
+			stmt := "SELECT pc.key, pc.process_name, pi.table_name FROM jetsapi.pipeline_config pc, jetsapi.process_input pi WHERE pc.automated=1 AND pc.client=$1 AND pc.main_object_type=$2 AND pc.main_process_input_key = pi.key"
 			rows, err := server.dbpool.Query(context.Background(), stmt, client, objectType)
 			if err != nil {
 				log.Printf("in RegisterKeys while querying pipeline_config to start a process (2): %v", err)
@@ -101,14 +101,14 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 			defer rows.Close()
 			for rows.Next() {
 				// scan the row
-				if err = rows.Scan(&pcKey, &pn, &gc); err != nil {
+				if err = rows.Scan(&pcKey, &pn, &tn); err != nil {
 					log.Printf("While scanning the row: %v", err)
 					ERROR(w, http.StatusInternalServerError, errors.New("error while scanning process config row"))	
 					return
 				}
 				pipelineConfigKey = append(pipelineConfigKey, pcKey)
 				processNames = append(processNames, pn)
-				grouping_column = append(grouping_column, gc)
+				tableName = append(tableName, tn)
 			}
 		}
 		// sessionId := strconv.FormatInt(time.Now().UnixMilli(), 10)
@@ -122,10 +122,9 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 				Data: []map[string]interface{}{{
 					"load_and_start": "true",
 					"file_key": fileKey,
-					"table_name": fmt.Sprintf("%s_%s", client, objectType),
+					"table_name": tableName[0],
 					"client": client,
 					"object_type": objectType,
-					"grouping_column": grouping_column[0],
 					"session_id": strconv.FormatInt(sessionId, 10),
 					"status": "submitted",
 					"user_email": "system"},
@@ -145,8 +144,7 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					// "main_input_registry_key": nil,
 					"main_input_file_key": fileKey,
 					"file_key": fileKey,
-					"table_name": fmt.Sprintf("%s_%s", client, objectType),
-					"grouping_column": grouping_column[i],
+					"table_name": tableName[i],
 					// "merged_input_registry_keys": "'{33}'",
 					"client": client,
 					"process_name": processNames[i],
