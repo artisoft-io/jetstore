@@ -497,7 +497,7 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 						"reportsCommand": []string{ 
 							"-processName", processName.(string), 
 							"-sessionId", sessionId.(string),
-							"-filePath", strings.Replace(fileKey.(string), "input", "output", 1),
+							"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUPUT_PREFIX"), 1),
 						},
 						"successUpdate": []string{ 
 							"-peKey", peKey, 

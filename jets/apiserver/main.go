@@ -46,6 +46,8 @@ import (
 // WORKSPACE_DB_PATH location of workspace db (sqlite db)
 // WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
 // WORKSPACES_HOME Home dir of workspaces
+// JETS_s3_INPUT_PREFIX Input file key prefix
+// JETS_s3_OUTPUT_PREFIX Output file key prefix
 
 var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret       = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -125,6 +127,10 @@ func main() {
 			errMsg = append(errMsg, "Server address (-serverAddr) must be provided.")
 		}
 	}
+	if os.Getenv("JETS_s3_INPUT_PREFIX")=="" || os.Getenv("JETS_s3_OUTPUT_PREFIX")=="" {
+			hasErr = true
+			errMsg = append(errMsg, "Input and output file key prefixes are required as env var (JETS_s3_INPUT_PREFIX, JETS_s3_OUTPUT_PREFIX).")
+	}
 	if *tokenExpiration < 5 {
 		var err error
 		*tokenExpiration, err = strconv.Atoi("API_TOKEN_EXPIRATION_MIN")
@@ -192,6 +198,8 @@ func main() {
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("ENV WORKSPACE_DB_PATH:",os.Getenv("WORKSPACE_DB_PATH"))
 	fmt.Println("ENV WORKSPACE_LOOKUPS_DB_PATH:",os.Getenv("WORKSPACE_LOOKUPS_DB_PATH"))
+	fmt.Println("ENV JETS_s3_INPUT_PREFIX:",os.Getenv("JETS_s3_INPUT_PREFIX"))
+	fmt.Println("ENV JETS_s3_OUPUT_PREFIX:",os.Getenv("JETS_s3_OUPUT_PREFIX"))
 	fmt.Println("ENV JETS_VERSION:",os.Getenv("JETS_VERSION"))
 	log.Fatal(listenAndServe())
 }

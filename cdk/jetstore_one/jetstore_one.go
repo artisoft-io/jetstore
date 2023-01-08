@@ -403,6 +403,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		EntryPoint: jsii.Strings("run_reports"),
 		Environment: &map[string]*string{
 			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_s3_INPUT_PREFIX":  jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+			"JETS_s3_OUTPUT_PREFIX":  jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_BUCKET":  sourceBucket.BucketName(),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -770,6 +772,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_UI_PORT (defaults 8080)
 // NBR_SHARDS (defaults to 1)
 // TASK_MAX_CONCURRENCY (defaults to 1)
+// JETS_s3_INPUT_PREFIX (required)
+// JETS_s3_OUTPUT_PREFIX (required)
 
 func main() {
 	defer jsii.Close()
@@ -780,6 +784,10 @@ func main() {
 	if os.Getenv("JETS_ACCOUNT") == "" || os.Getenv("JETS_REGION") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'JETS_ACCOUNT' and 'JETS_REGION' are required.")		
+	}
+	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" || os.Getenv("JETS_s3_OUTPUT_PREFIX") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variables 'JETS_s3_INPUT_PREFIX' and 'JETS_s3_OUTPUT_PREFIX' are required.")		
 	}
 	if os.Getenv("JETS_ECR_REPO_ARN") == "" || os.Getenv("JETS_IMAGE_TAG") == "" {
 		hasErr = true
