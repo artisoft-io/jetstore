@@ -50,11 +50,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// The code that defines your stack goes here
 	// Create a bucket that, when something is added to it, it causes the Lambda function to fire, which starts a container running.
+	bucketName := os.Getenv("JETS_BUCKET_NAME")
+	if bucketName == "" {
+		bucketName = "jetstoreone-sourcebucket"
+	}
 	sourceBucket := awss3.NewBucket(stack, jsii.String("sourceBucket"), &awss3.BucketProps{
 		RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
 		AutoDeleteObjects: jsii.Bool(true),
 		BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
-		BucketName: jsii.String("jetstoreone-sourcebucket"),
+		BucketName: jsii.String(bucketName),
 	})
 	sourceBucket.DisallowPublicAccess()
 
@@ -772,6 +776,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_UI_PORT (defaults 8080)
 // NBR_SHARDS (defaults to 1)
 // TASK_MAX_CONCURRENCY (defaults to 1)
+// JETS_BUCKET_NAME (required, default "jetstoreone-sourcebucket")
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
 
