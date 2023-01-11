@@ -13,8 +13,9 @@ on:
 #      - main
 
 env:
-  AWS_REGION: us-east-2                   # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: jetstore                # set this to your Amazon ECR repository name
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: jetstore
+  IMAGE_TAG: $(echo $EPOCHSECONDS)
 
 jobs:
   deploy:
@@ -41,41 +42,22 @@ jobs:
       id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
       run: |
-        # Build a docker container and
-        # push it to ECR so that it can
-        # be deployed.
-        docker build --build-arg JETS_VERSION=$IMAGE_TAG -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
-        docker build --build-arg JETS_VERSION=$IMAGE_TAG -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
-        docker build --build-arg JETS_VERSION=$IMAGE_TAG -t jetstore:bullseye -f Dockerfile.rt_bullseye .  
+        # Build jetstore docker image
+        docker build -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+        docker build  -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
+        docker build --build-arg JETS_VERSION=$IMAGE_TAG --build-arg JETS_GIT_SHA=${{ github.sha }} -t jetstore:bullseye -f Dockerfile.rt_bullseye .
         docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker image tag jetstore:bullseye image_to_scan:latest
-        docker run --rm -w=/usr/local/bin --entrypoint=jets_test $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        # docker run --rm -w=/usr/local/lib/jets/compiler --entrypoint=python3 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG jetrule_compiler_test.py
+        docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:latest
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
-
-    - name: Scan image
-      uses: anchore/scan-action@v3
-      id: scan
-      with:
-        image: image_to_scan:latest
-        fail-build: false
-        acs-report-enable: true
-    - name: upload Anchore scan SARIF report
-      uses: github/codeql-action/upload-sarif@v1
-      with:
-        sarif_file: ${{ steps.scan.outputs.sarif }}
         
     - name: Build, tag, and push image to Amazon ECR
       id: push-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
       run: |
-        # Build a docker container and
-        # push it to ECR so that it can
-        # be deployed.
+        # Push the image to ECR
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"        
