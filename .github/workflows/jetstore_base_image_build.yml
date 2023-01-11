@@ -53,4 +53,4 @@ jobs:
         docker build -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
         docker image tag jetstore_base:bullseye $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG"        
+        echo "{image}={$ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG}" >> $GITHUB_OUTPUT
