@@ -5,17 +5,16 @@ FROM jetstore_base:bullseye
 # Fix DL4006
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# set using  echo $EPOCHSECONDS
+USER root
+
 ARG JETS_VERSION
 ENV JETS_VERSION=${JETS_VERSION}
 ARG JETS_GIT_SHA
 ENV JETS_GIT_SHA=${JETS_GIT_SHA}
-RUN echo "----------------jetserver-------------------------" >> /VERSION.txt && \
+RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
     echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
     echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \
     echo "----------------*********************-------------" >> /VERSION.txt
-
-USER root
 
 # Copy libraries and apps from builder
 ENV JETS_BUILD_DIR /usr/local/go/build
@@ -65,7 +64,6 @@ RUN \
     && ldd libjets.so \
     && cd / 
 
-
 ARG USER_ID="1000"
 ARG GROUP_ID="1000"
 RUN groupadd -g ${GROUP_ID} jsuser \
@@ -75,27 +73,19 @@ ENV PYTHONPATH "$PYTHONPATH:/go/lib:/usr/local/lib"
 ENV CLASSPATH ".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
 
 # Jets Application ENV Variable
+# These are set via cdk when the stack is deployed and overrides these defaults.
+# We need the defaults here for when we do local development
 # jetsclient ui
 ENV UI_PORT 5001
 # apiserver
 ENV API_SECRET 'JetStore Dev Mode - Override This'
-# postgresql://postgres:ArtiSoft001@172.17.0.2:5432/postgres
-ENV PG_DATABASE=postgres
-ENV PG_HOST=172.17.0.2
-ENV PG_PORT=5432
-ENV PG_USER=postgres
-ENV PG_PASSWORD=XXX
-
 ENV API_SERVER_ADDR ':8080'
 ENV API_TOKEN_EXPIRATION_MIN 60
-
-# put the argo scripts in /go/lib ?
-
 ENV WORKSPACES_HOME /go/workspaces
 ENV WORK_HOME /go/work
 ENV LOADER_ERR_DIR /go/work/errors
 ENV JETS_ADMIN_EMAIL admin
-# ENV JETS_ADMIN_PASSWORD XXX
+
 RUN \
   mkdir -p ${WORKSPACES_HOME}           \
   && mkdir -p ${WORK_HOME}/output       \
@@ -107,28 +97,6 @@ RUN \
 
 RUN chown -Rc jsuser /go
 USER jsuser
-
-# # Copy source and define the target (APP_HOME) where we will put the compiled artifacts
-# ENV JETS_SOURCE_DIR /home/michel/projects/repos/jetstore
-# # Need to define the main app home?
-# ENV APP_HOME $JETS_SOURCE_DIR/build
-# # Do we still need app_home_scripts for workflow python scripts??
-# # Also may need to add subdirectory to last path elm: $JETS_SOURCE_DIR/build/jetserver ?
-# ENV PATH "$PATH:$JETS_SOURCE_DIR/app_home_scripts:$APP_HOME:$JETS_SOURCE_DIR/build"
-# ENV PYTHONPATH "$PYTHONPATH:$APP_HOME/lib"
-# ENV CLASSPATH=".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
-# # May need subdirectory where libraries are...
-# ENV LD_LIBRARY_PATH "$LD_LIBRARY_PATH:$JETS_SOURCE_DIR/build/jets"
-# ENV WORKSPACES_HOME /workspaces
-# ENV WORK_HOME /go
-# ENV PRE_PROCESS_SCRIPT group_by.py
-# ENV INSIGHT_SERVER_SCRIPT $JETS_SOURCE_DIR/build/insight_server/insight_server
-# ENV JETSERVER_SCRIPT $APP_HOME/jetserver
-
-# RUN mkdir -p /home/jsuser && chown jsuser /home/jsuser
-# RUN mkdir -p ${JETS_SOURCE_DIR} &&  ln -s ${JETS_SOURCE_DIR} jetstore && chown jsuser ${JETS_SOURCE_DIR}
-# RUN mkdir -p ${WORKSPACES_HOME} && chown jsuser ${WORKSPACES_HOME}
-# RUN mkdir -p ${WORK_HOME}/work && chown jsuser ${WORK_HOME}/work
 
 ENTRYPOINT ["python3"]
 WORKDIR ${WORK_HOME}
