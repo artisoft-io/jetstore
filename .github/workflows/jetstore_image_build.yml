@@ -59,14 +59,5 @@ jobs:
         docker build --build-arg JETS_VERSION=$IMAGE_TAG --build-arg JETS_GIT_SHA=${{ github.sha }} -t jetstore:bullseye -f Dockerfile.rt_bullseye .
         docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-        
-    - name: Build, tag, and push image to Amazon ECR
-      id: push-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ env.IMAGE_TAG }}
-      run: |
-        # Push the image to ECR
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"        
+        echo "{image}={$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG}" >> $GITHUB_OUTPUT
