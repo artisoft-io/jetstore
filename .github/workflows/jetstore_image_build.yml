@@ -57,8 +57,6 @@ jobs:
         # Build the builder image (where we actually make the jetstore build)
         docker build  -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
         # Build the runtime (rt) image
-        docker build -t jetstore:bullseye  --build-arg JETS_VERSION='$IMAGE_TAG' --build-arg JETS_GIT_SHA='$GIT_SHA' -f Dockerfile.rt_bullseye .
-        docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker build --build-arg "JETS_VERSION=${IMAGE_TAG}" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:latest" --tag jetstore:bullseye -f Dockerfile.rt_bullseye .
+        docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
         echo "{image}={$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG}" >> $GITHUB_OUTPUT
