@@ -44,11 +44,6 @@ jobs:
       run: |
         echo "JETS_VERSION=$(date +%s)" >> $GITHUB_ENV
 
-    - name: Use the value
-      id: step_two
-      run: |
-        echo "**** JETS_VERSION is ${{ env.JETS_VERSION }}" # This will output the version
-
     - name: Build, tag, and push image to Amazon ECR
       id: build-push-image
       env:
@@ -59,7 +54,6 @@ jobs:
         JETS_GIT_SHA: ${{ github.sha }}
       run: |
         # Pull & retag latest jetstore base image
-        echo "**** JETS_VERSION is ${{ env.JETS_VERSION }}" # This will output the version
         docker pull $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
         docker image tag $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG jetstore_base:bullseye
         # Pull & retag latest jetstore builder base image

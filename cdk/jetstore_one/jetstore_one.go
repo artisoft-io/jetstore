@@ -278,7 +278,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// JetStore Image from ecr -- referenced in most tasks
 	jetStoreImage := awsecs.AssetImage_FromEcrRepository(
-		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_usi_ws
+		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("JETS_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("JETS_IMAGE_TAG"),
 	))
