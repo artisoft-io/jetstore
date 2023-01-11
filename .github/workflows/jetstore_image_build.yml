@@ -39,16 +39,27 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
+    - name: Set the JetStore version as timestamp
+      id: timestamp
+      run: |
+        echo "JETS_VERSION=$(date +%s)" >> $GITHUB_ENV
+
+    - name: Use the value
+      id: step_two
+      run: |
+        echo "**** JETS_VERSION is ${{ env.JETS_VERSION }}" # This will output the version
+
     - name: Build, tag, and push image to Amazon ECR
       id: build-push-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         BASE_IMAGE_TAG: bullseye
         BASE_BUILDER_IMAGE_TAG: go-bullseye
-        IMAGE_TAG: $(echo $EPOCHSECONDS)
-        GIT_SHA: ${{ github.sha }}
+        IMAGE_TAG: ${{ github.sha }}
+        JETS_GIT_SHA: ${{ github.sha }}
       run: |
         # Pull & retag latest jetstore base image
+        echo "**** JETS_VERSION is ${{ env.JETS_VERSION }}" # This will output the version
         docker pull $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
         docker image tag $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG jetstore_base:bullseye
         # Pull & retag latest jetstore builder base image
@@ -57,6 +68,7 @@ jobs:
         # Build the builder image (where we actually make the jetstore build)
         docker build  -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
         # Build the runtime (rt) image
-        docker build --build-arg "JETS_VERSION=${IMAGE_TAG}" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:latest" --tag jetstore:bullseye -f Dockerfile.rt_bullseye .
+        echo "JETS_VERSION is ${{ env.JETS_VERSION }}" # This will output the version
+        docker build --build-arg "JETS_VERSION=${{ env.JETS_VERSION }}" --build-arg "JETS_GIT_SHA=${JETS_GIT_SHA}" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:latest" --tag jetstore:bullseye -f Dockerfile.rt_bullseye .
         docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
         echo "{image}={$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG}" >> $GITHUB_OUTPUT
