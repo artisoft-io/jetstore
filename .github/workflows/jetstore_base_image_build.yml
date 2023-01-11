@@ -1,0 +1,56 @@
+# This workflow will build and push a the jetstore container image to Amazon ECR,
+#
+
+name: Store in Amazon ECR
+
+
+on: 
+  workflow_dispatch:
+
+# on:
+#  push:
+#    branches:
+#      - main
+
+env:
+  AWS_REGION: us-east-1
+  ECR_BASE_REPOSITORY: jetstore_base
+  ECR_BUILDER_BASE_REPOSITORY: jetstore_base_builder
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-push-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        BASE_IMAGE_TAG: bullseye
+        BASE_BUILDER_IMAGE_TAG: go-bullseye
+      run: |
+        # Build jetstore builder base image
+        docker build  -t jetstore_base_builder:go-bullseye -f Dockerfile.go_bullseye_base .
+        docker image tag jetstore_base_builder:go-bullseye $ECR_REGISTRY/$ECR_BUILDER_BASE_REPOSITORY:$BASE_BUILDER_IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_BUILDER_BASE_REPOSITORY:$BASE_BUILDER_IMAGE_TAG
+        # Build jetstore rt base image
+        docker build -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+        docker image tag jetstore_base:bullseye $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG"        
