@@ -14,8 +14,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  ECR_BASE_REPOSITORY: jetstore_base
+  ECR_BUILDER_BASE_REPOSITORY: jetstore_base_builder
   ECR_REPOSITORY: jetstore
-  IMAGE_TAG: $(echo $EPOCHSECONDS)
 
 jobs:
   deploy:
@@ -39,14 +40,22 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v1
 
     - name: Build, tag, and push image to Amazon ECR
-      id: build-image
+      id: build-push-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        BASE_IMAGE_TAG: bullseye
+        BASE_BUILDER_IMAGE_TAG: go-bullseye
+        IMAGE_TAG: $(echo $EPOCHSECONDS)
       run: |
-        # Build jetstore docker image
-        docker build -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+        # Pull & retag latest jetstore base image
+        docker pull $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
+        docker image tag $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG jetstore_base:bullseye
+        # Pull & retag latest jetstore builder base image
+        docker pull $ECR_REGISTRY/$ECR_BUILDER_BASE_REPOSITORY:$BASE_BUILDER_IMAGE_TAG
+        docker image tag $ECR_REGISTRY/$ECR_BUILDER_BASE_REPOSITORY:$BASE_BUILDER_IMAGE_TAG jetstore_base_builder:go-bullseye
+        # Build the builder image (where we actually make the jetstore build)
         docker build  -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
+        # Build the runtime (rt) image
         docker build --build-arg JETS_VERSION=$IMAGE_TAG --build-arg JETS_GIT_SHA=${{ github.sha }} -t jetstore:bullseye -f Dockerfile.rt_bullseye .
         docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker image tag jetstore:bullseye $ECR_REGISTRY/$ECR_REPOSITORY:latest
