@@ -1,0 +1,30 @@
+# Dockerfile to run aws cdk commands
+FROM golang:1.19-alpine3.17
+
+# Install packages
+RUN apk update && apk add --update --no-cache \
+    git \
+    bash \
+    curl \
+    openssh \
+    python3 \
+    py3-pip \
+    py-cryptography \
+    wget \
+    curl \
+    nodejs \
+    npm
+
+RUN apk --no-cache add --virtual builds-deps build-base python3
+
+# Install awscli
+RUN pip install --upgrade pip && \
+    pip install --upgrade awscli
+
+# Install cdk
+RUN npm install -g aws-cdk
+
+RUN mkdir /jetstore
+WORKDIR /jetstore
+
+ENTRYPOINT []
