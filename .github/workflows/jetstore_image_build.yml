@@ -48,6 +48,7 @@ jobs:
         IMAGE_TAG: $(echo $EPOCHSECONDS)
         GIT_SHA: ${{ github.sha }}
       run: |
+        echo "ACTION build-push-image, env IMAGE_TAG $IMAGE_TAG, GIT_SHA $GIT_SHA"
         # Pull & retag latest jetstore base image
         docker pull $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
         docker image tag $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG jetstore_base:bullseye
