@@ -41,6 +41,8 @@ jobs:
       env:
         AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
         AWS_REGION: ${{ env.AWS_REGION }}
+        JETS_IMAGE_TAG: a1be9f498309c5561b64e43e7d2beb6aaaff0671
+        JETS_ECR_REPO_ARN: ${{ secrets.JETS_ECR_REPO_ARN }}
         NBR_SHARDS: 3
         TASK_MAX_CONCURRENCY: 10
         JETS_s3_INPUT_PREFIX: input
@@ -54,4 +56,4 @@ jobs:
         docker pull "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG"
         docker image tag "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG" jetstore_cdk:latest
         # Deploy using cdk
-        docker run  -v `pwd`:/jetstore jetstore_cdk:latest ./utils/deploy_jetstore_one.sh
+        docker run -e "AWS_ACCOUNT=${AWS_ACCOUNT}" -e "AWS_REGION=${AWS_REGION}" -e "JETS_IMAGE_TAG=${JETS_IMAGE_TAG}" -e "JETS_ECR_REPO_ARN=${JETS_ECR_REPO_ARN}" -e "NBR_SHARDS=${NBR_SHARDS}" -e "TASK_MAX_CONCURRENCY=${TASK_MAX_CONCURRENCY}" -e "JETS_s3_INPUT_PREFIX=${JETS_s3_INPUT_PREFIX}" -e "JETS_s3_OUTPUT_PREFIX=${JETS_s3_OUTPUT_PREFIX}" -e "JETS_UI_PORT=${JETS_UI_PORT}" -e "ECR_REGISTRY=${ECR_REGISTRY}" -e "CDK_IMAGE_TAG=${CDK_IMAGE_TAG}" -e "ECR_REPOSITORY=${ECR_REPOSITORY}" -v `pwd`:/jetstore jetstore_cdk:latest ./utils/deploy_jetstore_one.sh
