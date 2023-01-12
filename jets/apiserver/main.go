@@ -199,7 +199,7 @@ func main() {
 	fmt.Println("ENV WORKSPACE_DB_PATH:",os.Getenv("WORKSPACE_DB_PATH"))
 	fmt.Println("ENV WORKSPACE_LOOKUPS_DB_PATH:",os.Getenv("WORKSPACE_LOOKUPS_DB_PATH"))
 	fmt.Println("ENV JETS_s3_INPUT_PREFIX:",os.Getenv("JETS_s3_INPUT_PREFIX"))
-	fmt.Println("ENV JETS_s3_OUPUT_PREFIX:",os.Getenv("JETS_s3_OUPUT_PREFIX"))
+	fmt.Println("ENV JETS_s3_OUTPUT_PREFIX:",os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	fmt.Println("ENV JETS_VERSION:",os.Getenv("JETS_VERSION"))
 	log.Fatal(listenAndServe())
 }
