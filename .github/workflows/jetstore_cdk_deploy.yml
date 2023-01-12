@@ -54,4 +54,4 @@ jobs:
         docker pull "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG"
         docker image tag "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG" jetstore_cdk:latest
         # Deploy using cdk
-        docker run -it --rm  -v `pwd`:/jetstore jetstore_cdk:latest ./utils/deploy_jetstore_one.sh
+        docker run  -v `pwd`:/jetstore jetstore_cdk:latest ./utils/deploy_jetstore_one.sh
