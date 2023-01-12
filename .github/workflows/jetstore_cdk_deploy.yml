@@ -41,7 +41,8 @@ jobs:
       env:
         AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
         AWS_REGION: ${{ env.AWS_REGION }}
-        JETS_IMAGE_TAG: a1be9f498309c5561b64e43e7d2beb6aaaff0671
+        # NOTE: JETS_IMAGE_TAG is the jetstore+workspace image tag, from jets workspace repo
+        JETS_IMAGE_TAG: 1673123082
         JETS_ECR_REPO_ARN: ${{ secrets.JETS_ECR_REPO_ARN }}
         NBR_SHARDS: 3
         TASK_MAX_CONCURRENCY: 10
