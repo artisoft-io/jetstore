@@ -20,7 +20,7 @@ env:
 
 jobs:
   deploy:
-    name: Deploy
+    name: JetStore Image Build
     runs-on: ubuntu-latest
     environment: production
 
