@@ -26,6 +26,7 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 COPY --from=builder ${JETS_BUILD_DIR}/utils/start_ui.sh /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/utils/argo_cmd.py /usr/local/bin/
+#* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 # Go commands
@@ -44,14 +45,12 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
 # Set env to find the jets_schema.json by update_db (migrate_db.go)
 ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
+# *TODO Not used, it's now integrated into the workspace_init_db.sql script
 ENV JETS_INIT_DB_SCRIPT /usr/local/bin/jets_init_db.sql
 
-# Copy the compiled ui for use in Cloud9 DEV MODE
 # Install Client UI == Flutter App ==
 ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
 ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
-ENV JETSCLIENT_CLOUD9_HOME /go/jetsclient
-COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $JETSCLIENT_CLOUD9_HOME
 COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
 
 RUN \
@@ -71,6 +70,10 @@ RUN groupadd -g ${GROUP_ID} jsuser \
 
 ENV PYTHONPATH "$PYTHONPATH:/go/lib:/usr/local/lib"
 ENV CLASSPATH ".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
+
+# Path for JetStore Workspace compilation
+ENV JETRULE_COMPILER /usr/local/lib/jets/compiler/jetrule_compiler.py
+ENV JETRULE_LOOKUP_LOADER /usr/local/lib/jets/compiler/jetrule_lookup_loader.py
 
 # Jets Application ENV Variable
 # These are set via cdk when the stack is deployed and overrides these defaults.
