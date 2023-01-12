@@ -750,7 +750,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			awss3.EventType_OBJECT_CREATED,
 		},
 		Filters: &[]*awss3.NotificationKeyFilter{
-			{Prefix: jsii.String("input")},
+			{Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX"))},
 		},
 	}))
 
