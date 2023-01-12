@@ -39,10 +39,15 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Set the JetStore version as timestamp
-      id: timestamp
+    - name: Set the JetStore tag and version
+      id: set-tag-version
       run: |
-        echo "JETS_VERSION=$(date +%s)" >> $GITHUB_ENV
+        branch=${GITHUB_REF##*/}
+        sha=${GITHUB_SHA::8}
+        ts=$(date +%s)
+        echo "IMAGE_TAG=${branch}-${sha}-${ts}" >> $GITHUB_ENV
+        echo "JETS_GIT_SHA=${branch}-${sha}" >> $GITHUB_ENV
+        echo "JETS_VERSION=${ts}" >> $GITHUB_ENV
 
     - name: Build, tag, and push image to Amazon ECR
       id: build-push-image
@@ -50,8 +55,9 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         BASE_IMAGE_TAG: bullseye
         BASE_BUILDER_IMAGE_TAG: go-bullseye
-        IMAGE_TAG: ${{ github.sha }}
-        JETS_GIT_SHA: ${{ github.sha }}
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        JETS_GIT_SHA: ${{ env.JETS_GIT_SHA }}
+        JETS_VERSION: ${{ env.JETS_VERSION }}
       run: |
         # Pull & retag latest jetstore base image
         docker pull $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG
@@ -62,7 +68,11 @@ jobs:
         # Build the builder image (where we actually make the jetstore build)
         docker build  -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
         # Build the runtime (rt) image
-        echo "JETS_VERSION is ${{ env.JETS_VERSION }}" # This will output the version
-        docker build --build-arg "JETS_VERSION=${{ env.JETS_VERSION }}" --build-arg "JETS_GIT_SHA=${JETS_GIT_SHA}" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:latest" --tag jetstore:bullseye -f Dockerfile.rt_bullseye .
+        echo "JETS_VERSION is $JETS_VERSION" # This will output the version
+        echo "IMAGE_TAG is $IMAGE_TAG" # This will output the image tag
+        echo "JETS_GIT_SHA is $JETS_GIT_SHA" # This will output the git sha with branch name
+        docker build --build-arg "JETS_VERSION=$JETS_VERSION" --build-arg "JETS_GIT_SHA=${JETS_GIT_SHA}" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" --tag jetstore:bullseye -f Dockerfile.rt_bullseye .
         docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-        echo "{image}={$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG}" >> $GITHUB_OUTPUT
+        echo "JETS_VERSION is $JETS_VERSION" # This will output the version
+        echo "IMAGE_TAG is $IMAGE_TAG" # This will output the image tag
+        echo "JETS_GIT_SHA is $JETS_GIT_SHA" # This will output the git sha with branch name

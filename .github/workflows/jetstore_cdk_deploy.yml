@@ -46,8 +46,8 @@ jobs:
         JETS_ECR_REPO_ARN: ${{ secrets.JETS_ECR_REPO_ARN }}
         NBR_SHARDS: 3
         TASK_MAX_CONCURRENCY: 10
-        JETS_s3_INPUT_PREFIX: input
-        JETS_s3_OUTPUT_PREFIX: output
+        JETS_s3_INPUT_PREFIX: jetstore/input
+        JETS_s3_OUTPUT_PREFIX: jetstore/output
         JETS_UI_PORT: 8080
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         CDK_IMAGE_TAG: go-1.19-alpine3.17
