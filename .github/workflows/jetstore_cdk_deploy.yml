@@ -1,0 +1,57 @@
+# This workflow will build and push a the jetstore container image to Amazon ECR,
+#
+
+name: JetStore CDK-based deployment on AWS
+
+
+on: 
+  workflow_dispatch:
+
+# on:
+#  push:
+#    branches:
+#      - main
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: CDK Deployment on AWS
+      id: cdk-deploy
+      env:
+        AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
+        AWS_REGION: ${{ env.AWS_REGION }}
+        NBR_SHARDS: 3
+        TASK_MAX_CONCURRENCY: 10
+        JETS_s3_INPUT_PREFIX: input
+        JETS_s3_OUTPUT_PREFIX: output
+        JETS_UI_PORT: 8080
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        CDK_IMAGE_TAG: go-1.19-alpine3.17
+        ECR_REPOSITORY: jetstore_cdk
+      run: |
+        # Pull & retag as latest jetstore cdk
+        docker pull "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG"
+        docker image tag "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG" jetstore_cdk:latest
+        # Deploy using cdk
+        docker run -it --rm  -v `pwd`:/jetstore jetstore_cdk:latest ./utils/deploy_jetstore_one.sh

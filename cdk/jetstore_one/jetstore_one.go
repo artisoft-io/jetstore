@@ -306,7 +306,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Essential: jsii.Bool(true),
 		EntryPoint: jsii.Strings("loader"),
 		Environment: &map[string]*string{
-			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_REGION":  jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_BUCKET":  sourceBucket.BucketName(),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -360,7 +360,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Essential: jsii.Bool(true),
 		EntryPoint: jsii.Strings("server"),
 		Environment: &map[string]*string{
-			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_REGION":  jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_BUCKET":  sourceBucket.BucketName(),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -406,7 +406,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Essential: jsii.Bool(true),
 		EntryPoint: jsii.Strings("run_reports"),
 		Environment: &map[string]*string{
-			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_REGION":  jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_s3_INPUT_PREFIX":  jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":  jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_BUCKET":  sourceBucket.BucketName(),
@@ -455,7 +455,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Essential: jsii.Bool(true),
 		EntryPoint: jsii.Strings("status_update"),
 		Environment: &map[string]*string{
-			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_REGION":  jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_BUCKET":  sourceBucket.BucketName(),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -637,7 +637,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		},
 		Environment: &map[string]*string{
 			"NBR_SHARDS":  jsii.String(nbrShards),
-			"JETS_REGION":  jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_REGION":  jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_BUCKET":  sourceBucket.BucketName(),
 			"JETS_LOADER_SM_ARN": loaderSM.StateMachineArn(),
 			"JETS_SERVER_SM_ARN": serverSM.StateMachineArn(),
@@ -711,7 +711,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// 		GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
 	// 	},
 	// 	Environment: &map[string]*string{
-	// 		"JETS_REGION":         jsii.String(os.Getenv("JETS_REGION")),
+	// 		"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
 	// 		"JETS_DSN_SECRET":     rdsSecret.SecretName(),
 	// 	},
 	// 	MemorySize: jsii.Number(128),
@@ -732,7 +732,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Timeout: awscdk.Duration_Seconds(jsii.Number(300)),
 		Runtime: awslambda.Runtime_PYTHON_3_9(),
 		Environment: &map[string]*string{
-			"JETS_REGION":           jsii.String(os.Getenv("JETS_REGION")),
+			"JETS_REGION":           jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_API_HOST":         jsii.String(fmt.Sprintf("%s:%.0f",*uiLoadBalancer.LoadBalancerDnsName(), uiPort)),
 			"SYSTEM_USER":           jsii.String("admin"),
 			"SYSTEM_PWD_SECRET":     adminPwdSecret.SecretName(),
@@ -769,8 +769,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 // Expected Env Variables
 // ----------------------
-// JETS_ACCOUNT (required)
-// JETS_REGION (required)
+// AWS_ACCOUNT (required)
+// AWS_REGION (required)
 // JETS_ECR_REPO_ARN (required)
 // JETS_IMAGE_TAG (required)
 // JETS_UI_PORT (defaults 8080)
@@ -786,9 +786,9 @@ func main() {
 	// Verify that we have all the required env variables
 	hasErr := false
 	var errMsg []string
-	if os.Getenv("JETS_ACCOUNT") == "" || os.Getenv("JETS_REGION") == "" {
+	if os.Getenv("AWS_ACCOUNT") == "" || os.Getenv("AWS_REGION") == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Env variables 'JETS_ACCOUNT' and 'JETS_REGION' are required.")		
+		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")		
 	}
 	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" || os.Getenv("JETS_s3_OUTPUT_PREFIX") == "" {
 		hasErr = true
@@ -830,8 +830,8 @@ func env() *awscdk.Environment {
 	// the stack to. This is the recommendation for production stacks.
 	//---------------------------------------------------------------------------
 	return &awscdk.Environment{
-		Account: jsii.String(os.Getenv("JETS_ACCOUNT")),
-		Region:  jsii.String(os.Getenv("JETS_REGION")),
+		Account: jsii.String(os.Getenv("AWS_ACCOUNT")),
+		Region:  jsii.String(os.Getenv("AWS_REGION")),
 	 }
  
 	// Uncomment to specialize this stack for the AWS Account and Region that are
