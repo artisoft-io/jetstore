@@ -85,9 +85,9 @@ func main() {
 	if *awsAdminPwdSecret == "" && *adminPwd == "" {
 		*awsAdminPwdSecret = os.Getenv("AWS_JETS_ADMIN_PWD_SECRET")
 		*adminPwd = os.Getenv("JETS_ADMIN_PWD")
-		// hasErr = true
-		// errMsg = append(errMsg, "-awsAdminPwdSecret or -adminPwd must be provided unless the database was initialized already.")
-		log.Println("-awsAdminPwdSecret or -adminPwd must be provided unless the database was initialized already.")
+		if *awsAdminPwdSecret == "" && *adminPwd == "" {
+			log.Println("-awsAdminPwdSecret or -adminPwd must be provided unless the database was initialized already.")
+		}
 	}
 	if *awsApiSecret == "" && *apiSecret == "" {
 		*apiSecret = os.Getenv("API_SECRET")

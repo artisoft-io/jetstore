@@ -105,6 +105,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 	var serverArgs []string
 	var version string
 	jetstoreVersion := os.Getenv("JETS_VERSION")
+	log.Println("JetStore version JETS_VERSION is", jetstoreVersion)
 	if !tableExists {
 		// run update db with workspace init script
 		log.Println("JetStore version table does not exist, initializing the db")
@@ -123,6 +124,9 @@ func (server *Server) checkJetStoreDbVersion() error {
 		case jetstoreVersion > version:
 			log.Println("New JetStore Release deployed, updating the db")
 			serverArgs = []string{ "-migrateDb" }
+
+		default:
+			log.Println("JetStore version in database", version, ">=", "deployed version", jetstoreVersion)
 		}
 	}
 
