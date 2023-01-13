@@ -54,24 +54,42 @@ jobs:
         ts=$(date +%s)
         echo "JETS_ECR_REPO_ARN=arn:aws:ecr:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT }}:repository/jetstore_${{ env.WORKSPACE }}" >> $GITHUB_ENV
 
-    - name: CDK Deployment on AWS
-      id: cdk-deploy
+    - name: cdk diff
+      uses: youyo/aws-cdk-github-actions@v2
+      with:
+        cdk_subcommand: 'diff'
+        actions_comment: false
+        working_dir: './cdk/jetstore_one'
       env:
-        AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
-        AWS_REGION: ${{ env.AWS_REGION }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: 'ap-northeast-1'
         JETS_ECR_REPO_ARN: ${{ env.JETS_ECR_REPO_ARN }}
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         WORKSPACE_IMAGE_TAG: ${{ env.WORKSPACE_IMAGE_TAG }}
         NBR_SHARDS: ${{ env.NBR_SHARDS }}
         TASK_MAX_CONCURRENCY: ${{ env.TASK_MAX_CONCURRENCY }}
         JETS_s3_INPUT_PREFIX: ${{ env.JETS_s3_INPUT_PREFIX }}
         JETS_s3_OUTPUT_PREFIX: ${{ env.JETS_s3_OUTPUT_PREFIX }}
         JETS_UI_PORT: ${{ env.JETS_UI_PORT }}
-        CDK_IMAGE_TAG: ${{ env.CDK_IMAGE_TAG }}
-        ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}        
-      run: |
-        # Pull & retag as latest jetstore cdk
-        docker pull "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG"
-        docker image tag "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG" jetstore_cdk:latest
-        # Deploy using cdk
-        docker run -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -e "AWS_ACCOUNT=${AWS_ACCOUNT}" -e "AWS_REGION=${AWS_REGION}" -e "JETS_IMAGE_TAG=${WORKSPACE_IMAGE_TAG}" -e "JETS_ECR_REPO_ARN=${JETS_ECR_REPO_ARN}" -e "NBR_SHARDS=${NBR_SHARDS}" -e "TASK_MAX_CONCURRENCY=${TASK_MAX_CONCURRENCY}" -e "JETS_s3_INPUT_PREFIX=${JETS_s3_INPUT_PREFIX}" -e "JETS_s3_OUTPUT_PREFIX=${JETS_s3_OUTPUT_PREFIX}" -e "JETS_UI_PORT=${JETS_UI_PORT}" -e "ECR_REGISTRY=${ECR_REGISTRY}" -e "CDK_IMAGE_TAG=${CDK_IMAGE_TAG}" -e "ECR_REPOSITORY=${ECR_REPOSITORY}" -v `pwd`:/jetstore jetstore_cdk:latest ./utils/deploy_jetstore_one.sh
+
+    # - name: CDK Deployment on AWS
+    #   id: cdk-deploy
+    #   env:
+    #     AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
+    #     AWS_REGION: ${{ env.AWS_REGION }}
+    #     JETS_ECR_REPO_ARN: ${{ env.JETS_ECR_REPO_ARN }}
+    #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+    #     WORKSPACE_IMAGE_TAG: ${{ env.WORKSPACE_IMAGE_TAG }}
+    #     NBR_SHARDS: ${{ env.NBR_SHARDS }}
+    #     TASK_MAX_CONCURRENCY: ${{ env.TASK_MAX_CONCURRENCY }}
+    #     JETS_s3_INPUT_PREFIX: ${{ env.JETS_s3_INPUT_PREFIX }}
+    #     JETS_s3_OUTPUT_PREFIX: ${{ env.JETS_s3_OUTPUT_PREFIX }}
+    #     JETS_UI_PORT: ${{ env.JETS_UI_PORT }}
+    #     CDK_IMAGE_TAG: ${{ env.CDK_IMAGE_TAG }}
+    #     ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}        
+    #   run: |
+    #     # Pull & retag as latest jetstore cdk
+    #     docker pull "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG"
+    #     docker image tag "$ECR_REGISTRY/$ECR_REPOSITORY:$CDK_IMAGE_TAG" jetstore_cdk:latest
+    #     # Deploy using cdk
+    #     docker run -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -e "AWS_ACCOUNT=${AWS_ACCOUNT}" -e "AWS_REGION=${AWS_REGION}" -e "JETS_IMAGE_TAG=${WORKSPACE_IMAGE_TAG}" -e "JETS_ECR_REPO_ARN=${JETS_ECR_REPO_ARN}" -e "NBR_SHARDS=${NBR_SHARDS}" -e "TASK_MAX_CONCURRENCY=${TASK_MAX_CONCURRENCY}" -e "JETS_s3_INPUT_PREFIX=${JETS_s3_INPUT_PREFIX}" -e "JETS_s3_OUTPUT_PREFIX=${JETS_s3_OUTPUT_PREFIX}" -e "JETS_UI_PORT=${JETS_UI_PORT}" -e "ECR_REGISTRY=${ECR_REGISTRY}" -e "CDK_IMAGE_TAG=${CDK_IMAGE_TAG}" -e "ECR_REPOSITORY=${ECR_REPOSITORY}" -v `pwd`:/jetstore jetstore_cdk:latest ./utils/deploy_jetstore_one.sh
