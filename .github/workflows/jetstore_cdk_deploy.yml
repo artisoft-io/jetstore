@@ -65,12 +65,13 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: 'ap-northeast-1'
         JETS_ECR_REPO_ARN: ${{ env.JETS_ECR_REPO_ARN }}
-        WORKSPACE_IMAGE_TAG: ${{ env.WORKSPACE_IMAGE_TAG }}
+        JETS_IMAGE_TAG: ${{ env.WORKSPACE_IMAGE_TAG }}
         NBR_SHARDS: ${{ env.NBR_SHARDS }}
         TASK_MAX_CONCURRENCY: ${{ env.TASK_MAX_CONCURRENCY }}
         JETS_s3_INPUT_PREFIX: ${{ env.JETS_s3_INPUT_PREFIX }}
         JETS_s3_OUTPUT_PREFIX: ${{ env.JETS_s3_OUTPUT_PREFIX }}
         JETS_UI_PORT: ${{ env.JETS_UI_PORT }}
+        AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
 
     # - name: CDK Deployment on AWS
     #   id: cdk-deploy
