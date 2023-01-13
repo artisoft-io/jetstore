@@ -15,7 +15,7 @@ on:
 env:
   AWS_REGION: us-east-1
   # NOTE: WORKSPACE_IMAGE_TAG is the jetstore+workspace image tag, from jets workspace repo
-  WORKSPACE_IMAGE_TAG: main-121ab7a0-1673583525
+  WORKSPACE_IMAGE_TAG: main-5e3f63bf-1673586082
   WORKSPACE: walrus_ws
   NBR_SHARDS: 3
   TASK_MAX_CONCURRENCY: 10
