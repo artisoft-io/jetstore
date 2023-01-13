@@ -16,6 +16,7 @@ env:
   AWS_REGION: us-east-1
   # NOTE: WORKSPACE_IMAGE_TAG is the jetstore+workspace image tag, from jets workspace repo
   WORKSPACE_IMAGE_TAG: main-bf81e6b1-1673578956
+  WORKSPACE: walrus_ws
   NBR_SHARDS: 3
   TASK_MAX_CONCURRENCY: 10
   JETS_s3_INPUT_PREFIX: jetstore/input
@@ -45,12 +46,20 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
+    - name: Set the JetStore repo arn
+      id: set-repo-arn
+      run: |
+        branch=${GITHUB_REF##*/}
+        sha=${GITHUB_SHA::8}
+        ts=$(date +%s)
+        echo "JETS_ECR_REPO_ARN=arn:aws:ecr:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT }}:repository/jetstore_${{ env.WORKSPACE }}" >> $GITHUB_ENV
+
     - name: CDK Deployment on AWS
       id: cdk-deploy
       env:
         AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
         AWS_REGION: ${{ env.AWS_REGION }}
-        JETS_ECR_REPO_ARN: ${{ secrets.JETS_ECR_REPO_ARN }}
+        JETS_ECR_REPO_ARN: ${{ env.JETS_ECR_REPO_ARN }}
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         WORKSPACE_IMAGE_TAG: ${{ env.WORKSPACE_IMAGE_TAG }}
         NBR_SHARDS: ${{ env.NBR_SHARDS }}
