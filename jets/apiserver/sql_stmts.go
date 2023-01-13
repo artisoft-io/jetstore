@@ -48,14 +48,14 @@ var sqlInsertStmts = map[string]sqlInsertDefinition {
 	"process_input": {
 		stmt: `INSERT INTO jetsapi.process_input 
 			(client, object_type, table_name, source_type, entity_rdf_type, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING key`,
 		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email"},
 	},
 	"update2/process_input": {
 		stmt: `UPDATE jetsapi.process_input SET 
 			(client, object_type, table_name, source_type, entity_rdf_type, user_email, last_update) 
-			= ($1, $2, $3, $4, $5, $6, $7, DEFAULT) WHERE key = $8`,
+			= ($1, $2, $3, $4, $5, $6, DEFAULT) WHERE key = $7`,
 		columnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email", "key"},
 	},
 	"update/process_input": {
