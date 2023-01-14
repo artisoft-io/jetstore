@@ -148,8 +148,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Create Serverless v2 Aurora Cluster -- Postgresql Server
 	// Create username and password secret for DB Cluster
 	username := jsii.String("postgres")
-	rdsSecret := awsrds.NewDatabaseSecret(stack, jsii.String(fmt.Sprintf("rdsSecret%s",os.Getenv("SECRETS_SUFFIX"))), &awsrds.DatabaseSecretProps{
-		SecretName: jsii.String("jetstore/pgsql"),
+	rdsSecret := awsrds.NewDatabaseSecret(stack, jsii.String("rdsSecret"), &awsrds.DatabaseSecretProps{
+		// SecretName: jsii.String("jetstore/pgsql"),
 		Username: username,
 	})
 	// // rdsCluster := awsrds.NewServerlessCluster(stack, jsii.String("AuroraCluster"), &awsrds.ServerlessClusterProps{
@@ -601,7 +601,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			CpuArchitecture: awsecs.CpuArchitecture_X86_64(),
 		},
 	})
-	apiSecret := awssm.NewSecret(stack, jsii.String(fmt.Sprintf("apiSecret%s",os.Getenv("SECRETS_SUFFIX"))), &awssm.SecretProps{
+	apiSecret := awssm.NewSecret(stack, jsii.String("apiSecret"), &awssm.SecretProps{
 		Description: jsii.String("API secret used for jwt token encryption"),
 		GenerateSecretString: &awssm.SecretStringGenerator{
 			PasswordLength: jsii.Number(15),
@@ -609,7 +609,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			RequireEachIncludedType: jsii.Bool(true),
 		},
 	})
-	adminPwdSecret := awssm.NewSecret(stack, jsii.String(fmt.Sprintf("adminPwdSecret%s",os.Getenv("SECRETS_SUFFIX"))), &awssm.SecretProps{
+	adminPwdSecret := awssm.NewSecret(stack, jsii.String("adminPwdSecret"), &awssm.SecretProps{
 		Description: jsii.String("JetStore UI admin password"),
 		GenerateSecretString: &awssm.SecretStringGenerator{
 			PasswordLength: jsii.Number(15),
@@ -779,7 +779,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_BUCKET_NAME (required, default "jetstoreone-sourcebucket")
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
-// SECRETS_SUFFIX (optional) to add a suffix to secrets to resolve the error "You can't create this secret because a secret with this name is already scheduled for deletion."
 
 func main() {
 	defer jsii.Close()
