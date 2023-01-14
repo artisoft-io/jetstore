@@ -38,7 +38,7 @@ func NewBootstrapCdkStack(scope constructs.Construct, id string, props *Bootstra
 	GitHubPrincipal := iam.NewOpenIdConnectPrincipal(provider, &map[string]interface{}{
 		"StringLike": map[string]interface{}{
 			"token.actions.githubusercontent.com:sub": 
-			fmt.Sprintf("repo:%s/%s:*",os.Getenv("GH_ORG_NAME"), os.Getenv("GH_REPO_NAME"))},
+			fmt.Sprintf("repo:%s:*", os.Getenv("GH_REPO_NAME"))},
 		"StringEquals": map[string]interface{}{
 			"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
 	})
