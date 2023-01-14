@@ -36,9 +36,11 @@ func NewBootstrapCdkStack(scope constructs.Construct, id string, props *Bootstra
 	 * deployment roles.
 	 */
 	GitHubPrincipal := iam.NewOpenIdConnectPrincipal(provider, &map[string]interface{}{
-		"StringEquals": map[string]interface{}{
+		"StringLike": map[string]interface{}{
 			"token.actions.githubusercontent.com:sub": 
 			fmt.Sprintf("repo:%s/%s:*",os.Getenv("GH_ORG_NAME"), os.Getenv("GH_REPO_NAME"))},
+		"StringEquals": map[string]interface{}{
+			"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
 	})
 
 	/**
@@ -61,6 +63,26 @@ func NewBootstrapCdkStack(scope constructs.Construct, id string, props *Bootstra
 						Effect: iam.Effect_ALLOW,
 						Actions: jsii.Strings("sts:AssumeRole"),
 						Resources: jsii.Strings(fmt.Sprintf("arn:aws:iam::%s:role/cdk-*",	os.Getenv("AWS_ACCOUNT"))),
+					}),
+					iam.NewPolicyStatement(&iam.PolicyStatementProps{
+						Effect: iam.Effect_ALLOW,
+						Actions: jsii.Strings(
+							"ecr:GetAuthorizationToken",
+						),
+						Resources: jsii.Strings("*"),
+					}),
+					iam.NewPolicyStatement(&iam.PolicyStatementProps{
+						Effect: iam.Effect_ALLOW,
+						Actions: jsii.Strings(
+							"ecr:BatchGetImage",
+							"ecr:BatchCheckLayerAvailability",
+							"ecr:CompleteLayerUpload",
+							"ecr:GetDownloadUrlForLayer",
+							"ecr:InitiateLayerUpload",
+							"ecr:PutImage",
+							"ecr:UploadLayerPart",
+						),
+						Resources: jsii.Strings(fmt.Sprintf("arn:aws:ecr:*:%s:repository/*",	os.Getenv("AWS_ACCOUNT"))),
 					}),
 				},
 			}),
