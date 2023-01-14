@@ -149,7 +149,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Create username and password secret for DB Cluster
 	username := jsii.String("postgres")
 	rdsSecret := awsrds.NewDatabaseSecret(stack, jsii.String("rdsSecret"), &awsrds.DatabaseSecretProps{
-		SecretName: jsii.String("jetstore/pgsqlXXX"),
+		SecretName: jsii.String("jetstore/pgsql"),
 		Username: username,
 	})
 	// // rdsCluster := awsrds.NewServerlessCluster(stack, jsii.String("AuroraCluster"), &awsrds.ServerlessClusterProps{
