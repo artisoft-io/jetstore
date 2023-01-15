@@ -15,7 +15,7 @@ package main
 // 	app := awscdk.NewApp(nil)
 
 // 	// WHEN
-// 	stack := NewBootstrapCdkStack(app, "MyStack", nil)
+// 	stack := NewBootstrapAWSStack(app, "MyStack", nil)
 
 // 	// THEN
 // 	template := assertions.Template_FromStack(stack)

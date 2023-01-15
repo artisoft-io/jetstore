@@ -10,11 +10,11 @@ import (
 	"github.com/aws/jsii-runtime-go"
 )
 
-type BootstrapCdkStackProps struct {
+type BootstrapAWSStackProps struct {
 	awscdk.StackProps
 }
 
-func NewBootstrapCdkStack(scope constructs.Construct, id string, props *BootstrapCdkStackProps) awscdk.Stack {
+func NewBootstrapAWSStack(scope constructs.Construct, id string, props *BootstrapAWSStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -122,7 +122,7 @@ func main() {
 
 	app := awscdk.NewApp(nil)
 
-	NewBootstrapCdkStack(app, "BootstrapCdkStack", &BootstrapCdkStackProps{
+	NewBootstrapAWSStack(app, "BootstrapAWSStack", &BootstrapAWSStackProps{
 		awscdk.StackProps{
 			Env: env(),
 		},

@@ -1,5 +1,5 @@
 {
-  "app": "go mod download && go run bootstrap_cdk.go",
+  "app": "go mod download && go run bootstrap_aws.go",
   "watch": {
     "include": [
       "**"
