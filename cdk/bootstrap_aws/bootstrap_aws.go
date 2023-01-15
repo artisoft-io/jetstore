@@ -49,11 +49,15 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 		*
 		* This role is granted authority to assume aws cdk roles; which are created
 		* by the aws cdk v2.
-		*/
+	*/
+	role := os.Getenv("AWS_ROLE")
+	if role == "" {
+		role = "github-ci-role"
+	}
 	iam.NewRole(stack, jsii.String("CDKDeployRole"), &iam.RoleProps{
 		AssumedBy: GitHubPrincipal,
 		Description: jsii.String("Role assumed by GitHubPrincipal for deploying from CI using aws cdk"),
-		RoleName: jsii.String("github-ci-role"),
+		RoleName: jsii.String(role),
 		MaxSessionDuration: awscdk.Duration_Hours(jsii.Number(1)),
 		InlinePolicies: &map[string]iam.PolicyDocument{
 			"CdkDeploymentPolicy": iam.NewPolicyDocument(&iam.PolicyDocumentProps{
@@ -96,6 +100,7 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 // ----------------------
 // AWS_ACCOUNT (required)
 // AWS_REGION (required)
+// AWS_ROLE (default github-ci-role)
 // GH_ORG_NAME (required)
 // GH_REPO_NAME (required)
 
