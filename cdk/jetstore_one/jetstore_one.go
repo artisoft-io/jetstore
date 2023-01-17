@@ -770,10 +770,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// BEGIN ALTERNATE with python lamdba fnc
 	// Lambda to register key from s3
 	p := uiPort
+	s := uiLoadBalancer.LoadBalancerDnsName()
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		p = uiPort + 1
+		s = serviceLoadBalancer.LoadBalancerDnsName()
 	}
-	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *uiLoadBalancer.LoadBalancerDnsName(), p)
+	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *s, p)
 	registerKeyLambda := awslambda.NewFunction(stack, jsii.String("registerKeyLambda"), &awslambda.FunctionProps{
 		Description: jsii.String("Lambda to register s3 key to JetStore"),
 		Code:        awslambda.NewAssetCode(jsii.String("lambdas"), nil),
