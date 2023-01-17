@@ -106,6 +106,7 @@ def register_key(event, context):
     http = urllib3.PoolManager()
 
     try:
+        print("Calling",jets_api_url,"/login")
         login_r = http.request('POST', jets_api_url + '/login',
                      headers={'Content-Type': 'application/json'},
                      body=encoded_login_body)
@@ -114,7 +115,7 @@ def register_key(event, context):
         login_resp_body = login_r.data.decode('utf-8')
         login_resp_dict = json.loads(login_r.data.decode('utf-8'))
         
-        # print(login_resp_body)
+        print("Got Response:", login_resp_body)
         
         login_token     = login_resp_dict['token']
     except Exception as e:
