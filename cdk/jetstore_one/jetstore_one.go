@@ -83,9 +83,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			},
 		},
 	})
-	
-
-	// Add Endpoints
+	publicSubnetSelection := &awsec2.SubnetSelection{
+		SubnetType: awsec2.SubnetType_PUBLIC,
+	}	
 	rdsSubnetsIndex := 0
 	// ecsSubnetsIndex := 1
 	ecsSubnetsIndex := 0
@@ -95,6 +95,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	},&awsec2.SubnetSelection{
 		SubnetGroupName: jsii.String("jetstoreEcs"),
 	})
+
+	// Add Endpoints
 	// Add Endpoint for S3
 	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
 		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
@@ -667,9 +669,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc: vpc,
 			InternetFacing: jsii.Bool(true),
-			VpcSubnets: &awsec2.SubnetSelection{
-				SubnetType: awsec2.SubnetType_PUBLIC,
-			},
+			VpcSubnets: publicSubnetSelection,
 		})
 	} else {
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
@@ -719,9 +719,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
 		Vpc: vpc,
 		InstanceName: jsii.String("JetstoreJumpServer"),
-		SubnetSelection: &awsec2.SubnetSelection{
-			SubnetType: awsec2.SubnetType_PUBLIC,
-		},
+		SubnetSelection: publicSubnetSelection,
 	})
 	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), "test1-keypair")
 	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
@@ -765,8 +763,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		},
 		Vpc: vpc,
 		VpcSubnets: subnetSelection[ecsSubnetsIndex],
+		// VpcSubnets: publicSubnetSelection,
+		// AllowPublicSubnet: jsii.Bool(true),
 	})
-	registerKeyLambda.Connections().AllowTo(ecsUiService, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
+	registerKeyLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
+	// registerKeyLambda.Connections().AllowTo(ecsUiService, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
 	adminPwdSecret.GrantRead(registerKeyLambda, nil)
 	// END ALTERNATE with python lamdba fnc
 
