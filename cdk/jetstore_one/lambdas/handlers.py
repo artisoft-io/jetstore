@@ -68,7 +68,7 @@ def get_secret():
             return decoded_binary_secret
 
 
-jets_api_host = os.environ['JETS_API_HOST']
+jets_api_url = os.environ['JETS_API_URL']
 
 def register_key(event, context):
     
@@ -106,7 +106,7 @@ def register_key(event, context):
     http = urllib3.PoolManager()
 
     try:
-        login_r = http.request('POST', jets_api_host + '/login',
+        login_r = http.request('POST', jets_api_url + '/login',
                      headers={'Content-Type': 'application/json'},
                      body=encoded_login_body)
     
@@ -119,7 +119,7 @@ def register_key(event, context):
         login_token     = login_resp_dict['token']
     except Exception as e:
         print(e)
-        print('Error logging in to {}.'.format(jets_api_host))
+        print('Error logging in to {}.'.format(jets_api_url))
         raise e        
 
 
@@ -139,7 +139,7 @@ def register_key(event, context):
     print("registerKey request:",encoded_registerFileKey_body)
     
     try:
-        registerFileKey_r = http.request('POST', jets_api_host + '/registerFileKey',
+        registerFileKey_r = http.request('POST', jets_api_url + '/registerFileKey',
                      headers=req_headers,
                      body=encoded_registerFileKey_body)
                      
