@@ -742,8 +742,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		InstanceName:    jsii.String("JetstoreJumpServer"),
 		SubnetSelection: publicSubnetSelection,
 	})
-	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), "test1-keypair")
-	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
+	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
+		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
+	}
 	bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
 
 	// BEGIN Create a Sample Lambda function to start the sample container task.
@@ -833,6 +835,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_BUCKET_NAME (required, default "jetstoreone-sourcebucket")
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
+// BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
 
 func main() {
 	defer jsii.Close()
