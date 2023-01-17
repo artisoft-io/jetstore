@@ -662,15 +662,20 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 	// JETS_ELB_MODE == public: deploy ELB in public subnet and public facing
 	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
-	var uiLoadBalancer awselb.ApplicationLoadBalancer
+	var uiLoadBalancer, serviceLoadBalancer awselb.ApplicationLoadBalancer
 	if os.Getenv("JETS_ELB_MODE") == "public" {
-		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
+		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(true),
 			VpcSubnets:     publicSubnetSelection,
 		})
+		serviceLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("ServiceELB"), &awselb.ApplicationLoadBalancerProps{
+			Vpc: vpc,
+			InternetFacing: jsii.Bool(false),
+			VpcSubnets: subnetSelection[ecsSubnetsIndex],
+		})	
 	} else {
-		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
+		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     subnetSelection[ecsSubnetsIndex],
@@ -695,7 +700,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 				awselb.NewListenerCertificate(jsii.String(os.Getenv("JETS_CERT_ARN"))),
 			},
 		})
-		serviceListener = uiLoadBalancer.AddListener(jsii.String("ServiceListener"), &awselb.BaseApplicationListenerProps{
+		serviceListener = serviceLoadBalancer.AddListener(jsii.String("ServiceListener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort + 1),
 			Open:     jsii.Bool(true),
 			Protocol: awselb.ApplicationProtocol_HTTP,
