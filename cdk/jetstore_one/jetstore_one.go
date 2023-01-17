@@ -684,7 +684,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			uiPort = 8080
 		}
 	}
-	var listener awselb.ApplicationListener
+	var listener, serviceListener awselb.ApplicationListener
+	// When TLS is used, lambda function use a different port w/o tls protocol
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		listener = uiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort),
@@ -693,6 +694,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Certificates: &[]awselb.IListenerCertificate{
 				awselb.NewListenerCertificate(jsii.String(os.Getenv("JETS_CERT_ARN"))),
 			},
+		})
+		serviceListener = uiLoadBalancer.AddListener(jsii.String("ServiceListener"), &awselb.BaseApplicationListenerProps{
+			Port:     jsii.Number(uiPort + 1),
+			Open:     jsii.Bool(true),
+			Protocol: awselb.ApplicationProtocol_HTTP,
 		})
 	} else {
 		listener = uiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
@@ -711,6 +717,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Protocol: awselb.ApplicationProtocol_HTTP,
 		}),
 	})
+	if os.Getenv("JETS_ELB_MODE") == "public" {
+		ecsUiService.RegisterLoadBalancerTargets(&awsecs.EcsTarget{
+			ContainerName:    uiTaskContainer.ContainerName(),
+			ContainerPort:    jsii.Number(8080),
+			Protocol:         awsecs.Protocol_TCP,
+			NewTargetGroupId: jsii.String("ServiceUI"),
+			Listener: awsecs.ListenerConfig_ApplicationListener(serviceListener, &awselb.AddApplicationTargetsProps{
+				Protocol: awselb.ApplicationProtocol_HTTP,
+			}),
+		})
+	}
+
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
 
 	// Add jump server
@@ -746,11 +764,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// BEGIN ALTERNATE with python lamdba fnc
 	// Lambda to register key from s3
-	p := "http"
+	p := uiPort
 	if os.Getenv("JETS_ELB_MODE") == "public" {
-		p = "https"
+		p = uiPort + 1
 	}
-	jetsApiUrl := fmt.Sprintf("%s://%s:%.0f", p, *uiLoadBalancer.LoadBalancerDnsName(), uiPort)
+	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *uiLoadBalancer.LoadBalancerDnsName(), p)
 	registerKeyLambda := awslambda.NewFunction(stack, jsii.String("registerKeyLambda"), &awslambda.FunctionProps{
 		Description: jsii.String("Lambda to register s3 key to JetStore"),
 		Code:        awslambda.NewAssetCode(jsii.String("lambdas"), nil),
@@ -766,11 +784,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		},
 		Vpc:        vpc,
 		VpcSubnets: subnetSelection[ecsSubnetsIndex],
-		// VpcSubnets: publicSubnetSelection,
-		// AllowPublicSubnet: jsii.Bool(true),
 	})
-	registerKeyLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
-	// registerKeyLambda.Connections().AllowTo(ecsUiService, awsec2.Port_Tcp(&uiPort), jsii.String("Allow connection from registerKeyLambda"))
+	registerKeyLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
 	adminPwdSecret.GrantRead(registerKeyLambda, nil)
 	// END ALTERNATE with python lamdba fnc
 
