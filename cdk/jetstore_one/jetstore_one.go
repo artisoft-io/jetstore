@@ -660,11 +660,24 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount: jsii.Number(1),
 	})
-	uiLoadBalancer := awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
-		Vpc: vpc,
-		InternetFacing: jsii.Bool(false),
-		VpcSubnets: subnetSelection[ecsSubnetsIndex],
-	})
+	// JETS_ELB_MODE == public: deploy ELB in public subnet and public facing
+	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
+	var uiLoadBalancer awselb.ApplicationLoadBalancer
+	if os.Getenv("JETS_ELB_MODE") == "public" {
+		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
+			Vpc: vpc,
+			InternetFacing: jsii.Bool(true),
+			VpcSubnets: &awsec2.SubnetSelection{
+				SubnetType: awsec2.SubnetType_PUBLIC,
+			},
+		})
+	} else {
+		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("LB"), &awselb.ApplicationLoadBalancerProps{
+			Vpc: vpc,
+			InternetFacing: jsii.Bool(false),
+			VpcSubnets: subnetSelection[ecsSubnetsIndex],
+		})
+	}
 	var err error
 	var uiPort float64 = 8080
 	if os.Getenv("JETS_UI_PORT") != "" {
@@ -673,11 +686,24 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			uiPort = 8080
 		}
 	}
-	listener := uiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
-		Port: jsii.Number(uiPort),
-		Open: jsii.Bool(true),
-		Protocol: awselb.ApplicationProtocol_HTTP,
-	})
+	var listener awselb.ApplicationListener
+	if os.Getenv("JETS_ELB_MODE") == "public" {
+		listener = uiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
+			Port: jsii.Number(uiPort),
+			Open: jsii.Bool(true),
+			Protocol: awselb.ApplicationProtocol_HTTPS,
+			Certificates: &[]awselb.IListenerCertificate{
+				awselb.NewListenerCertificate(jsii.String(os.Getenv("JETS_CERT_ARN"))),
+			},
+		})
+	} else {
+		listener = uiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
+			Port: jsii.Number(uiPort),
+			Open: jsii.Bool(true),
+			Protocol: awselb.ApplicationProtocol_HTTP,
+		})
+	}
+
 	ecsUiService.RegisterLoadBalancerTargets(&awsecs.EcsTarget{
 		ContainerName: uiTaskContainer.ContainerName(),
 		ContainerPort: jsii.Number(8080),
@@ -774,6 +800,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_ECR_REPO_ARN (required)
 // JETS_IMAGE_TAG (required)
 // JETS_UI_PORT (defaults 8080)
+// JETS_ELB_MODE (defaults private)
+// JETS_CERT_ARN (not required)
 // NBR_SHARDS (defaults to 1)
 // TASK_MAX_CONCURRENCY (defaults to 1)
 // JETS_BUCKET_NAME (required, default "jetstoreone-sourcebucket")
@@ -789,6 +817,10 @@ func main() {
 	if os.Getenv("AWS_ACCOUNT") == "" || os.Getenv("AWS_REGION") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")		
+	}
+	if os.Getenv("JETS_ELB_MODE") == "public" && os.Getenv("JETS_CERT_ARN") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variable 'JETS_CERT_ARN' is required when 'JETS_ELB_MODE'==public.")		
 	}
 	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" || os.Getenv("JETS_s3_OUTPUT_PREFIX") == "" {
 		hasErr = true
