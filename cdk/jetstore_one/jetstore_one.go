@@ -55,11 +55,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	if bucketName == "" {
 		bucketName = "jetstoreone-sourcebucket"
 	}
-	sourceBucket := awss3.NewBucket(stack, jsii.String("sourceBucket"), &awss3.BucketProps{
+	sourceBucket := awss3.NewBucket(stack, jsii.String("JetStoreBucket"), &awss3.BucketProps{
 		RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
 		AutoDeleteObjects: jsii.Bool(true),
 		BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
-		BucketName:        jsii.String(bucketName),
+		// BucketName:        jsii.String(bucketName),
 	})
 	sourceBucket.DisallowPublicAccess()
 
