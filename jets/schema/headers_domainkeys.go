@@ -279,7 +279,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 			cols[ipos] = ""
 		}
 	}
-	groupingKey := strings.Join(cols, ".")
+	groupingKey := strings.Join(cols, ":")
 	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
 }
 
