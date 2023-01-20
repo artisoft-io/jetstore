@@ -251,7 +251,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 			return "", 0, fmt.Errorf("error: domain key is invalid, make sure it is not a reserved column for ObjectType %s", *objectType)
 		}
 	}
-	groupingKey := strings.Join(cols, ".")
+	groupingKey := strings.Join(cols, ":")
 	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
 }
 // Alternate version for output records - same as ComputeGroupingKey using interface{} as record

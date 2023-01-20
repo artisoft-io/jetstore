@@ -172,7 +172,10 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 	} else if err != nil {
 		return false, fmt.Errorf("while reading csv headers: %v", err)
 	}
-	headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson)
+	err = headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson)
+	if err != nil {
+		return false, fmt.Errorf("while calling InitializeStagingTable: %v", err)
+	}
 
 	// // for development
 	// fmt.Println("Domain Keys Info for table", tableName)
@@ -576,7 +579,7 @@ func main() {
 	fmt.Println("Got argument: awsRegion", *awsRegion)
 	fmt.Println("Got argument: inFile", *inFile)
 	fmt.Println("Got argument: dropTable", *dropTable)
-	fmt.Println("Got argument: dsn", *dsn)
+	fmt.Println("Got argument: len(dsn)", len(*dsn))
 	fmt.Println("Got argument: client", *client)
 	fmt.Println("Got argument: objectType", *objectType)
 	fmt.Println("Got argument: userEmail", *userEmail)
