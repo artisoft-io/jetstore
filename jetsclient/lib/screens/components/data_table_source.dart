@@ -19,7 +19,8 @@ class JetsDataTableSource extends ChangeNotifier {
 
   int get rowCount => model != null ? model!.length : 0;
   int get totalRowCount => _totalRowCount;
-  bool get isWhereClauseSatisfied =>
+  bool get isWhereClauseSatisfied => _whereClauseSatisfied;
+  bool get isWhereClauseSatisfiedOrDefaultToAllRows =>
       _whereClauseSatisfied || state.tableConfig.defaultToAllRows;
 
   /// returns true if table has selected row(s)
@@ -198,7 +199,7 @@ class JetsDataTableSource extends ChangeNotifier {
           .map((e) => DataCell(Text(model![index][e.index] ?? 'null')))
           .toList(),
       selected: selectedRows[index],
-      onSelectChanged: state.isTableEditable
+      onSelectChanged: state.isTableEditable && isWhereClauseSatisfied
           ? (bool? value) {
               if (value == null) return;
               _onSelectChanged(index, value);

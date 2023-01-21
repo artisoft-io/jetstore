@@ -125,7 +125,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                   padding: const EdgeInsets.fromLTRB(defaultPadding, 0, 0, 0),
                   child: Text(
                     tableConfig.label,
-                    style: Theme.of(context).textTheme.headline5,
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 )
             ];

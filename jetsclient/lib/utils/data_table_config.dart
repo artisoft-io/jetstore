@@ -126,7 +126,7 @@ class ActionConfig {
     }
     if (isEnabledWhenWhereClauseSatisfied != null) {
       return isEnabledWhenWhereClauseSatisfied ==
-          widgetState.dataSource.isWhereClauseSatisfied;
+          widgetState.dataSource.isWhereClauseSatisfiedOrDefaultToAllRows;
     }
     return true;
   }
