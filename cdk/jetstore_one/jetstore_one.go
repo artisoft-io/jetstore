@@ -14,7 +14,8 @@ import (
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
+	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
+	awss3n "github.com/aws/aws-cdk-go/awscdk/v2/awss3notifications"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
@@ -51,17 +52,20 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// The code that defines your stack goes here
 	// Create a bucket that, when something is added to it, it causes the Lambda function to fire, which starts a container running.
+	var sourceBucket awss3.IBucket
 	bucketName := os.Getenv("JETS_BUCKET_NAME")
 	if bucketName == "" {
-		bucketName = "jetstoreone-sourcebucket"
+		sb := awss3.NewBucket(stack, jsii.String("JetStoreBucket"), &awss3.BucketProps{
+			RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
+			AutoDeleteObjects: jsii.Bool(true),
+			BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
+			// BucketName:        jsii.String(bucketName),
+		})
+		sb.DisallowPublicAccess()	
+		sourceBucket = sb
+	} else {
+		sourceBucket = awss3.Bucket_FromBucketName(stack, jsii.String("ExistingBucket"),jsii.String(bucketName))
 	}
-	sourceBucket := awss3.NewBucket(stack, jsii.String("JetStoreBucket"), &awss3.BucketProps{
-		RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
-		AutoDeleteObjects: jsii.Bool(true),
-		BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
-		// BucketName:        jsii.String(bucketName),
-	})
-	sourceBucket.DisallowPublicAccess()
 
 	// Create a VPC to run tasks in.
 	vpc := awsec2.NewVpc(stack, jsii.String("taskVpc"), &awsec2.VpcProps{
@@ -799,14 +803,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// END ALTERNATE with python lamdba fnc
 
 	// Run the task starter Lambda when an object is added to the S3 bucket.
-	registerKeyLambda.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
-		Events: &[]awss3.EventType{
-			awss3.EventType_OBJECT_CREATED,
-		},
-		Filters: &[]*awss3.NotificationKeyFilter{
-			{Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX"))},
-		},
-	}))
+	// registerKeyLambda.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
+	// 	Events: &[]awss3.EventType{
+	// 		awss3.EventType_OBJECT_CREATED,
+	// 	},
+	// 	Filters: &[]*awss3.NotificationKeyFilter{
+	// 		{Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX"))},
+	// 	},
+	// }))
+	sourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(registerKeyLambda), &awss3.NotificationKeyFilter{
+		Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+	})
 
 	return stack
 }
