@@ -242,7 +242,6 @@ func main() {
 		errMsg = append(errMsg, "Error: can't determine the report definitions file.")
 	}
 	if hasErr {
-		flag.Usage()
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
@@ -269,7 +268,6 @@ func main() {
 
 	err := coordinateWork()
 	if err != nil {
-		flag.Usage()
 		panic(err)
 	}
 }

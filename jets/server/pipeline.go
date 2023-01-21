@@ -56,10 +56,10 @@ type writeResult struct {
 
 // PipelineResult Method to update status
 // Register the status details to pipeline_execution_details
-// Lock the sessionId and register output tables only if doNotLockSessionId is true
+// Lock the sessionId and register output tables only if doNotLockSessionId is false
 // Do nothing if pipelineExecutionKey < 0
 func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, 
-	shardId int, doNotLockSessionId bool) error {
+	shardId int, doNotLockSessionId bool, errMessage string) error {
 	if pipelineExecutionKey < 0 {
 		return nil
 	}
@@ -94,13 +94,13 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
 		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
 							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, 
-							shard_id, status, input_records_count, rete_sessions_count, output_records_count, user_email) 
-							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+							shard_id, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
+							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 		_, err = dbpool.Exec(context.Background(), stmt,
 			pipelineConfig.key, pipelineExecutionKey,
 			pipelineConfig.clientName, pipelineConfig.processConfig.processName,
 			pipelineConfig.mainProcessInput.sessionId, sessionId, shardId,
-			pr.Status, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, userEmail)
+			pr.Status, errMessage, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, userEmail)
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.pipeline_execution table: %v", err)
 		}
@@ -150,6 +150,7 @@ func prepareProcessInput(processInput *ProcessInput,
 }
 
 // Main pipeline processing function
+// Note: ALWAYS return a non nil *PipelineResult (needed to register result)
 func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
 	result := PipelineResult{ReteWorkspace: reteWorkspace}
 	var err error

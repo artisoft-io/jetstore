@@ -210,7 +210,6 @@ func main() {
 		errMsg = append(errMsg, "jetsapi init db path (-jetsapiDbInitPath) must be provided.")
 	}
 	if hasErr {
-		flag.Usage()
 		for _, msg := range errMsg {
 			log.Println("**", msg)
 		}
@@ -234,7 +233,6 @@ func main() {
 	//let's do it
 	err = doJob()
 	if err != nil {
-		flag.Usage()
 		fmt.Println(err)
 		panic(err)
 	}

@@ -90,16 +90,16 @@ func truncateSessionId(dbpool *pgxpool.Pool) error {
 }
 
 func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, 
-	dkInfo *schema.HeadersAndDomainKeysInfo, status string) error {
+	dkInfo *schema.HeadersAndDomainKeysInfo, status string, errMessage string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
-		object_type, table_name, client, file_key, session_id, status,
+		object_type, table_name, client, file_key, session_id, status, error_message,
 		load_count, bad_row_count, user_email) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT ON CONSTRAINT input_loader_status_unique_cstraint
-			DO UPDATE SET (status, load_count, bad_row_count, user_email, last_update) =
-			(EXCLUDED.status, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
+			DO UPDATE SET (status, error_message, load_count, bad_row_count, user_email, last_update) =
+			(EXCLUDED.status, EXCLUDED.error_message, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt, 
-		*objectType, tableName, *client, *inFile, *sessionId, status, copyCount, badRowCount, *userEmail)
+		*objectType, tableName, *client, *inFile, *sessionId, status, errMessage, copyCount, badRowCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
@@ -126,7 +126,7 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 
 // processFile
 // --------------------------------------------------------------------------------------
-func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error) {
+func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.HeadersAndDomainKeysInfo, int64, int, error) {
 
 	// determine the csv separator
 	// ---------------------------------------
@@ -135,13 +135,13 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 		buf := make([]byte, 2048)
 		nb, err := fileHd.Read(buf)
 		if err != nil {
-			return false, fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
+			return nil, 0, 0, fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
 		}
 		txt := string(buf[0:nb])
 		cn := strings.Count(txt, ",")
 		pn := strings.Count(txt, "|")
 		if cn == pn {
-			return false, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
+			return nil, 0, 0, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
 		}
 		if cn > pn {
 			sep_flag = ','
@@ -150,7 +150,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 		}
 		_, err = fileHd.Seek(0, 0)
 		if err != nil {
-			return false, fmt.Errorf("error while returning to beginning of in_file %s: %v", *inFile, err)
+			return nil, 0, 0, fmt.Errorf("error while returning to beginning of in_file %s: %v", *inFile, err)
 		}
 	}
 	fmt.Println("Got argument: sep_flag", sep_flag)
@@ -168,13 +168,13 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 	headersDKInfo := schema.NewHeadersAndDomainKeysInfo(tableName)
 	rawHeaders, err := csvReader.Read()
 	if err == io.EOF {
-		return false, errors.New("input csv file is empty")
+		return nil, 0, 0, errors.New("input csv file is empty")
 	} else if err != nil {
-		return false, fmt.Errorf("while reading csv headers: %v", err)
+		return nil, 0, 0, fmt.Errorf("while reading csv headers: %v", err)
 	}
 	err = headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson)
 	if err != nil {
-		return false, fmt.Errorf("while calling InitializeStagingTable: %v", err)
+		return nil, 0, 0, fmt.Errorf("while calling InitializeStagingTable: %v", err)
 	}
 
 	// // for development
@@ -190,7 +190,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 	}
 	_, err = badRowsWriter.WriteRune('\n')
 	if err != nil {
-		return false, fmt.Errorf("while writing csv headers to err file: %v", err)
+		return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
 	}
 
 	// prepare db connections
@@ -198,19 +198,19 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 	// validate table name
 	tblExists, err := schema.TableExists(dbpool, "public", tableName)
 	if err != nil {
-		return false, fmt.Errorf("while validating table name: %v", err)
+		return nil, 0, 0, fmt.Errorf("while validating table name: %v", err)
 	}
 	if !tblExists || *dropTable {
 		if *dropTable {
 			// remove the previous input loader status associated with sessionId
 			err = truncateSessionId(dbpool)
 			if err != nil {
-				return false, fmt.Errorf("while truncating sessionId: %v", err)
+				return nil, 0, 0, fmt.Errorf("while truncating sessionId: %v", err)
 			}
 		}
 		err = headersDKInfo.CreateStagingTable(dbpool, tableName)
 		if err != nil {
-			return false, fmt.Errorf("while creating table: %v", err)
+			return nil, 0, 0, fmt.Errorf("while creating table: %v", err)
 		}
 	}
 
@@ -232,7 +232,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 		err = json.Unmarshal([]byte(domainKeysJson), &f)
 		if err != nil {
 			fmt.Println("while parsing domainKeysJson using json parser:", err)
-			return false, err
+			return nil, 0, 0, err
 		}
 		// Extract the domain keys structure from the json
 		switch value := f.(type) {
@@ -260,7 +260,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 					badRowsPos = append(badRowsPos, i)
 				}
 			} else {
-				return false, fmt.Errorf("unknown error while reading csv records: %v", err)
+				return nil, 0, 0, fmt.Errorf("unknown error while reading csv records: %v", err)
 			}
 		} else {
 			copyRec := make([]interface{}, len(headersDKInfo.Headers))
@@ -278,7 +278,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 			for ipos := range objTypes {
 				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &objTypes[ipos], &record, &jetsKeyStr)
 				if err != nil {
-					return false, err
+					return nil, 0, 0, err
 				}
 				domainKeyPos := headersDKInfo.DomainKeysInfoMap[objTypes[ipos]].DomainKeyPos
 				copyRec[domainKeyPos] = groupingKey
@@ -295,7 +295,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 	var copyCount int64
 	copyCount, err = dbpool.CopyFrom(context.Background(), pgx.Identifier{tableName}, headersDKInfo.Headers, pgx.CopyFromRows(inputRows))
 	if err != nil {
-		return false, fmt.Errorf("while copy csv to table: %v", err)
+		return nil, 0, 0, fmt.Errorf("while copy csv to table: %v", err)
 	}
 	// // create a channel to writing the insert row results
 	// //* EXAMPLE/STARTING POINT TO HAVE CONCURRENT DB WRITTERS
@@ -324,19 +324,18 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 	// 		hasErrors = true
 	// 	}
 	// if hasErrors {
-	// 	return false, fmt.Errorf("error(s) while writing to database nodes")
+	// 	return nil, 0, 0, fmt.Errorf("error(s) while writing to database nodes")
 	// }
 	log.Println("Inserted", copyCount, "rows in database!")
 
 	// Copy the bad rows from input file into the error file
 	// ---------------------------------------
 	badRowCount := len(badRowsPos)
-	hasBadRows := badRowCount > 0
 	if len(badRowsPos) > 0 {
 		log.Println("Got", len(badRowsPos), "bad rows in input file, copying them to the error file.")
 		_, err = fileHd.Seek(0, 0)
 		if err != nil {
-			return false, fmt.Errorf("error while returning to beginning of in_file %s to write the bad rows to error file: %v", *inFile, err)
+			return nil, 0, 0, fmt.Errorf("error while returning to beginning of in_file %s to write the bad rows to error file: %v", *inFile, err)
 		}
 		reader := bufio.NewReader(fileHd)
 		filePos := 0
@@ -349,37 +348,49 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error)
 						log.Panicf("Bug: reached EOF before getting to bad row %d", errLinePos)
 					}
 					if err != nil {
-						return false, fmt.Errorf("error while fetching bad rows from csv file: %v", err)
+						return nil, 0, 0, fmt.Errorf("error while fetching bad rows from csv file: %v", err)
 					}
 				}
 				filePos += 1
 			}
 			_, err = badRowsWriter.WriteString(line)
 			if err != nil {
-				return false, fmt.Errorf("error while writing a bad csv row to err file: %v", err)
+				return nil, 0, 0, fmt.Errorf("error while writing a bad csv row to err file: %v", err)
 			}
 		}
 	}
 
+	return headersDKInfo, copyCount, badRowCount, nil
+}
+
+// processFileAndReportStatus is a wrapper around processFile to report error
+func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (bool, error) {
+
+	headersDKInfo, copyCount, badRowCount, err := processFile(dbpool, fileHd, errFileHd)
+
 	// registering the load
 	// ---------------------------------------
 	status := "completed"
-	if hasBadRows {
+	if badRowCount > 0 {
 		status = "errors"
 	}
 	// register the session if status is completed
 	if status == "completed" && !*doNotLockSessionId {
-		err:= schema.RegisterSession(dbpool, *sessionId)
-		if err != nil {
-			return false, fmt.Errorf("error while registering the session id: %v", err)
+		err2 := schema.RegisterSession(dbpool, *sessionId)
+		if err2 != nil {
+			err = fmt.Errorf("error while registering the session id: %v", err2)
 		}
 	}
-	err = registerCurrentLoad(copyCount, badRowCount, dbpool, headersDKInfo, status)
+	var errMessage string
+	if err != nil {
+		errMessage = fmt.Sprintf("%v", err)
+	}
+	err = registerCurrentLoad(copyCount, badRowCount, dbpool, headersDKInfo, status, errMessage)
 	if err != nil {
 		return false, fmt.Errorf("error while registering the load: %v", err)
 	}
 
-	return hasBadRows, nil
+	return badRowCount > 0, err
 }
 
 func coordinateWork() error {
@@ -484,12 +495,8 @@ func coordinateWork() error {
 	}
 
 	// Process the downloaded file
-	hasBadRows, err := processFile(dbpool, fileHd, errFileHd)
+	hasBadRows, err := processFileAndReportStatus(dbpool, fileHd, errFileHd)
 	if err != nil {
-		err2 := registerCurrentLoad(0, 0, dbpool, nil, "failed")
-		if err2 != nil {
-			return fmt.Errorf("error while registering the load: %v", err)
-		}
 		return err
 	}
 
@@ -557,7 +564,6 @@ func main() {
 		errMsg = append(errMsg, "aws region must be provided when using either -awsDsnSecret or -awsBucket.")
 	}
 	if hasErr {
-		flag.Usage()
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
@@ -597,7 +603,6 @@ func main() {
  
 	err = coordinateWork()
 	if err != nil {
-		flag.Usage()
 		fmt.Println(err)
 		panic(err)
 	}

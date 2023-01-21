@@ -154,7 +154,6 @@ func main() {
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
 	if hasErr {
-		flag.Usage()
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
@@ -172,7 +171,6 @@ func main() {
 
 	err := coordinateWork()
 	if err != nil {
-		flag.Usage()
 		fmt.Println(err)
 		panic(err)
 	}
