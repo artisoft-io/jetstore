@@ -63,6 +63,11 @@ final defaultMenuEntries = [
       key: 'dataPurge',
       label: 'Purge Client Data',
       menuAction: purgeDataAction),
+  MenuEntry(
+      style: ActionStyle.danger,
+      key: 'runInitDb',
+      label: 'Run Workspace Database Initialization',
+      menuAction: rerunDbInitAction),
 ];
 
 final adminMenuEntries = [
@@ -71,6 +76,16 @@ final adminMenuEntries = [
       key: 'userAdmin',
       label: 'User Administration',
       routePath: userAdminPath),
+  MenuEntry(
+      style: ActionStyle.danger,
+      key: 'dataPurge',
+      label: 'Purge Client Data',
+      menuAction: purgeDataAction),
+  MenuEntry(
+      style: ActionStyle.danger,
+      key: 'runInitDb',
+      label: 'Run Workspace Database Initialization',
+      menuAction: rerunDbInitAction),
 ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {

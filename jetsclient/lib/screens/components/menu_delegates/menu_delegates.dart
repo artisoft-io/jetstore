@@ -37,3 +37,33 @@ void purgeDataAction(BuildContext context) async {
     showAlertDialog(context, 'Something went wrong. Please try again.');
   }
 }
+
+/// Rerun database init script
+void rerunDbInitAction(BuildContext context) async {
+  var client = context.read<HttpClient>();
+  var messenger = ScaffoldMessenger.of(context);
+  // get user confirmation
+  var uc = await showDangerZoneDialog(context,
+      'Are you sure you want to rerun the database init script? This will reset read only config tables and built-in test client config');
+  // print('purgeData Action GOT: $uc');
+  if (uc != 'OK') return;
+  var encodedJsonBody = jsonEncode(<String, dynamic>{
+    'action': 'rerun_db_init',
+    'table': '',
+    'data': [{}],
+  }, toEncodable: (_) => '');
+  var result = await client.sendRequest(
+      path: purgeDataPath, 
+      token: JetsRouterDelegate().user.token,
+      encodedJsonBody: encodedJsonBody);
+  // if (!mounted) return; needed?
+  if (result.statusCode == 200) {
+    // Inform the user and transition
+    const snackBar = SnackBar(
+      content: Text('Re-run Database Initialization Successful'),
+    );
+    messenger.showSnackBar(snackBar);
+  } else {
+    showAlertDialog(context, 'Something went wrong. Please try again.');
+  }
+}

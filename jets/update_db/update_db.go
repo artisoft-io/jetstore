@@ -198,7 +198,7 @@ func main() {
 	}
 	if *initWorkspaceDb && *jetsapiDbInitPath == "" {
 		hasErr = true
-		errMsg = append(errMsg, "jetsapi dn init path (-jetsapiDbInitPath) must be provided when -initWorkspaceDb is provided.")
+		errMsg = append(errMsg, "jetsapi dn init path (-jetsapiDbInitPath or env JETSAPI_DB_INIT_PATH) must be provided when -initWorkspaceDb is provided.")
 	}
 	if *workspaceDb == "" {
 		*workspaceDb = os.Getenv("WORKSPACE_DB_PATH")

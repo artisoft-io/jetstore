@@ -40,6 +40,10 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		server.ResetDomainTables(w, r, &action)
 		return
 
+	case "rerun_db_init":
+		server.RunWorkspaceDbInit(w, r, &action)
+		return
+
 	default:
 		log.Printf("Error: unknown action: %v", action.Action)
 		ERROR(w, http.StatusUnprocessableEntity, fmt.Errorf("error: unknown action"))
@@ -122,6 +126,46 @@ log.Printf("Run update_db: %s", serverArgs)
 		ERROR(w, http.StatusInternalServerError, 
 			errors.New("error while truncating input_registry tables"))
 	}
+
+	results := makeResult(r)
+	JSON(w, http.StatusOK, results)
+}
+
+// RunWorkspaceDbInit ------------------------------------------------------
+// Initialize jetstore database with workspace db init script
+func (server *Server) RunWorkspaceDbInit(w http.ResponseWriter, r *http.Request, 
+	purgeDataAction *PurgeDataAction) {
+	// using update_db script
+	serverArgs := []string{ "-initWorkspaceDb" }
+	if *usingSshTunnel {
+		serverArgs = append(serverArgs, "-usingSshTunnel")
+	}
+log.Printf("Run update_db: %s", serverArgs)
+	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		b.WriteTo(os.Stdout)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT END")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		ERROR(w, http.StatusInternalServerError, 
+			errors.New("error while running server command"))
+		return
+	}
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+	log.Println("============================")
+	b.WriteTo(os.Stdout)
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT END")
+	log.Println("============================")
 
 	results := makeResult(r)
 	JSON(w, http.StatusOK, results)

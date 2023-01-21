@@ -76,7 +76,14 @@ def register_key(event, context):
 
     # extract s3 key from event notification
     key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')    
-    
+
+    if(str(key).endswith("/")):
+      print('This is a directory path, bailing out!')
+      return {
+        'statusCode': 200,
+        'body': json.dumps('Invalid key: {}'.format(key))
+      }
+
     # split key into components and partitions to extract client and object_type
     key_components = key.split('/')
     
