@@ -264,6 +264,9 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
+        "columnName": "error_message",
+        "dataType":   "text"
+      }, {
         "columnName": "user_email",
         "dataType":   "text",
         "isNotNull":  true
@@ -732,6 +735,9 @@
         "columnName": "status",
         "dataType":   "text",
         "isNotNull":  true
+      }, {
+        "columnName": "error_message",
+        "dataType":   "text"
       }, {
         "columnName": "input_records_count",
         "dataType":   "int"

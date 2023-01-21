@@ -161,32 +161,33 @@ func doJob() error {
 	if err != nil {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
+	defer reteWorkspace.Release()
 
-	PipelineResult, err := ProcessData(dbpool, reteWorkspace)
+	var errMessage string
+	pipelineResult, err := ProcessData(dbpool, reteWorkspace)
 	if err != nil {
-		PipelineResult.Status = "failed"
-		err2 := PipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId)
+		pipelineResult.Status = "failed"
+		errMessage = fmt.Sprintf("%v", err)
+		err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId, errMessage)
 		if err2 != nil {
 			log.Printf("error while writing pipeline status: %v", err2)
 		}
-		reteWorkspace.Release()
 		return fmt.Errorf("while processing pipeline: %v", err)
 	}
 
-	log.Println("Input records count is:", PipelineResult.InputRecordsCount)
-	log.Println("Rete sessions count is:", PipelineResult.ExecuteRulesCount)
-	for rdfType, count := range PipelineResult.OutputRecordsCount {
+	log.Println("Input records count is:", pipelineResult.InputRecordsCount)
+	log.Println("Rete sessions count is:", pipelineResult.ExecuteRulesCount)
+	for rdfType, count := range pipelineResult.OutputRecordsCount {
 		log.Printf("Output records count for type '%s' is: %d\n", rdfType, count)
-		PipelineResult.TotalOutputCount += count
+		pipelineResult.TotalOutputCount += count
 	}
 	// Update the pipeline_execution table with status and counts
-	PipelineResult.Status = "completed"
-	err2 := PipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId)
+	pipelineResult.Status = "completed"
+	err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId, errMessage)
 	if err2 != nil {
 		log.Printf("error while writing pipeline status: %v", err2)
 	}
 
-	reteWorkspace.Release()
 	return nil
 }
 
@@ -278,7 +279,6 @@ func main() {
 		outTableSlice = make([]string, 0)
 	}
 	if hasErr {
-		flag.Usage()
 		for _, msg := range errMsg {
 			log.Println("**", msg)
 		}
@@ -289,7 +289,6 @@ func main() {
 
 	err := doJob()
 	if err != nil {
-		flag.Usage()
 		fmt.Println(err)
 		panic(err)
 	}
