@@ -196,7 +196,10 @@ class JetsDataTableSource extends ChangeNotifier {
       }),
       cells: state.columnsConfig
           .where((e) => !e.isHidden)
-          .map((e) => DataCell(Text(model![index][e.index] ?? 'null')))
+          .map((e) => e.maxLines > 0 ? DataCell(SizedBox(
+              width: e.columnWidth, //SET width
+              child: Text(model![index][e.index] ?? 'null', maxLines: e.maxLines,)))
+              : DataCell(Text(model![index][e.index] ?? 'null')))
           .toList(),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable && isWhereClauseSatisfied
@@ -365,7 +368,10 @@ class JetsDataTableSource extends ChangeNotifier {
                 name: m1['name'],
                 label: m1['label'],
                 tooltips: m1['tooltips'],
-                isNumeric: m1['isnumeric']))
+                isNumeric: m1['isnumeric'],
+                maxLines: m1['maxLines'],
+                columnWidth: m1['columnWidth'],
+                ))
             .toList();
         state.columnNames = columnDef.map((e) => e['name'] as String).toList();
         state.setSortingColumn(columnIndex: 0);

@@ -371,7 +371,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	// registering the load
 	// ---------------------------------------
 	status := "completed"
-	if badRowCount > 0 {
+	if badRowCount > 0 || err != nil  {
 		status = "errors"
 	}
 	// register the session if status is completed
