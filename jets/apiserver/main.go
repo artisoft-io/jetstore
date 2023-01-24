@@ -49,6 +49,8 @@ import (
 // JETS_BUCKET (required for SyncFileKeys)
 // JETS_s3_INPUT_PREFIX Input file key prefix
 // JETS_s3_OUTPUT_PREFIX Output file key prefix
+// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
+// JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 
 var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret       = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")

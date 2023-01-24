@@ -38,14 +38,18 @@ type DomainTable struct {
 	DomainKeysInfo   *schema.HeadersAndDomainKeysInfo
 }
 
-func NewDomainTable(tableName string) DomainTable {
-	// Load the Domain Key info from domain_keys_registry
+func NewDomainTable(tableName string) (DomainTable, error) {
 	domainTable := DomainTable{
 		TableName: tableName, 
 		Columns: make([]DomainColumn, 0),
-		DomainKeysInfo: schema.NewHeadersAndDomainKeysInfo(tableName),
 	}
-	return domainTable
+	// Load the Domain Key info from domain_keys_registry
+	domainKeyInfo, err := schema.NewHeadersAndDomainKeysInfo(tableName)
+	if err != nil {
+		return domainTable, fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
+	}
+	domainTable.DomainKeysInfo = domainKeyInfo
+	return domainTable, nil
 }
 
 func (domainTable *DomainTable)DomainHeaders() *[]string {
@@ -171,7 +175,10 @@ func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTable
 				return domainTableMap, fmt.Errorf("while loading domain table columns info from workspace db: %v", err)
 			}
 			defer domainColumnsRow.Close()
-			domainTable := NewDomainTable(tableName)
+			domainTable, err := NewDomainTable(tableName)
+			if err != nil {
+				return domainTableMap, fmt.Errorf("while calling NewDomainTable from workspace db for TableName %s: %v", tableName, err)
+			}
 			for domainColumnsRow.Next() { // Iterate and fetch the records from result cursor
 				var domainColumn DomainColumn
 				domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray, &domainColumn.IsGrouping)

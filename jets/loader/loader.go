@@ -51,6 +51,8 @@ func (s *chartype) Set(value string) error {
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
 // LOADER_ERR_DIR
+// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
+// JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -165,7 +167,11 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 	// Read the headers, put them in err file and make them valid for db
 	// Contruct the domain keys based on domainKeysJson
 	// ---------------------------------------
-	headersDKInfo := schema.NewHeadersAndDomainKeysInfo(tableName)
+	headersDKInfo, err := schema.NewHeadersAndDomainKeysInfo(tableName)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
+	}
+
 	rawHeaders, err := csvReader.Read()
 	if err == io.EOF {
 		return nil, 0, 0, errors.New("input csv file is empty")

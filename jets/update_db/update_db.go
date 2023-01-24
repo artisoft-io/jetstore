@@ -25,6 +25,8 @@ import (
 // JETS_SCHEMA_FILE (default: jets_schema.json)
 // JETSAPI_DB_INIT_PATH path to workspace_init_db.sql file (workspace specific)
 // WORKSPACE_DB_PATH location of workspace db (sqlite db)
+// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
+// JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
 var dropExisting = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")

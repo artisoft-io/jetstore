@@ -32,6 +32,8 @@ type dbConnections struct {
 // JETS_DSN_JSON_VALUE
 // WORKSPACE_DB_PATH location of workspace db (sqlite db)
 // WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
+// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
+// JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // GLOG_V log level
 
 // Command Line Arguments
