@@ -643,6 +643,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"NBR_SHARDS":                jsii.String(nbrShards),
 			"JETS_REGION":               jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_BUCKET":               sourceBucket.BucketName(),
+			"JETS_s3_INPUT_PREFIX":      jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+			"JETS_s3_OUTPUT_PREFIX":     jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_LOADER_SM_ARN":        loaderSM.StateMachineArn(),
 			"JETS_SERVER_SM_ARN":        serverSM.StateMachineArn(),
 			"JETS_LOADER_SERVER_SM_ARN": loaderAndServerSM.StateMachineArn(),
@@ -839,7 +841,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_CERT_ARN (not required)
 // NBR_SHARDS (defaults to 1)
 // TASK_MAX_CONCURRENCY (defaults to 1)
-// JETS_BUCKET_NAME (required, default "jetstoreone-sourcebucket")
+// JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
