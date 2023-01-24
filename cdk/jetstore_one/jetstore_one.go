@@ -312,6 +312,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Environment: &map[string]*string{
 			"JETS_REGION": jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_BUCKET": sourceBucket.BucketName(),
+			"JETS_DOMAIN_KEY_HASH_ALGO": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -366,6 +368,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Environment: &map[string]*string{
 			"JETS_REGION": jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_BUCKET": sourceBucket.BucketName(),
+			"JETS_DOMAIN_KEY_HASH_ALGO": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -648,6 +652,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_LOADER_SM_ARN":        loaderSM.StateMachineArn(),
 			"JETS_SERVER_SM_ARN":        serverSM.StateMachineArn(),
 			"JETS_LOADER_SERVER_SM_ARN": loaderAndServerSM.StateMachineArn(),
+			"JETS_DOMAIN_KEY_HASH_ALGO": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -845,6 +851,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
+// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
+// JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 
 func main() {
 	defer jsii.Close()
@@ -868,6 +876,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' and 'JETS_IMAGE_TAG' are required.")
 		errMsg = append(errMsg, "Env variables 'JETS_ECR_REPO_ARN' is the jetstore image with the workspace.")
+	}
+	if os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO") == "" && os.Getenv("JETS_DOMAIN_KEY_HASH_SEED") == "" {
+		fmt.Println("Warning: env var JETS_DOMAIN_KEY_HASH_ALGO and JETS_DOMAIN_KEY_HASH_SEED not provided, no hashing of the domain keys will be applied")
 	}
 	if hasErr {
 		for _, msg := range errMsg {

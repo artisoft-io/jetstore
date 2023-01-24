@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -30,6 +32,8 @@ type HeadersAndDomainKeysInfo struct {
 	TableName         string
 	RawHeaders        []string
 	Headers           []string
+	HashingAlgo       string
+	HashingSeed       uuid.UUID
 	// key is the header
 	HeadersPosMap     map[string]int
 	// key is ObjectType of DomainKeyInfo
@@ -37,7 +41,7 @@ type HeadersAndDomainKeysInfo struct {
 	// Reserved columns removed from RawHeaders and included in Headers 
 	ReservedColumns   map[string]bool
 }
-func NewHeadersAndDomainKeysInfo(tableName string) *HeadersAndDomainKeysInfo {
+func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, error) {
 	headersDKInfo := HeadersAndDomainKeysInfo {
 		TableName:         tableName,
 		DomainKeysInfoMap: make(map[string]*DomainKeyInfo, 0),
@@ -45,8 +49,23 @@ func NewHeadersAndDomainKeysInfo(tableName string) *HeadersAndDomainKeysInfo {
 		Headers:           make([]string, 0),
 		HeadersPosMap:     make(map[string]int, 0),
 		ReservedColumns:   make(map[string]bool, 0),
+		HashingAlgo:       strings.ToLower(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 	}
-	return &headersDKInfo
+	if headersDKInfo.HashingAlgo == "" {
+		headersDKInfo.HashingAlgo = "none"
+	}
+	var err error
+	switch headersDKInfo.HashingAlgo {
+	case "md5", "sha1":
+		headersDKInfo.HashingSeed, err = uuid.FromBytes([]byte(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")))
+		if err != nil {
+			return nil, fmt.Errorf("while initializing uuid from JETS_DOMAIN_KEY_HASH_SEED: %v", err)
+		}
+	case "none":
+	default:
+		return nil, fmt.Errorf("error invalid JETS_DOMAIN_KEY_HASH_ALGO, must be md5, sha1, or none (not case sensitive): %s", headersDKInfo.HashingAlgo)
+	}
+	return &headersDKInfo, nil
 }
 func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders []string, mainObjectType string, domainKeysJson *string) error {
 	dkInfo.RawHeaders = append(dkInfo.RawHeaders, rawHeaders...)
@@ -93,6 +112,10 @@ func (dkInfo *HeadersAndDomainKeysInfo)String() string {
 		buf.WriteString(keys[i].String())
 		buf.WriteString(",")
 	}
+	buf.WriteString("\n  HashingAlgo: ")
+	buf.WriteString(dkInfo.HashingAlgo)
+	buf.WriteString("\n  HashingSeed: ")
+	buf.WriteString(dkInfo.HashingSeed.String())
 	buf.WriteString("\n  HeadersPos:")
 	for k,v := range dkInfo.HeadersPosMap {
 		buf.WriteString(fmt.Sprintf("(%s:%d), ", k, v))
@@ -226,6 +249,17 @@ func (dkInfo *HeadersAndDomainKeysInfo)GetHeaderPos() []int {
 	return ret
 }
 
+func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string {
+	groupingKey := strings.Join(*columns, ":")
+	switch dkInfo.HashingAlgo {
+	case "md5":
+		groupingKey = uuid.NewMD5(dkInfo.HashingSeed, []byte(groupingKey)).String()
+	case "sha1":
+		groupingKey = uuid.NewSHA1(dkInfo.HashingSeed, []byte(groupingKey)).String()
+	}
+	return groupingKey
+}
+
 func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, jetsKey *string) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {
@@ -251,7 +285,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 			return "", 0, fmt.Errorf("error: domain key is invalid, make sure it is not a reserved column for ObjectType %s", *objectType)
 		}
 	}
-	groupingKey := strings.Join(cols, ":")
+	groupingKey := dkInfo.makeGroupingKey(&cols)
 	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
 }
 // Alternate version for output records - same as ComputeGroupingKey using interface{} as record
@@ -279,7 +313,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 			cols[ipos] = ""
 		}
 	}
-	groupingKey := strings.Join(cols, ":")
+	groupingKey := dkInfo.makeGroupingKey(&cols)
 	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
 }
 
