@@ -5,17 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 )
 
 // This module provides aws integration for JetStore
@@ -91,6 +92,42 @@ func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (s
 		return "", fmt.Errorf("while calling GetDsnFromJson: %v", err)
 	}
 	return dsn, nil
+}
+
+// ListObjects lists the objects in a bucket.
+func ListS3Objects(bucket, region string) (*[]string, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return nil, fmt.Errorf("while loading aws configuration: %v", err)
+	}
+
+	// Create a s3 client
+	s3Client := s3.NewFromConfig(cfg)
+
+	// Download the keys
+	var prefix *string
+	if os.Getenv("JETS_s3_INPUT_PREFIX") != "" {
+		prefix = aws.String(os.Getenv("JETS_s3_INPUT_PREFIX"))
+	}
+	keys := make([]string, 0)
+	var token *string
+	for isTruncated := true; isTruncated; {
+		result, err := s3Client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
+			Bucket: aws.String(bucket),
+			Prefix: prefix,
+			ContinuationToken: token,
+		})
+		if err != nil {
+			log.Printf("Couldn't list objects in bucket %v. Here's why: %v\n", bucket, err)
+			return nil, err
+		}
+		for i := range result.Contents {
+			keys = append(keys, *result.Contents[i].Key)
+		}
+		isTruncated = result.IsTruncated
+		token = result.NextContinuationToken
+	}
+	return &keys, err
 }
 
 // Download obj from s3 into fileHd (must be writable), return size of download in bytes
