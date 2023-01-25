@@ -250,12 +250,16 @@ func (dkInfo *HeadersAndDomainKeysInfo)GetHeaderPos() []int {
 }
 
 func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string {
-	groupingKey := strings.Join(*columns, ":")
+	var groupingKey string
 	switch dkInfo.HashingAlgo {
 	case "md5":
+		groupingKey = strings.Join(*columns, "")
 		groupingKey = uuid.NewMD5(dkInfo.HashingSeed, []byte(groupingKey)).String()
 	case "sha1":
+		groupingKey = strings.Join(*columns, "")
 		groupingKey = uuid.NewSHA1(dkInfo.HashingSeed, []byte(groupingKey)).String()
+	default:
+		groupingKey = strings.Join(*columns, ":")
 	}
 	return groupingKey
 }
