@@ -606,6 +606,8 @@ func main() {
 	if *dsn != "" && *awsDsnSecret != "" {
 		fmt.Println("Both -awsDsnSecret and -dsn are provided, will use argument -awsDsnSecret only")
 	}
+	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
+	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
  
 	err = coordinateWork()
 	if err != nil {

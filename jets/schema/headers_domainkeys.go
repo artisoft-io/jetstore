@@ -57,7 +57,7 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 	var err error
 	switch headersDKInfo.HashingAlgo {
 	case "md5", "sha1":
-		headersDKInfo.HashingSeed, err = uuid.FromBytes([]byte(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")))
+		headersDKInfo.HashingSeed, err = uuid.Parse(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 		if err != nil {
 			return nil, fmt.Errorf("while initializing uuid from JETS_DOMAIN_KEY_HASH_SEED: %v", err)
 		}
@@ -267,11 +267,14 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 	}
 	if len(dk.ColumnPos) == 1 {
 		if dk.ColumnNames[0] == "jets:key" {
-			return *jetsKey, ComputeShardId(NumberOfShards, *jetsKey), nil
+			cols := []string{*jetsKey}
+			groupingKey := dkInfo.makeGroupingKey(&cols)
+			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		}
 		recPos := dk.ColumnPos[0]
 		if recPos < len(*record) {
-			groupingKey := (*record)[recPos]
+			cols := []string{(*record)[recPos]}
+			groupingKey := dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		}
 		return "", 0, fmt.Errorf("error: domain key is invalid, make sure it is not a reserved column for ObjectType %s", *objectType)
@@ -297,6 +300,8 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 	if len(dk.ColumnPos) == 1 {
 		switch groupingKey := (*record)[dk.ColumnPos[0]].(type) {
 		case string:
+			cols := []string{groupingKey}
+			groupingKey = dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		default:
 			log.Println("Error: Domain Key column is not a string")
@@ -320,8 +325,9 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 func ComputeShardId(NumberOfShards int, key string) int {
 	h := fnv.New32a()
 	h.Write([]byte(key))
-	res := int(h.Sum32()) % NumberOfShards
-	// log.Println("COMPUTE SHARD for key ",key,"on",*nbrShards,"shard id =",res)
+	v := int(h.Sum32())
+	res := v % NumberOfShards
+	// log.Println("COMPUTE SHARD for key ",key,"hashed to", v,"on",NumberOfShards,"shard id =",res)
 	return res
 }
 func TableExists(dbpool *pgxpool.Pool, schema, table string) (exists bool, err error) {
