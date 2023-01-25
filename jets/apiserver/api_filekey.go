@@ -223,12 +223,14 @@ func (server *Server) SyncFileKeys(w http.ResponseWriter, r *http.Request, regis
 	}
 
 	// Remove stale keys from db
-	sqlstmt = fmt.Sprintf("DELETE FROM jetsapi.file_key_staging WHERE key IN (%s);", strings.Join(staleKeys, ","))
-	_, err = server.dbpool.Exec(context.Background(), sqlstmt)
-	if err != nil {
-		log.Printf("while deleting stale keys from file_key_staging table: %v", err)
-		ERROR(w, http.StatusInternalServerError, errors.New("error cannot delete stale keys from file_key_staging table"))
-		return
+	if len(staleKeys) > 0 {
+		sqlstmt = fmt.Sprintf("DELETE FROM jetsapi.file_key_staging WHERE key IN (%s);", strings.Join(staleKeys, ","))
+		_, err = server.dbpool.Exec(context.Background(), sqlstmt)
+		if err != nil {
+			log.Printf("while deleting stale keys from file_key_staging table: %v", err)
+			ERROR(w, http.StatusInternalServerError, errors.New("error cannot delete stale keys from file_key_staging table"))
+			return
+		}	
 	}
 
 	// Add missing keys to database (without stating any processes)
