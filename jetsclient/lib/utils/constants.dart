@@ -200,6 +200,9 @@ class ActionKeys {
   // for load file
   static const loaderOk = "loader.ok";
 
+  // to sync file key with web storage (s3)
+  static const syncFileKey = "syncFileKey";
+
   // for add process input dialog
   static const addProcessInputOk = "addProcessInputOk";
   // for process mapping dialog
@@ -270,4 +273,8 @@ class DTKeys {
 /// API Server endpoints
 class ServerEPs {
   static const dataTableEP = "/dataTable";
+  static const purgeDataEP = "/purgeData";
+  static const registerFileKeyEP = "/registerFileKey";
+  static const loginEP = "/login";
+  static const registerEP = "/register";
 }

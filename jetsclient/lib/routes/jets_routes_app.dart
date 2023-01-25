@@ -26,7 +26,6 @@ const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
 const userAdminPath = '/userAdmin';
-const purgeDataPath = '/purgeData';
 
 final Map<String, Widget> jetsRoutesMap = {
   // Home Screen

@@ -8,6 +8,8 @@ import 'package:jetsclient/screens/components/form.dart';
 typedef ValidatorDelegate = String? Function(
     JetsFormState formState, int, String, dynamic);
 
+typedef AnonymousCallback = void Function();
+
 /// Selected rows mapping, key is row primary key
 typedef SelectedRows = Map<String, JetsRow>;
 
@@ -63,7 +65,8 @@ class JetsFormState extends ChangeNotifier {
         _invalidKeys = InternalUpdatedKeys.generate(
             initialGroupCount > 0 ? initialGroupCount : 1,
             (index) => <String>{},
-            growable: true);
+            growable: true),
+        _callbacks = [];
 
   /// number of validation groups in the form state
   int groupCount;
@@ -99,6 +102,19 @@ class JetsFormState extends ChangeNotifier {
   /// form validation. This is used when form fields are setup
   /// to autovalidate (typically used with form builder, see [JetsForm] class)
   final InternalUpdatedKeys _invalidKeys;
+
+  /// List of callback function using in data table action
+  final List<AnonymousCallback> _callbacks;
+
+  void addCallback(AnonymousCallback cb) {
+    _callbacks.add(cb);
+  }
+
+  void invokeCallbacks() {
+    for (var cb in _callbacks) {
+      cb();
+    }
+  }
 
   void resizeFormState(int newGroupCount) {
     // print("Resizing formState from $groupCount to $newGroupCount");

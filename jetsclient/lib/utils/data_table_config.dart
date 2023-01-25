@@ -672,6 +672,12 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Load File',
           style: ActionStyle.primary,
           isEnabledWhenHavingSelectedRows: true),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          actionName: ActionKeys.syncFileKey,
+          key: 'syncFileKey',
+          label: 'Sync File Keys',
+          style: ActionStyle.secondary),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
