@@ -507,17 +507,19 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       case DataTableActionType.refreshTable:
         _refreshTable();
         break;
-      // Refresh data table
+      // Call server to do an action
       case DataTableActionType.doAction:
         JetsRow? row = dataSource.getFirstSelectedRow();
         // check if no row is selected while we expect to have one selected
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
         if (formState == null || ac.actionName == null) return;
+        
         // perform the action then refresh the table
+        formState!.addCallback(_refreshTable);
         await actionsDelegate(
             context, GlobalKey<FormState>(), formState!, ac.actionName!,
             group: 0);
-        _refreshTable();
+        // _refreshTable();
         break;
 
       // case 'edit':

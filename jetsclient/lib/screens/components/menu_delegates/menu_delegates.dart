@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
+import 'package:jetsclient/utils/constants.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
@@ -20,10 +21,10 @@ void purgeDataAction(BuildContext context) async {
   var encodedJsonBody = jsonEncode(<String, dynamic>{
     'action': 'reset_domain_tables',
     'table': '',
-    'data': [{}],
+    'data': [],
   }, toEncodable: (_) => '');
   var result = await client.sendRequest(
-      path: purgeDataPath, 
+      path: ServerEPs.purgeDataEP, 
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
   // if (!mounted) return; needed?
@@ -50,10 +51,10 @@ void rerunDbInitAction(BuildContext context) async {
   var encodedJsonBody = jsonEncode(<String, dynamic>{
     'action': 'rerun_db_init',
     'table': '',
-    'data': [{}],
+    'data': [],
   }, toEncodable: (_) => '');
   var result = await client.sendRequest(
-      path: purgeDataPath, 
+      path: ServerEPs.purgeDataEP, 
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
   // if (!mounted) return; needed?

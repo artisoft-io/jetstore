@@ -9,6 +9,7 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 
+/// postInsertRows - main function to post for inserting rows into db
 void postInsertRows(BuildContext context, JetsFormState formState,
     String encodedJsonBody) async {
   var navigator = Navigator.of(context);
@@ -43,6 +44,26 @@ void postInsertRows(BuildContext context, JetsFormState formState,
     formState.setValue(
         0, FSK.serverError, "Got a server error. Please try again.");
     navigator.pop(DTActionResult.statusError);
+  }
+}
+
+/// postSimpleAction - post action that does not require navigation
+void postSimpleAction(BuildContext context, JetsFormState formState,
+    String serverEndPoint, String encodedJsonBody) async {
+  var messenger = ScaffoldMessenger.of(context);
+  var result = await context.read<HttpClient>().sendRequest(
+      path: serverEndPoint,
+      token: JetsRouterDelegate().user.token,
+      encodedJsonBody: encodedJsonBody);
+
+  // print("Got reply with status code ${result.statusCode}");
+  if (result.statusCode == 200) {
+    // Inform the user and transition
+    const snackBar = SnackBar(content: Text('Request successfully completed'));
+    messenger.showSnackBar(snackBar);
+    formState.invokeCallbacks();
+  } else {
+    showAlertDialog(context, "Something went wrong. Please try again.");
   }
 }
 
@@ -211,14 +232,15 @@ String? sourceConfigValidator(
       return null;
 
     default:
-      print('Oops Source Config Form has no validator configured for form field $key');
+      print(
+          'Oops Source Config Form has no validator configured for form field $key');
   }
   return null;
 }
 
 /// Source Configuration Form Actions
-Future<void> sourceConfigActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey,
+Future<void> sourceConfigActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
     // Add Client
@@ -260,7 +282,7 @@ Future<void> sourceConfigActions(BuildContext context, GlobalKey<FormState> form
 
     // Start loader
     case ActionKeys.loaderOk:
-      // No form validation since does not use widgets 
+      // No form validation since does not use widgets
       // var valid = formKey.currentState!.validate();
       // if (!valid) {
       //   return;
@@ -281,6 +303,22 @@ Future<void> sourceConfigActions(BuildContext context, GlobalKey<FormState> form
         'data': [state],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
+      break;
+
+    // Sync File Keys with web storage (s3)
+    case ActionKeys.syncFileKey:
+      // No form validation since does not use widgets
+      // var valid = formKey.currentState!.validate();
+      // if (!valid) {
+      //   return;
+      // }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'sync_file_keys',
+        'table': '',
+        'data': [],
+      }, toEncodable: (_) => '');
+      postSimpleAction(
+          context, formState, ServerEPs.registerFileKeyEP, encodedJsonBody);
       break;
 
     case ActionKeys.dialogCancel:

@@ -48,7 +48,7 @@ Future<void> loginFormActions(BuildContext context,
       var client = context.read<HttpClient>();
       var messenger = ScaffoldMessenger.of(context);
       var result = await client.sendRequest(
-          path: loginPath, encodedJsonBody: formState.encodeState(0));
+          path: ServerEPs.loginEP, encodedJsonBody: formState.encodeState(0));
 
       // if (!mounted) return; //* don't think we need this since we don't call setState() here
       if (result.statusCode == 200) {
@@ -142,7 +142,7 @@ Future<void> registrationFormActions(BuildContext context,
       var client = context.read<HttpClient>();
       var messenger = ScaffoldMessenger.of(context);
       var result = await client.sendRequest(
-          path: registerPath, encodedJsonBody: formState.encodeState(0));
+          path: ServerEPs.registerEP, encodedJsonBody: formState.encodeState(0));
       // if (!mounted) return; needed?
       if (result.statusCode == 200 || result.statusCode == 201) {
         // update the [UserModel]
@@ -198,7 +198,7 @@ Future<void> userAdminFormActions(BuildContext context,
         'data': data,
       }, toEncodable: (_) => '');
       var result = await client.sendRequest(
-          path: '/dataTable',
+          path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
       // handling server reply
@@ -208,6 +208,7 @@ Future<void> userAdminFormActions(BuildContext context,
           content: Text('Update Successful'),
         );
         messenger.showSnackBar(snackBar);
+        formState.invokeCallbacks();
       } else {
         showAlertDialog(context, 'Something went wrong. Please try again.');
       }
@@ -231,7 +232,7 @@ Future<void> userAdminFormActions(BuildContext context,
         'data': data,
       }, toEncodable: (_) => '');
       var result = await client.sendRequest(
-          path: '/dataTable',
+          path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
       // handling server reply
@@ -241,6 +242,7 @@ Future<void> userAdminFormActions(BuildContext context,
           content: Text('Delete User(s) Successful'),
         );
         messenger.showSnackBar(snackBar);
+        formState.invokeCallbacks();
       } else {
         showAlertDialog(context, 'Something went wrong. Please try again.');
       }

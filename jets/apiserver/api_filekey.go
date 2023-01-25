@@ -190,8 +190,13 @@ func (server *Server) SyncFileKeys(w http.ResponseWriter, r *http.Request, regis
 	}
 	// make key lookup
 	s3Lookup := make(map[string]bool)
-	for i := range *keys {
-		s3Lookup[(*keys)[i]] = true
+	for _,fileKey := range *keys {
+		if !strings.HasSuffix(fileKey, "/") &&
+			strings.Contains(fileKey, "client=") &&
+			strings.Contains(fileKey, "object_type=") {
+				fmt.Println("Got Key from S3:",fileKey)
+				s3Lookup[fileKey] = true	
+		}
 	}
 	dbLookup := make(map[string]bool)
 
@@ -243,6 +248,7 @@ func (server *Server) SyncFileKeys(w http.ResponseWriter, r *http.Request, regis
 					fileKeyObject[elms[0]] = elms[1]
 				}
 			}
+			fileKeyObject["file_key"] = s3Key
 			// Insert in db
 			ok := true // make sure we have a value for each column
 			for jcol, colKey := range sqlStmt.columnKeys {
