@@ -103,6 +103,13 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 // AWS_ROLE (default github-ci-role)
 // GH_ORG_NAME (required)
 // GH_REPO_NAME (required)
+// JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
+// JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
+// JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
+// JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
+// JETS_TAG_NAME_PHI (optional, resource-level tag name for indicating if resource contains PHI data, value true/false)
+// JETS_TAG_NAME_PII (optional, resource-level tag name for indicating if resource contains PII data, value true/false)
+// JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 
 func main() {
 	defer jsii.Close()
@@ -127,9 +134,30 @@ func main() {
 
 	app := awscdk.NewApp(nil)
 
+	// Set stack-level tags
+	stackDescription := jsii.String(
+		"Create an Identity provider for GitHub inside the AWS Account." +
+		" This allows GitHub to present itself to AWS IAM and assume a role to deploy JetStore Platform stack")
+
+	if os.Getenv("JETS_TAG_NAME_OWNER") != "" && os.Getenv("JETS_TAG_VALUE_OWNER") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_OWNER")), jsii.String(os.Getenv("JETS_TAG_VALUE_OWNER")), nil)
+	}
+	if os.Getenv("JETS_TAG_NAME_PROD") != "" && os.Getenv("JETS_TAG_VALUE_PROD") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PROD")), jsii.String(os.Getenv("JETS_TAG_VALUE_PROD")), nil)
+	}
+	if os.Getenv("JETS_TAG_NAME_PHI") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PHI")), jsii.String("false"), nil)
+	}
+	if os.Getenv("JETS_TAG_NAME_PII") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PII")), jsii.String("false"), nil)
+	}
+	if os.Getenv("JETS_TAG_NAME_DESCRIPTION") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_DESCRIPTION")), stackDescription, nil)
+	}
 	NewBootstrapAWSStack(app, "BootstrapAWSStack", &BootstrapAWSStackProps{
 		awscdk.StackProps{
 			Env: env(),
+			Description: stackDescription,
 		},
 	})
 
