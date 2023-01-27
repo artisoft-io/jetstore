@@ -8,16 +8,20 @@ import (
 	"strconv"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudwatch"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudwatchactions"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
+
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
-	awss3n "github.com/aws/aws-cdk-go/awscdk/v2/awss3notifications"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
+	awss3n "github.com/aws/aws-cdk-go/awscdk/v2/awss3notifications"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
@@ -44,6 +48,62 @@ type JetstoreOneStackProps struct {
 }
 var phiTagName, piiTagName, descriptionTagName *string
 
+// Support Functions
+func AddElbAlarms(stack awscdk.Stack, prefix string, elb awselb.ApplicationLoadBalancer) {
+	var alarmAction awscloudwatch.IAlarmAction
+	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
+		alarmAction = awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack, jsii.String("SnsAlarmTopic"), 
+			jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))))
+	}
+	var alarm awscloudwatch.Alarm
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"TargetResponseTimeAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String(prefix+"TargetResponseTimeAlarm"),
+		EvaluationPeriods: jsii.Number(1),
+		DatapointsToAlarm: jsii.Number(1),
+		Threshold: jsii.Number(10000),
+		AlarmDescription: jsii.String("TargetResponseTime > 10000 for 1 datapoints within 1 minute"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: elb.MetricTargetResponseTime(&awscloudwatch.MetricOptions{
+			Period: awscdk.Duration_Minutes(jsii.Number(1)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"ServerErrorsAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String(prefix+"ServerErrorsAlarm"),
+		EvaluationPeriods: jsii.Number(1),
+		DatapointsToAlarm: jsii.Number(1),
+		Threshold: jsii.Number(100),
+		AlarmDescription: jsii.String("HTTPCode_Target_5XX_Count > 100 for 1 datapoints within 5 minutes"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: elb.MetricHttpCodeTarget(awselb.HttpCodeTarget_TARGET_5XX_COUNT, &awscloudwatch.MetricOptions{
+			Period: awscdk.Duration_Minutes(jsii.Number(5)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"UnHealthyHostCountAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String(prefix+"UnHealthyHostCountAlarm"),
+		EvaluationPeriods: jsii.Number(1),
+		Threshold: jsii.Number(1),
+		DatapointsToAlarm: jsii.Number(1),
+		AlarmDescription: jsii.String("UnHealthyHostCount >= 1 for 1 datapoints within 5 minutes"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: elb.Metric(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
+			Period: awscdk.Duration_Minutes(jsii.Number(5)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+}
+
+// Main Function
 func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreOneStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
@@ -854,6 +914,12 @@ publicSubnetSelection := &awsec2.SubnetSelection{
 	}
 
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
+	
+	// Add the ELB alerts
+	AddElbAlarms(stack, "UiElb", uiLoadBalancer)
+	if os.Getenv("JETS_ELB_MODE") == "public" {
+		AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer)
+	}
 
 	// Add jump server
 	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
@@ -985,7 +1051,7 @@ publicSubnetSelection := &awsec2.SubnetSelection{
 // JETS_TAG_NAME_PHI (optional, resource-level tag name for indicating if resource contains PHI data, value true/false)
 // JETS_TAG_NAME_PII (optional, resource-level tag name for indicating if resource contains PII data, value true/false)
 // JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
-
+// JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 func main() {
 	defer jsii.Close()
 
@@ -1012,6 +1078,7 @@ func main() {
 	fmt.Println("env JETS_TAG_NAME_PHI:",os.Getenv("JETS_TAG_NAME_PHI"))
 	fmt.Println("env JETS_TAG_NAME_PII:",os.Getenv("JETS_TAG_NAME_PII"))
 	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:",os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
+	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:",os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
