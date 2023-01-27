@@ -42,6 +42,7 @@ func (ma myAspect) Visit(node constructs.IConstruct) {
 type JetstoreOneStackProps struct {
 	awscdk.StackProps
 }
+var phiTagName, piiTagName, descriptionTagName *string
 
 func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreOneStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
@@ -59,8 +60,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
 			AutoDeleteObjects: jsii.Bool(true),
 			BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
-			// BucketName:        jsii.String(bucketName),
+			Versioned: jsii.Bool(true),
+			ServerAccessLogsPrefix: jsii.String("AccessLogs"),
 		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(sb).Add(phiTagName, jsii.String("true"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(sb).Add(piiTagName, jsii.String("true"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(sb).Add(descriptionTagName, jsii.String("Bucket to input/output data to/from JetStore"), nil)
+		}
 		sb.DisallowPublicAccess()	
 		sourceBucket = sb
 	} else {
@@ -88,7 +99,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			},
 		},
 	})
-	publicSubnetSelection := &awsec2.SubnetSelection{
+	if phiTagName != nil {
+		awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("VPC for JetStore Platform"), nil)
+	}
+publicSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
 	}
 	rdsSubnetsIndex := 0
@@ -116,7 +136,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Actions:   jsii.Strings("s3:ListBucket", "s3:GetObject", "s3:PutObject"),
 			Resources: jsii.Strings("*"),
 		}))
-	// awscdk.NewTag().ApplyTag(s3Endpoint)
 
 	// Add Endpoint for ecr
 	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
@@ -194,12 +213,30 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		StorageEncrypted: jsii.Bool(true),
 	})
 	awscdk.Aspects_Of(rdsCluster).Add(new(myAspect))
+	if phiTagName != nil {
+		awscdk.Tags_Of(rdsCluster).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(rdsCluster).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(rdsCluster).Add(descriptionTagName, jsii.String("Database cluster for JetStore Platform"), nil)
+	}
 
 	// Create the ecsCluster.
 	ecsCluster := awsecs.NewCluster(stack, jsii.String("ecsCluster"), &awsecs.ClusterProps{
 		Vpc: vpc,
-		// ContainerInsights: jsii.Bool(true),
+		ContainerInsights: jsii.Bool(true),
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(ecsCluster).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(ecsCluster).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(ecsCluster).Add(descriptionTagName, jsii.String("Compute cluster for JetStore Platform"), nil)
+	}
 
 	// The task needs two roles -- for simplicity we use the same roles for all ecsTasks...
 	//   1. A task execution role (ecsTaskExecutionRole) which is used to start the task, and needs to load the containers from ECR etc.
@@ -303,6 +340,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
 	})
+	
 	loaderContainerDef := loaderTaskDefinition.AddContainer(jsii.String("loaderContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jetStoreImage,
@@ -346,6 +384,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Definition:       runLoaderTask,
 		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(loaderSM).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(loaderSM).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(loaderSM).Add(descriptionTagName, jsii.String("State Machine to load data into JetStore Platform"), nil)
+	}
 
 	// JetStore Rule Server State Machine
 	// Define the serverTaskDefinition for the serverSM
@@ -396,6 +443,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	runServerTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerTask"))
+
 	// Define the run_reports task, part of the runServerSM
 	runreportTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("runreportTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(3072),
@@ -445,6 +493,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	runReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runReportsTask "))
+
 	// Define the update_error_status task, part of the runServerSM
 	updateStatusTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("updateStatusTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(1024),
@@ -492,6 +541,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateErrorStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from  updateErrorStatusTask"))
+
 	updateSuccessStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-success"), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Update Status with Success"),
 		Cluster:        ecsCluster,
@@ -511,6 +561,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateSuccessStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from updateSuccessStatusTask"))
+
 	//*TODO SNS message
 	notifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
 	notifySuccess := sfn.NewPass(scope, jsii.String("notify-success"), &sfn.PassProps{})
@@ -526,14 +577,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			maxConcurrency = 1
 		}
 	}
+	cp := &sfn.CatchProps{Errors: jsii.Strings("States.ALL")}
 	runServerMap := sfn.NewMap(stack, jsii.String("run-server-map"), &sfn.MapProps{
 		Comment:        jsii.String("Run JetStore Rule Server Task"),
 		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),
 		MaxConcurrency: jsii.Number(maxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-	runServerMap.Iterator(runServerTask).Next(runReportsTask)
-	cp := &sfn.CatchProps{Errors: jsii.Strings("States.ALL")}
+	runServerMap.Iterator(runServerTask).AddCatch(updateErrorStatusTask, cp).Next(runReportsTask)
+
 	runReportsTask.AddCatch(updateErrorStatusTask, cp).Next(updateSuccessStatusTask)
 	updateSuccessStatusTask.AddCatch(notifyFailure, cp).Next(notifySuccess)
 	updateErrorStatusTask.AddCatch(notifyFailure, cp).Next(notifyFailure)
@@ -541,9 +593,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
 		Definition:       runServerMap,
-		// NOTE 2h TIMEOUT of exec rules
-		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
+		//* NOTE 4h TIMEOUT of exec rules
+		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(serverSM).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(serverSM).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(serverSM).Add(descriptionTagName, jsii.String("State Machine to execute rules in JetStore Platform"), nil)
+	}
 
 	// JetStore Run Loader & Rule Server State Machine
 	//*TODO SNS message
@@ -556,8 +617,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"loaderCommand.$": "$.loaderCommand",
 		}),
 		ResultPath: sfn.JsonPath_DISCARD(),
-		//* 2h TIMEOUT
-		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
+		//* NOTE 4h TIMEOUT
+		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
 	})
 	loaderStartExec.AddCatch(notifyFailure2, cp)
 	serverStartExec := sfntask.NewStepFunctionsStartExecution(stack, jsii.String("serverStartExec"), &sfntask.StepFunctionsStartExecutionProps{
@@ -571,8 +632,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"errorUpdate.$":    "$.errorUpdate",
 		}),
 		ResultPath: sfn.JsonPath_DISCARD(),
-		//* 2h TIMEOUT
-		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
+		//* NOTE 4h TIMEOUT
+		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
 	})
 	serverStartExec.AddCatch(notifyFailure2, cp)
 	loaderStartExec.Next(serverStartExec)
@@ -581,11 +642,20 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Definition:       loaderStartExec,
 		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(loaderAndServerSM).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(loaderAndServerSM).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(loaderAndServerSM).Add(descriptionTagName, jsii.String("State Machine to load data and execute rules in JetStore Platform"), nil)
+	}
 
 	// ---------------------------------------
 	// Allow JetStore Tasks Running in JetStore Container
 	// permission to execute the StateMachines
-	// These execution are perfoemd in code so must give permission explicitly
+	// These execution are performed in code so must give permission explicitly
 	// ---------------------------------------
 	ecsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("states:StartExecution"),
@@ -672,6 +742,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(ecsUiService).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(ecsUiService).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(ecsUiService).Add(descriptionTagName, jsii.String("JetStore Platform Microservices and UI service"), nil)
+	}
+
 	// JETS_ELB_MODE == public: deploy ELB in public subnet and public facing
 	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
 	var uiLoadBalancer, serviceLoadBalancer awselb.ApplicationLoadBalancer
@@ -681,17 +761,44 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			InternetFacing: jsii.Bool(true),
 			VpcSubnets:     publicSubnetSelection,
 		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(uiLoadBalancer).Add(piiTagName, jsii.String("true"), nil)
+		}	
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(uiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
+		}
 		serviceLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("ServiceELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc: vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets: subnetSelection[ecsSubnetsIndex],
 		})	
+		if phiTagName != nil {
+			awscdk.Tags_Of(serviceLoadBalancer).Add(phiTagName, jsii.String("false"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(serviceLoadBalancer).Add(piiTagName, jsii.String("false"), nil)
+		}	
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(serviceLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for S3 notification listener lambda"), nil)
+		}
 	} else {
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     subnetSelection[ecsSubnetsIndex],
 		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(uiLoadBalancer).Add(piiTagName, jsii.String("true"), nil)
+		}	
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(uiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
+		}
 	}
 	var err error
 	var uiPort float64 = 8080
@@ -749,16 +856,25 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
 
 	// Add jump server
-	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
-		Vpc:             vpc,
-		InstanceName:    jsii.String("JetstoreJumpServer"),
-		SubnetSelection: publicSubnetSelection,
-	})
 	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
+		bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
+			Vpc:             vpc,
+			InstanceName:    jsii.String("JetstoreJumpServer"),
+			SubnetSelection: publicSubnetSelection,
+		})
 		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
+		bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
+		if phiTagName != nil {
+			awscdk.Tags_Of(bastionHost).Add(phiTagName, jsii.String("false"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(bastionHost).Add(piiTagName, jsii.String("false"), nil)
+		}	
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(bastionHost).Add(descriptionTagName, jsii.String("Bastion host for JetStore Platform"), nil)
+		}
 	}
-	bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
 
 	// BEGIN Create a Sample Lambda function to start the sample container task.
 	// registerKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("registerKeyLambda"), &awslambdago.GoFunctionProps{
@@ -809,6 +925,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	registerKeyLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
 	adminPwdSecret.GrantRead(registerKeyLambda, nil)
 	// END ALTERNATE with python lamdba fnc
+	if phiTagName != nil {
+		awscdk.Tags_Of(registerKeyLambda).Add(phiTagName, jsii.String("false"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(registerKeyLambda).Add(piiTagName, jsii.String("false"), nil)
+	}	
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(registerKeyLambda).Add(descriptionTagName, jsii.String("Lambda listening to S3 events for JetStore Platform"), nil)
+	}
 
 	// Run the task starter Lambda when an object is added to the S3 bucket.
 	// registerKeyLambda.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
@@ -853,9 +978,40 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
+// JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
+// JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
+// JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
+// JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
+// JETS_TAG_NAME_PHI (optional, resource-level tag name for indicating if resource contains PHI data, value true/false)
+// JETS_TAG_NAME_PII (optional, resource-level tag name for indicating if resource contains PII data, value true/false)
+// JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 
 func main() {
 	defer jsii.Close()
+
+	fmt.Println("Got following env var")
+	fmt.Println("env AWS_ACCOUNT:",os.Getenv("AWS_ACCOUNT"))
+	fmt.Println("env AWS_REGION:",os.Getenv("AWS_REGION"))
+	fmt.Println("env JETS_ECR_REPO_ARN:",os.Getenv("JETS_ECR_REPO_ARN"))
+	fmt.Println("env JETS_IMAGE_TAG:",os.Getenv("JETS_IMAGE_TAG"))
+	fmt.Println("env JETS_UI_PORT:",os.Getenv("JETS_UI_PORT"))
+	fmt.Println("env JETS_ELB_MODE:",os.Getenv("JETS_ELB_MODE"))
+	fmt.Println("env JETS_CERT_ARN:",os.Getenv("JETS_CERT_ARN"))
+	fmt.Println("env NBR_SHARDS:",os.Getenv("NBR_SHARDS"))
+	fmt.Println("env TASK_MAX_CONCURRENCY:",os.Getenv("TASK_MAX_CONCURRENCY"))
+	fmt.Println("env JETS_BUCKET_NAME:",os.Getenv("JETS_BUCKET_NAME"))
+	fmt.Println("env JETS_s3_INPUT_PREFIX:",os.Getenv("JETS_s3_INPUT_PREFIX"))
+	fmt.Println("env JETS_s3_OUTPUT_PREFIX:",os.Getenv("JETS_s3_OUTPUT_PREFIX"))
+	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:",os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	fmt.Println("env JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
+	fmt.Println("env JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
+	fmt.Println("env JETS_TAG_NAME_OWNER:",os.Getenv("JETS_TAG_NAME_OWNER"))
+	fmt.Println("env JETS_TAG_VALUE_OWNER:",os.Getenv("JETS_TAG_VALUE_OWNER"))
+	fmt.Println("env JETS_TAG_NAME_PROD:",os.Getenv("JETS_TAG_NAME_PROD"))
+	fmt.Println("env JETS_TAG_VALUE_PROD:",os.Getenv("JETS_TAG_VALUE_PROD"))
+	fmt.Println("env JETS_TAG_NAME_PHI:",os.Getenv("JETS_TAG_NAME_PHI"))
+	fmt.Println("env JETS_TAG_NAME_PII:",os.Getenv("JETS_TAG_NAME_PII"))
+	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:",os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -889,9 +1045,28 @@ func main() {
 
 	app := awscdk.NewApp(nil)
 
+	// Resource-level tag names
+	if os.Getenv("JETS_TAG_NAME_PHI") != "" {
+		phiTagName = jsii.String(os.Getenv("JETS_TAG_NAME_PHI"))
+	}
+	if os.Getenv("JETS_TAG_NAME_PII") != "" {
+		piiTagName = jsii.String(os.Getenv("JETS_TAG_NAME_PII"))
+	}
+	if os.Getenv("JETS_TAG_NAME_DESCRIPTION") != "" {
+		descriptionTagName = jsii.String(os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
+	}
+	// Set stack-level tags
+	stackDescription := jsii.String("JetStore Platform for Data Onboarding and Clinical Rules Execution")
+	if os.Getenv("JETS_TAG_NAME_OWNER") != "" && os.Getenv("JETS_TAG_VALUE_OWNER") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_OWNER")), jsii.String(os.Getenv("JETS_TAG_VALUE_OWNER")), nil)
+	}
+	if os.Getenv("JETS_TAG_NAME_PROD") != "" && os.Getenv("JETS_TAG_VALUE_PROD") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PROD")), jsii.String(os.Getenv("JETS_TAG_VALUE_PROD")), nil)
+	}
 	NewJetstoreOneStack(app, "JetstoreOneStack", &JetstoreOneStackProps{
 		awscdk.StackProps{
 			Env: env(),
+			Description: stackDescription,
 		},
 	})
 
