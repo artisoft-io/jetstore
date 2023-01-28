@@ -30,29 +30,33 @@ import (
 	// awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 )
 
-type myAspect struct {
+type DbClusterVisitor struct {
+	DbMinCapacity *float64
+	DbMaxCapacity *float64
 }
 
-func (ma myAspect) Visit(node constructs.IConstruct) {
+func (ma DbClusterVisitor) Visit(node constructs.IConstruct) {
 	res, ok := node.(awsrds.CfnDBCluster)
 	if ok {
 		res.SetServerlessV2ScalingConfiguration(&awsrds.CfnDBCluster_ServerlessV2ScalingConfigurationProperty{
-			MinCapacity: jsii.Number(0.5),
-			MaxCapacity: jsii.Number(2),
+			MinCapacity: ma.DbMinCapacity,
+			MaxCapacity: ma.DbMaxCapacity,
 		})
 	}
 }
 
 type JetstoreOneStackProps struct {
 	awscdk.StackProps
+	DbMinCapacity *float64
+	DbMaxCapacity *float64
 }
 var phiTagName, piiTagName, descriptionTagName *string
 
 // Support Functions
-func AddElbAlarms(stack awscdk.Stack, prefix string, elb awselb.ApplicationLoadBalancer) {
+func AddElbAlarms(stack awscdk.Stack, prefix string, elb awselb.ApplicationLoadBalancer, props *JetstoreOneStackProps) {
 	var alarmAction awscloudwatch.IAlarmAction
 	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
-		alarmAction = awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack, jsii.String("SnsAlarmTopic"), 
+		alarmAction = awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack, jsii.String("ElbSnsAlarmTopic"), 
 			jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))))
 	}
 	var alarm awscloudwatch.Alarm
@@ -95,6 +99,60 @@ func AddElbAlarms(stack awscdk.Stack, prefix string, elb awselb.ApplicationLoadB
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
 		Metric: elb.Metric(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
+			Period: awscdk.Duration_Minutes(jsii.Number(5)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+}
+
+func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster, props *JetstoreOneStackProps) {
+	var alarmAction awscloudwatch.IAlarmAction
+	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
+		alarmAction = awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack, jsii.String("RdsSnsAlarmTopic"), 
+			jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))))
+	}
+	var alarm awscloudwatch.Alarm
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String("DiskQueueDepthAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String("DiskQueueDepthAlarm"),
+		EvaluationPeriods: jsii.Number(1),
+		DatapointsToAlarm: jsii.Number(1),
+		Threshold: jsii.Number(80),
+		AlarmDescription: jsii.String("DiskQueueDepth >= 80 for 1 datapoints within 5 minutes"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: rds.Metric(jsii.String("DiskQueueDepth"), &awscloudwatch.MetricOptions{
+			Period: awscdk.Duration_Minutes(jsii.Number(5)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String("CPUUtilizationAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String("CPUUtilizationAlarm"),
+		EvaluationPeriods: jsii.Number(1),
+		DatapointsToAlarm: jsii.Number(1),
+		Threshold: jsii.Number(60),
+		AlarmDescription: jsii.String("CPUUtilization > 60 for 1 datapoints within 5 minutes"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: rds.MetricCPUUtilization(&awscloudwatch.MetricOptions{
+			Period: awscdk.Duration_Minutes(jsii.Number(5)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String("ServerlessDatabaseCapacityAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String("ServerlessDatabaseCapacityAlarm"),
+		EvaluationPeriods: jsii.Number(1),
+		Threshold: jsii.Number(*props.DbMaxCapacity*0.8),
+		DatapointsToAlarm: jsii.Number(1),
+		AlarmDescription: jsii.String("ServerlessDatabaseCapacity >= MAX_CAPACITY*0.8 for 1 datapoints within 5 minutes"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: rds.Metric(jsii.String("ServerlessDatabaseCapacity"), &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
 		}),
 	})
@@ -272,7 +330,10 @@ publicSubnetSelection := &awsec2.SubnetSelection{
 		},
 		StorageEncrypted: jsii.Bool(true),
 	})
-	awscdk.Aspects_Of(rdsCluster).Add(new(myAspect))
+	awscdk.Aspects_Of(rdsCluster).Add(&DbClusterVisitor{
+		DbMinCapacity: props.DbMinCapacity,
+		DbMaxCapacity: props.DbMaxCapacity,
+	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(rdsCluster).Add(phiTagName, jsii.String("true"), nil)
 	}
@@ -916,10 +977,12 @@ publicSubnetSelection := &awsec2.SubnetSelection{
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
 	
 	// Add the ELB alerts
-	AddElbAlarms(stack, "UiElb", uiLoadBalancer)
+	AddElbAlarms(stack, "UiElb", uiLoadBalancer, props)
 	if os.Getenv("JETS_ELB_MODE") == "public" {
-		AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer)
+		AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer, props)
 	}
+	// Add the RDS alerts
+	AddRdsAlarms(stack, rdsCluster, props)
 
 	// Add jump server
 	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
@@ -1052,8 +1115,11 @@ publicSubnetSelection := &awsec2.SubnetSelection{
 // JETS_TAG_NAME_PII (optional, resource-level tag name for indicating if resource contains PII data, value true/false)
 // JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
+// JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
+// JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 func main() {
 	defer jsii.Close()
+	var err error
 
 	fmt.Println("Got following env var")
 	fmt.Println("env AWS_ACCOUNT:",os.Getenv("AWS_ACCOUNT"))
@@ -1079,6 +1145,8 @@ func main() {
 	fmt.Println("env JETS_TAG_NAME_PII:",os.Getenv("JETS_TAG_NAME_PII"))
 	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:",os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:",os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
+	fmt.Println("env JETS_DB_MIN_CAPACITY:",os.Getenv("JETS_DB_MIN_CAPACITY"))
+	fmt.Println("env JETS_DB_MAX_CAPACITY:",os.Getenv("JETS_DB_MAX_CAPACITY"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -1102,6 +1170,22 @@ func main() {
 	}
 	if os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO") == "" && os.Getenv("JETS_DOMAIN_KEY_HASH_SEED") == "" {
 		fmt.Println("Warning: env var JETS_DOMAIN_KEY_HASH_ALGO and JETS_DOMAIN_KEY_HASH_SEED not provided, no hashing of the domain keys will be applied")
+	}
+	dBMinCapacity := 0.5
+	if os.Getenv("JETS_DB_MIN_CAPACITY") != "" {
+		dBMinCapacity, err = strconv.ParseFloat(os.Getenv("JETS_DB_MIN_CAPACITY"), 64)
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("Invalid value for JETS_DB_MIN_CAPACITY: %s",os.Getenv("JETS_DB_MIN_CAPACITY")))
+		}
+	}
+	dBMaxCapacity := 6.0
+	if os.Getenv("JETS_DB_MAX_CAPACITY") != "" {
+		dBMaxCapacity, err = strconv.ParseFloat(os.Getenv("JETS_DB_MAX_CAPACITY"), 64)
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("Invalid value for JETS_DB_MAX_CAPACITY: %s",os.Getenv("JETS_DB_MAX_CAPACITY")))
+		}
 	}
 	if hasErr {
 		for _, msg := range errMsg {
@@ -1135,6 +1219,8 @@ func main() {
 			Env: env(),
 			Description: stackDescription,
 		},
+		&dBMinCapacity,
+		&dBMaxCapacity,
 	})
 
 	app.Synth(nil)
