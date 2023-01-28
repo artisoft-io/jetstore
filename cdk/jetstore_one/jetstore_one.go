@@ -216,6 +216,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 			},
 		},
+		FlowLogs: &map[string]*awsec2.FlowLogOptions{
+			"VpcFlowFlog": {
+				TrafficType: awsec2.FlowLogTrafficType_ALL,
+			},
+		},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("true"), nil)
