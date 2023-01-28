@@ -150,7 +150,7 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster, props *Jetstor
 		Threshold: jsii.Number(*props.DbMaxCapacity*0.8),
 		DatapointsToAlarm: jsii.Number(1),
 		AlarmDescription: jsii.String("ServerlessDatabaseCapacity >= MAX_CAPACITY*0.8 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
 		Metric: rds.Metric(jsii.String("ServerlessDatabaseCapacity"), &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
