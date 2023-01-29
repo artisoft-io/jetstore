@@ -142,13 +142,16 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 		txt := string(buf[0:nb])
 		cn := strings.Count(txt, ",")
 		pn := strings.Count(txt, "|")
-		if cn == pn {
-			return nil, 0, 0, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
-		}
-		if cn > pn {
+		tn := strings.Count(txt, "\t")
+		switch {
+		case (cn > pn) && (cn > tn):
 			sep_flag = ','
-		} else {
+		case (pn > cn) && (pn > tn):
 			sep_flag = '|'
+		case (tn > cn) && (tn > pn):
+			sep_flag = '\t'
+		default:
+			return nil, 0, 0, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
 		}
 		_, err = fileHd.Seek(0, 0)
 		if err != nil {
