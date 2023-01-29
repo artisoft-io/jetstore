@@ -202,18 +202,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		NatGateways:        jsii.Number(0),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
-		Cidr: jsii.String("10.0.0.0/16"),
+		IpAddresses: awsec2.IpAddresses_Cidr(jsii.String("10.10.0.0/16")),
 		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
 			{
 				Name:       jsii.String("public"),
 				SubnetType: awsec2.SubnetType_PUBLIC,
 			},
 			{
-				Name:       jsii.String("jetstoreRds"),
-				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
-			},
-			{
-				Name:       jsii.String("jetstoreEcs"),
+				Name:       jsii.String("isolated"),
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 			},
 		},
@@ -235,21 +231,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	publicSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
 	}
-	rdsSubnetsIndex := 0
-	// ecsSubnetsIndex := 1
-	ecsSubnetsIndex := 0
-	subnetSelection := make([]*awsec2.SubnetSelection, 0)
-	subnetSelection = append(subnetSelection, &awsec2.SubnetSelection{
-		SubnetGroupName: jsii.String("jetstoreRds"),
-	}, &awsec2.SubnetSelection{
-		SubnetGroupName: jsii.String("jetstoreEcs"),
-	})
+	isolatedSubnetSelection := &awsec2.SubnetSelection{
+		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
+	}
 
 	// Add Endpoints
 	// Add Endpoint for S3
 	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
 		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
-		Subnets: &subnetSelection,
+		Subnets: &[]*awsec2.SubnetSelection{isolatedSubnetSelection},
 	})
 	s3Endpoint.AddToPolicy(
 		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
@@ -264,35 +254,35 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add Endpoint for ecr
 	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
-		Subnets: subnetSelection[ecsSubnetsIndex],
+		Subnets: isolatedSubnetSelection,
 		// Open: jsii.Bool(true),
 	})
 	vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
-		Subnets: subnetSelection[ecsSubnetsIndex],
+		Subnets: isolatedSubnetSelection,
 		// Open: jsii.Bool(true),
 	})
 
 	// Add secret manager endpoint
 	vpc.AddInterfaceEndpoint(jsii.String("secretmanagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
-		Subnets: subnetSelection[rdsSubnetsIndex],
+		Subnets: isolatedSubnetSelection,
 	})
 
 	// Add Step Functions endpoint
 	vpc.AddInterfaceEndpoint(jsii.String("statesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
-		Subnets: subnetSelection[ecsSubnetsIndex],
+		Subnets: isolatedSubnetSelection,
 	})
 	vpc.AddInterfaceEndpoint(jsii.String("statesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
-		Subnets: subnetSelection[ecsSubnetsIndex],
+		Subnets: isolatedSubnetSelection,
 	})
 
 	// Add Cloudwatch endpoint
 	vpc.AddInterfaceEndpoint(jsii.String("cloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
-		Subnets: subnetSelection[rdsSubnetsIndex],
+		Subnets: isolatedSubnetSelection,
 	})
 
 	// Create Serverless v2 Aurora Cluster -- Postgresql Server
@@ -309,7 +299,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// 		Version: awsrds.AuroraPostgresEngineVersion_VER_14_5(),
 	// 	}),
 	// 	Vpc: vpc,
-	// 	VpcSubnets: subnetSelection[ecsSubnetsIndex],
+	// 	VpcSubnets: isolatedSubnetSelection,
 	// 	Credentials: awsrds.Credentials_FromSecret(rdsSecret, username),
 	// 	ClusterIdentifier: jsii.String("jetstoreDb"),
 	// 	DefaultDatabaseName: jsii.String("postgres"),
@@ -325,7 +315,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Instances:           jsii.Number(1),
 		InstanceProps: &awsrds.InstanceProps{
 			Vpc:          vpc,
-			VpcSubnets:   subnetSelection[ecsSubnetsIndex],
+			VpcSubnets:   isolatedSubnetSelection,
 			InstanceType: awsec2.NewInstanceType(jsii.String("serverless")),
 		},
 		S3ExportBuckets: &[]awss3.IBucket{
@@ -491,7 +481,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	runLoaderTask := sfntask.NewEcsRunTask(stack, jsii.String("run-loader"), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Run JetStore Loader Task"),
 		Cluster:        ecsCluster,
-		Subnets:        subnetSelection[ecsSubnetsIndex],
+		Subnets:        isolatedSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -555,7 +545,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	runServerTask := sfntask.NewEcsRunTask(stack, jsii.String("run-server"), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Run JetStore Rule Server Task"),
 		Cluster:        ecsCluster,
-		Subnets:        subnetSelection[ecsSubnetsIndex],
+		Subnets:        isolatedSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -604,7 +594,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	runReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-reports"), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Run Reports Task"),
 		Cluster:        ecsCluster,
-		Subnets:        subnetSelection[ecsSubnetsIndex],
+		Subnets:        isolatedSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -652,7 +642,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	updateErrorStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-error"), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Update Status with Error"),
 		Cluster:        ecsCluster,
-		Subnets:        subnetSelection[ecsSubnetsIndex],
+		Subnets:        isolatedSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -672,7 +662,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	updateSuccessStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-success"), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Update Status with Success"),
 		Cluster:        ecsCluster,
-		Subnets:        subnetSelection[ecsSubnetsIndex],
+		Subnets:        isolatedSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -865,7 +855,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Cluster:        ecsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
 		TaskDefinition: uiTaskDefinition,
-		VpcSubnets:     subnetSelection[ecsSubnetsIndex],
+		VpcSubnets:     isolatedSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 	})
@@ -900,7 +890,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		serviceLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("ServiceELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc: vpc,
 			InternetFacing: jsii.Bool(false),
-			VpcSubnets: subnetSelection[ecsSubnetsIndex],
+			VpcSubnets: isolatedSubnetSelection,
 		})	
 		if phiTagName != nil {
 			awscdk.Tags_Of(serviceLoadBalancer).Add(phiTagName, jsii.String("false"), nil)
@@ -915,7 +905,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
-			VpcSubnets:     subnetSelection[ecsSubnetsIndex],
+			VpcSubnets:     isolatedSubnetSelection,
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -1027,7 +1017,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// 	MemorySize: jsii.Number(128),
 	// 	Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
 	// 	Vpc: vpc,
-	// 	VpcSubnets: subnetSelection[ecsSubnetsIndex],
+	// 	VpcSubnets: isolatedSubnetSelection,
 	// })
 	// registerKeyLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from registerKeyLambda"))
 	// rdsSecret.GrantRead(registerKeyLambda, nil)
@@ -1056,7 +1046,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_ELB_MODE":     jsii.String(os.Getenv("JETS_ELB_MODE")),
 		},
 		Vpc:        vpc,
-		VpcSubnets: subnetSelection[ecsSubnetsIndex],
+		VpcSubnets: isolatedSubnetSelection,
 	})
 	registerKeyLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
 	adminPwdSecret.GrantRead(registerKeyLambda, nil)
