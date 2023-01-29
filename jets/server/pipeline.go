@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -65,9 +66,10 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 	}
 	var sessionId string
 	var userEmail string
+	var client, processName, objectType string
 	err := dbpool.QueryRow(context.Background(), 
-		"SELECT session_id, user_email FROM jetsapi.pipeline_execution_status WHERE key=$1", 
-		pipelineExecutionKey).Scan(&sessionId, &userEmail)
+		"SELECT client, process_name, main_object_type, session_id, user_email FROM jetsapi.pipeline_execution_status WHERE key=$1", 
+		pipelineExecutionKey).Scan(&client, &processName, &objectType, &sessionId, &userEmail)
 	if err != nil {
 		return fmt.Errorf("QueryRow on pipeline_execution_status failed: %v", err)
 	}
@@ -80,6 +82,18 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 			return fmt.Errorf("while recording out session id: %v", err)
 		}
 
+		// Emit server execution metric
+		dimentions := &map[string]string {
+			"client": client,
+			"object_type": objectType,
+			"process_name": processName,
+		}	
+		if pr.Status == "completed" {
+			awsi.LogMetric("serverCompleted", dimentions, 1)
+		} else {
+			awsi.LogMetric(*failedMetric, dimentions, 1)
+		}
+	
 		// Record the status of the pipeline execution
 		log.Printf("Updating status '%s' to pipeline_execution_status table", pr.Status)
 		stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, last_update) = ($1, DEFAULT) WHERE key = $2"

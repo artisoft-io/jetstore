@@ -66,6 +66,7 @@ require (
 	github.com/jackc/puddle v1.3.0 // indirect
 	github.com/lib/pq v1.10.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.15
+	github.com/prozz/aws-embedded-metrics-golang v1.2.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/text v0.4.0 // indirect
 )

@@ -136,7 +136,8 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 					"object_type":    objectType,
 					"session_id":     strconv.FormatInt(sessionId, 10),
 					"status":         "submitted",
-					"user_email":     "system"},
+					"user_email":     "system",
+					"failedMetric":   "autoLoaderFailed"},
 				}}
 			_, httpStatus, err := server.ProcessInsertRows(&dataTableAction, r)
 			if httpStatus != http.StatusOK {
@@ -162,7 +163,8 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 						"input_session_id": strconv.FormatInt(sessionId, 10),
 						"session_id":       strconv.FormatInt(sessionId, 10),
 						"status":           "submitted",
-						"user_email":       "system"},
+						"user_email":       "system",
+						"failedMetric":     "autoServerFailed"},
 				}}
 			_, httpStatus, err = server.ProcessInsertRows(&dataTableAction, r)
 			if httpStatus != http.StatusOK {

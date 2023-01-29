@@ -413,6 +413,11 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				fileKey := dataTableAction.Data[irow]["file_key"]
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
+				var failedMetric string
+				v,ok := dataTableAction.Data[irow]["failedMetric"]
+				if ok {
+					failedMetric = v.(string)
+				}
 				// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
 				if userEmail == nil || sessionId == nil {
 					log.Printf(
@@ -443,6 +448,10 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 							"-userEmail", userEmail.(string),
 							"-shardId", strconv.Itoa(shardId),
 							"-nbrShards", strconv.Itoa(nbrShards),
+						}
+						if failedMetric != "" {
+							serverArgs = append(serverArgs, "-failedMetric")
+							serverArgs = append(serverArgs, failedMetric)
 						}
 						if *usingSshTunnel {
 							serverArgs = append(serverArgs, "-usingSshTunnel")
@@ -484,13 +493,18 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 					// Rules Server arguments
 					serverCommands := make([][]string, 0)
 					for shardId:=0; shardId<nbrShards; shardId++ {
-						serverCommands = append(serverCommands, []string{ 
+						serverArgs := []string{ 
 							"-peKey", peKey, 
 							"-userEmail", userEmail.(string),
 							"-shardId", strconv.Itoa(shardId),
 							"-nbrShards", strconv.Itoa(nbrShards),
 							"-doNotLockSessionId",
-						})
+						}
+						if failedMetric != "" {
+							serverArgs = append(serverArgs, "-failedMetric")
+							serverArgs = append(serverArgs, failedMetric)
+						}
+						serverCommands = append(serverCommands, serverArgs)
 					}
 					smInput :=	map[string]interface{}{
 						"serverCommands": serverCommands,
