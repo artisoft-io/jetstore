@@ -5,19 +5,17 @@ import (
 	"os"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 )
 
-// VPC PEERING
-// vpc is created with a jump server in a public subnet
-// peer vpc is a jetstore vpc (env JETSTORE_VPC_ID)
-type VpcPeeringStackProps struct {
+type VpcPeeringTestStackProps struct {
 	awscdk.StackProps
 }
 
-func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeeringStackProps) awscdk.Stack {
+func NewVpcPeeringTestStack(scope constructs.Construct, id string, props *VpcPeeringTestStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -27,12 +25,12 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 	// The code that defines your stack goes here
 
 	// Create the VPCs
-	vpc := awsec2.NewVpc(stack, jsii.String("vpcPublic"), &awsec2.VpcProps{
+	vpcPublic := awsec2.NewVpc(stack, jsii.String("vpcPublic"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
 		NatGateways:        jsii.Number(0),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
-		Cidr: jsii.String("10.10.0.0/16"),
+		Cidr: jsii.String("10.12.0.0/16"),
 		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
 			{
 				Name:       jsii.String("public"),
@@ -40,38 +38,63 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			},
 		},
 	})
-	// Get the vpc's from the vpc id
-	peerVpc := awsec2.Vpc_FromLookup(stack, jsii.String("PeerVPC"), &awsec2.VpcLookupOptions{
-		VpcId: jsii.String(os.Getenv("JETSTORE_VPC_ID")),
+	vpcIso1 := awsec2.NewVpc(stack, jsii.String("vpcIso1"), &awsec2.VpcProps{
+		MaxAzs:             jsii.Number(2),
+		NatGateways:        jsii.Number(0),
+		EnableDnsHostnames: jsii.Bool(true),
+		EnableDnsSupport:   jsii.Bool(true),
+		Cidr: jsii.String("10.10.0.0/16"),
+		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
+			{
+				Name:       jsii.String("isolated1"),
+				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
+			},
+		},
 	})
 
 	// Set up the peering connection
 	vpcPeeringConnection := awsec2.NewCfnVPCPeeringConnection(stack, jsii.String("VPCPeering"), &awsec2.CfnVPCPeeringConnectionProps{
-		VpcId: vpc.VpcId(),
-		PeerVpcId: peerVpc.VpcId(),
+		VpcId: vpcIso1.VpcId(),
+		PeerVpcId: vpcPublic.VpcId(),
 	})
-
-	// Update route tables to go from vpc public subnet to peer vpc
-	for i, subnet := range *vpc.PublicSubnets() {
-		awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RoutePublicSNVpc2PeerVpc%d", i)), &awsec2.CfnRouteProps{
+	// Set up the route tables
+	// from public -> isolate1
+	for i, subnet := range *vpcPublic.PublicSubnets() {
+		awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RoutePublicSNVpc2IsolatedVpc%d", i)), &awsec2.CfnRouteProps{
 			RouteTableId: subnet.RouteTable().RouteTableId(),
 			VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
-			DestinationCidrBlock: peerVpc.VpcCidrBlock(),
+			DestinationCidrBlock: vpcIso1.VpcCidrBlock(),
+		})
+	}
+	// from isolate1 -> public
+	for i, subnet := range *vpcIso1.IsolatedSubnets() {
+		awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RouteIsolatedSNVpc2PublicVpc%d", i)), &awsec2.CfnRouteProps{
+			RouteTableId: subnet.RouteTable().RouteTableId(),
+			VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
+			DestinationCidrBlock: vpcPublic.VpcCidrBlock(),
 		})
 	}
 
-	// Update route tables to go from peer vpc isolated subnet to vpc
-	for i, subnet := range *peerVpc.IsolatedSubnets() {
-		awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RouteIsolatedSNPeerVpc2vpc%d", i)), &awsec2.CfnRouteProps{
-			RouteTableId: subnet.RouteTable().RouteTableId(),
-			VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
-			DestinationCidrBlock: vpc.VpcCidrBlock(),
-		})
-	}
+	// Put an App ELB in the isolated sn
+	loadBalancer := awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
+		Vpc:            vpcIso1,
+		InternetFacing: jsii.Bool(false),
+		VpcSubnets:     &awsec2.SubnetSelection{
+			SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
+		},
+	})
+	loadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
+		Port:     jsii.Number(80),
+		Open:     jsii.Bool(true),
+		Protocol: awselb.ApplicationProtocol_HTTP,
+		DefaultAction: awselb.ListenerAction_FixedResponse(jsii.Number(200), &awselb.FixedResponseOptions{
+			MessageBody: jsii.String("Hello from Isolated Subnet1!"),
+		}),
+	})
 
 	// Put a jum server in the public sn
 	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("PublicJumpServer"), &awsec2.BastionHostLinuxProps{
-		Vpc:             vpc,
+		Vpc:             vpcPublic,
 		InstanceName:    jsii.String("PublicJumpServer"),
 		SubnetSelection: &awsec2.SubnetSelection{
 			SubnetType: awsec2.SubnetType_PUBLIC,
@@ -83,14 +106,13 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 	return stack
 }
 
-// Expected Env Variables
-// ----------------------
-// AWS_ACCOUNT (required)
-// AWS_REGION (required)
-// JETSTORE_VPC_ID (required)
-
 func main() {
 	defer jsii.Close()
+
+	fmt.Println("Got following env var")
+	fmt.Println("env AWS_ACCOUNT:",os.Getenv("AWS_ACCOUNT"))
+	fmt.Println("env AWS_REGION:",os.Getenv("AWS_REGION"))
+	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:",os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -99,9 +121,9 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")
 	}
-	if os.Getenv("JETSTORE_VPC_ID") == "" {
+	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Env variables 'JETSTORE_VPC_ID' is required.")
+		errMsg = append(errMsg, "Env variable 'BASTION_HOST_KEYPAIR_NAME' is required.")
 	}
 	if hasErr {
 		for _, msg := range errMsg {
@@ -112,7 +134,7 @@ func main() {
 
 	app := awscdk.NewApp(nil)
 
-	NewVpcPeeringStack(app, "VpcPeeringStack", &VpcPeeringStackProps{
+	NewVpcPeeringTestStack(app, "VpcPeeringTestStack", &VpcPeeringTestStackProps{
 		awscdk.StackProps{
 			Env: env(),
 		},
@@ -128,15 +150,15 @@ func env() *awscdk.Environment {
 	// Account/Region-dependent features and context lookups will not work, but a
 	// single synthesized template can be deployed anywhere.
 	//---------------------------------------------------------------------------
-	// return nil
+	return nil
 
 	// Uncomment if you know exactly what account and region you want to deploy
 	// the stack to. This is the recommendation for production stacks.
 	//---------------------------------------------------------------------------
-	return &awscdk.Environment{
-		Account: jsii.String(os.Getenv("AWS_ACCOUNT")),
-		Region:  jsii.String(os.Getenv("AWS_REGION")),
-	}
+	// return &awscdk.Environment{
+	//  Account: jsii.String("123456789012"),
+	//  Region:  jsii.String("us-east-1"),
+	// }
 
 	// Uncomment to specialize this stack for the AWS Account and Region that are
 	// implied by the current CLI configuration. This is recommended for dev

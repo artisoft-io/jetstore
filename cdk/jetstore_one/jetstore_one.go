@@ -197,11 +197,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	}
 
 	// Create a VPC to run tasks in.
-	vpc := awsec2.NewVpc(stack, jsii.String("taskVpc"), &awsec2.VpcProps{
+	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
 		NatGateways:        jsii.Number(0),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
+		Cidr: jsii.String("10.0.0.0/16"),
 		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
 			{
 				Name:       jsii.String("public"),
@@ -231,7 +232,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("VPC for JetStore Platform"), nil)
 	}
-publicSubnetSelection := &awsec2.SubnetSelection{
+	publicSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
 	}
 	rdsSubnetsIndex := 0
@@ -989,26 +990,27 @@ publicSubnetSelection := &awsec2.SubnetSelection{
 	// Add the RDS alerts
 	AddRdsAlarms(stack, rdsCluster, props)
 
-	// Add jump server
-	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
-		bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
-			Vpc:             vpc,
-			InstanceName:    jsii.String("JetstoreJumpServer"),
-			SubnetSelection: publicSubnetSelection,
-		})
-		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
-		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
-		bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
-		if phiTagName != nil {
-			awscdk.Tags_Of(bastionHost).Add(phiTagName, jsii.String("false"), nil)
-		}
-		if piiTagName != nil {
-			awscdk.Tags_Of(bastionHost).Add(piiTagName, jsii.String("false"), nil)
-		}	
-		if descriptionTagName != nil {
-			awscdk.Tags_Of(bastionHost).Add(descriptionTagName, jsii.String("Bastion host for JetStore Platform"), nil)
-		}
-	}
+	// NO JUMP SERVER = USE VPC PEERING
+	// // Add jump server
+	// if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
+	// 	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
+	// 		Vpc:             vpc,
+	// 		InstanceName:    jsii.String("JetstoreJumpServer"),
+	// 		SubnetSelection: publicSubnetSelection,
+	// 	})
+	// 	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	// 	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
+	// 	bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
+	// 	if phiTagName != nil {
+	// 		awscdk.Tags_Of(bastionHost).Add(phiTagName, jsii.String("false"), nil)
+	// 	}
+	// 	if piiTagName != nil {
+	// 		awscdk.Tags_Of(bastionHost).Add(piiTagName, jsii.String("false"), nil)
+	// 	}	
+	// 	if descriptionTagName != nil {
+	// 		awscdk.Tags_Of(bastionHost).Add(descriptionTagName, jsii.String("Bastion host for JetStore Platform"), nil)
+	// 	}
+	// }
 
 	// BEGIN Create a Sample Lambda function to start the sample container task.
 	// registerKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("registerKeyLambda"), &awslambdago.GoFunctionProps{
