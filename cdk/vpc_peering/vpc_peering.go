@@ -58,7 +58,6 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		})
 		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
-
 	}
 	// Get the vpc's from the vpc id
 	peerVpc := awsec2.Vpc_FromLookup(stack, jsii.String("PeerVPC"), &awsec2.VpcLookupOptions{
@@ -71,16 +70,14 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		PeerVpcId: peerVpc.VpcId(),
 	})
 
-	// if os.Getenv("HOST_VPC_ID") == "" {
-		// Update route tables to go from vpc public subnet to peer vpc
-		for i, subnet := range *vpc.PublicSubnets() {
-			awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RoutePublicSNVpc2PeerVpc%d", i)), &awsec2.CfnRouteProps{
-				RouteTableId: subnet.RouteTable().RouteTableId(),
-				VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
-				DestinationCidrBlock: peerVpc.VpcCidrBlock(),
-			})
-		}
-	// }
+	// Update route tables to go from vpc public subnet to peer vpc
+	for i, subnet := range *vpc.PublicSubnets() {
+		awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RoutePublicSNVpc2PeerVpc%d", i)), &awsec2.CfnRouteProps{
+			RouteTableId: subnet.RouteTable().RouteTableId(),
+			VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
+			DestinationCidrBlock: peerVpc.VpcCidrBlock(),
+		})
+	}
 
 	// Update route tables to go from peer vpc isolated subnet to vpc
 	for i, subnet := range *peerVpc.IsolatedSubnets() {
