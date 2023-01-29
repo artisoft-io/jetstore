@@ -4,4 +4,5 @@ use (
 	.
 	./cdk/bootstrap_aws
 	./cdk/vpc_peering
+	./cdk/testing_vpc_peering
 )

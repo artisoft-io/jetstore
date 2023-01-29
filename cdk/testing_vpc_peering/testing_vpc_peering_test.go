@@ -9,13 +9,13 @@ package main
 // )
 
 // example tests. To run these tests, uncomment this file along with the
-// example resource in testing_vpc_peering.go
-// func TestVpcPeeringStack(t *testing.T) {
+// example resource in vpc_peering_test_test.go
+// func TestVpcPeeringTestStack(t *testing.T) {
 // 	// GIVEN
 // 	app := awscdk.NewApp(nil)
 
 // 	// WHEN
-// 	stack := NewVpcPeeringStack(app, "MyStack", nil)
+// 	stack := NewVpcPeeringTestStack(app, "MyStack", nil)
 
 // 	// THEN
 // 	template := assertions.Template_FromStack(stack)
