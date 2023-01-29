@@ -5,9 +5,10 @@ import (
 	"os"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 )
 
 // VPC PEERING
@@ -58,6 +59,12 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		})
 		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
+		if os.Getenv("JETS_DB_CLUSTER_ID") != "" {
+			rdsCluster := awsrds.DatabaseCluster_FromDatabaseClusterAttributes(stack, jsii.String("JetstoreDb"), &awsrds.DatabaseClusterAttributes{
+				ClusterIdentifier: jsii.String(os.Getenv("JETS_DB_CLUSTER_ID")),
+			})
+			bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
+		}
 	}
 	// Get the vpc's from the vpc id
 	peerVpc := awsec2.Vpc_FromLookup(stack, jsii.String("PeerVPC"), &awsec2.VpcLookupOptions{
@@ -98,6 +105,7 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 // JETSTORE_VPC_ID (required)
 // BASTION_HOST_KEYPAIR_NAME (required if HOST_VPC_ID ommitted)
 // HOST_VPC_ID (optional, default: create a vpc w/ jump server)
+// JETS_DB_CLUSTER_ID (optional, JetStore DB cluster, to allow jump server to access it)
 
 func main() {
 	defer jsii.Close()

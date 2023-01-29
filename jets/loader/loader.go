@@ -66,6 +66,7 @@ var userEmail = flag.String("userEmail", "", "User identifier to register the lo
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
+var failedMetric = flag.String("failedMetric", "loaderFailed", "Metric name to register the load failure [success load metric: loaderCompleted] (default: loaderFailed)")
 var tableName string
 var domainKeysJson string
 var sep_flag chartype = '€'
@@ -394,6 +395,15 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	if err != nil {
 		errMessage = fmt.Sprintf("%v", err)
 	}
+	dimentions := &map[string]string {
+		"client": *client,
+		"object_type": *objectType,
+	}
+	if status == "completed" {
+		awsi.LogMetric("loaderCompleted", dimentions, 1)
+	} else {
+		awsi.LogMetric(*failedMetric, dimentions, 1)
+	}
 	err = registerCurrentLoad(copyCount, badRowCount, dbpool, headersDKInfo, status, errMessage)
 	if err != nil {
 		return false, fmt.Errorf("error while registering the load: %v", err)
@@ -602,6 +612,7 @@ func main() {
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: doNotLockSessionId", *doNotLockSessionId)
 	fmt.Println("Got argument: usingSshTunnel", *usingSshTunnel)
+	fmt.Println("Got argument: failedMetric", *failedMetric)
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
 	if len(errOutDir) == 0 {
 		fmt.Println("Loader error file will be in same directory as input file.")

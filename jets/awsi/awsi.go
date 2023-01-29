@@ -17,9 +17,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
+	"github.com/prozz/aws-embedded-metrics-golang/emf"
 )
 
 // This module provides aws integration for JetStore
+
+func LogMetric(metricName string, dimentions *map[string]string, count int) {
+	m := emf.New().Namespace("JetStore/Pipeline").Metric(metricName, count)
+	for k, v := range *dimentions {
+		m.Dimension(k, v)
+	}
+	m.Log()
+}
 
 func GetConfig(region string) (aws.Config,error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)

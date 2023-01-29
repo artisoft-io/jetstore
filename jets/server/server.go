@@ -58,6 +58,7 @@ var outTables           = flag.String("outTables", "", "Comma-separed list of ou
 var shardId             = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
 var doNotLockSessionId  = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId and register Domain Table output on successful completion")
 var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
+var failedMetric        = flag.String("failedMetric", "serverFailed", "Metric name to register the server execution failure [success execution metric: serverCompleted] (default: serverFailed)")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int // taken from env GLOG_v
@@ -123,6 +124,7 @@ func doJob() error {
 	log.Printf("Command Line Argument: shardId: %d\n", *shardId)
 	log.Printf("Command Line Argument: workspaceDb: %s\n", *workspaceDb)
 	log.Printf("Command Line Argument: userEmail: %s\n", *userEmail)
+	log.Printf("Command Line Argument: failedMetric %s\n", *failedMetric)
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_SEED: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
