@@ -438,6 +438,14 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				if v != nil {
 					serverCompletedMetric = v.(string)
 				}
+				v = dataTableAction.Data[irow]["loaderFailedMetric"]
+				if v != nil {
+					loaderFailedMetric = v.(string)
+				}
+				v = dataTableAction.Data[irow]["loaderCompletedMetric"]
+				if v != nil {
+					loaderCompletedMetric = v.(string)
+				}
 				// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
 				if userEmail == nil || sessionId == nil {
 					log.Printf(
