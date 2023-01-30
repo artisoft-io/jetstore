@@ -83,6 +83,7 @@ func (server *Server) RegisterKeys(w http.ResponseWriter, r *http.Request, regis
 		pipelineConfigKey := make([]int, 0)
 		processNames := make([]string, 0)
 		tableName := make([]string, 0)
+		log.Println("RegisterKeys called w/ client:",client,",object_type:",objectType,",file_key:",fileKey)
 		if len(registerFileKeyAction.ProcessName) > 0 {
 			processNames[0] = registerFileKeyAction.ProcessName
 			var tn string
