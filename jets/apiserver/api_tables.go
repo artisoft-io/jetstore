@@ -320,12 +320,12 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
 				var completedMetric, failedMetric string
-				v,ok := dataTableAction.Data[irow]["failedMetric"]
-				if ok {
+				v = dataTableAction.Data[irow]["failedMetric"]
+				if v != nil {
 					failedMetric = v.(string)
 				}
-				v,ok = dataTableAction.Data[irow]["completedMetric"]
-				if ok {
+				v = dataTableAction.Data[irow]["completedMetric"]
+				if v != nil {
 					completedMetric = v.(string)
 				}
 				if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
@@ -352,10 +352,10 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 					loaderCommand = append(loaderCommand, "-failedMetric")
 					loaderCommand = append(loaderCommand, failedMetric)
 				}
-		if row["load_and_start"] == "true" {
+				if row["load_and_start"] == "true" {
 						loaderCommand = append(loaderCommand, "-doNotLockSessionId")
 				}
-			switch {
+				switch {
 				// Call loader synchronously
 				case devMode:
 					if *usingSshTunnel {
@@ -431,12 +431,12 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
 				var completedMetric, failedMetric string
-				v,ok := dataTableAction.Data[irow]["failedMetric"]
-				if ok {
+				v := dataTableAction.Data[irow]["failedMetric"]
+				if v != nil {
 					failedMetric = v.(string)
 				}
-				v,ok = dataTableAction.Data[irow]["completedMetric"]
-				if ok {
+				v = dataTableAction.Data[irow]["completedMetric"]
+				if v != nil {
 					completedMetric = v.(string)
 				}
 				// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
@@ -562,6 +562,14 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 							"-userEmail", userEmail.(string), 
 							"-nbrShards", strconv.Itoa(nbrShards),
 							"-doNotLockSessionId",
+						}
+						if completedMetric != "" {
+							loaderCommand = append(loaderCommand, "-completedMetric")
+							loaderCommand = append(loaderCommand, completedMetric)
+						}
+						if failedMetric != "" {
+							loaderCommand = append(loaderCommand, "-failedMetric")
+							loaderCommand = append(loaderCommand, failedMetric)
 						}
 						smInput["loaderCommand"] = loaderCommand
 					}
