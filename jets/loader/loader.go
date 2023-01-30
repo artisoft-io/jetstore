@@ -613,7 +613,8 @@ func main() {
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: doNotLockSessionId", *doNotLockSessionId)
 	fmt.Println("Got argument: usingSshTunnel", *usingSshTunnel)
-	fmt.Println("Got argument: failedMetric", *failedMetric)
+	fmt.Println("Got argument: loaderCompletedMetric", *completedMetric)
+	fmt.Println("Got argument: loaderFailedMetric", *failedMetric)
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
 	if len(errOutDir) == 0 {
 		fmt.Println("Loader error file will be in same directory as input file.")
