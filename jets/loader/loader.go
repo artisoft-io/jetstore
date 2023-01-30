@@ -66,6 +66,7 @@ var userEmail = flag.String("userEmail", "", "User identifier to register the lo
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
+var completedMetric = flag.String("completedMetric", "loaderCompleted", "Metric name to register the loader successfull completion (default: loaderCompleted)")
 var failedMetric = flag.String("failedMetric", "loaderFailed", "Metric name to register the load failure [success load metric: loaderCompleted] (default: loaderFailed)")
 var tableName string
 var domainKeysJson string
@@ -400,7 +401,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 		"object_type": *objectType,
 	}
 	if status == "completed" {
-		awsi.LogMetric("loaderCompleted", dimentions, 1)
+		awsi.LogMetric(*completedMetric, dimentions, 1)
 	} else {
 		awsi.LogMetric(*failedMetric, dimentions, 1)
 	}

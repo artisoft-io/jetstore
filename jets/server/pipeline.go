@@ -81,18 +81,6 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		if err != nil {
 			return fmt.Errorf("while recording out session id: %v", err)
 		}
-
-		// Emit server execution metric
-		dimentions := &map[string]string {
-			"client": client,
-			"object_type": objectType,
-			"process_name": processName,
-		}	
-		if pr.Status == "completed" {
-			awsi.LogMetric("serverCompleted", dimentions, 1)
-		} else {
-			awsi.LogMetric(*failedMetric, dimentions, 1)
-		}
 	
 		// Record the status of the pipeline execution
 		log.Printf("Updating status '%s' to pipeline_execution_status table", pr.Status)
@@ -101,6 +89,18 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		if err != nil {
 			return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
 		}
+	}
+
+	// Emit server execution metric
+	dimentions := &map[string]string {
+		"client": client,
+		"object_type": objectType,
+		"process_name": processName,
+	}	
+	if pr.Status == "completed" {
+		awsi.LogMetric(*completedMetric, dimentions, 1)
+	} else {
+		awsi.LogMetric(*failedMetric, dimentions, 1)
 	}
 
 	if shardId >= 0 {
