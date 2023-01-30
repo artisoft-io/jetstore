@@ -1,0 +1,65 @@
+name: Bootstrap AWS
+
+on: 
+  workflow_dispatch:
+    inputs:
+      AWS_ACCESS_KEY_ID:
+        description: "AWS Access Key to Create Role for Workflows to Assume"
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: "AWS Secret Key to Create Role for Workflows to Assume"
+        required: true
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT: ${{ vars.AWS_ACCOUNT }}
+  AWS_ROLE: ${{ vars.AWS_ROLE }}
+  AWS_ACCESS_KEY_ID: ${{ github.event.inputs.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ github.event.inputs.AWS_SECRET_ACCESS_KEY }}
+  GH_ORG_NAME: ${{ github.repository_owner }}
+  GH_REPO_NAME: ${{ github.repository }}
+
+jobs:
+  bootstrap-aws:
+    name: Bootstrap AWS
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout JetStore
+      uses: actions/checkout@v3
+      with:
+        repository: ${{ github.repository_owner }}/jetstore
+        path: jetstore
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Set CDK Bootstrap Arg
+      id: set-bootstrap-arg
+      run: |
+        echo "CDK_BOOTSTRAP_ARG=$AWS_ACCOUNT/$AWS_REGION" >> $GITHUB_ENV
+
+    - name: CDK Bootstrap
+      uses: youyo/aws-cdk-github-actions@v2
+      with:
+        cdk_subcommand: 'bootstrap'
+        cdk_stack: ${{ env.CDK_BOOTSTRAP_ARG }}
+        actions_comment: false
+        working_dir: './jetstore/cdk/bootstrap_aws'
+
+    - name: CDK Deploy
+      uses: youyo/aws-cdk-github-actions@v2
+      with:
+        cdk_subcommand: 'deploy'
+        actions_comment: false
+        cdk_args: '--require-approval never'
+        working_dir: './jetstore/cdk/bootstrap_aws'

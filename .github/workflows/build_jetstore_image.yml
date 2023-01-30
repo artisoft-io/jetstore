@@ -1,0 +1,78 @@
+name: Build JetStore Image and Push to ECR
+
+on: 
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE: ${{ vars.AWS_ROLE }}
+  AWS_ACCOUNT: ${{ vars.AWS_ACCOUNT }}
+  ECR_REPOSITORY: jetstore
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build_jetstore_image:
+    name: Build JetStore Image
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout JetStore Repo
+      uses: actions/checkout@v3
+      with:
+        repository: ${{ github.repository_owner }}/jetstore
+        path: jetstore
+
+    - name: Set the Role arn to assume
+      id: set-role-arn
+      run: |
+        echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT:role/$AWS_ROLE" >> $GITHUB_ENV
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        # aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        # aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        role-to-assume: ${{ env.AWS_ROLE_ARN}}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Set JetStore tag and version
+      id: set-tag-version
+      run: |
+        branch=$(cd jetstore && /usr/bin/git branch --show-current && cd ..)
+        sha=$(cd jetstore && /usr/bin/git log -1 --format='%h' && cd ..)
+        ts=$(date +%s)
+        echo "🔎 JetStore branch is $branch, commit sha is $sha."
+        echo "IMAGE_TAG=${branch}-${sha}-${ts}" >> $GITHUB_ENV
+        echo "JETS_GIT_SHA=${branch}-${sha}" >> $GITHUB_ENV
+        echo "JETS_VERSION=${ts}" >> $GITHUB_ENV
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-push-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        JETS_GIT_SHA: ${{ env.JETS_GIT_SHA }}
+        JETS_VERSION: ${{ env.JETS_VERSION }}
+      run: |
+        cd ./jetstore
+        # Build jetstore builder base image
+        docker build  -t jetstore_base_builder:go-bullseye -f Dockerfile.go_bullseye_base .
+        # Build the builder image (where we actually make the jetstore build)
+        docker build  -t jetstore_builder:go-bullseye -f Dockerfile.go_bullseye .
+        # Build jetstore rt base image
+        docker build -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+        # Build the runtime (rt) image
+        docker build --build-arg "JETS_VERSION=$JETS_VERSION" --build-arg "JETS_GIT_SHA=${JETS_GIT_SHA}" --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" --tag jetstore:bullseye -f Dockerfile.rt_bullseye .
+        docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        echo "JETS_VERSION is $JETS_VERSION" # This will output the version
+        echo "IMAGE_TAG is $IMAGE_TAG" # This will output the image tag
+        echo "JETS_GIT_SHA is $JETS_GIT_SHA" # This will output the git sha with branch name
+        echo "Push completed for jetstore runtime image $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"

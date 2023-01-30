@@ -1,0 +1,66 @@
+name: Build JetStore Base Images
+
+on: 
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE: ${{ vars.AWS_ROLE }}
+  AWS_ACCOUNT: ${{ vars.AWS_ACCOUNT }}
+  ECR_BASE_REPOSITORY: jetstore_base
+  ECR_BUILDER_BASE_REPOSITORY: jetstore_base_builder
+  ECR_CDK_REPOSITORY: jetstore_cdk
+  CDK_IMAGE_TAG: go-1.19-alpine3.17
+  BASE_IMAGE_TAG: bullseye
+  BASE_BUILDER_IMAGE_TAG: go-bullseye
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build_base_images:
+    name: Build Base Images
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout JetStore Repo
+      uses: actions/checkout@v3
+      with:
+        repository: ${{ github.repository_owner }}/jetstore
+        path: jetstore
+
+    - name: Set the Role arn to assume
+      id: set-role-arn
+      run: |
+        echo "AWS_ROLE_ARN=arn:aws:iam::$AWS_ACCOUNT:role/$AWS_ROLE" >> $GITHUB_ENV
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        # aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        # aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        role-to-assume: ${{ env.AWS_ROLE_ARN}}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push images to Amazon ECR
+      id: build-push-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        cd ./jetstore
+        # Build jetstore builder base image
+        docker build  -t jetstore_base_builder:go-bullseye -f Dockerfile.go_bullseye_base .
+        docker image tag jetstore_base_builder:go-bullseye "$ECR_REGISTRY/$ECR_BUILDER_BASE_REPOSITORY:$BASE_BUILDER_IMAGE_TAG"
+        docker push "$ECR_REGISTRY/$ECR_BUILDER_BASE_REPOSITORY:$BASE_BUILDER_IMAGE_TAG"
+        # Build jetstore rt base image
+        docker build -t jetstore_base:bullseye -f Dockerfile.bullseye_base .
+        docker image tag jetstore_base:bullseye "$ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG"
+        docker push "$ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG"
+        echo "Push completed for jetstore builder base image $ECR_REGISTRY/$ECR_BUILDER_BASE_REPOSITORY:$BASE_BUILDER_IMAGE_TAG"
+        echo "Push completed for runtime base image $ECR_REGISTRY/$ECR_BASE_REPOSITORY:$BASE_IMAGE_TAG"
