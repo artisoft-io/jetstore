@@ -319,6 +319,15 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				fileKey := row["file_key"]
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
+				var completedMetric, failedMetric string
+				v,ok := dataTableAction.Data[irow]["failedMetric"]
+				if ok {
+					failedMetric = v.(string)
+				}
+				v,ok = dataTableAction.Data[irow]["completedMetric"]
+				if ok {
+					completedMetric = v.(string)
+				}
 				if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
 					log.Printf(
 						"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v", 
@@ -335,7 +344,15 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 					"-userEmail", userEmail.(string), 
 					"-nbrShards", strconv.Itoa(nbrShards),
 				}
-				if row["load_and_start"] == "true" {
+				if completedMetric != "" {
+					loaderCommand = append(loaderCommand, "-completedMetric")
+					loaderCommand = append(loaderCommand, completedMetric)
+				}
+				if failedMetric != "" {
+					loaderCommand = append(loaderCommand, "-failedMetric")
+					loaderCommand = append(loaderCommand, failedMetric)
+				}
+		if row["load_and_start"] == "true" {
 						loaderCommand = append(loaderCommand, "-doNotLockSessionId")
 				}
 			switch {
@@ -413,10 +430,14 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 				fileKey := dataTableAction.Data[irow]["file_key"]
 				sessionId := row["session_id"]
 				userEmail := row["user_email"]
-				var failedMetric string
+				var completedMetric, failedMetric string
 				v,ok := dataTableAction.Data[irow]["failedMetric"]
 				if ok {
 					failedMetric = v.(string)
+				}
+				v,ok = dataTableAction.Data[irow]["completedMetric"]
+				if ok {
+					completedMetric = v.(string)
 				}
 				// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
 				if userEmail == nil || sessionId == nil {
@@ -448,6 +469,10 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 							"-userEmail", userEmail.(string),
 							"-shardId", strconv.Itoa(shardId),
 							"-nbrShards", strconv.Itoa(nbrShards),
+						}
+						if completedMetric != "" {
+							serverArgs = append(serverArgs, "-completedMetric")
+							serverArgs = append(serverArgs, completedMetric)
 						}
 						if failedMetric != "" {
 							serverArgs = append(serverArgs, "-failedMetric")
@@ -499,6 +524,10 @@ func (server *Server) ProcessInsertRows(dataTableAction *DataTableAction, r *htt
 							"-shardId", strconv.Itoa(shardId),
 							"-nbrShards", strconv.Itoa(nbrShards),
 							"-doNotLockSessionId",
+						}
+						if completedMetric != "" {
+							serverArgs = append(serverArgs, "-completedMetric")
+							serverArgs = append(serverArgs, completedMetric)
 						}
 						if failedMetric != "" {
 							serverArgs = append(serverArgs, "-failedMetric")
