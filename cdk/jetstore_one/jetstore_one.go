@@ -53,6 +53,47 @@ type JetstoreOneStackProps struct {
 var phiTagName, piiTagName, descriptionTagName *string
 
 // Support Functions
+func AddJetStoreAlarms(stack awscdk.Stack, props *JetstoreOneStackProps) {
+	var alarmAction awscloudwatch.IAlarmAction
+	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
+		alarmAction = awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack, jsii.String("JetStoreSnsAlarmTopic"), 
+			jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))))
+	}
+	alarm := awscloudwatch.NewAlarm(stack, jsii.String("JetStoreAutoLoaderFailureAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String("autoLoaderFailed"),
+		EvaluationPeriods: jsii.Number(1),
+		DatapointsToAlarm: jsii.Number(1),
+		Threshold: jsii.Number(1),
+		AlarmDescription: jsii.String("autoLoaderFailed >= 1 for 1 datapoints within 1 minute"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: awscloudwatch.NewMetric(&awscloudwatch.MetricProps{
+			Namespace: jsii.String("JetStore/Pipeline"),
+			MetricName: jsii.String("autoLoaderFailed"),
+			Period: awscdk.Duration_Minutes(jsii.Number(1)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String("JetStoreAutoServerFailureAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String("autoServerFailed"),
+		EvaluationPeriods: jsii.Number(1),
+		DatapointsToAlarm: jsii.Number(1),
+		Threshold: jsii.Number(1),
+		AlarmDescription: jsii.String("autoServerFailed >= 1 for 1 datapoints within 1 minute"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: awscloudwatch.NewMetric(&awscloudwatch.MetricProps{
+			Namespace: jsii.String("JetStore/Pipeline"),
+			MetricName: jsii.String("autoServerFailed"),
+			Period: awscdk.Duration_Minutes(jsii.Number(1)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+}
 func AddElbAlarms(stack awscdk.Stack, prefix string, elb awselb.ApplicationLoadBalancer, props *JetstoreOneStackProps) {
 	var alarmAction awscloudwatch.IAlarmAction
 	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
@@ -977,6 +1018,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer, props)
 	}
+	AddJetStoreAlarms(stack, props)
+
 	// Add the RDS alerts
 	AddRdsAlarms(stack, rdsCluster, props)
 
