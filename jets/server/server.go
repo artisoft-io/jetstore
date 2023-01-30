@@ -58,7 +58,8 @@ var outTables           = flag.String("outTables", "", "Comma-separed list of ou
 var shardId             = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
 var doNotLockSessionId  = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId and register Domain Table output on successful completion")
 var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
-var failedMetric        = flag.String("failedMetric", "serverFailed", "Metric name to register the server execution failure [success execution metric: serverCompleted] (default: serverFailed)")
+var completedMetric     = flag.String("completedMetric", "serverCompleted", "Metric name to register the server execution successfull completion (default: serverCompleted)")
+var failedMetric        = flag.String("failedMetric", "serverFailed", "Metric name to register the server execution failure (default: serverFailed)")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int // taken from env GLOG_v
