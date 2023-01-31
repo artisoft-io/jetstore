@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -269,6 +270,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	isolatedSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
+	log.Println("JetStore VPC ID:", *vpc.VpcId())
 
 	// Add Endpoints
 	// Add Endpoint for S3
@@ -374,6 +376,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(rdsCluster).Add(descriptionTagName, jsii.String("Database cluster for JetStore Platform"), nil)
 	}
+	log.Println("JetStore RDS Cluster ID:", *rdsCluster.ClusterIdentifier())
 
 	// Create the ecsCluster.
 	ecsCluster := awsecs.NewCluster(stack, jsii.String("ecsCluster"), &awsecs.ClusterProps{

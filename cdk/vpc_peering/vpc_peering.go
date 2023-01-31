@@ -17,6 +17,7 @@ import (
 type VpcPeeringStackProps struct {
 	awscdk.StackProps
 }
+var phiTagName, piiTagName, descriptionTagName *string
 
 func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeeringStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
@@ -48,8 +49,22 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 					SubnetType: awsec2.SubnetType_PUBLIC,
 				},
 			},
+			FlowLogs: &map[string]*awsec2.FlowLogOptions{
+				"VpcFlowFlog": {
+					TrafficType: awsec2.FlowLogTrafficType_ALL,
+				},
+			},
 		})
-		// Put a jum server in the public sn
+		if phiTagName != nil {
+			awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("true"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("true"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("VPC for access to JetStore Platform via bastion host"), nil)
+		}
+		// Put a bastion host in the public sn
 		bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("PublicJumpServer"), &awsec2.BastionHostLinuxProps{
 			Vpc:             vpc,
 			InstanceName:    jsii.String("PublicJumpServer"),
@@ -57,6 +72,15 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 				SubnetType: awsec2.SubnetType_PUBLIC,
 			},
 		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("false"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("false"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("Bastion host for access to JetStore Platform"), nil)
+		}
 		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
 		if os.Getenv("JETS_DB_CLUSTER_ID") != "" {
@@ -106,6 +130,13 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 // BASTION_HOST_KEYPAIR_NAME (required if HOST_VPC_ID ommitted)
 // HOST_VPC_ID (optional, default: create a vpc w/ jump server)
 // JETS_DB_CLUSTER_ID (optional, JetStore DB cluster, to allow jump server to access it)
+// JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
+// JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
+// JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
+// JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
+// JETS_TAG_NAME_PHI (optional, resource-level tag name for indicating if resource contains PHI data, value true/false)
+// JETS_TAG_NAME_PII (optional, resource-level tag name for indicating if resource contains PII data, value true/false)
+// JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 
 func main() {
 	defer jsii.Close()
@@ -116,6 +147,13 @@ func main() {
 	fmt.Println("env HOST_VPC_ID:",os.Getenv("HOST_VPC_ID"))
 	fmt.Println("env JETSTORE_VPC_ID:",os.Getenv("JETSTORE_VPC_ID"))
 	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:",os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	fmt.Println("env JETS_TAG_NAME_OWNER:",os.Getenv("JETS_TAG_NAME_OWNER"))
+	fmt.Println("env JETS_TAG_VALUE_OWNER:",os.Getenv("JETS_TAG_VALUE_OWNER"))
+	fmt.Println("env JETS_TAG_NAME_PROD:",os.Getenv("JETS_TAG_NAME_PROD"))
+	fmt.Println("env JETS_TAG_VALUE_PROD:",os.Getenv("JETS_TAG_VALUE_PROD"))
+	fmt.Println("env JETS_TAG_NAME_PHI:",os.Getenv("JETS_TAG_NAME_PHI"))
+	fmt.Println("env JETS_TAG_NAME_PII:",os.Getenv("JETS_TAG_NAME_PII"))
+	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:",os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -141,9 +179,29 @@ func main() {
 
 	app := awscdk.NewApp(nil)
 
+	// Resource-level tag names
+	if os.Getenv("JETS_TAG_NAME_PHI") != "" {
+		phiTagName = jsii.String(os.Getenv("JETS_TAG_NAME_PHI"))
+	}
+	if os.Getenv("JETS_TAG_NAME_PII") != "" {
+		piiTagName = jsii.String(os.Getenv("JETS_TAG_NAME_PII"))
+	}
+	if os.Getenv("JETS_TAG_NAME_DESCRIPTION") != "" {
+		descriptionTagName = jsii.String(os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
+	}
+	// Set stack-level tags
+	stackDescription := jsii.String("VPC peering stack to access JetStore Platform via VPN or a bastion host")
+	if os.Getenv("JETS_TAG_NAME_OWNER") != "" && os.Getenv("JETS_TAG_VALUE_OWNER") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_OWNER")), jsii.String(os.Getenv("JETS_TAG_VALUE_OWNER")), nil)
+	}
+	if os.Getenv("JETS_TAG_NAME_PROD") != "" && os.Getenv("JETS_TAG_VALUE_PROD") != "" {
+		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PROD")), jsii.String(os.Getenv("JETS_TAG_VALUE_PROD")), nil)
+	}
+	
 	NewVpcPeeringStack(app, "VpcPeeringStack", &VpcPeeringStackProps{
 		awscdk.StackProps{
 			Env: env(),
+			Description: stackDescription,
 		},
 	})
 
