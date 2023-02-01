@@ -88,6 +88,13 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 						),
 						Resources: jsii.Strings(fmt.Sprintf("arn:aws:ecr:*:%s:repository/*",	os.Getenv("AWS_ACCOUNT"))),
 					}),
+					iam.NewPolicyStatement(&iam.PolicyStatementProps{
+						Effect: iam.Effect_ALLOW,
+						Actions: jsii.Strings(
+							"cloudformation:DescribeStacks",
+						),
+						Resources: jsii.Strings(fmt.Sprintf("arn:aws:cloudformation:%s:%s:stack/CDKToolkit/*", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"))),
+					}),
 				},
 			}),
 		},
