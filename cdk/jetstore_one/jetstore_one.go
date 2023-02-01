@@ -46,9 +46,10 @@ func (ma DbClusterVisitor) Visit(node constructs.IConstruct) {
 
 type JetstoreOneStackProps struct {
 	awscdk.StackProps
-	DbMinCapacity *float64
-	DbMaxCapacity *float64
-	SnsAlarmTopicArn *string
+	DbMinCapacity                *float64
+	DbMaxCapacity                *float64
+	CpuUtilizationAlarmThreshold *float64
+	SnsAlarmTopicArn             *string
 }
 var phiTagName, piiTagName, descriptionTagName *string
 
@@ -165,7 +166,7 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 		EvaluationPeriods: jsii.Number(1),
 		DatapointsToAlarm: jsii.Number(1),
 		Threshold: jsii.Number(60),
-		AlarmDescription: jsii.String("CPUUtilization > 60 for 1 datapoints within 5 minutes"),
+		AlarmDescription: jsii.String(fmt.Sprintf("CPUUtilization > %.1f for 1 datapoints within 5 minutes",*props.CpuUtilizationAlarmThreshold)),
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
 		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
 		Metric: rds.MetricCPUUtilization(&awscloudwatch.MetricOptions{
@@ -184,6 +185,23 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
 		Metric: rds.Metric(jsii.String("ServerlessDatabaseCapacity"), &awscloudwatch.MetricOptions{
+			Period: awscdk.Duration_Minutes(jsii.Number(5)),
+		}),
+	})
+	if alarmAction != nil {
+		alarm.AddAlarmAction(alarmAction)
+	}
+	// 1 ACU = 2 GB = 2 * 1024*1024*1024 bytes = 2147483648 bytes
+	// Alarm threshold in bytes, MIN_CAPACITY in ACU
+	alarm = awscloudwatch.NewAlarm(stack, jsii.String("FreeableMemoryAlarm"), &awscloudwatch.AlarmProps{
+		AlarmName: jsii.String("FreeableMemoryAlarm"),
+		EvaluationPeriods: jsii.Number(1),
+		Threshold: jsii.Number(*props.DbMinCapacity * 2147483648 / 2.0),
+		DatapointsToAlarm: jsii.Number(1),
+		AlarmDescription: jsii.String("FreeableMemory < MIN_CAPACITY/2 in bytes for 1 datapoints within 5 minutes"),
+		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
+		Metric: rds.Metric(jsii.String("FreeableMemory"), &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
 		}),
 	})
@@ -1154,6 +1172,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
+// JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1184,6 +1203,7 @@ func main() {
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:",os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	fmt.Println("env JETS_DB_MIN_CAPACITY:",os.Getenv("JETS_DB_MIN_CAPACITY"))
 	fmt.Println("env JETS_DB_MAX_CAPACITY:",os.Getenv("JETS_DB_MAX_CAPACITY"))
+	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:",os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -1224,6 +1244,14 @@ func main() {
 			errMsg = append(errMsg, fmt.Sprintf("Invalid value for JETS_DB_MAX_CAPACITY: %s",os.Getenv("JETS_DB_MAX_CAPACITY")))
 		}
 	}
+	CpuUtilizationAlarmThreshold := 80.0
+	if os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD") != "" {
+		dBMaxCapacity, err = strconv.ParseFloat(os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"), 64)
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("Invalid value for JETS_CPU_UTILIZATION_ALARM_THRESHOLD: %s",os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD")))
+		}
+	}
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
@@ -1262,6 +1290,7 @@ func main() {
 		},
 		&dBMinCapacity,
 		&dBMaxCapacity,
+		&CpuUtilizationAlarmThreshold,
 		snsAlarmTopicArn,
 	})
 
