@@ -199,7 +199,7 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 		Threshold: jsii.Number(*props.DbMinCapacity * 2147483648 / 2.0),
 		DatapointsToAlarm: jsii.Number(1),
 		AlarmDescription: jsii.String("FreeableMemory < MIN_CAPACITY/2 in bytes for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_LESS_THAN_LOWER_THRESHOLD,
+		ComparisonOperator: awscloudwatch.ComparisonOperator_LESS_THAN_THRESHOLD,
 		TreatMissingData: awscloudwatch.TreatMissingData_NOT_BREACHING,
 		Metric: rds.Metric(jsii.String("FreeableMemory"), &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
