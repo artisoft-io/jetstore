@@ -137,6 +137,9 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       var state = formState.getState(0);
       if (state[FSK.mergedInputRegistryKeys] == null) {
         state[FSK.mergedInputRegistryKeys] = '{}';
+      } else {
+        state[FSK.mergedInputRegistryKeys] =
+          '{${(state[FSK.mergedInputRegistryKeys] as List<String>).join(',')}}';
       }
       state[FSK.pipelineConfigKey] = state[FSK.pipelineConfigKey][0];
       var w = state[FSK.mainInputRegistryKey];

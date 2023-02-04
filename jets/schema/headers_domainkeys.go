@@ -188,12 +188,6 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 		default:
 			fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
 		}
-	} else {
-		// No domain keys specified, use jets:key as default
-		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
-			ColumnNames: []string{"jets:key"},
-			ObjectType: mainObjectType,
-		}
 	}
 
 	// Complete the reserved columns by adding the domain keys

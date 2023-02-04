@@ -138,7 +138,7 @@ type RuleConfig struct {
 //  WHERE session_id=$1 AND shard_id=$2
 //  ORDER BY {{grouping_key}})
 //
-func (processInput *ProcessInput) makeInputSqlStmt() string {
+func (processInput *ProcessInput) makeSqlStmt() string {
 	var buf strings.Builder
 	buf.WriteString("SELECT ")
 	for i, spec := range processInput.processInputMapping {
@@ -155,48 +155,6 @@ func (processInput *ProcessInput) makeInputSqlStmt() string {
 	buf.WriteString(" FROM ")
 	tbl := pgx.Identifier{processInput.tableName}
 	buf.WriteString(tbl.Sanitize())
-	buf.WriteString(" WHERE session_id = $1 ")
-	if *shardId >= 0 {
-		buf.WriteString(" AND ")
-		buf.WriteString(pgx.Identifier{processInput.shardIdColumn}.Sanitize())
-		buf.WriteString(" = $2 ")
-	}
-	buf.WriteString(" ORDER BY ")
-	buf.WriteString(
-		pgx.Identifier{processInput.groupingColumn}.Sanitize())
-	buf.WriteString(" ASC ")
-	if *limit > 0 {
-		buf.WriteString(" LIMIT ")
-		buf.WriteString(strconv.Itoa(*limit))
-	}
-
-	return buf.String()
-}
-
-// utility methods
-// prepare the sql statement for reading from domain table (persisted type)
-// Example from test2 of server unit tests:
-//   SELECT "hc:patient_number", "hc:dob", "hc:gender", "jets:key", "rdf:type"
-//   FROM "hc:SimulatedPatient"
-//   WHERE session_id = $1 AND "Member:shard_id" = $2
-//   ORDER BY "Member:domain_key" ASC
-//
-func (processInput *ProcessInput) makeSqlStmt() string {
-	var buf strings.Builder
-	buf.WriteString("SELECT ")
-	for i, spec := range processInput.processInputMapping {
-		if i > 0 {
-			buf.WriteString(", ")
-		}
-		if spec.inputColumn.Valid {
-			col := pgx.Identifier{spec.inputColumn.String}
-			buf.WriteString(col.Sanitize())	
-		} else {
-			buf.WriteString(fmt.Sprintf("NULL as UNNAMMED%d", i))
-		}
-	}
-	buf.WriteString(" FROM ")
-	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
 	buf.WriteString(" WHERE session_id = $1 ")
 	if *shardId >= 0 {
 		buf.WriteString(" AND ")
@@ -281,22 +239,19 @@ func (processInput *ProcessInput) setKeyPos() error {
 func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineConfig, error) {
 	pc := PipelineConfig{key: pcKey}
 	var err error
-	var inSessId, sessId sql.NullString
+	var outSessId sql.NullString
 	mainInputRegistryKey := sql.NullInt64{}
 	var mergedInputRegistryKeys []int
 	if peKey > -1 {
 		err = dbpool.QueryRow(context.Background(),
-			`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys, input_session_id, session_id
+			`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys, session_id
 			 FROM jetsapi.pipeline_execution_status 
-			 WHERE key = $1`, peKey).Scan(&pc.key, &mainInputRegistryKey, &mergedInputRegistryKeys, &inSessId, &sessId)
+			 WHERE key = $1`, peKey).Scan(&pc.key, &mainInputRegistryKey, &mergedInputRegistryKeys, &outSessId)
 		if err != nil {
 			return &pc, fmt.Errorf("read jetsapi.pipeline_execution_status table failed: %v", err)
 		}
-		if inSessId.Valid && *inSessionIdOverride == "" {
-			*inSessionIdOverride = inSessId.String
-		}
-		if sessId.Valid && *outSessionId == "" {
-			*outSessionId = sessId.String
+		if outSessId.Valid && *outSessionId == "" {
+			*outSessionId = outSessId.String
 		}
 		if *outSessionId == "" {
 			return &pc, fmt.Errorf("error: output SessionId is not specified")
@@ -346,6 +301,8 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 
 	// determine the input session ids
 	if *inSessionIdOverride != "" {
+		//*
+		fmt.Println("**@@@** *inSessionIdOverride != empty??")
 		pc.mainProcessInput.sessionId = *inSessionIdOverride
 		for i := range pc.mergedProcessInput {
 			pc.mergedProcessInput[i].sessionId = *inSessionIdOverride
@@ -360,14 +317,20 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 		if err != nil {
 			return &pc, fmt.Errorf("while reading session id for main table: %v", err)
 		}
+		//*
+		fmt.Println("**@@@** pc.mainProcessInput.sessionId",pc.mainProcessInput.sessionId,"FROM mainInputRegistryKey",mainInputRegistryKey.Int64)
 		for i := range pc.mergedProcessInput {
 			pc.mergedProcessInput[i].sessionId, err = getSessionId(dbpool, mergedInputRegistryKeys[i])
 			if err != nil {
 				return &pc, fmt.Errorf("while reading session id for merged-in table %s: %v",
 					pc.mergedProcessInput[i].tableName, err)
 			}
+			//*
+			fmt.Println("**@@@** pc.mergedProcessInput[i].sessionId",pc.mergedProcessInput[i].sessionId,"FROM mergedInputRegistryKeys[i]",mergedInputRegistryKeys[i],"i:",i)
 		}
 	} else {
+		//*
+		fmt.Println("**@@@** HERE??")
 		// input session id not specified, take the latest from input_registry
 		pc.mainProcessInput.sessionId, err = getLatestSessionId(dbpool, pc.mainProcessInput.tableName)
 		if err != nil {
