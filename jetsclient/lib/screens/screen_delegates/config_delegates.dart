@@ -107,9 +107,12 @@ String? homeFormValidator(
       if (v != null) return null;
       return "Main input source row must be selected";
 
-    case DTKeys.fileKeyStagingForPipelineExecTable:
+    case DTKeys.fileKeyStagingForPipelineMainProcessInput:
       if (v != null) return null;
       return "File Key row must be selected";
+
+    // case DTKeys.fileKeyStagingForPipelineMergeProcessInput:
+    //   return null;
 
     case FSK.mergedInputRegistryKeys:
     case FSK.mergedProcessInputKeys:

@@ -370,7 +370,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 4,
           name: "main_object_type",
-          label: 'Main Object Type',
+          label: 'Object Type',
           tooltips: 'Type of object contained in the main input source',
           isNumeric: false),
       ColumnConfig(
@@ -1401,6 +1401,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       DataTableFormStateOtherColumnConfig(stateKey: FSK.client, columnIdx: 2),
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainObjectType, columnIdx: 6),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.mainSourceType, columnIdx: 7),
     ]),
     columns: [
       ColumnConfig(
@@ -1446,23 +1448,29 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 6,
           name: "main_object_type",
-          label: 'Main Object Type',
+          label: 'Object Type',
           tooltips: 'Object Type of main input table',
           isNumeric: false),
       ColumnConfig(
           index: 7,
+          name: "main_source_type",
+          label: 'Source Type',
+          tooltips: 'Source Type is file or domain_table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 8,
           name: "description",
           label: 'Description',
           tooltips: 'Pipeline description',
           isNumeric: false),
       ColumnConfig(
-          index: 8,
+          index: 9,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 9,
+          index: 10,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
@@ -1580,11 +1588,12 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
+      WhereClause(column: "source_type", formStateKey: FSK.mainSourceType),
     ],
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.mainInputFileKey, columnIdx: 3),
+          stateKey: FSK.mainInputFileKey, columnIdx: 4),
     ]),
     columns: [
       ColumnConfig(
@@ -1608,30 +1617,36 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 3,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File Key of the loaded file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
           name: "source_type",
           label: 'Source Type',
           tooltips: 'Source of the input data, either File or Domain Table',
           isNumeric: false),
       ColumnConfig(
+          index: 4,
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File Key of the loaded file',
+          isNumeric: false),
+      ColumnConfig(
           index: 5,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the data reside',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
           name: "session_id",
           label: 'Session ID',
           tooltips: 'Session ID of the file load job',
           isNumeric: false),
       ColumnConfig(
-          index: 6,
+          index: 7,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 7,
+          index: 8,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
@@ -1644,8 +1659,8 @@ final Map<String, TableConfig> _tableConfigurations = {
 
   // File Key Staging Data Table for Pipeline Exec Dialog (FormKeys.startPipeline)
   // for selecting FSK.mainInputFileKey
-  DTKeys.fileKeyStagingForPipelineExecTable: TableConfig(
-    key: DTKeys.fileKeyStagingForPipelineExecTable,
+  DTKeys.fileKeyStagingForPipelineMainProcessInput: TableConfig(
+    key: DTKeys.fileKeyStagingForPipelineMainProcessInput,
     schemaName: 'jetsapi',
     tableName: 'file_key_staging',
     label: 'Main Input Source - File Key Staging',
@@ -1698,6 +1713,59 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: false,
     rowsPerPage: 10,
   ),
+  // DTKeys.fileKeyStagingForPipelineMergeProcessInput: TableConfig(
+  //   key: DTKeys.fileKeyStagingForPipelineMergeProcessInput,
+  //   schemaName: 'jetsapi',
+  //   tableName: 'file_key_staging',
+  //   label: 'Merge Input Source - File Key Staging',
+  //   apiPath: '/dataTable',
+  //   isCheckboxVisible: true,
+  //   isCheckboxSingleSelect: false,
+  //   whereClauses: [
+  //     WhereClause(column: "client", formStateKey: FSK.client),
+  //   ],
+  //   actions: [],
+  //   formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+  //     DataTableFormStateOtherColumnConfig(
+  //         stateKey: FSK.mergedInputRegistryKeys, columnIdx: 3),
+  //   ]),
+  //   columns: [
+  //     ColumnConfig(
+  //         index: 0,
+  //         name: "key",
+  //         label: 'Primary Key',
+  //         tooltips: '',
+  //         isNumeric: true,
+  //         isHidden: true),
+  //     ColumnConfig(
+  //         index: 1,
+  //         name: "client",
+  //         label: 'Client',
+  //         tooltips: 'Client providing the input files',
+  //         isNumeric: false),
+  //     ColumnConfig(
+  //         index: 2,
+  //         name: "object_type",
+  //         label: 'Object Type',
+  //         tooltips: 'The type of object the file contains',
+  //         isNumeric: false),
+  //     ColumnConfig(
+  //         index: 3,
+  //         name: "file_key",
+  //         label: 'File Key',
+  //         tooltips: 'File key or path',
+  //         isNumeric: false),
+  //     ColumnConfig(
+  //         index: 4,
+  //         name: "last_update",
+  //         label: 'Last Update',
+  //         tooltips: 'When the file was received',
+  //         isNumeric: false),
+  //   ],
+  //   sortColumnName: 'last_update',
+  //   sortAscending: false,
+  //   rowsPerPage: 10,
+  // ),
 
   // Input Registry Table for Pipeline Exec Dialog (FormKeys.startPipeline)
   // for selecting FSK.mergeInputRegistryKeys
@@ -1711,6 +1779,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: false,
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
+      WhereClause(column: "source_type", formStateKey: FSK.mainSourceType),
     ],
     actions: [],
     formStateConfig:
@@ -1737,30 +1807,36 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 3,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File Key of the loaded file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
           name: "source_type",
           label: 'Source Type',
           tooltips: 'Source of the input data, either File or Domain Table',
           isNumeric: false),
       ColumnConfig(
+          index: 4,
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File Key of the loaded file',
+          isNumeric: false),
+      ColumnConfig(
           index: 5,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the data will be loaded from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
           name: "session_id",
           label: 'Session ID',
           tooltips: 'Session ID of the file load job',
           isNumeric: false),
       ColumnConfig(
-          index: 6,
+          index: 7,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 7,
+          index: 8,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
