@@ -261,7 +261,8 @@ class DTKeys {
 
   // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
-  static const fileKeyStagingForPipelineExecTable = "fileKeyStagingForPipelineExecTable";
+  static const fileKeyStagingForPipelineMainProcessInput = "fileKeyStagingForPipelineMainProcessInput";
+  // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";
 
   // File Staging Area
   static const sourceConfigTable = "sourceConfigTable";

@@ -1234,16 +1234,16 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
       [
         FormDataTableFieldConfig(
-            key: DTKeys.fileKeyStagingForPipelineExecTable,
-            dataTableConfig: DTKeys.fileKeyStagingForPipelineExecTable),
+            key: DTKeys.fileKeyStagingForPipelineMainProcessInput,
+            dataTableConfig: DTKeys.fileKeyStagingForPipelineMainProcessInput),
       ],
       [
         PaddingConfig(),
       ],
       [
         FormDataTableFieldConfig(
-            key: FSK.mergedProcessInputKeys,
-            dataTableConfig: FSK.mergedProcessInputKeys),
+            key: FSK.mergedInputRegistryKeys,
+            dataTableConfig: FSK.mergedInputRegistryKeys),
       ],
     ],
   ),
