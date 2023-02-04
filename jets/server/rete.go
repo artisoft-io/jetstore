@@ -235,14 +235,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 						entityRow[i] = *outSessionId
 			
 					case strings.HasSuffix(domainColumn.ColumnName, ":domain_key"):
-						domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &rw.pipelineConfig.mainProcessInput.objectType, &entityRow)
+						objectType := strings.Split(domainColumn.ColumnName, ":")[0]
+						domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
 						if err != nil {
 							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
 						}			
 						entityRow[i] = domainKey
 			
 					case strings.HasSuffix(domainColumn.ColumnName, ":shard_id"):
-						_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &rw.pipelineConfig.mainProcessInput.objectType, &entityRow)
+						objectType := strings.Split(domainColumn.ColumnName, ":")[0]
+						_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
 						if err != nil {
 							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
 						}			

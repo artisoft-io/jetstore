@@ -99,19 +99,14 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		var stmt string
 		var rows pgx.Rows
 		var err error
-		if mainInput.sourceType == "file" {
-			stmt = mainInput.makeInputSqlStmt()
-		} else if mainInput.sourceType == "domain_table" {
-			stmt = mainInput.makeSqlStmt()
-		} else {
-			result <- readResult{err: fmt.Errorf("error: unknown source_type for the input table: %s", mainInput.sourceType)}
-			return
-		}
-		log.Println("SQL:", stmt)
-		log.Println("Grouping key at pos", mainInput.groupingPosition)
+		stmt = mainInput.makeSqlStmt()
+		// log.Println("SQL:", stmt)
+		// log.Println("Grouping key at pos", mainInput.groupingPosition)
 		if *shardId >= 0 {
+			// log.Println("sql arguments are $1:",mainInput.sessionId,", $2:",*shardId)
 			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, mainInput.sessionId, *shardId)
 		} else {
+			// log.Println("sql arguments are $1:",mainInput.sessionId)
 			rows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt, mainInput.sessionId)
 		}
 		if err != nil {
@@ -179,9 +174,10 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 							// prepare the sql stmt
 							jquery := joinQuery{processInput: &processInputs[ipoc]}
 							stmt := processInputs[ipoc].makeJoinSqlStmt()
-							log.Println("JOIN SQL:", stmt)
-							log.Println("Grouping key at pos", processInputs[ipoc].groupingPosition)
-							log.Println("Grouping key starting value", groupingValue)
+							// log.Println("JOIN SQL:", stmt)
+							// log.Println("Grouping key at pos", processInputs[ipoc].groupingPosition)
+							// log.Println("Grouping key starting value", groupingValue)
+							// log.Println("session_id arg of join sql", processInputs[ipoc].sessionId)
 							jquery.rows, err = jnode.dbpool.Query(context.Background(), stmt, processInputs[ipoc].sessionId, groupingValue)
 							if err != nil {
 								result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}

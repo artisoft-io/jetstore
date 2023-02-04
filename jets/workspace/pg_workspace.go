@@ -23,10 +23,10 @@ func GetDomainKeysInfo(dbpool *pgxpool.Pool, rdfType string) (*[]string, *string
 	var domainKeysJson string
 	stmt := "SELECT object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type=$1"
 	err := dbpool.QueryRow(context.Background(), stmt, rdfType).Scan(&objectTypes, &domainKeysJson)
-	if err != nil {
-		log.Printf("Error in GetDomainKeysInfo while querying domain_keys_registry: %v", err)
+	if err != nil && err.Error() != "no rows in result set" {
+		log.Printf("Error in GetDomainKeysInfo while querying domain_keys_registry for rdfType %s: %v", rdfType, err)
 		return &objectTypes, &domainKeysJson, 
-			fmt.Errorf("in GetDomainKeysInfo while querying domain_keys_registry: %w", err)
+			fmt.Errorf("in GetDomainKeysInfo while querying domain_keys_registry for rdfType %s: %w", rdfType, err)
 	}	
 	return &objectTypes, &domainKeysJson, nil
 }

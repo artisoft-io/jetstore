@@ -167,8 +167,6 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			return fmt.Errorf("ERROR predicate is null")
 		}
 		if object == nil {
-			nm, err := inputColumnSpec.predicate.GetName()
-			log.Println("** Object is nil nothing to assert for predicate",nm,err)
 			continue
 		}
 		// This is when we insert!....
