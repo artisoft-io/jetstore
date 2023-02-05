@@ -19,6 +19,7 @@ const sourceConfigPath = '/sourceConfig';
 const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table/:session_id';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
+const processErrorsPath = '/processErrorsPath/:session_id';
 
 const processConfigPath = '/processConfig';
 const pipelineConfigPath = '/pipelineConfig';
@@ -117,6 +118,15 @@ final Map<String, Widget> jetsRoutesMap = {
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
       tableConfig: getTableConfig(DTKeys.pipelineExecDetailsTable)),
+
+  // Pipeline Execution Status Details Viewer
+  processErrorsPath: ScreenOne(
+      key: const Key(ScreenKeys.processErrorsTable),
+      screenPath: JetsRouteData(processErrorsPath),
+      screenConfig: getScreenConfig(ScreenKeys.processErrorsTable),
+      validatorDelegate: (formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
+      tableConfig: getTableConfig(DTKeys.processErrorsTable)),
 
   // Page Not Found
   pageNotFoundPath: const MessageScreen(message: "Opps 404!"),

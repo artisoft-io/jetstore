@@ -50,6 +50,7 @@ class ScreenKeys {
 
   static const fileRegistryTable = "fileRegistryTableScreen";
   static const execStatusDetailsTable = "execStatusDetailsTable";
+  static const processErrorsTable = "processErrorsTable";
 }
 
 /// Form ID Keys
@@ -239,6 +240,7 @@ class DTKeys {
   static const inputLoaderStatusTable = "inputLoaderStatusTable";
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
+  static const processErrorsTable = "processErrorsTable";
 
   // File Staging Area / Source Config DT
   // opting to display object_type_registry rather than source_config

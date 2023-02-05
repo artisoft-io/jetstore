@@ -330,6 +330,15 @@ final Map<String, TableConfig> _tableConfigurations = {
           configScreenPath: executionStatusDetailsPath,
           navigationParams: {'session_id': 10}),
       ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'viewProcessErrors',
+          label: 'View Process Errors',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: processErrorsPath,
+          navigationParams: {'session_id': 10}),
+      ActionConfig(
           actionType: DataTableActionType.refreshTable,
           key: 'refreshTable',
           label: 'Refresh',
@@ -523,6 +532,79 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 12,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the file was loaded',
+          isNumeric: false),
+    ],
+    sortColumnName: 'shard_id',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // Pipeline Execution Errors (process_erors) Table
+  DTKeys.processErrorsTable: TableConfig(
+    key: DTKeys.processErrorsTable,
+    schemaName: 'jetsapi',
+    tableName: 'process_errors',
+    label: 'Pipeline Execution Errors',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(column: "session_id", formStateKey: FSK.sessionId),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: false),
+      ColumnConfig(
+          index: 1,
+          name: "grouping_key",
+          label: 'Domain Key',
+          tooltips: 'Domain Key of the associated row',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "row_jets_key",
+          label: 'Row jets:key',
+          tooltips: 'JetStore row''s primary key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "input_column",
+          label: 'Input Column',
+          tooltips: 'Input Column of the error, available if error results from mapping',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "error_message",
+          label: 'Error Message',
+          tooltips: 'Error that occured during execution',
+          isNumeric: false,
+          maxLines: 3,
+          columnWidth: 600),
+      ColumnConfig(
+          index: 5,
+          name: "shard_id",
+          label: 'Shard ID',
+          tooltips: 'Pipeline shard ID',
+          isNumeric: true),
+      ColumnConfig(
+          index: 6,
+          name: "session_id",
+          label: 'Session ID',
+          tooltips: 'Data Pipeline session ID',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the file was loaded',
