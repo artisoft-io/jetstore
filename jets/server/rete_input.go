@@ -46,6 +46,31 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 	return nil
 }
 
+func filterDigits(str string) string {
+	// Remove non digits characters
+	var buf strings.Builder
+	for _,c := range str {
+		if unicode.IsDigit(c) {
+			buf.WriteRune(c)
+		}
+	}
+	return buf.String()
+}
+
+func filterDouble(str string) string {
+	// clean up the amount
+	var buf strings.Builder
+	var c rune
+	for _, c = range str {
+		if c == '(' || c == '-' {
+			buf.WriteRune('-')
+		} else if unicode.IsDigit(c) || c == '.' {
+			buf.WriteRune(c)
+		}
+	}
+	return buf.String()
+}
+
 // main function for asserting input text row (from csv files)
 func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession, inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
@@ -92,30 +117,35 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 					case "to_upper":
 						obj = strings.ToUpper(row[icol].String)
 					case "to_zip5":
+						// Remove non digits characters
+						inVal := filterDigits(row[icol].String)
+						sz = len(inVal)
 						switch {
 						case sz < 5:
 							var v int
-							v, err = strconv.Atoi(row[icol].String)
+							v, err = strconv.Atoi(inVal)
 							if err == nil {
 								obj = fmt.Sprintf("%05d", v)
 							}
 						case sz == 5:
-							obj = row[icol].String
+							obj = inVal
 						case sz > 5 && sz < 9:
 							var v int
-							v, err = strconv.Atoi(row[icol].String)
+							v, err = strconv.Atoi(inVal)
 							if err == nil {
 								obj = fmt.Sprintf("%09d", v)[:5]
 							}
 						case sz == 9:
-							obj = row[icol].String[:5]
+							obj = inVal[:5]
 						default:
 						}
 					case "reformat0":
 						if inputColumnSpec.argument.Valid {
+							// Remove non digits characters
+							inVal := filterDigits(row[icol].String)
 							arg := inputColumnSpec.argument.String
 							var v int
-							v, err = strconv.Atoi(row[icol].String)
+							v, err = strconv.Atoi(inVal)
 							if err == nil {
 								obj = fmt.Sprintf(arg, v)
 							}
@@ -144,7 +174,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						if inputColumnSpec.argument.Valid {
 							arg := inputColumnSpec.argument.String
 							if arg == "1" {
-								obj = row[icol].String
+								obj = filterDouble(row[icol].String)
 							} else {
 								divisor, ok := ri.argdMap[arg]
 								if !ok {
@@ -155,8 +185,10 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 									}
 									ri.argdMap[arg] = divisor
 								}
+								// Remove non digits characters
+								inVal := filterDouble(row[icol].String)
 								var unit float64
-								unit, err = strconv.ParseFloat(row[icol].String, 64)
+								unit, err = strconv.ParseFloat(inVal, 64)
 								if err == nil {
 									obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))
 								}
@@ -167,17 +199,9 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						}
 					case "parse_amount":
 						// clean up the amount
-						var buf strings.Builder
-						var c rune
-						for _, c = range row[icol].String {
-							if c == '(' || c == '-' {
-								buf.WriteRune('-')
-							} else if unicode.IsDigit(c) || c == '.' {
-								buf.WriteRune(c)
-							}
-						}
-						if buf.Len() > 0 {
-							obj = buf.String()
+						inVal := filterDouble(row[icol].String)
+						if len(inVal) > 0 {
+							obj = inVal
 							// argument is optional, assume divisor is 1 if absent
 							if inputColumnSpec.argument.Valid {
 								arg := inputColumnSpec.argument.String
