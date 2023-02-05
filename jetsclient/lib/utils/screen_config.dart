@@ -185,6 +185,14 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
+
+  ScreenKeys.processErrorsTable: ScreenConfig(
+      key: ScreenKeys.processErrorsTable,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Pipeline Execution Errors',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
 };
 
 ScreenConfig getScreenConfig(String key) {
