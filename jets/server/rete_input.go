@@ -110,7 +110,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	for icol := 0; icol < ncol; icol++ {
 		// asserting input row with mapping spec
 		inputColumnSpec := &inBundleRow.processInput.processInputMapping[icol]
-		fmt.Println("** assert ",inputColumnSpec.tableName,"property",inputColumnSpec.dataProperty,"value",row[icol].String)
+		// fmt.Println("** assert from table:",inputColumnSpec.tableName,", property:",inputColumnSpec.dataProperty,", value:",row[icol].String)
 		var obj string
 		var err error
 		sz := len(row[icol].String)
