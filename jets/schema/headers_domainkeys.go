@@ -32,6 +32,7 @@ type HeadersAndDomainKeysInfo struct {
 	TableName         string
 	RawHeaders        []string
 	Headers           []string
+	HashingOverriden  bool
 	HashingAlgo       string
 	HashingSeed       uuid.UUID
 	// key is the header
@@ -55,13 +56,15 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 		headersDKInfo.HashingAlgo = "none"
 	}
 	var err error
-	switch headersDKInfo.HashingAlgo {
-	case "md5", "sha1":
+	seed := os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")
+	if seed != "" {
 		headersDKInfo.HashingSeed, err = uuid.Parse(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 		if err != nil {
 			return nil, fmt.Errorf("while initializing uuid from JETS_DOMAIN_KEY_HASH_SEED: %v", err)
 		}
-	case "none":
+	}
+	switch headersDKInfo.HashingAlgo {
+	case "md5", "sha1", "none":
 	default:
 		return nil, fmt.Errorf("error invalid JETS_DOMAIN_KEY_HASH_ALGO, must be md5, sha1, or none (not case sensitive): %s", headersDKInfo.HashingAlgo)
 	}
@@ -114,6 +117,9 @@ func (dkInfo *HeadersAndDomainKeysInfo)String() string {
 	}
 	buf.WriteString("\n  HashingAlgo: ")
 	buf.WriteString(dkInfo.HashingAlgo)
+	if dkInfo.HashingOverriden {
+		buf.WriteString(" (hashing algo overriden)")
+	}
 	buf.WriteString("\n  HashingSeed: ")
 	buf.WriteString(dkInfo.HashingSeed.String())
 	buf.WriteString("\n  HeadersPos:")
@@ -166,9 +172,14 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 			for k, v := range value {
 				switch vv := v.(type) {
 				case string:
-					dkInfo.DomainKeysInfoMap[k] = &DomainKeyInfo{
-						ColumnNames: []string{vv},
-						ObjectType: k,
+					if k == "jets:hashing_override" {
+						dkInfo.HashingAlgo = vv
+						dkInfo.HashingOverriden = true
+					} else {
+						dkInfo.DomainKeysInfoMap[k] = &DomainKeyInfo{
+							ColumnNames: []string{vv},
+							ObjectType: k,
+						}
 					}
 				case []interface{}:
 					ck := make([]string, 0)
@@ -433,7 +444,9 @@ func GetObjectTypesFromDominsKeyJson(domainKeysJson string, defaultValue string)
 		switch value := f.(type) {
 		case map[string]interface{}:
 			for k := range value {
-				objTypes = append(objTypes, k)
+				if k != "jets:hashing_override" {
+					objTypes = append(objTypes, k)
+				}
 			}		
 		}
 	}

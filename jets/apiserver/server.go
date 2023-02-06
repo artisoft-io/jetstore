@@ -78,7 +78,7 @@ func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request)
 
 	// write cors headers
 	//* TODO check that origin is what we expect
-	//*
+	//
 	// for key, value := range r.Header {
 	// 	log.Println("OptionConfig: ",key,value)
 	// }

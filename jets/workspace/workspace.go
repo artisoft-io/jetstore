@@ -182,7 +182,8 @@ func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTable
 			for domainColumnsRow.Next() { // Iterate and fetch the records from result cursor
 				var domainColumn DomainColumn
 				domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray, &domainColumn.IsGrouping)
-				log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray, ", is_grouping?", domainColumn.IsGrouping)
+				// // for devel
+				// log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray, ", is_grouping?", domainColumn.IsGrouping)
 				domainTable.Columns = append(domainTable.Columns, domainColumn)
 			}
 

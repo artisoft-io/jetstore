@@ -68,7 +68,7 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 			cd.DataType = "long"
 		case "float4", "float8":
 			cd.DataType = "double"
-		default:						//* date, text (to confirm)
+		default:						// date, text
 			cd.DataType = udt
 		}
 		// Note: we're not setting IsNotNull and IsPk as it's not needed on read.
