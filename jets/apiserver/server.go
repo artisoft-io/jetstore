@@ -123,7 +123,11 @@ func (server *Server) checkJetStoreDbVersion() error {
 
 		case jetstoreVersion > version:
 			log.Println("New JetStore Release deployed, updating the db")
-			serverArgs = []string{ "-migrateDb" }
+			if os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP") == "yes" {
+				server.resetDomainTablesAction()
+			} else {
+				serverArgs = []string{ "-migrateDb" }
+			}
 
 		default:
 			log.Println("JetStore version in database", version, ">=", "deployed version", jetstoreVersion)

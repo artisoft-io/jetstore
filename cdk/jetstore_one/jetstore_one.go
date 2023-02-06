@@ -897,6 +897,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_LOADER_SERVER_SM_ARN": loaderAndServerSM.StateMachineArn(),
 			"JETS_DOMAIN_KEY_HASH_ALGO": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -1173,6 +1174,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
+// JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1204,6 +1206,7 @@ func main() {
 	fmt.Println("env JETS_DB_MIN_CAPACITY:",os.Getenv("JETS_DB_MIN_CAPACITY"))
 	fmt.Println("env JETS_DB_MAX_CAPACITY:",os.Getenv("JETS_DB_MAX_CAPACITY"))
 	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:",os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
+	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:",os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 
 	// Verify that we have all the required env variables
 	hasErr := false

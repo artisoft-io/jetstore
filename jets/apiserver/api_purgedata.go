@@ -55,14 +55,14 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 // Clear and rebuild all domain tables defined in workspace -- using update_db command line
 // Delete all table contains the input data, get the table name list from input_loader_status
 // also clear/truncate the input_registry table
-func (server *Server) ResetDomainTables(w http.ResponseWriter, r *http.Request, 
-	purgeDataAction *PurgeDataAction) {
+func (server *Server) resetDomainTablesAction() error {
 	// Clear and rebuild the domain table using the update_db command line
+	log.Println("Running Reset Domain Table")
 	serverArgs := []string{ "-drop" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
-log.Printf("Run update_db: %s", serverArgs)
+	log.Printf("Run update_db: %s", serverArgs)
 	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
 	var b bytes.Buffer
 	cmd.Stdout = &b
@@ -77,9 +77,7 @@ log.Printf("Run update_db: %s", serverArgs)
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 		log.Println("UPDATE_DB CAPTURED OUTPUT END")
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		ERROR(w, http.StatusInternalServerError, 
-			errors.New("error while running server command"))
-		return
+		return errors.New("error while running update_db command")
 	}
 	log.Println("============================")
 	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
@@ -94,8 +92,7 @@ log.Printf("Run update_db: %s", serverArgs)
 	rows, err := server.dbpool.Query(context.Background(), stmt)
 	if err != nil {
 		log.Printf("While selecting input staging tables: %v", err)
-		ERROR(w, http.StatusInternalServerError, 
-			errors.New("error while selecting staging tables"))
+		return errors.New("error while selecting staging tables")
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -103,8 +100,7 @@ log.Printf("Run update_db: %s", serverArgs)
 		var tableName string
 		if err = rows.Scan(&tableName); err != nil {
 			log.Printf("While scanning the row: %v", err)
-			ERROR(w, http.StatusInternalServerError, 
-				errors.New("error while scaning staging tables"))
+			return errors.New("error while scaning staging tables")
 		}
 		// Drop the table
 		stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{"public", tableName}.Sanitize())
@@ -112,8 +108,7 @@ log.Printf("Run update_db: %s", serverArgs)
 		_, err := server.dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			log.Printf("error while droping staging table: %v", err)
-			ERROR(w, http.StatusInternalServerError, 
-				errors.New("error while droping staging tables"))
+			return errors.New("error while droping staging tables")
 		}
 	}
 
@@ -123,10 +118,16 @@ log.Printf("Run update_db: %s", serverArgs)
 	_, err = server.dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		log.Printf("error while truncating input_registry table: %v", err)
-		ERROR(w, http.StatusInternalServerError, 
-			errors.New("error while truncating input_registry tables"))
+		return errors.New("error while truncating input_registry tables")
 	}
-
+	return nil
+}
+func (server *Server) ResetDomainTables(w http.ResponseWriter, r *http.Request, purgeDataAction *PurgeDataAction) {
+	err := server.resetDomainTablesAction()
+	if err != nil {
+		ERROR(w, http.StatusInternalServerError, err)
+		return
+	}
 	results := makeResult(r)
 	JSON(w, http.StatusOK, results)
 }
