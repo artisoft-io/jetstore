@@ -96,6 +96,16 @@ func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request)
 	// }
 }
 
+func (server *Server) addVersionToDb(jetstoreVersion string) (err error) {
+	// Add version to db
+	stmt := "INSERT INTO jetsapi.jetstore_release (version) VALUES ($1)"
+	_, err = server.dbpool.Exec(context.Background(), stmt, jetstoreVersion)
+	if err != nil {
+		return fmt.Errorf("while inserting jetstore version into jetstore_release table: %v", err)
+	}
+	return nil
+}
+
 // Validate the user table exists and create admin if not already created
 func (server *Server) checkJetStoreDbVersion() error {
 	tableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "jetstore_release")
@@ -125,6 +135,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 			log.Println("New JetStore Release deployed, updating the db")
 			if os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP") == "yes" {
 				server.resetDomainTablesAction()
+				server.addVersionToDb(jetstoreVersion)
 			} else {
 				serverArgs = []string{ "-migrateDb" }
 			}
@@ -163,12 +174,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 		log.Println("UPDATE_DB CAPTURED OUTPUT END")
 		log.Println("============================")
 
-		// Add version to db
-		stmt := "INSERT INTO jetsapi.jetstore_release (version) VALUES ($1)"
-		_, err = server.dbpool.Exec(context.Background(), stmt, jetstoreVersion)
-		if err != nil {
-			return fmt.Errorf("while inserting jetstore version into jetstore_release table: %v", err)
-		}
+		server.addVersionToDb(jetstoreVersion)
 	}
 	return nil
 }
