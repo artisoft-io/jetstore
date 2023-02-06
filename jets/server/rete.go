@@ -354,13 +354,11 @@ func (rw *ReteWorkspace) addOutputPredicate(domainColumns []workspace.DomainColu
 // addInputPredicate: add meta graph resource corresponding to input column names
 func (rw *ReteWorkspace) addInputPredicate(inputColumns []ProcessMap) error {
 	for ipos := range inputColumns {
-		if !inputColumns[ipos].isDomainKey {
-			var err error
-			inputColumns[ipos].predicate, err = rw.js.NewResource(inputColumns[ipos].dataProperty)
-			if err != nil {
-				return fmt.Errorf("while adding predicate to ProcessMap: %v", err)
-			}	
-		}
+		var err error
+		inputColumns[ipos].predicate, err = rw.js.NewResource(inputColumns[ipos].dataProperty)
+		if err != nil {
+			return fmt.Errorf("while adding predicate to ProcessMap: %v", err)
+		}	
 	}
 	return nil
 }

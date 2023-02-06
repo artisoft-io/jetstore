@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -237,26 +236,10 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 	lastUpdate := time.Now().UTC()
 
 	// Get the list of ObjectType from domainKeysJson if it's an elm, detault to *objectType
-	objTypes := make([]string, 0)
-	if domainKeysJson != "" {
-		var f interface{}
-		err = json.Unmarshal([]byte(domainKeysJson), &f)
-		if err != nil {
-			fmt.Println("while parsing domainKeysJson using json parser:", err)
-			return nil, 0, 0, err
-		}
-		// Extract the domain keys structure from the json
-		switch value := f.(type) {
-		case map[string]interface{}:
-			for k := range value {
-				objTypes = append(objTypes, k)
-			}		
-		}
+	objTypes, err := schema.GetObjectTypesFromDominsKeyJson(domainKeysJson, *objectType)
+	if err != nil {
+		return nil, 0, 0, err
 	}
-	if len(objTypes) == 0 {
-		objTypes = append(objTypes, *objectType)
-	}
-	
 	inputRows := make([][]interface{}, 0)
 	for {
 		record, err := csvReader.Read()
@@ -286,14 +269,14 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 			jetsKeyStr := uuid.New().String()
 			copyRec[jetsKeyPos] = jetsKeyStr
 			copyRec[lastUpdatePos] = lastUpdate
-			for ipos := range objTypes {
-				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &objTypes[ipos], &record, &jetsKeyStr)
+			for _,ot := range *objTypes {
+				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, &jetsKeyStr)
 				if err != nil {
 					return nil, 0, 0, err
 				}
-				domainKeyPos := headersDKInfo.DomainKeysInfoMap[objTypes[ipos]].DomainKeyPos
+				domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
 				copyRec[domainKeyPos] = groupingKey
-				shardIdPos := headersDKInfo.DomainKeysInfoMap[objTypes[ipos]].ShardIdPos
+				shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
 				copyRec[shardIdPos] = shardId
 			}
 			inputRows = append(inputRows, copyRec)
