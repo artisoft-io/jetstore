@@ -415,6 +415,30 @@ func (dkInfo *HeadersAndDomainKeysInfo)CreateStagingTable(dbpool *pgxpool.Pool, 
 			return fmt.Errorf("error while creating (session_id, domain_key) index: %v", err)
 		}
 	}
-
 	return nil
+}
+
+// Utility Methods
+func GetObjectTypesFromDominsKeyJson(domainKeysJson string, defaultValue string) (*[]string, error) {
+	// Get the list of ObjectType from domainKeysJson if it's an elm, detault to defaultValue
+	objTypes := make([]string, 0)
+	if domainKeysJson != "" {
+		var f interface{}
+		err := json.Unmarshal([]byte(domainKeysJson), &f)
+		if err != nil {
+			fmt.Println("while parsing domainKeysJson using json parser:", err)
+			return nil, err
+		}
+		// Extract the domain keys structure from the json
+		switch value := f.(type) {
+		case map[string]interface{}:
+			for k := range value {
+				objTypes = append(objTypes, k)
+			}		
+		}
+	}
+	if len(objTypes) == 0 {
+		objTypes = append(objTypes, defaultValue)
+	}
+	return &objTypes, nil
 }

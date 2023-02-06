@@ -301,8 +301,6 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 
 	// determine the input session ids
 	if *inSessionIdOverride != "" {
-		//*
-		fmt.Println("**@@@** *inSessionIdOverride != empty??")
 		pc.mainProcessInput.sessionId = *inSessionIdOverride
 		for i := range pc.mergedProcessInput {
 			pc.mergedProcessInput[i].sessionId = *inSessionIdOverride
@@ -317,20 +315,14 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 		if err != nil {
 			return &pc, fmt.Errorf("while reading session id for main table: %v", err)
 		}
-		//*
-		fmt.Println("**@@@** pc.mainProcessInput.sessionId",pc.mainProcessInput.sessionId,"FROM mainInputRegistryKey",mainInputRegistryKey.Int64)
 		for i := range pc.mergedProcessInput {
 			pc.mergedProcessInput[i].sessionId, err = getSessionId(dbpool, mergedInputRegistryKeys[i])
 			if err != nil {
 				return &pc, fmt.Errorf("while reading session id for merged-in table %s: %v",
 					pc.mergedProcessInput[i].tableName, err)
 			}
-			//*
-			fmt.Println("**@@@** pc.mergedProcessInput[i].sessionId",pc.mergedProcessInput[i].sessionId,"FROM mergedInputRegistryKeys[i]",mergedInputRegistryKeys[i],"i:",i)
 		}
 	} else {
-		//*
-		fmt.Println("**@@@** HERE??")
 		// input session id not specified, take the latest from input_registry
 		pc.mainProcessInput.sessionId, err = getLatestSessionId(dbpool, pc.mainProcessInput.tableName)
 		if err != nil {
@@ -402,19 +394,39 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("while calling readProcessInputMapping: %v", err)
 	}
-	// Add the Domain Key for grouping columns into sessions
-	pi.processInputMapping = append(pi.processInputMapping, ProcessMap{
-		tableName: pi.tableName,
-		isDomainKey: true,
-		inputColumn: sql.NullString{Valid: true, String: fmt.Sprintf("%s:domain_key", pi.objectType)},
-		rdfType: "text",
-	})
-	pi.processInputMapping = append(pi.processInputMapping, ProcessMap{
-		tableName: pi.tableName,
-		isDomainKey: true,
-		inputColumn: sql.NullString{Valid: true, String: fmt.Sprintf("%s:shard_id", pi.objectType)},
-		rdfType: "int",
-	})
+	// Get the object_type associated with the input table
+	// The object_type are in the DomainKeysJson from source_config table
+	var dkJson sql.NullString
+	err = dbpool.QueryRow(context.Background(), 
+		"SELECT domain_keys_json FROM jetsapi.source_config WHERE table_name=$1", 
+		pi.tableName).Scan(&dkJson)
+	if err != nil || !dkJson.Valid {
+		return fmt.Errorf("could not load domain_keys_json from jetsapi.source_config for table %s: %v", pi.tableName, err)
+	}
+	domainKeysJson := dkJson.String
+	objTypes, err := schema.GetObjectTypesFromDominsKeyJson(domainKeysJson, pi.objectType)
+	if err != nil {
+		return fmt.Errorf("loadProcessInput: Could not get the domain key's object_type:%v", err)
+	}
+	// Create entries in processInputMapping to add the Domain Key into sessions
+	for _,ot := range *objTypes {
+		colName := fmt.Sprintf("%s:domain_key", ot)
+		pi.processInputMapping = append(pi.processInputMapping, ProcessMap{
+			tableName: pi.tableName,
+			isDomainKey: true,
+			inputColumn: sql.NullString{Valid: true, String: colName},
+			dataProperty: colName,
+			rdfType: "text",
+		})
+		colName = fmt.Sprintf("%s:shard_id", ot)
+		pi.processInputMapping = append(pi.processInputMapping, ProcessMap{
+			tableName: pi.tableName,
+			isDomainKey: true,
+			inputColumn: sql.NullString{Valid: true, String: colName},
+			dataProperty: colName,
+			rdfType: "int",
+		})
+	}
 	return nil
 }
 
