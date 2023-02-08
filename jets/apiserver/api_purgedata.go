@@ -57,6 +57,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 // also clear/truncate the input_registry table
 func (server *Server) resetDomainTablesAction() error {
 	// Clear and rebuild the domain table using the update_db command line
+	// Also migrate the system tables to latest schema and run the workspace db init script
 	log.Println("Running Reset Domain Table")
 	serverArgs := []string{ "-drop", "-initWorkspaceDb", "-migrateDb" }
 	if *usingSshTunnel {
