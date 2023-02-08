@@ -58,7 +58,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 func (server *Server) resetDomainTablesAction() error {
 	// Clear and rebuild the domain table using the update_db command line
 	log.Println("Running Reset Domain Table")
-	serverArgs := []string{ "-drop" }
+	serverArgs := []string{ "-drop", "-initWorkspaceDb", "-migrateDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
