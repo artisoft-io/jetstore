@@ -26,18 +26,18 @@ type ReteInputContext struct {
 }
 
 // main processing function to execute rules
-func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, inBundle *inputBundle, writeOutputc *map[string][]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, inBundle *groupedJetRows, writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
-	for _, bunRow := range inBundle.inputRows {
-		rowl := len(bunRow.inputRows)
+	for _, aJetRow := range inBundle.jetRowSlice {
+		rowl := len(aJetRow.rowData)
 		if rowl == 0 {
 			continue
 		}
 		var err error
-		if bunRow.processInput.sourceType == "file" {
-			err = ri.assertInputTextRecord(reteSession, &bunRow, writeOutputc)
+		if aJetRow.processInput.sourceType == "file" {
+			err = ri.assertInputTextRecord(reteSession, &aJetRow, writeOutputc)
 		} else {
-			err = ri.assertInputEntityRecord(reteSession, &bunRow, writeOutputc)
+			err = ri.assertInputEntityRecord(reteSession, &aJetRow, writeOutputc)
 		}
 		if err != nil {
 			return err
@@ -49,7 +49,7 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 func filterDigits(str string) string {
 	// Remove non digits characters
 	var buf strings.Builder
-	for _,c := range str {
+	for _, c := range str {
 		if unicode.IsDigit(c) {
 			buf.WriteRune(c)
 		}
@@ -72,16 +72,16 @@ func filterDouble(str string) string {
 }
 
 // main function for asserting input text row (from csv files)
-func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession, inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession, aJetRow *jetRow, writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
-	ncol := len(inBundleRow.inputRows)
+	ncol := len(aJetRow.rowData)
 	row := make([]sql.NullString, ncol)
 	for i := range row {
-		row[i] = *inBundleRow.inputRows[i].(*sql.NullString)
+		row[i] = *aJetRow.rowData[i].(*sql.NullString)
 	}
 	var jetsKeyStr string
-	if row[inBundleRow.processInput.keyPosition].Valid {
-		jetsKeyStr = row[inBundleRow.processInput.keyPosition].String
+	if row[aJetRow.processInput.keyPosition].Valid {
+		jetsKeyStr = row[aJetRow.processInput.keyPosition].String
 	} else {
 		jetsKeyStr = uuid.New().String()
 	}
@@ -93,11 +93,11 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	if err != nil {
 		return fmt.Errorf("while creating row's jets:key literal (NewTextLiteral): %v", err)
 	}
-	if subject == nil || ri.rdf__type == nil || inBundleRow.processInput.entityRdfTypeResource == nil {
+	if subject == nil || ri.rdf__type == nil || aJetRow.processInput.entityRdfTypeResource == nil {
 		return fmt.Errorf("ERROR while asserting row rdf type")
 	}
 	// Assert the rdf:type of the row
-	_, err = reteSession.Insert(subject, ri.rdf__type, inBundleRow.processInput.entityRdfTypeResource)
+	_, err = reteSession.Insert(subject, ri.rdf__type, aJetRow.processInput.entityRdfTypeResource)
 	if err != nil {
 		return fmt.Errorf("while asserting row rdf type: %v", err)
 	}
@@ -109,7 +109,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	// Assert domain columns of the row
 	for icol := 0; icol < ncol; icol++ {
 		// asserting input row with mapping spec
-		inputColumnSpec := &inBundleRow.processInput.processInputMapping[icol]
+		inputColumnSpec := &aJetRow.processInput.processInputMapping[icol]
 		// fmt.Println("** assert from table:",inputColumnSpec.tableName,", property:",inputColumnSpec.dataProperty,", value:",row[icol].String)
 		var obj string
 		var err error
@@ -244,8 +244,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 					// report error
 					var br BadRow
 					br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
-					if row[inBundleRow.processInput.groupingPosition].Valid {
-						br.GroupingKey = sql.NullString{String: row[inBundleRow.processInput.groupingPosition].String, Valid: true}
+					if row[aJetRow.processInput.groupingPosition].Valid {
+						br.GroupingKey = sql.NullString{String: row[aJetRow.processInput.groupingPosition].String, Valid: true}
 					}
 					if inputColumnSpec.inputColumn.Valid {
 						br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn.String, Valid: true}
@@ -336,8 +336,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		if err != nil {
 			var br BadRow
 			br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
-			if row[inBundleRow.processInput.groupingPosition].Valid {
-				br.GroupingKey = sql.NullString{String: row[inBundleRow.processInput.groupingPosition].String, Valid: true}
+			if row[aJetRow.processInput.groupingPosition].Valid {
+				br.GroupingKey = sql.NullString{String: row[aJetRow.processInput.groupingPosition].String, Valid: true}
 			}
 			if inputColumnSpec.inputColumn.Valid {
 				br.InputColumn = sql.NullString{String: inputColumnSpec.inputColumn.String, Valid: true}

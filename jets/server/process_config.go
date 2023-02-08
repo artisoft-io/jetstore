@@ -134,9 +134,10 @@ type RuleConfig struct {
 // utility methods
 // prepare the sql statement for reading from staging table (csv)
 // "SELECT  {{column_names}}
-//  FROM {{table_name}}
-//  WHERE session_id=$1 AND shard_id=$2
-//  ORDER BY {{grouping_key}})
+//  FROM {{processInput.tableName}}
+//  WHERE session_id={{processInput.sessionId}} 
+//    AND {{main_object_type.shardIdColumn}}={{*shardId}}
+//  ORDER BY {{processInput.groupingColumn}})
 //
 func (processInput *ProcessInput) makeSqlStmt() string {
 	var buf strings.Builder
@@ -146,20 +147,20 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 			buf.WriteString(", ")
 		}
 		if spec.inputColumn.Valid {
-				col := pgx.Identifier{spec.inputColumn.String}
-				buf.WriteString(col.Sanitize())	
+  		buf.WriteString(pgx.Identifier{spec.inputColumn.String}.Sanitize())	
 		} else {
 			buf.WriteString(fmt.Sprintf("NULL as UNNAMMED%d", i))
 		}
 	}
 	buf.WriteString(" FROM ")
-	tbl := pgx.Identifier{processInput.tableName}
-	buf.WriteString(tbl.Sanitize())
-	buf.WriteString(" WHERE session_id = $1 ")
+	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
+	buf.WriteString(" WHERE session_id = ")
+	buf.WriteString(fmt.Sprintf("'%s'",processInput.sessionId))
 	if *shardId >= 0 {
 		buf.WriteString(" AND ")
 		buf.WriteString(pgx.Identifier{processInput.shardIdColumn}.Sanitize())
-		buf.WriteString(" = $2 ")
+		buf.WriteString(" = ")
+		buf.WriteString(strconv.Itoa(*shardId))
 	}
 	buf.WriteString(" ORDER BY ")
 	buf.WriteString(
@@ -169,7 +170,6 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 		buf.WriteString(" LIMIT ")
 		buf.WriteString(strconv.Itoa(*limit))
 	}
-
 	return buf.String()
 }
 
@@ -178,7 +178,8 @@ func (processInput *ProcessInput) makeSqlStmt() string {
 //  case join using Member:domain_key as grouping column:
 //     SELECT "hc:member_number", session_id, "hc:claim_number", "jets:key", "rdf:type"
 //     FROM "hc:ProfessionalClaim"
-//     WHERE session_id=$1 AND "Member:domain_key" >= $2
+//     WHERE session_id={{processInput.sessionId}} 
+//       AND "Member:shard_id" = {{*shardId}}
 //     ORDER BY "Member:domain_key" ASC
 //
 func (processInput *ProcessInput) makeJoinSqlStmt() string {
@@ -190,17 +191,21 @@ func (processInput *ProcessInput) makeJoinSqlStmt() string {
 			buf.WriteString(", ")
 		}
 		if(spec.inputColumn.Valid) {
-			col := pgx.Identifier{spec.inputColumn.String}
-			buf.WriteString(col.Sanitize())	
+			buf.WriteString(pgx.Identifier{spec.inputColumn.String}.Sanitize())	
 		} else {
 			buf.WriteString(fmt.Sprintf("NULL as UNNAMMED%d", i))
 		}
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
-	buf.WriteString(" WHERE session_id = $1 AND ")
-	buf.WriteString(groupingColumn)
-	buf.WriteString(" >= $2 ")
+	buf.WriteString(" WHERE session_id = ")
+	buf.WriteString(fmt.Sprintf("'%s'",processInput.sessionId))
+	if *shardId >= 0 {
+		buf.WriteString(" AND ")
+		buf.WriteString(pgx.Identifier{processInput.shardIdColumn}.Sanitize())
+		buf.WriteString(" = ")
+		buf.WriteString(strconv.Itoa(*shardId))
+	}
 	buf.WriteString(" ORDER BY ")
 	buf.WriteString(groupingColumn)
 	buf.WriteString(" ASC ")
