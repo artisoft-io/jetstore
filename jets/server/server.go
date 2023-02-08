@@ -34,6 +34,8 @@ type dbConnections struct {
 // WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
+// JETS_LOG_DEBUG (optional, if == 1 set glog=3, ps=false, poolSize=1 for debugging)
+// JETS_LOG_DEBUG (optional, if == 2 set glog=3, ps=true, poolSize=1 for debugging)
 // GLOG_V log level
 
 // Command Line Arguments
@@ -129,6 +131,7 @@ func doJob() error {
 	log.Printf("Command Line Argument: serverFailedMetric %s\n", *failedMetric)
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_SEED: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
+	log.Printf("ENV JETS_LOG_DEBUG: %s\n",os.Getenv("JETS_LOG_DEBUG"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	if !*doNotLockSessionId {
 		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
@@ -292,8 +295,19 @@ func main() {
 		}
 		panic(errMsg)
 	}
-	v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
-	glogv = int(v)
+	switch os.Getenv("JETS_LOG_DEBUG") {
+	case "1":
+		glogv = 3
+		*ps = false
+		*poolSize = 1
+	case "2":
+		glogv = 3
+		*ps = true
+		*poolSize = 1
+	default:
+		v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
+		glogv = int(v)	
+	}
 
 	err := doJob()
 	if err != nil {

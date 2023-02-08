@@ -74,7 +74,7 @@ func (rw *ReteWorkspace) Release() error {
 func (rw *ReteWorkspace) ExecuteRules(
 	workerId int,
 	workspaceMgr *workspace.WorkspaceDb,
-	dataInputc <-chan inputBundle,
+	dataInputc <-chan groupedJetRows,
 	outputSpecs workspace.OutputTableSpecs,
 	writeOutputc map[string][]chan []interface{}) (*ExecuteRulesResult, error) {
 
@@ -134,7 +134,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		for iset, ruleset := range rw.ruleset {
 			if glogv > 0 {
-				log.Println("thread",workerId,":: Start Rete Session", session_count, "for ruleset", ruleset, "with grouping key", inBundle.groupingValue)
+				log.Println("thread", workerId, ":: Start Rete Session", session_count, "for ruleset", ruleset, "with grouping key", inBundle.groupingValue)
 			}
 			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
@@ -169,7 +169,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			// do for iloop <= maxloop (since loop start at one!)
 			for iloop = 0; iloop <= nloop; iloop++ {
 				if glogv > 1 {
-					log.Println("thread",workerId,":: Calling Execute Rules, loop:", iloop, ", session count:", session_count, ", for ruleset:", ruleset, ", with grouping key:", inBundle.groupingValue)
+					log.Println("thread", workerId, ":: Calling Execute Rules, loop:", iloop, ", session count:", session_count, ", for ruleset:", ruleset, ", with grouping key:", inBundle.groupingValue)
 				}
 				if iloop > 0 {
 					r, err := reteSession.NewIntLiteral(int(iloop))
@@ -233,21 +233,21 @@ func (rw *ReteWorkspace) ExecuteRules(
 					switch {
 					case domainColumn.ColumnName == "session_id":
 						entityRow[i] = *outSessionId
-			
+
 					case strings.HasSuffix(domainColumn.ColumnName, ":domain_key"):
 						objectType := strings.Split(domainColumn.ColumnName, ":")[0]
 						domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
 						if err != nil {
 							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
-						}			
+						}
 						entityRow[i] = domainKey
-			
+
 					case strings.HasSuffix(domainColumn.ColumnName, ":shard_id"):
 						objectType := strings.Split(domainColumn.ColumnName, ":")[0]
 						_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
 						if err != nil {
 							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
-						}			
+						}
 						entityRow[i] = shardId
 
 					default:
@@ -358,7 +358,7 @@ func (rw *ReteWorkspace) addInputPredicate(inputColumns []ProcessMap) error {
 		inputColumns[ipos].predicate, err = rw.js.NewResource(inputColumns[ipos].dataProperty)
 		if err != nil {
 			return fmt.Errorf("while adding predicate to ProcessMap: %v", err)
-		}	
+		}
 	}
 	return nil
 }
@@ -376,7 +376,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")
 	}
-	// Load process meta triples	
+	// Load process meta triples
 	rw.js.LoadProcessMetaTriples(rw.pipelineConfig.processConfig.processName)
 
 	// Assert client specific triples

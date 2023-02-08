@@ -31,14 +31,14 @@ func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj st
 }
 
 // main function for asserting input entity row (from persisted entities)
-func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSession, inBundleRow *bundleRow, writeOutputc *map[string][]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSession, inBundleRow *jetRow, writeOutputc *map[string][]chan []interface{}) error {
 	// // For development
 	// log.Println("ASSERT ENTITY:")
-	// for ipos := range inBundleRow.inputRows {
-	// 	log.Println("    ",inBundleRow.processInput.processInputMapping[ipos].dataProperty,"  =  ",inBundleRow.inputRows[ipos], ", range ",inBundleRow.processInput.processInputMapping[ipos].rdfType,", array?",inBundleRow.processInput.processInputMapping[ipos].isArray)
+	// for ipos := range inBundleRow.rowData {
+	// 	log.Println("    ",inBundleRow.processInput.processInputMapping[ipos].dataProperty,"  =  ",inBundleRow.rowData[ipos], ", range ",inBundleRow.processInput.processInputMapping[ipos].rdfType,", array?",inBundleRow.processInput.processInputMapping[ipos].isArray)
 	// }
 	// get the jets:key and create the subject for the row
-	jets__key := inBundleRow.inputRows[inBundleRow.processInput.keyPosition].(*sql.NullString)
+	jets__key := inBundleRow.rowData[inBundleRow.processInput.keyPosition].(*sql.NullString)
 	subject, err := reteSession.NewResource(jets__key.String)
 	if !jets__key.Valid || err != nil {
 		return fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
@@ -48,7 +48,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 	}
 	// For Each Column
 	// Note that default value from mapping is not applied when input value (inBundleRow) is null
-	ncol := len(inBundleRow.inputRows)
+	ncol := len(inBundleRow.rowData)
 	for icol := 0; icol < ncol; icol++ {
 		inputColumnSpec := &inBundleRow.processInput.processInputMapping[icol]
 		var object *bridge.Resource
@@ -63,7 +63,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			object, err = reteSession.NewNull()
 		case "resource", "text", "date", "datetime":
 			if inputColumnSpec.isArray {
-				va := inBundleRow.inputRows[icol].(*[]string)
+				va := inBundleRow.rowData[icol].(*[]string)
 				for _, item := range *va {
 					object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, item)
 					if err != nil {
@@ -72,7 +72,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 					objectArr = append(objectArr, object)
 				}
 			} else {
-				v := inBundleRow.inputRows[icol].(*sql.NullString)
+				v := inBundleRow.rowData[icol].(*sql.NullString)
 				if v.Valid {
 					object, err = createStringLiteral(reteSession, inputColumnSpec.rdfType, v.String)
 					if err != nil {
@@ -83,7 +83,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			}
 		case "int", "bool":
 			if inputColumnSpec.isArray {
-				va := inBundleRow.inputRows[icol].(*[]int)
+				va := inBundleRow.rowData[icol].(*[]int)
 				for _, item := range *va {
 					object, err = reteSession.NewIntLiteral(int(item))
 					if err != nil {
@@ -92,7 +92,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 					objectArr = append(objectArr, object)
 				}
 			} else {
-				v := inBundleRow.inputRows[icol].(*sql.NullInt32)
+				v := inBundleRow.rowData[icol].(*sql.NullInt32)
 				if v.Valid {
 					object, err = reteSession.NewIntLiteral(int(v.Int32))
 					if err != nil {
@@ -102,7 +102,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			}
 		case "long", "ulong", "uint":
 			if inputColumnSpec.isArray {
-				va := inBundleRow.inputRows[icol].(*[]int64)
+				va := inBundleRow.rowData[icol].(*[]int64)
 				for _, item := range *va {
 					object, err = reteSession.NewLongLiteral(int64(item))
 					if err != nil {
@@ -111,7 +111,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 					objectArr = append(objectArr, object)
 				}
 			} else {
-				v := inBundleRow.inputRows[icol].(*sql.NullInt64)
+				v := inBundleRow.rowData[icol].(*sql.NullInt64)
 				if v.Valid {
 					object, err = reteSession.NewLongLiteral(int64(v.Int64))
 					if err != nil {
@@ -121,7 +121,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 			}
 		case "double":
 			if inputColumnSpec.isArray {
-				va := inBundleRow.inputRows[icol].(*[]float64)
+				va := inBundleRow.rowData[icol].(*[]float64)
 				for _, item := range *va {
 					object, err = reteSession.NewDoubleLiteral(float64(item))
 					if err != nil {
@@ -130,7 +130,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 					objectArr = append(objectArr, object)
 				}
 			} else {
-				v := inBundleRow.inputRows[icol].(*sql.NullFloat64)
+				v := inBundleRow.rowData[icol].(*sql.NullFloat64)
 				if v.Valid {
 					object, err = reteSession.NewDoubleLiteral(float64(v.Float64))
 					if err != nil {
@@ -145,7 +145,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		if err != nil {
 			var br BadRow
 			br.RowJetsKey = *jets__key
-			gp := inBundleRow.inputRows[inBundleRow.processInput.groupingPosition].(*sql.NullString)
+			gp := inBundleRow.rowData[inBundleRow.processInput.groupingPosition].(*sql.NullString)
 			if gp.Valid {
 				br.GroupingKey = sql.NullString{String: gp.String, Valid: true}
 			}
