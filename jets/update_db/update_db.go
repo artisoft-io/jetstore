@@ -28,7 +28,7 @@ import (
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
-var dropExisting = flag.Bool("drop", false, "drop existing table (ALL TABLE CONTENT WILL BE LOST)")
+var dropExisting = flag.Bool("drop", false, "drop existing domain table (ALL DOMAIN TABLE CONTENT WILL BE LOST)")
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var dbPoolSize = flag.Int("dbPoolSize", 5, "DB connection pool size, used for -awsDnsSecret (default 10)")
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
