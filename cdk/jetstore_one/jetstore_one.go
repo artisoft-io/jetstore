@@ -252,6 +252,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	} else {
 		sourceBucket = awss3.Bucket_FromBucketName(stack, jsii.String("ExistingBucket"), jsii.String(bucketName))
 	}
+	awscdk.NewCfnOutput(stack, jsii.String("JetStoreBucketName"), &awscdk.CfnOutputProps{
+		Value: sourceBucket.BucketName(),
+	})
 
 	// Copy test files from workspace data folder to the bucket
 	testFilesPath := fmt.Sprintf("%s/%s/data/test_data", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
