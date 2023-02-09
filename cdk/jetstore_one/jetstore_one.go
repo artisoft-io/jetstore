@@ -15,6 +15,7 @@ import (
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
 
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
@@ -26,7 +27,9 @@ import (
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
+
 	// awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
+	s3deployment "github.com/aws/aws-cdk-go/awscdk/v2/awss3deployment"
 )
 
 type DbClusterVisitor struct {
@@ -249,6 +252,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	} else {
 		sourceBucket = awss3.Bucket_FromBucketName(stack, jsii.String("ExistingBucket"),jsii.String(bucketName))
 	}
+
+	// Copy test files from workspace data folder to the bucket
+	testFilesPath := fmt.Sprintf("%s/%s/data/test_data", os.Getenv("WORKSPACES_HOME"),os.Getenv("WORKSPACE"))
+	s3deployment.NewBucketDeployment(stack, jsii.String("WorkspaceTestFilesDeployment"), &s3deployment.BucketDeploymentProps{
+		Sources: &[]s3deployment.ISource{
+			s3deployment.Source_Asset(jsii.String(testFilesPath), &awss3assets.AssetOptions{}),
+		},
+		DestinationBucket: sourceBucket,
+		DestinationKeyPrefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+		Prune: jsii.Bool(false),
+	})
 
 	// Create a VPC to run tasks in.
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
@@ -1175,6 +1189,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
+// WORKSPACES_HOME (required, to copy test files from workspace data folder)
+// WORKSPACE (required, to copy test files from workspace data folder)
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1207,6 +1223,8 @@ func main() {
 	fmt.Println("env JETS_DB_MAX_CAPACITY:",os.Getenv("JETS_DB_MAX_CAPACITY"))
 	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:",os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
 	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:",os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
+	fmt.Println("env WORKSPACES_HOME:",os.Getenv("WORKSPACES_HOME"))
+	fmt.Println("env WORKSPACE:",os.Getenv("WORKSPACE"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -1222,6 +1240,10 @@ func main() {
 	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" || os.Getenv("JETS_s3_OUTPUT_PREFIX") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'JETS_s3_INPUT_PREFIX' and 'JETS_s3_OUTPUT_PREFIX' are required.")
+	}
+	if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variables 'WORKSPACES_HOME' and 'WORKSPACE' are required.")
 	}
 	if os.Getenv("JETS_ECR_REPO_ARN") == "" || os.Getenv("JETS_IMAGE_TAG") == "" {
 		hasErr = true
