@@ -302,7 +302,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	isolatedSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
-	awscdk.NewCfnOutput(scope, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
+	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
 		Value: vpc.VpcId(),
 	})
 
@@ -410,7 +410,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(rdsCluster).Add(descriptionTagName, jsii.String("Database cluster for JetStore Platform"), nil)
 	}
-	awscdk.NewCfnOutput(scope, jsii.String("JetStore_RDS_Cluster_ID"), &awscdk.CfnOutputProps{
+	awscdk.NewCfnOutput(stack, jsii.String("JetStore_RDS_Cluster_ID"), &awscdk.CfnOutputProps{
 		Value: rdsCluster.ClusterIdentifier(),
 	})
 
