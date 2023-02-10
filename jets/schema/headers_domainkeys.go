@@ -269,6 +269,16 @@ func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string
 	return groupingKey
 }
 
+func (dkInfo *HeadersAndDomainKeysInfo)IsDomainKeyIsJetsKey(objectType *string) bool {
+	if objectType != nil {
+		dk := dkInfo.DomainKeysInfoMap[*objectType]
+		if dk != nil && len(dk.ColumnPos) == 1 && dk.ColumnNames[0] == "jets:key" {
+			return true
+		}
+	}
+	return false
+}
+
 func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, jetsKey *string) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {

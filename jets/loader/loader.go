@@ -50,8 +50,9 @@ func (s *chartype) Set(value string) error {
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
 // LOADER_ERR_DIR
-// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
+// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default: none))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
+// JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -71,6 +72,7 @@ var tableName string
 var domainKeysJson string
 var sep_flag chartype = '€'
 var errOutDir string
+var jetsInputRowJetsKeyAlgo string
 
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator, default is auto detect between pipe ('|') or comma (',')")
@@ -269,15 +271,34 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 			jetsKeyStr := uuid.New().String()
 			copyRec[jetsKeyPos] = jetsKeyStr
 			copyRec[lastUpdatePos] = lastUpdate
+			var mainDomainKey string
+			var mainDomainKeyPos int
 			for _,ot := range *objTypes {
 				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, &jetsKeyStr)
 				if err != nil {
 					return nil, 0, 0, err
 				}
 				domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
+				if ot == *objectType {
+					mainDomainKey = groupingKey
+					mainDomainKeyPos = domainKeyPos
+				}
 				copyRec[domainKeyPos] = groupingKey
 				shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
-				copyRec[shardIdPos] = shardId
+				copyRec[shardIdPos] = shardId			
+			}
+			var buf strings.Builder
+			switch jetsInputRowJetsKeyAlgo {
+			case "row_hash":
+				for i := range record {
+					buf.WriteString(record[i])
+				}
+				jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
+			case "domain_key":
+				jetsKeyStr = mainDomainKey
+			}
+			if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
+				copyRec[mainDomainKeyPos] = jetsKeyStr
 			}
 			inputRows = append(inputRows, copyRec)
 			rowid += 1
@@ -525,6 +546,19 @@ func main() {
 	hasErr := false
 	var errMsg []string
 	var err error
+	switch os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO") {
+	case "uuid", "":
+		jetsInputRowJetsKeyAlgo = "uuid"
+	case "row_hash":
+		jetsInputRowJetsKeyAlgo = "row_hash"
+	case "domain_key":
+		jetsInputRowJetsKeyAlgo = "domain_key"
+	default:
+		hasErr = true
+		errMsg = append(errMsg, 
+			fmt.Sprintf("env var JETS_INPUT_ROW_JETS_KEY_ALGO has invalid value: %s, must be one of uuid, row_hash, domain_key (default: uuid if empty)",
+			os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")))
+	}
 	if *inFile == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Input file name must be provided (-in_file).")
@@ -539,7 +573,7 @@ func main() {
 	}
 	if *objectType == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Source location must be provided (-objectType).")
+		errMsg = append(errMsg, "Object type of the input file must be provided (-objectType).")
 	}
 	if *dsn == "" && *awsDsnSecret == "" {
 		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
@@ -607,6 +641,7 @@ func main() {
 	}
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
+	fmt.Println("ENV JETS_INPUT_ROW_JETS_KEY_ALGO:",os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
  
 	err = coordinateWork()
 	if err != nil {
