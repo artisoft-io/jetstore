@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -22,6 +21,8 @@ type PurgeDataAction struct {
 // DoPurgeDataAction ------------------------------------------------------
 // Entry point function
 func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) {
+	var results *map[string]interface{}
+	var code int
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
@@ -35,27 +36,28 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	}
 	// Intercept specific dataTable action
 	switch action.Action {
-
 	case "reset_domain_tables":
-		server.ResetDomainTables(w, r, &action)
-		return
-
+		results, code, err = server.ResetDomainTables(&action)
 	case "rerun_db_init":
-		server.RunWorkspaceDbInit(w, r, &action)
-		return
-
+		results, code, err = server.RunWorkspaceDbInit(&action)
 	default:
-		log.Printf("Error: unknown action: %v", action.Action)
-		ERROR(w, http.StatusUnprocessableEntity, fmt.Errorf("error: unknown action"))
+		code = http.StatusUnprocessableEntity
+		err = fmt.Errorf("unknown action: %v", action.Action)
+	}
+	if err != nil {
+		log.Printf("Error: %v", err)
+		ERROR(w, code, err)
 		return
 	}
+	addToken(r, results)
+	JSON(w, http.StatusOK, results)
 }
 
 // ResetDomainTables ------------------------------------------------------
 // Clear and rebuild all domain tables defined in workspace -- using update_db command line
 // Delete all table contains the input data, get the table name list from input_loader_status
 // also clear/truncate the input_registry table
-func (server *Server) resetDomainTablesAction() error {
+func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// Clear and rebuild the domain table using the update_db command line
 	// Also migrate the system tables to latest schema and run the workspace db init script
 	log.Println("Running Reset Domain Table")
@@ -78,7 +80,7 @@ func (server *Server) resetDomainTablesAction() error {
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 		log.Println("UPDATE_DB CAPTURED OUTPUT END")
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		return errors.New("error while running update_db command")
+		return nil, http.StatusInternalServerError, fmt.Errorf("while running update_db command: %v", err)
 	}
 	log.Println("============================")
 	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
@@ -92,24 +94,21 @@ func (server *Server) resetDomainTablesAction() error {
 	stmt := "SELECT DISTINCT table_name FROM jetsapi.input_loader_status"
 	rows, err := server.dbpool.Query(context.Background(), stmt)
 	if err != nil {
-		log.Printf("While selecting input staging tables: %v", err)
-		return errors.New("error while selecting staging tables")
+		return nil, http.StatusInternalServerError, fmt.Errorf("while selecting staging tables: %v", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		// scan the row
 		var tableName string
 		if err = rows.Scan(&tableName); err != nil {
-			log.Printf("While scanning the row: %v", err)
-			return errors.New("error while scaning staging tables")
+			return nil, http.StatusInternalServerError, fmt.Errorf("while scaning staging tables: %v", err)
 		}
 		// Drop the table
 		stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{"public", tableName}.Sanitize())
 		log.Println(stmt)
 		_, err := server.dbpool.Exec(context.Background(), stmt)
 		if err != nil {
-			log.Printf("error while droping staging table: %v", err)
-			return errors.New("error while droping staging tables")
+			return nil, http.StatusInternalServerError, fmt.Errorf("while droping staging tables: %v", err)
 		}
 	}
 
@@ -118,31 +117,20 @@ func (server *Server) resetDomainTablesAction() error {
 	log.Println(stmt)
 	_, err = server.dbpool.Exec(context.Background(), stmt)
 	if err != nil {
-		log.Printf("error while truncating input_registry table: %v", err)
-		return errors.New("error while truncating input_registry tables")
+		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating input_registry tables: %v", err)
 	}
-	return nil
-}
-func (server *Server) ResetDomainTables(w http.ResponseWriter, r *http.Request, purgeDataAction *PurgeDataAction) {
-	err := server.resetDomainTablesAction()
-	if err != nil {
-		ERROR(w, http.StatusInternalServerError, err)
-		return
-	}
-	results := makeResult(r)
-	JSON(w, http.StatusOK, results)
+	return &map[string]interface{}{}, http.StatusOK, nil
 }
 
 // RunWorkspaceDbInit ------------------------------------------------------
 // Initialize jetstore database with workspace db init script
-func (server *Server) RunWorkspaceDbInit(w http.ResponseWriter, r *http.Request, 
-	purgeDataAction *PurgeDataAction) {
+func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// using update_db script
 	serverArgs := []string{ "-initWorkspaceDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
-log.Printf("Run update_db: %s", serverArgs)
+	log.Printf("Run update_db: %s", serverArgs)
 	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
 	var b bytes.Buffer
 	cmd.Stdout = &b
@@ -157,9 +145,7 @@ log.Printf("Run update_db: %s", serverArgs)
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 		log.Println("UPDATE_DB CAPTURED OUTPUT END")
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		ERROR(w, http.StatusInternalServerError, 
-			errors.New("error while running server command"))
-		return
+		return nil, http.StatusInternalServerError, fmt.Errorf("while running server command: %v", err)
 	}
 	log.Println("============================")
 	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
@@ -168,7 +154,5 @@ log.Printf("Run update_db: %s", serverArgs)
 	log.Println("============================")
 	log.Println("UPDATE_DB CAPTURED OUTPUT END")
 	log.Println("============================")
-
-	results := makeResult(r)
-	JSON(w, http.StatusOK, results)
+	return &map[string]interface{}{}, http.StatusOK, nil
 }

@@ -87,7 +87,13 @@ def register_key(event, context):
     # split key into components and partitions to extract client and object_type
     key_components = key.split('/')
     
-    key_partition_dict = {}
+    # Put defaults
+    key_partition_dict = {
+      "org": "",
+      "year": "1970",
+      "month": "1",
+      "day": "1"
+    }
     for c in key_components:
         if "=" in c:
             partition = c.partition('=')
@@ -95,6 +101,7 @@ def register_key(event, context):
 
     print('Extracted from event:',key_partition_dict)    
     
+    # Check that we have the required key partitions
     client      = key_partition_dict.get('client')
     object_type = key_partition_dict.get('object_type')
     if(client is None or object_type is None):
@@ -132,7 +139,7 @@ def register_key(event, context):
 
 
     # register s3 key, client name and object type with Jets API 
-    
+    key_partition_dict["file_key"] = key
     req_headers = {
     'Content-Type': 'application/json',
     'Authorization': 'token ' + login_token,
@@ -140,7 +147,7 @@ def register_key(event, context):
 
     encoded_registerFileKey_body = json.dumps({
         "action": "register_keys",
-        "data":[{"client":client, "object_type":object_type, "file_key":key}]
+        "data":[key_partition_dict]
         
     })
     

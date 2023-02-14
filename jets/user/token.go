@@ -1,4 +1,4 @@
-package main
+package user
 
 import (
 	"encoding/json"
@@ -12,23 +12,27 @@ import (
 	jwt "github.com/golang-jwt/jwt/v4"
 )
 
+var TokenExpiration int
+var ApiSecret string
+
 func CreateToken(email string) (string, error) {
 	claims := jwt.MapClaims{}
 	claims["authorized"] = true
 	claims["email"] = email
 	// claims["exp"] = time.Now().Add(time.Hour * 1).Unix() //Token expires after 1 hour
-	claims["exp"] = time.Now().Add(time.Minute * time.Duration(*tokenExpiration)).Unix()
+	claims["exp"] = time.Now().Add(time.Minute * time.Duration(TokenExpiration)).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(*apiSecret))
+	return token.SignedString([]byte(ApiSecret))
 }
 
+// Check if token is valid, if valid returns the associated email
 func TokenValid(r *http.Request) (string, error) {
 	tokenString := ExtractToken(r)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(*apiSecret), nil
+		return []byte(ApiSecret), nil
 	})
 	if err != nil {
 		return "", err
@@ -68,20 +72,18 @@ func ExtractToken(r *http.Request) string {
 	return ""
 }
 
-func ExtractTokenID(r *http.Request) (string, error) {
-
-	tokenString := ExtractToken(r)
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+func ExtractTokenID(token string) (string, error) {
+	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(*apiSecret), nil
+		return []byte(ApiSecret), nil
 	})
 	if err != nil {
 		return "", err
 	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if ok && token.Valid {
+	claims, ok := jwtToken.Claims.(jwt.MapClaims)
+	if ok && jwtToken.Valid {
 		email := claims["email"].(string)
 		return email, nil
 	}

@@ -156,7 +156,7 @@ func doJob() error {
 
 	// process tables
 	for tableName, tableSpec := range tableSpecs {
-		log.Println("Processing table", tableName)
+		fmt.Println("-- Processing table", tableName)
 		err = tableSpec.UpdateDomainTableSchema(dbpool, *dropExisting, extTables[tableName])
 		if err != nil {
 			return fmt.Errorf("while updating table schema for table %s: %v", tableName, err)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -34,7 +35,7 @@ func jsonh(next http.HandlerFunc) http.HandlerFunc {
 // Middleware Function for validating jwt token
 func authh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user_id, err := TokenValid(r)
+		user_id, err := user.TokenValid(r)
 		if err != nil {
 			// //*
 			// log.Println("*** authh for",r.URL.Path,", Unauthorized")
@@ -44,7 +45,7 @@ func authh(next http.HandlerFunc) http.HandlerFunc {
 		// //*
 		// log.Println("* authh for",r.URL.Path,", Authorized for user ID", user_id)
 		// Get a refresh token
-		token, err := CreateToken(user_id)
+		token, err := user.CreateToken(user_id)
 		if err != nil {
 			ERROR(w, http.StatusInternalServerError, errors.New("TokenGenError"))
 			return
@@ -134,7 +135,10 @@ func (server *Server) checkJetStoreDbVersion() error {
 		case jetstoreVersion > version:
 			log.Println("New JetStore Release deployed, updating the db")
 			if os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP") == "yes" {
-				server.resetDomainTablesAction()
+				server.ResetDomainTables(&PurgeDataAction{
+					Action: "reset_domain_tables",
+					Data: []map[string]interface{}{},
+				})
 				server.addVersionToDb(jetstoreVersion)
 			} else {
 				serverArgs = []string{ "-migrateDb" }
@@ -206,7 +210,7 @@ func (server *Server) initUsers() error {
 			}
 		}
 		// hash the password
-		hashedPassword, err := Hash(adminPassword)
+		hashedPassword, err := user.Hash(adminPassword)
 		if err != nil {
 			return fmt.Errorf("while hashing admin password: %v", err)
 		}
@@ -217,6 +221,12 @@ func (server *Server) initUsers() error {
 			return fmt.Errorf("while inserting admin into users table: %v", err)
 		}
 	}
+	// Initialize user package
+	// Set the AdminEmail for the user package
+	user.AdminEmail = *adminEmail
+	user.ApiSecret = *apiSecret
+	user.TokenExpiration = *tokenExpiration
+
 	return nil
 }
 
