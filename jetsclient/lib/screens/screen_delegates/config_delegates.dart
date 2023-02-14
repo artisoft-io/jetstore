@@ -296,6 +296,7 @@ Future<void> sourceConfigActions(BuildContext context,
       var state = formState.getState(0);
       // Fields comming from table selected row will be in array, unpack the value
       state[FSK.client] = state[FSK.client][0];
+      state[FSK.org] = state[FSK.org][0];
       state[FSK.objectType] = state[FSK.objectType][0];
       state[FSK.tableName] = state[FSK.tableName][0];
       state[FSK.fileKey] = state[FSK.fileKey][0];
@@ -343,7 +344,7 @@ String? processInputFormValidator(
   var isRequired = formState.getValue(group, FSK.isRequiredFlag);
   // print(
   //     "Validator Called for $group ($isRequired), $key, $v, state is ${formState.getValue(group, key)}");
-  // Check if we have client, object_type, and source_type to pupulate table_name
+  // Check if we have client, object_type, and source_type to populate table_name
   // add entity_rdf_type based on object_type
   var objectTypeRegistry =
       formState.getCacheValue(FSK.objectTypeRegistryCache) as List?;
@@ -385,6 +386,8 @@ String? processInputFormValidator(
         return null;
       }
       return "Client name must be provided.";
+    case FSK.org:
+      return null;
     case FSK.objectType:
       String? value = v;
       if (value != null && value.characters.length > 1) {

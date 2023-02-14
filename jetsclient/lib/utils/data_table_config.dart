@@ -180,6 +180,177 @@ class DataTableFormStateOtherColumnConfig {
   final int columnIdx;
 }
 
+// To avoid duplication
+final inputRegistryColumns = [
+  ColumnConfig(
+      index: 0,
+      name: "key",
+      label: 'Key',
+      tooltips: 'Input Registry Key',
+      isNumeric: true,
+      isHidden: false),
+  ColumnConfig(
+      index: 1,
+      name: "client",
+      label: 'Client',
+      tooltips: 'Client the file came from',
+      isNumeric: false),
+  ColumnConfig(
+      index: 2,
+      name: "org",
+      label: 'Organization',
+      tooltips: 'Client' 's org the file came from',
+      isNumeric: false),
+  ColumnConfig(
+      index: 3,
+      name: "object_type",
+      label: 'Object Type',
+      tooltips: 'Type of objects in file',
+      isNumeric: false),
+  ColumnConfig(
+      index: 4,
+      name: "file_key",
+      label: 'File Key',
+      tooltips: 'File Key of the loaded file',
+      isNumeric: false),
+  ColumnConfig(
+      index: 5,
+      name: "source_type",
+      label: 'Source Type',
+      tooltips: 'Source of the input data, either File or Domain Table',
+      isNumeric: false),
+  ColumnConfig(
+      index: 6,
+      name: "table_name",
+      label: 'Table Name',
+      tooltips: 'Table where the data reside',
+      isNumeric: false),
+  ColumnConfig(
+      index: 7,
+      name: "session_id",
+      label: 'Session ID',
+      tooltips: 'Session ID of the file load job',
+      isNumeric: false),
+  ColumnConfig(
+      index: 8,
+      name: "user_email",
+      label: 'User',
+      tooltips: 'Who created the record',
+      isNumeric: false),
+  ColumnConfig(
+      index: 9,
+      name: "last_update",
+      label: 'Loaded At',
+      tooltips: 'Indicates when the record was created',
+      isNumeric: false),
+];
+
+final processInputColumns = [
+  ColumnConfig(
+      index: 0,
+      name: "key",
+      label: 'Key',
+      tooltips: 'Row Primary Key',
+      isNumeric: true,
+      isHidden: true),
+  ColumnConfig(
+      index: 1,
+      name: "client",
+      label: 'Client',
+      tooltips: 'Client the file came from',
+      isNumeric: false),
+  ColumnConfig(
+      index: 2,
+      name: "org",
+      label: 'Org',
+      tooltips: 'Client' 's organization the file came from',
+      isNumeric: false),
+  ColumnConfig(
+      index: 3,
+      name: "object_type",
+      label: 'Object Type',
+      tooltips: 'Type of objects in file',
+      isNumeric: false),
+  ColumnConfig(
+      index: 4,
+      name: "table_name",
+      label: 'Table Name',
+      tooltips: 'Table where the file was loaded',
+      isNumeric: false,
+      isHidden: false),
+  ColumnConfig(
+      index: 5,
+      name: "source_type",
+      label: 'Source Type',
+      tooltips: 'Source of the input data, either File or Domain Table',
+      isNumeric: false),
+  ColumnConfig(
+      index: 6,
+      name: "entity_rdf_type",
+      label: 'Domain Class',
+      tooltips: 'Canonical model for the Object Type',
+      isNumeric: false),
+  ColumnConfig(
+      index: 7,
+      name: "status",
+      label: 'Status',
+      tooltips: "Status of the Process Input and it's mapping",
+      isNumeric: false),
+  ColumnConfig(
+      index: 8,
+      name: "user_email",
+      label: 'User',
+      tooltips: 'Who created the record',
+      isNumeric: false),
+  ColumnConfig(
+      index: 9,
+      name: "last_update",
+      label: 'Loaded At',
+      tooltips: 'Indicates when the record was created',
+      isNumeric: false),
+];
+
+final fileKeyStagingColumns = [
+    ColumnConfig(
+        index: 0,
+        name: "key",
+        label: 'Primary Key',
+        tooltips: '',
+        isNumeric: true,
+        isHidden: true),
+    ColumnConfig(
+        index: 1,
+        name: "client",
+        label: 'Client',
+        tooltips: 'Client providing the input files',
+        isNumeric: false),
+    ColumnConfig(
+        index: 2,
+        name: "org",
+        label: 'Org',
+        tooltips: 'Client''s organization',
+        isNumeric: false),
+    ColumnConfig(
+        index: 3,
+        name: "object_type",
+        label: 'Object Type',
+        tooltips: 'The type of object the file contains',
+        isNumeric: false),
+    ColumnConfig(
+        index: 4,
+        name: "file_key",
+        label: 'File Key',
+        tooltips: 'File key or path',
+        isNumeric: false),
+    ColumnConfig(
+        index: 5,
+        name: "last_update",
+        label: 'Last Update',
+        tooltips: 'When the file was received',
+        isNumeric: false),
+  ];
+
+
 final Map<String, TableConfig> _tableConfigurations = {
   // Input Loader Status Data Table
   DTKeys.inputLoaderStatusTable: TableConfig(
@@ -203,13 +374,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null),
     ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-        // an example, not really needed...
-        stateKey: FSK.tableName,
-        columnIdx: 3,
-      ),
-    ]),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
@@ -226,43 +391,49 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 2,
+          name: "org",
+          label: 'Org',
+          tooltips: 'Client''s organization',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
           name: "object_type",
           label: 'Object Type',
           tooltips: 'Type of object in file',
           isNumeric: false),
       ColumnConfig(
-          index: 3,
+          index: 4,
           name: "table_name",
           label: 'Table Name',
           tooltips: 'Table where the file was loaded',
           isNumeric: false,
           isHidden: true),
       ColumnConfig(
-          index: 4,
+          index: 5,
           name: "file_key",
           label: 'File Key',
           tooltips: 'File key',
           isNumeric: false),
       ColumnConfig(
-          index: 5,
+          index: 6,
           name: "load_count",
           label: 'Records Count',
           tooltips: 'Number of records loaded',
           isNumeric: true),
       ColumnConfig(
-          index: 6,
+          index: 7,
           name: "bad_row_count",
           label: 'Bad Records',
           tooltips: 'Number of Bad Records',
           isNumeric: true),
       ColumnConfig(
-          index: 7,
+          index: 8,
           name: "status",
           label: 'Status',
           tooltips: 'Status of the load',
           isNumeric: false),
       ColumnConfig(
-          index: 8,
+          index: 9,
           name: "error_message",
           label: 'Error Message',
           tooltips: 'Error that occured during execution',
@@ -270,19 +441,19 @@ final Map<String, TableConfig> _tableConfigurations = {
           maxLines: 3,
           columnWidth: 600),
       ColumnConfig(
-          index: 9,
+          index: 10,
           name: "session_id",
           label: 'Session ID',
           tooltips: 'Data Pipeline Job Key',
           isNumeric: false),
       ColumnConfig(
-          index: 10,
+          index: 11,
           name: "user_email",
           label: 'User',
           tooltips: 'Who loaded the file',
           isNumeric: false),
       ColumnConfig(
-          index: 11,
+          index: 12,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the file was loaded',
@@ -575,13 +746,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 2,
           name: "row_jets_key",
           label: 'Row jets:key',
-          tooltips: 'JetStore row''s primary key',
+          tooltips: 'JetStore row' 's primary key',
           isNumeric: false),
       ColumnConfig(
           index: 3,
           name: "input_column",
           label: 'Input Column',
-          tooltips: 'Input Column of the error, available if error results from mapping',
+          tooltips:
+              'Input Column of the error, available if error results from mapping',
           isNumeric: false),
       ColumnConfig(
           index: 4,
@@ -764,42 +936,10 @@ final Map<String, TableConfig> _tableConfigurations = {
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.fileKey,
-        columnIdx: 3,
+        columnIdx: 4,
       ),
     ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Primary Key',
-          tooltips: '',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client providing the input files',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'The type of object the file contains',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File key or path',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "last_update",
-          label: 'Last Update',
-          tooltips: 'When the file was received',
-          isNumeric: false),
-    ],
+    columns: fileKeyStagingColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
@@ -827,7 +967,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.client: 1,
-            FSK.objectType: 2,
+            FSK.objectType: 3,
             FSK.sourceType: 4,
           }),
       ActionConfig(
@@ -839,75 +979,18 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.processMapping,
           navigationParams: {
-            FSK.tableName: 3,
+            FSK.tableName: 5,
             FSK.processInputKey: 0,
-            FSK.objectType: 2
+            FSK.objectType: 3
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.tableName,
-        columnIdx: 3,
+        columnIdx: 4,
       ),
     ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'Type of objects in file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where the file was loaded',
-          isNumeric: false,
-          isHidden: false),
-      ColumnConfig(
-          index: 4,
-          name: "source_type",
-          label: 'Source Type',
-          tooltips: 'Source of the input data, either File or Domain Table',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "entity_rdf_type",
-          label: 'Domain Class',
-          tooltips: 'Canonical model for the Object Type',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "status",
-          label: 'Status',
-          tooltips: "Status of the Process Input and it's mapping",
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 8,
-          name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the record was created',
-          isNumeric: false),
-    ],
+    columns: processInputColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
@@ -935,8 +1018,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.client: 1,
-            FSK.objectType: 2,
-            FSK.domainKeysJson: 4,
+            FSK.org: 2,
+            FSK.objectType: 3,
+            FSK.domainKeysJson: 5,
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -953,12 +1037,16 @@ final Map<String, TableConfig> _tableConfigurations = {
         columnIdx: 1,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.objectType,
+        stateKey: FSK.org,
         columnIdx: 2,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.tableName,
+        stateKey: FSK.objectType,
         columnIdx: 3,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.tableName,
+        columnIdx: 4,
       ),
     ]),
     columns: [
@@ -977,31 +1065,37 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 2,
+          name: "org",
+          label: 'Org',
+          tooltips: 'Client''s organization',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
           name: "object_type",
           label: 'Object Type',
           tooltips: 'Type of objects in file',
           isNumeric: false),
       ColumnConfig(
-          index: 3,
+          index: 4,
           name: "table_name",
           label: 'Table Name',
           tooltips: 'Table where to load the file',
           isNumeric: false,
           isHidden: false),
       ColumnConfig(
-          index: 4,
+          index: 5,
           name: "domain_keys_json",
           label: 'Domain Keys (json)',
           tooltips: 'Column(s) for row' 's domain key(s) (json-encoded string)',
           isNumeric: false),
       ColumnConfig(
-          index: 5,
+          index: 6,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 6,
+          index: 7,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
@@ -1319,70 +1413,14 @@ final Map<String, TableConfig> _tableConfigurations = {
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.mainObjectType,
-        columnIdx: 2,
+        columnIdx: 3,
       ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.mainSourceType,
-        columnIdx: 4,
+        columnIdx: 5,
       ),
     ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'Type of objects in file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where the file was loaded',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "source_type",
-          label: 'Source Type',
-          tooltips: 'Source of the input data, either File or Domain Table',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "entity_rdf_type",
-          label: 'Domain Class',
-          tooltips: 'Canonical model for the Object Type',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "status",
-          label: 'Status',
-          tooltips: "Status of the Process Input and it's mapping",
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 8,
-          name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the record was created',
-          isNumeric: false),
-    ],
+    columns: processInputColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
@@ -1404,63 +1442,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'Type of objects in file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where the file was loaded',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "source_type",
-          label: 'Source Type',
-          tooltips: 'Source of the input data, either File or Domain Table',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "entity_rdf_type",
-          label: 'Domain Class',
-          tooltips: 'Canonical model for the Object Type',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "status",
-          label: 'Status',
-          tooltips: "Status of the Process Input and it's mapping",
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 8,
-          name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the record was created',
-          isNumeric: false),
-    ],
+    columns: processInputColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
@@ -1582,7 +1564,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configScreenPath: domainTableViewerPath,
-          navigationParams: {'table': 5, 'session_id': 6}),
+          navigationParams: {'table': 6, 'session_id': 7}),
       ActionConfig(
           actionType: DataTableActionType.refreshTable,
           key: 'refreshTable',
@@ -1591,67 +1573,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null),
     ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.mainInputFileKey, columnIdx: 3),
-    ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Input Registry Key',
-          isNumeric: true,
-          isHidden: false),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'Type of objects in file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File Key of the loaded file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "source_type",
-          label: 'Source Type',
-          tooltips: 'Source of the input data, either File or Domain Table',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where the data reside',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "session_id",
-          label: 'Session ID',
-          tooltips: 'Session ID of the file load job',
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 8,
-          name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the record was created',
-          isNumeric: false),
-    ],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: inputRegistryColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
@@ -1677,63 +1601,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainInputFileKey, columnIdx: 4),
     ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: '',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'Type of objects in file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "source_type",
-          label: 'Source Type',
-          tooltips: 'Source of the input data, either File or Domain Table',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File Key of the loaded file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where the data reside',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "session_id",
-          label: 'Session ID',
-          tooltips: 'Session ID of the file load job',
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 8,
-          name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the record was created',
-          isNumeric: false),
-    ],
+    columns: inputRegistryColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
@@ -1758,96 +1626,11 @@ final Map<String, TableConfig> _tableConfigurations = {
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainInputFileKey, columnIdx: 3),
     ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Primary Key',
-          tooltips: '',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client providing the input files',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'The type of object the file contains',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File key or path',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "last_update",
-          label: 'Last Update',
-          tooltips: 'When the file was received',
-          isNumeric: false),
-    ],
+    columns: fileKeyStagingColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
   ),
-  // DTKeys.fileKeyStagingForPipelineMergeProcessInput: TableConfig(
-  //   key: DTKeys.fileKeyStagingForPipelineMergeProcessInput,
-  //   schemaName: 'jetsapi',
-  //   tableName: 'file_key_staging',
-  //   label: 'Merge Input Source - File Key Staging',
-  //   apiPath: '/dataTable',
-  //   isCheckboxVisible: true,
-  //   isCheckboxSingleSelect: false,
-  //   whereClauses: [
-  //     WhereClause(column: "client", formStateKey: FSK.client),
-  //   ],
-  //   actions: [],
-  //   formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-  //     DataTableFormStateOtherColumnConfig(
-  //         stateKey: FSK.mergedInputRegistryKeys, columnIdx: 3),
-  //   ]),
-  //   columns: [
-  //     ColumnConfig(
-  //         index: 0,
-  //         name: "key",
-  //         label: 'Primary Key',
-  //         tooltips: '',
-  //         isNumeric: true,
-  //         isHidden: true),
-  //     ColumnConfig(
-  //         index: 1,
-  //         name: "client",
-  //         label: 'Client',
-  //         tooltips: 'Client providing the input files',
-  //         isNumeric: false),
-  //     ColumnConfig(
-  //         index: 2,
-  //         name: "object_type",
-  //         label: 'Object Type',
-  //         tooltips: 'The type of object the file contains',
-  //         isNumeric: false),
-  //     ColumnConfig(
-  //         index: 3,
-  //         name: "file_key",
-  //         label: 'File Key',
-  //         tooltips: 'File key or path',
-  //         isNumeric: false),
-  //     ColumnConfig(
-  //         index: 4,
-  //         name: "last_update",
-  //         label: 'Last Update',
-  //         tooltips: 'When the file was received',
-  //         isNumeric: false),
-  //   ],
-  //   sortColumnName: 'last_update',
-  //   sortAscending: false,
-  //   rowsPerPage: 10,
-  // ),
 
   // Input Registry Table for Pipeline Exec Dialog (FormKeys.startPipeline)
   // for selecting FSK.mergeInputRegistryKeys
@@ -1867,63 +1650,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: '',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'Type of objects in file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "source_type",
-          label: 'Source Type',
-          tooltips: 'Source of the input data, either File or Domain Table',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File Key of the loaded file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where the data will be loaded from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "session_id",
-          label: 'Session ID',
-          tooltips: 'Session ID of the file load job',
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 8,
-          name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the record was created',
-          isNumeric: false),
-    ],
+    columns: inputRegistryColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
