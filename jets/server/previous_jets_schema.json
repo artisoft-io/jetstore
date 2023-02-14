@@ -61,30 +61,6 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "client_org_registry",
-    "columns": [
-      {
-        "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
-        "columnName": "org",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
-        "columnName": "details",
-        "dataType":   "text"
-      }
-    ],
-    "tableConstraints": [
-      {
-        "name": "client_org_registry_unique_cstraint",
-        "definition": "CONSTRAINT client_org_registry_unique_cstraint UNIQUE (client, org)"
-      }
-    ]
-  },
-  {
-    "schemaName": "jetsapi",
     "tableName":  "mapping_function_registry",
     "columns": [
       {
@@ -168,47 +144,6 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "source_period",
-    "columns": [
-      {
-        "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
-        "columnName": "year",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
-        "columnName": "month",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
-        "columnName": "day",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
-        "columnName": "month_period",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
-        "columnName": "week_period",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
-        "columnName": "day_period",
-        "dataType":   "int",
-        "isNotNull":  true
-      }
-    ],
-    "tableConstraints": [
-      {
-        "name": "source_period_unique_cstraint",
-        "definition": "CONSTRAINT source_period_unique_cstraint UNIQUE (year, month, day)"
-      }
-    ]
-  },
-  {
-    "schemaName": "jetsapi",
     "tableName":  "file_key_staging",
     "columns": [
       {
@@ -220,21 +155,12 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
         "columnName": "object_type",
         "dataType":   "text",
         "isNotNull":  true
       }, {
         "columnName": "file_key",
         "dataType":   "text",
-        "isNotNull":  true
-      }, {
-        "columnName": "source_period_key",
-        "dataType":   "int",
         "isNotNull":  true
       }, {
         "columnName": "last_update",
@@ -245,8 +171,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "file_key_staging_unique_cstraintv2",
-        "definition": "CONSTRAINT file_key_staging_unique_cstraint UNIQUE (file_key)"
+        "name": "file_key_staging_unique_cstraint",
+        "definition": "CONSTRAINT file_key_staging_unique_cstraint UNIQUE (client, object_type, file_key)"
       }
     ]
   },
@@ -265,16 +191,6 @@
       }, {
         "columnName": "client",
         "dataType":   "text",
-        "isNotNull":  true
-      }, {
-        "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
-        "columnName": "automated",
-        "dataType":   "bool",
-        "default":    "0",
         "isNotNull":  true
       }, {
         "columnName": "table_name",
@@ -305,11 +221,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "source_config_unique_cstraint1",
-        "definition": "CONSTRAINT source_config_unique_cstraint1 UNIQUE (table_name)"
-      }, {
-        "name": "source_config_unique_cstraint2",
-        "definition": "CONSTRAINT source_config_unique_cstraint2 UNIQUE (client, org, object_type)"
+        "name": "source_config_unique_cstraint",
+        "definition": "CONSTRAINT source_config_unique_cstraint UNIQUE (table_name)"
       }
     ]
   },
@@ -332,11 +245,6 @@
       }, {
         "columnName": "client",
         "dataType":   "text",
-        "isNotNull":  true
-      }, {
-        "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
         "isNotNull":  true
       }, {
         "columnName": "file_key",
@@ -405,21 +313,12 @@
         "dataType":   "text",
         "isNotNull":  true
       }, {
-        "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
         "columnName": "object_type",
         "dataType":   "text",
         "isNotNull":  true
       }, {
         "columnName": "file_key",
         "dataType":   "text"
-      }, {
-        "columnName": "source_period_key",
-        "dataType":   "int",
-        "isNotNull":  true
       }, {
         "columnName": "table_name",
         "dataType":   "text",
@@ -458,7 +357,7 @@
     "tableConstraints": [
       {
         "name": "input_registry_unique_cstraint",
-        "definition": "CONSTRAINT input_registry_unique_cstraintv2 UNIQUE (client, org, object_type, table_name, session_id)"
+        "definition": "CONSTRAINT input_registry_unique_cstraint UNIQUE (client, object_type, table_name, session_id)"
       }
     ]
   },
@@ -473,11 +372,6 @@
       }, {
         "columnName": "client",
         "dataType":   "text",
-        "isNotNull":  true
-      }, {
-        "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
         "isNotNull":  true
       }, {
         "columnName": "object_type",
@@ -526,7 +420,7 @@
     "tableConstraints": [
       {
         "name": "process_input_unique_cstraint",
-        "definition": "CONSTRAINT process_input_unique_cstraintv2 UNIQUE (client, org, object_type, table_name)"
+        "definition": "CONSTRAINT process_input_unique_cstraint UNIQUE (client, object_type, table_name)"
       }
     ]
   },
@@ -722,17 +616,7 @@
         "columnName": "main_source_type",
         "dataType":   "text",
         "isNotNull":  true
-      }, {
-        "columnName": "source_period_type",
-        "dataType":   "text",
-        "default":    "'month_period'",
-        "isNotNull":  true
-      }, {
-        "columnName": "lookback_periods",
-        "dataType":   "int",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
+        }, {
         "columnName": "automated",
         "dataType":   "bool",
         "default":    "0",

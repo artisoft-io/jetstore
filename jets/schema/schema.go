@@ -17,11 +17,11 @@ import (
 // Define Database Table Structure
 // This table/column definition structure is used by the api services and by update_db.
 type TableDefinition struct {
-	SchemaName       string               `json:"schemaName"`
-	TableName        string               `json:"tableName"`
-	Columns          []ColumnDefinition   `json:"columns"`
-	Indexes          []IndexDefinition    `json:"indexes"`
-	TableConstraints []string             `json:"tableConstraints"`
+	SchemaName       string                  `json:"schemaName"`
+	TableName        string                  `json:"tableName"`
+	Columns          []ColumnDefinition      `json:"columns"`
+	Indexes          []IndexDefinition       `json:"indexes"`
+	TableConstraints []ConstraintDefinition  `json:"tableConstraints"`
 }
 type ColumnDefinition struct {
 	ColumnName string  `json:"columnName"`
@@ -35,12 +35,17 @@ type IndexDefinition struct {
 	IndexName string    `json:"indexName"`
 	IndexDef  string    `json:"indexDef"`
 }
+type ConstraintDefinition struct {
+	Name        string    `json:"name"`
+	Definition  string    `json:"definition"`
+}
 
 func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDefinition, error) {
 	if dbpool == nil {
 		return nil, errors.New("dbpool is required")
 	}
 	result := TableDefinition{SchemaName: schema, TableName: table}
+
 	// Get the column definitions
 	result.Columns = make([]ColumnDefinition, 0)
 	rows, err := dbpool.Query(context.Background(), 
@@ -50,7 +55,6 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 	if err != nil {
 		return nil, fmt.Errorf("while getting definition of table: %s in schema %s", table, schema)
 	}
-	defer rows.Close()
 	for rows.Next() { // Iterate and fetch the records from result cursor
 		var cd ColumnDefinition
 		var dt, udt string
@@ -75,6 +79,8 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 		//       It's required when create table only
 		result.Columns = append(result.Columns, cd)
 	}
+	rows.Close()
+
 	// Get the index definitions
 	result.Indexes = make([]IndexDefinition, 0)
 	rows, err = dbpool.Query(context.Background(), 
@@ -84,12 +90,38 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 	if err != nil {
 		return nil, fmt.Errorf("while getting definition of table's indexes: table %s in schema %s", table, schema)
 	}
-	defer rows.Close()
 	for rows.Next() { // Iterate and fetch the records from result cursor
 		var idxdef IndexDefinition
 		rows.Scan(&idxdef.IndexName, &idxdef.IndexDef)
 		result.Indexes = append(result.Indexes, idxdef)
 	}
+	rows.Close()
+
+	// Get the UNIQUE CONSTRAINT definitions
+	result.TableConstraints = make([]ConstraintDefinition, 0)
+	rows, err = dbpool.Query(context.Background(), 
+		`SELECT
+		con.conname
+		FROM
+			pg_catalog.pg_constraint con
+			INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+			INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace
+		WHERE
+			nsp.nspname = $1
+			AND rel.relname = $2
+			AND con.contype = 'u'`, schema, table)
+	if err != nil {
+		return nil, fmt.Errorf("while getting definition of table's unique constraints: table %s in schema %s", table, schema)
+	}
+	for rows.Next() { // Iterate and fetch the records from result cursor
+		var cdef ConstraintDefinition
+		rows.Scan(&cdef.Name)
+		result.TableConstraints = append(result.TableConstraints, cdef)
+	}
+	rows.Close()
+
+	//*
+	fmt.Printf("Existing Table Constraints for table %s: %v\n", table, result.TableConstraints)
 
 	return &result, nil
 }
@@ -138,7 +170,7 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 	}
 	// make sure the table schema exists
 	stmt := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", pgx.Identifier{tableDefinition.SchemaName}.Sanitize())
-	log.Println(stmt)
+	fmt.Println(stmt)
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating schema: %v", err)
@@ -175,7 +207,7 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 	}
 	// drop stmt
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
-	log.Println(stmt)
+	fmt.Println(stmt)
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while droping table: %v", err)
@@ -186,11 +218,11 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 	buf.WriteString("CREATE TABLE IF NOT EXISTS ")
 	buf.WriteString(pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
 	// colon defs 
-	buf.WriteString("(")
+	buf.WriteString("(\n")
 	isFirst := true
 	for _, col := range tableDefinition.Columns {
 		if !isFirst {
-			buf.WriteString(", ")	
+			buf.WriteString(",\n")	
 		}
 		isFirst = false
 		buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
@@ -215,20 +247,20 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 			}	
 		}
 	}
-	for iconst := range tableDefinition.TableConstraints {
-		buf.WriteString(", ")
-		buf.WriteString(tableDefinition.TableConstraints[iconst])
+	for _,constraint := range tableDefinition.TableConstraints {
+		buf.WriteString(",\n")
+		buf.WriteString(constraint.Definition)
 	}
 	buf.WriteString(");\n")
 	// index defs 
 	for _, idx := range tableDefinition.Indexes {
+		buf.WriteString("CREATE ")
 		buf.WriteString(idx.IndexDef)
 		buf.WriteString(" ;\n")
 	}
 	// Execute the statements
 	stmt = buf.String()
-	log.Println(stmt)
-	log.Println("---")
+	fmt.Println(stmt)
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating table schema: %v", err)
@@ -249,7 +281,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString(", ")
 		}
 		isFirst = false
-		buf.WriteString("ADD COLUMN IF NOT EXISTS ")
+		buf.WriteString("\nADD COLUMN IF NOT EXISTS ")
 		buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 		buf.WriteString(" ")
 		buf.WriteString(ToPgType(col.DataType))
@@ -257,8 +289,49 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString(" ARRAY")
 		}
 	}
+	// unique constraints - add / delete constaints
+	// Add new constraints
+	for _, constaint := range tableDefinition.TableConstraints {
+		foundIt := false
+		for i := range existingSchema.TableConstraints {
+			if constaint.Name == existingSchema.TableConstraints[i].Name {
+				foundIt = true
+				break
+			}
+		}
+		if !foundIt {
+			if !isFirst {
+				buf.WriteString(", ")
+			}
+			isFirst = false
+			buf.WriteString("\nADD ")
+			buf.WriteString(constaint.Definition)
+			buf.WriteString(" ")
+		}
+	}
+	// Drop removed constraints
+	for _, constaint := range existingSchema.TableConstraints {
+		foundIt := false
+		for i := range tableDefinition.TableConstraints {
+			if constaint.Name == tableDefinition.TableConstraints[i].Name {
+				foundIt = true
+				break
+			}
+		}
+		if !foundIt {
+			if !isFirst {
+				buf.WriteString(", ")
+			}
+			isFirst = false
+			buf.WriteString("\nDROP CONSTRAINT ")
+			buf.WriteString(constaint.Name)
+			buf.WriteString(" ")
+		}
+	}
 	buf.WriteString(" ;\n")
-	// index defs
+	
+	// index defs add / delete indexes
+	// Add new indexes
 	for _, idx := range tableDefinition.Indexes {
 		foundIt := false
 		for i := range existingSchema.Indexes {
@@ -268,15 +341,31 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			}
 		}
 		if !foundIt {
+			buf.WriteString("CREATE ")
 			buf.WriteString(idx.IndexDef)
 			buf.WriteString(" ;\n")
 		}
 	}
-	//* TODO Add consideration for change in some of tableDefinition.TableConstraints
+	//* TODO
+	// // Drop removed indexes
+	// for _, idx := range existingSchema.Indexes {
+	// 	foundIt := false
+	// 	for i := range tableDefinition.Indexes {
+	// 		if idx.IndexName == tableDefinition.Indexes[i].IndexName {
+	// 			foundIt = true
+	// 			break
+	// 		}
+	// 	}
+	// 	if !foundIt {
+	// 		buf.WriteString("DROP ")
+	// 		buf.WriteString(idx.IndexName)
+	// 		buf.WriteString(" ;\n")
+	// 	}
+	// }
+
 	// Execute the statements
 	stmt := buf.String()
-	log.Println(stmt)
-	log.Println("---")
+	fmt.Println(stmt)
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while updating table schema: %v", err)
