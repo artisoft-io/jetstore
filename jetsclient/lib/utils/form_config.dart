@@ -648,6 +648,17 @@ final Map<String, FormConfig> _formConfigurations = {
             autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+        FormInputFieldConfig(
+            key: FSK.org,
+            label: "Client's organization",
+            hint: "Client's organization providing the file",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80),
+      ],
+      [
         FormDropdownFieldConfig(
             key: FSK.objectType,
             returnedModelCacheKey: FSK.objectTypeRegistryCache,
@@ -657,6 +668,15 @@ final Map<String, FormConfig> _formConfigurations = {
             autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
                 "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
+        FormDropdownFieldConfig(
+            key: FSK.automated,
+            items: [
+              DropdownItemConfig(label: 'Select...'),
+              DropdownItemConfig(label: 'Automated', value: '1'),
+              DropdownItemConfig(label: 'Manual', value: '0'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
       ],
       [
         PaddingConfig(),
@@ -733,6 +753,17 @@ final Map<String, FormConfig> _formConfigurations = {
             autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+        FormInputFieldConfig(
+            key: FSK.domainKeysJson,
+            label: "Client's organization",
+            hint: "Client's organization providing the file",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80),
+      ],
+      [
         FormDropdownFieldConfig(
             key: FSK.objectType,
             returnedModelCacheKey: FSK.objectTypeRegistryCache,
@@ -742,8 +773,6 @@ final Map<String, FormConfig> _formConfigurations = {
             autovalidateMode: AutovalidateMode.always,
             dropdownItemsQuery:
                 "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
-      ],
-      [
         FormDropdownFieldConfig(
             key: FSK.sourceType,
             items: [

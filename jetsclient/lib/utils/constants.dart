@@ -98,6 +98,7 @@ class FSK {
   static const isActive = "is_active";
 
   static const client = "client";
+  static const org = "org";
   static const details = "details";
 
   static const objectType = "object_type";
