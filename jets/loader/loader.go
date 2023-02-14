@@ -19,7 +19,9 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -53,6 +55,9 @@ func (s *chartype) Set(value string) error {
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default: none))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
+// JETS_ADMIN_EMAIL
+// JETSTORE_DEV_MODE Indicates running in dev mode
+// AWS_API_SECRET
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -73,6 +78,11 @@ var domainKeysJson string
 var sep_flag chartype = '€'
 var errOutDir string
 var jetsInputRowJetsKeyAlgo string
+var clientOrg string
+var sourcePeriodKey int
+var inputRegistryKey []int
+var devMode bool
+var adminEmail string
 
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator, default is auto detect between pipe ('|') or comma (',')")
@@ -109,17 +119,26 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
 	if status == "completed" && dkInfo != nil {
+		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
+		ipos := 0
 		for objType := range dkInfo.DomainKeysInfoMap {
 			log.Println("Registering staging table with object type:", objType)
 			stmt = `INSERT INTO jetsapi.input_registry (
-				client, object_type, file_key, table_name, source_type, session_id, user_email) 
-				VALUES ($1, $2, $3, $4, 'file', $5, $6)`
-			_, err = dbpool.Exec(context.Background(), stmt, 
-				*client, objType, *inFile, tableName, *sessionId, *userEmail)
+				client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
+				VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) RETURNING key`
+			err = dbpool.QueryRow(context.Background(), stmt, 
+				*client, clientOrg, objType, *inFile, sourcePeriodKey, tableName, *sessionId, *userEmail).Scan(&inputRegistryKey[ipos])
 			if err != nil {
 				return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
-			}	
+			}
 		}
+		// Check for any process that are ready to kick off
+		context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)
+		token, err := user.CreateToken(*userEmail)
+		if err != nil {
+			return fmt.Errorf("error creating jwt token: %v", err)
+		}
+		context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{}, token)
 	}
 	return nil
 }
@@ -454,12 +473,21 @@ func coordinateWork() error {
 		return fmt.Errorf("error: the session id is already used")
 	}
 
+	// Get org and source_period_key from file_key_staging
+	// ---------------------------------------
+	err = dbpool.QueryRow(context.Background(), 
+		"SELECT org, source_period_key FROM jetsapi.file_key_staging WHERE file_key=$1", 
+		*inFile).Scan(&clientOrg, &sourcePeriodKey)
+	if err != nil {
+		return fmt.Errorf("query org, source_period_key from jetsapi.file_key_staging failed: %v", err)
+	}
+
 	// Get the DomainKeysJson and tableName from source_config table
 	// ---------------------------------------
 	var dkJson sql.NullString
 	err = dbpool.QueryRow(context.Background(), 
-		"SELECT table_name, domain_keys_json FROM jetsapi.source_config WHERE client=$1 AND object_type=$2", 
-		*client, *objectType).Scan(&tableName, &dkJson)
+		"SELECT table_name, domain_keys_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
+		*client, clientOrg, *objectType).Scan(&tableName, &dkJson)
 	if err != nil {
 		return fmt.Errorf("query table_name, domain_keys_json from jetsapi.source_config failed: %v", err)
 	}
@@ -600,6 +628,26 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "aws region must be provided when using either -awsDsnSecret or -awsBucket.")
 	}
+
+
+	errOutDir = os.Getenv("LOADER_ERR_DIR")
+	adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
+	awsApiSecret := os.Getenv("AWS_API_SECRET")
+	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
+	// Initialize user module -- for token generation
+	var apiSecret string
+	user.AdminEmail = adminEmail
+	// Get secret to sign jwt tokens
+	if awsApiSecret != "" {
+		apiSecret, err = awsi.GetSecretValue(awsApiSecret, *awsRegion)
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("while getting apiSecret from aws secret: %v", err))
+		}
+	}
+	user.ApiSecret = apiSecret
+	user.TokenExpiration = 60
+
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
@@ -612,9 +660,7 @@ func main() {
 		sessionId = &sessId
 		log.Println("sessionId is set to", *sessionId)
 	}
-
-	errOutDir = os.Getenv("LOADER_ERR_DIR")
-
+	
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
 	fmt.Println("Got argument: awsDsnSecret", *awsDsnSecret)
@@ -642,7 +688,12 @@ func main() {
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	fmt.Println("ENV JETS_INPUT_ROW_JETS_KEY_ALGO:",os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
- 
+	fmt.Println("ENV AWS_API_SECRET:",os.Getenv("AWS_API_SECRET"))
+	if devMode {
+		fmt.Println("Running in DEV MODE")
+		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
+	}
+
 	err = coordinateWork()
 	if err != nil {
 		fmt.Println(err)

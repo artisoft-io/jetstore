@@ -101,7 +101,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		var err error
 
 		// Main table statement
-		stmt = mainInput.makeSqlStmt()
+		stmt = reteWorkspace.pipelineConfig.makeMainProcessInputSqlStmt()
 		if glogv > 0 {
 			log.Printf("Main SQL:\n%s", stmt)
 		}
@@ -121,7 +121,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 			for ipoc := range mergedProcessInput {
 				// prepare the sql stmt
 				jquery := joinQuery{processInput: &mergedProcessInput[ipoc]}
-				stmt := mergedProcessInput[ipoc].makeJoinSqlStmt()
+				stmt := reteWorkspace.pipelineConfig.makeMergeProcessInputSqlStmt(ipoc)
 				if glogv > 0 {
 					log.Printf("JOIN SQL:\n%s", stmt)
 				}

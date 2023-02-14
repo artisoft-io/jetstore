@@ -1,4 +1,4 @@
-package main
+package user
 
 import (
 	"context"
@@ -13,6 +13,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var AdminEmail string
 
 type User struct {
 	Name      string    `json:"name"`
@@ -51,7 +53,7 @@ func (u *User) Prepare() {
 }
 
 func (u *User) Validate(action string) error {
-	if *adminEmail == u.Email {
+	if AdminEmail == u.Email {
 		u.IsAdmin = true
 	}
 	switch strings.ToLower(action) {

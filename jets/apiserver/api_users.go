@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -19,47 +20,47 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
-	user := User{}
-	err = json.Unmarshal(body, &user)
+	jetsUser := user.User{}
+	err = json.Unmarshal(body, &jetsUser)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
 
-	user.Prepare()
-	err = user.Validate("login")
+	jetsUser.Prepare()
+	err = jetsUser.Validate("login")
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
 	// provided password
-	password := user.Password
+	password := jetsUser.Password
 	// get user details including pwd for verification from db
-	err = user.GetUserByEmail(server.dbpool)
+	err = jetsUser.GetUserByEmail(server.dbpool)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
-	if user.IsActive != 1 {
+	if jetsUser.IsActive != 1 {
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User is not active, please contact your Administrator"))
 		return
 	}
-	err = VerifyPassword(user.Password, password)
-	user.Password = ""
+	err = user.VerifyPassword(jetsUser.Password, password)
+	jetsUser.Password = ""
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
 		log.Println("ERROR",err)
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("Invalid User or Password"))
 		return
 	}
-	user.Token, err = CreateToken(user.Email)
+	jetsUser.Token, err = user.CreateToken(jetsUser.Email)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
 	if devMode {
-		user.DevMode = "true"
+		jetsUser.DevMode = "true"
 	}
-	JSON(w, http.StatusOK, user)
+	JSON(w, http.StatusOK, jetsUser)
 }
 
 func IsDuplicateUserError(err string) bool {
@@ -91,20 +92,20 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 	}
-	user := User{}
-	err = json.Unmarshal(body, &user)
+	jetsUser := user.User{}
+	err = json.Unmarshal(body, &jetsUser)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	user.Prepare()
-	err = user.Validate("")
+	jetsUser.Prepare()
+	err = jetsUser.Validate("")
 	if err != nil {
 		ERROR(w, http.StatusNotAcceptable, err)
 		return
 	}
 	// Perform the insert
-	err = user.InsertUser(server.dbpool)
+	err = jetsUser.InsertUser(server.dbpool)
 	if err != nil {
 		errstr := err.Error()
 		if IsDuplicateUserError(errstr) {
@@ -115,26 +116,26 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusInternalServerError, formattedError)
 		return
 	}
-	user.Password = ""
-	user.Token, err = CreateToken(user.Email)
+	jetsUser.Password = ""
+	jetsUser.Token, err = user.CreateToken(jetsUser.Email)
 	if err != nil {
 		formattedError := FormatError(err.Error())
 		ERROR(w, http.StatusUnprocessableEntity, formattedError)
 		return
 	}
-	JSON(w, http.StatusOK, user)
+	JSON(w, http.StatusOK, jetsUser)
 }
 
 func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {
 
 	//* TODO FindAllUsers
-	// user := User{}
-	// users, err := user.FindAllUsers(server.DB)
+	// jetsUser := User{}
+	// users, err := jetsUser.FindAllUsers(server.DB)
 	// if err != nil {
 	// 	ERROR(w, http.StatusInternalServerError, err)
 	// 	return
 	// }
-	users := []User{}
+	users := []user.User{}
 	JSON(w, http.StatusOK, users)
 }
 
@@ -142,35 +143,35 @@ func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {
 func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
-	user := User{Email: vars["id"]}
-	err := user.GetUserByEmail(server.dbpool)
+	jetsUser := user.User{Email: vars["id"]}
+	err := jetsUser.GetUserByEmail(server.dbpool)
 	if err != nil {
 		log.Println("error while get user by ID:",err)
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
 		return
 	}
-	user.Password = ""
-	JSON(w, http.StatusOK, user)
+	jetsUser.Password = ""
+	JSON(w, http.StatusOK, jetsUser)
 }
 
 // GetUserDetails ------------------------------------------------------
 func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 
-	tokenID, err := ExtractTokenID(r)
+	tokenID, err := user.ExtractTokenID(user.ExtractToken(r))
 	if err != nil {
 		log.Println("error while extracting user email from jwt token:",err)
 		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 		return
 	}
-	user := User{Email: tokenID}
-	err = user.GetUserByEmail(server.dbpool)
+	jetsUser := user.User{Email: tokenID}
+	err = jetsUser.GetUserByEmail(server.dbpool)
 	if err != nil {
 		log.Println("error while get user by email:",err)
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User ID not found"))
 		return
 	}
-	user.Password = ""
-	JSON(w, http.StatusOK, user)
+	jetsUser.Password = ""
+	JSON(w, http.StatusOK, jetsUser)
 }
 
 // UpdateUser ------------------------------------------------------
@@ -182,13 +183,13 @@ func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	user := User{}
-	err = json.Unmarshal(body, &user)
+	jetsUser := user.User{}
+	err = json.Unmarshal(body, &jetsUser)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	tokenID, err := ExtractTokenID(r)
+	tokenID, err := user.ExtractTokenID(user.ExtractToken(r))
 	if err != nil {
 		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 		return
@@ -197,20 +198,20 @@ func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized)))
 		return
 	}
-	user.Prepare()
-	err = user.Validate("update")
+	jetsUser.Prepare()
+	err = jetsUser.Validate("update")
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
 	//* TODO UpdateUser
-	// updatedUser, err := user.UpdateAUser(server.DB, uint32(uid))
+	// updatedUser, err := jetsUser.UpdateAUser(server.DB, uint32(uid))
 	// if err != nil {
 	// 	formattedError := FormatError(err.Error())
 	// 	ERROR(w, http.StatusInternalServerError, formattedError)
 	// 	return
 	// }
-	updatedUser := user
+	updatedUser := jetsUser
 	updatedUser.Password = ""
 	JSON(w, http.StatusOK, updatedUser)
 }
@@ -220,7 +221,7 @@ func (server *Server) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
-	tokenID, err := ExtractTokenID(r)
+	tokenID, err := user.ExtractTokenID(user.ExtractToken(r))
 	if err != nil {
 		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 		return
