@@ -916,6 +916,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     defaultToAllRows: true, // when where clause fails
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "org", formStateKey: FSK.org),
       WhereClause(column: "object_type", formStateKey: FSK.objectType),
     ],
     actions: [
@@ -1619,6 +1620,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "org", formStateKey: FSK.org),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
     ],
     actions: [],

@@ -288,7 +288,11 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 		if col.IsArray {
 			buf.WriteString(" ARRAY")
 		}
-	}
+		if len(col.Default) > 0 {
+			buf.WriteString(" DEFAULT ")
+			buf.WriteString(col.Default)
+		}
+}
 	// unique constraints - add / delete constaints
 	// Add new constraints
 	for _, constaint := range tableDefinition.TableConstraints {
@@ -346,22 +350,26 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString(" ;\n")
 		}
 	}
-	//* TODO
-	// // Drop removed indexes
-	// for _, idx := range existingSchema.Indexes {
-	// 	foundIt := false
-	// 	for i := range tableDefinition.Indexes {
-	// 		if idx.IndexName == tableDefinition.Indexes[i].IndexName {
-	// 			foundIt = true
-	// 			break
-	// 		}
-	// 	}
-	// 	if !foundIt {
-	// 		buf.WriteString("DROP ")
-	// 		buf.WriteString(idx.IndexName)
-	// 		buf.WriteString(" ;\n")
-	// 	}
-	// }
+	// Drop removed indexes
+	for _, idx := range existingSchema.Indexes {
+		if !strings.HasSuffix(idx.IndexName, "_idx") {
+			continue
+		}
+		foundIt := false
+		for i := range tableDefinition.Indexes {
+			if idx.IndexName == tableDefinition.Indexes[i].IndexName {
+				foundIt = true
+				break
+			}
+		}
+		if !foundIt {
+			buf.WriteString("DROP INDEX ")
+			buf.WriteString(tableDefinition.SchemaName)
+			buf.WriteString(".")
+			buf.WriteString(idx.IndexName)
+			buf.WriteString(" ;\n")
+		}
+	}
 
 	// Execute the statements
 	stmt := buf.String()

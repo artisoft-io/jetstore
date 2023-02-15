@@ -67,6 +67,18 @@ void postSimpleAction(BuildContext context, JetsFormState formState,
   }
 }
 
+String makeTableName(Map<String, dynamic> state) {
+  if (state['org'].toString().isNotEmpty) {
+    return state[FSK.client] +
+        '_' +
+        state[FSK.org] +
+        '_' +
+        state[FSK.objectType];
+  } else {
+    return state[FSK.client] + '_' + state[FSK.objectType];
+  }
+}
+
 /// Validation and Actions delegates for the source to pipeline config forms
 /// Home Forms Validator
 String? homeFormValidator(
@@ -142,7 +154,7 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
         state[FSK.mergedInputRegistryKeys] = '{}';
       } else {
         state[FSK.mergedInputRegistryKeys] =
-          '{${(state[FSK.mergedInputRegistryKeys] as List<String>).join(',')}}';
+            '{${(state[FSK.mergedInputRegistryKeys] as List<String>).join(',')}}';
       }
       state[FSK.pipelineConfigKey] = state[FSK.pipelineConfigKey][0];
       var w = state[FSK.mainInputRegistryKey];
@@ -160,8 +172,7 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       if (actionKey == ActionKeys.loadAndStartPipelineOk) {
         state['load_and_start'] = 'true';
         state['input_session_id'] = state['session_id'];
-        state['table_name'] =
-            state[FSK.client] + '_' + state[FSK.mainObjectType];
+        state['table_name'] = makeTableName(state);
       } else {
         state['load_and_start'] = 'false';
       }
@@ -277,7 +288,7 @@ Future<void> sourceConfigActions(BuildContext context,
       }
 
       state['user_email'] = JetsRouterDelegate().user.email;
-      state['table_name'] = state[FSK.client] + '_' + state[FSK.objectType];
+      state['table_name'] = makeTableName(state);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'table': query,

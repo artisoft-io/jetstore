@@ -1,79 +1,87 @@
 [
   {
     "schemaName": "jetsapi",
-    "tableName":  "jetstore_release",
+    "tableName": "jetstore_release",
     "columns": [
       {
         "columnName": "version",
-        "dataType":   "text",
-        "isPK":       true,
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
         "columnName": "name",
-        "dataType":   "text",
-        "default":    "'JetStore Timestamp Version'",
-        "isNotNull":  true
+        "dataType": "text",
+        "default": "'JetStore Timestamp Version'",
+        "isNotNull": true
       }
     ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "users",
+    "tableName": "users",
     "columns": [
       {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isPK":       true
-      }, {
+        "dataType": "text",
+        "isPK": true
+      },
+      {
         "columnName": "name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "password",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "is_active",
-        "dataType":   "int",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "client_registry",
+    "tableName": "client_registry",
     "columns": [
       {
         "columnName": "client",
-        "dataType":   "text",
-        "isPK":  true        
-      }, {
+        "dataType": "text",
+        "isPK": true
+      },
+      {
         "columnName": "details",
-        "dataType":   "text"
+        "dataType": "text"
       }
     ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "client_org_registry",
+    "tableName": "client_org_registry",
     "columns": [
       {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "org",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "details",
-        "dataType":   "text"
+        "dataType": "text"
       }
     ],
     "tableConstraints": [
@@ -85,78 +93,87 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "mapping_function_registry",
+    "tableName": "mapping_function_registry",
     "columns": [
       {
         "columnName": "function_name",
-        "dataType":   "text",
-        "isPK":  true        
-      }, {
+        "dataType": "text",
+        "isPK": true
+      },
+      {
         "columnName": "is_argument_required",
-        "dataType":   "bool",
-        "isNotNull":  true
-      }, {
+        "dataType": "bool",
+        "isNotNull": true
+      },
+      {
         "columnName": "details",
-        "dataType":   "text"
+        "dataType": "text"
       }
     ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "object_type_registry",
+    "tableName": "object_type_registry",
     "columns": [
       {
         "columnName": "object_type",
-        "dataType":   "text",
-        "isPK":  true
-      }, {
+        "dataType": "text",
+        "isPK": true
+      },
+      {
         "columnName": "entity_rdf_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "details",
-        "dataType":   "text"
+        "dataType": "text"
       }
     ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "domain_keys_registry",
+    "tableName": "domain_keys_registry",
     "columns": [
       {
         "columnName": "entity_rdf_type",
-        "dataType":   "text",
-        "isPK":  true
-      }, {
+        "dataType": "text",
+        "isPK": true
+      },
+      {
         "columnName": "object_types",
-        "dataType":   "text",
-        "isArray":    true,
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isArray": true,
+        "isNotNull": true
+      },
+      {
         "columnName": "domain_keys_json",
-        "dataType":   "text"
+        "dataType": "text"
       }
     ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "object_type_mapping_details",
+    "tableName": "object_type_mapping_details",
     "columns": [
       {
         "columnName": "object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "data_property",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "is_required",
-        "dataType":   "bool",
-        "isNotNull":  true
-      }, {
+        "dataType": "bool",
+        "isNotNull": true
+      },
+      {
         "columnName": "details",
-        "dataType":   "text"
+        "dataType": "text"
       }
     ],
     "tableConstraints": [
@@ -168,36 +185,42 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "source_period",
+    "tableName": "source_period",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "year",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "month",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "day",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "month_period",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "week_period",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "day_period",
-        "dataType":   "int",
-        "isNotNull":  true
+        "dataType": "int",
+        "isNotNull": true
       }
     ],
     "tableConstraints": [
@@ -209,38 +232,44 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "file_key_staging",
+    "tableName": "file_key_staging",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "file_key",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "source_period_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "tableConstraints": [
@@ -252,53 +281,62 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "source_config",
+    "tableName": "source_config",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "automated",
-        "dataType":   "bool",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
+        "dataType": "bool",
+        "default": "'0'",
+        "isNotNull": true
+      },
+      {
         "columnName": "table_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "domain_keys_json",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
       {
         "indexName": "source_config_client_idx",
         "indexDef": "INDEX source_config_client_idx ON jetsapi.source_config (client ASC)"
-      }, {
+      },
+      {
         "indexName": "source_config_object_type_idx",
         "indexDef": "INDEX source_config_object_type_idx ON jetsapi.source_config (object_type ASC)"
       }
@@ -307,7 +345,8 @@
       {
         "name": "source_config_unique_cstraint1",
         "definition": "CONSTRAINT source_config_unique_cstraint1 UNIQUE (table_name)"
-      }, {
+      },
+      {
         "name": "source_config_unique_cstraint2",
         "definition": "CONSTRAINT source_config_unique_cstraint2 UNIQUE (client, org, object_type)"
       }
@@ -315,72 +354,87 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "input_loader_status",
+    "tableName": "input_loader_status",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "table_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "file_key",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "bad_row_count",
-        "dataType":   "int"
-      }, {
+        "dataType": "int"
+      },
+      {
         "columnName": "load_count",
-        "dataType":   "int"
-      }, {
+        "dataType": "int"
+      },
+      {
         "columnName": "session_id",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "status",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "error_message",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
       {
         "indexName": "input_loader_status_client_idx",
         "indexDef": "INDEX input_loader_status_client_idx ON jetsapi.input_loader_status (client ASC)"
-      }, {
+      },
+      {
         "indexName": "input_loader_status_status_idx",
         "indexDef": "INDEX input_loader_status_status_idx ON jetsapi.input_loader_status (status ASC)"
-      }, {
+      },
+      {
         "indexName": "input_loader_status_object_type_idx",
         "indexDef": "INDEX input_loader_status_object_type_idx ON jetsapi.input_loader_status (object_type ASC)"
-      }, {
+      },
+      {
         "indexName": "input_loader_status_table_name_idx",
         "indexDef": "INDEX input_loader_status_table_name_idx ON jetsapi.input_loader_status (table_name ASC)"
       }
@@ -394,63 +448,75 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "input_registry",
+    "tableName": "input_registry",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "file_key",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "source_period_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "table_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "source_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "session_id",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
       {
         "indexName": "input_registry_client_idx",
         "indexDef": "INDEX input_registry_client_idx ON jetsapi.input_registry (client ASC)"
-      }, {
+      },
+      {
         "indexName": "input_registry_object_type_idx",
         "indexDef": "INDEX input_registry_object_type_idx ON jetsapi.input_registry (object_type ASC)"
-      }, {
+      },
+      {
         "indexName": "input_registry_table_name_idx",
         "indexDef": "INDEX input_registry_table_name_idx ON jetsapi.input_registry (table_name ASC)"
       }
@@ -464,61 +530,72 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "process_input",
+    "tableName": "process_input",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "org",
-        "dataType":   "text",
-        "default":    "''",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "table_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "source_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "entity_rdf_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "key_column",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "status",
-        "dataType":   "text",
-        "default":   "'created'",
-        "isNotNull":  true
-        }, {
+        "dataType": "text",
+        "default": "'created'",
+        "isNotNull": true
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
       {
         "indexName": "process_input_client_idx",
         "indexDef": "INDEX process_input_client_idx ON jetsapi.process_input (client ASC)"
-      }, {
+      },
+      {
         "indexName": "process_input_object_type_idx",
         "indexDef": "INDEX process_input_object_type_idx ON jetsapi.process_input (object_type ASC)"
       }
@@ -532,44 +609,53 @@
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "process_mapping",
+    "tableName": "process_mapping",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "table_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "input_column",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "data_property",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "function_name",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "argument",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "default_value",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "error_message",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
@@ -583,45 +669,52 @@
         "name": "process_mapping_unique_cstraint",
         "definition": "CONSTRAINT process_mapping_unique_cstraint UNIQUE (table_name, input_column, data_property)"
       }
-   ]
+    ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "process_config",
+    "tableName": "process_config",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "process_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_rules",
-        "dataType":   "text",
-        "isNotNull":  true
-        }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "is_rule_set",
-        "dataType":   "bool",
-        "isNotNull":  true
-        }, {
+        "dataType": "bool",
+        "isNotNull": true
+      },
+      {
         "columnName": "output_tables",
-        "dataType":   "text",
-        "isArray":    true,
-        "isNotNull":  true
-        }, {
+        "dataType": "text",
+        "isArray": true,
+        "isNotNull": true
+      },
+      {
         "columnName": "description",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
@@ -635,40 +728,46 @@
         "name": "process_config_unique_cstraint",
         "definition": "CONSTRAINT process_config_unique_cstraint UNIQUE (process_name)"
       }
-   ]
+    ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "rule_config",
+    "tableName": "rule_config",
     "columns": [
       {
         "columnName": "process_config_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "process_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "subject",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "predicate",
-        "dataType":   "text",
-        "isNotNull":  true
-        }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "object",
-        "dataType":   "text",
-        "isNotNull":  true
-        }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "rdf_type",
-        "dataType":   "text",
-        "isNotNull":  true
+        "dataType": "text",
+        "isNotNull": true
       }
     ],
     "indexes": [
@@ -682,144 +781,171 @@
         "name": "rule_config_unique_cstraint",
         "definition": "CONSTRAINT rule_config_unique_cstraint UNIQUE (process_name, client, subject, predicate, object)"
       }
-   ]
+    ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "pipeline_config",
+    "tableName": "pipeline_config",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "process_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "process_config_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_process_input_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "merged_process_input_keys",
-        "dataType":   "int",
-        "isArray":    true,
-        "default":    "'{}'",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isArray": true,
+        "default": "'{}'",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_source_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "source_period_type",
-        "dataType":   "text",
-        "default":    "'month_period'",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "default": "'month_period'",
+        "isNotNull": true
+      },
+      {
         "columnName": "lookback_periods",
-        "dataType":   "int",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "automated",
-        "dataType":   "bool",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
+        "dataType": "bool",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "description",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
       {
         "indexName": "pipeline_config_client_idx",
         "indexDef": "INDEX pipeline_config_client_idx ON jetsapi.pipeline_config (client ASC)"
-      }, {
+      },
+      {
         "indexName": "pipeline_config_process_name_idx",
         "indexDef": "INDEX pipeline_config_process_name_idx ON jetsapi.pipeline_config (process_name ASC)"
-      }, {
+      },
+      {
         "indexName": "pipeline_config_main_object_type_idx",
         "indexDef": "INDEX pipeline_config_main_object_type_idx ON jetsapi.pipeline_config (main_object_type ASC)"
       }
-   ]
+    ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "pipeline_execution_status",
+    "tableName": "pipeline_execution_status",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "pipeline_config_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_input_registry_key",
-        "dataType":   "int"
-      }, {
+        "dataType": "int"
+      },
+      {
         "columnName": "main_input_file_key",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "merged_input_registry_keys",
-        "dataType":   "int",
-        "isArray":    true,
-        "default":    "'{}'",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isArray": true,
+        "default": "'{}'",
+        "isNotNull": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "process_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_object_type",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "input_session_id",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "session_id",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "status",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
@@ -827,117 +953,139 @@
         "indexName": "pipeline_execution_status_last_update_idx",
         "indexDef": "INDEX pipeline_execution_status_last_update_idx ON jetsapi.pipeline_execution_status (last_update DESC)"
       }
-   ]
+    ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "pipeline_execution_details",
+    "tableName": "pipeline_execution_details",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "pipeline_config_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "pipeline_execution_status_key",
-        "dataType":   "int",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "client",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "process_name",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_input_session_id",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "session_id",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "shard_id",
-        "dataType":   "int",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "status",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "error_message",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "input_records_count",
-        "dataType":   "int"
-      }, {
+        "dataType": "int"
+      },
+      {
         "columnName": "rete_sessions_count",
-        "dataType":   "int"
-      }, {
+        "dataType": "int"
+      },
+      {
         "columnName": "output_records_count",
-        "dataType":   "int"
-      }, {
+        "dataType": "int"
+      },
+      {
         "columnName": "user_email",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
       {
         "indexName": "pipeline_execution_details_pipeline_execution_status_key_idx",
         "indexDef": "INDEX pipeline_execution_details_pipeline_execution_status_key_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key ASC)"
-      }, {
+      },
+      {
         "indexName": "pipeline_execution_details_last_update_idx",
         "indexDef": "INDEX pipeline_execution_details_last_update_idx ON jetsapi.pipeline_execution_details (last_update DESC)"
       }
-   ]
+    ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "process_errors",
+    "tableName": "process_errors",
     "columns": [
       {
         "columnName": "key",
-        "dataType":   "int",
-        "isPK":       true
-      }, {
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "session_id",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "grouping_key",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "row_jets_key",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "input_column",
-        "dataType":   "text"
-      }, {
+        "dataType": "text"
+      },
+      {
         "columnName": "error_message",
-        "dataType":   "text",
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "shard_id",
-        "dataType":   "int",
-        "default":    "0",
-        "isNotNull":  true
-      }, {
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "indexes": [
@@ -945,23 +1093,30 @@
         "indexName": "process_errors_session_id_idx",
         "indexDef": "INDEX process_errors_session_id_idx ON jetsapi.process_errors (session_id ASC)"
       }
-   ]
+    ]
   },
   {
     "schemaName": "jetsapi",
-    "tableName":  "session_registry",
+    "tableName": "session_registry",
     "columns": [
       {
         "columnName": "session_id",
-        "dataType":   "text",
-        "isPK":       true,
-        "isNotNull":  true
-      }, {
+        "dataType": "text",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
-        "dataType":   "datetime",
-        "default":    "now()",
-        "isNotNull":  true
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
-   ]
+    ],
+    "indexes": [
+      {
+        "indexName": "process_errors_session_id_idx",
+        "indexDef": "INDEX session_registry_session_id_idx ON jetsapi.process_errors (session_id ASC)"
+      }
+    ]
   }
 ]

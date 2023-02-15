@@ -55,9 +55,9 @@ func (s *chartype) Set(value string) error {
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default: none))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
-// JETS_ADMIN_EMAIL
+// JETS_ADMIN_EMAIL (set as admin in dockerfile)
 // JETSTORE_DEV_MODE Indicates running in dev mode
-// AWS_API_SECRET
+// AWS_API_SECRET or API_SECRET
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -107,22 +107,23 @@ func truncateSessionId(dbpool *pgxpool.Pool) error {
 func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, 
 	dkInfo *schema.HeadersAndDomainKeysInfo, status string, errMessage string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
-		object_type, table_name, client, file_key, session_id, status, error_message,
+		object_type, table_name, client, org, file_key, session_id, status, error_message,
 		load_count, bad_row_count, user_email) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT ON CONSTRAINT input_loader_status_unique_cstraint
 			DO UPDATE SET (status, error_message, load_count, bad_row_count, user_email, last_update) =
 			(EXCLUDED.status, EXCLUDED.error_message, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt, 
-		*objectType, tableName, *client, *inFile, *sessionId, status, errMessage, copyCount, badRowCount, *userEmail)
+		*objectType, tableName, *client, clientOrg, *inFile, *sessionId, status, errMessage, copyCount, badRowCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
+	log.Println("Updating input_loader_status table with main object type:", *objectType,"client", *client, "org", clientOrg)
 	if status == "completed" && dkInfo != nil {
 		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
 		ipos := 0
 		for objType := range dkInfo.DomainKeysInfoMap {
-			log.Println("Registering staging table with object type:", objType)
+			log.Println("Registering staging table with object type:", objType,"client", *client, "org", clientOrg)
 			stmt = `INSERT INTO jetsapi.input_registry (
 				client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
 				VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) RETURNING key`
@@ -481,6 +482,7 @@ func coordinateWork() error {
 	if err != nil {
 		return fmt.Errorf("query org, source_period_key from jetsapi.file_key_staging failed: %v", err)
 	}
+	fmt.Println("Got org",clientOrg,"and sourcePeriodKey",sourcePeriodKey,"from file_key_staging")
 
 	// Get the DomainKeysJson and tableName from source_config table
 	// ---------------------------------------
@@ -632,13 +634,13 @@ func main() {
 
 	errOutDir = os.Getenv("LOADER_ERR_DIR")
 	adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
-	awsApiSecret := os.Getenv("AWS_API_SECRET")
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	// Initialize user module -- for token generation
-	var apiSecret string
 	user.AdminEmail = adminEmail
 	// Get secret to sign jwt tokens
-	if awsApiSecret != "" {
+	awsApiSecret := os.Getenv("AWS_API_SECRET")
+	apiSecret := os.Getenv("API_SECRET")
+	if apiSecret == "" && awsApiSecret != "" {
 		apiSecret, err = awsi.GetSecretValue(awsApiSecret, *awsRegion)
 		if err != nil {
 			hasErr = true

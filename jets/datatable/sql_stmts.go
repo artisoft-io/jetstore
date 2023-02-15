@@ -34,24 +34,24 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// input loader status
 	"input_loader_status": {
 		Stmt: `INSERT INTO jetsapi.input_loader_status 
-			(object_type, client, table_name, file_key, session_id, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			(object_type, client, org, table_name, file_key, session_id, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING key`,
-		ColumnKeys: []string{"object_type", "client", "table_name", "file_key", "session_id", "status", "user_email"},
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "file_key", "session_id", "status", "user_email"},
 	},
 	// process input
 	"process_input": {
 		Stmt: `INSERT INTO jetsapi.process_input 
-			(client, object_type, table_name, source_type, entity_rdf_type, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6)
+			(client, org, object_type, table_name, source_type, entity_rdf_type, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING key`,
-		ColumnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email"},
+		ColumnKeys: []string{"client", "org", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email"},
 	},
 	"update2/process_input": {
 		Stmt: `UPDATE jetsapi.process_input SET 
-			(client, object_type, table_name, source_type, entity_rdf_type, user_email, last_update) 
-			= ($1, $2, $3, $4, $5, $6, DEFAULT) WHERE key = $7`,
-		ColumnKeys: []string{"client", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email", "key"},
+			(client, org, object_type, table_name, source_type, entity_rdf_type, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, $7, DEFAULT) WHERE key = $8`,
+		ColumnKeys: []string{"client", "org", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email", "key"},
 	},
 	"update/process_input": {
 		Stmt: "UPDATE jetsapi.process_input SET (status, user_email, last_update) = ($1, $2, DEFAULT) WHERE key = $3",

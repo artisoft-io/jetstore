@@ -60,7 +60,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// Clear and rebuild the domain table using the update_db command line
 	// Also migrate the system tables to latest schema and run the workspace db init script
-	log.Println("Running Reset Domain Table")
+	log.Println("Rebuild All Tables, Running DB Initialization Script")
 	serverArgs := []string{ "-drop", "-initWorkspaceDb", "-migrateDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
@@ -126,6 +126,7 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 // Initialize jetstore database with workspace db init script
 func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// using update_db script
+	log.Println("Running DB Initialization Script Only")
 	serverArgs := []string{ "-initWorkspaceDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
