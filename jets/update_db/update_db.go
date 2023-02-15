@@ -25,8 +25,6 @@ import (
 // JETS_SCHEMA_FILE (default: jets_schema.json)
 // JETSAPI_DB_INIT_PATH path to workspace_init_db.sql file (workspace specific)
 // WORKSPACE_DB_PATH location of workspace db (sqlite db)
-// JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
-// JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
 var dropExisting = flag.Bool("drop", false, "drop existing domain table (ALL DOMAIN TABLE CONTENT WILL BE LOST)")
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
@@ -195,6 +193,10 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
+	if *dropExisting && !*initWorkspaceDb {
+		hasErr = true
+		errMsg = append(errMsg, "When droping all tables (-drop) must also run the workspace db initialization script (-initWorkspaceDb).")
+	}
 	if *jetsapiDbInitPath == "" {
 		*jetsapiDbInitPath = os.Getenv(("JETSAPI_DB_INIT_PATH"))
 	}
@@ -226,9 +228,13 @@ func main() {
 	log.Println("   -jetsapiDbInitPath:", *jetsapiDbInitPath)
 	log.Println("   -workspaceDb:", *workspaceDb)
 	log.Println("   -migrateDb:", *migrateDb)
+	log.Println("   -drop:", *dropExisting)
 	log.Println("   -initWorkspaceDb:", *initWorkspaceDb)
 	log.Println("ENV JETSAPI_DB_INIT_PATH:", os.Getenv("JETSAPI_DB_INIT_PATH"))
 	log.Println("ENV WORKSPACE_DB_PATH:", os.Getenv("WORKSPACE_DB_PATH"))
+	if *dropExisting {
+		log.Println("WARNING Tables will be dropped and recreated, must run the workspace db init script.")		
+	}
 	for tableName, extColumns := range extTables {
 		log.Println("Table:", tableName, "Extended Columns:", strings.Join(extColumns, ","))
 	}

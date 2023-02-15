@@ -151,7 +151,7 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 		idxname := tableSpec.TableName+"_"+domainKey+"_idx"
 		tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
 			IndexName: idxname,
-			IndexDef: fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (session_id, %s ASC)`,
+			IndexDef: fmt.Sprintf(`INDEX IF NOT EXISTS %s ON %s  (session_id, %s ASC)`,
 				pgx.Identifier{idxname}.Sanitize(),
 				pgx.Identifier{tableSpec.TableName}.Sanitize(),
 				pgx.Identifier{domainKey}.Sanitize()),
@@ -159,7 +159,7 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 		idxname = tableSpec.TableName + "_" + shardId + "_idx"
 		tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
 			IndexName: idxname,
-			IndexDef: fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s  (session_id, %s)`,
+			IndexDef: fmt.Sprintf(`INDEX IF NOT EXISTS %s ON %s  (session_id, %s)`,
 				pgx.Identifier{idxname}.Sanitize(),
 				pgx.Identifier{tableSpec.TableName}.Sanitize(),
 				pgx.Identifier{shardId}.Sanitize()),

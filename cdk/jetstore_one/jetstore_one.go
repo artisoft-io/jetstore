@@ -535,6 +535,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		},
 	})
 
+	// Created here since it's needed for loader and apiserver
+	apiSecret := awssm.NewSecret(stack, jsii.String("apiSecret"), &awssm.SecretProps{
+		Description: jsii.String("API secret used for jwt token encryption"),
+		GenerateSecretString: &awssm.SecretStringGenerator{
+			PasswordLength:          jsii.Number(15),
+			IncludeSpace:            jsii.Bool(false),
+			RequireEachIncludedType: jsii.Bool(true),
+		},
+	})
+
 	loaderContainerDef := loaderTaskDefinition.AddContainer(jsii.String("loaderContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jetStoreImage,
@@ -542,13 +552,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Essential:     jsii.Bool(true),
 		EntryPoint:    jsii.Strings("loader"),
 		Environment: &map[string]*string{
-			"JETS_REGION":               jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_BUCKET":               sourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED": jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+			"JETS_REGION":                  jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_BUCKET":                  sourceBucket.BucketName(),
+			"JETS_DOMAIN_KEY_HASH_ALGO":    jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED":    jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+			"JETS_INPUT_ROW_JETS_KEY_ALGO": jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":          awsecs.Secret_FromSecretsManager(apiSecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
@@ -873,14 +885,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
 	})
-	apiSecret := awssm.NewSecret(stack, jsii.String("apiSecret"), &awssm.SecretProps{
-		Description: jsii.String("API secret used for jwt token encryption"),
-		GenerateSecretString: &awssm.SecretStringGenerator{
-			PasswordLength:          jsii.Number(15),
-			IncludeSpace:            jsii.Bool(false),
-			RequireEachIncludedType: jsii.Bool(true),
-		},
-	})
 	adminPwdSecret := awssm.NewSecret(stack, jsii.String("adminPwdSecret"), &awssm.SecretProps{
 		Description: jsii.String("JetStore UI admin password"),
 		GenerateSecretString: &awssm.SecretStringGenerator{
@@ -1198,6 +1202,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
 // WORKSPACES_HOME (required, to copy test files from workspace data folder)
 // WORKSPACE (required, to copy test files from workspace data folder)
+// JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 func main() {
 	defer jsii.Close()
 	var err error

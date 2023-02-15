@@ -133,14 +133,15 @@ func (server *Server) checkJetStoreDbVersion() error {
 		serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
 
 		case jetstoreVersion > version:
-			log.Println("New JetStore Release deployed, updating the db")
 			if os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP") == "yes" {
+				log.Println("New JetStore Release deployed, rebuilding all tables and running workspace db init script")
 				server.ResetDomainTables(&PurgeDataAction{
 					Action: "reset_domain_tables",
 					Data: []map[string]interface{}{},
 				})
 				server.addVersionToDb(jetstoreVersion)
 			} else {
+				log.Println("New JetStore Release deployed, migrating tables to latest schema")
 				serverArgs = []string{ "-migrateDb" }
 			}
 
