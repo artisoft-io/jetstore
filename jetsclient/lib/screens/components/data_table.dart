@@ -254,7 +254,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   late final List<int> availableRowsPerPage;
 
   List<ColumnConfig> columnsConfig = [];
-  List<String> columnNames = [];
+  List<Map<String, String>> columnNameMaps = [];
 
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;

@@ -181,7 +181,7 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
         // Send the load insert
         var encodedJsonBody = jsonEncode(<String, dynamic>{
           'action': 'insert_rows',
-          'table': 'input_loader_status',
+          'fromClauses': [<String, String>{'table': 'input_loader_status'}],
           'data': [state],
         }, toEncodable: (_) => '');
         var loadResult = await context.read<HttpClient>().sendRequest(
@@ -200,7 +200,7 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       // Send the pipeline start insert
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'pipeline_execution_status',
+        'fromClauses': [<String, String>{'table': 'pipeline_execution_status'}],
         'data': [state],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
@@ -268,7 +268,7 @@ Future<void> sourceConfigActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'client_registry',
+        'fromClauses': [<String, String>{'table': 'client_registry'}],
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
@@ -291,7 +291,7 @@ Future<void> sourceConfigActions(BuildContext context,
       state['table_name'] = makeTableName(state);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': query,
+        'fromClauses': [<String, String>{'table': query}],
         'data': [state],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
@@ -317,7 +317,7 @@ Future<void> sourceConfigActions(BuildContext context,
       state['load_and_start'] = 'false';
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'input_loader_status',
+        'fromClauses': [<String, String>{'table': 'input_loader_status'}],
         'data': [state],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
@@ -581,7 +581,7 @@ Future<void> processInputFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': query,
+        'fromClauses': [<String, String>{'table': query}],
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);
@@ -613,7 +613,7 @@ Future<void> processInputFormActions(BuildContext context,
       // first issue a delete statement to make sure we replace all mappings
       var deleteJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'delete/process_mapping',
+        'fromClauses': [<String, String>{'table': 'delete/process_mapping'}],
         'data': [
           {
             FSK.tableName: tableName,
@@ -635,7 +635,7 @@ Future<void> processInputFormActions(BuildContext context,
       // delete successfull, update process_mapping
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'process_mapping',
+        'fromClauses': [<String, String>{'table': 'process_mapping'}],
         'data': formState.getInternalState(),
       }, toEncodable: (_) => '');
       // Insert rows to process_mapping
@@ -648,7 +648,7 @@ Future<void> processInputFormActions(BuildContext context,
         // insert successfull, update process_input status
         var encodedJsonBody = jsonEncode(<String, dynamic>{
           'action': 'insert_rows',
-          'table': 'update/process_input',
+        'fromClauses': [<String, String>{'table': 'update/process_input'}],
           'data': [
             {
               'key': processInputKey,
@@ -711,7 +711,7 @@ Future<void> processConfigFormActions(BuildContext context,
 
       var deleteJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'delete/rule_config',
+        'fromClauses': [<String, String>{'table': 'delete/rule_config'}],
         'data': [
           {
             FSK.client: client,
@@ -732,7 +732,7 @@ Future<void> processConfigFormActions(BuildContext context,
         // now insert the new triples
         var insertJsonBody = jsonEncode(<String, dynamic>{
           'action': 'insert_rows',
-          'table': 'rule_config',
+          'fromClauses': [<String, String>{'table': 'rule_config'}],
           'data': stateList.getRange(0, stateList.length - 1).toList(),
         }, toEncodable: (_) => '');
         postInsertRows(context, formState, insertJsonBody);
@@ -992,7 +992,7 @@ Future<void> pipelineConfigFormActions(BuildContext context,
 
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': query,
+        'fromClauses': [<String, String>{'table': query}],
         'data': [updateState],
       }, toEncodable: (_) => '');
       postInsertRows(context, formState, encodedJsonBody);

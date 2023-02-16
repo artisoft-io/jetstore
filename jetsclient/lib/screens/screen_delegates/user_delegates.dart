@@ -194,7 +194,7 @@ Future<void> userAdminFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'update/users',
+        'fromClauses': [<String, String>{'table': 'update/users'}],
         'data': data,
       }, toEncodable: (_) => '');
       var result = await client.sendRequest(
@@ -228,7 +228,7 @@ Future<void> userAdminFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'table': 'delete/users',
+        'fromClauses': [<String, String>{'table': 'delete/users'}],
         'data': data,
       }, toEncodable: (_) => '');
       var result = await client.sendRequest(

@@ -289,7 +289,6 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 			copyRec[fileKeyPos] = *inFile
 			copyRec[sessionIdPos] = *sessionId
 			jetsKeyStr := uuid.New().String()
-			copyRec[jetsKeyPos] = jetsKeyStr
 			copyRec[lastUpdatePos] = lastUpdate
 			var mainDomainKey string
 			var mainDomainKeyPos int
@@ -311,15 +310,20 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 			switch jetsInputRowJetsKeyAlgo {
 			case "row_hash":
 				for i := range record {
-					buf.WriteString(record[i])
+					if !headersDKInfo.ReservedColumns[headersDKInfo.Headers[i]] {
+						// fmt.Println("row_hash with column",headersDKInfo.Headers[i])
+						buf.WriteString(record[i])
+					}
 				}
 				jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
+				// fmt.Println("row_hash jetsKeyStr",jetsKeyStr)
 			case "domain_key":
 				jetsKeyStr = mainDomainKey
 			}
 			if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
 				copyRec[mainDomainKeyPos] = jetsKeyStr
 			}
+			copyRec[jetsKeyPos] = jetsKeyStr
 			inputRows = append(inputRows, copyRec)
 			rowid += 1
 		}

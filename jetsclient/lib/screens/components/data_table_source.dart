@@ -196,9 +196,13 @@ class JetsDataTableSource extends ChangeNotifier {
       }),
       cells: state.columnsConfig
           .where((e) => !e.isHidden)
-          .map((e) => e.maxLines > 0 ? DataCell(SizedBox(
-              width: e.columnWidth, //SET width
-              child: Text(model![index][e.index] ?? 'null', maxLines: e.maxLines,)))
+          .map((e) => e.maxLines > 0
+              ? DataCell(SizedBox(
+                  width: e.columnWidth, //SET width
+                  child: Text(
+                    model![index][e.index] ?? 'null',
+                    maxLines: e.maxLines,
+                  )))
               : DataCell(Text(model![index][e.index] ?? 'null')))
           .toList(),
       selected: selectedRows[index],
@@ -212,25 +216,34 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   dynamic _makeQuery() {
-    final schemaName = state.tableConfig.schemaName;
-    final tableName = state.tableConfig.tableName;
     final columns = state.tableConfig.columns;
-    List<String> columnNames = [];
+    final config = state.formFieldConfig; // when datatable is in a form
+    // List of Column for select stmt
+    List<Map<String, String>> selectColumns = [];
     if (columns.isNotEmpty) {
-      columnNames =
-          List<String>.generate(columns.length, (index) => columns[index].name);
+      selectColumns = List<Map<String, String>>.generate(
+          columns.length,
+          (index) => <String, String>{
+                'table': columns[index].table ?? '',
+                'column': columns[index].name
+              });
     }
     var msg = <String, dynamic>{'action': 'read'};
-    msg['schema'] = schemaName;
-    if (tableName.isEmpty) {
-      String name = JetsRouterDelegate().currentConfiguration?.params['table'];
-      msg['table'] = name;
-    } else {
-      msg['table'] = tableName;
+    // from clauses (table name(s))
+    List<Map<String, String>> fromClauses = [];
+    for (final fc in state.tableConfig.fromClauses) {
+      var table = fc.tableName;
+      if (table.isEmpty) {
+        table = JetsRouterDelegate().currentConfiguration?.params['table'];
+      }
+      fromClauses.add(<String, String>{
+        'schema': fc.schemaName,
+        'table': table,
+      });
     }
+    msg['fromClauses'] = fromClauses;
     // add where clauses
     List<Map<String, dynamic>> whereClauses = [];
-    final config = state.formFieldConfig;
     for (final wc in state.tableConfig.whereClauses) {
       var value =
           JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
@@ -244,6 +257,11 @@ class JetsDataTableSource extends ChangeNotifier {
           whereClauses.add(<String, dynamic>{
             'column': wc.column,
             'values': wc.defaultValue,
+          });
+        } else if (wc.joinWith != null) {
+          whereClauses.add(<String, dynamic>{
+            'column': wc.column,
+            'joinWith': wc.joinWith,
           });
         }
       } else {
@@ -281,11 +299,11 @@ class JetsDataTableSource extends ChangeNotifier {
     msg['offset'] = state.indexOffset;
     msg['limit'] = state.rowsPerPage;
     if (columns.isNotEmpty) {
-      msg['columns'] = columnNames;
+      msg['columns'] = selectColumns;
       msg['sortColumn'] = state.sortColumnName;
     } else {
-      if (state.columnNames.isNotEmpty) {
-        msg['columns'] = state.columnNames;
+      if (state.columnNameMaps.isNotEmpty) {
+        msg['columns'] = state.columnNameMaps;
         msg['sortColumn'] = state.sortColumnName;
       } else {
         msg['columns'] = [];
@@ -364,16 +382,18 @@ class JetsDataTableSource extends ChangeNotifier {
       if (columnDef != null) {
         state.columnsConfig = columnDef
             .map((m1) => ColumnConfig(
-                index: m1['index'],
-                name: m1['name'],
-                label: m1['label'],
-                tooltips: m1['tooltips'],
-                isNumeric: m1['isnumeric'],
-                maxLines: m1['maxLines'],
-                columnWidth: m1['columnWidth'],
+                  index: m1['index'],
+                  name: m1['name'],
+                  label: m1['label'],
+                  tooltips: m1['tooltips'],
+                  isNumeric: m1['isnumeric'],
+                  maxLines: m1['maxLines'],
+                  columnWidth: m1['columnWidth'],
                 ))
             .toList();
-        state.columnNames = columnDef.map((e) => e['name'] as String).toList();
+        state.columnNameMaps = columnDef
+            .map((e) => <String, String>{'column': e['name'] as String})
+            .toList();
         state.setSortingColumn(columnIndex: 0);
       }
       final rows = data['rows'] as List;

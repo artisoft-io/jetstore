@@ -104,7 +104,7 @@ func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dat
 		if len(dataTableAction.Columns) > 0 {
 			row = make([]string, len(dataTableAction.Columns))
 			for iCol, col := range dataTableAction.Columns {
-				row[iCol] = dirData[iRow][col]
+				row[iCol] = dirData[iRow][col.Column]
 			}	
 		} else {
 			row = make([]string, 1)
