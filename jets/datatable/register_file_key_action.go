@@ -146,7 +146,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			// insert into input_loader_status and kick off loader (dev mode)
 			dataTableAction := DataTableAction{
 				Action: "insert_rows",
-				Table:  "input_loader_status",
+				FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
 				Data: []map[string]interface{}{{
 					"file_key":             fileKey,
 					"table_name":           tableName,
@@ -448,7 +448,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		// Start the pipelines by inserting into pipeline_execution_status
 		dataTableAction := DataTableAction{
 			Action: "insert_rows",
-			Table:  "pipeline_execution_status",
+			FromClauses: []FromClause{{Schema: "jetsapi", Table: "pipeline_execution_status"}},
 			Data: payload,
 		}
 		result, httpStatus, err := ctx.InsertRows(&dataTableAction, token)

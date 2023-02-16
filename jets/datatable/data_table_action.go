@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io/fs"
+	// "io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -14,7 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
+	// "time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -27,25 +27,25 @@ import (
 
 // Environment and settings needed
 type Context struct {
-	dbpool *pgxpool.Pool
-	devMode bool
+	dbpool         *pgxpool.Pool
+	devMode        bool
 	usingSshTunnel bool
-	unitTestDir *string
-	nbrShards int
-	adminEmail *string
+	unitTestDir    *string
+	nbrShards      int
+	adminEmail     *string
 }
 
-func NewContext(dbpool *pgxpool.Pool,	devMode bool,	usingSshTunnel bool,	
-	unitTestDir *string,	nbrShards int,
+func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
+	unitTestDir *string, nbrShards int,
 	adminEmail *string) *Context {
-		return &Context{
-			dbpool: dbpool,
-			devMode: devMode,
-			usingSshTunnel: usingSshTunnel,
-			unitTestDir: unitTestDir,
-			nbrShards: nbrShards,
-			adminEmail: adminEmail,
-		}
+	return &Context{
+		dbpool:         dbpool,
+		devMode:        devMode,
+		usingSshTunnel: usingSshTunnel,
+		unitTestDir:    unitTestDir,
+		nbrShards:      nbrShards,
+		adminEmail:     adminEmail,
+	}
 }
 
 // sql access builder
@@ -53,9 +53,8 @@ type DataTableAction struct {
 	Action        string                   `json:"action"`
 	RawQuery      string                   `json:"query"`
 	RawQueryMap   map[string]string        `json:"query_map"`
-	Schema        string                   `json:"schema"`
-	Table         string                   `json:"table"`
-	Columns       []string                 `json:"columns"`
+	Columns       []Column                 `json:"columns"`
+	FromClauses   []FromClause             `json:"fromClauses"`
 	WhereClauses  []WhereClause            `json:"whereClauses"`
 	SortColumn    string                   `json:"sortColumn"`
 	SortAscending bool                     `json:"sortAscending"`
@@ -63,16 +62,66 @@ type DataTableAction struct {
 	Limit         int                      `json:"limit"`
 	Data          []map[string]interface{} `json:"data"`
 }
+type Column struct {
+	Table string    `json:"table"`
+	Column string   `json:"column"`
+}
+type FromClause struct {
+	Schema  string `json:"schema"`
+	Table   string `json:"table"`
+}
 type WhereClause struct {
+	Table string    `json:"table"`
 	Column string   `json:"column"`
 	Values []string `json:"values"`
+	JoinWith string `json:"joinWith"`
 }
+// DataTableColumnDef used when returning the column definition
+// obtained from db catalog
 type DataTableColumnDef struct {
 	Index     int    `json:"index"`
 	Name      string `json:"name"`
 	Label     string `json:"label"`
 	Tooltips  string `json:"tooltips"`
 	IsNumeric bool   `json:"isnumeric"`
+}
+
+func (dtq *DataTableAction) makeSelectColumns() string {
+	if len(dtq.Columns) == 0 {
+		return "SELECT *"
+	}
+	var buf strings.Builder
+	buf.WriteString("SELECT ")
+	isFirst := true
+	for i := range dtq.Columns {
+		if !isFirst {
+			buf.WriteString(", ")
+		}
+		isFirst = false
+		if dtq.Columns[i].Table != "" {
+			buf.WriteString(pgx.Identifier{dtq.Columns[i].Table, dtq.Columns[i].Column}.Sanitize())
+		} else {
+			buf.WriteString(pgx.Identifier{dtq.Columns[i].Column}.Sanitize())
+		}
+	}
+	return buf.String()
+}
+
+func (dtq *DataTableAction) makeFromClauses() string {
+	var buf strings.Builder
+	isFirst := true
+	for i := range dtq.FromClauses {
+		if !isFirst {
+			buf.WriteString(", ")
+		}
+		isFirst = false
+		if dtq.FromClauses[i].Schema != "" {
+			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].Schema, dtq.FromClauses[i].Table}.Sanitize())
+		} else {
+			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].Table}.Sanitize())
+		}
+	}
+	return buf.String()
 }
 
 func (dtq *DataTableAction) makeWhereClause() string {
@@ -88,8 +137,12 @@ func (dtq *DataTableAction) makeWhereClause() string {
 		}
 		isFirst = false
 		buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Column}.Sanitize())
-		if len(dtq.WhereClauses[i].Values) > 1 {
-			buf.WriteString(" in (")
+		switch {
+		case len(dtq.WhereClauses[i].JoinWith) > 0:
+			buf.WriteString(" = ")
+			buf.WriteString(dtq.WhereClauses[i].JoinWith)
+		case len(dtq.WhereClauses[i].Values) > 1:
+			buf.WriteString(" IN (")
 			isFirstValue := true
 			for j := range dtq.WhereClauses[i].Values {
 				if !isFirstValue {
@@ -106,7 +159,7 @@ func (dtq *DataTableAction) makeWhereClause() string {
 				}
 			}
 			buf.WriteString(") ")
-		} else {
+		default:
 			value := dtq.WhereClauses[i].Values[0]
 			if value == "NULL" {
 				buf.WriteString(" is NULL ")
@@ -122,9 +175,9 @@ func (dtq *DataTableAction) makeWhereClause() string {
 
 // Simple definition of sql statement for insert
 type SqlInsertDefinition struct {
-	Stmt string
+	Stmt       string
 	ColumnKeys []string
-	AdminOnly bool
+	AdminOnly  bool
 }
 
 func isNumeric(dtype string) bool {
@@ -145,20 +198,20 @@ func isNumeric(dtype string) bool {
 // 	}
 // }
 // func (dataTableAction *DataTableAction) getKey() string {
-// 	return dataTableAction.Schema+"_"+dataTableAction.Table
+// 	return dataTableAction.Schema+"_"+dataTableAction.FromClauses[0].Table
 // }
 
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
-	// Check if we're in dev mode and the query is delegated to a proxy implementation
-	if ctx.devMode && len(*ctx.unitTestDir) > 0 {
-		// We're in dev mode, see if we override the table being queried
-		switch {
-		case strings.Contains(dataTableAction.RawQuery, "file_key_staging"):
-			return ctx.readLocalFiles(dataTableAction)
-		}
-	}
+	// // Check if we're in dev mode and the query is delegated to a proxy implementation
+	// if ctx.devMode && len(*ctx.unitTestDir) > 0 {
+	// 	// We're in dev mode, see if we override the table being queried
+	// 	switch {
+	// 	case strings.Contains(dataTableAction.RawQuery, "file_key_staging"):
+	// 		return ctx.readLocalFiles(dataTableAction)
+	// 	}
+	// }
 	resultRows, err2 := execQuery(ctx.dbpool, dataTableAction, &dataTableAction.RawQuery)
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
@@ -166,7 +219,7 @@ func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map
 		return
 	}
 
-	results = &map[string]interface{} {
+	results = &map[string]interface{}{
 		"rows": resultRows,
 	}
 	httpStatus = http.StatusOK
@@ -188,7 +241,7 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 		}
 		resultMap[k] = resultRows
 	}
-	results = &map[string]interface{} {
+	results = &map[string]interface{}{
 		"result_map": resultMap,
 	}
 	httpStatus = http.StatusOK
@@ -203,7 +256,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	returnedKey := make([]int, len(dataTableAction.Data))
 	var loaderCompletedMetric, loaderFailedMetric, serverCompletedMetric, serverFailedMetric string
 	httpStatus = http.StatusOK
-	sqlStmt, ok := sqlInsertStmts[dataTableAction.Table]
+	sqlStmt, ok := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
 	if !ok {
 		httpStatus = http.StatusBadRequest
 		err = errors.New("error: unknown table")
@@ -221,7 +274,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
-		switch dataTableAction.Table {
+		switch dataTableAction.FromClauses[0].Table {
 		case "pipeline_execution_status", "short/pipeline_execution_status":
 			if dataTableAction.Data[irow]["input_session_id"] == nil {
 				inSessionId := dataTableAction.Data[irow]["session_id"]
@@ -230,7 +283,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
 					err = ctx.dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
 					if err != nil {
-						log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.Table, err)
+						log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.FromClauses[0].Table, err)
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while reading from a table")
 						return
@@ -243,11 +296,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
 
-		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.Table, row)
+		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
 		if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
 			err = ctx.dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
 			if err != nil {
-				log.Printf("While inserting in table %s: %v", dataTableAction.Table, err)
+				log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while inserting into a table")
 				return
@@ -255,7 +308,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		} else {
 			_, err = ctx.dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 			if err != nil {
-				log.Printf("while executing insert_rows action '%s': %v", dataTableAction.Table, err)
+				log.Printf("while executing insert_rows action '%s': %v", dataTableAction.FromClauses[0].Table, err)
 				httpStatus = http.StatusConflict
 				err = errors.New("error while executing insert")
 				return
@@ -264,7 +317,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	}
 	// Post Processing Hook
 	var name string
-	switch dataTableAction.Table {
+	switch dataTableAction.FromClauses[0].Table {
 	case "input_loader_status":
 		// Run the loader
 		row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
@@ -562,7 +615,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				fmt.Println("Loader State Machine", name, "started")
 			}
 		} // irow := range dataTableAction.Data
-	} // switch dataTableAction.Table
+	} // switch dataTableAction.FromClauses[0].Table
 	//* BACKWARD COMPATIBILITY returning the first returnedKey (should return the array)
 	results = &map[string]interface{}{}
 	if returnedKey[0] >= 0 {
@@ -573,7 +626,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 // utility method
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
-	// fmt.Println("Query:", *query)
+	//*
+	// fmt.Println("*** UI Query:", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
@@ -609,14 +663,14 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 // DoReadAction ------------------------------------------------------
 func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
 
-	// Check if we're in dev mode and the query is delegated to a proxy implementation
-	if ctx.devMode && len(*ctx.unitTestDir) > 0 {
-		// We're in dev mode, see if we override the table being queried
-		switch dataTableAction.Table {
-		case "file_key_staging":
-			return ctx.readLocalFiles(dataTableAction)
-		}
-	}
+	// // Check if we're in dev mode and the query is delegated to a proxy implementation
+	// if ctx.devMode && len(*ctx.unitTestDir) > 0 {
+	// 	// We're in dev mode, see if we override the table being queried
+	// 	switch dataTableAction.FromClauses[0].Table {
+	// 	case "file_key_staging":
+	// 		return ctx.readLocalFiles(dataTableAction)
+	// 	}
+	// }
 
 	// to package up the result
 	results := make(map[string]interface{})
@@ -625,9 +679,9 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	if len(dataTableAction.Columns) == 0 {
 		// Get table column definition
 		//* TODO use cache
-		tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.Schema, dataTableAction.Table)
+		tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
 		if err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.Schema, dataTableAction.Table, err)
+			return nil, http.StatusInternalServerError, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table, err)
 		}
 		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
 		for _, colDef := range tableSchema.Columns {
@@ -636,16 +690,16 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 				Label:     colDef.ColumnName,
 				Tooltips:  colDef.ColumnName,
 				IsNumeric: isNumeric(colDef.DataType)})
-			dataTableAction.Columns = append(dataTableAction.Columns, colDef.ColumnName)
+			dataTableAction.Columns = append(dataTableAction.Columns, Column{Column: colDef.ColumnName})
 		}
 		sort.Slice(columnsDef, func(l, r int) bool { return columnsDef[l].Name < columnsDef[r].Name })
 		// need to reset the column index due to the sort
 		for i := range columnsDef {
 			columnsDef[i].Index = i
 		}
-		dataTableAction.Columns = make([]string, 0, len(tableSchema.Columns))
+		dataTableAction.Columns = make([]Column, 0, len(tableSchema.Columns))
 		for i := range columnsDef {
-			dataTableAction.Columns = append(dataTableAction.Columns, columnsDef[i].Name)
+			dataTableAction.Columns = append(dataTableAction.Columns, Column{Column: columnsDef[i].Name})
 		}
 
 		dataTableAction.SortColumn = columnsDef[0].Name
@@ -659,9 +713,9 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// 	// Not in cache
 	// 	//*
 	// 	log.Println("DataTableSchema key",dataTableAction.getKey(),"is not in the cache")
-	// 	tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.Schema, dataTableAction.Table)
+	// 	tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.Schema, dataTableAction.FromClauses[0].Table)
 	// 	if err != nil {
-	// 		log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.Schema, dataTableAction.Table, err)
+	// 		log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.Schema, dataTableAction.FromClauses[0].Table, err)
 	// 		ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
 	// 	}
 	// 	value = *tableSchema
@@ -677,18 +731,11 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// Build the query
 	// SELECT "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
 	var buf strings.Builder
-	sanitizedTableName := pgx.Identifier{dataTableAction.Schema, dataTableAction.Table}.Sanitize()
-	buf.WriteString("SELECT ")
-	isFirst := true
-	for i := range dataTableAction.Columns {
-		if !isFirst {
-			buf.WriteString(", ")
-		}
-		isFirst = false
-		buf.WriteString(pgx.Identifier{dataTableAction.Columns[i]}.Sanitize())
-	}
+	fromClause := dataTableAction.makeFromClauses()
+	buf.WriteString(dataTableAction.makeSelectColumns())
 	buf.WriteString(" FROM ")
-	buf.WriteString(sanitizedTableName)
+	buf.WriteString(fromClause)
+	buf.WriteString(" ")
 	whereClause := dataTableAction.makeWhereClause()
 	buf.WriteString(whereClause)
 	if len(dataTableAction.SortColumn) > 0 {
@@ -708,17 +755,17 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	resultRows, err := execQuery(ctx.dbpool, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("While executing query on %s.%s: %v", dataTableAction.Schema, dataTableAction.Table, err)
+			fmt.Errorf("While executing query from tables %s: %v", fromClause, err)
 	}
 
 	// get the total nbr of row
 	//* TODO add where clause to filter deleted items
-	stmt := fmt.Sprintf("SELECT count(*) FROM %s %s", sanitizedTableName, whereClause)
+	stmt := fmt.Sprintf("SELECT count(*) FROM %s %s", fromClause, whereClause)
 	var totalRowCount int
 	err = ctx.dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("While getting total row count on table %s.%s: %v", dataTableAction.Schema, dataTableAction.Table, err)
+			fmt.Errorf("While getting total row count from tables %s: %v", fromClause, err)
 	}
 
 	results["totalRowCount"] = totalRowCount
@@ -726,64 +773,64 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	return &results, http.StatusOK, nil
 }
 
-func (ctx *Context) readLocalFiles(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
-	fileSystem := os.DirFS(*ctx.unitTestDir)
-	dirData := make([]map[string]string, 0)
-	key := 1
-	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			log.Printf("ERROR while walking unit test directory %q: %v", path, err)
-			return err
-		}
-		if info.IsDir() {
-			// fmt.Printf("visiting directory: %+v \n", info.Name())
-			return nil
-		}
-		// fmt.Printf("visited file: %q\n", path)
-		pathSplit := strings.Split(path, "/")
-		if len(pathSplit) != 3 {
-			log.Printf("Invalid path found while walking unit test directory %q: skipping it", path)
-			return nil
-		}
-		if strings.HasPrefix(pathSplit[2], "err_") {
-			// log.Printf("Found loader error file while walking unit test directory %q: skipping it", path)
-			return nil
-		}
-		data := make(map[string]string, 5)
-		data["key"] = strconv.Itoa(key)
-		key += 1
-		data["client"] = pathSplit[0]
-		data["object_type"] = pathSplit[1]
-		data["file_key"] = *ctx.unitTestDir + "/" + path
-		data["last_update"] = time.Now().Format(time.RFC3339)
-		dirData = append(dirData, data)
-		return nil
-	})
-	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("error walking the unit test directory path %q: %v", *ctx.unitTestDir, err)
-	}
+// func (ctx *Context) readLocalFiles(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
+// 	fileSystem := os.DirFS(*ctx.unitTestDir)
+// 	dirData := make([]map[string]string, 0)
+// 	key := 1
+// 	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
+// 		if err != nil {
+// 			log.Printf("ERROR while walking unit test directory %q: %v", path, err)
+// 			return err
+// 		}
+// 		if info.IsDir() {
+// 			// fmt.Printf("visiting directory: %+v \n", info.Name())
+// 			return nil
+// 		}
+// 		// fmt.Printf("visited file: %q\n", path)
+// 		pathSplit := strings.Split(path, "/")
+// 		if len(pathSplit) != 3 {
+// 			log.Printf("Invalid path found while walking unit test directory %q: skipping it", path)
+// 			return nil
+// 		}
+// 		if strings.HasPrefix(pathSplit[2], "err_") {
+// 			// log.Printf("Found loader error file while walking unit test directory %q: skipping it", path)
+// 			return nil
+// 		}
+// 		data := make(map[string]string, 5)
+// 		data["key"] = strconv.Itoa(key)
+// 		key += 1
+// 		data["client"] = pathSplit[0]
+// 		data["object_type"] = pathSplit[1]
+// 		data["file_key"] = *ctx.unitTestDir + "/" + path
+// 		data["last_update"] = time.Now().Format(time.RFC3339)
+// 		dirData = append(dirData, data)
+// 		return nil
+// 	})
+// 	if err != nil {
+// 		return nil, http.StatusInternalServerError, fmt.Errorf("error walking the unit test directory path %q: %v", *ctx.unitTestDir, err)
+// 	}
 
-	// package the result, sending back only the requested collumns
-	resultRows := make([][]string, 0, len(dirData))
-	for iRow := range dirData {
-		var row []string
-		//* Need to port the raw queries to named parametrized queries as non raw queries!
-		if len(dataTableAction.Columns) > 0 {
-			row = make([]string, len(dataTableAction.Columns))
-			for iCol, col := range dataTableAction.Columns {
-				row[iCol] = dirData[iRow][col]
-			}
-		} else {
-			row = make([]string, 1)
-			row[0] = dirData[iRow]["file_key"]
-		}
-		resultRows = append(resultRows, row)
-	}
+// 	// package the result, sending back only the requested collumns
+// 	resultRows := make([][]string, 0, len(dirData))
+// 	for iRow := range dirData {
+// 		var row []string
+// 		//* Need to port the raw queries to named parametrized queries as non raw queries!
+// 		if len(dataTableAction.Columns) > 0 {
+// 			row = make([]string, len(dataTableAction.Columns))
+// 			for iCol, col := range dataTableAction.Columns {
+// 				row[iCol] = dirData[iRow][col.Column]
+// 			}
+// 		} else {
+// 			row = make([]string, 1)
+// 			row[0] = dirData[iRow]["file_key"]
+// 		}
+// 		resultRows = append(resultRows, row)
+// 	}
 
-	results := make(map[string]interface{})
-	results["rows"] = resultRows
-	results["totalRowCount"] = len(dirData)
-	// fmt.Println("file_key_staging DEV MODE:")
-	// json.NewEncoder(os.Stdout).Encode(results)
-	return &results, http.StatusOK, nil
-}
+// 	results := make(map[string]interface{})
+// 	results["rows"] = resultRows
+// 	results["totalRowCount"] = len(dirData)
+// 	// fmt.Println("file_key_staging DEV MODE:")
+// 	// json.NewEncoder(os.Stdout).Encode(results)
+// 	return &results, http.StatusOK, nil
+// }

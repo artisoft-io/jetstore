@@ -22,7 +22,6 @@ type PipelineConfig struct {
 	sourcePeriodType       string
 	sourcePeriodKey        int
 	currentSourcePeriod    int
-	lookbackPeriods        int
 	mainProcessInputKey    int
 	mergedProcessInputKeys []int
 	processConfig          *ProcessConfig
@@ -103,6 +102,7 @@ type ProcessInput struct {
 	organization          string
 	objectType            string
 	tableName             string
+	lookbackPeriods       int
 	sourceType            string
 	entityRdfType         string
 	entityRdfTypeResource *bridge.Resource
@@ -139,7 +139,9 @@ type RuleConfig struct {
 
 // utility methods
 // Statement to get the session_ids from input_registry and source_period tables:
-func (pi *ProcessInput) makeLookupSessionIdStmt(sourcePeriodType string, currentSourcePeriod int,	lookbackPeriods int) string {
+func (pi *ProcessInput) makeLookupSessionIdStmt(sourcePeriodType string, currentSourcePeriod int) string {
+	startPeriod := currentSourcePeriod - pi.lookbackPeriods
+	endPeriod := currentSourcePeriod
 	return fmt.Sprintf(`
 			SELECT
 				ir.session_id
@@ -154,7 +156,7 @@ func (pi *ProcessInput) makeLookupSessionIdStmt(sourcePeriodType string, current
 				AND ir.source_type = '%s'
 				AND sp."%s" >= %d
 				AND sp."%s" <= %d`, pi.client, pi.organization, pi.objectType, pi.sourceType,
-				sourcePeriodType, currentSourcePeriod, sourcePeriodType, currentSourcePeriod-lookbackPeriods)
+				sourcePeriodType, startPeriod, sourcePeriodType, endPeriod)
 }
 
 // prepare the sql statement for reading from staging table (csv)
@@ -196,7 +198,7 @@ func (pipelineConfig *PipelineConfig) makeMainProcessInputSqlStmt() string {
 	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
 	if pipelineConfig.sourcePeriodKey > 0 {
 		buf.WriteString(fmt.Sprintf(" WHERE session_id IN (%s)",processInput.makeLookupSessionIdStmt(
-			pipelineConfig.sourcePeriodType, pipelineConfig.currentSourcePeriod, pipelineConfig.lookbackPeriods)))	
+			pipelineConfig.sourcePeriodType, pipelineConfig.currentSourcePeriod)))	
 	} else {
 		buf.WriteString(fmt.Sprintf(" WHERE session_id = '%s'",processInput.sessionId))	
 	}
@@ -245,7 +247,7 @@ func (pipelineConfig *PipelineConfig) makeMergeProcessInputSqlStmt(mergeIndex in
 	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
 	if pipelineConfig.sourcePeriodKey > 0 {
 		buf.WriteString(fmt.Sprintf(" WHERE session_id IN (%s)",processInput.makeLookupSessionIdStmt(
-			pipelineConfig.sourcePeriodType, pipelineConfig.currentSourcePeriod, pipelineConfig.lookbackPeriods)))	
+			pipelineConfig.sourcePeriodType, pipelineConfig.currentSourcePeriod)))	
 	} else {
 		buf.WriteString(fmt.Sprintf(" WHERE session_id = '%s'",processInput.sessionId))	
 	}
@@ -424,10 +426,10 @@ func getLatestSessionId(dbpool *pgxpool.Pool, tableName string) (sessionId strin
 
 func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, source_period_type, lookback_periods
+		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, source_period_type
 		FROM jetsapi.pipeline_config WHERE key = $1`,
 		pc.key).Scan(&pc.clientName, &pc.processConfigKey, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys,
-		&pc.sourcePeriodType, &pc.lookbackPeriods)
+		&pc.sourcePeriodType)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
 	}
@@ -439,9 +441,9 @@ func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	var keyCol sql.NullString
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT object_type, table_name, source_type, entity_rdf_type, key_column
+		`SELECT client, org, object_type, table_name, source_type, lookback_periods, entity_rdf_type, key_column
 		FROM jetsapi.process_input 
-		WHERE key = $1`, pi.key).Scan(&pi.objectType, &pi.tableName, &pi.sourceType, &pi.entityRdfType, &keyCol)
+		WHERE key = $1`, pi.key).Scan(&pi.client, &pi.organization, &pi.objectType, &pi.tableName, &pi.sourceType, &pi.lookbackPeriods, &pi.entityRdfType, &keyCol)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.process_input table: %v", err)
 	}

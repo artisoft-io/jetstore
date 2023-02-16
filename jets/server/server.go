@@ -144,7 +144,7 @@ func doJob() error {
 	dbc = dbConnections{mainNode: dbNode{dsn: dsn, dbpool: dbpool}, joinNodes: make([]dbNode, nbrDbNodes)}
 	defer dbc.mainNode.dbpool.Close()
 	for i, dsn := range dsnSplit {
-		log.Printf("db node %d is %s\n", i, dsn)
+		// log.Printf("db node %d is %s\n", i, dsn)
 		dbpool, err = pgxpool.Connect(context.Background(), dsn)
 		if err != nil {
 			return fmt.Errorf("while opening db connection on %s: %v", dsn, err)

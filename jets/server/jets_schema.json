@@ -564,6 +564,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "lookback_periods",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "entity_rdf_type",
         "dataType": "text",
         "isNotNull": true
@@ -833,12 +839,6 @@
         "columnName": "source_period_type",
         "dataType": "text",
         "default": "'month_period'",
-        "isNotNull": true
-      },
-      {
-        "columnName": "lookback_periods",
-        "dataType": "int",
-        "default": "0",
         "isNotNull": true
       },
       {
