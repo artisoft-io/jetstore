@@ -58,37 +58,6 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 // Delete all table contains the input data, get the table name list from input_loader_status
 // also clear/truncate the input_registry table
 func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
-	// Clear and rebuild the domain table using the update_db command line
-	// Also migrate the system tables to latest schema and run the workspace db init script
-	log.Println("Rebuild All Tables, Running DB Initialization Script")
-	serverArgs := []string{ "-drop", "-initWorkspaceDb", "-migrateDb" }
-	if *usingSshTunnel {
-		serverArgs = append(serverArgs, "-usingSshTunnel")
-	}
-	log.Printf("Run update_db: %s", serverArgs)
-	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
-	var b bytes.Buffer
-	cmd.Stdout = &b
-	cmd.Stderr = &b
-	err := cmd.Run()
-	if err != nil {
-		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		b.WriteTo(os.Stdout)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT END")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		return nil, http.StatusInternalServerError, fmt.Errorf("while running update_db command: %v", err)
-	}
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-	log.Println("============================")
-	b.WriteTo(os.Stdout)
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT END")
-	log.Println("============================")
 
 	// Delete the input staging tables
 	stmt := "SELECT DISTINCT table_name FROM jetsapi.input_loader_status"
@@ -111,6 +80,38 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 			return nil, http.StatusInternalServerError, fmt.Errorf("while droping staging tables: %v", err)
 		}
 	}
+
+	// Clear and rebuild the domain table using the update_db command line
+	// Also migrate the system tables to latest schema and run the workspace db init script
+	log.Println("Rebuild All Tables, Running DB Initialization Script")
+	serverArgs := []string{ "-drop", "-initWorkspaceDb", "-migrateDb" }
+	if *usingSshTunnel {
+		serverArgs = append(serverArgs, "-usingSshTunnel")
+	}
+	log.Printf("Run update_db: %s", serverArgs)
+	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+	err = cmd.Run()
+	if err != nil {
+		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		b.WriteTo(os.Stdout)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT END")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return nil, http.StatusInternalServerError, fmt.Errorf("while running update_db command: %v", err)
+	}
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+	log.Println("============================")
+	b.WriteTo(os.Stdout)
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT END")
+	log.Println("============================")
 
 	// Truncate the jetsapi.input_registry
 	stmt = fmt.Sprintf("TRUNCATE %s", pgx.Identifier{"jetsapi", "input_registry"}.Sanitize())

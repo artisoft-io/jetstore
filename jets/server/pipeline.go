@@ -67,9 +67,10 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 	var sessionId string
 	var userEmail string
 	var client, processName, objectType string
+	var sourcePeriodKey int
 	err := dbpool.QueryRow(context.Background(), 
-		"SELECT client, process_name, main_object_type, session_id, user_email FROM jetsapi.pipeline_execution_status WHERE key=$1", 
-		pipelineExecutionKey).Scan(&client, &processName, &objectType, &sessionId, &userEmail)
+		"SELECT client, process_name, main_object_type, session_id, source_period_key, user_email FROM jetsapi.pipeline_execution_status WHERE key=$1", 
+		pipelineExecutionKey).Scan(&client, &processName, &objectType, &sessionId, &sourcePeriodKey, &userEmail)
 	if err != nil {
 		return fmt.Errorf("QueryRow on pipeline_execution_status failed: %v", err)
 	}
@@ -107,16 +108,16 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		pipelineConfig := pr.ReteWorkspace.pipelineConfig
 		log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
 		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
-							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, 
+							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, source_period_key,
 							shard_id, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
-							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 		_, err = dbpool.Exec(context.Background(), stmt,
 			pipelineConfig.key, pipelineExecutionKey,
 			pipelineConfig.clientName, pipelineConfig.processConfig.processName,
-			pipelineConfig.mainProcessInput.sessionId, sessionId, shardId,
+			pipelineConfig.mainProcessInput.sessionId, sessionId, sourcePeriodKey, shardId,
 			pr.Status, errMessage, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, userEmail)
 		if err != nil {
-			return fmt.Errorf("error inserting in jetsapi.pipeline_execution table: %v", err)
+			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
 		}
 	}
 
