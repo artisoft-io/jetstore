@@ -107,18 +107,18 @@ func truncateSessionId(dbpool *pgxpool.Pool) error {
 func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool, 
 	dkInfo *schema.HeadersAndDomainKeysInfo, status string, errMessage string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
-		object_type, table_name, client, org, file_key, session_id, status, error_message,
+		object_type, table_name, client, org, file_key, session_id, source_period_key, status, error_message,
 		load_count, bad_row_count, user_email) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT ON CONSTRAINT input_loader_status_unique_cstraint
 			DO UPDATE SET (status, error_message, load_count, bad_row_count, user_email, last_update) =
 			(EXCLUDED.status, EXCLUDED.error_message, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt, 
-		*objectType, tableName, *client, clientOrg, *inFile, *sessionId, status, errMessage, copyCount, badRowCount, *userEmail)
+		*objectType, tableName, *client, clientOrg, *inFile, *sessionId, sourcePeriodKey, status, errMessage, copyCount, badRowCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
-	log.Println("Updating input_loader_status table with main object type:", *objectType,"client", *client, "org", clientOrg)
+	log.Println("Updated input_loader_status table with main object type:", *objectType,"client", *client, "org", clientOrg)
 	if status == "completed" && dkInfo != nil {
 		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
 		ipos := 0

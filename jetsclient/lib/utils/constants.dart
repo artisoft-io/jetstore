@@ -99,6 +99,7 @@ class FSK {
 
   static const client = "client";
   static const org = "org";
+  static const sourcePeriodKey = "source_period_key";
   static const lookbackPeriods = "lookback_periods";
   static const details = "details";
 

@@ -128,6 +128,7 @@ String? homeFormValidator(
 
     case FSK.mergedInputRegistryKeys:
     case FSK.mergedProcessInputKeys:
+    case FSK.sourcePeriodKey:
       return null;
 
     default:
@@ -169,7 +170,9 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
       state[FSK.objectType] = state[FSK.mainObjectType];
       state[FSK.fileKey] = state[FSK.mainInputFileKey];
+      state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
       if (actionKey == ActionKeys.loadAndStartPipelineOk) {
+        state[FSK.org] = state[FSK.org][0];
         state['load_and_start'] = 'true';
         state['input_session_id'] = state['session_id'];
         state['table_name'] = makeTableName(state);
@@ -311,6 +314,7 @@ Future<void> sourceConfigActions(BuildContext context,
       state[FSK.objectType] = state[FSK.objectType][0];
       state[FSK.tableName] = state[FSK.tableName][0];
       state[FSK.fileKey] = state[FSK.fileKey][0];
+      state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
       state['status'] = StatusKeys.submitted;
       state['user_email'] = JetsRouterDelegate().user.email;
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";

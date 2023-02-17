@@ -388,6 +388,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "source_period_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "bad_row_count",
         "dataType": "int"
       },
@@ -932,6 +937,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "source_period_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "status",
         "dataType": "text",
         "isNotNull": true
@@ -992,6 +1002,11 @@
       {
         "columnName": "session_id",
         "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_period_key",
+        "dataType": "int",
         "isNotNull": true
       },
       {

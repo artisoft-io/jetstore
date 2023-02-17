@@ -1198,7 +1198,8 @@ final Map<String, FormConfig> _formConfigurations = {
         // Instruction
         TextFieldConfig(
             label: "To start a pipeline using input data from a source that was"
-                " previously loaded, first select a Pipeline Configuration and"
+                " previously loaded, first select a Pipeline Configuration followed"
+                " by the source period the file was received ,and"
                 " then select the Main Input Source (required) and optionally"
                 " the Merge-In Input Sources.",
             maxLines: 5,
@@ -1209,6 +1210,14 @@ final Map<String, FormConfig> _formConfigurations = {
         // Pipeline Configuration Table (note using FSK key)
         FormDataTableFieldConfig(
             key: FSK.pipelineConfigKey, dataTableConfig: FSK.pipelineConfigKey),
+      ],
+      [
+        PaddingConfig(),
+      ],
+      [
+        // Source period identifying when the file was received
+        FormDataTableFieldConfig(
+            key: FSK.sourcePeriodKey, dataTableConfig: FSK.sourcePeriodKey),
       ],
       [
         PaddingConfig(),
@@ -1229,6 +1238,7 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
   ),
 
+  //* TODO Remove this
   // Load & Start Pipeline - Dialog
   FormKeys.loadAndStartPipeline: FormConfig(
     key: FormKeys.loadAndStartPipeline,
@@ -1254,8 +1264,8 @@ final Map<String, FormConfig> _formConfigurations = {
         // Instruction
         TextFieldConfig(
             label: "To load a file and start a pipeline using it,"
-                " first select a Pipeline Configuration and"
-                " then select a File Key and it's grouping column to load and then use as the"
+                " first select a Pipeline Configuration and Source Period of the file, and"
+                " then select a File Key to load and then use as the"
                 " Main Input Source and optionally select"
                 " the Merge-In Input Sources (previously loaded or computed).",
             maxLines: 5,
@@ -1266,6 +1276,14 @@ final Map<String, FormConfig> _formConfigurations = {
         // Pipeline Configuration Table (note using FSK key)
         FormDataTableFieldConfig(
             key: FSK.pipelineConfigKey, dataTableConfig: FSK.pipelineConfigKey),
+      ],
+      [
+        PaddingConfig(),
+      ],
+      [
+        // Source period identifying when the file was received
+        FormDataTableFieldConfig(
+            key: FSK.sourcePeriodKey, dataTableConfig: FSK.sourcePeriodKey),
       ],
       [
         PaddingConfig(),

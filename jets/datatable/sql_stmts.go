@@ -34,10 +34,10 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// input loader status
 	"input_loader_status": {
 		Stmt: `INSERT INTO jetsapi.input_loader_status 
-			(object_type, client, org, table_name, file_key, session_id, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			(object_type, client, org, table_name, file_key, session_id, source_period_key, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING key`,
-		ColumnKeys: []string{"object_type", "client", "org", "table_name", "file_key", "session_id", "status", "user_email"},
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "file_key", "session_id", "source_period_key", "status", "user_email"},
 	},
 	// process input
 	"process_input": {
@@ -100,10 +100,10 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// pipeline_execution_status 
 	"pipeline_execution_status": {
 		Stmt: `INSERT INTO jetsapi.pipeline_execution_status 
-			(pipeline_config_key, main_input_registry_key, main_input_file_key, merged_input_registry_keys, client, process_name, main_object_type, input_session_id, session_id, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			(pipeline_config_key, main_input_registry_key, main_input_file_key, merged_input_registry_keys, client, process_name, main_object_type, input_session_id, session_id, source_period_key, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 			RETURNING key`,
-		ColumnKeys: []string{"pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"},
+		ColumnKeys: []string{"pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "session_id", "source_period_key", "status", "user_email"},
 	},
 	// Used for load+start from the lambda handler (legacy -- to be removed)
 	"short/pipeline_execution_status": {
