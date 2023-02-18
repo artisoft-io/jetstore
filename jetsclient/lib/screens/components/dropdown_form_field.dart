@@ -37,6 +37,7 @@ class _JetsDropdownButtonFormFieldState
     extends State<JetsDropdownButtonFormField> {
   late final FormDropdownFieldConfig _config;
   late final HttpClient httpClient;
+  String? predicatePreviousValue;
   String? selectedValue;
   List<DropdownItemConfig> items = [];
 
@@ -103,6 +104,7 @@ class _JetsDropdownButtonFormFieldState
       return;
     }
 
+    String valueStr = '';
     if (_config.stateKeyPredicates.isNotEmpty) {
       for (var key in _config.stateKeyPredicates) {
         var value = widget.formState.getValue(_config.group, key);
@@ -110,12 +112,20 @@ class _JetsDropdownButtonFormFieldState
         assert((value is String) || (value is List<String>),
             "Error: unexpected type in dropdown formState");
         if (value is String) {
+          valueStr += value;
           query = query!.replaceAll(RegExp('{$key}'), value);
         } else {
+          valueStr += value[0];
           query = query!.replaceAll(RegExp('{$key}'), value[0]);
         }
       }
     }
+
+    // check if predicate has not changed, if so no need to query again
+    if (predicatePreviousValue != null && predicatePreviousValue == valueStr) {
+      return;
+    }
+    predicatePreviousValue = valueStr;
 
     var msg = <String, dynamic>{
       'action': 'raw_query',

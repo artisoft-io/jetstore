@@ -918,6 +918,161 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Client Admin Table used for Client & Organization Admin form
+  DTKeys.clientAdminTable: TableConfig(
+    key: DTKeys.clientAdminTable,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'client_registry')
+    ],
+    label: 'Client Registry',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addClient',
+          label: 'Add Client',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.addClient),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteClient',
+          label: 'Delete Client',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteClient),
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.client,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client Name',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "details",
+          label: 'Client details',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'client',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // Org Name Table used for Client & Organization Admin form
+  DTKeys.orgNameTable: TableConfig(
+    key: DTKeys.orgNameTable,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'client_org_registry')
+    ],
+    label: 'Client Organization Registry',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    defaultToAllRows: false,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+    ],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addOrg',
+          label: 'Add Organization',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenWhereClauseSatisfied: true,
+          configForm: FormKeys.addOrg,
+          stateFormNavigationParams: {FSK.client: FSK.client}),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteOrg',
+          label: 'Delete Organization',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteOrg),
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.org,
+        columnIdx: 1,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client Name',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "org",
+          label: 'Client Organization',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "details",
+          label: 'Organization details',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'org',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // Client Name Table used for Process & Rules Config form
+  DTKeys.clientsNameTable: TableConfig(
+    key: DTKeys.clientsNameTable,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'client_registry')
+    ],
+    label: 'Clients',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.client,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client Name',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "details",
+          label: 'Client details',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'client',
+    sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
   // Process Name Table
   DTKeys.processNameTable: TableConfig(
     key: DTKeys.processNameTable,
@@ -958,82 +1113,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
     ],
     sortColumnName: 'process_name',
-    sortAscending: true,
-    rowsPerPage: 10,
-  ),
-
-  // Client Name Table
-  DTKeys.clientsNameTable: TableConfig(
-    key: DTKeys.clientsNameTable,
-    fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'client_registry')
-    ],
-    label: 'Clients',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
-    whereClauses: [],
-    actions: [],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.client,
-        columnIdx: 0,
-      ),
-    ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "client",
-          label: 'Client Name',
-          tooltips: '',
-          isNumeric: false),
-      ColumnConfig(
-          index: 1,
-          name: "details",
-          label: 'Client details',
-          tooltips: '',
-          isNumeric: false),
-    ],
-    sortColumnName: 'client',
-    sortAscending: true,
-    rowsPerPage: 10,
-  ),
-
-  // Object Type Registry Data Table
-  DTKeys.objectTypeRegistryTable: TableConfig(
-    key: DTKeys.objectTypeRegistryTable,
-    fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'object_type_registry')
-    ],
-    label: 'Object Type Registry',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
-    whereClauses: [],
-    actions: [],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "object_type",
-          label: 'Object Type',
-          tooltips: 'The type of object the file contains',
-          isNumeric: false),
-      ColumnConfig(
-          index: 1,
-          name: "entity_rdf_type",
-          label: 'Class Name',
-          tooltips: 'Entity class name',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "details",
-          label: 'Description',
-          tooltips: 'Details about the class',
-          isNumeric: false),
-    ],
-    sortColumnName: 'object_type',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -1110,8 +1189,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.client: 1,
+            FSK.org: 2,
             FSK.objectType: 3,
-            FSK.sourceType: 4,
+            FSK.sourceType: 5,
+            FSK.lookbackPeriods:6,
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -1122,7 +1203,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.processMapping,
           navigationParams: {
-            FSK.tableName: 5,
+            FSK.tableName: 4,
             FSK.processInputKey: 0,
             FSK.objectType: 3
           }),
@@ -1166,14 +1247,6 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.objectType: 3,
             FSK.domainKeysJson: 5,
           }),
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'addClient',
-          label: 'Add Client',
-          style: ActionStyle.secondary,
-          isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.addClient),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(

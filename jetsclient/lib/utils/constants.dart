@@ -38,6 +38,7 @@ ButtonStyle buttonStyle(ActionStyle style, ThemeData td) {
 /// standard keys to identify screen config key
 class ScreenKeys {
   static const home = "homeScreen";
+  static const clientAdmin = "clientAdminScreen";
   static const sourceConfig = "sourceConfigScreen";
   static const domainTableViewer = "domainTableViewerScreen";
   static const processInput = "processInputScreen";
@@ -56,8 +57,15 @@ class ScreenKeys {
 /// Form ID Keys
 /// standard keys to identify form config key
 class FormKeys {
+  // Home form
   static const home = "homeForm";
+  // Client & Org Admin Forms
+  static const clientAdmin = "clientAdminForm";
   static const addClient = "addClientDialog";
+  static const addOrg = "addOrgDialog";
+  // File Staging Area
+  static const sourceConfig = "sourceConfigForm";
+  static const addSourceConfig = "addSourceConfigDialog";
   static const loadFile = "loadFileDialog";
   // Process Input Forms
   static const processInput = "processInputForm";
@@ -70,10 +78,7 @@ class FormKeys {
   static const pipelineConfig = "pipelineConfigDialog";
   static const startPipeline = "startPipelineDialog";
   static const loadAndStartPipeline = "loadAndStartPipelineDialog";
-  // File Staging Area
-  static const sourceConfig = "sourceConfigForm";
-  static const addSourceConfig = "addSourceConfigDialog";
-  // Admin forms
+  // User Admin forms
   static const login = "login";
   static const register = "register";
   static const userAdmin = "userAdmin";
@@ -193,10 +198,15 @@ class FSK {
 class ActionKeys {
   static const login = "loginAction";
   static const register = "registerAction";
-  static const clientOk = "client.ok";
   static const dialogCancel = "dialog.cancelAction";
   static const toggleUserActive = "toggleUserActive";
   static const deleteUser = "deleteUser";
+  
+  // for Client & Org Admin dialog
+  static const clientOk = "client.ok";
+  static const orgOk = "org.ok";
+  static const deleteClient = "deleteClientAction";
+  static const deleteOrg = "deleteOrgAction";
   
   // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
@@ -245,10 +255,12 @@ class DTKeys {
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
 
+  // Client & Organization Admin DT
+  static const clientAdminTable = "clientAdminTable";
+  static const orgNameTable = "orgNameTable";
+  
   // File Staging Area / Source Config DT
-  // opting to display object_type_registry rather than source_config
-  // for now since table_name is determined automatically
-  static const objectTypeRegistryTable = "objectTypeRegistryTable";
+  static const sourceConfigTable = "sourceConfigTable";
   static const fileKeyStagingTable = "fileKeyStagingTable";
 
   // Domain Table Viewer DT
@@ -268,9 +280,6 @@ class DTKeys {
   static const pipelineConfigTable = "pipelineConfigTable";
   static const fileKeyStagingForPipelineMainProcessInput = "fileKeyStagingForPipelineMainProcessInput";
   // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";
-
-  // File Staging Area
-  static const sourceConfigTable = "sourceConfigTable";
 
   // User administration
   static const usersTable = "userTable";
