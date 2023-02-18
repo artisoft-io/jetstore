@@ -1245,7 +1245,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.client: 1,
             FSK.org: 2,
             FSK.objectType: 3,
-            FSK.domainKeysJson: 5,
+            FSK.automated: 4,
+            FSK.domainKeysJson: 6,
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1262,8 +1263,12 @@ final Map<String, TableConfig> _tableConfigurations = {
         columnIdx: 3,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.tableName,
+        stateKey: FSK.automated,
         columnIdx: 4,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.tableName,
+        columnIdx: 5,
       ),
     ]),
     columns: [
@@ -1294,25 +1299,31 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 4,
+          name: "automated",
+          label: 'Automated',
+          tooltips: 'Is load automated? (true: 1, false: 0)',
+          isNumeric: true),
+      ColumnConfig(
+          index: 5,
           name: "table_name",
           label: 'Table Name',
           tooltips: 'Table where to load the file',
           isNumeric: false,
           isHidden: false),
       ColumnConfig(
-          index: 5,
+          index: 6,
           name: "domain_keys_json",
           label: 'Domain Keys (json)',
           tooltips: 'Column(s) for row' 's domain key(s) (json-encoded string)',
           isNumeric: false),
       ColumnConfig(
-          index: 6,
+          index: 7,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 7,
+          index: 8,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
