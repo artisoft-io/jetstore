@@ -49,7 +49,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	},
 	"update/source_config": {
 		Stmt: `UPDATE jetsapi.source_config SET
-			(object_type, client, table_name, domain_keys_json, user_email) 
+			(object_type, client, org, automated, table_name, domain_keys_json, user_email) 
 			= ($1, $2, $3, $4, $5, $6, $7) WHERE key = $8`,
 		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "user_email", "key"},
 	},
