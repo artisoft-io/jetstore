@@ -7,11 +7,33 @@ package datatable
 // correspond to column name.
 // Important: columnKeys order MUST match order in stmt
 var sqlInsertStmts = map[string]SqlInsertDefinition {
-	// client registry
+	// Client & Org Admin: add client
 	"client_registry": {
-		Stmt: `INSERT INTO jetsapi.client_registry (client, details) VALUES ($1, $2)`,
+		Stmt: `INSERT INTO jetsapi.client_registry (client, details)
+		VALUES ($1, $2)
+		ON CONFLICT ON CONSTRAINT client_registry_pkey
+		DO UPDATE SET details = EXCLUDED.details`,
 		ColumnKeys: []string{"client", "details"},
 	},
+	// Client & Org Admin: add org
+	"client_org_registry": {
+		Stmt: `INSERT INTO jetsapi.client_org_registry (client, org, details) 
+		VALUES ($1, $2, $3)
+		ON CONFLICT ON CONSTRAINT client_org_registry_unique_cstraint
+		DO UPDATE SET details = EXCLUDED.details`,
+		ColumnKeys: []string{"client", "org", "details"},
+	},
+	// Client & Org Admin: delete org
+	"delete/client": {
+		Stmt: `DELETE FROM jetsapi.client_registry WHERE client = $1`,
+		ColumnKeys: []string{"client"},
+	},
+	// Client & Org Admin: delete org
+	"delete/org": {
+		Stmt: `DELETE FROM jetsapi.client_org_registry WHERE client = $1 AND org=$2`,
+		ColumnKeys: []string{"client", "org"},
+	},
+
 	// object type registry
 	"object_type_registry": {
 		Stmt: `INSERT INTO jetsapi.object_type_registry (object_type, details) VALUES ($1, $2)`,
@@ -42,16 +64,16 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// process input
 	"process_input": {
 		Stmt: `INSERT INTO jetsapi.process_input 
-			(client, org, object_type, table_name, source_type, entity_rdf_type, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			(client, org, object_type, table_name, source_type, lookback_periods, entity_rdf_type, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING key`,
-		ColumnKeys: []string{"client", "org", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email"},
+		ColumnKeys: []string{"client", "org", "object_type", "table_name", "source_type", "lookback_periods", "entity_rdf_type", "user_email"},
 	},
 	"update2/process_input": {
 		Stmt: `UPDATE jetsapi.process_input SET 
-			(client, org, object_type, table_name, source_type, entity_rdf_type, user_email, last_update) 
-			= ($1, $2, $3, $4, $5, $6, $7, DEFAULT) WHERE key = $8`,
-		ColumnKeys: []string{"client", "org", "object_type", "table_name", "source_type", "entity_rdf_type", "user_email", "key"},
+			(client, org, object_type, table_name, source_type, lookback_periods, entity_rdf_type, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, $7, $8, DEFAULT) WHERE key = $9`,
+		ColumnKeys: []string{"client", "org", "object_type", "table_name", "source_type", "lookback_periods", "entity_rdf_type", "user_email", "key"},
 	},
 	"update/process_input": {
 		Stmt: "UPDATE jetsapi.process_input SET (status, user_email, last_update) = ($1, $2, DEFAULT) WHERE key = $3",

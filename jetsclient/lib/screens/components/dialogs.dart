@@ -47,6 +47,32 @@ Future<String?> showDangerZoneDialog(BuildContext context, String message) async
   );
 }
 
+/// Danger Zone alert dialog, requesting user confirmation to proceed
+Future<String?> showConfirmationDialog(BuildContext context, String message) async {
+  final ThemeData td = Theme.of(context);
+  return showDialog<String?>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: const Text('Please confirm'),
+      content: Text(message),
+      titleTextStyle: TextStyle(color: td.colorScheme.onPrimaryContainer),
+      contentTextStyle: TextStyle(color: td.colorScheme.onPrimaryContainer),
+      backgroundColor: td.colorScheme.primaryContainer,
+      actions: [
+        TextButton(
+          child: const Text('CANCEL'),
+          onPressed: () => Navigator.of(context).pop('CANCEL'),
+        ),
+        TextButton(
+          child: const Text('OK'),
+          onPressed: () => Navigator.of(context).pop('OK'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Enum to record the action result for data table actions
 /// Used as the template type for DialogResultHandler when used
 /// with data table actions

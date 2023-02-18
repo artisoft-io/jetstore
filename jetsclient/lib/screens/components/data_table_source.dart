@@ -385,10 +385,10 @@ class JetsDataTableSource extends ChangeNotifier {
                   index: m1['index'],
                   name: m1['name'],
                   label: m1['label'],
-                  tooltips: m1['tooltips'],
-                  isNumeric: m1['isnumeric'],
-                  maxLines: m1['maxLines'],
-                  columnWidth: m1['columnWidth'],
+                  tooltips: m1['tooltips'] ?? '',
+                  isNumeric: m1['isnumeric'] ?? false,
+                  maxLines: m1['maxLines'] ?? 0,
+                  columnWidth: m1['columnWidth'] ?? 0,
                 ))
             .toList();
         state.columnNameMaps = columnDef

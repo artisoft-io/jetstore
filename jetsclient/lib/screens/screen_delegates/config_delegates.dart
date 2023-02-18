@@ -10,7 +10,7 @@ import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 
 /// postInsertRows - main function to post for inserting rows into db
-void postInsertRows(BuildContext context, JetsFormState formState,
+Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
     String encodedJsonBody) async {
   var navigator = Navigator.of(context);
   var messenger = ScaffoldMessenger.of(context);
@@ -26,6 +26,7 @@ void postInsertRows(BuildContext context, JetsFormState formState,
     messenger.showSnackBar(snackBar);
     // All good, let's the table know to refresh
     navigator.pop(DTActionResult.okDataTableDirty);
+    return null;
   } else if (result.statusCode == 400 ||
       result.statusCode == 406 ||
       result.statusCode == 422) {
@@ -33,17 +34,21 @@ void postInsertRows(BuildContext context, JetsFormState formState,
     formState.setValue(
         0, FSK.serverError, "Something went wrong. Please try again.");
     navigator.pop(DTActionResult.statusError);
+    return "Something went wrong. Please try again.";
   } else if (result.statusCode == 409) {
     // http Conflict
     const snackBar = SnackBar(
-      content: Text("Looks like the record(s) already existed, that's ok."),
+      content: Text("Duplicate Record."),
     );
     messenger.showSnackBar(snackBar);
+    formState.setValue(0, FSK.serverError, "Duplicate record. Please verify.");
     navigator.pop();
+    return "Duplicate record. Please verify.";
   } else {
     formState.setValue(
         0, FSK.serverError, "Got a server error. Please try again.");
     navigator.pop(DTActionResult.statusError);
+    return "Got a server error. Please try again.";
   }
 }
 
@@ -91,10 +96,7 @@ String? homeFormValidator(
       if (value != null && value.characters.length > 1) {
         return null;
       }
-      if (value != null && value.characters.length == 1) {
-        return "Client name is too short.";
-      }
-      return "Client name must be provided.";
+      return "Client name must be selected.";
     case FSK.objectType:
       String? value = v;
       if (value != null && value.characters.length > 1) {
@@ -107,9 +109,6 @@ String? homeFormValidator(
         return null;
       }
       return "File Key name must be selected.";
-    case FSK.details:
-      // always good
-      return null;
 
     // Start Pipeline Dialog
     case FSK.pipelineConfigKey:
@@ -138,8 +137,8 @@ String? homeFormValidator(
 }
 
 /// Source Configuration Form Actions
-Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
-    JetsFormState formState, String actionKey,
+Future<String?> homeFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
     // Start Pipeline Dialogs
@@ -148,7 +147,7 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
     case ActionKeys.loadAndStartPipelineOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
-        return;
+        return null;
       }
       var state = formState.getState(0);
       if (state[FSK.mergedInputRegistryKeys] == null) {
@@ -184,7 +183,9 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
         // Send the load insert
         var encodedJsonBody = jsonEncode(<String, dynamic>{
           'action': 'insert_rows',
-          'fromClauses': [<String, String>{'table': 'input_loader_status'}],
+          'fromClauses': [
+            <String, String>{'table': 'input_loader_status'}
+          ],
           'data': [state],
         }, toEncodable: (_) => '');
         var loadResult = await context.read<HttpClient>().sendRequest(
@@ -195,7 +196,7 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
           formState.setValue(
               0, FSK.serverError, "Something went wrong. Please try again.");
           navigator.pop(DTActionResult.statusError);
-          return;
+          return "Something went wrong. Please try again.";
         }
         formState.parentFormState
             ?.setValueAndNotify(group, FSK.key, state['session_id']);
@@ -203,10 +204,12 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
       // Send the pipeline start insert
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'pipeline_execution_status'}],
+        'fromClauses': [
+          <String, String>{'table': 'pipeline_execution_status'}
+        ],
         'data': [state],
       }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
+      return postInsertRows(context, formState, encodedJsonBody);
       break;
 
     case ActionKeys.dialogCancel:
@@ -218,6 +221,7 @@ Future<void> homeFormActions(BuildContext context, GlobalKey<FormState> formKey,
 }
 
 /// Validation and Actions delegates for the Source Config forms
+/// Validation and Actions delegates for the Client & Org admin forms
 String? sourceConfigValidator(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
@@ -228,10 +232,20 @@ String? sourceConfigValidator(
       if (value != null && value.characters.length > 1) {
         return null;
       }
-      if (value != null && value.characters.length == 1) {
+      if (value != null && value.characters.length <= 1) {
         return "Client name is too short.";
       }
-      return "Client name must be provided.";
+      return "Client name must be selected.";
+    case FSK.org:
+      String? value = v;
+      if (value != null) {
+        return null;
+      }
+      return "Organization name must be selected.";
+    case FSK.details:
+      // optional
+      return null;
+
     case FSK.objectType:
       String? value = v;
       if (value != null && value.characters.length > 1) {
@@ -240,7 +254,7 @@ String? sourceConfigValidator(
       return "Object Type name must be selected.";
     case FSK.domainKeysJson:
       String? value = v;
-      if (value == null) {
+      if (value == null || value.isEmpty) {
         return null; // this field is nullable
       }
       // Validate that value is valid json
@@ -251,6 +265,12 @@ String? sourceConfigValidator(
       }
       return null;
 
+    case FSK.automated:
+      if (v != null) {
+        return null;
+      }
+      return "Automation choice must be selected.";
+
     default:
       print(
           'Oops Source Config Form has no validator configured for form field $key');
@@ -259,7 +279,8 @@ String? sourceConfigValidator(
 }
 
 /// Source Configuration Form Actions
-Future<void> sourceConfigActions(BuildContext context,
+/// Cient and Org Admin Form Actions
+Future<String?> sourceConfigActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
@@ -267,21 +288,78 @@ Future<void> sourceConfigActions(BuildContext context,
     case ActionKeys.clientOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
-        return;
+        return null;
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'client_registry'}],
+        'fromClauses': [
+          <String, String>{'table': 'client_registry'}
+        ],
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
+      return postInsertRows(context, formState, encodedJsonBody);
+      break;
+
+    // Add Org
+    case ActionKeys.orgOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'client_org_registry'}
+        ],
+        'data': [formState.getState(0)],
+      }, toEncodable: (_) => '');
+      return postInsertRows(context, formState, encodedJsonBody);
+      break;
+
+    case ActionKeys.deleteClient:
+      // Get confirmation
+      var uc = await showConfirmationDialog(
+          context, 'Are you sure you want to delete the selected client?');
+      if (uc != 'OK') return null;
+      var state = formState.getState(0);
+      state[FSK.client] = state[FSK.client][0];
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'delete/client'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      postSimpleAction(
+          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      break;
+
+    case ActionKeys.deleteOrg:
+      // Get confirmation
+      var uc = await showConfirmationDialog(context,
+          'Are you sure you want to delete the selected organization?');
+      if (uc != 'OK') return null;
+      var state = formState.getState(0);
+      state[FSK.client] = state[FSK.client][0];
+      state[FSK.org] = state[FSK.org][0];
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'delete/org'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      postSimpleAction(
+          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       break;
 
     // Add/Update Source Config
     case ActionKeys.addSourceConfigOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
-        return;
+        return null;
       }
       var state = formState.getState(0);
       // print('Add Source Config state: $state');
@@ -294,10 +372,12 @@ Future<void> sourceConfigActions(BuildContext context,
       state['table_name'] = makeTableName(state);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': query}],
+        'fromClauses': [
+          <String, String>{'table': query}
+        ],
         'data': [state],
       }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
+      return postInsertRows(context, formState, encodedJsonBody);
       break;
 
     // Start loader
@@ -321,10 +401,12 @@ Future<void> sourceConfigActions(BuildContext context,
       state['load_and_start'] = 'false';
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'input_loader_status'}],
+        'fromClauses': [
+          <String, String>{'table': 'input_loader_status'}
+        ],
         'data': [state],
       }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
+      return postInsertRows(context, formState, encodedJsonBody);
       break;
 
     // Sync File Keys with web storage (s3)
@@ -363,14 +445,16 @@ String? processInputFormValidator(
   // add entity_rdf_type based on object_type
   var objectTypeRegistry =
       formState.getCacheValue(FSK.objectTypeRegistryCache) as List?;
-  var objectType = formState.getValue(0, FSK.objectType) as String?;
-  var client = formState.getValue(0, FSK.client) as String?;
-  var sourceType = formState.getValue(0, FSK.sourceType) as String?;
+  var objectType = formState.getValue(0, FSK.objectType);
+  var client = formState.getValue(0, FSK.client);
+  var org = formState.getValue(0, FSK.org);
+  var sourceType = formState.getValue(0, FSK.sourceType);
   // print("GOT $client, $objectType, $sourceType");
 
   if (objectTypeRegistry != null &&
       objectType != null &&
       client != null &&
+      org != null &&
       sourceType != null) {
     var row = objectTypeRegistry.firstWhere((e) => e[0] == objectType);
     if (row == null) {
@@ -379,13 +463,7 @@ String? processInputFormValidator(
     } else {
       formState.setValue(0, FSK.entityRdfType, row[1]);
       // add table_name to form state based on source_type
-      String? tableName;
-      if (sourceType == 'file') {
-        tableName = "${client}_$objectType";
-      } else {
-        // entity_rdf_type is the table_name for domain_table sources
-        tableName = row[1];
-      }
+      String tableName = makeTableName(formState.getState(0));
       if (formState.getValue(0, FSK.tableName) != tableName) {
         // print("SET AND NOTIFY TABLENAME $tableName");
         formState.setValueAndNotify(0, FSK.tableName, tableName);
@@ -402,7 +480,11 @@ String? processInputFormValidator(
       }
       return "Client name must be provided.";
     case FSK.org:
-      return null;
+      if (v != null) {
+        return null;
+      }
+      return "Organization must be selected.";
+
     case FSK.objectType:
       String? value = v;
       if (value != null && value.characters.length > 1) {
@@ -415,6 +497,12 @@ String? processInputFormValidator(
         return null;
       }
       return "Source Type name must be selected.";
+    case FSK.lookbackPeriods:
+      String? value = v;
+      if (value != null && value.characters.isNotEmpty) {
+        return null;
+      }
+      return "Lookback period must be provided.";
 
     // Process Mapping Dialog Validation
     case FSK.inputColumn:
@@ -568,14 +656,14 @@ String? processConfigFormValidator(
 }
 
 /// Process Input and Mapping Form Actions
-Future<void> processInputFormActions(BuildContext context,
+Future<String?> processInputFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
     case ActionKeys.addProcessInputOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
-        return;
+        return null;
       }
 
       formState.setValue(0, FSK.userEmail, JetsRouterDelegate().user.email);
@@ -585,10 +673,12 @@ Future<void> processInputFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': query}],
+        'fromClauses': [
+          <String, String>{'table': query}
+        ],
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
+      return postInsertRows(context, formState, encodedJsonBody);
       break;
 
     // Process Mapping Dialog
@@ -598,7 +688,7 @@ Future<void> processInputFormActions(BuildContext context,
       if (actionKey == ActionKeys.mapperOk) {
         processInputStatus = 'configured';
         if (!formState.isFormValid()) {
-          return;
+          return null;
         }
       }
       // Insert rows to process_mapping, if successful update process_input.status
@@ -607,7 +697,7 @@ Future<void> processInputFormActions(BuildContext context,
       if (tableName == null || processInputKey == null) {
         print(
             "processInputFormActions error: save mapping - table_name or process_input.key is null");
-        return;
+        return "processInputFormActions error: save mapping - table_name or process_input.key is null";
       }
       for (var i = 0; i < formState.groupCount; i++) {
         formState.setValue(i, FSK.tableName, tableName);
@@ -617,7 +707,9 @@ Future<void> processInputFormActions(BuildContext context,
       // first issue a delete statement to make sure we replace all mappings
       var deleteJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'delete/process_mapping'}],
+        'fromClauses': [
+          <String, String>{'table': 'delete/process_mapping'}
+        ],
         'data': [
           {
             FSK.tableName: tableName,
@@ -634,12 +726,14 @@ Future<void> processInputFormActions(BuildContext context,
         formState.setValue(
             0, FSK.serverError, "Something went wrong. Please try again.");
         navigator.pop(DTActionResult.statusError);
-        return;
+        return "Something went wrong. Please try again.";
       }
       // delete successfull, update process_mapping
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'process_mapping'}],
+        'fromClauses': [
+          <String, String>{'table': 'process_mapping'}
+        ],
         'data': formState.getInternalState(),
       }, toEncodable: (_) => '');
       // Insert rows to process_mapping
@@ -652,7 +746,9 @@ Future<void> processInputFormActions(BuildContext context,
         // insert successfull, update process_input status
         var encodedJsonBody = jsonEncode(<String, dynamic>{
           'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'update/process_input'}],
+          'fromClauses': [
+            <String, String>{'table': 'update/process_input'}
+          ],
           'data': [
             {
               'key': processInputKey,
@@ -688,14 +784,14 @@ Future<void> processInputFormActions(BuildContext context,
 }
 
 /// Process and Rules Config Form Actions
-Future<void> processConfigFormActions(BuildContext context,
+Future<String?> processConfigFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {required int group}) async {
   switch (actionKey) {
     // Rule Config Dialog
     case ActionKeys.ruleConfigOk:
       if (!formState.isFormValid()) {
-        return;
+        return null;
       }
       // Insert rows to rule_config table
       var processConfigKey = formState.getValue(0, FSK.processConfigKey);
@@ -703,7 +799,7 @@ Future<void> processConfigFormActions(BuildContext context,
       var client = formState.getValue(0, FSK.client);
       if (processName == null || client == null) {
         print("processConfigFormActions error: save rule config");
-        return;
+        return null;
       }
       for (var i = 0; i < formState.groupCount; i++) {
         formState.setValue(i, FSK.client, client);
@@ -715,7 +811,9 @@ Future<void> processConfigFormActions(BuildContext context,
 
       var deleteJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'delete/rule_config'}],
+        'fromClauses': [
+          <String, String>{'table': 'delete/rule_config'}
+        ],
         'data': [
           {
             FSK.client: client,
@@ -736,15 +834,18 @@ Future<void> processConfigFormActions(BuildContext context,
         // now insert the new triples
         var insertJsonBody = jsonEncode(<String, dynamic>{
           'action': 'insert_rows',
-          'fromClauses': [<String, String>{'table': 'rule_config'}],
+          'fromClauses': [
+            <String, String>{'table': 'rule_config'}
+          ],
           'data': stateList.getRange(0, stateList.length - 1).toList(),
         }, toEncodable: (_) => '');
-        postInsertRows(context, formState, insertJsonBody);
+        String? err = await postInsertRows(context, formState, insertJsonBody);
         // insert successfull
         // trigger a refresh of the rule_config table
         formState.parentFormState?.setValue(0, FSK.processName, null);
         formState.parentFormState
             ?.setValueAndNotify(0, FSK.processName, processName);
+        return err;
       } else if (deleteResult.statusCode == 400 ||
           deleteResult.statusCode == 406 ||
           deleteResult.statusCode == 422) {
@@ -752,10 +853,12 @@ Future<void> processConfigFormActions(BuildContext context,
         formState.setValue(
             0, FSK.serverError, "Something went wrong. Please try again.");
         navigator.pop(DTActionResult.statusError);
+        return "Something went wrong. Please try again.";
       } else {
         formState.setValue(
             0, FSK.serverError, "Got a server error. Please try again.");
         navigator.pop(DTActionResult.statusError);
+        return "Something went wrong. Please try again.";
       }
       break;
 
@@ -771,7 +874,7 @@ Future<void> processConfigFormActions(BuildContext context,
         var altInputFields =
             formState.activeFormWidgetState?.alternateInputFields;
         assert(altInputFields != null);
-        if (altInputFields == null) return;
+        if (altInputFields == null) return null;
         altInputFields.removeAt(group);
         for (var i = group; i < altInputFields.length; i++) {
           for (var j = 0; j < altInputFields[i].length; j++) {
@@ -910,7 +1013,7 @@ String? pipelineConfigFormValidator(
 }
 
 /// Pipeline Config Form Actions
-Future<void> pipelineConfigFormActions(BuildContext context,
+Future<String?> pipelineConfigFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
@@ -918,7 +1021,7 @@ Future<void> pipelineConfigFormActions(BuildContext context,
     case ActionKeys.pipelineConfigOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
-        return;
+        return null;
       }
 
       // Get the Pipeline Config key (case update)
@@ -939,13 +1042,13 @@ Future<void> pipelineConfigFormActions(BuildContext context,
           formState.getCacheValue(FSK.processConfigCache) as List?;
       if (processConfigCache == null) {
         print("pipelineConfigFormActions error: processConfigCache is null");
-        return;
+        return "pipelineConfigFormActions error: processConfigCache is null";
       }
       var row = processConfigCache.firstWhere((e) => e[0] == processName);
       if (row == null) {
         print(
             "pipelineConfigFormActions error: can't find process_name in processConfigCache");
-        return;
+        return "pipelineConfigFormActions error: can't find process_name in processConfigCache";
       }
       updateState[FSK.processConfigKey] = row[1];
 
@@ -996,10 +1099,12 @@ Future<void> pipelineConfigFormActions(BuildContext context,
 
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': query}],
+        'fromClauses': [
+          <String, String>{'table': query}
+        ],
         'data': [updateState],
       }, toEncodable: (_) => '');
-      postInsertRows(context, formState, encodedJsonBody);
+      return postInsertRows(context, formState, encodedJsonBody);
       break;
 
     case ActionKeys.dialogCancel:

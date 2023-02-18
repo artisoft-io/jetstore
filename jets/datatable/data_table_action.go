@@ -299,22 +299,21 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
 		if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
 			err = ctx.dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
-			if err != nil {
-				log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-				httpStatus = http.StatusInternalServerError
-				err = errors.New("error while inserting into a table")
-				return
-			}
 		} else {
 			_, err = ctx.dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
-			if err != nil {
-				log.Printf("while executing insert_rows action '%s': %v", dataTableAction.FromClauses[0].Table, err)
+		}
+		if err != nil {
+			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+			if strings.Contains(err.Error(), "duplicate key value") {
 				httpStatus = http.StatusConflict
-				err = errors.New("error while executing insert")
-				return
+				err = errors.New("duplicate key value")
+				return	
+			} else {
+				httpStatus = http.StatusInternalServerError
+				err = errors.New("error while inserting into a table")
 			}
 		}
-	}
+}
 	// Post Processing Hook
 	var name string
 	switch dataTableAction.FromClauses[0].Table {

@@ -43,20 +43,24 @@ class MenuEntry {
 
 final defaultMenuEntries = [
   MenuEntry(
+      key: 'clientOrgAdmin',
+      label: 'Clients and Organizations',
+      routePath: clientAdminPath),
+  MenuEntry(
       key: 'sourceConfig',
       label: 'File Staging Area',
       routePath: sourceConfigPath),
   MenuEntry(
       key: 'processInput',
-      label: 'Process Input Config',
+      label: 'Process Input & Mapping',
       routePath: processInputPath),
   MenuEntry(
       key: 'processConfig',
-      label: 'Process Configurations',
+      label: 'Processes & Rules Configurations',
       routePath: processConfigPath),
   MenuEntry(
       key: 'pipelineConfig',
-      label: 'Data Pipeline Config',
+      label: 'Pipelines Configuration',
       routePath: pipelineConfigPath),
   MenuEntry(
       style: ActionStyle.danger,
@@ -98,6 +102,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
 
+  // Client & Organization Admin Screen
+  ScreenKeys.clientAdmin: ScreenConfig(
+      key: ScreenKeys.clientAdmin,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Clients and Organizations Administration',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
   // Source Config Screen
   ScreenKeys.sourceConfig: ScreenConfig(
       key: ScreenKeys.sourceConfig,
@@ -129,7 +142,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.processConfig: ScreenConfig(
       key: ScreenKeys.processConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'Process and Client Rule Config',
+      title: 'Processes and Rules Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
@@ -138,7 +151,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.pipelineConfig: ScreenConfig(
       key: ScreenKeys.pipelineConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'Pipeline Config',
+      title: 'Pipelines Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),

@@ -13,8 +13,9 @@ import 'package:jetsclient/utils/screen_config.dart';
 
 const PARAM_CHAR = ':';
 
-// Key pages
+// Keys for UI pages
 const homePath = '/';
+const clientAdminPath = '/clientAdmin';
 const sourceConfigPath = '/sourceConfig';
 const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table/:session_id';
@@ -37,6 +38,16 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.home),
       formValidatorDelegate: homeFormValidator,
       formActionsDelegate: homeFormActions),
+
+  // Client & Organization Admin
+  clientAdminPath: ScreenWithForm(
+      key: const Key(ScreenKeys.clientAdmin),
+      screenPath: JetsRouteData(clientAdminPath),
+      screenConfig: getScreenConfig(ScreenKeys.clientAdmin),
+      formConfig: getFormConfig(FormKeys.clientAdmin),
+      // Using source config validator and actions since no widget here
+      formValidatorDelegate: sourceConfigValidator,
+      formActionsDelegate: sourceConfigActions),
 
   // Source Config
   sourceConfigPath: ScreenWithForm(

@@ -513,32 +513,18 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         // check if no row is selected while we expect to have one selected
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
         if (formState == null || ac.actionName == null) return;
-        
+
         // perform the action then refresh the table
         formState!.addCallback(_refreshTable);
-        await actionsDelegate(
+        String? err = await actionsDelegate(
             context, GlobalKey<FormState>(), formState!, ac.actionName!,
             group: 0);
-        // _refreshTable();
+        // String? err = formState!.getValue(0, FSK.serverError);
+        print("****RETURNED VAL $err");
+        if (err != null) {
+          showAlertDialog(context, err);
+        }
         break;
-
-      // case 'edit':
-      //   setState(() => isTableEditable = true);
-      //   break;
-      // case 'save':
-      //   showAlertDialog(context, 'Save Changes Coming Soon!');
-      //   setState(() => isTableEditable = false);
-      //   break;
-      // case 'delete':
-      //   showAlertDialog(
-      //       context, 'Delete Pipeline (with confirmation) Coming Soon!');
-      //   setState(() => isTableEditable = false);
-      //   break;
-      // case 'cancel':
-      //   showAlertDialog(
-      //       context, 'Cancel changes (with confirmation) Coming Soon!');
-      //   setState(() => isTableEditable = false);
-      //   break;
 
       default:
         showAlertDialog(
