@@ -139,7 +139,13 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 		if err != nil {
 			return fmt.Errorf("error creating jwt token: %v", err)
 		}
-		context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{}, token)
+		context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{
+			Action: "register_keys",
+			Data: []map[string]interface{}{{
+				"input_registry_keys": inputRegistryKey,
+				"source_period_key": sourcePeriodKey,
+			}},
+		}, token)
 	}
 	return nil
 }

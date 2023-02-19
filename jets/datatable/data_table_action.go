@@ -324,7 +324,12 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			for _, colKey := range sqlStmt.ColumnKeys {
 				v := dataTableAction.Data[irow][colKey]
 				if v != nil {
-					row[colKey] = v.(string)
+					switch vv := v.(type) {
+					case string:
+						row[colKey] = vv
+					case int:
+						row[colKey] = strconv.Itoa(vv)
+					}
 				}
 			}
 			// Add process_name if present in dataTableAction.Data[irow]
@@ -333,6 +338,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				row["process_name"] = v.(string)
 			}
 			// expected columns in the incoming request that are not columns in the input_loader_status table
+			//*
+			dataTableAction.Data[irow]["load_and_start"] = "false"
 			row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 			// extract the columns we need for the loader
 			objType := row["object_type"]
@@ -438,7 +445,12 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			for _, colKey := range sqlStmt.ColumnKeys {
 				v := dataTableAction.Data[irow][colKey]
 				if v != nil {
-					row[colKey] = v.(string)
+					switch vv := v.(type) {
+					case string:
+						row[colKey] = vv
+					case int:
+						row[colKey] = strconv.Itoa(vv)
+					}
 				}
 			}
 			// expected load_and_start in the incoming request
