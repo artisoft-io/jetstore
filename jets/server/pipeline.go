@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -123,7 +124,7 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 
 	if pr.Status == "completed" && !doNotLockSessionId {
 		// Register the output domain tables to input_registry
-		err = workspace.RegisterDomainTables(dbpool, pipelineExecutionKey)
+		err = datatable.RegisterDomainTables(dbpool, pipelineExecutionKey)
 		if err != nil {
 			return fmt.Errorf("while calling workspace.RegisterDomainTables: %v", err)
 		}

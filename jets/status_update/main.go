@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -20,6 +20,7 @@ import (
 // JETS_BUCKET
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
+// JETS_s3_INPUT_PREFIX
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
@@ -103,7 +104,7 @@ func coordinateWork() error {
 		return fmt.Errorf("while updating process execution status: %v", err)
 	}
 	// Register out tables
-	err = workspace.RegisterDomainTables(dbpool, *peKey)
+	err = datatable.RegisterDomainTables(dbpool, *peKey)
 	if err != nil {
 		return fmt.Errorf("while registrying out tables to input_registry: %v", err)
 	}
@@ -153,6 +154,11 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
+	// Check we have required env var
+	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env var JETS_s3_INPUT_PREFIX must be provided.")
+	}
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
@@ -168,6 +174,7 @@ func main() {
 	fmt.Println("Got argument: usingSshTunnel",*usingSshTunnel)
 	fmt.Println("Got argument: peKey", *peKey)
 	fmt.Println("Got argument: status", *status)
+	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
 
 	err := coordinateWork()
 	if err != nil {
