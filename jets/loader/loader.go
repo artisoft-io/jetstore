@@ -58,6 +58,9 @@ func (s *chartype) Set(value string) error {
 // JETS_ADMIN_EMAIL (set as admin in dockerfile)
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // AWS_API_SECRET or API_SECRET
+// JETS_LOADER_SERVER_SM_ARN state machine arn
+// JETS_LOADER_SM_ARN state machine arn
+// JETS_SERVER_SM_ARN state machine arn
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -661,6 +664,14 @@ func main() {
 	user.ApiSecret = apiSecret
 	user.TokenExpiration = 60
 
+	// If not in dev mode, must have state machine arn defined
+	if os.Getenv("JETSTORE_DEV_MODE") == "" {
+		if os.Getenv("JETS_LOADER_SERVER_SM_ARN")=="" || os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
+			hasErr = true
+			errMsg = append(errMsg, "Env var JETS_LOADER_SERVER_SM_ARN, JETS_LOADER_SM_ARN, JETS_SERVER_SM_ARN required when not in dev mode.")
+		}
+	}
+
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
@@ -692,6 +703,9 @@ func main() {
 	fmt.Println("Got argument: loaderCompletedMetric", *completedMetric)
 	fmt.Println("Got argument: loaderFailedMetric", *failedMetric)
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
+	fmt.Printf("ENV JETS_LOADER_SERVER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SERVER_SM_ARN"))
+	fmt.Printf("ENV JETS_LOADER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SM_ARN"))
+	fmt.Printf("ENV JETS_SERVER_SM_ARN: %s\n",os.Getenv("JETS_SERVER_SM_ARN"))
 	if len(errOutDir) == 0 {
 		fmt.Println("Loader error file will be in same directory as input file.")
 	}
