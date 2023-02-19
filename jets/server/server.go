@@ -36,6 +36,7 @@ type dbConnections struct {
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_LOG_DEBUG (optional, if == 1 set glog=3, ps=false, poolSize=1 for debugging)
 // JETS_LOG_DEBUG (optional, if == 2 set glog=3, ps=true, poolSize=1 for debugging)
+// JETS_s3_INPUT_PREFIX (required for registrying the domain table with input_registry)
 // GLOG_V log level
 
 // Command Line Arguments
@@ -132,6 +133,7 @@ func doJob() error {
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_SEED: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	log.Printf("ENV JETS_LOG_DEBUG: %s\n",os.Getenv("JETS_LOG_DEBUG"))
+	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	if !*doNotLockSessionId {
 		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
@@ -241,6 +243,11 @@ func main() {
 	if *awsDsnSecret != "" && *awsRegion == "" {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
+	}
+	// Check we have required env var
+	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env var JETS_s3_INPUT_PREFIX must be provided.")
 	}
 	if *userEmail == "" {
 		hasErr = true

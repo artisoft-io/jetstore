@@ -459,6 +459,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			objType := dataTableAction.Data[irow]["object_type"]
 			client := row["client"]
 			processName := row["process_name"]
+			//* TODO We should lookup main_input_file_key rather than file_key here
 			fileKey := dataTableAction.Data[irow]["file_key"]
 			sessionId := row["session_id"]
 			userEmail := row["user_email"]
