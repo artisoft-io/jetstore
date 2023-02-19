@@ -144,6 +144,7 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 			Data: []map[string]interface{}{{
 				"input_registry_keys": inputRegistryKey,
 				"source_period_key": sourcePeriodKey,
+				"file_key": *inFile,
 			}},
 		}, token)
 	}
