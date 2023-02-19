@@ -523,7 +523,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// ---------------------------------------
 	// Define the JetStore State Machines
 	// ---------------------------------------
-	var loaderAndServerSmArn, loaderSmArn, serverSmArn *string
+	loaderAndServerSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "loaderAndServerSM")
+	loaderSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "loaderSM")
+	serverSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "serverSM")
 	
 	// JetStore Loader State Machine
 	// Define the loaderTaskDefinition for the loaderSM
@@ -562,9 +567,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_INPUT_ROW_JETS_KEY_ALGO": jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 			"JETS_s3_INPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":        jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_LOADER_SM_ARN":           loaderAndServerSmArn,
-			"JETS_SERVER_SM_ARN":           loaderSmArn,
-			"JETS_LOADER_SERVER_SM_ARN":    serverSmArn,
+			"JETS_LOADER_SM_ARN":           jsii.String(loaderAndServerSmArn),
+			"JETS_SERVER_SM_ARN":           jsii.String(loaderSmArn),
+			"JETS_LOADER_SERVER_SM_ARN":    jsii.String(serverSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -633,9 +638,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_DOMAIN_KEY_HASH_SEED":    jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_s3_INPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":        jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_LOADER_SM_ARN":           loaderAndServerSmArn,
-			"JETS_SERVER_SM_ARN":           loaderSmArn,
-			"JETS_LOADER_SERVER_SM_ARN":    serverSmArn,
+			"JETS_LOADER_SM_ARN":           jsii.String(loaderAndServerSmArn),
+			"JETS_SERVER_SM_ARN":           jsii.String(loaderSmArn),
+			"JETS_LOADER_SERVER_SM_ARN":    jsii.String(serverSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -887,11 +892,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		},
 	}))
 
-	// Set the State Machine ARN
-	loaderAndServerSmArn = loaderAndServerSM.StateMachineArn()
-	loaderSmArn          = loaderSM.StateMachineArn()
-	serverSmArn          = serverSM.StateMachineArn()
-
 	// ---------------------------------------
 	// Define the JetStore UI Service
 	// ---------------------------------------
@@ -937,9 +937,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_BUCKET":                        sourceBucket.BucketName(),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_LOADER_SM_ARN":                 loaderSmArn,
-			"JETS_SERVER_SM_ARN":                 serverSmArn,
-			"JETS_LOADER_SERVER_SM_ARN":          loaderAndServerSmArn,
+			"JETS_LOADER_SM_ARN":                 jsii.String(loaderAndServerSmArn),
+			"JETS_SERVER_SM_ARN":                 jsii.String(loaderSmArn),
+			"JETS_LOADER_SERVER_SM_ARN":          jsii.String(serverSmArn),
 			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
