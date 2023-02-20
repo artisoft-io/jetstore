@@ -135,6 +135,7 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 			if err != nil {
 				return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
+			ipos += 1
 		}
 		// Check for any process that are ready to kick off
 		context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)

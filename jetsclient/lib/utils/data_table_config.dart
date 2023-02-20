@@ -573,14 +573,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: null,
           configForm: FormKeys.startPipeline),
       ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'startE2E',
-          label: 'Load & Start Pipeline',
-          style: ActionStyle.secondary,
-          isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.loadAndStartPipeline),
-      ActionConfig(
           actionType: DataTableActionType.showScreen,
           key: 'viewStatusDetails',
           label: 'View Execution Details',

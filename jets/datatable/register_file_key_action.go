@@ -397,7 +397,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			// Lookup merged_input_registry_keys from merged_process_input_keys
 			merged_input_registry_keys := make([]int, len(merged_process_input_keys))
 			var irKey int
-			for _, piKey := range merged_process_input_keys {
+			for ipos, piKey := range merged_process_input_keys {
 				stmt := `SELECT ir.key FROM jetsapi.input_registry ir, jetsapi.process_input pi
 				         WHERE pi.key = $1 AND ir.client = pi.client AND ir.org = pi.org AND ir.object_type = pi.object_type AND
 								       ir.source_type = pi.source_type AND ir.source_period_key = $2
@@ -407,7 +407,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 					return nil, http.StatusInternalServerError,
 						fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying input_registry for merged input: %v", err)
 				}
-				merged_input_registry_keys = append(merged_input_registry_keys, irKey)
+				merged_input_registry_keys[ipos] = irKey
 			}
 
 			//*
