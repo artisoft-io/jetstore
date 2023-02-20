@@ -196,7 +196,7 @@ func (pipelineConfig *PipelineConfig) makeMainProcessInputSqlStmt() string {
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
-	if pipelineConfig.sourcePeriodKey > 0 {
+	if processInput.lookbackPeriods > 0 {
 		buf.WriteString(fmt.Sprintf(" WHERE session_id IN (%s)",processInput.makeLookupSessionIdStmt(
 			pipelineConfig.sourcePeriodType, pipelineConfig.currentSourcePeriod)))	
 	} else {
@@ -245,7 +245,7 @@ func (pipelineConfig *PipelineConfig) makeMergeProcessInputSqlStmt(mergeIndex in
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
-	if pipelineConfig.sourcePeriodKey > 0 {
+	if processInput.lookbackPeriods > 0 {
 		buf.WriteString(fmt.Sprintf(" WHERE session_id IN (%s)",processInput.makeLookupSessionIdStmt(
 			pipelineConfig.sourcePeriodType, pipelineConfig.currentSourcePeriod)))	
 	} else {

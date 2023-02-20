@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -120,6 +121,11 @@ func (server *Server) checkJetStoreDbVersion() error {
 	if !tableExists {
 		// run update db with workspace init script
 		log.Println("JetStore version table does not exist, initializing the db")
+		// Cleanup any remaining
+		server.ResetDomainTables(&PurgeDataAction{
+			Action: "reset_domain_tables",
+			Data: []map[string]interface{}{},
+		})
 		serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
 	} else {
 
@@ -133,7 +139,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 		serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
 
 		case jetstoreVersion > version:
-			if os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP") == "yes" {
+			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
 				log.Println("New JetStore Release deployed, rebuilding all tables and running workspace db init script")
 				server.ResetDomainTables(&PurgeDataAction{
 					Action: "reset_domain_tables",
