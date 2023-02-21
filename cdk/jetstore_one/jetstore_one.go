@@ -617,7 +617,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// JetStore Rule Server State Machine
 	// Define the serverTaskDefinition for the serverSM
 	serverTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("serverTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(4096),
+		MemoryLimitMiB: jsii.Number(16384),
 		Cpu:            jsii.Number(2048),
 		ExecutionRole:  ecsTaskExecutionRole,
 		TaskRole:       ecsTaskRole,
