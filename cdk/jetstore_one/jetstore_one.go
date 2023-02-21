@@ -570,6 +570,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_LOADER_SM_ARN":           jsii.String(loaderSmArn),
 			"JETS_SERVER_SM_ARN":           jsii.String(serverSmArn),
 			"JETS_LOADER_SERVER_SM_ARN":    jsii.String(loaderAndServerSmArn),
+			"JETS_LOADER_CHUNCK_SIZE":      jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -1223,6 +1224,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // WORKSPACES_HOME (required, to copy test files from workspace data folder)
 // WORKSPACE (required, to copy test files from workspace data folder)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
+// JETS_LOADER_CHUNCK_SIZE loader file partition size
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1258,6 +1260,7 @@ func main() {
 	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:", os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
+	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
