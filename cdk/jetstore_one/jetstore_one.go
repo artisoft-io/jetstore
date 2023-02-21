@@ -616,9 +616,33 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// JetStore Rule Server State Machine
 	// Define the serverTaskDefinition for the serverSM
+	var memLimit, cpu float64
+	if len(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB")) > 0 {
+		var err error
+		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"), 64)
+		if err != nil {
+			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB: %v", err)
+			memLimit = 24596
+		}	
+	} else {
+		memLimit = 24596
+	}
+	fmt.Println("Using memory limit of",memLimit," (from env JETS_SERVER_TASK_MEM_LIMIT_MB)")
+	if len(os.Getenv("JETS_SERVER_TASK_CPU")) > 0 {
+		var err error
+		cpu, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_CPU"), 64)
+		if err != nil {
+			fmt.Println("while parsing JETS_SERVER_TASK_CPU: %v", err)
+			cpu = 4096
+		}	
+	} else {
+		cpu = 4096
+	}
+	fmt.Println("Using cpu allocation of",memLimit," (from env JETS_SERVER_TASK_CPU)")
+
 	serverTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("serverTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(16384),
-		Cpu:            jsii.Number(2048),
+		MemoryLimitMiB: jsii.Number(memLimit),
+		Cpu:            jsii.Number(cpu),
 		ExecutionRole:  ecsTaskExecutionRole,
 		TaskRole:       ecsTaskRole,
 		RuntimePlatform: &awsecs.RuntimePlatform{
@@ -1225,6 +1249,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // WORKSPACE (required, to copy test files from workspace data folder)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_LOADER_CHUNCK_SIZE loader file partition size
+// JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
+// JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1261,6 +1287,8 @@ func main() {
 	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
 	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
+	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
+	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
