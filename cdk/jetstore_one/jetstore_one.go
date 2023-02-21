@@ -622,10 +622,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"), 64)
 		if err != nil {
 			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB: %v", err)
-			memLimit = 24596
+			memLimit = 24576
 		}	
 	} else {
-		memLimit = 24596
+		memLimit = 24576
 	}
 	fmt.Println("Using memory limit of",memLimit," (from env JETS_SERVER_TASK_MEM_LIMIT_MB)")
 	if len(os.Getenv("JETS_SERVER_TASK_CPU")) > 0 {
