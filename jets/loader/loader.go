@@ -184,7 +184,7 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 			return 0, nil, fmt.Errorf("while parsing JETS_LOADER_CHUNCK_SIZE: %v", err)
 		}	
 	} else {
-		filePartitionSize = 200000
+		filePartitionSize = 50000
 	}
 	log.Println("Using filePartitionSize of",filePartitionSize," (from env JETS_LOADER_CHUNCK_SIZE)")
 
