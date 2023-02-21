@@ -638,7 +638,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	} else {
 		cpu = 4096
 	}
-	fmt.Println("Using cpu allocation of",memLimit," (from env JETS_SERVER_TASK_CPU)")
+	fmt.Println("Using cpu allocation of",cpu," (from env JETS_SERVER_TASK_CPU)")
 
 	serverTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("serverTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(memLimit),
