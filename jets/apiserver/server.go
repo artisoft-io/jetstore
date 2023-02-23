@@ -126,7 +126,9 @@ func (server *Server) checkJetStoreDbVersion() error {
 			Action: "reset_domain_tables",
 			Data: []map[string]interface{}{},
 		})
-		serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
+		server.addVersionToDb(jetstoreVersion)
+		// not needed?
+		// serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
 	} else {
 
 		// Check the release in database vs current release
@@ -135,8 +137,12 @@ func (server *Server) checkJetStoreDbVersion() error {
 		err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 		switch {
 		case err != nil:
-			log.Println("JetStore version is not defined in jetstore_release table, initializing the db")
-		serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
+			log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
+			server.ResetDomainTables(&PurgeDataAction{
+				Action: "reset_domain_tables",
+				Data: []map[string]interface{}{},
+			})
+			server.addVersionToDb(jetstoreVersion)
 
 		case jetstoreVersion > version:
 			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
