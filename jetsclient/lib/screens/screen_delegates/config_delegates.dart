@@ -265,6 +265,12 @@ String? sourceConfigValidator(
       }
       return null;
 
+    case FSK.sourcePeriodKey:
+      if (v != null) {
+        return null;
+      }
+      return "Execution frequency choice must be selected.";
+
     case FSK.automated:
       if (v != null) {
         return null;

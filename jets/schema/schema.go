@@ -120,9 +120,6 @@ func GetTableSchema(dbpool *pgxpool.Pool, schema string, table string) (*TableDe
 	}
 	rows.Close()
 
-	//*
-	fmt.Printf("Existing Table Constraints for table %s: %v\n", table, result.TableConstraints)
-
 	return &result, nil
 }
 
