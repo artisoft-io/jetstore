@@ -334,8 +334,10 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 				continue
 			}
 		}
+		// Map client-specific code value to canonical code value
+		canonicalObj := aJetRow.processInput.mapCodeValue(&obj, inputColumnSpec)
 		// cast obj to type
-		object, err := castToRdfType(&obj, inputColumnSpec, reteSession)
+		object, err := castToRdfType(canonicalObj, inputColumnSpec, reteSession)
 		if err != nil {
 			// Error casting obj value to colum type
 			if inputColumnSpec.defaultValue.Valid {

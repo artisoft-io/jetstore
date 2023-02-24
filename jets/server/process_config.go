@@ -4,6 +4,7 @@ import (
 	// "bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -96,6 +97,15 @@ func (br BadRow) write2Chan(ch chan<- []interface{}) {
 	ch <- brout
 }
 
+// codeValueMapping structure:
+// 	{
+// 		"acme:patientGender": {
+// 			"0": "M",
+// 			"1": "F"
+// 		}
+// 	}
+// Where acme:patientGender is the domain property, "0" and "1" are the client-specific codes
+// and "M", "F" are the canonical codes to use for the domain property
 type ProcessInput struct {
 	key                   int
 	client                string
@@ -113,6 +123,7 @@ type ProcessInput struct {
 	keyPosition           int
 	processInputMapping   []ProcessMap
 	sessionId             string
+	codeValueMapping      *map[string]map[string]string
 }
 
 type ProcessMap struct {
@@ -268,6 +279,23 @@ func (pipelineConfig *PipelineConfig) makeMergeProcessInputSqlStmt(mergeIndex in
 	return buf.String()
 }
 
+// Map client-specific code value to canonical code value
+func (processInput *ProcessInput) mapCodeValue(clientValue *string, inputColumnSpec *ProcessMap) *string {
+	var canonicalValue string
+	if processInput.codeValueMapping == nil {
+		return clientValue
+	}
+	codeValueMap, ok := (*processInput.codeValueMapping)[inputColumnSpec.dataProperty]
+	if !ok {
+		return clientValue
+	}
+	canonicalValue, ok = codeValueMap[*clientValue]
+	if !ok {
+		return clientValue
+	}
+	return &canonicalValue
+}
+
 // sets the grouping position
 func (processInput *ProcessInput) setGroupingPos() error {
 	for i, v := range processInput.processInputMapping {
@@ -293,7 +321,7 @@ func (processInput *ProcessInput) setKeyPos() error {
 // Main Pipeline Configuration Read Function
 // -----------------------------------------
 func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineConfig, error) {
-	pc := PipelineConfig{key: pcKey, sourcePeriodType: "month"}
+	pc := PipelineConfig{key: pcKey}
 	var err error
 	var outSessId sql.NullString
 	mainInputRegistryKey := sql.NullInt64{}
@@ -462,9 +490,17 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	// Get the object_type associated with the input table
 	// The object_type are in the DomainKeysJson from source_config table
 	var dkJson sql.NullString
-	err = dbpool.QueryRow(context.Background(), 
+	if pi.sourceType == "file" {
+		err = dbpool.QueryRow(context.Background(), 
 		"SELECT domain_keys_json FROM jetsapi.source_config WHERE table_name=$1", 
 		pi.tableName).Scan(&dkJson)
+	} else {
+		err = dbpool.QueryRow(context.Background(), 
+		"SELECT domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type=$1", 
+		pi.entityRdfType).Scan(&dkJson)
+	}
+	//* TODO Add case when no domain key info is provided, use jets:key as the domain_key
+	// right now we err out if no domain key info is provided (although the field can be nullable)
 	if err != nil || !dkJson.Valid {
 		return fmt.Errorf("could not load domain_keys_json from jetsapi.source_config for table %s: %v", pi.tableName, err)
 	}
@@ -491,6 +527,25 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 			dataProperty: colName,
 			rdfType: "int",
 		})
+	}
+
+	// Load the client-specific code value mapping to canonical values
+	if pi.sourceType == "file" {
+		var code_values_mapping_json sql.NullString
+		err = dbpool.QueryRow(context.Background(), 
+		"SELECT code_values_mapping_json FROM jetsapi.source_config WHERE table_name=$1", 
+		pi.tableName).Scan(&code_values_mapping_json)
+		if err != nil && err.Error() != "no rows in result set" {
+			return fmt.Errorf("loadProcessInput: Could not get the code_values_mapping_json from source_config table:%v", err)
+		}
+		if code_values_mapping_json.Valid {
+			codeValueMapping := make(map[string]map[string]string)
+			err := json.Unmarshal([]byte(code_values_mapping_json.String), &codeValueMapping)
+			if err != nil {
+				return fmt.Errorf("loadProcessInput: Could not parse the code_values_mapping_json from source_config table as json:%v", err)
+			}
+			pi.codeValueMapping = &codeValueMapping
+		}
 	}
 	return nil
 }
