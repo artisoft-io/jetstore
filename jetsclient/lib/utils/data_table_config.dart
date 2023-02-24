@@ -1528,8 +1528,9 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.mergedProcessInputKeys: 5,
             FSK.mainObjectType: 6,
             FSK.mainSourceType: 7,
-            FSK.automated: 8,
-            FSK.description: 9
+            FSK.sourcePeriodType: 8,
+            FSK.automated: 9,
+            FSK.description: 10
           }),
     ],
     formStateConfig:
@@ -1584,29 +1585,35 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 7,
           name: "main_source_type",
-          label: 'Main Object Type',
-          tooltips: 'Source of main input table',
+          label: 'Main Source Type',
+          tooltips: 'Source type of main input table',
           isNumeric: false),
       ColumnConfig(
           index: 8,
+          name: "source_period_type",
+          label: 'Pipeline Frequency',
+          tooltips: 'How often the pipeline execute',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
           name: "automated",
           label: 'Automated',
           tooltips: 'Is pipeline automated? (true: 1, false: 0)',
           isNumeric: false),
       ColumnConfig(
-          index: 9,
+          index: 10,
           name: "description",
           label: 'Description',
           tooltips: 'Pipeline description',
           isNumeric: false),
       ColumnConfig(
-          index: 10,
+          index: 11,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 11,
+          index: 12,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
@@ -1671,7 +1678,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Pipeline Config Data Table for Pipeline Execution Forms
+  // Pipeline Config Data Table for Pipeline Execution Dialog
   FSK.pipelineConfigKey: TableConfig(
     key: FSK.pipelineConfigKey,
     fromClauses: [

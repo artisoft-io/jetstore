@@ -1198,6 +1198,16 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
       [
         FormDropdownFieldConfig(
+            key: FSK.sourcePeriodType,
+            items: [
+              DropdownItemConfig(label: 'Select execution frequency'),
+              DropdownItemConfig(label: 'Monthly', value: 'month_period'),
+              DropdownItemConfig(label: 'Weekly', value: 'week_period'),
+              DropdownItemConfig(label: 'Daily', value: 'day_period'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
+        FormDropdownFieldConfig(
             key: FSK.automated,
             items: [
               DropdownItemConfig(label: 'Select automation mode'),
@@ -1210,7 +1220,7 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.description,
             label: "Description",
             hint: "Pipeline configuration description",
-            flex: 3,
+            flex: 2,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
