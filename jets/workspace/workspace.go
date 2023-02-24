@@ -65,7 +65,7 @@ type JetStoreProperties map[string]string
 type OutputTableSpecs map[string]*DomainTable
 
 func OpenWorkspaceDb(dsn string) (*WorkspaceDb, error) {
-	log.Println("Opening workspace database...")
+	fmt.Println("-- Opening workspace database...")
 	db, err := sql.Open("sqlite3", dsn) // Open the created SQLite File
 	if err != nil {
 		return nil, fmt.Errorf("while opening workspace db: %v", err)
@@ -168,7 +168,7 @@ func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTable
 
 		// read the domain table column info
 		if allTbl || outTableFilter[tableName] {
-			log.Println("Reading table", tableName, "info...")
+			fmt.Println("-- Reading table", tableName, "info...")
 			domainColumnsRow, err := workspaceDb.db.Query(
 				"SELECT dc.name, dp.name, dc.type, dc.as_array, dc.is_grouping FROM domain_columns dc OUTER LEFT JOIN data_properties dp ON dc.data_property_key = dp.key WHERE domain_table_key = ?", tableKey)
 			if err != nil {
@@ -183,7 +183,7 @@ func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTable
 				var domainColumn DomainColumn
 				domainColumnsRow.Scan(&domainColumn.ColumnName, &domainColumn.PropertyName, &domainColumn.DataType, &domainColumn.IsArray, &domainColumn.IsGrouping)
 				// // for devel
-				// log.Println("  - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray, ", is_grouping?", domainColumn.IsGrouping)
+				// fmt.Println("--   - Column:", domainColumn.ColumnName, ", (property", domainColumn.PropertyName, "), is_array?", domainColumn.IsArray, ", is_grouping?", domainColumn.IsGrouping)
 				domainTable.Columns = append(domainTable.Columns, domainColumn)
 			}
 

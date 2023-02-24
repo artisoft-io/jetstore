@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"strings"
@@ -44,34 +45,53 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 
 func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
 	// initialize jetsapi database
-	// open sql file
-	log.Println("Initializing jetsapi db using",*jetsapiInitPath)
-	file, err := os.Open(*jetsapiInitPath)
-	if err != nil {
-		return fmt.Errorf("error while opening jetsapi init db file: %v", err)
-	}
-	defer file.Close()
-	// load & exec sql stmts
-	reader := bufio.NewReader(file)
-	isDone := false
-	var stmt string
-	for !isDone {
-		stmt, err = reader.ReadString(';')
-		if err == io.EOF {
-			isDone = true
-			break
-		} else if err != nil {
-			return fmt.Errorf("error while reading stmt: %v", err)
-		}
-		if len(stmt) == 0 {
-			return fmt.Errorf("error while reading db init, stmt is empty")
-		}
-		stmt = strings.TrimSpace(stmt)
-		log.Println(stmt)
-		_, err = dbpool.Exec(context.Background(), stmt)
+	// jetsapiInitPath use to be the path of workspace_init_db.sql
+	// if jetsapiInitPath ends with workspace_init_db.sql, remove the suffix
+	// and use all files ending with workspace_init_db.sql
+	workspaceInitDbPath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
+	fileSystem := os.DirFS(workspaceInitDbPath)
+	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("error while executing: %v", err)
+			log.Printf("ERROR while walking workspace init db directory %q: %v", path, err)
+			return err
 		}
+		if info.IsDir() {
+			// fmt.Printf("visiting directory: %+v \n", info.Name())
+			return nil
+		}
+		sqlFile := fmt.Sprintf("%s/%s", workspaceInitDbPath, path)
+		fmt.Println("-- Initializing jetsapi db using", sqlFile)
+		file, err := os.Open(sqlFile)
+		if err != nil {
+			return fmt.Errorf("error while opening jetsapi init db file: %v", err)
+		}
+		defer file.Close()
+		// load & exec sql stmts
+		reader := bufio.NewReader(file)
+		isDone := false
+		var stmt string
+		for !isDone {
+			stmt, err = reader.ReadString(';')
+			if err == io.EOF {
+				isDone = true
+				break
+			} else if err != nil {
+				return fmt.Errorf("error while reading stmt: %v", err)
+			}
+			if len(stmt) == 0 {
+				return fmt.Errorf("error while reading db init, stmt is empty")
+			}
+			stmt = strings.TrimSpace(stmt)
+			fmt.Println(stmt)
+			_, err = dbpool.Exec(context.Background(), stmt)
+			if err != nil {
+				return fmt.Errorf("error while executing: %v", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error walking the workspace init db path %s: %v", workspaceInitDbPath, err)
 	}
 	return nil
 }

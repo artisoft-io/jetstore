@@ -23,7 +23,7 @@ import (
 // JETS_DSN_URI_VALUE
 // JETS_REGION
 // JETS_SCHEMA_FILE (default: jets_schema.json)
-// JETSAPI_DB_INIT_PATH path to workspace_init_db.sql file (workspace specific)
+// JETSAPI_DB_INIT_PATH path to workspace_init_db.sql files (workspace specific)
 // WORKSPACE_DB_PATH location of workspace db (sqlite db)
 var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
 var dropExisting = flag.Bool("drop", false, "drop existing domain table (ALL DOMAIN TABLE CONTENT WILL BE LOST)")
@@ -92,7 +92,7 @@ func doJob() error {
 	if *workspaceDb == "" {
 		return nil
 	}
-	log.Println("Create / Update JetStore Domain Tables")
+	fmt.Println("-- Create / Update JetStore Domain Tables")
 	workspaceMgr, err := workspace.OpenWorkspaceDb(*workspaceDb)
 	if err != nil {
 		return fmt.Errorf("while opening workspace db: %v", err)
@@ -111,13 +111,13 @@ func doJob() error {
 		return fmt.Errorf("while loading table definition from workspace db: %v", err)
 	}
 	if *lvr {
-		log.Println("List of volatile resources in workspace:")
+		fmt.Println("-- List of volatile resources in workspace:")
 		for i := range vresources {
-			log.Println("  ", vresources[i])
+			fmt.Println("--   ", vresources[i])
 		}
-		log.Println("List of tables in workspace:")
+		fmt.Println("-- List of tables in workspace:")
 		for tableName := range tableSpecs {
-			log.Println("  ", tableName)
+			fmt.Println("--   ", tableName)
 		}
 		return nil
 	}
