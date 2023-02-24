@@ -320,6 +320,10 @@
         "dataType": "text"
       },
       {
+        "columnName": "code_values_mapping_json",
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true
