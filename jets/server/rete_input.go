@@ -15,14 +15,15 @@ import (
 )
 
 type ReteInputContext struct {
-	jets__completed *bridge.Resource
-	jets__istate    *bridge.Resource
-	jets__key       *bridge.Resource
-	jets__loop      *bridge.Resource
-	jets__state     *bridge.Resource
-	rdf__type       *bridge.Resource
-	reMap           map[string]*regexp.Regexp
-	argdMap         map[string]float64
+	jets__completed                 *bridge.Resource
+	jets__istate                    *bridge.Resource
+	jets__key                       *bridge.Resource
+	jets__loop                      *bridge.Resource
+	jets__source_period_sequence    *bridge.Resource
+	jets__state                     *bridge.Resource
+	rdf__type                       *bridge.Resource
+	reMap                           map[string]*regexp.Regexp
+	argdMap                         map[string]float64
 }
 
 // main processing function to execute rules
@@ -182,7 +183,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	for icol := 0; icol < ncol; icol++ {
 		// asserting input row with mapping spec
 		inputColumnSpec := &aJetRow.processInput.processInputMapping[icol]
-		// fmt.Println("** assert from table:",inputColumnSpec.tableName,", property:",inputColumnSpec.dataProperty,", value:",row[icol].String)
+		// fmt.Println("** assert from table:",inputColumnSpec.tableName,", property:",inputColumnSpec.dataProperty,", value:",row[icol].String,", with rdfTpe",inputColumnSpec.rdfType)
 		var obj string
 		var err error
 		sz := len(row[icol].String)

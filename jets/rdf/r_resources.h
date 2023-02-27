@@ -34,6 +34,7 @@ struct JetsResources {
   r_index jets__lookup_row{nullptr};
   r_index jets__loop{nullptr};
   r_index jets__operator{nullptr};
+  r_index jets__source_period_sequence{nullptr};
   r_index jets__state{nullptr};
   r_index jets__value_property{nullptr};
   r_index rdf__type{nullptr};

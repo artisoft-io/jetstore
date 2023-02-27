@@ -101,10 +101,8 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		var err error
 
 		// Main table statement
-		stmt = reteWorkspace.pipelineConfig.makeMainProcessInputSqlStmt()
-		if glogv > 0 {
-			log.Printf("Main SQL:\n%s", stmt)
-		}
+		stmt = reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(reteWorkspace.pipelineConfig.mainProcessInput)
+		fmt.Printf("\nMain SQL:\n%s\n", stmt)
 		mainTableRows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt)
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
@@ -121,10 +119,8 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 			for ipoc := range mergedProcessInput {
 				// prepare the sql stmt
 				jquery := joinQuery{processInput: &mergedProcessInput[ipoc]}
-				stmt := reteWorkspace.pipelineConfig.makeMergeProcessInputSqlStmt(ipoc)
-				if glogv > 0 {
-					log.Printf("JOIN SQL:\n%s", stmt)
-				}
+				stmt := reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(&mergedProcessInput[ipoc])
+				fmt.Printf("\nJOIN SQL:\n%s\n", stmt)
 				jquery.rows, err = jnode.dbpool.Query(context.Background(), stmt)
 				if err != nil {
 					result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
