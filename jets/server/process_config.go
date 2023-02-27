@@ -149,27 +149,6 @@ type RuleConfig struct {
 }
 
 // utility methods
-// Statement to get the session_ids from input_registry and source_period tables:
-func (pi *ProcessInput) makeLookupSessionIdStmt(sourcePeriodType string, currentSourcePeriod int) string {
-	startPeriod := currentSourcePeriod - pi.lookbackPeriods
-	endPeriod := currentSourcePeriod
-	return fmt.Sprintf(`
-			SELECT
-				ir.session_id
-			FROM
-				jetsapi.input_registry ir,
-				jetsapi.source_period sp
-			WHERE
-				ir.source_period_key = sp.key
-				AND ir.client = '%s'
-				AND ir.org = '%s'
-				AND ir.object_type = '%s'
-				AND ir.source_type = '%s'
-				AND sp."%s" >= %d
-				AND sp."%s" <= %d`, pi.client, pi.organization, pi.objectType, pi.sourceType,
-				sourcePeriodType, startPeriod, sourcePeriodType, endPeriod)
-}
-
 // prepare the sql statement for reading from staging table or domain table (csv)
 // Query with lookback period = 0:
 // -------------------------------
