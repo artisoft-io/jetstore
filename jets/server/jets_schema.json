@@ -1125,6 +1125,26 @@
         "isNotNull": true
       },
       {
+        "columnName": "source_period_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "month_period",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "week_period",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "day_period",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
         "dataType": "datetime",
         "default": "now()",

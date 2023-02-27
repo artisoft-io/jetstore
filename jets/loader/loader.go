@@ -459,7 +459,8 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	}
 	// register the session if status is completed
 	if status == "completed" && !*doNotLockSessionId {
-		err2 := schema.RegisterSession(dbpool, *sessionId)
+
+		err2 := schema.RegisterSession(dbpool, *sessionId, sourcePeriodKey)
 		if err2 != nil {
 			err = fmt.Errorf("error while registering the session id: %v", err2)
 		}

@@ -108,6 +108,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
+	ri.jets__source_period_sequence, err = rw.js.GetResource("jets:source_period_sequence")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 	ri.jets__state, err = rw.js.GetResource("jets:State")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
@@ -222,88 +226,110 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			for !ctor.IsEnd() {
 				subject := ctor.GetSubject()
-				// make a slice corresponding to the entity row, selecting predicates from the outputSpec
-				ncol := len(tableSpec.Columns)
 
-				// Compute the Domain Keys and ShardIds
-				entityRow := make([]interface{}, ncol)
-				for i := 0; i < ncol; i++ {
-					domainColumn := &tableSpec.Columns[i]
-					// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
-					switch {
-					case domainColumn.ColumnName == "session_id":
-						entityRow[i] = *outSessionId
-
-					case strings.HasSuffix(domainColumn.ColumnName, ":domain_key"):
-						objectType := strings.Split(domainColumn.ColumnName, ":")[0]
-						domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
-						if err != nil {
-							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
-						}
-						entityRow[i] = domainKey
-
-					case strings.HasSuffix(domainColumn.ColumnName, ":shard_id"):
-						objectType := strings.Split(domainColumn.ColumnName, ":")[0]
-						_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
-						if err != nil {
-							return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
-						}
-						entityRow[i] = shardId
-
-					default:
-						var data []interface{}
-						itor, err := rdfSession.Find_sp(subject, domainColumn.Predicate)
-						if err != nil {
-							return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
-						}
-						for !itor.IsEnd() {
-							obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
-							if err != nil {
-								var br BadRow
-								rowkey, err := subject.GetName()
-								if err == nil {
-									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
-								}
-								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
-								br.ErrorMessage = sql.NullString{
-									String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
-									Valid:  true}
-								log.Println("BAD EXTRACT:", br)
-								br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
-							}
-							data = append(data, obj)
-							itor.Next()
-						}
-						if domainColumn.IsArray {
-							entityRow[i] = data
-						} else {
-							ld := len(data)
-							switch {
-							case ld == 1:
-								entityRow[i] = data[0]
-							case ld > 1:
-								// Invalid row, multiple values for a functional property
-								var br BadRow
-								rowkey, err := subject.GetName()
-								if err == nil {
-									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
-								}
-								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
-								br.ErrorMessage = sql.NullString{
-									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName),
-									Valid:  true}
-								log.Println("BAD EXTRACT:", br)
-								br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
-							default:
-							}
-						}
-						itor.ReleaseIterator()
+				// Check if subject is an entity for the current source period
+				// i.e. is not an historical entity comming from the lookback period
+				// We don't extract historical entities but only one from the current source period
+				// identified with jets:source_period_sequence == 0 or 
+				// entities created during the rule session, identified with jets:source_period_sequence is null
+				keepObj := true
+				obj, err := rdfSession.GetObject(subject, ri.jets__source_period_sequence)
+				if err != nil {
+					return &result, fmt.Errorf("while getting obj for predicate jets:source_period_sequence of an entity of type %s: %v", tableSpec.ClassName, err)
+				}
+				if obj != nil {
+					v, err := obj.GetInt()
+					if err != nil {
+						return &result, fmt.Errorf("range of predicate jets:source_period_sequence is not int for an entity of type %s: %v", tableSpec.ClassName, err)
+					}
+					if v > 0 {
+						keepObj = false
 					}
 				}
-				// entityRow is complete
-				//* REMOVE MULTI DB CONNECTION BY NODES :: compute_node_id_from_shard_id
-				// writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
-				writeOutputc[tableName][0] <- entityRow
+				// extract entity if we keep it (i.e. not an historical entity)
+				if keepObj {
+					// make a slice corresponding to the entity row, selecting predicates from the outputSpec
+					ncol := len(tableSpec.Columns)
+					// Compute the Domain Keys and ShardIds
+					entityRow := make([]interface{}, ncol)
+					for i := 0; i < ncol; i++ {
+						domainColumn := &tableSpec.Columns[i]
+						// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
+						switch {
+						case domainColumn.ColumnName == "session_id":
+							entityRow[i] = *outSessionId
+
+						case strings.HasSuffix(domainColumn.ColumnName, ":domain_key"):
+							objectType := strings.Split(domainColumn.ColumnName, ":")[0]
+							domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
+							if err != nil {
+								return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
+							}
+							entityRow[i] = domainKey
+
+						case strings.HasSuffix(domainColumn.ColumnName, ":shard_id"):
+							objectType := strings.Split(domainColumn.ColumnName, ":")[0]
+							_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
+							if err != nil {
+								return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
+							}
+							entityRow[i] = shardId
+
+						default:
+							var data []interface{}
+							itor, err := rdfSession.Find_sp(subject, domainColumn.Predicate)
+							if err != nil {
+								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
+							}
+							for !itor.IsEnd() {
+								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
+								if err != nil {
+									var br BadRow
+									rowkey, err := subject.GetName()
+									if err == nil {
+										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
+									}
+									br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
+									br.ErrorMessage = sql.NullString{
+										String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
+										Valid:  true}
+									log.Println("BAD EXTRACT:", br)
+									br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
+								}
+								data = append(data, obj)
+								itor.Next()
+							}
+							if domainColumn.IsArray {
+								entityRow[i] = data
+							} else {
+								ld := len(data)
+								switch {
+								case ld == 1:
+									entityRow[i] = data[0]
+								case ld > 1:
+									// Invalid row, multiple values for a functional property
+									var br BadRow
+									rowkey, err := subject.GetName()
+									if err == nil {
+										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
+									}
+									br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
+									br.ErrorMessage = sql.NullString{
+										String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName),
+										Valid:  true}
+									log.Println("BAD EXTRACT:", br)
+									br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
+								default:
+								}
+							}
+							itor.ReleaseIterator()
+						}
+					}
+					// entityRow is complete
+					//* REMOVE MULTI DB CONNECTION BY NODES :: compute_node_id_from_shard_id
+					// writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
+					writeOutputc[tableName][0] <- entityRow
+				}
 				ctor.Next()
 			}
 			ctor.ReleaseIterator()

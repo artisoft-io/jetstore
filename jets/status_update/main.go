@@ -48,16 +48,17 @@ func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int, status strin
 	}
 	return count
 }
-func getSessionId(dbpool *pgxpool.Pool, pipelineExecutionKey int) string {
+func getSessionId(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, int) {
 	var sessionId string
+	var sourcePeriodKey int
 	err := dbpool.QueryRow(context.Background(), 
-		"SELECT session_id FROM jetsapi.pipeline_execution_status WHERE key=$1", 
-		pipelineExecutionKey).Scan(&sessionId)
+		"SELECT session_id, source_period_key FROM jetsapi.pipeline_execution_status WHERE key=$1", 
+		pipelineExecutionKey).Scan(&sessionId, &sourcePeriodKey)
 	if err != nil {
 		msg := fmt.Sprintf("QueryRow on pipeline_execution_status failed: %v", err)
 		log.Fatalf(msg)
 	}
-	return sessionId
+	return sessionId, sourcePeriodKey
 }
 func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string) error {
 		// Record the status of the pipeline execution
@@ -110,7 +111,8 @@ func coordinateWork() error {
 	}
 
 	// Lock the session
-	err = schema.RegisterSession(dbpool, getSessionId(dbpool, *peKey))
+	sessionId, sourcePeriodKey := getSessionId(dbpool, *peKey)
+	err = schema.RegisterSession(dbpool, sessionId, sourcePeriodKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)
 	}	
