@@ -157,6 +157,56 @@ struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>
   ReteSession * rs;
 };
 
+// AgeAsOfVisitor
+// Calculate the age (in years), typical use:  (dob age_as_of serviceDate)
+// where dob and serviceDate are date literals
+// --------------------------------------------------------------------------------------
+struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  AgeAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  AgeAsOfVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for age_as_of: ("<<lhs<<", "<<rhs<<")");};
+
+  RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
+  {
+    auto birthday = lhs.data;
+    auto asOf = rhs.data;
+    int age = asOf.year() - birthday.year();
+    if(asOf.day_of_year() < birthday.day_of_year()) age -= 1;
+    return rdf::LInt32{ age };
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
+struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  AgeInMonthsAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  AgeInMonthsAsOfVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for age_in_months_as_of: ("<<lhs<<", "<<rhs<<")");};
+
+  RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
+  {
+    auto birthday = lhs.data;
+    auto asOf = rhs.data;
+    int years = asOf.year() - birthday.year();
+    int months = 0;
+    // Add the number of months in the last year
+    if(asOf.day_of_year() <= birthday.day_of_year()) {
+      years -= 1;
+      months += asOf.month().as_number();
+    } else {
+      months += asOf.month().as_number() - birthday.month().as_number();
+    }
+    months += years * 12;
+    return rdf::LInt32{ months };
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 // ToTypeOfOperator
 // --------------------------------------------------------------------------------------
 // Visitor used by ToTypeOfOperator to determine the rhs data type (return -1 if not valid type)

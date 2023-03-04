@@ -58,6 +58,10 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
   if(op == "lookup")            return create_expr_binary_operator<LookupVisitor>(key, lhs, rhs);
   if(op == "multi_lookup")      return create_expr_binary_operator<MultiLookupVisitor>(key, lhs, rhs);
 
+  // Utility operators (in expr_op_others.h)
+  if(op == "age_as_of")            return create_expr_binary_operator<AgeAsOfVisitor>(key, lhs, rhs);
+  if(op == "age_in_months_as_of")  return create_expr_binary_operator<AgeInMonthsAsOfVisitor>(key, lhs, rhs);
+
   // //* TODO FIX ME to_type_of operator
   // // Cast operators (in expr_op_others.h)
   // if(op == "to_type_of")        return create_expr_binary_operator<ToTypeOfOperator>(key, lhs, rhs);

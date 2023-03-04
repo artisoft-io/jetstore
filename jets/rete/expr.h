@@ -22,7 +22,7 @@
 //  - object compoent of consequent terms.
 // These classes are designed with consideration of expression evaluation speed and not
 // building and manipulating the expression syntax tree.
-// The expression parsing and transformation to it's final extression tree is done in python.
+// The expression parsing and transformation to it's final extression tree is done in the rule compiler.
 namespace jets::rete {
 // //////////////////////////////////////////////////////////////////////////////////////
 // ExprBase class -- Abstract base class for an expression tree
