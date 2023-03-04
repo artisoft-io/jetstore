@@ -369,5 +369,35 @@ TEST_F(ExprOpTest, AddVisistorTest8) {
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::date(2019, 3, 6))));
 }
 
+// Tests for age_as_of and age_in_months_as_of
+TEST_F(ExprOpTest, AgeVisistorTest1) {
+  AgeAsOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::LDate lhs(rdf::date(2000, 7, 27));
+  rdf::LDate rhs(rdf::date(2020, 8, 27));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(20)));
+}
+TEST_F(ExprOpTest, AgeVisistorTest2) {
+  AgeAsOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::LDate lhs(rdf::date(2000, 7, 27));
+  rdf::LDate rhs(rdf::date(2020, 6, 27));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(19)));
+}
+TEST_F(ExprOpTest, AgeVisistorTest3) {
+  AgeInMonthsAsOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::LDate lhs(rdf::date(2000, 7, 27));
+  rdf::LDate rhs(rdf::date(2020, 9, 27));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(20*12 + 2)));
+}
+TEST_F(ExprOpTest, AgeVisistorTest4) {
+  AgeInMonthsAsOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::LDate lhs(rdf::date(2000, 7, 27));
+  rdf::LDate rhs(rdf::date(2020, 4, 27));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(19*12 + 4)));
+}
+
 }   // namespace
 }   // namespace jets::rdf
