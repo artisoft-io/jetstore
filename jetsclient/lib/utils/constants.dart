@@ -67,6 +67,7 @@ class FormKeys {
   // File Staging Area
   static const sourceConfig = "sourceConfigForm";
   static const addSourceConfig = "addSourceConfigDialog";
+  static const loadRawRows = "loadRawRowsDialog";
   static const loadFile = "loadFileDialog";
   // Input Source Mapping Forms
   static const inputSourceMapping = "inputSourceMapping";
@@ -117,6 +118,7 @@ class FSK {
   static const codeValuesMappingJson = "code_values_mapping_json";
   static const entityRdfType = "entity_rdf_type";
   static const status = "status";
+  static const rawRows = "raw_rows";
 
   // keys used for mapping
   // key for domain classes data properties
@@ -227,6 +229,7 @@ class ActionKeys {
   // for process mapping dialog
   static const mapperOk = "mapper.ok";
   static const mapperDraft = "mapper.draft";
+  static const loadRawRowsOk = "loadRawRows.Ok";
 
   // for process and rules config dialog
   static const ruleConfigOk = "ruleConfig.ok";

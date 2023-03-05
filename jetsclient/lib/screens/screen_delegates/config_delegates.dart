@@ -476,7 +476,7 @@ String? processInputFormValidator(
       entityRdfType != null) {
     if (sourceType == 'file') {
       var org = formState.getValue(group, FSK.org);
-      if(org != null) {
+      if (org != null) {
         var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType);
         if (row == null) {
           print(
@@ -499,6 +499,16 @@ String? processInputFormValidator(
   }
 
   switch (key) {
+    // Load Raw Rows
+    case FSK.rawRows:
+      if (v != null) {
+        String value = v;
+        if (value.isNotEmpty) {
+          return null;
+        }
+      }
+      return "Raw rows must be provided.";
+
     // Add/Update Process Input Dialog Validations
     case FSK.client:
       String? value = v;
@@ -697,12 +707,30 @@ Future<String?> processInputFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
+    // loadRawRows
+    case ActionKeys.loadRawRowsOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      var state = formState.getState(0);
+      // print('Load Raw Rows state: $state');
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_raw_rows',
+        'fromClauses': [
+          <String, String>{'table': 'raw_rows/process_mapping'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      return postInsertRows(context, formState, encodedJsonBody);
+      break;
+
     case ActionKeys.addProcessInputOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
         return null;
       }
-
       formState.setValue(group, FSK.userEmail, JetsRouterDelegate().user.email);
       var query = 'process_input'; // case add
       if (formState.getValue(group, FSK.key) != null) {

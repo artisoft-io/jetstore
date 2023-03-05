@@ -1423,6 +1423,12 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.tableName: FSK.tableName,
             FSK.objectType: FSK.objectType,
           }),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'loadRawRows',
+          label: 'Load Raw Rows',
+          style: ActionStyle.secondary,
+          configForm: FormKeys.loadRawRows),
     ],
     // No formStateConfig since rows are not selectable
     columns: [
