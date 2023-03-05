@@ -23,6 +23,18 @@ class JetsDataTableSource extends ChangeNotifier {
   bool get isWhereClauseSatisfiedOrDefaultToAllRows =>
       _whereClauseSatisfied || state.tableConfig.defaultToAllRows;
 
+  /// returns true if state has all keys defined
+  bool stateHasKeys(int group, List<String> keys) {
+    if (state.formState == null) {
+      return false;
+    }
+    JetsFormState fs = state.formState!;
+    for (var key in keys) {
+      if (fs.getValue(group, key) == null) return false;
+    }
+    return true;
+  }
+
   /// returns true if table has selected row(s)
   bool hasSelectedRows() {
     for (var b in selectedRows) {
@@ -249,17 +261,20 @@ class JetsDataTableSource extends ChangeNotifier {
           JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
       if (value != null) {
         whereClauses.add(<String, dynamic>{
+          'table': wc.table ?? '',
           'column': wc.column,
           'values': [value],
         });
       } else if (config == null || wc.formStateKey == null) {
         if (wc.defaultValue.isNotEmpty) {
           whereClauses.add(<String, dynamic>{
+            'table': wc.table ?? '',
             'column': wc.column,
             'values': wc.defaultValue,
           });
         } else if (wc.joinWith != null) {
           whereClauses.add(<String, dynamic>{
+            'table': wc.table ?? '',
             'column': wc.column,
             'joinWith': wc.joinWith,
           });
@@ -269,6 +284,7 @@ class JetsDataTableSource extends ChangeNotifier {
         if (values != null) {
           if (values is String?) {
             whereClauses.add(<String, dynamic>{
+              'table': wc.table ?? '',
               'column': wc.column,
               'values': [values],
             });
@@ -278,6 +294,7 @@ class JetsDataTableSource extends ChangeNotifier {
             var l = values as List<String>;
             if (l.isNotEmpty) {
               whereClauses.add(<String, dynamic>{
+                'table': wc.table ?? '',
                 'column': wc.column,
                 'values': values,
               });
@@ -286,6 +303,7 @@ class JetsDataTableSource extends ChangeNotifier {
         } else {
           if (wc.defaultValue.isNotEmpty) {
             whereClauses.add(<String, dynamic>{
+              'table': wc.table ?? '',
               'column': wc.column,
               'values': wc.defaultValue,
             });

@@ -253,10 +253,12 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     this.dropdownItemsQuery,
     this.returnedModelCacheKey,
     this.stateKeyPredicates = const [],
+    this.whereStateContains = const {},
     required this.items,
   });
   final String? dropdownItemsQuery;
   final List<String> stateKeyPredicates;
+  final Map<String, String> whereStateContains;
   // save the returned model from query and put it in the form state cache if not null
   final String? returnedModelCacheKey;
   final int defaultItemPos;
@@ -784,6 +786,27 @@ final Map<String, FormConfig> _formConfigurations = {
   ),
   // Process Input Form (table as actionless form)
   // Define ProcessInput and mapping definition
+  FormKeys.inputSourceMapping: FormConfig(
+    key: FormKeys.inputSourceMapping,
+    actions: [
+      // Action-less form
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.inputSourceMapping,
+            dataTableConfig: DTKeys.inputSourceMapping)
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.processMappingTable,
+            dataTableConfig: DTKeys.processMappingTable,
+            tableHeight: 600)
+      ],
+    ],
+  ),
+  // Process Input Form (table as actionless form)
+  // Define ProcessInput Configuration
   FormKeys.processInput: FormConfig(
     key: FormKeys.processInput,
     actions: [
@@ -793,12 +816,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormDataTableFieldConfig(
             key: DTKeys.processInputTable,
-            dataTableConfig: DTKeys.processInputTable)
-      ],
-      [
-        FormDataTableFieldConfig(
-            key: DTKeys.processMappingTable,
-            dataTableConfig: DTKeys.processMappingTable)
+            dataTableConfig: DTKeys.processInputTable,
+            tableHeight: 800)
       ],
     ],
   ),
@@ -829,33 +848,26 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
-        FormDropdownFieldConfig(
-            key: FSK.org,
-            items: [
-              DropdownItemConfig(label: 'Select an Organization'),
-              DropdownItemConfig(label: 'No Organization', value: ''),
-            ],
-            dropdownItemsQuery:
-                "SELECT org FROM jetsapi.client_org_registry WHERE client = '{client}' ORDER BY org ASC LIMIT 100",
-            stateKeyPredicates: [FSK.client]),
       ],
       [
         FormDropdownFieldConfig(
             key: FSK.objectType,
             returnedModelCacheKey: FSK.objectTypeRegistryCache,
             items: [
-              DropdownItemConfig(label: 'Select an Object Type'),
+              DropdownItemConfig(label: 'Select an Pipeline Main Object Type'),
             ],
             dropdownItemsQuery:
                 "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
+      ],
+      [
         FormDropdownFieldConfig(
-            key: FSK.sourceType,
+            key: FSK.entityRdfType,
             items: [
-              DropdownItemConfig(label: 'Select a Source Type'),
-              DropdownItemConfig(label: 'File', value: 'file'),
-              DropdownItemConfig(label: 'Domain Table', value: 'domain_table'),
+              DropdownItemConfig(label: 'Select a Domain Class'),
             ],
-            defaultItemPos: 0),
+            dropdownItemsQuery:
+                "SELECT entity_rdf_type FROM jetsapi.object_type_registry ORDER BY entity_rdf_type ASC LIMIT 100",
+            stateKeyPredicates: [FSK.objectType]),
         FormInputFieldConfig(
             key: FSK.lookbackPeriods,
             label: "Lookback Periods",
@@ -865,6 +877,26 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.digitsOnly,
             maxLength: 10),
+      ],
+      [
+        FormDropdownFieldConfig(
+            key: FSK.sourceType,
+            items: [
+              DropdownItemConfig(label: 'Select a Source Type'),
+              DropdownItemConfig(label: 'File', value: 'file'),
+              DropdownItemConfig(label: 'Domain Table', value: 'domain_table'),
+            ],
+            defaultItemPos: 0),
+        FormDropdownFieldConfig(
+            key: FSK.org,
+            items: [
+              DropdownItemConfig(label: 'Select an Organization'),
+              DropdownItemConfig(label: 'No Organization', value: ''),
+            ],
+            dropdownItemsQuery:
+                "SELECT org FROM jetsapi.client_org_registry WHERE client = '{client}' ORDER BY org ASC LIMIT 100",
+            stateKeyPredicates: [FSK.client, FSK.sourceType],
+            whereStateContains: {FSK.sourceType: 'file'}),
       ],
     ],
   ),
@@ -1140,13 +1172,9 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: DTKeys.clientsNameTable,
-            tableHeight: 320,
-            dataTableConfig: DTKeys.clientsNameTable),
-        FormDataTableFieldConfig(
-            key: DTKeys.processNameTable,
-            tableHeight: 320,
-            dataTableConfig: DTKeys.processNameTable)
+            key: DTKeys.clientsAndProcessesTableView,
+            tableHeight: 400,
+            dataTableConfig: DTKeys.clientsAndProcessesTableView),
       ],
       [
         // Instruction
@@ -1190,6 +1218,15 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDropdownFieldConfig(
+            key: FSK.client,
+            items: [
+              DropdownItemConfig(label: 'Select a Client'),
+            ],
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+      ],
+      [
+        FormDropdownFieldConfig(
             key: FSK.processName,
             returnedModelCacheKey: FSK.processConfigCache,
             items: [
@@ -1197,13 +1234,6 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             dropdownItemsQuery:
                 "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"),
-        FormDropdownFieldConfig(
-            key: FSK.client,
-            items: [
-              DropdownItemConfig(label: 'Select a Client'),
-            ],
-            dropdownItemsQuery:
-                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
       ],
       [
         PaddingConfig(height: defaultPadding),
@@ -1228,6 +1258,8 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             flex: 1,
             defaultItemPos: 0),
+      ],
+      [
         FormInputFieldConfig(
             key: FSK.description,
             label: "Description",

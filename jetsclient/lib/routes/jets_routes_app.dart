@@ -17,6 +17,7 @@ const PARAM_CHAR = ':';
 const homePath = '/';
 const clientAdminPath = '/clientAdmin';
 const sourceConfigPath = '/sourceConfig';
+const inputSourceMappingPath = '/inputSourceMapping';
 const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table/:session_id';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
@@ -58,7 +59,16 @@ final Map<String, Widget> jetsRoutesMap = {
       formValidatorDelegate: sourceConfigValidator,
       formActionsDelegate: sourceConfigActions),
 
-  // Process Input and Mapping
+  // Input Source Mapping
+  inputSourceMappingPath: ScreenWithForm(
+      key: const Key(ScreenKeys.inputSourceMapping),
+      screenPath: JetsRouteData(inputSourceMappingPath),
+      screenConfig: getScreenConfig(ScreenKeys.inputSourceMapping),
+      formConfig: getFormConfig(FormKeys.inputSourceMapping),
+      formValidatorDelegate: processInputFormValidator,
+      formActionsDelegate: processInputFormActions),
+
+  // Process Input
   processInputPath: ScreenWithForm(
       key: const Key(ScreenKeys.processInput),
       screenPath: JetsRouteData(processInputPath),
