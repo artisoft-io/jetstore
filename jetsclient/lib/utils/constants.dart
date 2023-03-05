@@ -41,6 +41,7 @@ class ScreenKeys {
   static const clientAdmin = "clientAdminScreen";
   static const sourceConfig = "sourceConfigScreen";
   static const domainTableViewer = "domainTableViewerScreen";
+  static const inputSourceMapping = "inputSourceMappingScreen";
   static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
   static const pipelineConfig = "pipelineConfigScreen";
@@ -67,10 +68,12 @@ class FormKeys {
   static const sourceConfig = "sourceConfigForm";
   static const addSourceConfig = "addSourceConfigDialog";
   static const loadFile = "loadFileDialog";
+  // Input Source Mapping Forms
+  static const inputSourceMapping = "inputSourceMapping";
+  static const processMapping = "processMappingDialog";
   // Process Input Forms
   static const processInput = "processInputForm";
   static const addProcessInput = "addProcessInputDialog";
-  static const processMapping = "processMappingDialog";
   // Process Config Forms
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
@@ -203,13 +206,13 @@ class ActionKeys {
   static const dialogCancel = "dialog.cancelAction";
   static const toggleUserActive = "toggleUserActive";
   static const deleteUser = "deleteUser";
-  
+
   // for Client & Org Admin dialog
   static const clientOk = "client.ok";
   static const orgOk = "org.ok";
   static const deleteClient = "deleteClientAction";
   static const deleteOrg = "deleteOrgAction";
-  
+
   // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
 
@@ -260,7 +263,7 @@ class DTKeys {
   // Client & Organization Admin DT
   static const clientAdminTable = "clientAdminTable";
   static const orgNameTable = "orgNameTable";
-  
+
   // File Staging Area / Source Config DT
   static const sourceConfigTable = "sourceConfigTable";
   static const fileKeyStagingTable = "fileKeyStagingTable";
@@ -268,19 +271,21 @@ class DTKeys {
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
 
-  // Process Input & Mapping DT
+  // Input Source Mapping DT
+  static const inputSourceMapping = "inputSourceMapping";
+
+  // Process Input Configuration DT
   static const processInputTable = "processInputTable";
   static const processMappingTable = "processMappingTable";
 
-  // Process and Rules Config DT
-  static const processNameTable = "processNameTable";
-  static const clientsNameTable = "clientsNameTable";
-  static const processConfigTable = "processConfigTable";
+  // Rules Config DT
   static const ruleConfigTable = "ruleConfigTable";
+  static const clientsAndProcessesTableView = "clientsAndProcessesTableView";
 
   // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
-  static const fileKeyStagingForPipelineMainProcessInput = "fileKeyStagingForPipelineMainProcessInput";
+  static const fileKeyStagingForPipelineMainProcessInput =
+      "fileKeyStagingForPipelineMainProcessInput";
   // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";
 
   // User administration

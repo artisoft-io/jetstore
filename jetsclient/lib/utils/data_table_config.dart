@@ -65,6 +65,9 @@ enum DataTableActionType {
 /// case isEnabledWhenWhereClauseSatisfied == false, action enabled when where clause fails (perhaps to have a 'show all rows' option)
 /// case isEnabledWhenWhereClauseSatisfied == true, action enabled when where clause exists and is satisfied
 ///
+/// case isEnabledWhenStateHasKeys is null, action always enabled when visible (unless other conditions exists)
+/// case isEnabledWhenStateHasKeys != null, action enabled when dataTable state has all keys in isEnabledWhenStateHasKeys defined
+///
 /// [navigationParams] hold param information for:
 ///   - navigating to a screen (action type showScreen) with key corresponding
 ///     to the key to provide to navigator's param
@@ -89,24 +92,28 @@ class ActionConfig {
       this.isVisibleWhenCheckboxVisible,
       this.isEnabledWhenHavingSelectedRows,
       this.isEnabledWhenWhereClauseSatisfied,
+      this.isEnabledWhenStateHasKeys,
       this.navigationParams,
       this.stateFormNavigationParams,
       required this.style,
       this.configForm,
       this.configScreenPath,
-      this.actionName});
+      this.actionName,
+      this.stateGroup = 0});
   final DataTableActionType actionType;
   final String key;
   final String label;
   final bool? isVisibleWhenCheckboxVisible;
   final bool? isEnabledWhenHavingSelectedRows;
   final bool? isEnabledWhenWhereClauseSatisfied;
+  final List<String>? isEnabledWhenStateHasKeys;
   final Map<String, dynamic>? navigationParams;
   final Map<String, String>? stateFormNavigationParams;
   final ActionStyle style;
   final String? configForm;
   final String? configScreenPath;
   final String? actionName;
+  final int stateGroup;
 
   /// returns true if action button is visible
   bool isVisible(JetsDataTableState widgetState) {
@@ -125,6 +132,10 @@ class ActionConfig {
     if (isEnabledWhenWhereClauseSatisfied != null) {
       return isEnabledWhenWhereClauseSatisfied ==
           widgetState.dataSource.isWhereClauseSatisfiedOrDefaultToAllRows;
+    }
+    if (isEnabledWhenStateHasKeys != null) {
+      return widgetState.dataSource
+          .stateHasKeys(stateGroup, isEnabledWhenStateHasKeys!);
     }
     return true;
   }
@@ -164,11 +175,13 @@ class FromClause {
 
 class WhereClause {
   WhereClause({
+    this.table,
     required this.column,
     this.formStateKey,
     this.defaultValue = const [],
     this.joinWith,
   });
+  final String? table;
   final String column;
   final String? formStateKey;
   final List<String> defaultValue;
@@ -298,16 +311,15 @@ final processInputColumns = [
   ColumnConfig(
       index: 3,
       name: "object_type",
-      label: 'Object Type',
-      tooltips: 'Type of objects in file',
+      label: 'Main Object Type',
+      tooltips: 'Pipeline Main Object Type',
       isNumeric: false),
   ColumnConfig(
       index: 4,
-      name: "table_name",
-      label: 'Table Name',
-      tooltips: 'Table where the file was loaded',
-      isNumeric: false,
-      isHidden: false),
+      name: "entity_rdf_type",
+      label: 'Domain Class',
+      tooltips: 'Canonical model for the source data',
+      isNumeric: false),
   ColumnConfig(
       index: 5,
       name: "source_type",
@@ -316,30 +328,25 @@ final processInputColumns = [
       isNumeric: false),
   ColumnConfig(
       index: 6,
+      name: "table_name",
+      label: 'Table Name',
+      tooltips: 'Table where the data reside',
+      isNumeric: false,
+      isHidden: false),
+  ColumnConfig(
+      index: 7,
       name: "lookback_periods",
       label: 'Lookback Periods',
       tooltips: 'Number of periods included in the rule session',
       isNumeric: true),
   ColumnConfig(
-      index: 7,
-      name: "entity_rdf_type",
-      label: 'Domain Class',
-      tooltips: 'Canonical model for the Object Type',
-      isNumeric: false),
-  ColumnConfig(
       index: 8,
-      name: "status",
-      label: 'Status',
-      tooltips: "Status of the Process Input and it's mapping",
-      isNumeric: false),
-  ColumnConfig(
-      index: 9,
       name: "user_email",
       label: 'User',
       tooltips: 'Who created the record',
       isNumeric: false),
   ColumnConfig(
-      index: 10,
+      index: 9,
       name: "last_update",
       label: 'Loaded At',
       tooltips: 'Indicates when the record was created',
@@ -714,7 +721,8 @@ final Map<String, TableConfig> _tableConfigurations = {
   DTKeys.pipelineExecDetailsTable: TableConfig(
     key: DTKeys.pipelineExecDetailsTable,
     fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'pipeline_execution_details'),
+      FromClause(
+          schemaName: 'jetsapi', tableName: 'pipeline_execution_details'),
       FromClause(schemaName: 'jetsapi', tableName: 'source_period')
     ],
     label: 'Pipeline Execution Details',
@@ -1029,12 +1037,13 @@ final Map<String, TableConfig> _tableConfigurations = {
   ),
 
   // Client Name Table used for Process & Rules Config form
-  DTKeys.clientsNameTable: TableConfig(
-    key: DTKeys.clientsNameTable,
+  DTKeys.clientsAndProcessesTableView: TableConfig(
+    key: DTKeys.clientsAndProcessesTableView,
     fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'client_registry')
+      FromClause(schemaName: 'jetsapi', tableName: 'client_registry'),
+      FromClause(schemaName: 'jetsapi', tableName: 'process_config'),
     ],
-    label: 'Clients',
+    label: 'Client Rules Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -1044,6 +1053,14 @@ final Map<String, TableConfig> _tableConfigurations = {
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.client,
         columnIdx: 0,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.processConfigKey,
+        columnIdx: 1,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.processName,
+        columnIdx: 2,
       ),
     ]),
     columns: [
@@ -1055,56 +1072,27 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 1,
-          name: "details",
-          label: 'Client details',
-          tooltips: '',
-          isNumeric: false),
-    ],
-    sortColumnName: 'client',
-    sortAscending: true,
-    rowsPerPage: 10,
-  ),
-
-  // Process Name Table
-  DTKeys.processNameTable: TableConfig(
-    key: DTKeys.processNameTable,
-    fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'process_config')
-    ],
-    label: 'Rule Processes',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
-    whereClauses: [],
-    actions: [],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.processName,
-        columnIdx: 1,
-      ),
-    ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
+          table: "process_config",
           name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
+          label: 'Process Config Key',
+          tooltips: '',
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
-          index: 1,
+          index: 2,
           name: "process_name",
           label: 'Process Name',
           tooltips: 'Business Rules Process name',
           isNumeric: false),
       ColumnConfig(
-          index: 2,
+          index: 3,
+          table: "process_config",
           name: "description",
           label: 'Process description',
           tooltips: '',
           isNumeric: false),
     ],
-    sortColumnName: 'process_name',
+    sortColumnName: 'client',
     sortAscending: true,
     rowsPerPage: 10,
   ),
@@ -1158,13 +1146,94 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Input Source Mapping: use Source Config to select table
+  DTKeys.inputSourceMapping: TableConfig(
+    key: DTKeys.inputSourceMapping,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'source_config'),
+      FromClause(schemaName: 'jetsapi', tableName: 'object_type_registry'),
+    ],
+    label: 'Input Sources',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(
+          table: "source_config",
+          column: "object_type",
+          joinWith: "object_type_registry.object_type"),
+    ],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.objectType,
+        columnIdx: 3,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.tableName,
+        columnIdx: 4,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "org",
+          label: 'Organization',
+          tooltips: 'Client' 's organization',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "object_type",
+          table: "source_config",
+          label: 'Object Type',
+          tooltips: 'Type of objects in file',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where to load the file',
+          isNumeric: false,
+          isHidden: false),
+      ColumnConfig(
+          index: 5,
+          name: "entity_rdf_type",
+          label: 'Domain Class',
+          tooltips: 'rdf:type of the Domain Class',
+          isNumeric: false,
+          isHidden: false),
+      ColumnConfig(
+          index: 6,
+          name: "last_update",
+          label: 'Last Updated',
+          tooltips: 'Indicates when the record was last updated',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
   // Process Input Data Table
   DTKeys.processInputTable: TableConfig(
     key: DTKeys.processInputTable,
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_input'),
     ],
-    label: 'Process Input',
+    label: 'Process Input Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -1173,7 +1242,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'addProcessInput',
-          label: 'Add/Update Process Input',
+          label: 'Add/Update Process Input Configuration',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
@@ -1183,27 +1252,15 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.client: 1,
             FSK.org: 2,
             FSK.objectType: 3,
+            FSK.entityRdfType: 4,
             FSK.sourceType: 5,
-            FSK.lookbackPeriods:6,
-          }),
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'configureMapping',
-          label: 'Configure Mapping',
-          style: ActionStyle.secondary,
-          isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: true,
-          configForm: FormKeys.processMapping,
-          navigationParams: {
-            FSK.tableName: 4,
-            FSK.processInputKey: 0,
-            FSK.objectType: 3
+            FSK.lookbackPeriods: 7,
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.tableName,
-        columnIdx: 4,
+        columnIdx: 6,
       ),
     ]),
     columns: processInputColumns,
@@ -1315,7 +1372,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 7,
           name: "code_values_mapping_json",
           label: 'Code Value Mapping (json)',
-          tooltips: 'Client-specific code values mapping to canonical codes (json-encoded string)',
+          tooltips:
+              'Client-specific code values mapping to canonical codes (json-encoded string)',
           isNumeric: false,
           maxLines: 3,
           columnWidth: 600),
@@ -1343,14 +1401,29 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_mapping')
     ],
-    label: 'Process Input Mapping',
+    label: 'Input Source Mapping',
     apiPath: '/dataTable',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(column: "table_name", formStateKey: FSK.tableName)
     ],
-    actions: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'configureMapping',
+          label: 'Configure Mapping',
+          style: ActionStyle.primary,
+          isEnabledWhenStateHasKeys: [
+            FSK.tableName,
+            FSK.objectType,
+          ],
+          configForm: FormKeys.processMapping,
+          stateFormNavigationParams: {
+            FSK.tableName: FSK.tableName,
+            FSK.objectType: FSK.objectType,
+          }),
+    ],
     // No formStateConfig since rows are not selectable
     columns: [
       ColumnConfig(
@@ -1446,7 +1519,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenWhereClauseSatisfied: true,
           configForm: FormKeys.rulesConfig,
           stateFormNavigationParams: {
-            FSK.processConfigKey: DTKeys.processNameTable,
+            FSK.processConfigKey: FSK.processConfigKey,
             FSK.client: FSK.client,
             FSK.processName: FSK.processName
           }),
@@ -1679,6 +1752,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: false,
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
     ],
     actions: [],
     formStateConfig:
@@ -1799,7 +1873,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: true,
     whereClauses: [],
     actions: [],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
@@ -1888,7 +1963,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(column: "source_type", formStateKey: FSK.mainSourceType),
-      WhereClause(column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
+      WhereClause(
+          column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
     actions: [],
@@ -1918,13 +1994,13 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
-      WhereClause(column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
+      WhereClause(
+          column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.org, columnIdx: 2),
+      DataTableFormStateOtherColumnConfig(stateKey: FSK.org, columnIdx: 2),
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainInputFileKey, columnIdx: 4),
     ]),
@@ -1950,7 +2026,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(column: "source_type", formStateKey: FSK.mainSourceType),
-      WhereClause(column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
+      WhereClause(
+          column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
     actions: [],

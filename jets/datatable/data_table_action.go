@@ -136,7 +136,11 @@ func (dtq *DataTableAction) makeWhereClause() string {
 			buf.WriteString(" AND ")
 		}
 		isFirst = false
-		buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Column}.Sanitize())
+		if dtq.WhereClauses[i].Table != "" {
+			buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Table, dtq.WhereClauses[i].Column}.Sanitize())
+		} else {
+			buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Column}.Sanitize())
+		}
 		switch {
 		case len(dtq.WhereClauses[i].JoinWith) > 0:
 			buf.WriteString(" = ")
@@ -638,8 +642,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 // utility method
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
-	//*
-	// fmt.Println("*** UI Query:", *query)
+	// *
+	fmt.Println("*** UI Query:", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
