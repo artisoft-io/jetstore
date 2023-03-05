@@ -784,6 +784,47 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
   ),
+  // loadRawRows - Dialog to load / replace process mapping
+  FormKeys.loadRawRows: FormConfig(
+    key: FormKeys.loadRawRows,
+    title: "Load Raw Source Mapping",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.loadRawRowsOk,
+          label: "Save",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        // Instruction
+        TextFieldConfig(
+            label: "Enter the Mapping Definition as csv/tsv-encoded text.",
+            maxLines: 3,
+            topMargin: defaultPadding,
+            bottomMargin: defaultPadding)
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.rawRows,
+            label: "Raw Source Mapping (csv/tsv)",
+            hint: "Pastefrom spreadsheet using JetStore template",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 15,
+            maxLength: 51200),
+      ],
+    ],
+  ),
   // Process Input Form (table as actionless form)
   // Define ProcessInput and mapping definition
   FormKeys.inputSourceMapping: FormConfig(

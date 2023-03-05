@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
+
 	// "io/fs"
 	"log"
 	"net/http"
@@ -14,6 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
 	// "time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -249,6 +253,156 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 		"result_map": resultMap,
 	}
 	httpStatus = http.StatusOK
+	return
+}
+
+type chartype rune
+func DetectDelimiter(buf []byte) (sep_flag chartype, err error) {
+	// auto detect the separator based on the first line
+	nb := len(buf)
+	if nb > 2048 {
+		nb = 2048
+	}
+	txt := string(buf[0:nb])
+	cn := strings.Count(txt, ",")
+	pn := strings.Count(txt, "|")
+	tn := strings.Count(txt, "\t")
+	switch {
+	case (cn > pn) && (cn > tn):
+		sep_flag = ','
+	case (pn > cn) && (pn > tn):
+		sep_flag = '|'
+	case (tn > cn) && (tn > pn):
+		sep_flag = '\t'
+	default:
+		return 0, fmt.Errorf("error: cannot determine the csv-delimit used in buf")
+	}
+	return
+}
+
+
+// InsertRawRows ------------------------------------------------------
+// Insert row function using a raw text buffer containing cst/tsv rows
+// Delegates to InsertRows
+func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	// Copy Data so to re-use dataTableAction with different sets of Data
+	requestTable := dataTableAction.FromClauses[0].Table
+	inData := &dataTableAction.Data
+	for irow := range *inData {
+
+		buf := (*inData)[irow]["raw_rows"]
+		userEmail := (*inData)[irow]["user_email"];
+		if buf == nil || userEmail == nil {
+			log.Printf("Error request is missing raw_rows or user_email from request with Table %s", requestTable)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while reading raw_rows from request")
+			return
+		}
+		var byteBuf []byte
+		switch bb := buf.(type) {
+		case string:
+			// Got raw_rows -- convert to list of rows
+			byteBuf = []byte(bb)
+		case []byte:
+			byteBuf = bb
+		default:
+			log.Printf("Error raw_rows is invalid type")
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while reading raw_rows from request")
+			return
+		}
+		// byteBuf as the raw_rows
+		var sepFlag chartype
+		sepFlag, err = DetectDelimiter(byteBuf)
+		if err != nil {
+			log.Printf("Error while detecting delimiters for raw_rows: %v",err)
+			httpStatus = http.StatusBadRequest
+			err = errors.New("error while detecting delimiters for raw_rows")
+			return
+		}
+		r := csv.NewReader(bytes.NewReader(byteBuf))
+		r.Comma = rune(sepFlag)
+		// r.ReuseRecord = true
+		headers, err2 := r.Read()
+		if err2 == io.EOF {
+			log.Printf("Error raw_rows contain no data")
+			httpStatus = http.StatusBadRequest
+			err = errors.New("error, raw_rows from request contain no data")
+			return
+		}
+		// Put the parsed row as elm back in dataTableAction.Data
+		dataTableAction.Data = make([]map[string]interface{}, 0)
+		for {
+			record, err2 := r.Read()
+			if err2 == io.EOF {
+				break
+			}
+			if err2 != nil {
+				log.Printf("Error parsing raw_rows: %v",err2)
+				httpStatus = http.StatusBadRequest
+				err = fmt.Errorf("error while parsing raw_rows: %v", err2)
+				return
+			}
+			row := make(map[string]interface{})
+			for i := range headers {
+				if record[i] == "" {
+					row[headers[i]] = nil
+				} else {
+					row[headers[i]] = record[i]
+				}
+			}
+			row["user_email"] = userEmail
+			dataTableAction.Data = append(dataTableAction.Data, row)
+		}
+		if len(dataTableAction.Data) == 0 {
+			log.Printf("Error raw_rows contain no data (2)")
+			httpStatus = http.StatusBadRequest
+			err = errors.New("error, raw_rows from request contain no data")
+			return
+		}
+
+		// Pre-Processing hook
+		switch requestTable {
+		case "raw_rows/process_mapping":
+			// Put the table name in each row
+			var tableName string
+			client := dataTableAction.Data[0]["client"]
+			org := dataTableAction.Data[0]["org"]
+			objectType := dataTableAction.Data[0]["object_type"]
+			if client != nil && objectType != nil {
+				if org == nil || org == "" {
+					tableName = fmt.Sprintf("%s_%s",client, objectType)
+				} else {
+					tableName = fmt.Sprintf("%s_%s_%s",client, org, objectType)
+				}
+				if tableName != "" {
+					for irow := range dataTableAction.Data {
+						dataTableAction.Data[irow]["table_name"] = tableName
+					}
+				}	
+			}
+			if tableName == "" {
+				tableName = dataTableAction.Data[0]["table_name"].(string)
+			}
+			// Remove existing rows in database
+			stmt :=  `DELETE FROM jetsapi.process_mapping 
+			WHERE table_name = $1`
+			_, err = ctx.dbpool.Exec(context.Background(), stmt, tableName)
+			if err != nil {
+				log.Printf("Error while deleting from process_mapping: %v",err)
+				httpStatus = http.StatusBadRequest
+				return
+			}		
+			dataTableAction.FromClauses[0].Table = "process_mapping"
+		}
+		// send it through InsertRow
+		results, httpStatus, err = ctx.InsertRows(dataTableAction, token)
+		if err != nil {
+			log.Printf("while calling InsertRows: %v", err)
+			return
+		}
+	}
 	return
 }
 

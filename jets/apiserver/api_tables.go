@@ -40,6 +40,8 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.ExecRawQuery(&dataTableAction)
 	case "raw_query_map":
 		results, code, err = context.ExecRawQueryMap(&dataTableAction)
+	case "insert_raw_rows":
+		results, code, err = context.InsertRawRows(&dataTableAction, user.ExtractToken(r))
 	case "insert_rows":
 		results, code, err = context.InsertRows(&dataTableAction, user.ExtractToken(r))
 	case "read":
