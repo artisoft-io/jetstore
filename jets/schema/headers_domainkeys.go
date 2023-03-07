@@ -200,6 +200,13 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 		default:
 			fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
 		}
+	} else {
+		// No domain key info json provided, use jets:key as domain key
+		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
+			ColumnNames: []string{"jets:key"},
+			ObjectType: mainObjectType,
+		}
+
 	}
 
 	// Complete the reserved columns by adding the domain keys
@@ -283,7 +290,8 @@ func (dkInfo *HeadersAndDomainKeysInfo)IsDomainKeyIsJetsKey(objectType *string) 
 func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, jetsKey *string) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {
-		return "", 0, fmt.Errorf("unexpected error: no domain key info found for objecttype %s", *objectType)
+		groupingKey := *jetsKey
+		return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
 	}
 	if len(dk.ColumnPos) == 1 {
 		if dk.ColumnNames[0] == "jets:key" {

@@ -92,7 +92,7 @@
       "antecedents": [
         {
           "type": "Antecedent",
-          "isNot": "false",
+          "isNot": false,
           "ruleNode": [
             {
               "type": "var",
