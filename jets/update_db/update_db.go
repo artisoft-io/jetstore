@@ -193,10 +193,10 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
-	if *dropExisting && !*initWorkspaceDb {
-		hasErr = true
-		errMsg = append(errMsg, "When droping all tables (-drop) must also run the workspace db initialization script (-initWorkspaceDb).")
-	}
+	// if *dropExisting && !*initWorkspaceDb {
+	// 	hasErr = true
+	// 	errMsg = append(errMsg, "When droping all tables (-drop) must also run the workspace db initialization script (-initWorkspaceDb).")
+	// }
 	if *jetsapiDbInitPath == "" {
 		*jetsapiDbInitPath = os.Getenv(("JETSAPI_DB_INIT_PATH"))
 	}
@@ -233,7 +233,7 @@ func main() {
 	log.Println("ENV JETSAPI_DB_INIT_PATH:", os.Getenv("JETSAPI_DB_INIT_PATH"))
 	log.Println("ENV WORKSPACE_DB_PATH:", os.Getenv("WORKSPACE_DB_PATH"))
 	if *dropExisting {
-		log.Println("WARNING Tables will be dropped and recreated, must run the workspace db init script.")		
+		log.Println("WARNING Domain Tables will be dropped and recreated.")		
 	}
 	for tableName, extColumns := range extTables {
 		log.Println("Table:", tableName, "Extended Columns:", strings.Join(extColumns, ","))

@@ -41,6 +41,7 @@ class ScreenKeys {
   static const clientAdmin = "clientAdminScreen";
   static const sourceConfig = "sourceConfigScreen";
   static const domainTableViewer = "domainTableViewerScreen";
+  static const inputSourceMapping = "inputSourceMappingScreen";
   static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
   static const pipelineConfig = "pipelineConfigScreen";
@@ -66,11 +67,14 @@ class FormKeys {
   // File Staging Area
   static const sourceConfig = "sourceConfigForm";
   static const addSourceConfig = "addSourceConfigDialog";
+  static const loadRawRows = "loadRawRowsDialog";
   static const loadFile = "loadFileDialog";
+  // Input Source Mapping Forms
+  static const inputSourceMapping = "inputSourceMapping";
+  static const processMapping = "processMappingDialog";
   // Process Input Forms
   static const processInput = "processInputForm";
   static const addProcessInput = "addProcessInputDialog";
-  static const processMapping = "processMappingDialog";
   // Process Config Forms
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
@@ -114,6 +118,7 @@ class FSK {
   static const codeValuesMappingJson = "code_values_mapping_json";
   static const entityRdfType = "entity_rdf_type";
   static const status = "status";
+  static const rawRows = "raw_rows";
 
   // keys used for mapping
   // key for domain classes data properties
@@ -203,15 +208,15 @@ class ActionKeys {
   static const dialogCancel = "dialog.cancelAction";
   static const toggleUserActive = "toggleUserActive";
   static const deleteUser = "deleteUser";
-  
+
   // for Client & Org Admin dialog
   static const clientOk = "client.ok";
   static const orgOk = "org.ok";
   static const deleteClient = "deleteClientAction";
   static const deleteOrg = "deleteOrgAction";
   static const exportClientConfig = "exportClientConfig";
-  
-  // for Source Config dialog
+
+// for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
 
   // for load file
@@ -225,6 +230,7 @@ class ActionKeys {
   // for process mapping dialog
   static const mapperOk = "mapper.ok";
   static const mapperDraft = "mapper.draft";
+  static const loadRawRowsOk = "loadRawRows.Ok";
 
   // for process and rules config dialog
   static const ruleConfigOk = "ruleConfig.ok";
@@ -261,7 +267,7 @@ class DTKeys {
   // Client & Organization Admin DT
   static const clientAdminTable = "clientAdminTable";
   static const orgNameTable = "orgNameTable";
-  
+
   // File Staging Area / Source Config DT
   static const sourceConfigTable = "sourceConfigTable";
   static const fileKeyStagingTable = "fileKeyStagingTable";
@@ -269,19 +275,21 @@ class DTKeys {
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
 
-  // Process Input & Mapping DT
+  // Input Source Mapping DT
+  static const inputSourceMapping = "inputSourceMapping";
+
+  // Process Input Configuration DT
   static const processInputTable = "processInputTable";
   static const processMappingTable = "processMappingTable";
 
-  // Process and Rules Config DT
-  static const processNameTable = "processNameTable";
-  static const clientsNameTable = "clientsNameTable";
-  static const processConfigTable = "processConfigTable";
+  // Rules Config DT
   static const ruleConfigTable = "ruleConfigTable";
+  static const clientsAndProcessesTableView = "clientsAndProcessesTableView";
 
   // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
-  static const fileKeyStagingForPipelineMainProcessInput = "fileKeyStagingForPipelineMainProcessInput";
+  static const fileKeyStagingForPipelineMainProcessInput =
+      "fileKeyStagingForPipelineMainProcessInput";
   // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";
 
   // User administration

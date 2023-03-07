@@ -28,13 +28,15 @@ typedef MenuActionDelegate = void Function(BuildContext context);
 
 class MenuEntry {
   MenuEntry({
-    this.style = ActionStyle.primary,
+    this.onPageStyle = ActionStyle.primary,
+    this.otherPageStyle = ActionStyle.secondary,
     required this.key,
     required this.label,
     this.routePath,
     this.menuAction,
   });
-  final ActionStyle style;
+  final ActionStyle onPageStyle;
+  final ActionStyle otherPageStyle;
   final String key;
   final String label;
   final String? routePath;
@@ -51,24 +53,28 @@ final defaultMenuEntries = [
       label: 'File Staging Area',
       routePath: sourceConfigPath),
   MenuEntry(
+      key: 'inputSourceMapping',
+      label: 'Input Source Mapping',
+      routePath: inputSourceMappingPath),
+  MenuEntry(
       key: 'processInput',
-      label: 'Process Input & Mapping',
+      label: 'Process Input Configuration',
       routePath: processInputPath),
   MenuEntry(
       key: 'processConfig',
-      label: 'Processes & Rules Configurations',
+      label: 'Client Rules Configurations',
       routePath: processConfigPath),
   MenuEntry(
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
       routePath: pipelineConfigPath),
   MenuEntry(
-      style: ActionStyle.danger,
+      otherPageStyle: ActionStyle.danger,
       key: 'dataPurge',
       label: 'Purge Client Data',
       menuAction: purgeDataAction),
   MenuEntry(
-      style: ActionStyle.danger,
+      otherPageStyle: ActionStyle.danger,
       key: 'runInitDb',
       label: 'Run Workspace Database Initialization',
       menuAction: rerunDbInitAction),
@@ -76,17 +82,16 @@ final defaultMenuEntries = [
 
 final adminMenuEntries = [
   MenuEntry(
-      style: ActionStyle.primary,
       key: 'userAdmin',
       label: 'User Administration',
       routePath: userAdminPath),
   MenuEntry(
-      style: ActionStyle.danger,
+      otherPageStyle: ActionStyle.danger,
       key: 'dataPurge',
       label: 'Purge Client Data',
       menuAction: purgeDataAction),
   MenuEntry(
-      style: ActionStyle.danger,
+      otherPageStyle: ActionStyle.danger,
       key: 'runInitDb',
       label: 'Run Workspace Database Initialization',
       menuAction: rerunDbInitAction),
@@ -129,20 +134,29 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
 
-  // Process Input & Mapping Screen
-  ScreenKeys.processInput: ScreenConfig(
-      key: ScreenKeys.processInput,
+  // Input Source Mapping Screen
+  ScreenKeys.inputSourceMapping: ScreenConfig(
+      key: ScreenKeys.inputSourceMapping,
       appBarLabel: 'JetStore Workspace',
-      title: 'Process Input and Mapping',
+      title: 'Input Source Mapping',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
 
-  // Process Config Screen
+  // Process Input Configuration Screen
+  ScreenKeys.processInput: ScreenConfig(
+      key: ScreenKeys.processInput,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Process Input Configuration',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
+  // Rules Config Screen
   ScreenKeys.processConfig: ScreenConfig(
       key: ScreenKeys.processConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'Processes and Rules Configuration',
+      title: 'Rules Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),

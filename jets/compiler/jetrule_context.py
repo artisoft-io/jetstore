@@ -213,6 +213,7 @@ class JetRuleContext:
     self.predefined_resources.add('jets:lookup_row')
     self.predefined_resources.add('jets:loop')
     self.predefined_resources.add('jets:State')
+    self.predefined_resources.add('jets:source_period_sequence')
     self.predefined_resources.add('jets:value_property')
     self.predefined_resources.add('owl:AllDifferent')
     self.predefined_resources.add('owl:AllDisjointClasses')

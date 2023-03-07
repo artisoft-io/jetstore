@@ -85,8 +85,8 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 
 	// Clear and rebuild the domain table using the update_db command line
 	// Also migrate the system tables to latest schema and run the workspace db init script
-	log.Println("Rebuild All Tables, Running DB Initialization Script")
-	serverArgs := []string{ "-drop", "-initWorkspaceDb", "-migrateDb" }
+	log.Println("Rebuild Domain Tables")
+	serverArgs := []string{ "-migrateDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}

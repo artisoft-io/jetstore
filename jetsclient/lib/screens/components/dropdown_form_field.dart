@@ -52,7 +52,8 @@ class _JetsDropdownButtonFormFieldState
     selectedValue = widget.formState.getValue(_config.group, _config.key);
 
     if (_config.dropdownItemsQuery != null) {
-      if (_config.stateKeyPredicates.isNotEmpty) {
+      if (_config.stateKeyPredicates.isNotEmpty ||
+          _config.whereStateContains.isNotEmpty) {
         widget.formState.addListener(stateListener);
       }
       if (JetsRouterDelegate().user.isAuthenticated) {
@@ -83,7 +84,8 @@ class _JetsDropdownButtonFormFieldState
   @override
   void dispose() {
     if (_config.dropdownItemsQuery != null) {
-      if (_config.stateKeyPredicates.isNotEmpty) {
+      if (_config.stateKeyPredicates.isNotEmpty ||
+          _config.whereStateContains.isNotEmpty) {
         widget.formState.removeListener(stateListener);
       }
       JetsRouterDelegate().removeListener(navListener);
@@ -101,6 +103,28 @@ class _JetsDropdownButtonFormFieldState
     // if so ignore it otherwise we'll overite the user's
     // choice in the formState
     if (widget.formState.isKeyUpdated(_config.group, _config.key)) {
+      return;
+    }
+
+    // Check if has precondition
+    var whereMatch = true;
+    if (_config.whereStateContains.isNotEmpty) {
+      _config.whereStateContains.forEach((key, value) {
+        var stateValue = widget.formState.getValue(_config.group, key);
+        if(stateValue is List<String>) {
+          if (value != stateValue[0]) {
+            whereMatch = false;
+            return;
+          }
+        } else {
+          if (value != stateValue) {
+            whereMatch = false;
+            return;
+          }
+        }
+      });
+    }
+    if (!whereMatch) {
       return;
     }
 

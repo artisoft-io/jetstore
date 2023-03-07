@@ -86,16 +86,20 @@ void postSimpleAction(BuildContext context, JetsFormState formState,
   }
 }
 
-String makeTableName(Map<String, dynamic> state) {
-  if (state['org'].toString().isNotEmpty) {
-    return state[FSK.client] +
-        '_' +
-        state[FSK.org] +
-        '_' +
-        state[FSK.objectType];
+String makeTableName(String client, String org, String objectType) {
+  if (org.isNotEmpty) {
+    return '${client}_${org}_$objectType';
   } else {
-    return state[FSK.client] + '_' + state[FSK.objectType];
+    return '${client}_$objectType';
   }
+}
+
+String makeTableNameFromState(Map<String, dynamic> state) {
+  return makeTableName(
+    state[FSK.client],
+    state[FSK.org],
+    state[FSK.objectType],
+  );
 }
 
 /// Validation and Actions delegates for the source to pipeline config forms
@@ -188,7 +192,7 @@ Future<String?> homeFormActions(BuildContext context,
         state[FSK.org] = state[FSK.org][0];
         state['load_and_start'] = 'true';
         state['input_session_id'] = state['session_id'];
-        state['table_name'] = makeTableName(state);
+        state['table_name'] = makeTableNameFromState(state);
       } else {
         state['load_and_start'] = 'false';
       }
@@ -413,7 +417,7 @@ Future<String?> sourceConfigActions(BuildContext context,
       }
 
       state['user_email'] = JetsRouterDelegate().user.email;
-      state['table_name'] = makeTableName(state);
+      state['table_name'] = makeTableNameFromState(state);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [
@@ -488,33 +492,48 @@ String? processInputFormValidator(
   // add entity_rdf_type based on object_type
   var objectTypeRegistry =
       formState.getCacheValue(FSK.objectTypeRegistryCache) as List?;
-  var objectType = formState.getValue(0, FSK.objectType);
-  var client = formState.getValue(0, FSK.client);
-  var org = formState.getValue(0, FSK.org);
-  var sourceType = formState.getValue(0, FSK.sourceType);
-  // print("GOT $client, $objectType, $sourceType");
-
+  var client = formState.getValue(group, FSK.client);
+  var sourceType = formState.getValue(group, FSK.sourceType);
+  var entityRdfType = formState.getValue(group, FSK.entityRdfType);
   if (objectTypeRegistry != null &&
-      objectType != null &&
       client != null &&
-      org != null &&
-      sourceType != null) {
-    var row = objectTypeRegistry.firstWhere((e) => e[0] == objectType);
-    if (row == null) {
-      print(
-          "processInputFormActions error: can't find object_type in objectTypeRegistry");
+      sourceType != null &&
+      entityRdfType != null) {
+    if (sourceType == 'file') {
+      var org = formState.getValue(group, FSK.org);
+      if (org != null) {
+        var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType);
+        if (row == null) {
+          print(
+              "processInputFormActions error: can't find object_type in objectTypeRegistry");
+        } else {
+          // add table_name to form state based on source_type of domain class (rdf:type)
+          String tableName = makeTableName(client, org, row[0]);
+          if (formState.getValue(0, FSK.tableName) != tableName) {
+            // print("SET AND NOTIFY TABLENAME $tableName");
+            formState.setValueAndNotify(0, FSK.tableName, tableName);
+          }
+        }
+      }
     } else {
-      formState.setValue(0, FSK.entityRdfType, row[1]);
-      // add table_name to form state based on source_type
-      String tableName = makeTableName(formState.getState(0));
-      if (formState.getValue(0, FSK.tableName) != tableName) {
-        // print("SET AND NOTIFY TABLENAME $tableName");
-        formState.setValueAndNotify(0, FSK.tableName, tableName);
+      // sourceType == 'domain_table', table name is same as edf:type
+      if (formState.getValue(group, FSK.tableName) != entityRdfType) {
+        formState.setValueAndNotify(group, FSK.tableName, entityRdfType);
       }
     }
   }
 
   switch (key) {
+    // Load Raw Rows
+    case FSK.rawRows:
+      if (v != null) {
+        String value = v;
+        if (value.isNotEmpty) {
+          return null;
+        }
+      }
+      return "Raw rows must be provided.";
+
     // Add/Update Process Input Dialog Validations
     case FSK.client:
       String? value = v;
@@ -524,6 +543,10 @@ String? processInputFormValidator(
       return "Client name must be provided.";
     case FSK.org:
       if (v != null) {
+        return null;
+      }
+      var sourceType = formState.getValue(group, FSK.sourceType) as String?;
+      if (sourceType == null || sourceType != 'file') {
         return null;
       }
       return "Organization must be selected.";
@@ -540,6 +563,12 @@ String? processInputFormValidator(
         return null;
       }
       return "Source Type name must be selected.";
+    case FSK.entityRdfType:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Domain Class name must be selected.";
     case FSK.lookbackPeriods:
       String? value = v;
       if (value != null && value.characters.isNotEmpty) {
@@ -703,16 +732,39 @@ Future<String?> processInputFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
+    // loadRawRows
+    case ActionKeys.loadRawRowsOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      var state = formState.getState(0);
+      // print('Load Raw Rows state: $state');
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_raw_rows',
+        'fromClauses': [
+          <String, String>{'table': 'raw_rows/process_mapping'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      return postInsertRows(context, formState, encodedJsonBody);
+      break;
+
     case ActionKeys.addProcessInputOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
         return null;
       }
-
-      formState.setValue(0, FSK.userEmail, JetsRouterDelegate().user.email);
+      formState.setValue(group, FSK.userEmail, JetsRouterDelegate().user.email);
       var query = 'process_input'; // case add
-      if (formState.getValue(0, FSK.key) != null) {
+      if (formState.getValue(group, FSK.key) != null) {
         query = 'update2/process_input';
+      }
+      var sourceType = formState.getValue(group, FSK.sourceType) as String?;
+      if (sourceType == null) return null;
+      if (sourceType != 'file') {
+        formState.setValue(group, FSK.org, '');
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
@@ -727,20 +779,17 @@ Future<String?> processInputFormActions(BuildContext context,
     // Process Mapping Dialog
     case ActionKeys.mapperOk:
     case ActionKeys.mapperDraft:
-      var processInputStatus = 'saved as draft';
       if (actionKey == ActionKeys.mapperOk) {
-        processInputStatus = 'configured';
         if (!formState.isFormValid()) {
           return null;
         }
       }
       // Insert rows to process_mapping, if successful update process_input.status
-      var tableName = formState.getValue(0, FSK.tableName);
-      var processInputKey = formState.getValue(0, FSK.processInputKey);
-      if (tableName == null || processInputKey == null) {
+      var tableName = formState.getValue(group, FSK.tableName);
+      if (tableName == null) {
         print(
-            "processInputFormActions error: save mapping - table_name or process_input.key is null");
-        return "processInputFormActions error: save mapping - table_name or process_input.key is null";
+            "processInputFormActions error: save mapping - table_name is null");
+        return "processInputFormActions error: save mapping - table_name is null";
       }
       for (var i = 0; i < formState.groupCount; i++) {
         formState.setValue(i, FSK.tableName, tableName);
@@ -786,21 +835,23 @@ Future<String?> processInputFormActions(BuildContext context,
           encodedJsonBody: encodedJsonBody);
 
       if (result.statusCode == 200) {
-        // insert successfull, update process_input status
-        var encodedJsonBody = jsonEncode(<String, dynamic>{
-          'action': 'insert_rows',
-          'fromClauses': [
-            <String, String>{'table': 'update/process_input'}
-          ],
-          'data': [
-            {
-              'key': processInputKey,
-              'user_email': JetsRouterDelegate().user.email,
-              'status': processInputStatus
-            }
-          ],
-        }, toEncodable: (_) => '');
-        postInsertRows(context, formState, encodedJsonBody);
+        // Disable status on process_input table
+        // -------------------------------------
+        // // insert successfull, update process_input status
+        // var encodedJsonBody = jsonEncode(<String, dynamic>{
+        //   'action': 'insert_rows',
+        //   'fromClauses': [
+        //     <String, String>{'table': 'update/process_input'}
+        //   ],
+        //   'data': [
+        //     {
+        //       'key': processInputKey,
+        //       'user_email': JetsRouterDelegate().user.email,
+        //       'status': processInputStatus
+        //     }
+        //   ],
+        // }, toEncodable: (_) => '');
+        // postInsertRows(context, formState, encodedJsonBody);
         // trigger a refresh of the process_mapping table
         formState.parentFormState?.setValue(0, FSK.tableName, null);
         formState.parentFormState
@@ -824,6 +875,7 @@ Future<String?> processInputFormActions(BuildContext context,
     default:
       print('Oops unknown ActionKey for process input form: $actionKey');
   }
+  return null;
 }
 
 /// Process and Rules Config Form Actions

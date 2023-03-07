@@ -1,0 +1,166 @@
+{
+  "jetCompilerDirectives": [
+    {
+      "type": "JetCompilerDirective",
+      "name": "extract_resources_from_rules",
+      "value": "true"
+    }
+  ],
+  "jetstoreConfig": [
+    {
+      "type": "JetstoreConfig",
+      "name": "ruleset",
+      "value": "ClinicalRulesT1"
+    },
+    {
+      "type": "JetstoreConfig",
+      "name": "import_ruleset",
+      "value": "BaseRulesT"
+    },
+    {
+      "type": "JetstoreConfig",
+      "name": "max_looping",
+      "value": "0"
+    },
+    {
+      "type": "JetstoreConfig",
+      "name": "max_rule_exec",
+      "value": "10000"
+    }
+  ],
+  "literals": [
+    {
+      "type": "Literal",
+      "dataType": "int",
+      "id": "MAXAGE",
+      "value": "99"
+    }
+  ],
+  "resources": [
+    {
+      "type": "Resource",
+      "id": "hc:Claim",
+      "value": "hc:Claim"
+    },
+    {
+      "type": "Resource",
+      "id": "iClaimConfig",
+      "constructor": "CreateUUIDResource"
+    }
+  ],
+  "ruleSequences": [
+    {
+      "type": "RuleSequence",
+      "name": "MEDS1",
+      "ruleSequence": [
+        "load_rs",
+        "extract_rs",
+        "transform_rs"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "type": "Lookup",
+      "name": "lookup_declIdentifier",
+      "table": "schema.tableName",
+      "csvFile": "tableName.csv",
+      "key": [
+        "K1Col",
+        "K2Col"
+      ],
+      "columns": [
+        {
+          "type": "ColumnDefinitions",
+          "name": "COL1",
+          "isArray": "false",
+          "dataType": "text"
+        }
+      ]
+    }
+  ],
+  "jetRules": [
+    {
+      "type": "JetRule",
+      "name": "Rule01",
+      "properties": [
+        {
+          "name": "o",
+          "value": "true"
+        }
+      ],
+      "antecedents": [
+        {
+          "type": "Antecedent",
+          "isNot": false,
+          "ruleNode": [
+            {
+              "type": "var",
+              "id": "?x1"
+            },
+            {
+              "type": "resource",
+              "id": "hc:diagnosis"
+            },
+            {
+              "type": "literal",
+              "value": "125",
+              "dataType": "double"
+            }
+          ]
+        },
+        {
+          "type": "Antecedent",
+          "filter": {
+            "type": "binary",
+            "lhs": {
+                "type": "binary",
+                "lhs": {"type":"var", "id":"?x2"},
+                "op": "+",
+                "rhs": {"type":"literal", "value":"100", "dataType":"int"}
+            },
+            "op": "+",
+            "rhs": "?x4"
+          }
+        }
+      ],
+      "consequents": [
+        {
+          "type": "Consequent",
+          "ruleNode": [
+            {
+              "type": "var",
+              "id": "?x1"
+            },
+            {
+              "type": "resource",
+              "id": "hc:hasValue"
+            },
+            {
+              "type": "expr",
+              "obj_expr": {
+                "type": "binary",
+                "lhs": {
+                    "type": "binary",
+                    "lhs": {"type":"var", "id":"?x2"},
+                    "op": "+",
+                    "rhs": {"type":"literal", "value":"100", "dataType":"int"}
+                },
+                "op": "+",
+                "rhs": "?x4"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "triples": [
+    {
+      "s": "s1",
+      "p": "hasCode",
+      "o": "X1",
+      "object_type": "text"
+    }
+  ]
+}

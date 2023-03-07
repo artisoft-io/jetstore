@@ -81,7 +81,12 @@ class BaseScreenState extends State<BaseScreen> {
                     itemBuilder: (BuildContext context, int index) {
                       final menuEntry = menuEntries[index];
                       return ElevatedButton(
-                        style: buttonStyle(menuEntry.style, themeData),
+                        style: buttonStyle(
+                            JetsRouterDelegate().currentConfiguration?.path ==
+                                    menuEntry.routePath
+                                ? menuEntry.onPageStyle
+                                : menuEntry.otherPageStyle,
+                            themeData),
                         onPressed: () => menuEntry.routePath != null
                             ? JetsRouterDelegate()(
                                 JetsRouteData(menuEntry.routePath!))
