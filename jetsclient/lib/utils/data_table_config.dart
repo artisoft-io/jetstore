@@ -940,6 +940,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           configForm: FormKeys.addClient),
       ActionConfig(
           actionType: DataTableActionType.doAction,
+          key: 'exportClientConfig',
+          label: 'Export Client Configuration',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.exportClientConfig),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
           key: 'deleteClient',
           label: 'Delete Client',
           style: ActionStyle.danger,

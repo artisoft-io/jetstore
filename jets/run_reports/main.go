@@ -34,8 +34,10 @@ var usingSshTunnel   = flag.Bool("usingSshTunnel", false, "Connect  to DB using 
 var awsRegion        = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (required)")
 var awsBucket        = flag.String("awsBucket", "", "AWS bucket name for output files. (required)")
 var dsn              = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
-var processName      = flag.String("processName", "", "Process name to run the reports (reports definitions are taken from the workspace reports section) (required)")
-var sessionId        = flag.String("sessionId", "", "Process session ID. (required)")
+var client           = flag.String("client", "", "Client name as report variable (required to export client configuration) (optional)")
+var processName      = flag.String("processName", "", "Process name to run the reports (reports definitions are taken from the workspace reports section) (required, or -reportName)")
+var reportName       = flag.String("reportName", "", "Report name to run, defaults to -processName (reports definitions are taken from the workspace reports section) (required or -processName)")
+var sessionId        = flag.String("sessionId", "", "Process session ID. (required if -processName is provided)")
 var filePath         = flag.String("filePath", "", "File path for output files. (required)")
 var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
 var reportDefinitions string
@@ -76,9 +78,11 @@ func coordinateWork() error {
 		name = strings.TrimSpace(name)
 		name = name[2:len(name)-1]
 		// Check if name contains patterns for substitutions
+		// {CLIENT} is replaced with client name obtained from command line (-client)
 		// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
 		// {SESSIONID} is replaced with session_id
 		// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
+		name = strings.ReplaceAll(name, "{CLIENT}", *client)
 		name = strings.Replace(name, "{SESSIONID}", *sessionId, 1)
 		name = strings.Replace(name, "{ORIGINALFILENAME}", *originalFileName, 1)
 		name = strings.Replace(name, "{PROCESSNAME}", *processName, 1)
@@ -108,6 +112,7 @@ func coordinateWork() error {
 		stmt = strings.TrimSpace(stmt)
 		fname := fmt.Sprintf("%s/%s", *filePath, name)
 		if *awsBucket=="" || *awsRegion=="" {
+			stmt = strings.ReplaceAll(stmt, "$CLIENT", *client)
 			stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("'%s'", *sessionId))
 			fmt.Println("STMT: name:",name, "fname:", fname,"stmt:",stmt)
 			// local mode -- print results to output
@@ -144,6 +149,7 @@ func coordinateWork() error {
 
 		} else {
 			// save to s3 mode
+			stmt = strings.ReplaceAll(stmt, "$CLIENT", *client)
 			stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("''%s''", *sessionId))
 			fmt.Println("STMT: name:",name, "fname:", fname,"stmt:",stmt)
 			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, *awsBucket, fname, *awsRegion, options)
@@ -209,13 +215,13 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
-	if *processName == "" {
+	if *processName == "" && *reportName == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Process name must be provided (-processName).")
+		errMsg = append(errMsg, "Process name or report name must be provided (-processName or -reportName).")
 	}
-	if *sessionId == "" {
+	if *sessionId == "" && *processName != "" {
 		hasErr = true
-		errMsg = append(errMsg, "Session ID must be provided (-sessionId).")
+		errMsg = append(errMsg, "Session ID must be provided when -processName is provided (-sessionId).")
 	}
 	if *awsBucket == "" {
 		*awsBucket = os.Getenv("JETS_BUCKET")
@@ -236,7 +242,10 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Both awsBucket and awsRegion must be provided.")
 	}
-	reportDefinitions = fmt.Sprintf("%s/%s/reports/%s.sql",wh,ws,*processName)
+	if *reportName == "" {
+		*reportName = *processName
+	}
+	reportDefinitions = fmt.Sprintf("%s/%s/reports/%s.sql",wh,ws,*reportName)
 	if reportDefinitions == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Error: can't determine the report definitions file.")
@@ -259,7 +268,9 @@ func main() {
 	fmt.Println("Got argument: dbPoolSize",*dbPoolSize)
 	fmt.Println("Got argument: usingSshTunnel",*usingSshTunnel)
 	fmt.Println("Got argument: awsRegion",*awsRegion)
+	fmt.Println("Got argument: client", *client)
 	fmt.Println("Got argument: processName", *processName)
+	fmt.Println("Got argument: reportName", *reportName)
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: awsBucket", *awsBucket)
 	fmt.Println("Got argument: filePath", *filePath)

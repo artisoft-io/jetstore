@@ -40,6 +40,8 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = server.ResetDomainTables(&action)
 	case "rerun_db_init":
 		results, code, err = server.RunWorkspaceDbInit(&action)
+	case "export_client_configuration":
+		results, code, err = server.ExportClientConfiguration(&action)
 	default:
 		code = http.StatusUnprocessableEntity
 		err = fmt.Errorf("unknown action: %v", action.Action)
@@ -155,6 +157,62 @@ func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map
 	b.WriteTo(os.Stdout)
 	log.Println("============================")
 	log.Println("UPDATE_DB CAPTURED OUTPUT END")
+	log.Println("============================")
+	return &map[string]interface{}{}, http.StatusOK, nil
+}
+
+// ExportClientConfiguration ------------------------------------------------------
+// Export client configuration to jetstore bucket
+func (server *Server) ExportClientConfiguration(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
+	var client string
+	for irow := range purgeDataAction.Data {
+		// expecting client to be specified in the data section of the request
+		v := purgeDataAction.Data[irow]["client"]
+		if v != nil {
+			client = v.(string)
+		}
+		if client == "" {
+			return nil, http.StatusBadRequest, fmt.Errorf("client name required to export client configuration")
+		}
+	}
+	// using update_db script
+	serverArgs := []string{ 
+		"-client", 
+		client, 
+		"-reportName", 
+		"export_client_config",
+		"-filePath",
+		"workspace/exported_config",
+		"-originalFileName",
+		"notused",
+	}
+	if *usingSshTunnel {
+		serverArgs = append(serverArgs, "-usingSshTunnel")
+	}
+	log.Println("Exporting client configuration for client", client)
+	log.Printf("Executing run_reports: %s", serverArgs)
+	cmd := exec.Command("/usr/local/bin/run_reports", serverArgs...)
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("while executing run_reports command '%v': %v", serverArgs, err)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("RUN REPORTS CAPTURED OUTPUT BEGIN")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		b.WriteTo(os.Stdout)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("RUN REPORTS CAPTURED OUTPUT END")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return nil, http.StatusInternalServerError, fmt.Errorf("while running run_reports command: %v", err)
+	}
+	log.Println("============================")
+	log.Println("RUN REPORTS CAPTURED OUTPUT BEGIN")
+	log.Println("============================")
+	b.WriteTo(os.Stdout)
+	log.Println("============================")
+	log.Println("RUN REPORTS CAPTURED OUTPUT END")
 	log.Println("============================")
 	return &map[string]interface{}{}, http.StatusOK, nil
 }

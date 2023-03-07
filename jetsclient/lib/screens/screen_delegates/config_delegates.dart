@@ -9,6 +9,20 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 
+/// unpack an array to it's first element
+String? unpack(dynamic elm) {
+  if (elm == null) {
+    return null;
+  }
+  if (elm is String) {
+    return elm;
+  }
+  if (elm is List<String>) {
+    return elm[0];
+  }
+  return null;
+}
+
 /// postInsertRows - main function to post for inserting rows into db
 Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
     String encodedJsonBody) async {
@@ -357,6 +371,18 @@ Future<String?> sourceConfigActions(BuildContext context,
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       break;
 
+    case ActionKeys.exportClientConfig:
+      var state = formState.getState(0);
+      state[FSK.client] = unpack(state[FSK.client]);
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'export_client_configuration',
+        'data': [state],
+      }, toEncodable: (_) => '');
+      postSimpleAction(
+          context, formState, ServerEPs.purgeDataEP, encodedJsonBody);
+      break;
+
     case ActionKeys.deleteOrg:
       // Get confirmation
       var uc = await showConfirmationDialog(context,
@@ -440,7 +466,6 @@ Future<String?> sourceConfigActions(BuildContext context,
       // }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'sync_file_keys',
-        'table': '',
         'data': [],
       }, toEncodable: (_) => '');
       postSimpleAction(

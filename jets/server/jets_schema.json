@@ -1153,8 +1153,20 @@
     ],
     "indexes": [
       {
-        "indexName": "process_errors_session_id_idx",
-        "indexDef": "INDEX session_registry_session_id_idx ON jetsapi.process_errors (session_id ASC)"
+        "indexName": "session_registry_source_period_key_idx",
+        "indexDef": "INDEX session_registry_source_period_key_idx ON jetsapi.session_registry (source_period_key ASC)"
+      },
+      {
+        "indexName": "session_registry_month_period_idx",
+        "indexDef": "INDEX session_registry_month_period_idx ON jetsapi.session_registry (month_period ASC)"
+      },
+      {
+        "indexName": "session_registry_week_period_idx",
+        "indexDef": "INDEX session_registry_week_period_idx ON jetsapi.session_registry (week_period ASC)"
+      },
+      {
+        "indexName": "session_registry_day_period_idx",
+        "indexDef": "INDEX session_registry_day_period_idx ON jetsapi.session_registry (day_period ASC)"
       }
     ]
   }
