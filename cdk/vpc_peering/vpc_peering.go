@@ -32,8 +32,13 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 	var vpc awsec2.IVpc
 	if os.Getenv("HOST_VPC_ID") != "" {
 		// Lookup existing host vpc
+		hostVpcRegion := os.Getenv("HOST_VPC_REGION")
+		if hostVpcRegion == "" {
+			hostVpcRegion = os.Getenv("AWS_REGION")
+		}
 		vpc = awsec2.Vpc_FromLookup(stack, jsii.String("HostVPC"), &awsec2.VpcLookupOptions{
 			VpcId: jsii.String(os.Getenv("HOST_VPC_ID")),
+			Region: jsii.String(hostVpcRegion),
 		})	
 	} else {
 		// Create a vpc w/ jump server
@@ -142,6 +147,7 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 // JETSTORE_VPC_ID (required)
 // BASTION_HOST_KEYPAIR_NAME (required if HOST_VPC_ID ommitted)
 // HOST_VPC_ID (optional, default: create a vpc w/ jump server)
+// HOST_VPC_REGION (optional, default: current region)
 // JETS_DB_CLUSTER_ID (optional, JetStore DB cluster, to allow jump server to access it)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
@@ -158,6 +164,7 @@ func main() {
 	fmt.Println("env AWS_ACCOUNT:",os.Getenv("AWS_ACCOUNT"))
 	fmt.Println("env AWS_REGION:",os.Getenv("AWS_REGION"))
 	fmt.Println("env HOST_VPC_ID:",os.Getenv("HOST_VPC_ID"))
+	fmt.Println("env HOST_VPC_REGION:",os.Getenv("HOST_VPC_REGION"))
 	fmt.Println("env JETSTORE_VPC_ID:",os.Getenv("JETSTORE_VPC_ID"))
 	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:",os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 	fmt.Println("env JETS_TAG_NAME_OWNER:",os.Getenv("JETS_TAG_NAME_OWNER"))

@@ -268,12 +268,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 
 	// Create a VPC to run tasks in.
+	cidr := os.Getenv("JETS_VPC_CIDR")
+	if cidr == "" {
+		cidr = "10.10.0.0/16"
+	}
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
 		NatGateways:        jsii.Number(0),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
-		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String("10.10.0.0/16")),
+		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
 		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
 			{
 				Name:       jsii.String("public"),
@@ -1251,6 +1255,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_LOADER_CHUNCK_SIZE loader file partition size
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
+// JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1289,6 +1294,7 @@ func main() {
 	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
 	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
+	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
