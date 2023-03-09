@@ -41,7 +41,7 @@ int create_meta_double(HJETS js_hdl, double v, HJR * handle);
 int create_meta_date(HJETS js_hdl, char const * v, HJR * handle);
 int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle);
 
-int load_process_meta_triples(char const * jetrule_name, HJETS js_hdl);
+int load_process_meta_triples(char const * jetrule_name, int is_rule_set, HJETS js_hdl);
 int insert_meta_graph(HJETS js_hdl, HJR s, HJR p, HJR o);
 
 // rdf session methods

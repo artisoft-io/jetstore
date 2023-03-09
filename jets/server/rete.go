@@ -402,8 +402,10 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")
 	}
+	//*
+	fmt.Println("****** assertRuleConfig CALLED, using mainRules:",rw.pipelineConfig.processConfig.mainRules)
 	// Load process meta triples
-	rw.js.LoadProcessMetaTriples(rw.pipelineConfig.processConfig.processName)
+	rw.js.LoadProcessMetaTriples(rw.pipelineConfig.processConfig.mainRules, rw.pipelineConfig.processConfig.isRuleSet)
 
 	// Assert client specific triples
 	for _, t3 := range rw.pipelineConfig.ruleConfigs {

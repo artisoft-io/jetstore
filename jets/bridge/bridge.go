@@ -272,10 +272,10 @@ func (js *JetStore) NewDatetimeLiteral(value string) (*Resource, error) {
 }
 
 // load process meta triples in meta graph
-func (js *JetStore) LoadProcessMetaTriples(jetrules_name string) (int, error) {
+func (js *JetStore) LoadProcessMetaTriples(jetrules_name string, is_rule_set int) (int, error) {
 	cstr := C.CString(jetrules_name)
 	defer C.free(unsafe.Pointer(cstr))
-	ret := int(C.load_process_meta_triples(cstr, js.hdl))
+	ret := int(C.load_process_meta_triples(cstr, C.int(is_rule_set), js.hdl))
 	if ret < 0 {
 		fmt.Println("ERROR in JetStore.LoadProcessMetaTriples ret code", ret)
 		return ret, errors.New("ERROR calling LoadProcessMetaTriples(), ret code: " + fmt.Sprint(ret))

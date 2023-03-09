@@ -231,7 +231,7 @@ int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle)
   return 0;
 }
 
-int load_process_meta_triples(char const * jetrule_name, HJETS js_hdl)
+int load_process_meta_triples(char const * jetrule_name, int is_rule_set, HJETS js_hdl)
 {
   if(not jetrule_name) {
     LOG(ERROR) << "ERROR: jetrule_name is NULL in cwrapper";
@@ -242,7 +242,7 @@ int load_process_meta_triples(char const * jetrule_name, HJETS js_hdl)
     return -1;
   }
   auto * factory =  static_cast<ReteMetaStoreFactory*>(js_hdl);
-  return factory->load_meta_triples(jetrule_name);
+  return factory->load_meta_triples(jetrule_name, is_rule_set);
 }
 
 int insert_meta_graph(HJETS js_hdl, HJR s_hdl, HJR p_hdl, HJR o_hdl)

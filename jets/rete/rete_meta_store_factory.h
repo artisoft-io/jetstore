@@ -186,12 +186,18 @@ class ReteMetaStoreFactory {
 
   public:
   int
-  load_meta_triples(std::string const& process_name)
+  load_meta_triples(std::string const& process_name, int is_rule_set)
   {
-    auto const* sql = "SELECT t3.subject_key, t3.predicate_key, t3.object_key FROM triples t3, rule_sequences rs, main_rule_sets mrs WHERE t3.source_file_key = mrs.ruleset_file_key AND mrs.rule_sequence_key = rs.key AND rs.name = ?";
+    auto const* sqlSequence = "SELECT t3.subject_key, t3.predicate_key, t3.object_key FROM triples t3, rule_sequences rs, main_rule_sets mrs WHERE t3.source_file_key = mrs.ruleset_file_key AND mrs.rule_sequence_key = rs.key AND rs.name = ?";
+    auto const* sqlRuleSet  = "SELECT t3.subject_key, t3.predicate_key, t3.object_key FROM triples t3, workspace_control wc WHERE t3.source_file_key = wc.key AND wc.source_file_name = ?";
 
     sqlite3_stmt* stmt;
-    int res = sqlite3_prepare_v2( this->db_, sql, -1, &stmt, 0 );
+    int res;
+    if(is_rule_set) {
+      res = sqlite3_prepare_v2( this->db_, sqlRuleSet, -1, &stmt, 0 );
+    } else {
+      res = sqlite3_prepare_v2( this->db_, sqlSequence, -1, &stmt, 0 );
+    }
     if ( res != SQLITE_OK ) {
       LOG(ERROR) << "ReteMetaStoreFactory::load_meta_triples: SQL error while sqlite3_prepare_v2: " << res;
       return res;
