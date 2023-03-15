@@ -1,0 +1,744 @@
+[
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "workspace_control",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_file_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "is_main",
+        "dataType": "bool",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "main_support_files",
+    "columns": [
+      {
+        "columnName": "main_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "support_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "main_support_files_unique_cstraint",
+        "definition": "CONSTRAINT main_support_files_unique_cstraint UNIQUE (main_file_key, support_file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "jetstore_config",
+    "columns": [
+      {
+        "columnName": "config_key",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "config_value",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "rule_sequences",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "rule_sequences_unique_cstraint",
+        "definition": "CONSTRAINT rule_sequences_unique_cstraint UNIQUE (name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "main_rule_sets",
+    "columns": [
+      {
+        "columnName": "rule_sequence_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "main_ruleset_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "ruleset_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "seq",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "main_rule_sets_unique_cstraint",
+        "definition": "CONSTRAINT main_rule_sets_unique_cstraint UNIQUE (rule_sequence_key, ruleset_file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "domain_classes",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "as_table",
+        "dataType": "bool",
+        "default": "'0'",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "domain_classes_unique_cstraint",
+        "definition": "CONSTRAINT domain_classes_unique_cstraint UNIQUE (name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "base_classes",
+    "columns": [
+      {
+        "columnName": "domain_class_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "base_class_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "base_classes_unique_cstraint",
+        "definition": "CONSTRAINT base_classes_unique_cstraint UNIQUE (domain_class_key, base_class_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "data_properties",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "domain_class_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "as_array",
+        "dataType": "bool",
+        "default": "'0'",
+        "isNotNull": true
+      },
+      {
+        "columnName": "is_grouping",
+        "dataType": "bool",
+        "default": "'0'",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "data_properties_unique_cstraint",
+        "definition": "CONSTRAINT data_properties_unique_cstraint UNIQUE (name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "domain_tables",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "domain_class_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "domain_tables_unique_cstraint",
+        "definition": "CONSTRAINT domain_tables_unique_cstraint UNIQUE (name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "domain_columns",
+    "columns": [
+      {
+        "columnName": "domain_table_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "data_property_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "as_array",
+        "dataType": "bool",
+        "default": "'0'",
+        "isNotNull": true
+      },
+      {
+        "columnName": "is_grouping",
+        "dataType": "bool",
+        "default": "'0'",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "domain_columns_unique_cstraint1",
+        "definition": "CONSTRAINT domain_columns_unique_cstraint1 UNIQUE (domain_table_key, name)"
+      },
+      {
+        "name": "domain_columns_unique_cstraint2",
+        "definition": "CONSTRAINT domain_columns_unique_cstraint2 UNIQUE (domain_table_key, data_property_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "resources",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "id",
+        "dataType": "text"
+      },
+      {
+        "columnName": "value",
+        "dataType": "text"
+      },
+      {
+        "columnName": "symbol",
+        "dataType": "text"
+      },
+      {
+        "columnName": "is_binded",
+        "dataType": "bool"
+      },
+      {
+        "columnName": "inline",
+        "dataType": "bool"
+      },
+      {
+        "columnName": "vertex",
+        "dataType": "int"
+      },
+      {
+        "columnName": "row_pos",
+        "dataType": "int"
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "lookup_tables",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "table_name",
+        "dataType": "text"
+      },
+      {
+        "columnName": "csv_file",
+        "dataType": "text"
+      },
+      {
+        "columnName": "lookup_key",
+        "dataType": "text"
+      },
+      {
+        "columnName": "lookup_resources",
+        "dataType": "text"
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "lookup_tables_unique_cstraint",
+        "definition": "CONSTRAINT lookup_tables_unique_cstraint UNIQUE (name, source_file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "lookup_columns",
+    "columns": [
+      {
+        "columnName": "lookup_table_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "as_array",
+        "dataType": "bool",
+        "default": "'0'",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "lookup_columns_unique_cstraint",
+        "definition": "CONSTRAINT lookup_columns_unique_cstraint UNIQUE (lookup_table_key, name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "jet_rules",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "optimization",
+        "dataType": "bool"
+      },
+      {
+        "columnName": "salience",
+        "dataType": "int"
+      },
+      {
+        "columnName": "authored_label",
+        "dataType": "text"
+      },
+      {
+        "columnName": "normalized_label",
+        "dataType": "text"
+      },
+      {
+        "columnName": "label",
+        "dataType": "text"
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "rule_terms",
+    "columns": [
+      {
+        "columnName": "rule_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "rete_node_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "is_antecedent",
+        "dataType": "bool"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "rule_terms_unique_cstraint",
+        "definition": "CONSTRAINT rule_terms_unique_cstraint UNIQUE (rule_key, rete_node_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "rule_properties",
+    "columns": [
+      {
+        "columnName": "rule_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "value",
+        "dataType": "text"
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "rule_properties_idx",
+        "indexDef": "INDEX rule_properties_idx ON WORKSPACE__KEY.rule_properties (rule_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "expressions",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "arg0_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "arg1_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "arg2_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "arg3_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "arg4_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "arg5_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "op",
+        "dataType": "text"
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "rete_nodes",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "vertex",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "subject_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "predicate_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "object_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "obj_expr_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "filter_expr_key",
+        "dataType": "int"
+      },
+      {
+        "columnName": "parent_vertex",
+        "dataType": "int"
+      },
+      {
+        "columnName": "normalizedLabel",
+        "dataType": "text"
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "is_negation",
+        "dataType": "int"
+      },
+      {
+        "columnName": "salience",
+        "dataType": "int"
+      },
+      {
+        "columnName": "consequent_seq",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "rete_nodes_unique_cstraint",
+        "definition": "CONSTRAINT rete_nodes_unique_cstraint UNIQUE (vertex, type, consequent_seq, source_file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "beta_row_config",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "vertex",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "seq",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "row_pos",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "is_binded",
+        "dataType": "int"
+      },
+      {
+        "columnName": "id",
+        "dataType": "text"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "beta_row_config_unique_cstraint",
+        "definition": "CONSTRAINT beta_row_config_unique_cstraint UNIQUE (vertex, seq, source_file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "triples",
+    "columns": [
+      {
+        "columnName": "subject_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "predicate_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "object_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "triples_source_file_key_idx",
+        "indexDef": "INDEX triples_source_file_key_idx ON WORKSPACE__KEY.triples (source_file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "WORKSPACE__KEY",
+    "tableName": "schema_info",
+    "columns": [
+      {
+        "columnName": "version_major",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "version_minor",
+        "dataType": "int",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "schema_info_unique_cstraint",
+        "definition": "CONSTRAINT schema_info_unique_cstraint UNIQUE (version_major, version_minor)"
+      }
+    ]
+  }
+]
