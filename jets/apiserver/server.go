@@ -124,11 +124,10 @@ func (server *Server) checkJetStoreDbVersion() error {
 		// Cleanup any remaining
 		server.ResetDomainTables(&PurgeDataAction{
 			Action: "reset_domain_tables",
+			RunUiDbInitScript: true,
 			Data: []map[string]interface{}{},
 		})
 		server.addVersionToDb(jetstoreVersion)
-		// not needed?
-		// serverArgs = []string{ "-initWorkspaceDb", "-migrateDb" }
 	} else {
 
 		// Check the release in database vs current release
@@ -140,6 +139,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 			log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
 			server.ResetDomainTables(&PurgeDataAction{
 				Action: "reset_domain_tables",
+				RunUiDbInitScript: true,
 				Data: []map[string]interface{}{},
 			})
 			server.addVersionToDb(jetstoreVersion)
@@ -149,6 +149,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 				log.Println("New JetStore Release deployed, rebuilding all tables and running workspace db init script")
 				server.ResetDomainTables(&PurgeDataAction{
 					Action: "reset_domain_tables",
+					RunUiDbInitScript: true,
 					Data: []map[string]interface{}{},
 				})
 				server.addVersionToDb(jetstoreVersion)

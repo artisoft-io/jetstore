@@ -14,8 +14,9 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 type PurgeDataAction struct {
-	Action         string            			  `json:"action"`
-	Data           []map[string]interface{} `json:"data"`
+	Action               string            			  `json:"action"`
+	RunUiDbInitScript    bool              			  `json:"run_ui_db_init_script"`
+	Data                 []map[string]interface{} `json:"data"`
 }
 
 // DoPurgeDataAction ------------------------------------------------------
@@ -57,9 +58,10 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 
 // ResetDomainTables ------------------------------------------------------
 // Clear and rebuild all domain tables defined in workspace -- using update_db command line
-// Delete all table contains the input data, get the table name list from input_loader_status
+// Delete all tables containing the input data, get the table name list from input_loader_status
 // also clear/truncate the input_registry table
-func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
+// Also migrate the system tables to latest schema and conditionally run the workspace db init script
+	func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 
 	// Delete the input staging tables
 	stmt := "SELECT DISTINCT table_name FROM jetsapi.input_loader_status"
@@ -84,9 +86,12 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 	}
 
 	// Clear and rebuild the domain table using the update_db command line
-	// Also migrate the system tables to latest schema and run the workspace db init script
+	// Also migrate the system tables to latest schema
 	log.Println("Rebuild Domain Tables")
-	serverArgs := []string{ "-migrateDb" }
+	serverArgs := []string{ "-drop",  "-migrateDb" }
+	if purgeDataAction.RunUiDbInitScript {
+		serverArgs = append(serverArgs, "-initWorkspaceDb")
+	}
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
