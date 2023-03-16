@@ -216,7 +216,7 @@ class ActionKeys {
   static const deleteOrg = "deleteOrgAction";
   static const exportClientConfig = "exportClientConfig";
 
-// for Source Config dialog
+  // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
 
   // for load file

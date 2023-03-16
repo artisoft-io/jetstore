@@ -1,0 +1,631 @@
+{
+  "resources": [
+    {
+      "type": "resource",
+      "id": "tag",
+      "value": "tag",
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+      "key": 0
+    },
+    {
+      "type": "volatile_resource",
+      "id": "hasOpportunity",
+      "value": "hasOpportunity",
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+      "key": 3
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": false,
+      "var_pos": 0,
+      "vertex": 1,
+      "key": 86,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": true,
+      "vertex": 3,
+      "is_antecedent": true,
+      "var_pos": 0,
+      "key": 89,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "keyword",
+      "value": "null",
+      "inline": true,
+      "key": 113,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "keyword",
+      "value": "null",
+      "inline": true,
+      "key": 144,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "int",
+      "value": "0",
+      "inline": true,
+      "key": 168,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "double",
+      "value": "0.001",
+      "inline": true,
+      "key": 172,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "keyword",
+      "value": "true",
+      "inline": true,
+      "key": 303,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    }
+  ],
+  "lookup_tables": [
+    {
+      "type": "lookup",
+      "name": "InterchangeLookup",
+      "key": [
+        "gpi"
+      ],
+      "columns": [
+        {
+          "name": "gpi_1",
+          "type": "text",
+          "as_array": "false"
+        },
+        {
+          "name": "ratio_1",
+          "type": "double",
+          "as_array": "false"
+        },
+        {
+          "name": "gpi_2",
+          "type": "text",
+          "as_array": "false"
+        },
+        {
+          "name": "ratio_2",
+          "type": "double",
+          "as_array": "false"
+        },
+        {
+          "name": "difficulty",
+          "type": "text",
+          "as_array": "false"
+        }
+      ],
+      "csv_file": "lookups/interchange_lookup.csv",
+      "source_file_name": "jet_rules/sdmc_lookups.jr",
+      "resources": [
+        "gpi_1",
+        "ratio_1",
+        "gpi_2",
+        "ratio_2",
+        "difficulty"
+      ]
+    }
+  ],
+  "jet_rules": [
+    {
+      "name": "LookupGPI01",
+      "properties": {},
+      "optimization": true,
+      "salience": 100,
+      "antecedents": [
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 rdf:type wrs:SDMCClaim)",
+          "vertex": 1,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+            "?x1"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": false,
+              "var_pos": 0,
+              "vertex": 1,
+              "key": 86,
+              "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+            }
+          ],
+          "children_vertexes": [
+            2,
+            3,
+            14,
+            17
+          ],
+          "rules": [
+            "wrs:SDMCClaim:5"
+          ],
+          "salience": [
+            100
+          ],
+          "subject_key": 86,
+          "predicate_key": 23,
+          "object_key": 70
+        },
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 sdmc:gpi ?x2)",
+          "vertex": 2,
+          "parent_vertex": 1,
+          "beta_relation_vars": [
+            "?x1",
+            "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "var_pos": 0,
+              "vertex": 2
+            },
+            {
+              "type": "var",
+              "id": "?x2",
+              "is_binded": false,
+              "var_pos": 2,
+              "vertex": 2,
+              "key": 88,
+              "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+            }
+          ],
+          "children_vertexes": [
+            5,
+            15,
+            52,
+            56
+          ],
+          "rules": [
+            "LookupGPI01",
+            "Adherence01"
+          ],
+          "salience": [
+            100,
+            100
+          ],
+          "subject_key": 87,
+          "predicate_key": 27,
+          "object_key": 88
+        }
+      ],
+      "consequents": [
+        {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 lookupInterchange InterchangeLookup multi_lookup ?x2)",
+          "vertex": 2,
+          "consequent_seq": 0,
+          "consequent_for_rule": "LookupGPI01",
+          "consequent_salience": 100,
+          "subject_key": 220,
+          "predicate_key": 4,
+          "obj_expr": {
+            "type": "binary",
+            "lhs": 72,
+            "op": "multi_lookup",
+            "rhs": 221
+          }
+        }
+      ],
+      "authoredLabel": "[LookupGPI01]:(?clm rdf:type wrs:SDMCClaim).(?clm sdmc:gpi ?gpi) -> (?clm lookupInterchange InterchangeLookup multi_lookup ?gpi);",
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+      "normalizedLabel": "[LookupGPI01]:(?x1 rdf:type wrs:SDMCClaim).(?x1 sdmc:gpi ?x2) -> (?x1 lookupInterchange InterchangeLookup multi_lookup ?x2);",
+      "label": "[LookupGPI01]:(?clm rdf:type wrs:SDMCClaim).(?clm sdmc:gpi ?gpi) -> (?clm lookupInterchange InterchangeLookup multi_lookup ?gpi);"
+    },
+    {
+      "name": "Savings01",
+      "properties": {},
+      "optimization": true,
+      "salience": 100,
+      "antecedents": [
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 rdf:type wrs:SDMCAnalysis)",
+          "vertex": 20,
+          "parent_vertex": 0,
+          "beta_relation_vars": [
+            "?x1"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": false,
+              "var_pos": 0,
+              "vertex": 20,
+              "key": 124,
+              "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+            }
+          ],
+          "children_vertexes": [
+            21,
+            22,
+            25,
+            27,
+            30,
+            31,
+            36,
+            40,
+            42,
+            44,
+            46,
+            48,
+            49,
+            50,
+            64
+          ],
+          "rules": [
+            "wrs:SDMCAnalysis:6"
+          ],
+          "salience": [
+            100
+          ],
+          "subject_key": 124,
+          "predicate_key": 23,
+          "object_key": 71
+        },
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 sdmc:metric_quantity ?x2)",
+          "vertex": 31,
+          "parent_vertex": 20,
+          "beta_relation_vars": [
+            "?x1",
+            "?x2"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "var_pos": 0,
+              "vertex": 31
+            },
+            {
+              "type": "var",
+              "id": "?x2",
+              "is_binded": false,
+              "var_pos": 2,
+              "vertex": 31,
+              "key": 146,
+              "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+            }
+          ],
+          "children_vertexes": [
+            32,
+            34
+          ],
+          "subject_key": 145,
+          "predicate_key": 29,
+          "object_key": 146
+        },
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 sdmc:ratio_1 ?x3)",
+          "vertex": 32,
+          "parent_vertex": 31,
+          "beta_relation_vars": [
+            "?x1",
+            "?x2",
+            "?x3"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "var_pos": 0,
+              "vertex": 32
+            },
+            {
+              "type": "var",
+              "id": "?x2",
+              "is_binded": true,
+              "var_pos": 1,
+              "vertex": 32
+            },
+            {
+              "type": "var",
+              "id": "?x3",
+              "is_binded": false,
+              "var_pos": 2,
+              "vertex": 32,
+              "key": 148,
+              "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+            }
+          ],
+          "children_vertexes": [
+            33
+          ],
+          "subject_key": 147,
+          "predicate_key": 42,
+          "object_key": 148
+        },
+        {
+          "type": "antecedent",
+          "isNot": false,
+          "normalizedLabel": "(?x1 sdmc:target_awp_1 ?x4)",
+          "vertex": 33,
+          "parent_vertex": 32,
+          "beta_relation_vars": [
+            "?x1",
+            "?x2",
+            "?x3",
+            "?x4"
+          ],
+          "pruned_var": [],
+          "beta_var_nodes": [
+            {
+              "type": "var",
+              "id": "?x1",
+              "is_binded": true,
+              "var_pos": 0,
+              "vertex": 33
+            },
+            {
+              "type": "var",
+              "id": "?x2",
+              "is_binded": true,
+              "var_pos": 1,
+              "vertex": 33
+            },
+            {
+              "type": "var",
+              "id": "?x3",
+              "is_binded": true,
+              "var_pos": 2,
+              "vertex": 33
+            },
+            {
+              "type": "var",
+              "id": "?x4",
+              "is_binded": false,
+              "var_pos": 2,
+              "vertex": 33,
+              "key": 150,
+              "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+            }
+          ],
+          "children_vertexes": [],
+          "rules": [
+            "Savings01"
+          ],
+          "salience": [
+            100
+          ],
+          "subject_key": 149,
+          "predicate_key": 45,
+          "object_key": 150
+        }
+      ],
+      "consequents": [
+        {
+          "type": "consequent",
+          "normalizedLabel": "(?x1 substituteCost1 (?x2 * ?x4) * ?x3)",
+          "vertex": 33,
+          "consequent_seq": 0,
+          "consequent_for_rule": "Savings01",
+          "consequent_salience": 100,
+          "subject_key": 271,
+          "predicate_key": 8,
+          "obj_expr": {
+            "type": "binary",
+            "lhs": {
+              "type": "binary",
+              "lhs": 272,
+              "op": "*",
+              "rhs": 273
+            },
+            "op": "*",
+            "rhs": 274
+          }
+        }
+      ],
+      "authoredLabel": "[Savings01]:(?opportunity rdf:type wrs:SDMCAnalysis).(?opportunity sdmc:metric_quantity ?qty).(?opportunity sdmc:ratio_1 ?ratio).(?opportunity sdmc:target_awp_1 ?awp) -> (?opportunity substituteCost1 (?qty * ?awp) * ?ratio);",
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+      "normalizedLabel": "[Savings01]:(?x1 rdf:type wrs:SDMCAnalysis).(?x1 sdmc:metric_quantity ?x2).(?x1 sdmc:ratio_1 ?x3).(?x1 sdmc:target_awp_1 ?x4) -> (?x1 substituteCost1 (?x2 * ?x4) * ?x3);",
+      "label": "[Savings01]:(?opportunity rdf:type wrs:SDMCAnalysis).(?opportunity sdmc:metric_quantity ?qty).(?opportunity sdmc:ratio_1 ?ratio).(?opportunity sdmc:target_awp_1 ?awp) -> (?opportunity substituteCost1 (?qty * ?awp) * ?ratio);"
+    }
+  ],
+  "imports": {
+    "jet_rules/clinical_interchange_sdmc_main.jr": [
+      "data_model/jets_model.jr",
+      "data_model/sdmc_model.jr",
+      "jet_rules/sdmc_lookups.jr"
+    ]
+  },
+  "jetstore_config": {
+    "$max_looping": "0",
+    "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+    "type": "jsconfig"
+  },
+  "classes": [
+    {
+      "type": "class",
+      "name": "jets:Entity",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "jets:key",
+          "type": "text",
+          "as_array": "false"
+        },
+        {
+          "name": "rdf:type",
+          "type": "text",
+          "as_array": "true"
+        }
+      ],
+      "source_file_name": "data_model/jets_model.jr",
+      "as_table": "false",
+      "sub_classes": [
+        "wrs:InterchangeBase"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "type": "table",
+      "table_name": "wrs:SDMCClaim",
+      "class_name": "wrs:SDMCClaim",
+      "columns": [
+        {
+          "type": "text",
+          "as_array": "false",
+          "property_name": "jets:key",
+          "column_name": "jets:key"
+        }
+      ],
+      "source_file_name": "data_model/sdmc_model.jr"
+    }
+  ],
+  "triples": [
+    {
+      "type": "triple",
+      "subject_key": 1,
+      "predicate_key": 2,
+      "object_key": 54
+    }
+  ],
+  "main_rule_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+  "support_rule_file_names": [
+    "data_model/jets_model.jr",
+    "data_model/sdmc_model.jr",
+    "jet_rules/sdmc_lookups.jr"
+  ],
+  "rete_nodes": [
+    {
+      "vertex": 0,
+      "parent_vertex": 0,
+      "children_vertexes": [
+        1,
+        20,
+        51,
+        53,
+        65,
+        66,
+        67,
+        68
+      ],
+      "type": "head_node"
+    },
+    {
+      "type": "antecedent",
+      "isNot": false,
+      "normalizedLabel": "(?x1 rdf:type wrs:SDMCClaim)",
+      "vertex": 1,
+      "parent_vertex": 0,
+      "beta_relation_vars": [
+        "?x1"
+      ],
+      "pruned_var": [],
+      "beta_var_nodes": [
+        {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": false,
+          "var_pos": 0,
+          "vertex": 1,
+          "key": 86,
+          "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+        }
+      ],
+      "children_vertexes": [
+        2,
+        3,
+        14,
+        17
+      ],
+      "rules": [
+        "wrs:SDMCClaim:5"
+      ],
+      "salience": [
+        100
+      ],
+      "subject_key": 86,
+      "predicate_key": 23,
+      "object_key": 70
+    },
+    {
+      "type": "consequent",
+      "normalizedLabel": "(?x1 rdf:type wrs:SDMCBase)",
+      "vertex": 1,
+      "consequent_seq": 0,
+      "consequent_for_rule": "wrs:SDMCClaim:5",
+      "consequent_salience": 100,
+      "subject_key": 219,
+      "predicate_key": 23,
+      "object_key": 53
+    },
+    {
+      "type": "consequent",
+      "normalizedLabel": "(?x1 lookupInterchange InterchangeLookup multi_lookup ?x2)",
+      "vertex": 2,
+      "consequent_seq": 0,
+      "consequent_for_rule": "LookupGPI01",
+      "consequent_salience": 100,
+      "subject_key": 220,
+      "predicate_key": 4,
+      "obj_expr": {
+        "type": "binary",
+        "lhs": 72,
+        "op": "multi_lookup",
+        "rhs": 221
+      }
+    },
+    {
+      "type": "consequent",
+      "normalizedLabel": "(?x1 adherenceRatio (to_double (abs ?x5)) / (?x6 - ?x4))",
+      "vertex": 63,
+      "consequent_seq": 0,
+      "consequent_for_rule": "SetAdherence01",
+      "consequent_salience": 100,
+      "subject_key": 320,
+      "predicate_key": 19,
+      "obj_expr": {
+        "type": "binary",
+        "lhs": {
+          "type": "unary",
+          "op": "to_double",
+          "arg": {
+            "type": "unary",
+            "op": "abs",
+            "arg": 321
+          }
+        },
+        "op": "/",
+        "rhs": {
+          "type": "binary",
+          "lhs": 322,
+          "op": "-",
+          "rhs": 323
+        }
+      }
+    }
+  ]
+}
