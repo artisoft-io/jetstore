@@ -231,7 +231,9 @@ class ActionKeys {
   static const mapperOk = "mapper.ok";
   static const mapperDraft = "mapper.draft";
   static const loadRawRowsOk = "loadRawRows.Ok";
-
+  // to download process mapping rows
+  static const downloadMapping = "downloadMapping";
+  
   // for process and rules config dialog
   static const ruleConfigOk = "ruleConfig.ok";
   static const ruleConfigAdd = "ruleConfig.add";

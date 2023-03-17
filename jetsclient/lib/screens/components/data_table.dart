@@ -488,6 +488,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
           resultHandler: dialogResultHandler,
         );
         break;
+
       // Navigate to a page
       case DataTableActionType.showScreen:
         if (ac.configScreenPath == null) return;
@@ -503,10 +504,12 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         JetsRouterDelegate()(
             JetsRouteData(ac.configScreenPath!, params: params));
         break;
+
       // Refresh data table
       case DataTableActionType.refreshTable:
         _refreshTable();
         break;
+
       // Call server to do an action
       case DataTableActionType.doAction:
         JetsRow? row = dataSource.getFirstSelectedRow();
@@ -523,6 +526,20 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
           showAlertDialog(context, err);
         }
         break;
+
+      // // Custom action: download mapping (applied to data table with key DTKeys.processMappingTable)
+      // case DataTableActionType.downloadMapping:
+      //   var columnsConfig = tableConfig.columns;
+      //   var model = dataSource.model;
+      //   if (formState == null || columnsConfig.isEmpty || model == null) return;
+      //   var state = formState!.getState(0);
+      //   var client = state[FSK.client][0];
+      //   var org = state[FSK.org][0];
+      //   var objectType = state[FSK.objectType][0];
+      //   // Get the datatable state
+      //   download(utf8.encode('Mapping for $client and $org for object type $objectType, mapping contains ${model!.length} rows'), downloadName: 'mapping.txt');
+
+      //   break;
 
       default:
         showAlertDialog(

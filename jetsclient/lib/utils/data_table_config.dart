@@ -1174,6 +1174,14 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.client,
+        columnIdx: 1,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.org,
+        columnIdx: 2,
+      ),
+      DataTableFormStateOtherColumnConfig(
         stateKey: FSK.objectType,
         columnIdx: 3,
       ),
@@ -1437,6 +1445,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Load Raw Rows',
           style: ActionStyle.secondary,
           configForm: FormKeys.loadRawRows),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'downloadMappingRows',
+          label: 'Download Mapping',
+          style: ActionStyle.secondary,
+          isEnabledWhenWhereClauseSatisfied: true,
+          actionName: ActionKeys.downloadMapping),
     ],
     // No formStateConfig since rows are not selectable
     columns: [
