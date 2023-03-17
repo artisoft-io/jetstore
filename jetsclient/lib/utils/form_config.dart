@@ -955,13 +955,6 @@ final Map<String, FormConfig> _formConfigurations = {
           rightMargin: betweenTheButtonsPadding,
           bottomMargin: defaultPadding),
       FormActionConfig(
-          key: ActionKeys.mapperDraft,
-          label: "Save as Draft",
-          buttonStyle: ActionStyle.primary,
-          leftMargin: betweenTheButtonsPadding,
-          rightMargin: betweenTheButtonsPadding,
-          bottomMargin: defaultPadding),
-      FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.secondary,

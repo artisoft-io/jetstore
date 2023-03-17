@@ -872,11 +872,8 @@ Future<String?> processInputFormActions(BuildContext context,
 
     // Process Mapping Dialog
     case ActionKeys.mapperOk:
-    case ActionKeys.mapperDraft:
-      if (actionKey == ActionKeys.mapperOk) {
-        if (!formState.isFormValid()) {
-          return null;
-        }
+      if (!formState.isFormValid()) {
+        return null;
       }
       // Insert rows to process_mapping, if successful update process_input.status
       var tableName = formState.getValue(group, FSK.tableName);
@@ -950,6 +947,11 @@ Future<String?> processInputFormActions(BuildContext context,
         formState.parentFormState?.setValue(0, FSK.tableName, null);
         formState.parentFormState
             ?.setValueAndNotify(0, FSK.tableName, tableName);
+        const snackBar = SnackBar(
+          content: Text('Mapping Updated Sucessfully'),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        navigator.pop(DTActionResult.ok);
       } else if (result.statusCode == 400 ||
           result.statusCode == 406 ||
           result.statusCode == 422) {
