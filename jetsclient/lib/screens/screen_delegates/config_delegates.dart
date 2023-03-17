@@ -8,6 +8,7 @@ import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
+import 'package:jetsclient/utils/download.dart';
 
 /// unpack an array to it's first element
 String? unpack(dynamic elm) {
@@ -732,6 +733,101 @@ Future<String?> processInputFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
+    // Download process mapping rows
+    case ActionKeys.downloadMapping:
+      var state = formState.getState(0);
+      var client = state[FSK.client][0];
+      var org = state[FSK.org][0];
+      var objectType = state[FSK.objectType][0];
+      // Build the query
+      var query = <String, dynamic>{
+        "action": "read",
+        "fromClauses": [
+          {"schema": "jetsapi", "table": "source_config"},
+          {"schema": "jetsapi", "table": "process_mapping"}
+        ],
+        "whereClauses": [
+          {
+            "table": "source_config",
+            "column": "client",
+            "values": [client]
+          },
+          {
+            "table": "source_config",
+            "column": "org",
+            "values": [org]
+          },
+          {
+            "table": "source_config",
+            "column": "object_type",
+            "values": [objectType]
+          },
+          {
+            "table": "source_config",
+            "column": "table_name",
+            "joinWith": "process_mapping.table_name"
+          }
+        ],
+        "offset": 0,
+        "limit": 1000,
+        "columns": [
+          {"column": "client"},
+          {"column": "org"},
+          {"column": "object_type"},
+          {"column": "data_property"},
+          {"column": "input_column"},
+          {"column": "function_name"},
+          {"column": "argument"},
+          {"column": "default_value"},
+          {"column": "error_message"}
+        ],
+        "sortColumn": "data_property",
+        "sortAscending": true
+      };
+      var result = await context.read<HttpClient>().sendRequest(
+          path: ServerEPs.dataTableEP,
+          token: JetsRouterDelegate().user.token,
+          encodedJsonBody: json.encode(query));
+      Map<String, dynamic>? data;
+      if (result.statusCode == 200) {
+        data = result.body;
+      } else if (result.statusCode == 401) {
+        const snackBar = SnackBar(
+          content: Text('Session Expired, please login'),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        return null;
+      } else {
+        const snackBar = SnackBar(
+          content: Text('Unknown Error reading data from table'),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        return null;
+      }
+      final rows = data!['rows'] as List;
+      List<List<String?>> model =
+          rows.map((e) => (e as List).cast<String?>()).toList();
+      // Prepare the csv buffer
+      var buffer = StringBuffer();
+      buffer.writeln(
+          '"client","org","object_type","data_property","input_column","function_name","argument","default_value","error_message"');
+      for (var row in model) {
+        var isFirst = true;
+        for (var column in row) {
+          if (!isFirst) {
+            buffer.write(',');
+          }
+          isFirst = false;
+          if (column != null) {
+            buffer.write('"$column"');
+          }
+        }
+        buffer.writeln();
+      }
+      // Download the result!
+      download(utf8.encode(buffer.toString()), downloadName: 'mapping.txt');
+      break;
+
     // loadRawRows
     case ActionKeys.loadRawRowsOk:
       var valid = formKey.currentState!.validate();
@@ -749,7 +845,6 @@ Future<String?> processInputFormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     case ActionKeys.addProcessInputOk:
       var valid = formKey.currentState!.validate();
@@ -774,7 +869,6 @@ Future<String?> processInputFormActions(BuildContext context,
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     // Process Mapping Dialog
     case ActionKeys.mapperOk:
