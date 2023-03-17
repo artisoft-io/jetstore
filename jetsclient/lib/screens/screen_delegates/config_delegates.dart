@@ -825,7 +825,7 @@ Future<String?> processInputFormActions(BuildContext context,
         buffer.writeln();
       }
       // Download the result!
-      download(utf8.encode(buffer.toString()), downloadName: 'mapping.txt');
+      download(utf8.encode(buffer.toString()), downloadName: 'mapping.csv');
       break;
 
     // loadRawRows
