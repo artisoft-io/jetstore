@@ -16,7 +16,12 @@ type CompileJetruleAction struct {
 type JetruleModel struct {
 	Resources         []ResourceNode    `json:"resources"`
 	LookupTables      []LookupTableNode `json:"lookup_tables"`
-
+	Jetrules          []JetruleNode     `json:"jet_rules"`
+	Imports           map[string][]string `json:"imports"`
+  JetstoreConfig    map[string]string  `json:"jetstore_config"`
+	Classes           []ClassNode        `json:"classes"`
+	Tables            []TableNode        `json:"tables"`
+	Triples           []TripleNode       `json:"triples"`
 }
 
 type ResourceNode struct {
@@ -46,6 +51,92 @@ type ColumnNode struct {
 	AsArray  string `json:"as_array"`	
 	Name     string `json:"name"`
 	Type     string `json:"type"`
+}
+
+type JetruleNode struct {
+	Name          string `json:"name"`	
+	Properties    map[string]string `json:"properties"`
+	Optimization  bool   `json:"optimization"`
+	Salience      int    `json:"salience"`
+	Antecedents   []Antecedent `json:"antecedents"`
+	Consequents   []Consequent `json:"consequents"`
+	AuthoredLabel    string `json:"authoredLabel"`        
+	SourceFileName   string `json:"source_file_name"`         
+	NormalizedLabel  string `json:"normalizedLabel"`          
+	Label	           string `json:"label"` 
+}
+
+type Antecedent struct {
+	Type                string       `json:"type"`	
+	IsNot               bool         `json:"isNot"`
+	NormalizedLabel     string       `json:"normalizedLabel"`
+	Vertex              int          `json:"vertex"`
+	ParentVertex        int          `json:"parent_vertex"`
+	BetaRelationVars    []string     `json:"beta_relation_vars"`
+	PrunedVars          []string     `json:"pruned_var"`
+	BetaVarNodes	      []BetaVarNode `json:"beta_var_nodes"`
+	ChildrenVertexes    []int        `json:"children_vertexes"`
+	Rules               []string     `json:"rules"`
+	Salience            []int        `json:"salience"`
+	SubjectKey          int          `json:"subject_key"`
+	PredicateKey        int          `json:"predicate_key"`
+	ObjectKey           int          `json:"object_key"`
+}
+
+type BetaVarNode struct {
+	Type           string `json:"type"`       
+	Id             string `json:"id"`       
+	IsBinded       bool   `json:"is_binded"`     
+	VarPos         int    `json:"var_pos"`    
+	Vertex         int    `json:"vertex"`    
+	Key            int    `json:"key"`    
+	SourceFileName string `json:"source_file_name"`       
+}
+
+type Consequent struct {
+	Type               string `json:"type"`   
+	NormalizedLabel    string `json:"normalizedLabel"`              
+	Vertex             int    `json:"vertex"`     
+	ConsequentSeq      int    `json:"consequent_seq"`             
+	ConsequentForRule  string `json:"consequent_for_rule"`                  
+	ConsequentSalience int    `json:"consequent_salience"`                  
+	SubjectKey         int    `json:"subject_key"`          
+	PredicateKey       int    `json:"predicate_key"`            
+	ObjectKey	         int    `json:"object_key"`
+	ObjectExpr         ObjExprNode  `json:"obj_expr"`
+}
+
+type ObjExprNode struct {
+	Type string      `json:"type"`
+	Lhs  interface{} `json:"lhs"`
+	Op   string      `json:"op"`
+	Rhs  interface{} `json:"rhs"`
+	Arg  interface{} `json:"arg"`
+}
+
+type ClassNode struct {
+	Type           string              `json:"type"`
+	Name           string              `json:"name"`
+	BaseClasses    []string            `json:"base_classes"`
+	DataProperties []map[string]string `json:"data_properties"`
+	SourceFileName string              `json:"source_file_name"`
+	AsTable        bool                `json:"as_table"`
+	SubClasses     []string            `json:"sub_classes"`
+}
+
+type TableNode struct {
+	Type           string              `json:"type"`
+	TableName      string              `json:"table_name"`
+	ClassName      string              `json:"class_name"`
+	Columns        []map[string]string `json:"columns"`
+	SourceFileName string              `json:"source_file_name"`
+}
+
+type TripleNode struct {
+	Type           string  `json:"type"`
+	SubjectKey     int     `json:"subject_key"`          
+	PredicateKey   int     `json:"predicate_key"`            
+	ObjectKey	     int     `json:"object_key"`
 }
 
 
