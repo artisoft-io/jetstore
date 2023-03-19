@@ -57,7 +57,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 
 		// Inserting source_period
 		source_period_key, err := InsertSourcePeriod(
-			ctx.dbpool,
+			ctx.Dbpool,
 			fileKeyObject["year"].(int),
 			fileKeyObject["month"].(int),
 			fileKeyObject["day"].(int))
@@ -76,7 +76,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			}
 		}
 		if allOk {
-			_, err = ctx.dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting missing file keys in file_key_staging table: %v", err)
 			}
@@ -93,7 +93,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		var tableName string
 		var automated int
 		stmt := "SELECT table_name, automated FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
-		err = ctx.dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated)
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated)
 		if err != nil {
 			return nil, http.StatusNotFound,
 				fmt.Errorf("in RegisterKeys while querying source_config to start a load: %v", err)
@@ -298,7 +298,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		// We use maxInputRegistryKey for this purpose.
 
 		// Find all process_input matching any inputRegistryKeys
-		processInputKeys, err := matchingProcessInputKeys(ctx.dbpool, &inputRegistryKeys)
+		processInputKeys, err := matchingProcessInputKeys(ctx.Dbpool, &inputRegistryKeys)
 		if err != nil {
 			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying matching process_input keys: %v", err)
 			return nil, http.StatusInternalServerError, err2
@@ -311,7 +311,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		}
 
 		// Find all pipeline_config matching any of process_input found
-		pipelineConfigKeys, err := matchingPipelineConfigKeys(ctx.dbpool, processInputKeys)
+		pipelineConfigKeys, err := matchingPipelineConfigKeys(ctx.Dbpool, processInputKeys)
 		if err != nil {
 			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying matching pipeline_config keys: %v", err)
 			return nil, http.StatusInternalServerError, err2
@@ -325,7 +325,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 
 		// Find all process_input having a matching input_registry where source_period_key = sourcePeriodKey
 		// Limit to process_input with matching input_registry with key <= maxInputRegistryKey
-		processInputKeys, err = processInputInPeriod(ctx.dbpool, sourcePeriodKey, maxInputRegistryKey)
+		processInputKeys, err = processInputInPeriod(ctx.Dbpool, sourcePeriodKey, maxInputRegistryKey)
 		if err != nil {
 			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying all process_input in source_period_key: %v", err)
 			return nil, http.StatusInternalServerError, err2
@@ -338,7 +338,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		}
 
 		// Find all pipeline_config ready to go among those in pipelineConfigKeys (to ensure we kick off pipeline with one of inputRegistryKeys)
-		pipelineConfigKeys, err = PipelineConfigReady2Execute(ctx.dbpool, processInputKeys, pipelineConfigKeys)
+		pipelineConfigKeys, err = PipelineConfigReady2Execute(ctx.Dbpool, processInputKeys, pipelineConfigKeys)
 		if err != nil {
 			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying all pipeline_config ready to execute: %v", err)
 			return nil, http.StatusInternalServerError, err2
@@ -381,7 +381,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 							       pi.client = ir.client AND pi.org = ir.org AND pi.object_type = ir.object_type AND pi.source_type = ir.source_type AND
 										 ir.source_period_key = $2
 							 ORDER BY ir.key DESC`
-			err = ctx.dbpool.QueryRow(context.Background(), stmt, pcKey, sourcePeriodKey).Scan(
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, pcKey, sourcePeriodKey).Scan(
 				&process_name, &client, &main_input_registry_key, &file_key, &main_object_type, &merged_process_input_keys)
 			if err != nil {
 				return nil, http.StatusInternalServerError,
@@ -400,7 +400,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 				         WHERE pi.key = $1 AND ir.client = pi.client AND ir.org = pi.org AND ir.object_type = pi.object_type AND
 								       ir.source_type = pi.source_type AND ir.source_period_key = $2
 								 ORDER BY ir.key DESC`
-				err = ctx.dbpool.QueryRow(context.Background(), stmt, piKey, sourcePeriodKey).Scan(&irKey)
+				err = ctx.Dbpool.QueryRow(context.Background(), stmt, piKey, sourcePeriodKey).Scan(&irKey)
 				if err != nil {
 					return nil, http.StatusInternalServerError,
 						fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying input_registry for merged input: %v", err)
@@ -460,7 +460,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 
 	// Get all keys from jetsapi.file_key_staging
 	sqlstmt := `SELECT key, file_key FROM jetsapi.file_key_staging`
-	rows, err := ctx.dbpool.Query(context.Background(), sqlstmt)
+	rows, err := ctx.Dbpool.Query(context.Background(), sqlstmt)
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while querying all keys from file_key_staging table: %v", err)
 	}
@@ -481,7 +481,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 	// Remove stale keys from db
 	if len(staleKeys) > 0 {
 		sqlstmt = fmt.Sprintf("DELETE FROM jetsapi.file_key_staging WHERE key IN (%s);", strings.Join(staleKeys, ","))
-		_, err = ctx.dbpool.Exec(context.Background(), sqlstmt)
+		_, err = ctx.Dbpool.Exec(context.Background(), sqlstmt)
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("while deleting stale keys from file_key_staging table: %v", err)
 		}
@@ -527,7 +527,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 				year = 1
 			}
 
-			source_period_key, err := InsertSourcePeriod(ctx.dbpool, year, month, day)
+			source_period_key, err := InsertSourcePeriod(ctx.Dbpool, year, month, day)
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
 			}
@@ -542,7 +542,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 				}
 			}
 			if allOk {
-				_, err = ctx.dbpool.Exec(context.TODO(), sqlStmt.Stmt, row...)
+				_, err = ctx.Dbpool.Exec(context.TODO(), sqlStmt.Stmt, row...)
 				if err != nil {
 					return nil, http.StatusInternalServerError, fmt.Errorf("while inserting missing file keys in file_key_staging table: %v", err)
 				}

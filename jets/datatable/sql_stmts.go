@@ -157,4 +157,28 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		ColumnKeys: []string{"user_email"},
 		AdminOnly: true,
 	},
+
+	// Statements for Rule Workspace
+	// ----------------------------------------------------------------------------------------------
+	// Statement key that starts with WORKSPACE/ have a pre-execution hook that replace $SCHEMA by the
+	// current workspace name (taken from DataTableAction.Workspace) by the
+	// InsertRows pre-processing hook.
+	//
+	// Workspace Resources
+	"WORKSPACE/resources": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.resources 
+				(type,id,value,is_binded,inline,vertex,var_pos,source_file_key) 
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+				ON CONFLICT DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+					SELECT key FROM $SCHEMA.resources 
+					WHERE type=$1 AND id=$2 AND value=$3 AND is_binded=$4 AND inline=$5 AND vertex=$6 AND var_pos=$7`,
+			ColumnKeys: []string{"type","id","value","is_binded","inline","vertex","var_pos","source_file_key"},
+		AdminOnly: false,
+	},
+
 }

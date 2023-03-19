@@ -69,3 +69,4 @@ jets/bridge/bridge.go
 jets/awstest/awstest
 jets/awssfntest/awssfntest
 cdk/jetstore_one/jetstore_one
+jets/compilerv2/compilerv2
