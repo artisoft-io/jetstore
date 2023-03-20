@@ -142,7 +142,7 @@
       {
         "columnName": "as_table",
         "dataType": "boolean",
-        "default": "'0'",
+        "default": "false",
         "isNotNull": true
       },
       {
@@ -208,13 +208,13 @@
       {
         "columnName": "as_array",
         "dataType": "boolean",
-        "default": "'0'",
+        "default": "false",
         "isNotNull": true
       },
       {
         "columnName": "is_grouping",
         "dataType": "boolean",
-        "default": "'0'",
+        "default": "false",
         "isNotNull": true
       }
     ],
@@ -275,13 +275,13 @@
       {
         "columnName": "as_array",
         "dataType": "boolean",
-        "default": "'0'",
+        "default": "false",
         "isNotNull": true
       },
       {
         "columnName": "is_grouping",
         "dataType": "boolean",
-        "default": "'0'",
+        "default": "false",
         "isNotNull": true
       }
     ],
@@ -413,7 +413,7 @@
       {
         "columnName": "as_array",
         "dataType": "boolean",
-        "default": "'0'",
+        "default": "false",
         "isNotNull": true
       }
     ],

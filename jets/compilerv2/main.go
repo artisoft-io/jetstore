@@ -25,7 +25,7 @@ import (
 var workspace           = flag.String("workspace", "", "Workspace of Jetrule file (required)")
 var updateSchema        = flag.Bool("updateSchema", false, "Update table schema in workspace namespace (optional, default: false)")
 var dropTables          = flag.Bool("dropTables", false, "Drop tables in workspace namespace (optional, default: false)")
-var jetruleFile         = flag.String("jetruleFile", "", "Jetrule file stem, rule file to compile (will add '.jr.json' and '.jrc.json') (required)")
+var jetruleFile         = flag.String("jetruleFile", "", "Corrected Jetrule file to compile / write (file with ext'.jrcc.json') (required)")
 var usingSshTunnel      = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var dsn string

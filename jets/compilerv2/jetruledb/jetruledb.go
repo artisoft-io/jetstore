@@ -54,19 +54,19 @@ type ResourceNode struct {
 }
 
 type LookupTableNode struct {
-  Columns          []ColumnNode `json:"columns"`
-  CsvFile          string       `json:"csv_file"`
-  Key              []string     `json:"key"`
-  Name             string       `json:"name"`
-  Resources        []string     `json:"resources"`
-  SourceFileName   string       `json:"source_file_name"`
-  Type             string       `json:"type"`
+  Columns          []LookupColumnNode `json:"columns"`
+  CsvFile          string             `json:"csv_file"`
+  Key              []string           `json:"key"`
+  Name             string             `json:"name"`
+  Resources        []string           `json:"resources"`
+  SourceFileName   string             `json:"source_file_name"`
+  Type             string             `json:"type"`
 }
 
-type ColumnNode struct {
-	AsArray  string `json:"as_array"`	
-	Name     string `json:"name"`
+type LookupColumnNode struct {
 	Type     string `json:"type"`
+	Name     string `json:"name"`
+	AsArray  bool   `json:"as_array"`	
 }
 
 type JetruleNode struct {
@@ -156,18 +156,33 @@ type ClassNode struct {
 	Type           string              `json:"type"`
 	Name           string              `json:"name"`
 	BaseClasses    []string            `json:"base_classes"`
-	DataProperties []map[string]string `json:"data_properties"`
+	DataProperties []DataPropertyNode  `json:"data_properties"`
 	SourceFileName string              `json:"source_file_name"`
-	AsTable        string                `json:"as_table"`
+	AsTable        bool                `json:"as_table"`
 	SubClasses     []string            `json:"sub_classes"`
+	DbKey          int                 `json:"db_key"` 
+}
+
+type DataPropertyNode struct {
+	Type           string              `json:"type"`
+	Name           string              `json:"name"`
+	AsArray        bool                `json:"as_array"`
+	DbKey          int                 `json:"db_key"` 
 }
 
 type TableNode struct {
 	Type           string              `json:"type"`
 	TableName      string              `json:"table_name"`
 	ClassName      string              `json:"class_name"`
-	Columns        []map[string]string `json:"columns"`
+	Columns        []TableColumnNode   `json:"columns"`
 	SourceFileName string              `json:"source_file_name"`
+}
+
+type TableColumnNode struct {
+	Type           string    `json:"type"`
+	AsArray        bool      `json:"as_array"`          
+	PropertyName   string    `json:"property_name"`
+	ColumnName     string    `json:"column_name"`
 }
 
 type TripleNode struct {
@@ -217,13 +232,14 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	// Persist the Resources
 	data.WriteResources(ctx, compileJetruleAction.Workspace, &token)
 
-	// Parse back into json
+	//* DEV
+	// Write back as json
 	b, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		log.Printf("while writing json:%v\n",err)
 		return &map[string]interface{}{}, http.StatusBadRequest,err		
 	}
-	os.Stdout.Write(b)
+	os.WriteFile("out.jrcc.json", b, 0666)
 
 	return &map[string]interface{}{}, http.StatusOK, nil
 }

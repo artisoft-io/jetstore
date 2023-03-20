@@ -357,18 +357,18 @@ def main(argv):
   # Save the JetRule data structure
   # path = os.path.join(base_path, out_fname)
   in_tup = os.path.splitext(in_fname)
-  if save_json:
-    jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')
-    jetrete_path = os.path.join(base_path, in_tup[0]+'.jrc.json')
+  # if save_json:
+  #   jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')
+  #   jetrete_path = os.path.join(base_path, in_tup[0]+'.jrc.json')
     
-    with open(jetrules_path, 'wt', encoding='utf-8') as f:
-      f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
-    print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
+  #   with open(jetrules_path, 'wt', encoding='utf-8') as f:
+  #     f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
+  #   print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
 
-    # Save the JetRete data structure
-    with open(jetrete_path, 'wt', encoding='utf-8') as f:
-      f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
-    print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
+  #   # Save the JetRete data structure
+  #   with open(jetrete_path, 'wt', encoding='utf-8') as f:
+  #     f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
+  #   print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
 
   if error:
     sys.exit(error)
@@ -378,6 +378,55 @@ def main(argv):
   if err:
     print('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err)))
     sys.exit('ERROR while saving JetRule file to rete_db: {0}.'.format(str(err))) 
+
+  # Save the jetrule json, combine both json (.jr and .jrc) into a single json
+  # Correct boolean data type that are in the json as text
+  # properties: as_array, as_table
+  # NOTE: Using extension .jrcc.json to indicate that it's the corrected json
+  if save_json:
+    jetrules_path = os.path.join(base_path, in_tup[0]+'.jrcc.json')
+
+    # Combine the json, add the following to jetRules:
+    #   - main_rule_file_name
+    #   - support_rule_file_names
+    #   - rete_nodes
+    compiler.jetrule_ctx.jetRules["main_rule_file_name"] = compiler.jetrule_ctx.jetReteNodes.get("main_rule_file_name", None)
+    compiler.jetrule_ctx.jetRules["support_rule_file_names"] = compiler.jetrule_ctx.jetReteNodes.get("support_rule_file_names", [])
+    compiler.jetrule_ctx.jetRules["rete_nodes"] = compiler.jetrule_ctx.jetReteNodes.get("rete_nodes", None)
+
+    # Correct the bool data type stored as strings
+    for lookupTable in compiler.jetrule_ctx.jetRules.get("lookup_tables", []):
+      for column in lookupTable.get("columns", []):
+        v = column.get("as_array", "false")
+        if(v == "false"):
+          column["as_array"] = False
+        else:
+          column["as_array"] = True
+    
+    for table in compiler.jetrule_ctx.jetRules.get("tables", []):
+      for column in table.get("columns", []):
+        v = column.get("as_array", "false")
+        if(v == "false"):
+          column["as_array"] = False
+        else:
+          column["as_array"] = True
+    
+    for classNode in compiler.jetrule_ctx.jetRules.get("classes", []):
+      v = classNode.get("as_table", "false")
+      if(v == "false"):
+        classNode["as_table"] = False
+      else:
+        classNode["as_table"] = True
+      for dataProperty in classNode.get("data_properties", []):
+        v = dataProperty.get("as_array", "false")
+        if(v == "false"):
+          dataProperty["as_array"] = False
+        else:
+          dataProperty["as_array"] = True
+
+    with open(jetrules_path, 'wt', encoding='utf-8') as f:
+      f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
+    print('Corrected JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
 
 if __name__ == '__main__':
   flags.mark_flag_as_required('in_file')

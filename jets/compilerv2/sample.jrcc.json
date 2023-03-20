@@ -80,27 +80,27 @@
         {
           "name": "gpi_1",
           "type": "text",
-          "as_array": "false"
+          "as_array": false
         },
         {
           "name": "ratio_1",
           "type": "double",
-          "as_array": "false"
+          "as_array": false
         },
         {
           "name": "gpi_2",
           "type": "text",
-          "as_array": "false"
+          "as_array": false
         },
         {
           "name": "ratio_2",
           "type": "double",
-          "as_array": "false"
+          "as_array": false
         },
         {
           "name": "difficulty",
           "type": "text",
-          "as_array": "false"
+          "as_array": false
         }
       ],
       "csv_file": "lookups/interchange_lookup.csv",
@@ -473,16 +473,16 @@
         {
           "name": "jets:key",
           "type": "text",
-          "as_array": "false"
+          "as_array": false
         },
         {
           "name": "rdf:type",
           "type": "text",
-          "as_array": "true"
+          "as_array": true
         }
       ],
       "source_file_name": "data_model/jets_model.jr",
-      "as_table": "false",
+      "as_table": false,
       "sub_classes": [
         "wrs:InterchangeBase"
       ]
@@ -496,7 +496,7 @@
       "columns": [
         {
           "type": "text",
-          "as_array": "false",
+          "as_array": false,
           "property_name": "jets:key",
           "column_name": "jets:key"
         }
