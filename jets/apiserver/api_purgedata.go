@@ -134,8 +134,8 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 // Initialize jetstore database with workspace db init script
 func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// using update_db script
-	log.Println("Running DB Initialization Script Only")
-	serverArgs := []string{ "-initWorkspaceDb" }
+	log.Println("Running DB Initialization with jetsapi Schema Update Scripts Only")
+	serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}

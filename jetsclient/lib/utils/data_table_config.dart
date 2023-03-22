@@ -1313,6 +1313,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.automated: 4,
             FSK.domainKeysJson: 6,
             FSK.codeValuesMappingJson: 7,
+            FSK.inputColumnsJson: 8,
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1395,12 +1396,21 @@ final Map<String, TableConfig> _tableConfigurations = {
           columnWidth: 600),
       ColumnConfig(
           index: 8,
+          name: "input_columns_json",
+          label: 'Input Columns (json)',
+          tooltips:
+              'Column names for HEADERLESS FILES ONLY (json-encoded string)',
+          isNumeric: false,
+          maxLines: 3,
+          columnWidth: 500),
+      ColumnConfig(
+          index: 9,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 9,
+          index: 10,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Indicates when the record was last updated',

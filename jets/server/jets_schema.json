@@ -324,6 +324,10 @@
         "dataType": "text"
       },
       {
+        "columnName": "input_columns_json",
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true
