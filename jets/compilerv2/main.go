@@ -17,26 +17,19 @@ import (
 // JETS_DSN_SECRET
 // JETS_REGION
 // JETS_BUCKET
-// WORKSPACE_DB_PATH location of workspace db (sqlite db)
-// WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
 // JETS_LOG_DEBUG (optional, if == 1, ps=false, poolSize=1 for debugging)
 // JETS_LOG_DEBUG (optional, if == 2, ps=true, poolSize=1 for debugging)
-// JETS_WORKSPACE_SCHEMA_FILE (default: workspace_schema.json)
+// JETS_RULES_SCHEMA_FILE (default: workspace_schema.json)
 
 // Command Line Arguments
-var jetruleFile         = flag.String("jetruleFile", "", "Jetrule file stem, rule file to compile (will add '.jr.json' and '.jrc.json') (required)")
+var workspace           = flag.String("workspace", "", "Workspace of Jetrule file (required)")
+var updateSchema        = flag.Bool("updateSchema", false, "Update table schema in workspace namespace (optional, default: false)")
+var dropTables          = flag.Bool("dropTables", false, "Drop tables in workspace namespace (optional, default: false)")
+var jetruleFile         = flag.String("jetruleFile", "", "Corrected Jetrule file to compile / write (file with ext'.jrcc.json') (required)")
 var usingSshTunnel      = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var dsn string
 var dbpool *pgxpool.Pool
-
-func init() {
-	var err error
-	dsn, err = awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), os.Getenv("JETS_REGION"), *usingSshTunnel, 10)
-	if err != nil {
-		log.Panicf("Cannot get dsn from secret %s: %v",os.Getenv("JETS_DSN_SECRET"), err)
-	}
-}
 
 // doJob main function
 // -------------------------------------
@@ -44,6 +37,9 @@ func doJob() error {
 
 	// open db connections
 	var err error
+	log.Printf("Command Line Argument: workspace: %s\n", *workspace)
+	log.Printf("Command Line Argument: updateSchema: %v\n", *updateSchema)
+	log.Printf("Command Line Argument: dropTables: %v\n", *dropTables)
 	log.Printf("Command Line Argument: jetruleFile: %s\n", *jetruleFile)
 	log.Printf("Command Line Argument: usingSshTunnel: %v\n", *usingSshTunnel)
 	log.Printf("Command Line Argument: userEmail: %s\n", *userEmail)
@@ -51,7 +47,12 @@ func doJob() error {
 	log.Printf("ENV JETS_REGION: %s\n",os.Getenv("JETS_REGION"))
 	log.Printf("ENV JETS_BUCKET: %s\n",os.Getenv("JETS_BUCKET"))
 	log.Printf("ENV JETS_LOG_DEBUG: %s\n",os.Getenv("JETS_LOG_DEBUG"))
-	log.Printf("ENV JETS_WORKSPACE_SCHEMA_FILE: %s\n",os.Getenv("JETS_WORKSPACE_SCHEMA_FILE"))
+	log.Printf("ENV JETS_RULES_SCHEMA_FILE: %s\n",os.Getenv("JETS_RULES_SCHEMA_FILE"))
+
+	dsn, err = awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), os.Getenv("JETS_REGION"), *usingSshTunnel, 10)
+	if err != nil {
+		log.Panicf("Cannot get dsn from secret %s: %v",os.Getenv("JETS_DSN_SECRET"), err)
+	}
 
 	dbpool, err = pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
@@ -59,15 +60,29 @@ func doJob() error {
 	}
 	defer dbpool.Close()
 
+	log.Println("*** Creating token for",*userEmail)
 	token, err := user.CreateToken(*userEmail)
 	if err != nil {
 		return err
 	}
 
+	// The action of the request
 	action := &jetruledb.CompileJetruleAction {
+		Action: "write",
+		UpdateSchema: *updateSchema,
+		Workspace: *workspace,
+		DropTables: *dropTables,
 		JetruleFile: *jetruleFile,
 	}
-	_, _, err = jetruledb.CompileJetrule(dbpool, action, token)
+	switch {
+	case action.Action == "compile":
+		_, _, err = jetruledb.CompileJetrule(dbpool, action, token)
+		
+	case action.Action == "write":
+		_, _, err = jetruledb.WriteJetrule(dbpool, action, token)
+	default:
+		err = fmt.Errorf("unknown CompileJetruleAction.Action: %s",action.Action)
+	}
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
 	}
@@ -82,6 +97,11 @@ func main() {
 	// validate command line arguments
 	hasErr := false
 	var errMsg []string
+	if *workspace == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Workspace of Jetrule file (-workspace) must be provided.")
+	}
+
 	if *jetruleFile == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Jetrule file stem (-jetruleFile) must be provided.")

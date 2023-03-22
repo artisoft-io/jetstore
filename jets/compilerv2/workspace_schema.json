@@ -1,6 +1,6 @@
 [
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "workspace_control",
     "columns": [
       {
@@ -16,13 +16,13 @@
       },
       {
         "columnName": "is_main",
-        "dataType": "bool",
+        "dataType": "boolean",
         "isNotNull": true
       }
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "main_support_files",
     "columns": [
       {
@@ -44,7 +44,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "jetstore_config",
     "columns": [
       {
@@ -65,7 +65,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "rule_sequences",
     "columns": [
       {
@@ -93,7 +93,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "main_rule_sets",
     "columns": [
       {
@@ -125,7 +125,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "domain_classes",
     "columns": [
       {
@@ -141,8 +141,8 @@
       },
       {
         "columnName": "as_table",
-        "dataType": "bool",
-        "default": "'0'",
+        "dataType": "boolean",
+        "default": "false",
         "isNotNull": true
       },
       {
@@ -159,7 +159,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "base_classes",
     "columns": [
       {
@@ -181,7 +181,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "data_properties",
     "columns": [
       {
@@ -207,14 +207,14 @@
       },
       {
         "columnName": "as_array",
-        "dataType": "bool",
-        "default": "'0'",
+        "dataType": "boolean",
+        "default": "false",
         "isNotNull": true
       },
       {
         "columnName": "is_grouping",
-        "dataType": "bool",
-        "default": "'0'",
+        "dataType": "boolean",
+        "default": "false",
         "isNotNull": true
       }
     ],
@@ -226,7 +226,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "domain_tables",
     "columns": [
       {
@@ -254,7 +254,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "domain_columns",
     "columns": [
       {
@@ -274,14 +274,14 @@
       },
       {
         "columnName": "as_array",
-        "dataType": "bool",
-        "default": "'0'",
+        "dataType": "boolean",
+        "default": "false",
         "isNotNull": true
       },
       {
         "columnName": "is_grouping",
-        "dataType": "bool",
-        "default": "'0'",
+        "dataType": "boolean",
+        "default": "false",
         "isNotNull": true
       }
     ],
@@ -297,7 +297,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "resources",
     "columns": [
       {
@@ -320,34 +320,35 @@
         "dataType": "text"
       },
       {
-        "columnName": "symbol",
-        "dataType": "text"
-      },
-      {
         "columnName": "is_binded",
-        "dataType": "bool"
+        "dataType": "boolean"
       },
       {
         "columnName": "inline",
-        "dataType": "bool"
+        "dataType": "boolean"
       },
       {
         "columnName": "vertex",
         "dataType": "int"
       },
       {
-        "columnName": "row_pos",
+        "columnName": "var_pos",
         "dataType": "int"
       },
       {
         "columnName": "source_file_key",
-        "dataType": "int",
-        "isNotNull": true
+        "dataType": "int"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "$SCHEMA_resources_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_resources_unique_cstraint UNIQUE (type,id,value,is_binded,inline,var_pos,vertex)"
       }
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "lookup_tables",
     "columns": [
       {
@@ -391,7 +392,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "lookup_columns",
     "columns": [
       {
@@ -411,8 +412,8 @@
       },
       {
         "columnName": "as_array",
-        "dataType": "bool",
-        "default": "'0'",
+        "dataType": "boolean",
+        "default": "false",
         "isNotNull": true
       }
     ],
@@ -424,7 +425,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "jet_rules",
     "columns": [
       {
@@ -440,7 +441,7 @@
       },
       {
         "columnName": "optimization",
-        "dataType": "bool"
+        "dataType": "boolean"
       },
       {
         "columnName": "salience",
@@ -466,7 +467,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "rule_terms",
     "columns": [
       {
@@ -481,7 +482,7 @@
       },
       {
         "columnName": "is_antecedent",
-        "dataType": "bool"
+        "dataType": "boolean"
       }
     ],
     "tableConstraints": [
@@ -492,7 +493,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "rule_properties",
     "columns": [
       {
@@ -513,12 +514,12 @@
     "indexes": [
       {
         "indexName": "rule_properties_idx",
-        "indexDef": "INDEX rule_properties_idx ON WORKSPACE__KEY.rule_properties (rule_key)"
+        "indexDef": "INDEX rule_properties_idx ON $SCHEMA.rule_properties (rule_key)"
       }
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "expressions",
     "columns": [
       {
@@ -568,7 +569,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "rete_nodes",
     "columns": [
       {
@@ -642,7 +643,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "beta_row_config",
     "columns": [
       {
@@ -688,7 +689,7 @@
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "triples",
     "columns": [
       {
@@ -715,12 +716,12 @@
     "indexes": [
       {
         "indexName": "triples_source_file_key_idx",
-        "indexDef": "INDEX triples_source_file_key_idx ON WORKSPACE__KEY.triples (source_file_key)"
+        "indexDef": "INDEX triples_source_file_key_idx ON $SCHEMA.triples (source_file_key)"
       }
     ]
   },
   {
-    "schemaName": "WORKSPACE__KEY",
+    "schemaName": "$SCHEMA",
     "tableName": "schema_info",
     "columns": [
       {

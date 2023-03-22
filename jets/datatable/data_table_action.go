@@ -31,24 +31,24 @@ import (
 
 // Environment and settings needed
 type Context struct {
-	dbpool         *pgxpool.Pool
-	devMode        bool
-	usingSshTunnel bool
-	unitTestDir    *string
-	nbrShards      int
-	adminEmail     *string
+	Dbpool         *pgxpool.Pool
+	DevMode        bool
+	UsingSshTunnel bool
+	UnitTestDir    *string
+	NbrShards      int
+	AdminEmail     *string
 }
 
 func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 	unitTestDir *string, nbrShards int,
 	adminEmail *string) *Context {
 	return &Context{
-		dbpool:         dbpool,
-		devMode:        devMode,
-		usingSshTunnel: usingSshTunnel,
-		unitTestDir:    unitTestDir,
-		nbrShards:      nbrShards,
-		adminEmail:     adminEmail,
+		Dbpool:         dbpool,
+		DevMode:        devMode,
+		UsingSshTunnel: usingSshTunnel,
+		UnitTestDir:    unitTestDir,
+		NbrShards:      nbrShards,
+		AdminEmail:     adminEmail,
 	}
 }
 
@@ -213,14 +213,14 @@ func isNumeric(dtype string) bool {
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
 	// // Check if we're in dev mode and the query is delegated to a proxy implementation
-	// if ctx.devMode && len(*ctx.unitTestDir) > 0 {
+	// if ctx.DevMode && len(*ctx.unitTestDir) > 0 {
 	// 	// We're in dev mode, see if we override the table being queried
 	// 	switch {
 	// 	case strings.Contains(dataTableAction.RawQuery, "file_key_staging"):
 	// 		return ctx.readLocalFiles(dataTableAction)
 	// 	}
 	// }
-	resultRows, err2 := execQuery(ctx.dbpool, dataTableAction, &dataTableAction.RawQuery)
+	resultRows, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
 		err = fmt.Errorf("while executing raw query: %v", err2)
@@ -241,7 +241,7 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
 		// fmt.Println("Query:",v)
-		resultRows, err2 := execQuery(ctx.dbpool, dataTableAction, &v)
+		resultRows, err2 := execQuery(ctx.Dbpool, dataTableAction, &v)
 		if err2 != nil {
 			httpStatus = http.StatusInternalServerError
 			err = fmt.Errorf("while executing raw query: %v", err2)
@@ -388,7 +388,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 			// Remove existing rows in database
 			stmt :=  `DELETE FROM jetsapi.process_mapping 
 			WHERE table_name = $1`
-			_, err = ctx.dbpool.Exec(context.Background(), stmt, tableName)
+			_, err = ctx.Dbpool.Exec(context.Background(), stmt, tableName)
 			if err != nil {
 				log.Printf("Error while deleting from process_mapping: %v",err)
 				httpStatus = http.StatusBadRequest
@@ -423,7 +423,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	// Check if stmt is reserved for admin only
 	if sqlStmt.AdminOnly {
 		userEmail, err2 := user.ExtractTokenID(token)
-		if err2 != nil || userEmail != *ctx.adminEmail {
+		if err2 != nil || userEmail != *ctx.AdminEmail {
 			httpStatus = http.StatusUnauthorized
 			err = errors.New("error: unauthorized, only admin can delete users")
 			return
@@ -432,14 +432,14 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
-		switch dataTableAction.FromClauses[0].Table {
-		case "pipeline_execution_status", "short/pipeline_execution_status":
+		switch {
+		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
 			if dataTableAction.Data[irow]["input_session_id"] == nil {
 				inSessionId := dataTableAction.Data[irow]["session_id"]
 				inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
 				if inputRegistryKey != nil {
 					stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
-					err = ctx.dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
+					err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
 					if err != nil {
 						log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.FromClauses[0].Table, err)
 						httpStatus = http.StatusInternalServerError
@@ -449,6 +449,9 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				dataTableAction.Data[irow]["input_session_id"] = inSessionId
 			}
+
+		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
+			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
 		}
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
@@ -456,9 +459,9 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
 		if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
-			err = ctx.dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
+			err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
 		} else {
-			_, err = ctx.dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 		}
 		if err != nil {
 			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
@@ -471,7 +474,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				err = errors.New("error while inserting into a table")
 			}
 		}
-}
+	}
 	// Post Processing Hook
 	var name string
 	switch dataTableAction.FromClauses[0].Table {
@@ -527,7 +530,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				"-objectType", objType.(string),
 				"-sessionId", sessionId.(string),
 				"-userEmail", userEmail.(string),
-				"-nbrShards", strconv.Itoa(ctx.nbrShards),
+				"-nbrShards", strconv.Itoa(ctx.NbrShards),
 			}
 			if loaderCompletedMetric != "" {
 				loaderCommand = append(loaderCommand, "-loaderCompletedMetric")
@@ -542,8 +545,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 			switch {
 			// Call loader synchronously
-			case ctx.devMode:
-				if ctx.usingSshTunnel {
+			case ctx.DevMode:
+				if ctx.UsingSshTunnel {
 					loaderCommand = append(loaderCommand, "-usingSshTunnel")
 				}
 				cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
@@ -585,7 +588,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				fmt.Println("Loader State Machine", name, "started")
 			default:
-				log.Printf("input_loader_status insert DO NOTHING: load_and_start: %s, devMode: %v\n", row["load_and_start"], ctx.devMode)
+				log.Printf("input_loader_status insert DO NOTHING: load_and_start: %s, devMode: %v\n", row["load_and_start"], ctx.DevMode)
 			}
 		}
 	case "pipeline_execution_status", "short/pipeline_execution_status":
@@ -658,15 +661,15 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 			switch {
 			// Call server synchronously
-			case ctx.devMode:
+			case ctx.DevMode:
 				// DevMode: Lock session id & register run on last shard (unless error)
 				// loop over every chard to exec in succession
-				for shardId := 0; shardId < ctx.nbrShards; shardId++ {
+				for shardId := 0; shardId < ctx.NbrShards; shardId++ {
 					serverArgs := []string{
 						"-peKey", peKey,
 						"-userEmail", userEmail.(string),
 						"-shardId", strconv.Itoa(shardId),
-						"-nbrShards", strconv.Itoa(ctx.nbrShards),
+						"-nbrShards", strconv.Itoa(ctx.NbrShards),
 					}
 					if serverCompletedMetric != "" {
 						serverArgs = append(serverArgs, "-serverCompletedMetric")
@@ -676,10 +679,10 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						serverArgs = append(serverArgs, "-serverFailedMetric")
 						serverArgs = append(serverArgs, serverFailedMetric)
 					}
-					if ctx.usingSshTunnel {
+					if ctx.UsingSshTunnel {
 						serverArgs = append(serverArgs, "-usingSshTunnel")
 					}
-					if shardId < ctx.nbrShards-1 {
+					if shardId < ctx.NbrShards-1 {
 						serverArgs = append(serverArgs, "-doNotLockSessionId")
 					}
 					log.Printf("Run server: %s", serverArgs)
@@ -715,12 +718,12 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				// Invoke states to load+execute or execute only a process
 				// Rules Server arguments
 				serverCommands := make([][]string, 0)
-				for shardId := 0; shardId < ctx.nbrShards; shardId++ {
+				for shardId := 0; shardId < ctx.NbrShards; shardId++ {
 					serverArgs := []string{
 						"-peKey", peKey,
 						"-userEmail", userEmail.(string),
 						"-shardId", strconv.Itoa(shardId),
-						"-nbrShards", strconv.Itoa(ctx.nbrShards),
+						"-nbrShards", strconv.Itoa(ctx.NbrShards),
 						"-doNotLockSessionId",
 					}
 					if serverCompletedMetric != "" {
@@ -758,7 +761,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						"-objectType", objType.(string),
 						"-sessionId", sessionId.(string),
 						"-userEmail", userEmail.(string),
-						"-nbrShards", strconv.Itoa(ctx.nbrShards),
+						"-nbrShards", strconv.Itoa(ctx.NbrShards),
 						"-doNotLockSessionId",
 					}
 					if loaderCompletedMetric != "" {
@@ -786,10 +789,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 		} // irow := range dataTableAction.Data
 	} // switch dataTableAction.FromClauses[0].Table
-	//* BACKWARD COMPATIBILITY returning the first returnedKey (should return the array)
-	results = &map[string]interface{}{}
-	if returnedKey[0] >= 0 {
-		(*results)["returned_key"] = returnedKey[0]
+	results = &map[string]interface{}{
+		"returned_keys": &returnedKey,
 	}
 	return
 }
@@ -834,7 +835,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
 
 	// // Check if we're in dev mode and the query is delegated to a proxy implementation
-	// if ctx.devMode && len(*ctx.unitTestDir) > 0 {
+	// if ctx.DevMode && len(*ctx.unitTestDir) > 0 {
 	// 	// We're in dev mode, see if we override the table being queried
 	// 	switch dataTableAction.FromClauses[0].Table {
 	// 	case "file_key_staging":
@@ -849,7 +850,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	if len(dataTableAction.Columns) == 0 {
 		// Get table column definition
 		//* TODO use cache
-		tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
+		tableSchema, err := schema.GetTableSchema(ctx.Dbpool, dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table, err)
 		}
@@ -883,7 +884,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// 	// Not in cache
 	// 	//*
 	// 	log.Println("DataTableSchema key",dataTableAction.getKey(),"is not in the cache")
-	// 	tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.Schema, dataTableAction.FromClauses[0].Table)
+	// 	tableSchema, err := schema.GetTableSchema(ctx.Dbpool, dataTableAction.Schema, dataTableAction.FromClauses[0].Table)
 	// 	if err != nil {
 	// 		log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.Schema, dataTableAction.FromClauses[0].Table, err)
 	// 		ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
@@ -922,7 +923,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 
 	// Perform the query
 	query := buf.String()
-	resultRows, err := execQuery(ctx.dbpool, dataTableAction, &query)
+	resultRows, err := execQuery(ctx.Dbpool, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
 			fmt.Errorf("While executing query from tables %s: %v", fromClause, err)
@@ -932,7 +933,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	//* TODO add where clause to filter deleted items
 	stmt := fmt.Sprintf("SELECT count(*) FROM %s %s", fromClause, whereClause)
 	var totalRowCount int
-	err = ctx.dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
+	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
 			fmt.Errorf("While getting total row count from tables %s: %v", fromClause, err)
