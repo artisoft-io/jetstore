@@ -295,6 +295,18 @@ String? sourceConfigValidator(
         return "Code values mapping is not a valid json: ${e.toString()}";
       }
       return null;
+    case FSK.inputColumnsJson:
+      String? value = v;
+      if (value == null || value.isEmpty) {
+        return null; // this field is nullable
+      }
+      // Validate that value is valid json
+      try {
+        jsonDecode(value);
+      } catch (e) {
+        return "Input column names is not a valid json: ${e.toString()}";
+      }
+      return null;
 
     case FSK.sourcePeriodKey:
       if (v != null) {
@@ -335,7 +347,6 @@ Future<String?> sourceConfigActions(BuildContext context,
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     // Add Org
     case ActionKeys.orgOk:
@@ -351,7 +362,6 @@ Future<String?> sourceConfigActions(BuildContext context,
         'data': [formState.getState(0)],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     case ActionKeys.deleteClient:
       // Get confirmation
@@ -427,7 +437,6 @@ Future<String?> sourceConfigActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     // Start loader
     case ActionKeys.loaderOk:
@@ -456,7 +465,6 @@ Future<String?> sourceConfigActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     // Sync File Keys with web storage (s3)
     case ActionKeys.syncFileKey:
@@ -479,6 +487,7 @@ Future<String?> sourceConfigActions(BuildContext context,
     default:
       print('Oops unknown ActionKey for Source Config Form: $actionKey');
   }
+  return null;
 }
 
 /// Process Input Form / Dialog Validator

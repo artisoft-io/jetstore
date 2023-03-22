@@ -216,12 +216,21 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	}
 
 	// Drop input columns (rawHeaders) matching the reserved column names
+	// Drop input columns (rawHeaders) that appear more than once (e.g. 'filler' columns)
 	// compute headers of output table
+	fillerColumns := make(map[string]bool)
 	for ipos := range dkInfo.RawHeaders {
-		if !dkInfo.ReservedColumns[dkInfo.RawHeaders[ipos]] {
-			h := dkInfo.RawHeaders[ipos]
-			dkInfo.Headers = append(dkInfo.Headers, h)
-			dkInfo.HeadersPosMap[h] = ipos
+		h := dkInfo.RawHeaders[ipos]
+		if !dkInfo.ReservedColumns[h] && !fillerColumns[h] {
+			_,ok := dkInfo.HeadersPosMap[h]
+			if ok {
+				// Column is duplicated, mark it as a filler
+				// (there will still be one column named by the value of h)
+				fillerColumns[h] = true
+			} else {
+				dkInfo.Headers = append(dkInfo.Headers, h)
+				dkInfo.HeadersPosMap[h] = ipos	
+			}
 		}
 	}
 	// Add reserved columns (sessionId, shardId, DomainKeys, etc) to the headers,

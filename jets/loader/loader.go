@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -79,6 +80,7 @@ var completedMetric = flag.String("loaderCompletedMetric", "loaderCompleted", "M
 var failedMetric = flag.String("loaderFailedMetric", "loaderFailed", "Metric name to register the load failure [success load metric: loaderCompleted] (default: loaderFailed)")
 var tableName string
 var domainKeysJson string
+var inputColumnsJson string
 var sep_flag chartype = '€'
 var errOutDir string
 var jetsInputRowJetsKeyAlgo string
@@ -324,11 +326,20 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 		return nil, 0, 0, fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
 	}
 
-	rawHeaders, err := csvReader.Read()
-	if err == io.EOF {
-		return nil, 0, 0, errors.New("input csv file is empty")
-	} else if err != nil {
-		return nil, 0, 0, fmt.Errorf("while reading csv headers: %v", err)
+	var rawHeaders []string
+	if inputColumnsJson != "" {
+		err := json.Unmarshal([]byte(inputColumnsJson), &rawHeaders)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
+		}
+		fmt.Println("Got input columns from json:", rawHeaders)
+	} else {
+		rawHeaders, err = csvReader.Read()
+		if err == io.EOF {
+			return nil, 0, 0, errors.New("input csv file is empty")
+		} else if err != nil {
+			return nil, 0, 0, fmt.Errorf("while reading csv headers: %v", err)
+		}	
 	}
 	err = headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson)
 	if err != nil {
@@ -535,15 +546,18 @@ func coordinateWork() error {
 
 	// Get the DomainKeysJson and tableName from source_config table
 	// ---------------------------------------
-	var dkJson sql.NullString
+	var dkJson, cnJson sql.NullString
 	err = dbpool.QueryRow(context.Background(), 
-		"SELECT table_name, domain_keys_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
-		*client, clientOrg, *objectType).Scan(&tableName, &dkJson)
+		"SELECT table_name, domain_keys_json, input_columns_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
+		*client, clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson)
 	if err != nil {
-		return fmt.Errorf("query table_name, domain_keys_json from jetsapi.source_config failed: %v", err)
+		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json from jetsapi.source_config failed: %v", err)
 	}
 	if dkJson.Valid {
 		domainKeysJson = dkJson.String
+	}
+	if cnJson.Valid {
+		inputColumnsJson = cnJson.String
 	}
 
 	var fileHd, errFileHd *os.File

@@ -779,8 +779,28 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLines: 15,
+            maxLines: 13,
             maxLength: 51200),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.inputColumnsJson,
+            label: "Input file column names (json)",
+            hint: "Input file column names, for headerless files ONLY",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 10,
+            maxLength: 51200),
+      ],
+      [
+        // Instruction
+        TextFieldConfig(
+            label: "Note: Provide column names for headerless files ONLY",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0)
       ],
     ],
   ),
