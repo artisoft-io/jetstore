@@ -252,10 +252,9 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 				var buf strings.Builder
 				switch jetsInputRowJetsKeyAlgo {
 				case "row_hash":
-					for i := range record {
-						if !headersDKInfo.ReservedColumns[headersDKInfo.Headers[i]] {
-							// fmt.Println("row_hash with column",headersDKInfo.Headers[i])
-							buf.WriteString(record[i])
+					for h, ipos := range headersDKInfo.HeadersPosMap {
+						if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
+							buf.WriteString(record[ipos])
 						}
 					}
 					jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()

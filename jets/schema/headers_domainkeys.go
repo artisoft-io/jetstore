@@ -41,6 +41,7 @@ type HeadersAndDomainKeysInfo struct {
 	DomainKeysInfoMap map[string]*DomainKeyInfo
 	// Reserved columns removed from RawHeaders and included in Headers 
 	ReservedColumns   map[string]bool
+	FillerColumns     map[string]bool
 }
 func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, error) {
 	headersDKInfo := HeadersAndDomainKeysInfo {
@@ -50,6 +51,7 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 		Headers:           make([]string, 0),
 		HeadersPosMap:     make(map[string]int, 0),
 		ReservedColumns:   make(map[string]bool, 0),
+		FillerColumns:     make(map[string]bool, 0),
 		HashingAlgo:       strings.ToLower(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 	}
 	if headersDKInfo.HashingAlgo == "" {
@@ -218,15 +220,14 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	// Drop input columns (rawHeaders) matching the reserved column names
 	// Drop input columns (rawHeaders) that appear more than once (e.g. 'filler' columns)
 	// compute headers of output table
-	fillerColumns := make(map[string]bool)
 	for ipos := range dkInfo.RawHeaders {
 		h := dkInfo.RawHeaders[ipos]
-		if !dkInfo.ReservedColumns[h] && !fillerColumns[h] {
+		if !dkInfo.ReservedColumns[h] && !dkInfo.FillerColumns[h] {
 			_,ok := dkInfo.HeadersPosMap[h]
 			if ok {
 				// Column is duplicated, mark it as a filler
 				// (there will still be one column named by the value of h)
-				fillerColumns[h] = true
+				dkInfo.FillerColumns[h] = true
 			} else {
 				dkInfo.Headers = append(dkInfo.Headers, h)
 				dkInfo.HeadersPosMap[h] = ipos	
