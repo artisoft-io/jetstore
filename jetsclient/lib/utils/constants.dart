@@ -51,6 +51,7 @@ class ScreenKeys {
   static const userAdmin = "userAdminScreen";
 
   static const fileRegistryTable = "fileRegistryTableScreen";
+  static const filePreview = "filePreviewScreen";
   static const execStatusDetailsTable = "execStatusDetailsTable";
   static const processErrorsTable = "processErrorsTable";
 }
@@ -277,6 +278,9 @@ class DTKeys {
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
+
+  // Input File Viewer DT
+  static const inputFileViewerTable = "inputFileViewerTable";
 
   // Input Source Mapping DT
   static const inputSourceMapping = "inputSourceMapping";

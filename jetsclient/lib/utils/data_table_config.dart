@@ -10,6 +10,7 @@ class TableConfig {
       {required this.key,
       this.label = "",
       required this.apiPath,
+      this.apiAction = "read",
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
       required this.actions,
@@ -25,6 +26,7 @@ class TableConfig {
   final String key;
   final String label;
   final String apiPath;
+  final String apiAction;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
@@ -1132,6 +1134,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isEnabledWhenHavingSelectedRows: true),
       ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'previewInputFile',
+          label: 'Preview File',
+          style: ActionStyle.secondary,
+          isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: filePreviewPath,
+          navigationParams: {'file_key': 4}),
+      ActionConfig(
           actionType: DataTableActionType.doAction,
           actionName: ActionKeys.syncFileKey,
           key: 'syncFileKey',
@@ -2094,6 +2104,24 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: '',
       sortAscending: false,
       rowsPerPage: 10),
+
+  // Input File Viewer Data Table
+  DTKeys.inputFileViewerTable: TableConfig(
+      key: DTKeys.inputFileViewerTable,
+      fromClauses: [FromClause(schemaName: 'public', tableName: 's3')],
+      label: 'Input File Viewer',
+      apiPath: '/dataTable',
+      apiAction: 'preview_file',
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
+      whereClauses: [
+        WhereClause(column: "file_key", formStateKey: FSK.fileKey),
+      ],
+      actions: [],
+      columns: [],
+      sortColumnName: '',
+      sortAscending: false,
+      rowsPerPage: 50),
 
   // Users Administration Data Table
   DTKeys.usersTable: TableConfig(

@@ -120,11 +120,11 @@ class JetsDataTableWidget extends FormField<WidgetField> {
             ];
             // Header row - label + action buttons
             final headerRow = <Widget>[
-              if (tableConfig.label.isNotEmpty)
+              if (state.label.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(defaultPadding, 0, 0, 0),
                   child: Text(
-                    tableConfig.label,
+                    state.label,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 )
@@ -255,6 +255,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
   List<ColumnConfig> columnsConfig = [];
   List<Map<String, String>> columnNameMaps = [];
+  String label = "";
 
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
@@ -284,6 +285,8 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       rowsPerPage * 5,
       rowsPerPage * 10
     ];
+    // The data table label is changed for inputFileViewer
+    label = tableConfig.label;
 
     dataSource = JetsDataTableSource(
         state: this,
