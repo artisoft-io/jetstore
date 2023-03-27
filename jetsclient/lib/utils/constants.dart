@@ -51,6 +51,7 @@ class ScreenKeys {
   static const userAdmin = "userAdminScreen";
 
   static const fileRegistryTable = "fileRegistryTableScreen";
+  static const filePreview = "filePreviewScreen";
   static const execStatusDetailsTable = "execStatusDetailsTable";
   static const processErrorsTable = "processErrorsTable";
 }
@@ -116,6 +117,7 @@ class FSK {
   static const sourceType = "source_type";
   static const domainKeysJson = "domain_keys_json";
   static const inputColumnsJson = "input_columns_json";
+  static const inputColumnsPositionsCsv = "input_columns_positions_csv";
   static const codeValuesMappingJson = "code_values_mapping_json";
   static const entityRdfType = "entity_rdf_type";
   static const status = "status";
@@ -277,6 +279,9 @@ class DTKeys {
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
+
+  // Input File Viewer DT
+  static const inputFileViewerTable = "inputFileViewerTable";
 
   // Input Source Mapping DT
   static const inputSourceMapping = "inputSourceMapping";

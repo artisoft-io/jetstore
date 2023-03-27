@@ -772,6 +772,43 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
       [
         FormInputFieldConfig(
+            key: FSK.inputColumnsJson,
+            label: "Input file column names (json)",
+            hint: "Input file column names, only for headerless files",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            autovalidateMode: AutovalidateMode.always,
+            textRestriction: TextRestriction.none,
+            maxLines: 13,
+            maxLength: 51200),
+        FormInputFieldConfig(
+            key: FSK.inputColumnsPositionsCsv,
+            label: "Column names and positions (csv)",
+            hint: "Input file column names, only for fixed-width files",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            autovalidateMode: AutovalidateMode.always,
+            textRestriction: TextRestriction.none,
+            maxLines: 13,
+            maxLength: 51200),
+      ],
+      [
+        // Instruction
+        TextFieldConfig(
+            label: "Note: Provide column names only for headerless files.",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0),
+        TextFieldConfig(
+            label: "Note: Provide column names and position only for fixed-width files.",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0),
+      ],
+      [
+        FormInputFieldConfig(
             key: FSK.codeValuesMappingJson,
             label: "Code Values Mapping (json)",
             hint: "Client-Specific Code Values Mapping to Canonical Codes",
@@ -779,28 +816,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLines: 13,
-            maxLength: 51200),
-      ],
-      [
-        FormInputFieldConfig(
-            key: FSK.inputColumnsJson,
-            label: "Input file column names (json)",
-            hint: "Input file column names, for headerless files ONLY",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
             maxLines: 10,
             maxLength: 51200),
-      ],
-      [
-        // Instruction
-        TextFieldConfig(
-            label: "Note: Provide column names for headerless files ONLY",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0)
       ],
     ],
   ),

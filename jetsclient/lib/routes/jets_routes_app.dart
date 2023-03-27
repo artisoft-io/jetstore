@@ -20,6 +20,7 @@ const sourceConfigPath = '/sourceConfig';
 const inputSourceMappingPath = '/inputSourceMapping';
 const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table/:session_id';
+const filePreviewPath = '/filePreviewPath/:file_key';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
 const processErrorsPath = '/processErrorsPath/:session_id';
 
@@ -130,6 +131,15 @@ final Map<String, Widget> jetsRoutesMap = {
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
       tableConfig: getTableConfig(DTKeys.inputTable)),
+
+  // File Preview
+  filePreviewPath: ScreenOne(
+      key: const Key(ScreenKeys.filePreview),
+      screenPath: JetsRouteData(filePreviewPath),
+      screenConfig: getScreenConfig(ScreenKeys.filePreview),
+      validatorDelegate: (formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
+      tableConfig: getTableConfig(DTKeys.inputFileViewerTable)),
 
   // Pipeline Execution Status Details Viewer
   executionStatusDetailsPath: ScreenOne(

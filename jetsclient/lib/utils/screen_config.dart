@@ -200,7 +200,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.fileRegistryTable: ScreenConfig(
       key: ScreenKeys.fileRegistryTable,
       appBarLabel: 'JetStore Workspace',
-      title: 'Input File as Table',
+      title: 'Staging Table or Domain Table View',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
+  ScreenKeys.filePreview: ScreenConfig(
+      key: ScreenKeys.filePreview,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Input File Preview',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),

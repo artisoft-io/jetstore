@@ -240,7 +240,7 @@ class JetsDataTableSource extends ChangeNotifier {
                 'column': columns[index].name
               });
     }
-    var msg = <String, dynamic>{'action': 'read'};
+    var msg = <String, dynamic>{'action': state.tableConfig.apiAction};
     // from clauses (table name(s))
     List<Map<String, String>> fromClauses = [];
     for (final fc in state.tableConfig.fromClauses) {
@@ -254,7 +254,8 @@ class JetsDataTableSource extends ChangeNotifier {
       });
     }
     msg['fromClauses'] = fromClauses;
-    // add where clauses
+
+    // add WHERE clauses
     List<Map<String, dynamic>> whereClauses = [];
     for (final wc in state.tableConfig.whereClauses) {
       var value =
@@ -414,6 +415,9 @@ class JetsDataTableSource extends ChangeNotifier {
             .toList();
         state.setSortingColumn(columnIndex: 0);
       }
+      // The table's label
+      state.label = data['label'] ?? state.label;
+      // The table's rows
       final rows = data['rows'] as List;
       model = rows.map((e) => (e as List).cast<String?>()).toList();
       // model = rows.cast<JetsRow>().toList();

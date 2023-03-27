@@ -328,6 +328,10 @@
         "dataType": "text"
       },
       {
+        "columnName": "input_columns_positions_csv",
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true

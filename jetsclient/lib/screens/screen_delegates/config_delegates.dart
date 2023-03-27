@@ -300,11 +300,28 @@ String? sourceConfigValidator(
       if (value == null || value.isEmpty) {
         return null; // this field is nullable
       }
+      // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
+      final otherv = formState.getValue(0, FSK.inputColumnsPositionsCsv);
+      if(otherv != null) {
+        return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
+      }
       // Validate that value is valid json
       try {
         jsonDecode(value);
       } catch (e) {
         return "Input column names is not a valid json: ${e.toString()}";
+      }
+      return null;
+
+    case FSK.inputColumnsPositionsCsv:
+      String? value = v;
+      if (value == null || value.isEmpty) {
+        return null; // this field is nullable
+      }
+      // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
+      final otherv = formState.getValue(0, FSK.inputColumnsJson);
+      if(otherv != null) {
+        return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
       }
       return null;
 

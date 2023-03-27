@@ -10,6 +10,7 @@ class TableConfig {
       {required this.key,
       this.label = "",
       required this.apiPath,
+      this.apiAction = "read",
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
       required this.actions,
@@ -25,6 +26,7 @@ class TableConfig {
   final String key;
   final String label;
   final String apiPath;
+  final String apiAction;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
@@ -1132,6 +1134,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isEnabledWhenHavingSelectedRows: true),
       ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'previewInputFile',
+          label: 'Preview File',
+          style: ActionStyle.secondary,
+          isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: filePreviewPath,
+          navigationParams: {'file_key': 4}),
+      ActionConfig(
           actionType: DataTableActionType.doAction,
           actionName: ActionKeys.syncFileKey,
           key: 'syncFileKey',
@@ -1314,6 +1324,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.domainKeysJson: 6,
             FSK.codeValuesMappingJson: 7,
             FSK.inputColumnsJson: 8,
+            FSK.inputColumnsPositionsCsv: 9,
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1384,7 +1395,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Column(s) for row' 's domain key(s) (json-encoded string)',
           isNumeric: false,
           maxLines: 3,
-          columnWidth: 600),
+          columnWidth: 500),
       ColumnConfig(
           index: 7,
           name: "code_values_mapping_json",
@@ -1393,7 +1404,7 @@ final Map<String, TableConfig> _tableConfigurations = {
               'Client-specific code values mapping to canonical codes (json-encoded string)',
           isNumeric: false,
           maxLines: 3,
-          columnWidth: 600),
+          columnWidth: 500),
       ColumnConfig(
           index: 8,
           name: "input_columns_json",
@@ -1405,12 +1416,21 @@ final Map<String, TableConfig> _tableConfigurations = {
           columnWidth: 500),
       ColumnConfig(
           index: 9,
+          name: "input_columns_positions_csv",
+          label: 'Fixed-Width Column Positions (csv)',
+          tooltips:
+              'Column names & position for FIXED-WIDTH ONLY (csv)',
+          isNumeric: false,
+          maxLines: 3,
+          columnWidth: 500),
+      ColumnConfig(
+          index: 10,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 10,
+          index: 11,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Indicates when the record was last updated',
@@ -2094,6 +2114,24 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: '',
       sortAscending: false,
       rowsPerPage: 10),
+
+  // Input File Viewer Data Table
+  DTKeys.inputFileViewerTable: TableConfig(
+      key: DTKeys.inputFileViewerTable,
+      fromClauses: [FromClause(schemaName: 'public', tableName: 's3')],
+      label: 'Input File Viewer',
+      apiPath: '/dataTable',
+      apiAction: 'preview_file',
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
+      whereClauses: [
+        WhereClause(column: "file_key", formStateKey: FSK.fileKey),
+      ],
+      actions: [],
+      columns: [],
+      sortColumnName: '',
+      sortAscending: false,
+      rowsPerPage: 50),
 
   // Users Administration Data Table
   DTKeys.usersTable: TableConfig(

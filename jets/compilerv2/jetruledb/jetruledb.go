@@ -277,8 +277,53 @@ func UpdateSchema(ctx *datatable.Context, dropTables bool, workspace string) err
 
 // JetruleModel Methods
 // --------------------
+// WriteResources
 func (model *JetruleModel)WriteResources(ctx *datatable.Context, workspace string, token *string) error {
 
+	data := []map[string]interface{}{}
+	for i := range model.Resources {
+		r := &model.Resources[i]
+		b, err := json.Marshal(r)
+		if err != nil {
+			log.Printf("while writing json:%v\n",err)
+			return err
+		}
+		row := map[string]interface{}{}
+		err = json.Unmarshal(b, &row)
+		if err != nil {
+			log.Printf("while reading json:%v\n",err)
+			return err
+		}
+		data = append(data, row)
+	}
+	dataTableAction := &datatable.DataTableAction{
+		Action:      "insert_rows",
+		FromClauses: []datatable.FromClause{{Schema: workspace, Table: "WORKSPACE/resources"}},
+		Data: data,
+	}		
+	results, _, err := ctx.InsertRows(dataTableAction, *token)
+	if err != nil {
+		log.Printf("while calling InsertRows:%v\n",err)
+		return err
+	}
+	returnedKeys := (*results)["returned_keys"].(*[]int)
+	if returnedKeys == nil {
+		err = fmt.Errorf("error: no keys returned from InsertRows in WriteResources")
+		log.Println(err)
+		return err
+	}
+	for i := range model.Resources {
+		r := &model.Resources[i]
+		r.DbKey = (*returnedKeys)[i]
+	}
+
+	return nil
+}
+
+// WriteDomainClasses
+func (model *JetruleModel)WriteDomainClasses(ctx *datatable.Context, workspace string, token *string) error {
+
+	//*TODO
 	data := []map[string]interface{}{}
 	for i := range model.Resources {
 		r := &model.Resources[i]
