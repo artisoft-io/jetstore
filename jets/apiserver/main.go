@@ -137,9 +137,8 @@ func main() {
 	}
 	if *tokenExpiration < 5 {
 		var err error
-		*tokenExpiration, err = strconv.Atoi("API_TOKEN_EXPIRATION_MIN")
-		log.Printf("while converting token expiration: %v",err)
-		if *tokenExpiration < 5 {
+		*tokenExpiration, err = strconv.Atoi(os.Getenv("API_TOKEN_EXPIRATION_MIN"))
+		if err != nil || *tokenExpiration < 5 {
 			hasErr = true
 			errMsg = append(errMsg, "Token expiration must be 5 min or more. (-tokenExpiration)")
 		}

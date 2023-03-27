@@ -117,6 +117,7 @@ class FSK {
   static const sourceType = "source_type";
   static const domainKeysJson = "domain_keys_json";
   static const inputColumnsJson = "input_columns_json";
+  static const inputColumnsPositionsCsv = "input_columns_positions_csv";
   static const codeValuesMappingJson = "code_values_mapping_json";
   static const entityRdfType = "entity_rdf_type";
   static const status = "status";

@@ -68,6 +68,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 
 		// Insert file key info in table file_key_staging
 		// make sure we have a value for each column
+		// exclude file_key for error file (file name starting with err_)
 		allOk := true
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol], ok = fileKeyObject[colKey]
@@ -75,13 +76,18 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				allOk = false
 			}
 		}
+		fileKey,ok := fileKeyObject["file_key"]
+		if !ok || strings.Contains(fileKey.(string), "/err_") {
+			log.Println("File key is an error file, skiping")
+			allOk = false
+		}
 		if allOk {
 			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting missing file keys in file_key_staging table: %v", err)
 			}
 		} else {
-			log.Println("while SyncFileKeys: skipping incomplete file key:", fileKeyObject["file_key"])
+			log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
 			return &map[string]interface{}{}, http.StatusOK, nil
 		}
 
@@ -89,7 +95,6 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		client := registerFileKeyAction.Data[irow]["client"]
 		org := registerFileKeyAction.Data[irow]["org"]
 		objectType := registerFileKeyAction.Data[irow]["object_type"]
-		fileKey := registerFileKeyAction.Data[irow]["file_key"]
 		var tableName string
 		var automated int
 		stmt := "SELECT table_name, automated FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"

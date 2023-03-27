@@ -42,6 +42,10 @@ type HeadersAndDomainKeysInfo struct {
 	// Reserved columns removed from RawHeaders and included in Headers 
 	ReservedColumns   map[string]bool
 	FillerColumns     map[string]bool
+	// column prefix used for fixed-width input record
+	// The prefix is the first record type (the one with offset == 0)
+	// This is empty string for non fixed-width records, therefore ignored
+	FixedWidthColumnPrefix string
 }
 func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, error) {
 	headersDKInfo := HeadersAndDomainKeysInfo {
@@ -72,12 +76,13 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 	}
 	return &headersDKInfo, nil
 }
-func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders []string, mainObjectType string, domainKeysJson *string) error {
+func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders []string, mainObjectType string, domainKeysJson *string, fixedWidthColumnPrefix string) error {
 	dkInfo.RawHeaders = append(dkInfo.RawHeaders, rawHeaders...)
 	dkInfo.ReservedColumns["file_key"] = true
 	dkInfo.ReservedColumns["jets:key"] = true
 	dkInfo.ReservedColumns["last_update"] = true
 	dkInfo.ReservedColumns["session_id"] = true
+	dkInfo.FixedWidthColumnPrefix = fixedWidthColumnPrefix
 	return dkInfo.Initialize(mainObjectType, domainKeysJson)
 }
 func (dkInfo *HeadersAndDomainKeysInfo)InitializeDomainTable(domainHeaders []string, mainObjectType string, domainKeysJson *string) error {
@@ -247,6 +252,9 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	for objectType,v := range dkInfo.DomainKeysInfoMap {
 		v.ColumnPos = make([]int, len(v.ColumnNames))
 		for jpos, columnName := range v.ColumnNames {
+			if dkInfo.FixedWidthColumnPrefix != "" {
+				columnName = fmt.Sprintf("%s.%s", dkInfo.FixedWidthColumnPrefix, columnName)
+			}
 			v.ColumnPos[jpos], ok = dkInfo.HeadersPosMap[columnName]
 			if !ok {
 				err := fmt.Errorf(
@@ -297,7 +305,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)IsDomainKeyIsJetsKey(objectType *string) 
 	return false
 }
 
-func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, jetsKey *string) (string, int, error) {
+func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, recordTypeOffset int, jetsKey *string) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {
 		groupingKey := *jetsKey
@@ -309,7 +317,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 			groupingKey := dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		}
-		recPos := dk.ColumnPos[0]
+		recPos := dk.ColumnPos[0] + recordTypeOffset
 		if recPos < len(*record) {
 			cols := []string{(*record)[recPos]}
 			groupingKey := dkInfo.makeGroupingKey(&cols)
@@ -319,7 +327,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 	}
 	cols := make([]string, len(dk.ColumnPos))
 	for ipos := range dk.ColumnPos {
-		recPos := dk.ColumnPos[ipos]
+		recPos := dk.ColumnPos[ipos] + recordTypeOffset
 		if recPos < len(*record) {
 			cols[ipos] = (*record)[recPos]
 		} else {

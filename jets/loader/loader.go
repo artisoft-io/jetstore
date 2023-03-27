@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/csv"
@@ -63,6 +64,7 @@ func (s *chartype) Set(value string) error {
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
 // JETS_LOADER_CHUNCK_SIZE buffer size for input lines, default 200K
+// JETS_LOG_DEBUG (optional, if > 0 for printing debug statements)
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -81,6 +83,7 @@ var failedMetric = flag.String("loaderFailedMetric", "loaderFailed", "Metric nam
 var tableName string
 var domainKeysJson string
 var inputColumnsJson string
+var inputColumnsPositionsCsv string
 var sep_flag chartype = '€'
 var errOutDir string
 var jetsInputRowJetsKeyAlgo string
@@ -89,11 +92,75 @@ var sourcePeriodKey int
 var inputRegistryKey []int
 var devMode bool
 var adminEmail string
+var jetsDebug int
 
 func init() {
-	flag.Var(&sep_flag, "sep", "Field separator, default is auto detect between pipe ('|') or comma (',')")
+	flag.Var(&sep_flag, "sep", "Field separator for csv files, default is auto detect between pipe ('|'), tab ('\t') or comma (',')")
 }
 
+// Define an enum indicating the encoding of the input file
+type InputEncoding int64
+const (
+	Csv InputEncoding = iota
+	HeaderlessCsv
+	FixedWith
+)
+
+func (s InputEncoding) String() string {
+	switch s {
+	case Csv:
+		return "csv"
+	case HeaderlessCsv:
+		return "headerless csv"
+	case FixedWith:
+		return "fixed-width"
+	}
+	return "unknown"
+}
+var inputFileEncoding InputEncoding
+
+// Struct to hold column names and positions for fixed-width file encoding
+// ColumnsMap key is record type or empty string if single record type (RecordTypeColumn = nil)
+// In ColumnsMap elemens, ColumnName is <record type>:<record column name> to make it unique across record types
+// However RecordTypeColumn.ColumnName is <record column name> without prefix
+// Note that all record type MUST have RecordTypeColumn.ColumnName with same start and end position 
+type FixedWithColumn struct {
+	Start      int
+	End        int
+	ColumnName string 
+}
+type FixedWithEncodingInfo struct {
+	RecordTypeColumn   *FixedWithColumn
+	ColumnsMap         map[string]*[]*FixedWithColumn 
+	ColumnsOffsetMap   map[string]int
+	RecordTypeList     []string
+}
+func (c *FixedWithColumn)String() string {
+	return fmt.Sprintf("Start: %d, End: %d, ColumnName: %s", c.Start, c.End, c.ColumnName)
+}
+func (fw *FixedWithEncodingInfo)String() string {
+	var buf strings.Builder
+	buf.WriteString("    FixedWithEncodingInfo:")
+	buf.WriteString("\n      RecordTypeColumn:")
+	buf.WriteString(fw.RecordTypeColumn.String())
+	buf.WriteString("\n      ColumnsMap:")
+	for _,k := range fw.RecordTypeList {
+		v := fw.ColumnsMap[k]
+		buf.WriteString(fmt.Sprintf("\n      RecordType: %s", k))
+		for _,info := range *v {
+			buf.WriteString(fmt.Sprintf("\n        Column Info: %s", info.String()))
+		}
+	}
+	buf.WriteString("\n      ColumnsOffsetMap:")
+	for _,k := range fw.RecordTypeList {
+		v := fw.ColumnsOffsetMap[k]
+		buf.WriteString(fmt.Sprintf("\n        RecordType: %s, Offset: %d", k, v))
+	}
+	buf.WriteString("\n")
+	return buf.String()
+}
+
+var fixedWitdthEncodingInfo *FixedWithEncodingInfo
 
 func truncateSessionId(dbpool *pgxpool.Pool) error {
 	stmt := `DELETE FROM jetsapi.input_loader_status 
@@ -163,7 +230,7 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 // 	errMsg string
 // }
 
-func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, csvReader *csv.Reader) (int64, *[]int, error) {
+func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, csvReader *csv.Reader, fwScanner *bufio.Scanner) (int64, *[]int, error) {
 	var badRowsPos []int
 	headerPos := headersDKInfo.GetHeaderPos()
 	fileKeyPos := headersDKInfo.HeadersPosMap["file_key"]
@@ -192,11 +259,65 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 
 	var partitionIndex int
 	var copyCount int64
+	var record []string
+	recordTypeOffset := 0
+	currentLineNumber := 0
+	badFixedWidthRecord := errors.New("bad fixed-width record")
 	for {
 		inputRows := make([][]interface{}, 0, filePartitionSize)
 		// read and write up to filePartitionSize rows
 		for partitionIndex = 0; partitionIndex < filePartitionSize; partitionIndex++ {
-			record, err := csvReader.Read()
+			currentLineNumber += 1
+
+			switch inputFileEncoding {
+
+			case Csv, HeaderlessCsv:
+				record, err = csvReader.Read()
+
+			case FixedWith:
+				record = make([]string, len(headersDKInfo.RawHeaders))
+				ok := fwScanner.Scan()
+				if !ok {
+					err = fwScanner.Err()
+					if err == nil {
+						err = io.EOF
+					}
+				} else {
+					line := fwScanner.Text()
+					ll := len(line)
+					// split the line into the record according to the record type
+					var recordType string
+					if fixedWitdthEncodingInfo.RecordTypeColumn != nil {
+						s := fixedWitdthEncodingInfo.RecordTypeColumn.Start
+						e := fixedWitdthEncodingInfo.RecordTypeColumn.End
+						if s < ll && e <= ll {
+							recordType = strings.TrimSpace(line[s:e])
+						}
+					}
+					recordTypeOffset, ok = fixedWitdthEncodingInfo.ColumnsOffsetMap[recordType]
+					if !ok {
+						log.Printf("Bad fixed-width record: unknown record type '%s' at line %d", recordType, currentLineNumber)
+						err = badFixedWidthRecord
+					} else {
+						columnsInfo, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+						if !ok || columnsInfo == nil {
+							log.Printf("Bad fixed-width record: unknown record type '%s' at line %d (column info is null)", recordType, currentLineNumber)
+							err = badFixedWidthRecord
+						} else {
+							for i := range *columnsInfo {
+								columnInfo := (*columnsInfo)[i]
+								if columnInfo.Start < ll && columnInfo.End <= ll {
+									record[recordTypeOffset + i] = strings.TrimSpace(line[columnInfo.Start:columnInfo.End])
+								}
+								if jetsDebug >= 2 {
+									fmt.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n",recordTypeOffset + i,record[recordTypeOffset + i],columnInfo.Start,columnInfo.End,recordType, recordTypeOffset)
+								}
+							}
+						}	
+					}
+				}
+			}
+			
 			switch {
 			
 			case err == io.EOF:
@@ -212,13 +333,16 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 			case err != nil:
 				// get the details of the error
 				var details *csv.ParseError
-				if errors.As(err, &details) {
+				switch {
+				case errors.As(err, &details):
 					log.Printf("while reading csv records: %v", err)
 					for i := details.StartLine; i <= details.Line; i++ {
 						badRowsPos = append(badRowsPos, i)
 					}
-				} else {
-					return 0, nil, fmt.Errorf("unknown error while reading csv records: %v", err)
+				case err == badFixedWidthRecord:
+					badRowsPos = append(badRowsPos, currentLineNumber)
+				default:
+					return 0, nil, fmt.Errorf("error while reading input records: %v", err)
 				}
 
 			default:
@@ -236,9 +360,12 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 				var mainDomainKey string
 				var mainDomainKeyPos int
 				for _,ot := range *objTypes {
-					groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, &jetsKeyStr)
+					groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
 					if err != nil {
 						return 0, nil, err
+					}
+					if jetsDebug >= 2 {
+						fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
 					}
 					domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
 					if ot == *objectType {
@@ -252,13 +379,17 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 				var buf strings.Builder
 				switch jetsInputRowJetsKeyAlgo {
 				case "row_hash":
-					for h, ipos := range headersDKInfo.HeadersPosMap {
+					for _,h := range headersDKInfo.Headers {
+						ipos := headersDKInfo.HeadersPosMap[h]
 						if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
 							buf.WriteString(record[ipos])
 						}
 					}
 					jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
-					// fmt.Println("row_hash jetsKeyStr",jetsKeyStr)
+					if jetsDebug >= 2 {
+						fmt.Println("COMPUTING ROW HASH WITH",buf.String())
+						fmt.Println("row_hash jetsKeyStr",jetsKeyStr)	
+					}
 				case "domain_key":
 					jetsKeyStr = mainDomainKey
 				}
@@ -280,44 +411,198 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 // --------------------------------------------------------------------------------------
 func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.HeadersAndDomainKeysInfo, int64, int, error) {
 
-	// determine the csv separator
-	// ---------------------------------------
-	if sep_flag == '€' {
-		// auto detect the separator based on the first line
-		buf := make([]byte, 2048)
-		nb, err := fileHd.Read(buf)
-		if err != nil {
-			return nil, 0, 0, fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
-		}
-		txt := string(buf[0:nb])
-		cn := strings.Count(txt, ",")
-		pn := strings.Count(txt, "|")
-		tn := strings.Count(txt, "\t")
-		switch {
-		case (cn > pn) && (cn > tn):
-			sep_flag = ','
-		case (pn > cn) && (pn > tn):
-			sep_flag = '|'
-		case (tn > cn) && (tn > pn):
-			sep_flag = '\t'
-		default:
-			return nil, 0, 0, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
-		}
-		_, err = fileHd.Seek(0, 0)
-		if err != nil {
-			return nil, 0, 0, fmt.Errorf("error while returning to beginning of in_file %s: %v", *inFile, err)
-		}
-	}
-	fmt.Println("Got argument: sep_flag", sep_flag)
+	var csvReader *csv.Reader
+	var fwScanner *bufio.Scanner
 
-	// Get reader / writer for input and error file resp.
-	csvReader := csv.NewReader(fileHd)
-	csvReader.Comma = rune(sep_flag)
-	csvReader.ReuseRecord = true
+	switch inputFileEncoding {
+	case Csv, HeaderlessCsv:
+		// determine the csv separator
+		// ---------------------------------------
+		if sep_flag == '€' {
+			// auto detect the separator based on the first line
+			buf := make([]byte, 2048)
+			nb, err := fileHd.Read(buf)
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
+			}
+			txt := string(buf[0:nb])
+			cn := strings.Count(txt, ",")
+			pn := strings.Count(txt, "|")
+			tn := strings.Count(txt, "\t")
+			switch {
+			case (cn > pn) && (cn > tn):
+				sep_flag = ','
+			case (pn > cn) && (pn > tn):
+				sep_flag = '|'
+			case (tn > cn) && (tn > pn):
+				sep_flag = '\t'
+			default:
+				return nil, 0, 0, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
+			}
+			_, err = fileHd.Seek(0, 0)
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("error while returning to beginning of in_file %s: %v", *inFile, err)
+			}
+		}
+		fmt.Println("Got argument: sep_flag", sep_flag)	
+
+		// Setup a csv reader
+		csvReader = csv.NewReader(fileHd)
+		csvReader.Comma = rune(sep_flag)
+		csvReader.ReuseRecord = true
+
+	case FixedWith:
+		// Setup a fixed-width reader
+		fwScanner = bufio.NewScanner(fileHd)
+	}
+
+	// Setup a writer for error file (bad records)
 	badRowsWriter := bufio.NewWriter(errFileHd)
 	defer badRowsWriter.Flush()
 
-	// Read the headers, put them in err file and make them valid for db
+	// Read the headers, put them in err file and make
+	// ---------------------------------------
+	var rawHeaders []string
+	var err error
+	var fixedWidthColumnPrefix string
+	switch inputFileEncoding {
+	case Csv:
+		rawHeaders, err = csvReader.Read()
+		if err == io.EOF {
+			return nil, 0, 0, errors.New("input csv file is empty")
+		} else if err != nil {
+			return nil, 0, 0, fmt.Errorf("while reading csv headers: %v", err)
+		}	
+		fmt.Println("Got input columns (rawHeaders) from csv file:", rawHeaders)
+
+	case HeaderlessCsv:
+		err := json.Unmarshal([]byte(inputColumnsJson), &rawHeaders)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
+		}
+		fmt.Println("Got input columns (rawHeaders) from json:", rawHeaders)
+
+	case FixedWith:
+		// Get the rawHeaders from input_columns_positions_csv
+		byteBuf := []byte(inputColumnsPositionsCsv)
+		sepFlag, err := datatable.DetectDelimiter(byteBuf)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("while detecting delimiters for source_config.input_columns_positions_csv: %v", err)
+		}
+		r := csv.NewReader(bytes.NewReader(byteBuf))
+		r.Comma = rune(sepFlag)
+		headers, err2 := r.Read()
+		if err2 == io.EOF {
+			return nil, 0, 0, fmt.Errorf("error source_config.input_columns_positions_csv contains no data")
+		}
+		// Validating headers:
+		// 	- expecting headers: 'start', 'end', and 'column_names', and
+		// 	- optionally a recordType header
+		if len(headers) < 3 || len(headers) > 4 {
+			return nil, 0, 0, fmt.Errorf("error source_config.input_columns_positions_csv contains invalid number of headers: %s",
+				strings.Join(headers, ","))
+		}
+		var recordTypeColumnName string
+		startPos := -1
+		endPos := -1
+		columnNamesPos := -1
+		recordTypePos := -1
+		for i, name := range headers {
+			switch name {
+			case "start":
+				startPos = i
+			case "end":
+				endPos = i
+			case "column_names":
+				columnNamesPos = i
+			default:
+				recordTypePos = i
+				recordTypeColumnName = name
+			}
+		}
+		if startPos < 0 || endPos < 0 || columnNamesPos < 0 {
+			return nil, 0, 0, fmt.Errorf("error source_config.input_columns_positions_csv contains invalid headers: %s",
+				strings.Join(headers, ","))
+		}
+		fixedWitdthEncodingInfo = &FixedWithEncodingInfo{
+			ColumnsMap:       make(map[string]*[]*FixedWithColumn),
+			ColumnsOffsetMap: make(map[string]int),
+			RecordTypeList:   make([]string, 0),
+		}
+		// Map record's header names and positions
+		// Make an ordered list of record type to properly order the columns' grouping
+		seenRecordType := make(map[string]bool)
+		for {
+			headerInfo, err := r.Read()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("while parsing header name and position: %v", err)
+			}
+			startV, err := strconv.Atoi(headerInfo[startPos])
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("while parsing start position for header %s: %v", headers[columnNamesPos], err)
+			}
+			endV, err := strconv.Atoi(headerInfo[endPos])
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("while parsing end position for header %s: %v", headers[columnNamesPos], err)
+			}
+			var recordType string
+			if recordTypePos >= 0 {
+				recordType = headerInfo[recordTypePos]
+			}
+			if !seenRecordType[recordType] {
+				fixedWitdthEncodingInfo.RecordTypeList = append(fixedWitdthEncodingInfo.RecordTypeList, recordType)
+			}
+			seenRecordType[recordType] = true
+			fwColumn := &FixedWithColumn{
+				Start: startV,
+				End:   endV,
+			}
+			if recordTypePos >= 0 {
+				fwColumn.ColumnName = fmt.Sprintf("%s.%s", recordType, headerInfo[columnNamesPos])
+				if headerInfo[columnNamesPos] == recordTypeColumnName {
+					fixedWitdthEncodingInfo.RecordTypeColumn = fwColumn
+				}
+			} else {
+				fwColumn.ColumnName = headerInfo[columnNamesPos]
+			}
+			// Put the fwColumn into the info struct
+			fixedWidthColumnList := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+			if fixedWidthColumnList == nil {
+				fixedWidthColumnList = &[]*FixedWithColumn{fwColumn}
+				fixedWitdthEncodingInfo.ColumnsMap[recordType] = fixedWidthColumnList
+			} else {
+				*fixedWidthColumnList = append(*fixedWidthColumnList, fwColumn)
+			}			
+		}
+		// Make the rawHeaders list from the fixedWitdthEncodingInfo
+		rawHeaders = make([]string, 0)
+		columnOffset := 0
+		for _, recordType := range fixedWitdthEncodingInfo.RecordTypeList {
+			columnList, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+			if !ok {
+				return nil, 0, 0, fmt.Errorf("unexpected error: cannot find columns for recordType: %s", recordType)
+			}
+			if columnOffset == 0 {
+				fixedWidthColumnPrefix = recordType
+			}
+			fixedWitdthEncodingInfo.ColumnsOffsetMap[recordType] = columnOffset
+			for i := range *columnList {
+				rawHeaders = append(rawHeaders, (*columnList)[i].ColumnName)
+				columnOffset += 1
+			}
+		}
+		if jetsDebug > 0 {
+			fmt.Println(fixedWitdthEncodingInfo.String())
+		}
+		fmt.Println("Input columns (rawHeaders) for fixed-with schema:", rawHeaders)
+
+	default:
+		return nil, 0, 0, fmt.Errorf("error: invalid file encoding: %s", inputFileEncoding.String())
+	}
+	
 	// Contruct the domain keys based on domainKeysJson
 	// ---------------------------------------
 	headersDKInfo, err := schema.NewHeadersAndDomainKeysInfo(tableName)
@@ -325,43 +610,37 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 		return nil, 0, 0, fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
 	}
 
-	var rawHeaders []string
-	if inputColumnsJson != "" {
-		err := json.Unmarshal([]byte(inputColumnsJson), &rawHeaders)
-		if err != nil {
-			return nil, 0, 0, fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
-		}
-		fmt.Println("Got input columns from json:", rawHeaders)
-	} else {
-		rawHeaders, err = csvReader.Read()
-		if err == io.EOF {
-			return nil, 0, 0, errors.New("input csv file is empty")
-		} else if err != nil {
-			return nil, 0, 0, fmt.Errorf("while reading csv headers: %v", err)
-		}	
-	}
-	err = headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson)
+	err = headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson, fixedWidthColumnPrefix)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("while calling InitializeStagingTable: %v", err)
 	}
 
-	// // for development
-	// fmt.Println("Domain Keys Info for table", tableName)
-	// fmt.Println(headersDKInfo)
+	if jetsDebug >=2 {
+		fmt.Println("Domain Keys Info for table", tableName)
+		fmt.Println(headersDKInfo)	
+	}
 
 	// Write raw header to error file
-	for i := range headersDKInfo.RawHeaders {
-		if i > 0 {
-			badRowsWriter.WriteRune(csvReader.Comma)
+	if inputFileEncoding == Csv || inputFileEncoding == HeaderlessCsv {
+		for i := range headersDKInfo.RawHeaders {
+			if i > 0 {
+				_, err = badRowsWriter.WriteRune(csvReader.Comma)
+				if err != nil {
+					return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
+				}
+			}
+			_, err = badRowsWriter.WriteString(headersDKInfo.RawHeaders[i])
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
+			}
 		}
-		badRowsWriter.WriteString(headersDKInfo.RawHeaders[i])
-	}
-	_, err = badRowsWriter.WriteRune('\n')
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
+		_, err = badRowsWriter.WriteRune('\n')
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
+		}
 	}
 
-	// prepare db connections
+	// prepare db table
 	// ---------------------------------------
 	// validate table name
 	tblExists, err := schema.TableExists(dbpool, "public", tableName)
@@ -384,7 +663,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 
 	// read the rest of the file
 	// ---------------------------------------
-	copyCount, badRowsPosPtr, err := writeFile2DB(dbpool, headersDKInfo, csvReader)
+	copyCount, badRowsPosPtr, err := writeFile2DB(dbpool, headersDKInfo, csvReader, fwScanner)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("while writing in_file %s to database: %v", *inFile, err)
 	}
@@ -545,18 +824,28 @@ func coordinateWork() error {
 
 	// Get the DomainKeysJson and tableName from source_config table
 	// ---------------------------------------
-	var dkJson, cnJson sql.NullString
+	var dkJson, cnJson, fwCsv sql.NullString
 	err = dbpool.QueryRow(context.Background(), 
-		"SELECT table_name, domain_keys_json, input_columns_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
-		*client, clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson)
+		"SELECT table_name, domain_keys_json, input_columns_json, input_columns_positions_csv FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
+		*client, clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv)
 	if err != nil {
-		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json from jetsapi.source_config failed: %v", err)
+		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv from jetsapi.source_config failed: %v", err)
+	}
+	if cnJson.Valid && fwCsv.Valid {
+		return fmt.Errorf("error, cannot specify both input_columns_json and input_columns_positions_csv")
 	}
 	if dkJson.Valid {
 		domainKeysJson = dkJson.String
 	}
-	if cnJson.Valid {
+	switch {
+	case cnJson.Valid:
 		inputColumnsJson = cnJson.String
+		inputFileEncoding = HeaderlessCsv
+	case fwCsv.Valid:
+		inputColumnsPositionsCsv = fwCsv.String
+		inputFileEncoding = FixedWith
+	default:
+		inputFileEncoding = Csv
 	}
 
 	var fileHd, errFileHd *os.File
@@ -567,7 +856,7 @@ func coordinateWork() error {
 		if err != nil {
 			return fmt.Errorf("failed to open temp input file: %v", err)
 		}
-		fmt.Println("Temp input file name:", fileHd.Name())
+		// fmt.Println("Temp input file name:", fileHd.Name())
 		defer os.Remove(fileHd.Name())
 
 		// Open the error file
@@ -575,7 +864,7 @@ func coordinateWork() error {
 		if err != nil {
 			return fmt.Errorf("failed to open temp error file: %v", err)
 		}
-		fmt.Println("Temp error file name:", errFileHd.Name())
+		// fmt.Println("Temp error file name:", errFileHd.Name())
 		defer os.Remove(errFileHd.Name())
 
 		// Download the object
@@ -590,10 +879,10 @@ func coordinateWork() error {
 	
 	} else {
 
-		// open csv file
+		// open input file
 		fileHd, err := os.Open(*inFile)
 		if err != nil {
-			return fmt.Errorf("error while opening csv file: %v", err)
+			return fmt.Errorf("error while opening input file: %v", err)
 		}
 		defer fileHd.Close()
 
@@ -605,7 +894,7 @@ func coordinateWork() error {
 			errFileHd, err = os.Create(fmt.Sprintf("%s/err_%s", errOutDir, fn))
 		}
 		if err != nil {
-			return fmt.Errorf("error while opening output csv err file: %v", err)
+			return fmt.Errorf("error while opening err file for bad input records: %v", err)
 		}
 		defer errFileHd.Close()
 	}
@@ -765,10 +1054,12 @@ func main() {
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	fmt.Println("ENV JETS_INPUT_ROW_JETS_KEY_ALGO:",os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	fmt.Println("ENV AWS_API_SECRET:",os.Getenv("AWS_API_SECRET"))
+	fmt.Println("ENV JETS_LOG_DEBUG:",os.Getenv("JETS_LOG_DEBUG"))
 	if devMode {
 		fmt.Println("Running in DEV MODE")
 		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
 	}
+	jetsDebug,_ = strconv.Atoi(os.Getenv("JETS_LOG_DEBUG"))
 
 	err = coordinateWork()
 	if err != nil {

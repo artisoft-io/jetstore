@@ -1324,6 +1324,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.domainKeysJson: 6,
             FSK.codeValuesMappingJson: 7,
             FSK.inputColumnsJson: 8,
+            FSK.inputColumnsPositionsCsv: 9,
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1394,7 +1395,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Column(s) for row' 's domain key(s) (json-encoded string)',
           isNumeric: false,
           maxLines: 3,
-          columnWidth: 600),
+          columnWidth: 500),
       ColumnConfig(
           index: 7,
           name: "code_values_mapping_json",
@@ -1403,7 +1404,7 @@ final Map<String, TableConfig> _tableConfigurations = {
               'Client-specific code values mapping to canonical codes (json-encoded string)',
           isNumeric: false,
           maxLines: 3,
-          columnWidth: 600),
+          columnWidth: 500),
       ColumnConfig(
           index: 8,
           name: "input_columns_json",
@@ -1415,12 +1416,21 @@ final Map<String, TableConfig> _tableConfigurations = {
           columnWidth: 500),
       ColumnConfig(
           index: 9,
+          name: "input_columns_positions_csv",
+          label: 'Fixed-Width Column Positions (csv)',
+          tooltips:
+              'Column names & position for FIXED-WIDTH ONLY (csv)',
+          isNumeric: false,
+          maxLines: 3,
+          columnWidth: 500),
+      ColumnConfig(
+          index: 10,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 10,
+          index: 11,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Indicates when the record was last updated',
