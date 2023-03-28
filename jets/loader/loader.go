@@ -31,21 +31,6 @@ import (
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
-// Single character type for csv options
-type chartype rune
-
-func (s *chartype) String() string {
-	return fmt.Sprintf("%#U", *s)
-}
-
-func (s *chartype) Set(value string) error {
-	r := []rune(value)
-	if len(r) > 1 || r[0] == '\n' {
-		return errors.New("sep must be a single char not '\\n'")
-	}
-	*s = chartype(r[0])
-	return nil
-}
 
 // Loader env variable:
 // JETS_DSN_SECRET
@@ -84,7 +69,7 @@ var tableName string
 var domainKeysJson string
 var inputColumnsJson string
 var inputColumnsPositionsCsv string
-var sep_flag chartype = '€'
+var sep_flag datatable.Chartype = '€'
 var errOutDir string
 var jetsInputRowJetsKeyAlgo string
 var clientOrg string
@@ -434,23 +419,13 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 		if sep_flag == '€' {
 			// auto detect the separator based on the first line
 			buf := make([]byte, 2048)
-			nb, err := fileHd.Read(buf)
+			_, err := fileHd.Read(buf)
 			if err != nil {
 				return nil, 0, 0, fmt.Errorf("error while ready first few bytes of in_file %s: %v", *inFile, err)
 			}
-			txt := string(buf[0:nb])
-			cn := strings.Count(txt, ",")
-			pn := strings.Count(txt, "|")
-			tn := strings.Count(txt, "\t")
-			switch {
-			case (cn > pn) && (cn > tn):
-				sep_flag = ','
-			case (pn > cn) && (pn > tn):
-				sep_flag = '|'
-			case (tn > cn) && (tn > pn):
-				sep_flag = '\t'
-			default:
-				return nil, 0, 0, fmt.Errorf("error: cannot determine the csv-delimit used in file %s",*inFile)
+			sep_flag, err = datatable.DetectDelimiter(buf)
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("while calling datatable.DetectDelimiter: %v",err)
 			}
 			_, err = fileHd.Seek(0, 0)
 			if err != nil {

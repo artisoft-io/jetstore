@@ -257,8 +257,22 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 	return
 }
 
-type chartype rune
-func DetectDelimiter(buf []byte) (sep_flag chartype, err error) {
+type Chartype rune
+// Single character type for csv options
+func (s *Chartype) String() string {
+	return fmt.Sprintf("%#U", *s)
+}
+
+func (s *Chartype) Set(value string) error {
+	r := []rune(value)
+	if len(r) > 1 || r[0] == '\n' {
+		return errors.New("sep must be a single char not '\\n'")
+	}
+	*s = Chartype(r[0])
+	return nil
+}
+
+func DetectDelimiter(buf []byte) (sep_flag Chartype, err error) {
 	// auto detect the separator based on the first line
 	nb := len(buf)
 	if nb > 2048 {
@@ -268,13 +282,16 @@ func DetectDelimiter(buf []byte) (sep_flag chartype, err error) {
 	cn := strings.Count(txt, ",")
 	pn := strings.Count(txt, "|")
 	tn := strings.Count(txt, "\t")
+	td := strings.Count(txt, "~")
 	switch {
-	case (cn > pn) && (cn > tn):
+	case (cn > pn) && (cn > tn) && (cn > td):
 		sep_flag = ','
-	case (pn > cn) && (pn > tn):
+	case (pn > cn) && (pn > tn) && (pn > td):
 		sep_flag = '|'
-	case (tn > cn) && (tn > pn):
+	case (tn > cn) && (tn > pn) && (tn > td):
 		sep_flag = '\t'
+	case (td > cn) && (td > pn) && (td > tn):
+		sep_flag = '~'
 	default:
 		return 0, fmt.Errorf("error: cannot determine the csv-delimit used in buf")
 	}
@@ -314,7 +331,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 			return
 		}
 		// byteBuf as the raw_rows
-		var sepFlag chartype
+		var sepFlag Chartype
 		sepFlag, err = DetectDelimiter(byteBuf)
 		if err != nil {
 			log.Printf("Error while detecting delimiters for raw_rows: %v",err)
