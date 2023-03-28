@@ -455,6 +455,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 	s3Lookup := make(map[string]bool)
 	for _, fileKey := range *keys {
 		if !strings.HasSuffix(fileKey, "/") &&
+			!strings.Contains(fileKey, "/err_") &&
 			strings.Contains(fileKey, "client=") &&
 			strings.Contains(fileKey, "object_type=") {
 			fmt.Println("Got Key from S3:", fileKey)
