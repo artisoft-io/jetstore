@@ -192,6 +192,11 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 				switch inputColumnSpec.functionName.String {
 				case "trim":
 					obj = strings.TrimSpace(row[icol].String)
+				case "validate_date":
+					_, err = reteSession.NewDateLiteral(row[icol].String)
+					if err == nil {
+						obj = row[icol].String
+					}
 				case "to_upper":
 					obj = strings.ToUpper(row[icol].String)
 				case "to_zip5":
