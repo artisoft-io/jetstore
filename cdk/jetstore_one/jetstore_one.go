@@ -667,6 +667,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_DOMAIN_KEY_HASH_SEED":    jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_s3_INPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":        jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_INVALID_CODE":            jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"JETS_LOADER_SM_ARN":           jsii.String(loaderSmArn),
 			"JETS_SERVER_SM_ARN":           jsii.String(serverSmArn),
 			"JETS_LOADER_SERVER_SM_ARN":    jsii.String(loaderAndServerSmArn),
@@ -969,6 +970,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
+			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"JETS_LOADER_SM_ARN":                 jsii.String(loaderSmArn),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"JETS_LOADER_SERVER_SM_ARN":          jsii.String(loaderAndServerSmArn),
@@ -1256,6 +1258,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
+// JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1295,6 +1298,7 @@ func main() {
 	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
 	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
+	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 
 	// Verify that we have all the required env variables
 	hasErr := false

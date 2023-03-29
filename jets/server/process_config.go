@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -125,6 +126,7 @@ type ProcessInput struct {
 	sessionId             string
 	codeValueMapping      *map[string]map[string]string
 }
+var invalidCodeValue = os.Getenv("JETS_INVALID_CODE")
 
 type ProcessMap struct {
 	tableName    string
@@ -244,7 +246,11 @@ func (processInput *ProcessInput) mapCodeValue(clientValue *string, inputColumnS
 	}
 	canonicalValue, ok = codeValueMap[*clientValue]
 	if !ok {
-		return clientValue
+		if invalidCodeValue == "" {
+			return clientValue
+		} else {
+			return &invalidCodeValue
+		}
 	}
 	return &canonicalValue
 }
