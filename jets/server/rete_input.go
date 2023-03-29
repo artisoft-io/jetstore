@@ -82,7 +82,7 @@ func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
 		object, err = reteSession.NewResource(*objValue)
 	case "int":
 		var v int
-		v, err = strconv.Atoi(*objValue)
+		v, err = strconv.Atoi(strings.TrimSpace(*objValue))
 		if err == nil {
 			object, err = reteSession.NewIntLiteral(v)
 		}
@@ -104,25 +104,25 @@ func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
 		}
 	case "uint":
 		var v uint64
-		v, err = strconv.ParseUint(*objValue, 10, 32)
+		v, err = strconv.ParseUint(strings.TrimSpace(*objValue), 10, 32)
 		if err == nil {
 			object, err = reteSession.NewUIntLiteral(uint(v))
 		}
 	case "long":
 		var v int64
-		v, err = strconv.ParseInt(*objValue, 10, 64)
+		v, err = strconv.ParseInt(strings.TrimSpace(*objValue), 10, 64)
 		if err == nil {
 			object, err = reteSession.NewLongLiteral(v)
 		}
 	case "ulong":
 		var v uint64
-		v, err = strconv.ParseUint(*objValue, 10, 64)
+		v, err = strconv.ParseUint(strings.TrimSpace(*objValue), 10, 64)
 		if err == nil {
 			object, err = reteSession.NewULongLiteral(v)
 		}
 	case "double":
 		var v float64
-		v, err = strconv.ParseFloat(*objValue, 64)
+		v, err = strconv.ParseFloat(strings.TrimSpace(*objValue), 64)
 		if err == nil {
 			object, err = reteSession.NewDoubleLiteral(v)
 		}
@@ -190,6 +190,13 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
 				switch inputColumnSpec.functionName.String {
+				case "trim":
+					obj = strings.TrimSpace(row[icol].String)
+				case "validate_date":
+					_, err = reteSession.NewDateLiteral(row[icol].String)
+					if err == nil {
+						obj = row[icol].String
+					}
 				case "to_upper":
 					obj = strings.ToUpper(row[icol].String)
 				case "to_zip5":

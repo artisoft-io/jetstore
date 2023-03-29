@@ -140,6 +140,7 @@ func doJob() error {
 	log.Printf("ENV JETS_LOADER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SM_ARN"))
 	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n",os.Getenv("JETS_SERVER_SM_ARN"))
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
+	log.Printf("ENV JETS_INVALID_CODE: %s\n",os.Getenv("JETS_INVALID_CODE"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	if !*doNotLockSessionId {
 		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
