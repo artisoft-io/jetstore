@@ -180,14 +180,17 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
 	log.Println("Updated input_loader_status table with main object type:", *objectType,"client", *client, "org", clientOrg)
-	if status == "completed" && dkInfo != nil {
+	// Register all loads, even when status != "completed" to provide visibility of the loaded data in UI
+	if dkInfo != nil {
 		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
 		ipos := 0
 		for objType := range dkInfo.DomainKeysInfoMap {
 			log.Println("Registering staging table with object type:", objType,"client", *client, "org", clientOrg)
 			stmt = `INSERT INTO jetsapi.input_registry (
 				client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
-				VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) RETURNING key`
+				VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) 
+				ON CONFLICT DO NOTHING
+				RETURNING key`
 			err = dbpool.QueryRow(context.Background(), stmt, 
 				*client, clientOrg, objType, *inFile, sourcePeriodKey, tableName, *sessionId, *userEmail).Scan(&inputRegistryKey[ipos])
 			if err != nil {
@@ -195,20 +198,22 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 			}
 			ipos += 1
 		}
-		// Check for any process that are ready to kick off
-		context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)
-		token, err := user.CreateToken(*userEmail)
-		if err != nil {
-			return fmt.Errorf("error creating jwt token: %v", err)
+		// Check for any process that are ready to kick off if status == "completed" (i.e. no bad rows)
+		if status == "completed" {
+			context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)
+			token, err := user.CreateToken(*userEmail)
+			if err != nil {
+				return fmt.Errorf("error creating jwt token: %v", err)
+			}
+			context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{
+				Action: "register_keys",
+				Data: []map[string]interface{}{{
+					"input_registry_keys": inputRegistryKey,
+					"source_period_key": sourcePeriodKey,
+					"file_key": *inFile,
+				}},
+			}, token)
 		}
-		context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{
-			Action: "register_keys",
-			Data: []map[string]interface{}{{
-				"input_registry_keys": inputRegistryKey,
-				"source_period_key": sourcePeriodKey,
-				"file_key": *inFile,
-			}},
-		}, token)
 	}
 	return nil
 }

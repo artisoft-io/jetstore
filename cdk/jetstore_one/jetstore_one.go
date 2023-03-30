@@ -833,7 +833,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			maxConcurrency = 1
 		}
 	}
-	cp := &sfn.CatchProps{Errors: jsii.Strings("States.ALL")}
+	cp := &sfn.CatchProps{
+		Errors:       jsii.Strings("States.ALL"),
+		ResultPath:   sfn.JsonPath_DISCARD(),
+	}
 	runServerMap := sfn.NewMap(stack, jsii.String("run-server-map"), &sfn.MapProps{
 		Comment:        jsii.String("Run JetStore Rule Server Task"),
 		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),

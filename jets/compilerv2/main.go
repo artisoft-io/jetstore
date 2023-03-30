@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compilerv2/jetruledb"
@@ -140,7 +141,10 @@ func main() {
 	// 	glogv = int(v)	
 	// }
 
+	start := time.Now()
 	err := doJob()
+	elapsed := time.Since(start)
+	log.Printf("doJob took %s", elapsed)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
