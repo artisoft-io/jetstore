@@ -227,6 +227,76 @@ class JetsDataTableSource extends ChangeNotifier {
     );
   }
 
+  Map<String, dynamic>? _makeWhereClause(WhereClause wc) {
+    var value =
+        JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
+    if (value != null) {
+      return <String, dynamic>{
+        'table': wc.table ?? '',
+        'column': wc.column,
+        'values': [value],
+      };
+    }
+    final config = state.formFieldConfig; // when datatable is in a form
+
+    var predicateSatisfied = true;
+    if (config != null && wc.predicate != null) {
+      var value =
+          state.formState?.getValue(config.group, wc.predicate!.formStateKey);
+      if (value != wc.predicate!.expectedValue) {
+        predicateSatisfied = false;
+      }
+    }
+    if (!predicateSatisfied) {
+      return null;
+    }
+    if (config == null || wc.formStateKey == null) {
+      if (wc.defaultValue.isNotEmpty) {
+        return <String, dynamic>{
+          'table': wc.table ?? '',
+          'column': wc.column,
+          'values': wc.defaultValue,
+        };
+      }
+      if (wc.joinWith != null) {
+        return <String, dynamic>{
+          'table': wc.table ?? '',
+          'column': wc.column,
+          'joinWith': wc.joinWith,
+        };
+      }
+    } else {
+      var values = state.formState?.getValue(config.group, wc.formStateKey!);
+      if (values != null) {
+        if (values is String?) {
+          return <String, dynamic>{
+            'table': wc.table ?? '',
+            'column': wc.column,
+            'values': [values],
+          };
+        }
+        assert(values is List<String>?, "Incorrect data type in form state");
+        var l = values as List<String>;
+        if (l.isNotEmpty) {
+          return <String, dynamic>{
+            'table': wc.table ?? '',
+            'column': wc.column,
+            'values': values,
+          };
+        }
+      } else {
+        if (wc.defaultValue.isNotEmpty) {
+          return <String, dynamic>{
+            'table': wc.table ?? '',
+            'column': wc.column,
+            'values': wc.defaultValue,
+          };
+        }
+      }
+    }
+    return null;
+  }
+
   dynamic _makeQuery() {
     final columns = state.tableConfig.columns;
     final config = state.formFieldConfig; // when datatable is in a form
@@ -258,58 +328,9 @@ class JetsDataTableSource extends ChangeNotifier {
     // add WHERE clauses
     List<Map<String, dynamic>> whereClauses = [];
     for (final wc in state.tableConfig.whereClauses) {
-      var value =
-          JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
-      if (value != null) {
-        whereClauses.add(<String, dynamic>{
-          'table': wc.table ?? '',
-          'column': wc.column,
-          'values': [value],
-        });
-      } else if (config == null || wc.formStateKey == null) {
-        if (wc.defaultValue.isNotEmpty) {
-          whereClauses.add(<String, dynamic>{
-            'table': wc.table ?? '',
-            'column': wc.column,
-            'values': wc.defaultValue,
-          });
-        } else if (wc.joinWith != null) {
-          whereClauses.add(<String, dynamic>{
-            'table': wc.table ?? '',
-            'column': wc.column,
-            'joinWith': wc.joinWith,
-          });
-        }
-      } else {
-        var values = state.formState?.getValue(config.group, wc.formStateKey!);
-        if (values != null) {
-          if (values is String?) {
-            whereClauses.add(<String, dynamic>{
-              'table': wc.table ?? '',
-              'column': wc.column,
-              'values': [values],
-            });
-          } else {
-            assert(
-                values is List<String>?, "Incorrect data type in form state");
-            var l = values as List<String>;
-            if (l.isNotEmpty) {
-              whereClauses.add(<String, dynamic>{
-                'table': wc.table ?? '',
-                'column': wc.column,
-                'values': values,
-              });
-            }
-          }
-        } else {
-          if (wc.defaultValue.isNotEmpty) {
-            whereClauses.add(<String, dynamic>{
-              'table': wc.table ?? '',
-              'column': wc.column,
-              'values': wc.defaultValue,
-            });
-          }
-        }
+      var wcValue = _makeWhereClause(wc);
+      if (wcValue != null) {
+        whereClauses.add(wcValue);
       }
     }
     if (whereClauses.isNotEmpty) {
