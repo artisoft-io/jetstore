@@ -61,6 +61,10 @@ func coordinateWork() error {
 	// Get the report definitions based on processName
 	file, err := os.Open(reportDefinitions)
 	if err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("Report definitions file %s does not exist", reportDefinitions)
+			return nil
+		}
 		return fmt.Errorf("error while opening report definitions file %s: %v", reportDefinitions, err)
 	}
 	defer file.Close()
