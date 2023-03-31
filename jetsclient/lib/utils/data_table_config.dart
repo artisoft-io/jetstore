@@ -175,6 +175,12 @@ class FromClause {
   final String tableName;
 }
 
+class FormStatePredicate {
+  FormStatePredicate({required this.formStateKey, this.expectedValue});
+  final String formStateKey;
+  final String? expectedValue;
+}
+
 class WhereClause {
   WhereClause({
     this.table,
@@ -182,12 +188,14 @@ class WhereClause {
     this.formStateKey,
     this.defaultValue = const [],
     this.joinWith,
+    this.predicate,
   });
   final String? table;
   final String column;
   final String? formStateKey;
   final List<String> defaultValue;
   final String? joinWith;
+  final FormStatePredicate? predicate;
 }
 
 class DataTableFormStateConfig {
@@ -288,6 +296,14 @@ final inputRegistryColumns = [
       label: 'Loaded At',
       tooltips: 'Indicates when the record was created',
       isNumeric: false),
+  ColumnConfig(
+      index: 13,
+      table: "input_registry",
+      name: "source_period_key",
+      label: 'Period',
+      tooltips: '',
+      isHidden: true,
+      isNumeric: true),
 ];
 
 final processInputColumns = [
@@ -1418,8 +1434,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 9,
           name: "input_columns_positions_csv",
           label: 'Fixed-Width Column Positions (csv)',
-          tooltips:
-              'Column names & position for FIXED-WIDTH ONLY (csv)',
+          tooltips: 'Column names & position for FIXED-WIDTH ONLY (csv)',
           isNumeric: false,
           maxLines: 3,
           columnWidth: 500),
@@ -1842,6 +1857,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           stateKey: FSK.mainObjectType, columnIdx: 6),
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainSourceType, columnIdx: 7),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.sourcePeriodType, columnIdx: 9),
     ]),
     columns: [
       ColumnConfig(
@@ -1904,12 +1921,18 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 9,
+          name: "source_period_type",
+          label: 'Frequency',
+          tooltips: 'Frequency of execution',
+          isNumeric: false),
+      ColumnConfig(
+          index: 10,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 10,
+          index: 11,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
@@ -1920,51 +1943,62 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Source Config Table for Pipeline Execution Forms
-  FSK.sourcePeriodKey: TableConfig(
-    key: FSK.sourcePeriodKey,
-    fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'source_period')
-    ],
-    label: 'Source Period of the Input Sources',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
-    whereClauses: [],
-    actions: [],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "year",
-          label: 'Year',
-          tooltips: 'Year the file was received',
-          isNumeric: true),
-      ColumnConfig(
-          index: 2,
-          name: "month",
-          label: 'Month',
-          tooltips: 'Month of the year the file was received',
-          isNumeric: true),
-      ColumnConfig(
-          index: 3,
-          name: "day",
-          label: 'Day',
-          tooltips: 'Day of the month the file was received',
-          isNumeric: true),
-    ],
-    sortColumnName: 'year',
-    sortAscending: false,
-    rowsPerPage: 10,
-  ),
+  // // Source Config Table for Pipeline Execution Forms
+  // FSK.sourcePeriodKey: TableConfig(
+  //   key: FSK.sourcePeriodKey,
+  //   fromClauses: [
+  //     FromClause(schemaName: 'jetsapi', tableName: 'source_period')
+  //   ],
+  //   label: 'Source Period of the Input Sources',
+  //   apiPath: '/dataTable',
+  //   isCheckboxVisible: true,
+  //   isCheckboxSingleSelect: true,
+  //   whereClauses: [
+  //     WhereClause(
+  //         column: "day",
+  //         defaultValue: ["1"],
+  //         predicate: FormStatePredicate(
+  //             formStateKey: FSK.sourcePeriodType,
+  //             expectedValue: 'month_period')),
+  //     WhereClause(
+  //         column: "day",
+  //         defaultValue: ["99"],
+  //         predicate: FormStatePredicate(formStateKey: FSK.sourcePeriodType)),
+  //   ],
+  //   actions: [],
+  //   formStateConfig:
+  //       DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+  //   columns: [
+  //     ColumnConfig(
+  //         index: 0,
+  //         name: "key",
+  //         label: 'Key',
+  //         tooltips: 'Row Primary Key',
+  //         isNumeric: true,
+  //         isHidden: true),
+  //     ColumnConfig(
+  //         index: 1,
+  //         name: "year",
+  //         label: 'Year',
+  //         tooltips: 'Year the file was received',
+  //         isNumeric: true),
+  //     ColumnConfig(
+  //         index: 2,
+  //         name: "month",
+  //         label: 'Month',
+  //         tooltips: 'Month of the year the file was received',
+  //         isNumeric: true),
+  //     ColumnConfig(
+  //         index: 3,
+  //         name: "day",
+  //         label: 'Day',
+  //         tooltips: 'Day of the month the file was received',
+  //         isNumeric: true),
+  //   ],
+  //   sortColumnName: 'year',
+  //   sortAscending: false,
+  //   rowsPerPage: 10,
+  // ),
 
   // Input Registry Table for Home screen
   DTKeys.inputRegistryTable: TableConfig(
@@ -2022,14 +2056,18 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(column: "source_type", formStateKey: FSK.mainSourceType),
-      WhereClause(
-          column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainInputFileKey, columnIdx: 7),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.year, columnIdx: 4),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.month, columnIdx: 5),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.sourcePeriodKey, columnIdx: 13),
     ]),
     columns: inputRegistryColumns,
     sortColumnName: 'last_update',
@@ -2085,8 +2123,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(column: "source_type", formStateKey: FSK.mainSourceType),
-      WhereClause(
-          column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
+      WhereClause(column: "year", formStateKey: FSK.year),
+      WhereClause(column: "month", formStateKey: FSK.month),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
     actions: [],

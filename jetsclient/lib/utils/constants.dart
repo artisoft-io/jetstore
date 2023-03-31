@@ -159,6 +159,9 @@ class FSK {
   static const mainInputRegistryKey = "main_input_registry_key";
   static const mainInputFileKey = "main_input_file_key";
   static const mergedInputRegistryKeys = "merged_input_registry_keys";
+  static const year = "year";
+  static const month = "month";
+  static const day = "day";
 
   // reserved keys for cache
 

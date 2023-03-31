@@ -1401,14 +1401,14 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         PaddingConfig(),
       ],
-      [
-        // Source period identifying when the file was received
-        FormDataTableFieldConfig(
-            key: FSK.sourcePeriodKey, dataTableConfig: FSK.sourcePeriodKey),
-      ],
-      [
-        PaddingConfig(),
-      ],
+      // [
+      //   // Source period identifying when the file was received
+      //   FormDataTableFieldConfig(
+      //       key: FSK.sourcePeriodKey, dataTableConfig: FSK.sourcePeriodKey),
+      // ],
+      // [
+      //   PaddingConfig(),
+      // ],
       [
         FormDataTableFieldConfig(
             key: FSK.mainInputRegistryKey,
