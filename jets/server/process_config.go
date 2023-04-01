@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -28,8 +29,9 @@ type PipelineConfig struct {
 	mergedProcessInputKeys []int
 	processConfig          *ProcessConfig
 	mainProcessInput       *ProcessInput
-	mergedProcessInput     []ProcessInput
+	mergedProcessInput     []*ProcessInput
 	ruleConfigs            []RuleConfig
+	mergedProcessInputMap  map[int]*ProcessInput
 }
 
 type ProcessConfig struct {
@@ -280,7 +282,7 @@ func (processInput *ProcessInput) setKeyPos() error {
 // Main Pipeline Configuration Read Function
 // -----------------------------------------
 func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineConfig, error) {
-	pc := PipelineConfig{key: pcKey}
+	pc := PipelineConfig{key: pcKey, mergedProcessInputMap: make(map[int]*ProcessInput)}
 	var err error
 	var outSessId sql.NullString
 	mainInputRegistryKey := sql.NullInt64{}
@@ -320,13 +322,14 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 	if err != nil {
 		return &pc, fmt.Errorf("while loading main process input: %v", err)
 	}
-	pc.mergedProcessInput = make([]ProcessInput, len(pc.mergedProcessInputKeys))
-	for i := range pc.mergedProcessInputKeys {
-		pc.mergedProcessInput[i].key = pc.mergedProcessInputKeys[i]
+	pc.mergedProcessInput = make([]*ProcessInput, len(pc.mergedProcessInputKeys))
+	for i, key := range pc.mergedProcessInputKeys {
+		pc.mergedProcessInput[i] = &ProcessInput{key: key}
 		err = pc.mergedProcessInput[i].loadProcessInput(dbpool)
 		if err != nil {
 			return &pc, fmt.Errorf("while loading merged process input %d: %v", i, err)
 		}
+		pc.mergedProcessInputMap[key] = pc.mergedProcessInput[i]
 	}
 
 	// read the rule config triples
@@ -354,17 +357,26 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 			return &pc, fmt.Errorf("error: nbr of merged table in process exec is %d != nbr in process config %d",
 				len(mergedInputRegistryKeys), len(pc.mergedProcessInput))
 		}
-		pc.mainProcessInput.sessionId, pc.sourcePeriodKey, err = getSessionId(dbpool, int(mainInputRegistryKey.Int64))
+		_, pc.mainProcessInput.sessionId, pc.sourcePeriodKey, err = getProcessInputKeyAndSessionId(dbpool, int(mainInputRegistryKey.Int64))
 		if err != nil {
 			return &pc, fmt.Errorf("while reading session id for main table: %v", err)
 		}
-		for i := range pc.mergedProcessInput {
-			pc.mergedProcessInput[i].sessionId, _, err = getSessionId(dbpool, mergedInputRegistryKeys[i])
+		log.Printf("MainProcessInput key: %d, table: %s, sessionId: %s", pc.mainProcessInput.key, pc.mainProcessInput.tableName, pc.mainProcessInput.sessionId)
+
+		// Get the sessionIds for the merged-in table. Need to get the process_input.key via the input_registry.key
+		for _,key := range mergedInputRegistryKeys {
+			processInputKey, sessionId, _, err := getProcessInputKeyAndSessionId(dbpool, key)
 			if err != nil {
-				return &pc, fmt.Errorf("while reading session id for merged-in table %s: %v",
-					pc.mergedProcessInput[i].tableName, err)
+				return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: %v",	key, err)
 			}
+			p := pc.mergedProcessInputMap[processInputKey]
+			if p == nil {
+				return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: unkown processInputKey %d",	key, processInputKey)
+			}
+			log.Printf("MergedProcessInput key: %d, registry key: %d, table: %s, sessionId: %s", processInputKey, key, p.tableName, sessionId)
+			p.sessionId = sessionId
 		}
+
 		// Get the currentSourcePeriod
 		err = dbpool.QueryRow(context.Background(),
 			fmt.Sprintf("SELECT %s FROM jetsapi.source_period WHERE key = %d", pc.sourcePeriodType, pc.sourcePeriodKey)).Scan(&pc.currentSourcePeriod)
@@ -373,7 +385,7 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 		}
 
 	} else {
-		// input session id not specified, take the latest from input_registry
+		log.Println("*** Input session id not specified, take the latest from input_registry (uncommon use case)")
 		pc.mainProcessInput.sessionId, err = getLatestSessionId(dbpool, pc.mainProcessInput.tableName)
 		if err != nil {
 			return &pc, fmt.Errorf("while reading latest session id for main table: %v", err)
@@ -390,10 +402,16 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 	return &pc, nil
 }
 
-func getSessionId(dbpool *pgxpool.Pool, inputRegistryKey int) (sessionId string, sourcePeriodKey int, err error) {
+func getProcessInputKeyAndSessionId(dbpool *pgxpool.Pool, inputRegistryKey int) (processInputKey int, sessionId string, sourcePeriodKey int, err error) {
 	err = dbpool.QueryRow(context.Background(),
-		"SELECT session_id, source_period_key FROM jetsapi.input_registry WHERE key = $1",
-		inputRegistryKey).Scan(&sessionId, &sourcePeriodKey)
+		`SELECT pi.key, session_id, source_period_key 
+		 FROM jetsapi.input_registry ir, jetsapi.process_input pi 
+		 WHERE ir.client = pi.client 
+		   AND ir.org = pi.org
+			 AND ir.object_type = pi.object_type
+			 AND ir.table_name = pi.table_name
+			 AND ir.key = $1`,
+		inputRegistryKey).Scan(&processInputKey, &sessionId, &sourcePeriodKey)
 	if err != nil {
 		err = fmt.Errorf("while reading sessionId from input_registry for key %d: %v", inputRegistryKey, err)
 		return

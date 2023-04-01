@@ -118,8 +118,8 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		for _, jnode := range dbc.joinNodes {
 			for ipoc := range mergedProcessInput {
 				// prepare the sql stmt
-				jquery := joinQuery{processInput: &mergedProcessInput[ipoc]}
-				stmt := reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(&mergedProcessInput[ipoc])
+				jquery := joinQuery{processInput: mergedProcessInput[ipoc]}
+				stmt := reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(mergedProcessInput[ipoc])
 				fmt.Printf("\nJOIN SQL:\n%s\n", stmt)
 				jquery.rows, err = jnode.dbpool.Query(context.Background(), stmt)
 				if err != nil {
