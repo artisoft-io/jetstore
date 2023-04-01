@@ -189,7 +189,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 		return &result, err
 	}
 	for i := range reteWorkspace.pipelineConfig.mergedProcessInput {
-		err = prepareProcessInput(&reteWorkspace.pipelineConfig.mergedProcessInput[i],
+		err = prepareProcessInput(reteWorkspace.pipelineConfig.mergedProcessInput[i],
 			reteWorkspace, workspaceMgr)
 		if err != nil {
 			return &result, err
