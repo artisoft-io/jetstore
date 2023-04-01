@@ -236,6 +236,19 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						// configuration error, bailing out
 						return fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn.String)
 					}
+				case "overpunch_number":
+					if inputColumnSpec.argument.Valid {
+						// Get the number of decimal position
+						arg := inputColumnSpec.argument.String
+						var npos int
+						npos, err = strconv.Atoi(arg)
+						if err == nil {
+							obj, err = OverpunchNumber(row[icol].String, npos)
+						}
+					} else {
+						// configuration error, bailing out
+						return fmt.Errorf("ERROR missing argument for function overpunch_number for input column: %s", inputColumnSpec.inputColumn.String)
+					}
 				case "apply_regex":
 					if inputColumnSpec.argument.Valid {
 						arg := inputColumnSpec.argument.String
