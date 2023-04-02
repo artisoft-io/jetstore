@@ -151,6 +151,7 @@ class FSK {
   static const mergedProcessInputKeys = "merged_process_input_keys";
   static const mainObjectType = "main_object_type";
   static const mainSourceType = "main_source_type";
+  static const mainTableName = "main_process_input.table_name";
   static const sourcePeriodType = "source_period_type";
   static const automated = "automated";
 
@@ -299,6 +300,8 @@ class DTKeys {
 
   // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
+  static const mainProcessInputTable = "mainProcessInputTable";
+  static const mergeProcessInputTable = "mergeProcessInputTable";
   static const fileKeyStagingForPipelineMainProcessInput =
       "fileKeyStagingForPipelineMainProcessInput";
   // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";

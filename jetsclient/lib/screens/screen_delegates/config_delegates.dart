@@ -144,6 +144,9 @@ String? homeFormValidator(
     // case DTKeys.fileKeyStagingForPipelineMergeProcessInput:
     //   return null;
 
+    case FSK.mainTableName:
+    case DTKeys.mainProcessInputTable:
+    case DTKeys.mergeProcessInputTable:
     case FSK.mergedInputRegistryKeys:
     case FSK.mergedProcessInputKeys:
     case FSK.sourcePeriodKey:
