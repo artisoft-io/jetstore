@@ -193,18 +193,32 @@ class JetsDataTableSource extends ChangeNotifier {
     }
   }
 
+  // void _onSelectChanged(int index, bool value) {
+  //   // If table is single select, clear the previously selected rows
+  //   if (state.tableConfig.isCheckboxSingleSelect) {
+  //     final config = state.formFieldConfig;
+  //     if (config != null) {
+  //       state.formState?.clearSelectedRow(config.group, config.key);
+  //       for (int i = 0; i < model!.length; i++) {
+  //         selectedRows[i] = false;
+  //         _updateFormState(i, false);
+  //       }
+  //     }
+  //     // if case de-select a single select, then nothing else to do here!
+  //     if (!value) return;
+  //   }
+  //   selectedRows[index] = value;
+  //   _updateFormState(index, value);
+  //   notifyListeners();
+  // }
   void _onSelectChanged(int index, bool value) {
-    // If table is single select, clear the previously selected rows
-    if (state.tableConfig.isCheckboxSingleSelect) {
-      final config = state.formFieldConfig;
-      if (config != null) {
-        state.formState?.clearSelectedRow(config.group, config.key);
-        for (int i = 0; i < model!.length; i++) {
+    if (state.tableConfig.isCheckboxSingleSelect && value) {
+      for (int i = 0; i < model!.length; i++) {
+        if (selectedRows[i]) {
           selectedRows[i] = false;
+          _updateFormState(i, false);
         }
       }
-      // if case de-select a single select, then nothing else to do here!
-      if (!value) return;
     }
     selectedRows[index] = value;
     _updateFormState(index, value);
