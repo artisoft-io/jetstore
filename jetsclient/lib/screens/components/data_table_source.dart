@@ -53,6 +53,46 @@ class JetsDataTableSource extends ChangeNotifier {
     return null;
   }
 
+  void _resetSecondaryKeys(
+      final DataTableFormStateConfig formStateConfig, JetsFormState formState) {
+    // Reset the secondary keys in form state.
+    // Note that secondary keys MUST be set in form state ONLY by
+    // the this data table (the one with the primary key)
+    // Other widgets associated with the form can read these value
+    // but should not update it since they are reset here regardless
+    // of the other widgets.
+    final config = state.formFieldConfig!;
+    List<Set<String>> secondaryValues =
+        List.generate(formStateConfig.otherColumns.length, (_) => <String>{});
+    Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
+    if (itor != null) {
+      for (final JetsRow selRow in itor) {
+        for (var i = 0; i < formStateConfig.otherColumns.length; i++) {
+          final otherColConfig = formStateConfig.otherColumns[i];
+          final value = selRow[otherColConfig.columnIdx];
+          if (value != null) {
+            secondaryValues[i].add(value);
+          }
+        }
+      }
+    }
+    for (var i = 0; i < secondaryValues.length; i++) {
+      final otherColConfig = formStateConfig.otherColumns[i];
+      if (secondaryValues[i].isEmpty) {
+        // //DEV
+        // print(
+        //     "${config.key}: Secondary Value ${otherColConfig.stateKey} Set to null");
+        formState.setValue(config.group, otherColConfig.stateKey, null);
+      } else {
+        // //DEV
+        // print(
+        //     "${config.key}: Secondary Value ${otherColConfig.stateKey} Set to ${secondaryValues[i].toList().join(",")}");
+        formState.setValue(
+            config.group, otherColConfig.stateKey, secondaryValues[i].toList());
+      }
+    }
+  }
+
   /// Update the form state:
   /// This is in response to a gesture of selecting or de-selecting a row.
   ///  if [isAdd] is true, add row identified by index to the form state
@@ -62,7 +102,7 @@ class JetsDataTableSource extends ChangeNotifier {
   ///  Note that if the row's key column is null, then the form state is not updated
   void _updateFormState(int index, bool isAdd) {
     // Get the row key value (rowKeyValue)
-    var formStateConfig = state.tableConfig.formStateConfig;
+    final formStateConfig = state.tableConfig.formStateConfig;
     var formState = state.formState;
     if (formStateConfig == null || model == null || formState == null) {
       return;
@@ -70,7 +110,7 @@ class JetsDataTableSource extends ChangeNotifier {
     JetsRow row = model![index];
     var rowKeyValue = row[formStateConfig.keyColumnIdx];
     if (rowKeyValue == null) return;
-    var config = state.formFieldConfig!;
+    final config = state.formFieldConfig!;
     if (isAdd) {
       // Add row to the selected rows
       formState.addSelectedRow(config.group, config.key, rowKeyValue, row);
@@ -104,35 +144,13 @@ class JetsDataTableSource extends ChangeNotifier {
       formState.notifyListeners();
       return;
     }
-    // Reset the secondary keys in form state.
-    // Note that secondary keys MUST be set in form state ONLY by
-    // the this data table (the one with the primary key)
-    // Other widgets associated with the form can read these value
-    // but should not update it since they are reset here regardless
-    // of the other widgets.
-    List<Set<String>> secondaryValues =
-        List.generate(formStateConfig.otherColumns.length, (_) => <String>{});
-    itor = formState.selectedRows(config.group, config.key);
-    if (itor != null) {
-      for (final JetsRow selRow in itor) {
-        for (var i = 0; i < formStateConfig.otherColumns.length; i++) {
-          final otherColConfig = formStateConfig.otherColumns[i];
-          final value = selRow[otherColConfig.columnIdx];
-          if (value != null) {
-            secondaryValues[i].add(value);
-          }
-        }
-      }
-    }
-    for (var i = 0; i < secondaryValues.length; i++) {
-      final otherColConfig = formStateConfig.otherColumns[i];
-      if (secondaryValues[i].isEmpty) {
-        formState.setValue(config.group, otherColConfig.stateKey, null);
-      } else {
-        formState.setValue(
-            config.group, otherColConfig.stateKey, secondaryValues[i].toList());
-      }
-    }
+    // //DEV
+    // if (isAdd) {
+    //   print("${config.key}: Adding Selected Row $index");
+    // } else {
+    //   print("${config.key}: Removing Selected Row $index");
+    // }
+    _resetSecondaryKeys(formStateConfig, formState);
     formState.notifyListeners();
   }
 
@@ -176,13 +194,17 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   void _onSelectChanged(int index, bool value) {
-    if (state.tableConfig.isCheckboxSingleSelect && value) {
-      for (int i = 0; i < model!.length; i++) {
-        if (selectedRows[i]) {
+    // If table is single select, clear the previously selected rows
+    if (state.tableConfig.isCheckboxSingleSelect) {
+      final config = state.formFieldConfig;
+      if (config != null) {
+        state.formState?.clearSelectedRow(config.group, config.key);
+        for (int i = 0; i < model!.length; i++) {
           selectedRows[i] = false;
-          _updateFormState(i, false);
         }
       }
+      // if case de-select a single select, then nothing else to do here!
+      if (!value) return;
     }
     selectedRows[index] = value;
     _updateFormState(index, value);

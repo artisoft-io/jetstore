@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 
 	// "io/fs"
 	"log"
@@ -129,6 +130,11 @@ func (dtq *DataTableAction) makeFromClauses() string {
 	return buf.String()
 }
 
+// var pgArrayRe *regexp.Regexp
+// func init() {
+// 	pgArrayRe = regexp.MustCompile(`\d+`)
+
+// }
 func (dtq *DataTableAction) makeWhereClause() string {
 	if len(dtq.WhereClauses) == 0 {
 		return ""
@@ -146,11 +152,25 @@ func (dtq *DataTableAction) makeWhereClause() string {
 		} else {
 			buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Column}.Sanitize())
 		}
+		nvalues := len(dtq.WhereClauses[i].Values)
+		// Check if value contains an pg array encoded into a string
+		if nvalues == 1 {
+			if dtq.WhereClauses[i].Values[0] == "{}" {
+				dtq.WhereClauses[i].Values[0] = "NULL"
+			} else {
+				pgArrayRe := regexp.MustCompile(`\d+`)
+				match := pgArrayRe.FindAllString(dtq.WhereClauses[i].Values[0], -1)
+				if len(match) > 0 {
+					dtq.WhereClauses[i].Values = match
+					nvalues = len(dtq.WhereClauses[i].Values)
+				}	
+			}
+		}
 		switch {
 		case len(dtq.WhereClauses[i].JoinWith) > 0:
 			buf.WriteString(" = ")
 			buf.WriteString(dtq.WhereClauses[i].JoinWith)
-		case len(dtq.WhereClauses[i].Values) > 1:
+		case nvalues > 1:
 			buf.WriteString(" IN (")
 			isFirstValue := true
 			for j := range dtq.WhereClauses[i].Values {
@@ -815,7 +835,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 // utility method
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
-	// DEV
+	// //DEV
 	// fmt.Println("*** UI Query:", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	rows, err := dbpool.Query(context.Background(), *query)
