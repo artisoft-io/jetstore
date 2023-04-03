@@ -213,6 +213,17 @@ class JetsDataTableSource extends ChangeNotifier {
   // }
   void _onSelectChanged(int index, bool value) {
     if (state.tableConfig.isCheckboxSingleSelect && value) {
+      // //*
+      // var formState = state.formState;
+      // final formStateConfig = state.tableConfig.formStateConfig;
+      // if(formState!=null && formStateConfig!=null) {
+      //   final config = state.formFieldConfig!;
+      //   for (var i = 0; i < formStateConfig.otherColumns.length; i++) {
+      //     final otherColConfig = formStateConfig.otherColumns[i];
+      //       formState.setValue(config.group, otherColConfig.stateKey, null);
+      //   }
+      // }
+
       for (int i = 0; i < model!.length; i++) {
         if (selectedRows[i]) {
           selectedRows[i] = false;

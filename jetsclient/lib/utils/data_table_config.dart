@@ -1012,6 +1012,37 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Client Table for Client single selection list
+  DTKeys.clientTable: TableConfig(
+    key: DTKeys.clientTable,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'client_registry')
+    ],
+    label: 'Clients',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.client,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client Name',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'client',
+    sortAscending: true,
+    rowsPerPage: 100,
+  ),
+
   // Org Name Table used for Client & Organization Admin form
   DTKeys.orgNameTable: TableConfig(
     key: DTKeys.orgNameTable,
@@ -1868,8 +1899,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.processName, columnIdx: 1),
-      DataTableFormStateOtherColumnConfig(stateKey: FSK.client, columnIdx: 2),
+          stateKey: FSK.processName, columnIdx: 2),
+      DataTableFormStateOtherColumnConfig(stateKey: FSK.client, columnIdx: 1),
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainProcessInputKey, columnIdx: 4),
       DataTableFormStateOtherColumnConfig(
@@ -1895,16 +1926,16 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 1,
           table: "pipeline_config",
-          name: "process_name",
-          label: 'Process',
-          tooltips: 'Process Name',
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
           isNumeric: false),
       ColumnConfig(
           index: 2,
           table: "pipeline_config",
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
+          name: "process_name",
+          label: 'Process',
+          tooltips: 'Process Name',
           isNumeric: false),
       ColumnConfig(
           index: 3,
@@ -1981,9 +2012,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Indicates when the record was created',
           isNumeric: false),
     ],
-    sortColumnName: 'last_update',
-    sortAscending: false,
-    rowsPerPage: 10,
+    sortColumnName: 'client',
+    sortAscending: true,
+    rowsPerPage: 100,
   ),
 
   // // Source Config Table for Pipeline Execution Forms
@@ -2138,7 +2169,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     columns: inputRegistryColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
-    rowsPerPage: 10,
+    rowsPerPage: 50,
   ),
 
   //* TODO Remove this
@@ -2173,7 +2204,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Table to show the main process_input of the selected pipeline above
+  // Table to show the merge process_input of the selected pipeline above
   // this is informative to the user
   DTKeys.mergeProcessInputTable: TableConfig(
     key: DTKeys.mergeProcessInputTable,
@@ -2243,7 +2274,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     columns: inputRegistryColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
-    rowsPerPage: 10,
+    rowsPerPage: 50,
   ),
 
   // Domain Table Viewer Data Table
