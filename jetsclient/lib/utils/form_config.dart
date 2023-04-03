@@ -1394,6 +1394,10 @@ final Map<String, FormConfig> _formConfigurations = {
             bottomMargin: defaultPadding)
       ],
       [
+        // // Clients filter
+        // FormDataTableFieldConfig(
+        //     key: FSK.client, dataTableConfig: DTKeys.clientTable,flex: 1),
+
         // Pipeline Configuration Table (note using FSK key)
         FormDataTableFieldConfig(
             key: FSK.pipelineConfigKey, dataTableConfig: FSK.pipelineConfigKey),

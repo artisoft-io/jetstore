@@ -275,6 +275,7 @@ class DTKeys {
 
   // Client & Organization Admin DT
   static const clientAdminTable = "clientAdminTable";
+  static const clientTable = "clientTable";
   static const orgNameTable = "orgNameTable";
 
   // File Staging Area / Source Config DT
