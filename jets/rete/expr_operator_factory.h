@@ -83,6 +83,9 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "to_int")            return create_expr_unary_operator<ToIntVisitor>(key, arg);
   if(op == "to_double")         return create_expr_unary_operator<ToDoubleVisitor>(key, arg);
   
+  // Date/Datetime operators
+  if(op == "month_period_of")   return create_expr_unary_operator<MonthPeriodVisitor>(key, arg);
+  
   // Logical operators
   if(op == "not")               return create_expr_unary_operator<NotVisitor>(key, arg);
 

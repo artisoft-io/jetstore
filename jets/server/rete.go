@@ -120,6 +120,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
+	ri.jets__currentSourcePeriod, err = rw.js.GetResource("jets:currentSourcePeriod")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 
 	// keep a map of compiled regex, keyed by the regex pattern
 	ri.reMap = make(map[string]*regexp.Regexp)
@@ -144,6 +148,14 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if err != nil {
 				return &result, fmt.Errorf("while creating rete session: %v", err)
 			}
+
+			// Set the current source period in the rdf session
+			r,_ := reteSession.NewIntLiteral(rw.pipelineConfig.currentSourcePeriod)
+			_, err = reteSession.Insert(ri.jets__istate, ri.jets__currentSourcePeriod, r)
+			if err != nil {
+				return &result, fmt.Errorf("while inserting jets:currentSourcePeriod to rdf session: %v", err)
+			}
+
 			if iset == 0 {
 				err = ri.assertInputBundle(reteSession, &inBundle, &writeOutputc)
 				if err != nil {

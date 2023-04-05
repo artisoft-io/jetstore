@@ -207,6 +207,26 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>
   BetaRow const* br;
 };
 
+// MonthPeriodVisitor
+// --------------------------------------------------------------------------------------
+struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  MonthPeriodVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  MonthPeriodVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T>RDFTTYPE operator()(T lhs)const{RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  RDFTTYPE operator()(rdf::LDate lhs)const
+  {
+    // monthPeriod = (year-1970)*12 + month
+    auto date = lhs.data;
+    auto ymd = date.year_month_day();
+    int month = ymd.month.as_number();
+    int year = ymd.year;
+    return rdf::LInt32((year-1970)*12 + month);
+  }
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 // ToTypeOfOperator
 // --------------------------------------------------------------------------------------
 // Visitor used by ToTypeOfOperator to determine the rhs data type (return -1 if not valid type)
