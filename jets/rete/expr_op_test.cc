@@ -398,6 +398,12 @@ TEST_F(ExprOpTest, AgeVisistorTest4) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(19*12 + 4)));
 }
+TEST_F(ExprOpTest, MonthPeriodOfTest1) {
+  MonthPeriodVisitor op(this->rete_session.get(), nullptr);
+  rdf::LDate lhs(rdf::date(2000, 7, 27));
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32((2000-1970)*12 + 7)));
+}
 
 }   // namespace
 }   // namespace jets::rdf
