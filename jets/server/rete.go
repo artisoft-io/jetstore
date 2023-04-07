@@ -124,6 +124,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
+	ri.jets__exception, err = rw.js.GetResource("jets:exception")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 
 	// keep a map of compiled regex, keyed by the regex pattern
 	ri.reMap = make(map[string]*regexp.Regexp)
@@ -206,6 +210,15 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// CHECK for jets__terminate and jets__exception
 				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err != nil {
 					// log.Println("Rete Session Looping Completed")
+					break
+				}
+				if hasException, err := rdfSession.GetObject(ri.jets__istate, ri.jets__exception); hasException != nil || err != nil {
+					txt,_ := hasException.AsText()
+					log.Println("Rete Session Has Rule Exception:",txt)
+					var br BadRow
+					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
+					br.ErrorMessage = sql.NullString{String: txt, Valid: true}
+					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 					break
 				}
 			}

@@ -240,6 +240,28 @@ struct IsResourceVisitor: public boost::static_visitor<RDFTTYPE>
   BetaRow const* br;
 };
 
+// RaiseExceptionVisitor
+// --------------------------------------------------------------------------------------
+struct RaiseExceptionVisitor: public boost::static_visitor<RDFTTYPE>
+{
+  RaiseExceptionVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+
+  RDFTTYPE operator()(rdf::RDFNull       lhs)const{RETE_EXCEPTION("null");}
+  RDFTTYPE operator()(rdf::BlankNode     lhs)const{RETE_EXCEPTION("blank-node");}
+  RDFTTYPE operator()(rdf::NamedResource lhs)const{RETE_EXCEPTION(lhs.name);}
+  RDFTTYPE operator()(rdf::LInt32        lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt32       lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LInt64        lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt64       lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LDouble       lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LString       lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LDate         lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LDatetime     lhs)const{RETE_EXCEPTION(lhs.data);}
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 
 } // namespace jets::rete
 #endif // JETS_RETE_EXPR_OP_RESOURCES_H
