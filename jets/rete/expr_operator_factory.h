@@ -103,6 +103,7 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "create_uuid_resource") return create_expr_unary_operator<CreateUUIDResourceVisitor>(key, arg);
   if(op == "is_literal")        return create_expr_unary_operator<IsLiteralVisitor>(key, arg);
   if(op == "is_resource")       return create_expr_unary_operator<IsResourceVisitor>(key, arg);
+  if(op == "raise_exception")   return create_expr_unary_operator<RaiseExceptionVisitor>(key, arg);
 
   // Lookup operators (in expr_op_others.h)
   if(op == "lookup_rand")       return create_expr_unary_operator<LookupRandVisitor>(key, arg);

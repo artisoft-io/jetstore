@@ -21,6 +21,7 @@ type ReteInputContext struct {
 	jets__loop                      *bridge.Resource
 	jets__source_period_sequence    *bridge.Resource
 	jets__currentSourcePeriod       *bridge.Resource
+	jets__exception                 *bridge.Resource
 	jets__state                     *bridge.Resource
 	rdf__type                       *bridge.Resource
 	reMap                           map[string]*regexp.Regexp
