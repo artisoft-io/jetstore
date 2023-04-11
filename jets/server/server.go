@@ -71,6 +71,7 @@ var extTables map[string][]string
 var glogv int // taken from env GLOG_v
 var dbc dbConnections
 var nbrDbNodes int
+var processName string		// put it as global var since there is always one and only one process per invocation
 
 func init() {
 	extTables = make(map[string][]string)
@@ -182,6 +183,12 @@ func doJob() error {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
 	defer reteWorkspace.Release()
+
+	// Set the global processName for convenience for reporting BadRows
+	processName = reteWorkspace.pipelineConfig.processConfig.processName
+	if processName == "" {
+		return fmt.Errorf("processName is not defined")
+	}
 
 	var errMessage string
 	pipelineResult, err := ProcessData(dbpool, reteWorkspace)

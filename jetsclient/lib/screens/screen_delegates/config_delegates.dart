@@ -9,99 +9,8 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:provider/provider.dart';
 import 'package:jetsclient/utils/download.dart';
+import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
 
-/// unpack an array to it's first element
-String? unpack(dynamic elm) {
-  if (elm == null) {
-    return null;
-  }
-  if (elm is String) {
-    return elm;
-  }
-  if (elm is List<String>) {
-    return elm[0];
-  }
-  return null;
-}
-
-/// postInsertRows - main function to post for inserting rows into db
-Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
-    String encodedJsonBody) async {
-  var navigator = Navigator.of(context);
-  var messenger = ScaffoldMessenger.of(context);
-  var result = await context.read<HttpClient>().sendRequest(
-      path: ServerEPs.dataTableEP,
-      token: JetsRouterDelegate().user.token,
-      encodedJsonBody: encodedJsonBody);
-
-  // print("Got reply with status code ${result.statusCode}");
-  if (result.statusCode == 200) {
-    // Inform the user and transition
-    const snackBar = SnackBar(content: Text('Record(s) successfully inserted'));
-    messenger.showSnackBar(snackBar);
-    // All good, let's the table know to refresh
-    navigator.pop(DTActionResult.okDataTableDirty);
-    return null;
-  } else if (result.statusCode == 400 ||
-      result.statusCode == 406 ||
-      result.statusCode == 422) {
-    // http Bad Request / Not Acceptable / Unprocessable
-    formState.setValue(
-        0, FSK.serverError, "Something went wrong. Please try again.");
-    navigator.pop(DTActionResult.statusError);
-    return "Something went wrong. Please try again.";
-  } else if (result.statusCode == 409) {
-    // http Conflict
-    const snackBar = SnackBar(
-      content: Text("Duplicate Record."),
-    );
-    messenger.showSnackBar(snackBar);
-    formState.setValue(0, FSK.serverError, "Duplicate record. Please verify.");
-    navigator.pop();
-    return "Duplicate record. Please verify.";
-  } else {
-    formState.setValue(
-        0, FSK.serverError, "Got a server error. Please try again.");
-    navigator.pop(DTActionResult.statusError);
-    return "Got a server error. Please try again.";
-  }
-}
-
-/// postSimpleAction - post action that does not require navigation
-void postSimpleAction(BuildContext context, JetsFormState formState,
-    String serverEndPoint, String encodedJsonBody) async {
-  var messenger = ScaffoldMessenger.of(context);
-  var result = await context.read<HttpClient>().sendRequest(
-      path: serverEndPoint,
-      token: JetsRouterDelegate().user.token,
-      encodedJsonBody: encodedJsonBody);
-
-  // print("Got reply with status code ${result.statusCode}");
-  if (result.statusCode == 200) {
-    // Inform the user and transition
-    const snackBar = SnackBar(content: Text('Request successfully completed'));
-    messenger.showSnackBar(snackBar);
-    formState.invokeCallbacks();
-  } else {
-    showAlertDialog(context, "Something went wrong. Please try again.");
-  }
-}
-
-String makeTableName(String client, String org, String objectType) {
-  if (org.isNotEmpty) {
-    return '${client}_${org}_$objectType';
-  } else {
-    return '${client}_$objectType';
-  }
-}
-
-String makeTableNameFromState(Map<String, dynamic> state) {
-  return makeTableName(
-    state[FSK.client],
-    state[FSK.org],
-    state[FSK.objectType],
-  );
-}
 
 /// Validation and Actions delegates for the source to pipeline config forms
 /// Home Forms Validator
@@ -232,7 +141,6 @@ Future<String?> homeFormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
@@ -305,7 +213,7 @@ String? sourceConfigValidator(
       }
       // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
       final otherv = formState.getValue(0, FSK.inputColumnsPositionsCsv);
-      if(otherv != null) {
+      if (otherv != null) {
         return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
       }
       // Validate that value is valid json
@@ -323,7 +231,7 @@ String? sourceConfigValidator(
       }
       // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
       final otherv = formState.getValue(0, FSK.inputColumnsJson);
-      if(otherv != null) {
+      if (otherv != null) {
         return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
       }
       return null;

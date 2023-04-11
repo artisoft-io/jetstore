@@ -1081,6 +1081,10 @@
         "isPK": true
       },
       {
+        "columnName": "pipeline_execution_status_key",
+        "dataType": "int"
+      },
+      {
         "columnName": "session_id",
         "dataType": "text",
         "isNotNull": true

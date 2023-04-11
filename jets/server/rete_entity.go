@@ -143,7 +143,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		}
 	ERRCHECK:
 		if err != nil {
-			var br BadRow
+			br := NewBadRow()
 			br.RowJetsKey = *jets__key
 			gp := inBundleRow.rowData[inBundleRow.processInput.groupingPosition].(*sql.NullString)
 			if gp.Valid {

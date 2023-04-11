@@ -15,17 +15,17 @@ import (
 )
 
 type ReteInputContext struct {
-	jets__completed                 *bridge.Resource
-	jets__istate                    *bridge.Resource
-	jets__key                       *bridge.Resource
-	jets__loop                      *bridge.Resource
-	jets__source_period_sequence    *bridge.Resource
-	jets__currentSourcePeriod       *bridge.Resource
-	jets__exception                 *bridge.Resource
-	jets__state                     *bridge.Resource
-	rdf__type                       *bridge.Resource
-	reMap                           map[string]*regexp.Regexp
-	argdMap                         map[string]float64
+	jets__completed              *bridge.Resource
+	jets__istate                 *bridge.Resource
+	jets__key                    *bridge.Resource
+	jets__loop                   *bridge.Resource
+	jets__source_period_sequence *bridge.Resource
+	jets__currentSourcePeriod    *bridge.Resource
+	jets__exception              *bridge.Resource
+	jets__state                  *bridge.Resource
+	rdf__type                    *bridge.Resource
+	reMap                        map[string]*regexp.Regexp
+	argdMap                      map[string]float64
 }
 
 // main processing function to execute rules
@@ -336,7 +336,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			} else {
 				if inputColumnSpec.errorMessage.Valid {
 					// report error
-					var br BadRow
+					br := NewBadRow()
 					br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
 					if row[aJetRow.processInput.groupingPosition].Valid {
 						br.GroupingKey = sql.NullString{String: row[aJetRow.processInput.groupingPosition].String, Valid: true}
@@ -369,7 +369,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			}
 			// Check if casting the default value failed or default value is not valid
 			if err != nil {
-				var br BadRow
+				br := NewBadRow()
 				br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
 				if row[aJetRow.processInput.groupingPosition].Valid {
 					br.GroupingKey = inputColumnSpec.inputColumn

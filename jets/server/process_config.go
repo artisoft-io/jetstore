@@ -43,14 +43,22 @@ type ProcessConfig struct {
 }
 
 type BadRow struct {
+	PEKey        sql.NullInt64
 	GroupingKey  sql.NullString
 	RowJetsKey   sql.NullString
 	InputColumn  sql.NullString
 	ErrorMessage sql.NullString
 }
-
+func NewBadRow() BadRow {
+	br := BadRow{
+		PEKey: sql.NullInt64{Int64: int64(*pipelineExecKey), Valid: true},
+	}
+	return br
+}
 func (br BadRow) String() string {
 	var buf strings.Builder
+	buf.WriteString(strconv.FormatInt(br.PEKey.Int64, 10))
+	buf.WriteString(" | ")
 	if outSessionId != nil && len(*outSessionId) > 0 {
 		buf.WriteString(*outSessionId)
 	} else {
@@ -86,16 +94,17 @@ func (br BadRow) String() string {
 // wrtie BadRow to ch as slice of interfaces
 func (br BadRow) write2Chan(ch chan<- []interface{}) {
 
-	brout := make([]interface{}, 6) // len of BadRow columns			var sid string
+	brout := make([]interface{}, 7) // len of BadRow columns			var sid string
+	brout[0] = br.PEKey.Int64
 	if outSessionId != nil && len(*outSessionId) > 0 {
-		brout[0] = *outSessionId
+		brout[1] = *outSessionId
 	}
-	brout[1] = br.GroupingKey
-	brout[2] = br.RowJetsKey
-	brout[3] = br.InputColumn
-	brout[4] = br.ErrorMessage
+	brout[2] = br.GroupingKey
+	brout[3] = br.RowJetsKey
+	brout[4] = br.InputColumn
+	brout[5] = br.ErrorMessage
 	if nodeId != nil {
-		brout[5] = *nodeId
+		brout[6] = *nodeId
 	}
 	ch <- brout
 }

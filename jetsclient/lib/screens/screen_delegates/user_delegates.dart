@@ -83,6 +83,7 @@ Future<String?> loginFormActions(BuildContext context,
       showAlertDialog(
           context, 'Oops unknown ActionKey for login form: $actionKey');
   }
+  return null;
 }
 
 // Registration Form Validator
@@ -110,7 +111,7 @@ String? registrationFormValidator(
         var hasNum = value.contains(RegExp(r'[0-9]'));
         var hasUpper = value.contains(RegExp(r'[A-Z]'));
         var hasLower = value.contains(RegExp(r'[a-z]'));
-        var hasSpecial = value.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|'']'));
+        var hasSpecial = value.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|' ']'));
         if (hasNum && hasUpper && hasLower && hasSpecial) return null;
       }
       return "At least 14 charaters, one of: upper, lower char, number, and special char.";
@@ -142,7 +143,8 @@ Future<String?> registrationFormActions(BuildContext context,
       var client = context.read<HttpClient>();
       var messenger = ScaffoldMessenger.of(context);
       var result = await client.sendRequest(
-          path: ServerEPs.registerEP, encodedJsonBody: formState.encodeState(0));
+          path: ServerEPs.registerEP,
+          encodedJsonBody: formState.encodeState(0));
       // if (!mounted) return; needed?
       if (result.statusCode == 200 || result.statusCode == 201) {
         // update the [UserModel]
@@ -168,6 +170,7 @@ Future<String?> registrationFormActions(BuildContext context,
       showAlertDialog(
           context, 'Oops unknown ActionKey for login form: $actionKey');
   }
+  return null;
 }
 
 /// User Administration Form Actions
@@ -194,7 +197,9 @@ Future<String?> userAdminFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'update/users'}],
+        'fromClauses': [
+          <String, String>{'table': 'update/users'}
+        ],
         'data': data,
       }, toEncodable: (_) => '');
       var result = await client.sendRequest(
@@ -215,8 +220,8 @@ Future<String?> userAdminFormActions(BuildContext context,
       break;
     case ActionKeys.deleteUser:
       // Get confirmation to delete user
-      var uc = await showDangerZoneDialog(context,
-          'Are you sure you want to delete the selected user(s)?');
+      var uc = await showDangerZoneDialog(
+          context, 'Are you sure you want to delete the selected user(s)?');
       if (uc != 'OK') return null;
       // Use a JSON encoded string to send
       var data = [];
@@ -228,7 +233,9 @@ Future<String?> userAdminFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'delete/users'}],
+        'fromClauses': [
+          <String, String>{'table': 'delete/users'}
+        ],
         'data': data,
       }, toEncodable: (_) => '');
       var result = await client.sendRequest(
@@ -251,4 +258,5 @@ Future<String?> userAdminFormActions(BuildContext context,
       showAlertDialog(
           context, 'Oops unknown ActionKey for userAdmin form: $actionKey');
   }
+  return null;
 }

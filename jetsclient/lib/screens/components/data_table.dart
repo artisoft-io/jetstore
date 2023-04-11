@@ -59,65 +59,72 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                 .where((e) => !e.isHidden)
                 .map((e) => state.makeDataColumn(e))
                 .toList();
-            final List<Widget> footerWidgets = tableConfig.noFooter ? [] : [
-              Container(
-                  // to match trailing padding in case we overflow and end up scrolling
-                  width: 14.0),
-              Text(localizations.rowsPerPageTitle),
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                    minWidth: 64.0), // 40.0 for the text, 24.0 for the icon
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<int>(
-                      items: rowsPerPageItems,
-                      value: state.rowsPerPage,
-                      onChanged: state._rowPerPageChanged,
-                      style: footerTextStyle,
+            final List<Widget> footerWidgets = tableConfig.noFooter
+                ? []
+                : [
+                    Container(
+                        // to match trailing padding in case we overflow and end up scrolling
+                        width: 14.0),
+                    Text(localizations.rowsPerPageTitle),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                          minWidth:
+                              64.0), // 40.0 for the text, 24.0 for the icon
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            items: rowsPerPageItems,
+                            value: state.rowsPerPage,
+                            onChanged: state._rowPerPageChanged,
+                            style: footerTextStyle,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              Container(width: 32.0),
-              Text(
-                localizations.pageRowsInfoTitle(
-                  state.indexOffset + 1,
-                  state.maxIndex + 1,
-                  state.dataSource.totalRowCount,
-                  false,
-                ),
-              ),
-              Container(width: 32.0),
-              IconButton(
-                icon: const Icon(Icons.skip_previous),
-                padding: EdgeInsets.zero,
-                tooltip: localizations.firstPageTooltip,
-                onPressed:
-                    state.currentDataPage == 0 ? null : state._gotoFirstPressed,
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                padding: EdgeInsets.zero,
-                tooltip: localizations.previousPageTooltip,
-                onPressed:
-                    state.currentDataPage == 0 ? null : state._previousPressed,
-              ),
-              Container(width: 24.0),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                padding: EdgeInsets.zero,
-                tooltip: localizations.nextPageTooltip,
-                onPressed: state._isLastPage() ? null : state._nextPressed,
-              ),
-              IconButton(
-                icon: const Icon(Icons.skip_next),
-                padding: EdgeInsets.zero,
-                tooltip: localizations.lastPageTooltip,
-                onPressed: state._isLastPage() ? null : state._lastPressed,
-              ),
-              Container(width: 14.0),
-            ];
+                    Container(width: 32.0),
+                    Text(
+                      localizations.pageRowsInfoTitle(
+                        state.indexOffset + 1,
+                        state.maxIndex + 1,
+                        state.dataSource.totalRowCount,
+                        false,
+                      ),
+                    ),
+                    Container(width: 32.0),
+                    IconButton(
+                      icon: const Icon(Icons.skip_previous),
+                      padding: EdgeInsets.zero,
+                      tooltip: localizations.firstPageTooltip,
+                      onPressed: state.currentDataPage == 0
+                          ? null
+                          : state._gotoFirstPressed,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      padding: EdgeInsets.zero,
+                      tooltip: localizations.previousPageTooltip,
+                      onPressed: state.currentDataPage == 0
+                          ? null
+                          : state._previousPressed,
+                    ),
+                    Container(width: 24.0),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      padding: EdgeInsets.zero,
+                      tooltip: localizations.nextPageTooltip,
+                      onPressed:
+                          state._isLastPage() ? null : state._nextPressed,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.skip_next),
+                      padding: EdgeInsets.zero,
+                      tooltip: localizations.lastPageTooltip,
+                      onPressed:
+                          state._isLastPage() ? null : state._lastPressed,
+                    ),
+                    Container(width: 14.0),
+                  ];
             // Header row - label + action buttons
             final headerRow = <Widget>[
               if (state.label.isNotEmpty)
@@ -196,25 +203,27 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                           ),
                         )),
                         // FOOTER ROW
-                        if (!tableConfig.noFooter) const SizedBox(height: defaultPadding),
-                        if (!tableConfig.noFooter) DefaultTextStyle(
-                          style: footerTextStyle!,
-                          child: IconTheme.merge(
-                            data: const IconThemeData(
-                              opacity: 0.54,
-                            ),
-                            child: SizedBox(
-                              height: 56.0,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                reverse: true,
-                                child: Row(
-                                  children: footerWidgets,
+                        if (!tableConfig.noFooter)
+                          const SizedBox(height: defaultPadding),
+                        if (!tableConfig.noFooter)
+                          DefaultTextStyle(
+                            style: footerTextStyle!,
+                            child: IconTheme.merge(
+                              data: const IconThemeData(
+                                opacity: 0.54,
+                              ),
+                              child: SizedBox(
+                                height: 56.0,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  reverse: true,
+                                  child: Row(
+                                    children: footerWidgets,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -449,13 +458,21 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       // Show a modal dialog
       case DataTableActionType.showDialog:
         if (ac.configForm == null) return;
+
+        // check if we expect to have a selected row
+        JetsRow? row = dataSource.getFirstSelectedRow();
+        if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
+
+        // Prepare the dialog state
         final dialogFormKey = GlobalKey<FormState>();
         final formConfig = getFormConfig(ac.configForm!);
         final dialogFormState =
             formConfig.makeFormState(parentFormState: formState);
-        // check if we expect to have a selected row
-        JetsRow? row = dataSource.getFirstSelectedRow();
-        if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
+
+        // Need to use navigationParams for formState-less form (e.g. ScreenOne)
+        // and stateFormNavigationParams for when having formState 
+        //* TODO consider adding formState to ScreenOne
+        //       Add defaultValue to stateFormNavigationParams
         // add state information to dialogFormState if navigationParams exists
         if (ac.stateFormNavigationParams != null) {
           ac.stateFormNavigationParams?.forEach((key, npKey) {
@@ -471,7 +488,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             if (value is String?) {
               dialogFormState.setValue(0, key, value);
             } else {
-              if (row != null) {
+              if (row != null && value is int) {
                 dialogFormState.setValue(0, key, row[value]);
               }
             }
@@ -480,6 +497,8 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         // reset the updated keys since these updates is to put default values
         // and is not from user interactions
         dialogFormState.resetUpdatedKeys(0);
+
+        // Show the modal dialog
         showFormDialog<DTActionResult>(
           formKey: dialogFormKey,
           screenPath: _dataTableWidget.screenPath,
@@ -528,6 +547,53 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         if (err != null) {
           showAlertDialog(context, err);
         }
+        break;
+
+      // Call server to do an action and then show a dialog
+      case DataTableActionType.doActionShowDialog:
+        JetsRow? row = dataSource.getFirstSelectedRow();
+        // check if no row is selected while we expect to have one selected
+        if (formState == null) {
+          print("formState is null!!");
+        }
+        if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
+        if (formState == null || ac.actionName == null) return;
+        if (ac.configForm == null) return;
+
+        // Prepare the dialog state
+        final dialogFormKey = GlobalKey<FormState>();
+        final formConfig = getFormConfig(ac.configForm!);
+        final dialogFormState =
+            formConfig.makeFormState(parentFormState: formState);
+
+        // Copy values from formState to dialogFormState
+        // NOTE values as copied as is (does not unwrap the list)
+        ac.stateFormNavigationParams?.forEach((key, npKey) {
+          dialogFormState.setValue(0, key, formState?.getValue(0, npKey));
+        });
+
+        // perform the action, which will update formState
+        String? err = await actionsDelegate(
+            context, GlobalKey<FormState>(), dialogFormState, ac.actionName!,
+            group: 0);
+        if (err != null) {
+          // ignore: use_build_context_synchronously
+          print("doActionShowDialog: Got error from ActionDelegate: $err");
+          showAlertDialog(context, err);
+        }
+
+        // Show the modal dialog
+        // ignore: use_build_context_synchronously
+        showFormDialog<DTActionResult>(
+          formKey: dialogFormKey,
+          screenPath: _dataTableWidget.screenPath,
+          context: context,
+          formState: dialogFormState,
+          formConfig: formConfig,
+          validatorDelegate: dialogValidatorDelegate,
+          actionsDelegate: actionsDelegate,
+          resultHandler: dialogResultHandler,
+        );
         break;
 
       // // Custom action: download mapping (applied to data table with key DTKeys.processMappingTable)
