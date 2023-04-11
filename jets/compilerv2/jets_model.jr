@@ -1,0 +1,28 @@
+# =======================================================================================
+# Jets Data Model 
+# ---------------------------------------------------------------------------------------
+
+class jets:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:key                    as text, 
+    jets:ruleTag                as array of text,
+    rdf:type                    as array of resource
+  ],
+  $as_table = false
+};
+
+
+class jets:State {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:completed              as bool,
+    jets:currentSourcePeriod    as int, 
+    jets:exception              as text,
+    jets:loop                   as int
+  ],
+  $as_table = false
+};
+
+resource jets:iState = "jets:iState";
+triple(jets:iState, rdf:type, jets:State);
