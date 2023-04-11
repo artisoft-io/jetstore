@@ -244,36 +244,8 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 		}
 	}
 
-	// start the read input goroutine
-	dataInputc, readResultc := readInput(done, mainProcessInput, reteWorkspace)
-
-	// create the writeOutput channels
-	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
-	writeOutputc := make(map[string][]chan []interface{})
-	for _, tbl := range reteWorkspace.outTables {
-		log.Println("Creating output channel for out table:", tbl)
-		writeOutputc[tbl] = make([]chan []interface{}, nbrDbNodes)
-		for i := 0; i < nbrDbNodes; i++ {
-			writeOutputc[tbl][i] = make(chan []interface{})
-		}
-	}
-
-	// Add one chanel for the BadRow notification, this is written to primary node (first dsn in provided list)
-	writeOutputc["jetsapi.process_errors"] = make([]chan []interface{}, 1)
-	writeOutputc["jetsapi.process_errors"][0] = make(chan []interface{})
-
-	// fmt.Println("processInputMapping is complete, len is", len(mainProcessInput.processInputMapping))
-	// for icol := range mainProcessInput.processInputMapping {
-	// 	fmt.Println(
-	// 		"inputColumn:", mainProcessInput.processInputMapping[icol].inputColumn,
-	// 		"dataProperty:", mainProcessInput.processInputMapping[icol].dataProperty,
-	// 		"predicate:", mainProcessInput.processInputMapping[icol].predicate,
-	// 		"rdfType:", mainProcessInput.processInputMapping[icol].rdfType,
-	// 		"functionName:", mainProcessInput.processInputMapping[icol].functionName.String,
-	// 		"argument:", mainProcessInput.processInputMapping[icol].argument.String,
-	// 		"defaultValue:", mainProcessInput.processInputMapping[icol].defaultValue.String)
-	// }
-
+	// Get workspace resource configuration
+	// -----------------------------------------------------------------------
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
 	outputMapping, err := workspaceMgr.LoadDomainTableDefinitions(false, outTableFilter)
@@ -335,6 +307,38 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
 
+	// Don't exit the function until normal completion to avoid chanel hanging
+	// start the read input goroutine
+	// ------------------------------------------------------------------------
+	dataInputc, readResultc := readInput(done, mainProcessInput, reteWorkspace)
+
+	// create the writeOutput channels
+	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
+	writeOutputc := make(map[string][]chan []interface{})
+	for _, tbl := range reteWorkspace.outTables {
+		log.Println("Creating output channel for out table:", tbl)
+		writeOutputc[tbl] = make([]chan []interface{}, nbrDbNodes)
+		for i := 0; i < nbrDbNodes; i++ {
+			writeOutputc[tbl][i] = make(chan []interface{})
+		}
+	}
+
+	// Add one chanel for the BadRow notification, this is written to primary node (first dsn in provided list)
+	writeOutputc["jetsapi.process_errors"] = make([]chan []interface{}, 1)
+	writeOutputc["jetsapi.process_errors"][0] = make(chan []interface{})
+
+	// fmt.Println("processInputMapping is complete, len is", len(mainProcessInput.processInputMapping))
+	// for icol := range mainProcessInput.processInputMapping {
+	// 	fmt.Println(
+	// 		"inputColumn:", mainProcessInput.processInputMapping[icol].inputColumn,
+	// 		"dataProperty:", mainProcessInput.processInputMapping[icol].dataProperty,
+	// 		"predicate:", mainProcessInput.processInputMapping[icol].predicate,
+	// 		"rdfType:", mainProcessInput.processInputMapping[icol].rdfType,
+	// 		"functionName:", mainProcessInput.processInputMapping[icol].functionName.String,
+	// 		"argument:", mainProcessInput.processInputMapping[icol].argument.String,
+	// 		"defaultValue:", mainProcessInput.processInputMapping[icol].defaultValue.String)
+	// }
+
 	// start execute rules pipeline with concurrent workers
 	// setup a WaitGroup with the number of workers
 	// create a chanel for executor's result
@@ -381,6 +385,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 	outputMapping["jetsapi.process_errors"] = &workspace.DomainTable{
 		TableName: "jetsapi.process_errors",
 		Columns: []workspace.DomainColumn{
+			{ColumnName: "pipeline_execution_status_key"},
 			{ColumnName: "session_id"},
 			{ColumnName: "grouping_key"},
 			{ColumnName: "row_jets_key"},
@@ -417,34 +422,54 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 	log.Println("Checking if data load failed...")
 	readResult := <-readResultc
 	result.InputRecordsCount = readResult.InputRecordsCount
+	if readResult.err != nil {
+		log.Println(fmt.Errorf("data load failed: %v", readResult.err))
+		// return &result, readResult.err
+	}
 
 	// check the result of the execute rules
+	var execRulesErr error
 	log.Println("Checking results of execute rules...")
 	result.ExecuteRulesCount = 0
 	for execResult := range errc {
 		if execResult.err != nil {
 			log.Printf("Execute Rule terminated with error: %v", execResult.err)
-			return &result, fmt.Errorf("while execute rules: %v", execResult.err)
+			// return &result, fmt.Errorf("while execute rules: %v", execResult.err)
+			execRulesErr = execResult.err
 		}
 		result.ExecuteRulesCount += execResult.result.ExecuteRulesCount
 	}
+	if execRulesErr != nil {
+		log.Println("Done execute rules, got error", execRulesErr)
+	} else {
+		log.Println("Done execute rules.")
+	}
 
 	// check the result of write2tables
-	log.Println("Checking results of write2tables...")
+	var write2tablesErr error
 	result.OutputRecordsCount = make(map[string]int64)
 	// read from result chan
 	for writerResult := range wtrc {
 		if writerResult.err != nil {
-			return &result, fmt.Errorf("while writing table: %v", writerResult.err)
+			// return &result, fmt.Errorf("while writing table: %v", writerResult.err)
+			write2tablesErr = writerResult.err
 		}
 		result.OutputRecordsCount[writerResult.result.tableName] += writerResult.result.recordCount
 	}
-	log.Println("Done checking results of write2tables.")
-
-	if readResult.err != nil {
-		log.Println(fmt.Errorf("data load failed: %v", readResult.err))
-		return &result, readResult.err
+	if write2tablesErr != nil {
+		log.Println("Done checking results of write2tables, got error", write2tablesErr)
+	} else {
+		log.Println("Done checking results of write2tables.")
 	}
 
-	return &result, nil
+	switch {
+	case readResult.err != nil:
+		return &result, readResult.err
+	case execRulesErr != nil:
+		return &result, execRulesErr
+	case write2tablesErr != nil:
+		return &result, write2tablesErr
+	default:
+		return &result, nil
+	}
 }

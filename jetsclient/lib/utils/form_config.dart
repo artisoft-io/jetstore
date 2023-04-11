@@ -1437,6 +1437,44 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
   ),
 
+  // View Process Errors (table as actionless form)
+  FormKeys.viewProcessErrors: FormConfig(
+    key: FormKeys.viewProcessErrors,
+    actions: [
+      // Action-less form
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.processErrorsTable,
+            dataTableConfig: DTKeys.processErrorsTable,
+            tableHeight: 600)
+      ],
+    ],
+  ),
+
+  // View Input Records from Process Errors (table as actionless dialog)
+  FormKeys.viewInputRecords: FormConfig(
+    key: FormKeys.viewInputRecords,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Close",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.inputRecordsFromProcessErrorTable,
+            dataTableConfig: DTKeys.inputRecordsFromProcessErrorTable,
+            tableHeight: 600)
+      ],
+    ],
+  ),
+
   //* TODO Remove this
   // Load & Start Pipeline - Dialog
   FormKeys.loadAndStartPipeline: FormConfig(

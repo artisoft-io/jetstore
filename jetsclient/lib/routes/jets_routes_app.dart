@@ -5,6 +5,7 @@ import 'package:jetsclient/screens/screen_form.dart';
 import 'package:jetsclient/screens/screen_one.dart';
 import 'package:jetsclient/screens/screen_delegates/user_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
+import 'package:jetsclient/screens/screen_delegates/process_errors_delegates.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
@@ -19,10 +20,10 @@ const clientAdminPath = '/clientAdmin';
 const sourceConfigPath = '/sourceConfig';
 const inputSourceMappingPath = '/inputSourceMapping';
 const processInputPath = '/processInput';
-const domainTableViewerPath = '/domainTableViewer/:table/:session_id';
+const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
 const filePreviewPath = '/filePreviewPath/:file_key';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
-const processErrorsPath = '/processErrorsPath/:session_id';
+const processErrorsPath = '/processErrors/:session_id';
 
 const processConfigPath = '/processConfig';
 const pipelineConfigPath = '/pipelineConfig';
@@ -89,12 +90,13 @@ final Map<String, Widget> jetsRoutesMap = {
 
   // Pipeline Config
   pipelineConfigPath: ScreenOne(
-      key: const Key(ScreenKeys.pipelineConfig),
-      screenPath: JetsRouteData(pipelineConfigPath),
-      screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
-      validatorDelegate: pipelineConfigFormValidator,
-      actionsDelegate: pipelineConfigFormActions,
-      tableConfig: getTableConfig(DTKeys.pipelineConfigTable),),
+    key: const Key(ScreenKeys.pipelineConfig),
+    screenPath: JetsRouteData(pipelineConfigPath),
+    screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
+    validatorDelegate: pipelineConfigFormValidator,
+    actionsDelegate: pipelineConfigFormActions,
+    tableConfig: getTableConfig(DTKeys.pipelineConfigTable),
+  ),
 
   // Login Screen
   loginPath: ScreenWithForm(
@@ -129,7 +131,8 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(domainTableViewerPath),
       screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
+      actionsDelegate: (context, formKey, formState, actionKey,
+          {group = 0}) async {},
       tableConfig: getTableConfig(DTKeys.inputTable)),
 
   // File Preview
@@ -138,7 +141,8 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(filePreviewPath),
       screenConfig: getScreenConfig(ScreenKeys.filePreview),
       validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
+      actionsDelegate: (context, formKey, formState, actionKey,
+          {group = 0}) async {},
       tableConfig: getTableConfig(DTKeys.inputFileViewerTable)),
 
   // Pipeline Execution Status Details Viewer
@@ -147,17 +151,18 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(executionStatusDetailsPath),
       screenConfig: getScreenConfig(ScreenKeys.execStatusDetailsTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
+      actionsDelegate: (context, formKey, formState, actionKey,
+          {group = 0}) async {},
       tableConfig: getTableConfig(DTKeys.pipelineExecDetailsTable)),
 
-  // Pipeline Execution Status Details Viewer
-  processErrorsPath: ScreenOne(
+  // Process Errors Viewer
+  processErrorsPath: ScreenWithForm(
       key: const Key(ScreenKeys.processErrorsTable),
       screenPath: JetsRouteData(processErrorsPath),
       screenConfig: getScreenConfig(ScreenKeys.processErrorsTable),
-      validatorDelegate: (formState, p2, p3, p4) => null,
-      actionsDelegate: (context, formKey, formState, actionKey, {group = 0}) async {},
-      tableConfig: getTableConfig(DTKeys.processErrorsTable)),
+      formConfig: getFormConfig(FormKeys.viewProcessErrors),
+      formValidatorDelegate: (formState, p2, p3, p4) => null,
+      formActionsDelegate: processErrorsActions),
 
   // Page Not Found
   pageNotFoundPath: const MessageScreen(message: "Opps 404!"),

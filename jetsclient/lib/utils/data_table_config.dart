@@ -53,7 +53,8 @@ enum DataTableActionType {
   deleteSelectedRows,
   cancelModifications,
   refreshTable,
-  doAction
+  doAction,
+  doActionShowDialog
 }
 
 /// Table Action Configuration
@@ -191,6 +192,7 @@ class WhereClause {
     this.defaultValue = const [],
     this.joinWith,
     this.predicate,
+    this.lookupColumnInFormState = false,
   });
   final String? table;
   final String column;
@@ -198,6 +200,7 @@ class WhereClause {
   final List<String> defaultValue;
   final String? joinWith;
   final FormStatePredicate? predicate;
+  final bool lookupColumnInFormState;
 }
 
 class DataTableFormStateConfig {
@@ -878,77 +881,158 @@ final Map<String, TableConfig> _tableConfigurations = {
   // Pipeline Execution Errors (process_erors) Table
   DTKeys.processErrorsTable: TableConfig(
     fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'process_errors')
+      FromClause(schemaName: 'jetsapi', tableName: 'process_errors'),
+      FromClause(schemaName: 'jetsapi', tableName: 'pipeline_execution_status')
     ],
     key: DTKeys.processErrorsTable,
     label: 'Pipeline Execution Errors',
     apiPath: '/dataTable',
-    isCheckboxVisible: false,
-    isCheckboxSingleSelect: true,
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
     whereClauses: [
-      WhereClause(column: "session_id", formStateKey: FSK.sessionId),
+      WhereClause(table: "process_errors", column: "session_id", formStateKey: FSK.sessionId),
+      WhereClause(
+          column: "pipeline_execution_status_key",
+          joinWith: "pipeline_execution_status.key"),
     ],
-    actions: [],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.doActionShowDialog,
+          key: 'showErrorInputRecords',
+          label: 'View Input Records',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.setupShowInputRecords,
+          configForm: FormKeys.viewInputRecords,
+          // Copy state data from formState to dialogFormState
+          stateFormNavigationParams: {
+            // keys that will be set by ActionKeys.setupShowInputRecords
+            // FSK.sessionId,
+            // FSK.domainKey,
+            // FSK.tableName,
+            FSK.pipelineExectionStatusKey: FSK.pipelineExectionStatusKey,
+            FSK.objectType: FSK.objectType,
+            FSK.processName: FSK.processName,
+            FSK.domainKey: FSK.domainKey,
+          }),
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.pipelineExectionStatusKey,
+        columnIdx: 1,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.processName,
+        columnIdx: 2,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.objectType,
+        columnIdx: 3,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.domainKey,
+        columnIdx: 4,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
           name: "key",
+          table: "process_errors",
           label: 'Key',
           tooltips: 'Row Primary Key',
           isNumeric: true,
           isHidden: false),
       ColumnConfig(
           index: 1,
+          name: "pipeline_execution_status_key",
+          table: "process_errors",
+          label: 'Process Execution Key',
+          tooltips: 'Key from process_execution_status table',
+          isNumeric: true),
+      ColumnConfig(
+          index: 2,
+          name: "process_name",
+          table: "pipeline_execution_status",
+          label: 'Process Name',
+          tooltips: 'Process executed, this resolves to a specific rule set',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "main_object_type",
+          table: "pipeline_execution_status",
+          label: 'Object Type',
+          tooltips: 'Object Type used for the Domain Key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
           name: "grouping_key",
+          table: "process_errors",
           label: 'Domain Key',
           tooltips: 'Domain Key of the associated row',
           isNumeric: false),
       ColumnConfig(
-          index: 2,
+          index: 5,
           name: "row_jets_key",
+          table: "process_errors",
           label: 'Row jets:key',
           tooltips: 'JetStore row' 's primary key',
           isNumeric: false),
       ColumnConfig(
-          index: 3,
+          index: 6,
           name: "input_column",
+          table: "process_errors",
           label: 'Input Column',
           tooltips:
               'Input Column of the error, available if error results from mapping',
           isNumeric: false),
       ColumnConfig(
-          index: 4,
+          index: 7,
           name: "error_message",
+          table: "process_errors",
           label: 'Error Message',
           tooltips: 'Error that occured during execution',
           isNumeric: false,
           maxLines: 3,
           columnWidth: 600),
       ColumnConfig(
-          index: 5,
-          name: "shard_id",
-          label: 'Shard ID',
-          tooltips: 'Pipeline shard ID',
-          isNumeric: true),
-      ColumnConfig(
-          index: 6,
+          index: 8,
           name: "session_id",
+          table: "process_errors",
           label: 'Session ID',
           tooltips: 'Data Pipeline session ID',
           isNumeric: false),
       ColumnConfig(
-          index: 7,
+          index: 9,
           name: "last_update",
+          table: "process_errors",
           label: 'Loaded At',
           tooltips: 'Indicates when the file was loaded',
           isNumeric: false),
     ],
-    sortColumnName: 'shard_id',
+    sortColumnName: 'grouping_key',
     sortAscending: true,
-    rowsPerPage: 10,
+    rowsPerPage: 50,
   ),
+
+  // View Input Records from Error Table
+  DTKeys.inputRecordsFromProcessErrorTable: TableConfig(
+      key: DTKeys.inputRecordsFromProcessErrorTable,
+      fromClauses: [FromClause(schemaName: 'public', tableName: '')],
+      label: 'Input Records for Process Errors',
+      apiPath: '/dataTable',
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
+      whereClauses: [
+        WhereClause(column: "session_id", formStateKey: FSK.sessionId),
+        WhereClause(column: FSK.domainKeyColumn, lookupColumnInFormState: true, formStateKey: FSK.domainKey),
+      ],
+      actions: [],
+      columns: [],
+      sortColumnName: '',
+      sortAscending: false,
+      rowsPerPage: 50),
 
   // Client Admin Table used for Client & Organization Admin form
   DTKeys.clientAdminTable: TableConfig(
@@ -1894,7 +1978,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [
-      WhereClause(column: "main_process_input_key", joinWith: "process_input.key"),
+      WhereClause(
+          column: "main_process_input_key", joinWith: "process_input.key"),
     ],
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -2097,7 +2182,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configScreenPath: domainTableViewerPath,
-          navigationParams: {'table': 9, 'session_id': 10}),
+          navigationParams: {'table_name': 9, 'session_id': 10}),
       ActionConfig(
           actionType: DataTableActionType.refreshTable,
           key: 'refreshTable',
@@ -2292,7 +2377,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       columns: [],
       sortColumnName: '',
       sortAscending: false,
-      rowsPerPage: 10),
+      rowsPerPage: 50),
 
   // Input File Viewer Data Table
   DTKeys.inputFileViewerTable: TableConfig(

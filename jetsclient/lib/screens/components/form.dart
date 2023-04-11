@@ -62,7 +62,7 @@ class JetsFormWidgetState extends State<JetsForm> {
 
   void markAsDirty() {
     if (!mounted) return;
-    setState(() { });
+    setState(() {});
   }
 
   void navListener() async {
@@ -85,6 +85,10 @@ class JetsFormWidgetState extends State<JetsForm> {
         "Jets Form with empty inputFields and no builder!");
     assert(widget.formConfig.inputFieldsQuery != null,
         "Jets Form with empty inputFields and no inputFieldsQuery!");
+    if (widget.formConfig.inputFieldRowBuilder == null ||
+        widget.formConfig.inputFieldsQuery == null) {
+      return;
+    }
 
     var queryMap = widget.formConfig.queries;
     assert(queryMap != null,
@@ -246,7 +250,8 @@ class JetsFormWidgetState extends State<JetsForm> {
                     // case last: row of buttons
                     return Center(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
+                        padding:
+                            const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
                         child: Row(
                             children: widget.formConfig.actions
                                 .map((e) => JetsFormButton(

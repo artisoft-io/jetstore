@@ -83,6 +83,9 @@ class FormKeys {
   static const pipelineConfig = "pipelineConfigDialog";
   static const startPipeline = "startPipelineDialog";
   static const loadAndStartPipeline = "loadAndStartPipelineDialog";
+  // Process Errors Dialogs
+  static const viewProcessErrors = "viewProcessErrorsForm";
+  static const viewInputRecords = "viewInputRecordsDialog";
   // User Admin forms
   static const login = "login";
   static const register = "register";
@@ -122,6 +125,11 @@ class FSK {
   static const entityRdfType = "entity_rdf_type";
   static const status = "status";
   static const rawRows = "raw_rows";
+
+  static const pipelineExectionStatusKey = "pipeline_execution_status_key";
+  static const domainKey = "domain_key";
+  static const domainKeyColumn =
+      "domainKeyColumn"; // e.g. Eligibility:domain_key
 
   // keys used for mapping
   // key for domain classes data properties
@@ -240,7 +248,7 @@ class ActionKeys {
   static const loadRawRowsOk = "loadRawRows.Ok";
   // to download process mapping rows
   static const downloadMapping = "downloadMapping";
-  
+
   // for process and rules config dialog
   static const ruleConfigOk = "ruleConfig.ok";
   static const ruleConfigAdd = "ruleConfig.add";
@@ -252,6 +260,9 @@ class ActionKeys {
   // for pipeline execution dialogs
   static const startPipelineOk = "startPipeline.ok";
   static const loadAndStartPipelineOk = "loadAndStartPipeline.ok";
+
+  // for process_error data table
+  static const setupShowInputRecords = "setupShowInputRecords";
 }
 
 /// Form Action Keys
@@ -272,6 +283,8 @@ class DTKeys {
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
+  static const inputRecordsFromProcessErrorTable =
+      "inputRecordsFromProcessErrorTable";
 
   // Client & Organization Admin DT
   static const clientAdminTable = "clientAdminTable";

@@ -154,7 +154,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 
 			// Set the current source period in the rdf session
-			r,_ := reteSession.NewIntLiteral(rw.pipelineConfig.currentSourcePeriod)
+			r, _ := reteSession.NewIntLiteral(rw.pipelineConfig.currentSourcePeriod)
 			_, err = reteSession.Insert(ri.jets__istate, ri.jets__currentSourcePeriod, r)
 			if err != nil {
 				return &result, fmt.Errorf("while inserting jets:currentSourcePeriod to rdf session: %v", err)
@@ -200,7 +200,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				}
 				msg, err := reteSession.ExecuteRules()
 				if err != nil {
-					var br BadRow
+					br := NewBadRow()
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
 					log.Println("BAD ROW:", br)
@@ -213,9 +213,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 					break
 				}
 				if hasException, err := rdfSession.GetObject(ri.jets__istate, ri.jets__exception); hasException != nil || err != nil {
-					txt,_ := hasException.AsText()
-					log.Println("Rete Session Has Rule Exception:",txt)
-					var br BadRow
+					txt, _ := hasException.AsText()
+					log.Println("Rete Session Has Rule Exception:", txt)
+					br := NewBadRow()
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: txt, Valid: true}
 					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
@@ -223,7 +223,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				}
 			}
 			if nloop > 0 && iloop >= nloop {
-				var br BadRow
+				br := NewBadRow()
 				br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
 				log.Println("MAX LOOP REACHED:", br)
@@ -255,7 +255,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// Check if subject is an entity for the current source period
 				// i.e. is not an historical entity comming from the lookback period
 				// We don't extract historical entities but only one from the current source period
-				// identified with jets:source_period_sequence == 0 or 
+				// identified with jets:source_period_sequence == 0 or
 				// entities created during the rule session, identified with jets:source_period_sequence is null
 				keepObj := true
 				obj, err := rdfSession.GetObject(subject, ri.jets__source_period_sequence)
@@ -309,7 +309,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 							for !itor.IsEnd() {
 								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
-									var br BadRow
+									br := NewBadRow()
 									rowkey, err := subject.GetName()
 									if err == nil {
 										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
@@ -333,7 +333,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 									entityRow[i] = data[0]
 								case ld > 1:
 									// Invalid row, multiple values for a functional property
-									var br BadRow
+									br := NewBadRow()
 									rowkey, err := subject.GetName()
 									if err == nil {
 										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}

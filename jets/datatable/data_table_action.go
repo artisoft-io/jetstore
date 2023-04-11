@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"regexp"
 
 	// "io/fs"
 	"log"
@@ -158,12 +157,11 @@ func (dtq *DataTableAction) makeWhereClause() string {
 			if dtq.WhereClauses[i].Values[0] == "{}" {
 				dtq.WhereClauses[i].Values[0] = "NULL"
 			} else {
-				pgArrayRe := regexp.MustCompile(`\d+`)
-				match := pgArrayRe.FindAllString(dtq.WhereClauses[i].Values[0], -1)
-				if len(match) > 0 {
-					dtq.WhereClauses[i].Values = match
+				v := dtq.WhereClauses[i].Values[0]
+				if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") && strings.Contains(v, ",") {
+					dtq.WhereClauses[i].Values = strings.Split(v[1:len(v)-1], ",")
 					nvalues = len(dtq.WhereClauses[i].Values)
-				}	
+				}
 			}
 		}
 		switch {

@@ -275,17 +275,31 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   Map<String, dynamic>? _makeWhereClause(WhereClause wc) {
-    var value =
-        JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
-    if (value != null) {
-      return <String, dynamic>{
-        'table': wc.table ?? '',
-        'column': wc.column,
-        'values': [value],
-      };
-    }
     final config = state.formFieldConfig; // when datatable is in a form
 
+    // Check if column name is in formState
+    var columnName = wc.column;
+    if (wc.lookupColumnInFormState && config != null) {
+      final v = state.formState?.getValue(config.group, wc.column);
+      assert(v is String, "Error: Column Name not found in stateForm");
+      columnName = v;
+    }
+
+    // Check if value is comming from screen param (navigation param)
+    // only for case where there is no formState
+    if (state.formState == null) {
+      var value =
+          JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
+      if (value != null) {
+        return <String, dynamic>{
+          'table': wc.table ?? '',
+          'column': columnName,
+          'values': [value],
+        };
+      }
+    }
+
+    // Check if whereclause has a predicate to satisfy
     var predicateSatisfied = true;
     if (config != null && wc.predicate != null) {
       var value =
@@ -297,18 +311,19 @@ class JetsDataTableSource extends ChangeNotifier {
     if (!predicateSatisfied) {
       return null;
     }
+
     if (config == null || wc.formStateKey == null) {
       if (wc.defaultValue.isNotEmpty) {
         return <String, dynamic>{
           'table': wc.table ?? '',
-          'column': wc.column,
+          'column': columnName,
           'values': wc.defaultValue,
         };
       }
       if (wc.joinWith != null) {
         return <String, dynamic>{
           'table': wc.table ?? '',
-          'column': wc.column,
+          'column': columnName,
           'joinWith': wc.joinWith,
         };
       }
@@ -318,16 +333,16 @@ class JetsDataTableSource extends ChangeNotifier {
         if (values is String?) {
           return <String, dynamic>{
             'table': wc.table ?? '',
-            'column': wc.column,
+            'column': columnName,
             'values': [values],
           };
         }
-        assert(values is List<String>?, "Incorrect data type in form state");
-        var l = values as List<String>;
+        assert(values is List<String?>?, "Incorrect data type in form state");
+        var l = values as List<String?>;
         if (l.isNotEmpty) {
           return <String, dynamic>{
             'table': wc.table ?? '',
-            'column': wc.column,
+            'column': columnName,
             'values': values,
           };
         }
@@ -335,7 +350,7 @@ class JetsDataTableSource extends ChangeNotifier {
         if (wc.defaultValue.isNotEmpty) {
           return <String, dynamic>{
             'table': wc.table ?? '',
-            'column': wc.column,
+            'column': columnName,
             'values': wc.defaultValue,
           };
         }
@@ -346,7 +361,6 @@ class JetsDataTableSource extends ChangeNotifier {
 
   dynamic _makeQuery() {
     final columns = state.tableConfig.columns;
-    final config = state.formFieldConfig; // when datatable is in a form
     // List of Column for select stmt
     List<Map<String, String>> selectColumns = [];
     if (columns.isNotEmpty) {
@@ -363,7 +377,14 @@ class JetsDataTableSource extends ChangeNotifier {
     for (final fc in state.tableConfig.fromClauses) {
       var table = fc.tableName;
       if (table.isEmpty) {
-        table = JetsRouterDelegate().currentConfiguration?.params['table'];
+        var v = state.formState
+            ?.getValue(state.formFieldConfig!.group, 'table_name');
+        v ??= JetsRouterDelegate().currentConfiguration?.params['table_name'];
+        if (v != null) {
+          table = v;
+        } else {
+          print("Error: Don't have a table_name!");
+        }
       }
       fromClauses.add(<String, String>{
         'schema': fc.schemaName,
@@ -444,8 +465,10 @@ class JetsDataTableSource extends ChangeNotifier {
       for (final wc in state.tableConfig.whereClauses) {
         if (wc.defaultValue.isNotEmpty) continue;
         if (wc.formStateKey != null) {
-          final value =
-              state.formState?.getValue(config.group, wc.formStateKey!);
+          var value = state.formState?.getValue(config.group, wc.formStateKey!);
+          value ??= JetsRouterDelegate()
+              .currentConfiguration
+              ?.params[wc.formStateKey!];
           if (value == null) {
             hasBlockingFilter = true;
           }
