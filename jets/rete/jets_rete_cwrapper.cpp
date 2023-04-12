@@ -609,6 +609,14 @@ char const* execute_rules2(HJRETE rete_hdl, int*v)
   return rete_session->execute_rules2(v);
 }
 
+// returns the rdf graph as list of triples (text buffer)
+char const* get_rdf_graph_txt(HJRDF hdl, int*v)
+{
+  if(not hdl or not v) return nullptr;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  return rdf_session->get_graph_buf(v);
+}
+
 int dump_rdf_graph(HJRDF hdl)
 {
   if(not hdl) return -1;

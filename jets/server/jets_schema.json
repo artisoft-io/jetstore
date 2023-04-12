@@ -1107,6 +1107,14 @@
         "isNotNull": true
       },
       {
+        "columnName": "rete_session_saved",
+        "dataType": "text"
+      },
+      {
+        "columnName": "rete_session_triples",
+        "dataType": "text"
+      },
+      {
         "columnName": "shard_id",
         "dataType": "int",
         "default": "0",

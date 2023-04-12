@@ -487,7 +487,12 @@ class JetsDataTableSource extends ChangeNotifier {
         return;
       }
     }
-    var data = await fetchData();
+    Map<String, dynamic>? data;
+    if (state.tableConfig.modelStateFormKey != null) {
+      data = state.formState?.getValue(0, state.tableConfig.modelStateFormKey!);
+    } else {
+      data = await fetchData();
+    }
     if (data != null) {
       // Check if we got columnDef back
       var columnDef = data['columnDef'] as List<dynamic>?;

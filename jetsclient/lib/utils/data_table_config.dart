@@ -11,6 +11,7 @@ class TableConfig {
       this.label = "",
       required this.apiPath,
       this.apiAction = "read",
+      this.modelStateFormKey,
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
       required this.actions,
@@ -28,6 +29,7 @@ class TableConfig {
   final String label;
   final String apiPath;
   final String apiAction;
+  final String? modelStateFormKey;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
@@ -890,7 +892,10 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
     whereClauses: [
-      WhereClause(table: "process_errors", column: "session_id", formStateKey: FSK.sessionId),
+      WhereClause(
+          table: "process_errors",
+          column: "session_id",
+          formStateKey: FSK.sessionId),
       WhereClause(
           column: "pipeline_execution_status_key",
           joinWith: "pipeline_execution_status.key"),
@@ -915,6 +920,21 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.objectType: FSK.objectType,
             FSK.processName: FSK.processName,
             FSK.domainKey: FSK.domainKey,
+          }),
+      ActionConfig(
+          actionType: DataTableActionType.doActionShowDialog,
+          key: 'showReteTriples',
+          label: 'View Rete Triples',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.setupShowReteTriples,
+          configForm: FormKeys.viewReteTriples,
+          // Copy state data from formState to dialogFormState
+          stateFormNavigationParams: {
+            // keys that will be set by the Action:
+            // FSK.reteSessionTriples
+            FSK.key: DTKeys.processErrorsTable,
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1005,6 +1025,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 9,
+          name: "rete_session_saved",
+          table: "process_errors",
+          label: 'Rete Triples Saved',
+          tooltips: 'Indicated if the rete triples were saved',
+          isNumeric: false),
+      ColumnConfig(
+          index: 10,
           name: "last_update",
           table: "process_errors",
           label: 'Loaded At',
@@ -1026,13 +1053,57 @@ final Map<String, TableConfig> _tableConfigurations = {
       isCheckboxSingleSelect: false,
       whereClauses: [
         WhereClause(column: "session_id", formStateKey: FSK.sessionId),
-        WhereClause(column: FSK.domainKeyColumn, lookupColumnInFormState: true, formStateKey: FSK.domainKey),
+        WhereClause(
+            column: FSK.domainKeyColumn,
+            lookupColumnInFormState: true,
+            formStateKey: FSK.domainKey),
       ],
       actions: [],
       columns: [],
       sortColumnName: '',
       sortAscending: false,
       rowsPerPage: 50),
+
+  // View RDFSession Triples as Table
+  DTKeys.reteSessionTriplesTable: TableConfig(
+      key: DTKeys.reteSessionTriplesTable,
+      fromClauses: [FromClause(schemaName: 'public', tableName: 'triples')],
+      label: 'Rule Execution Working Memory as Triples',
+      apiPath: '/dataTable',
+      modelStateFormKey: FSK.reteSessionTriples,
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
+      whereClauses: [],
+      actions: [],
+      columns: [
+        ColumnConfig(
+            index: 0,
+            name: "subject",
+            label: 'Subject',
+            tooltips: 'Subject of the Triple',
+            isNumeric: false),
+        ColumnConfig(
+            index: 1,
+            name: "predicate",
+            label: 'Predicate',
+            tooltips: 'Predicate of the Triple',
+            isNumeric: false),
+        ColumnConfig(
+            index: 2,
+            name: "object",
+            label: 'Object',
+            tooltips: 'Object of the Triple',
+            isNumeric: false),
+        ColumnConfig(
+            index: 3,
+            name: "object_type",
+            label: 'Object Type',
+            tooltips: '',
+            isNumeric: false),
+      ],
+      sortColumnName: 'subject',
+      sortAscending: false,
+      rowsPerPage: 1000000),
 
   // Client Admin Table used for Client & Organization Admin form
   DTKeys.clientAdminTable: TableConfig(

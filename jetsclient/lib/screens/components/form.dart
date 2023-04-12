@@ -21,6 +21,7 @@ class JetsForm extends StatefulWidget {
     required this.formConfig,
     required this.validatorDelegate,
     required this.actionsDelegate,
+    this.isDialog = false,
   }) : super(key: key);
 
   final JetsFormState formState;
@@ -29,6 +30,7 @@ class JetsForm extends StatefulWidget {
   final ValidatorDelegate validatorDelegate;
   final FormActionsDelegate actionsDelegate;
   final JetsRouteData formPath;
+  final bool isDialog;
 
   @override
   State<JetsForm> createState() => JetsFormWidgetState();
@@ -44,6 +46,8 @@ class JetsFormWidgetState extends State<JetsForm> {
   InputFieldType get inputFields => widget.formConfig.inputFields.isEmpty
       ? alternateInputFields
       : widget.formConfig.inputFields;
+
+  bool get isDialog => widget.isDialog;
 
   @override
   void initState() {

@@ -119,6 +119,7 @@ Future<void> showFormDialog<T>(
             formConfig: formConfig,
             validatorDelegate: validatorDelegate,
             actionsDelegate: actionsDelegate,
+            isDialog: true,
           )
               ),
             ])

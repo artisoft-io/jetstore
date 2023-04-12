@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
@@ -89,6 +90,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	// ---------------------------
 	// ReteInputContext: context/cache across all rdf sessions
 	log.Println("Execute Rule Started")
+	nbrReteSessionSaved := 0
 	var ri ReteInputContext
 	var err error
 	// cache pre-defined resources
@@ -139,6 +141,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		// setup the rdf session for the grouping
 		session_count += 1
+		reteSessionSaved := false
 		rdfSession, err := rw.js.NewRDFSession()
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
@@ -203,22 +206,13 @@ func (rw *ReteWorkspace) ExecuteRules(
 					br := NewBadRow()
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
-					log.Println("BAD ROW:", br)
+					log.Println("BAD ROW (ExecuteRules returned err):", br,"(",err.Error(),")")
 					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 					break
 				}
-				// CHECK for jets__terminate and jets__exception
+				// CHECK for jets__terminate
 				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err != nil {
 					// log.Println("Rete Session Looping Completed")
-					break
-				}
-				if hasException, err := rdfSession.GetObject(ri.jets__istate, ri.jets__exception); hasException != nil || err != nil {
-					txt, _ := hasException.AsText()
-					log.Println("Rete Session Has Rule Exception:", txt)
-					br := NewBadRow()
-					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
-					br.ErrorMessage = sql.NullString{String: txt, Valid: true}
-					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 					break
 				}
 			}
@@ -234,8 +228,39 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 
 		if *ps {
-			log.Println("ExecuteRule() Completed sucessfully, the rdf sesion contains:")
+			log.Println("ExecuteRule() Completed, the rdf sesion contains:")
 			rdfSession.DumpRdfGraph()
+		}
+
+		// Get the jets:exception(s)
+		ctor, err := rdfSession.Find(ri.jets__istate, ri.jets__exception, nil)
+		if err != nil {
+			log.Printf("while finding all jets:exception in rdf graph: %v", err)
+		} else {
+			for !ctor.IsEnd() {
+				hasException := ctor.GetObject()
+				if hasException != nil {
+					txt, _ := hasException.AsText()
+					br := NewBadRow()
+					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
+					br.ErrorMessage = sql.NullString{String: txt, Valid: true}
+					if !reteSessionSaved && nbrReteSessionSaved < 10 {
+						log.Println("Rete Session Has Rule Exception:", txt, "(rete session saved to process_errors table)")
+						reteSessionSaved = true
+						nbrReteSessionSaved += 1
+						br.ReteSessionSaved = "Y"
+						br.ReteSessionTriples = sql.NullString{
+							String: string(datatable.RDFSessionAsTableJson(rdfSession, 20000)),
+							Valid: true,
+						}
+					} else {
+						log.Println("Rete Session Has Rule Exception:", txt)
+					}
+					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
+				}	
+				ctor.Next()
+			}
+			ctor.ReleaseIterator()	
 		}
 
 		// pulling the data out of the rete session

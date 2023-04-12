@@ -391,7 +391,10 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 			{ColumnName: "row_jets_key"},
 			{ColumnName: "input_column"},
 			{ColumnName: "error_message"},
-			{ColumnName: "shard_id"}}}
+			{ColumnName: "rete_session_saved"},
+			{ColumnName: "rete_session_triples"},
+			{ColumnName: "shard_id"},
+		}}
 
 	var wg2 sync.WaitGroup
 	// wtrc: Write Table Result Chanel, worker's result status

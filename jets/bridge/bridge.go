@@ -568,6 +568,11 @@ func (r *Resource) GetText() (string, error) {
 	return C.GoString(sp), nil
 }
 
+func (r *Resource) AsTextSilent() string {
+	txt,_ := r.AsText()
+	return txt
+}
+
 func (r *Resource) AsText() (string, error) {
 	if r == nil {
 		return "NULL", nil
