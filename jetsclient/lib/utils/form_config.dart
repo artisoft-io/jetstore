@@ -1307,6 +1307,16 @@ final Map<String, FormConfig> _formConfigurations = {
                 "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"),
       ],
       [
+        FormInputFieldConfig(
+            key: FSK.maxReteSessionSaved,
+            label: "Max Rete Session Saved",
+            hint: "Max Rete Session Saved per server thread",
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.digitsOnly,
+            maxLength: 3),
+      ],
+      [
         PaddingConfig(height: defaultPadding),
       ],
       [

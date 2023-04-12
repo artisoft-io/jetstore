@@ -1888,7 +1888,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.mainSourceType: 7,
             FSK.sourcePeriodType: 8,
             FSK.automated: 9,
-            FSK.description: 10
+            FSK.description: 10,
+            FSK.maxReteSessionSaved: 11
           }),
     ],
     formStateConfig:
@@ -1966,6 +1967,12 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 11,
+          name: "max_rete_sessions_saved",
+          label: 'Max Rete Session Saved',
+          tooltips: 'Max Rete Session Saved',
+          isNumeric: true),
+      ColumnConfig(
+          index: 12,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',

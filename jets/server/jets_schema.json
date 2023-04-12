@@ -865,6 +865,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "max_rete_sessions_saved",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "description",
         "dataType": "text"
       },

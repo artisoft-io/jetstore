@@ -24,6 +24,7 @@ type PipelineConfig struct {
 	clientName             string
 	sourcePeriodType       string
 	sourcePeriodKey        int
+	maxReteSessionSaved    int
 	currentSourcePeriod    int
 	mainProcessInputKey    int
 	mergedProcessInputKeys []int
@@ -446,13 +447,17 @@ func getLatestSessionId(dbpool *pgxpool.Pool, tableName string) (sessionId strin
 }
 
 func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
+	maxReteSessionsSaved := sql.NullInt64{}
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, source_period_type
+		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, source_period_type, max_rete_sessions_saved
 		FROM jetsapi.pipeline_config WHERE key = $1`,
 		pc.key).Scan(&pc.clientName, &pc.processConfigKey, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys,
-		&pc.sourcePeriodType)
+		&pc.sourcePeriodType, &maxReteSessionsSaved)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
+	}
+	if maxReteSessionsSaved.Valid {
+		pc.maxReteSessionSaved = int(maxReteSessionsSaved.Int64)
 	}
 
 	return nil

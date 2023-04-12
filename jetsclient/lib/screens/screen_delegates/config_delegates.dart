@@ -11,7 +11,6 @@ import 'package:provider/provider.dart';
 import 'package:jetsclient/utils/download.dart';
 import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
 
-
 /// Validation and Actions delegates for the source to pipeline config forms
 /// Home Forms Validator
 String? homeFormValidator(
@@ -1129,6 +1128,12 @@ String? pipelineConfigFormValidator(
       }
       return "Pipeline automation status must be selected.";
 
+    case FSK.maxReteSessionSaved:
+      if (v != null && v.isNotEmpty) {
+        return null;
+      }
+      return "Max number of rete sessions saved must be provided.";
+
     case FSK.description:
     case FSK.mergedProcessInputKeys:
       return null;
@@ -1164,6 +1169,8 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       var processName = formState.getValue(0, FSK.processName);
       updateState[FSK.processName] = processName;
       updateState[FSK.client] = formState.getValue(0, FSK.client);
+      updateState[FSK.maxReteSessionSaved] =
+          formState.getValue(0, FSK.maxReteSessionSaved);
 
       // add process_config_key based on process_name
       var processConfigCache =
@@ -1233,7 +1240,6 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
         'data': [updateState],
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
-      break;
 
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
@@ -1241,4 +1247,5 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
     default:
       print('Oops unknown ActionKey for pipeline config form: $actionKey');
   }
+  return null;
 }
