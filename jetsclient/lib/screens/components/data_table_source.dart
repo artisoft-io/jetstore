@@ -286,8 +286,10 @@ class JetsDataTableSource extends ChangeNotifier {
     }
 
     // Check if value is comming from screen param (navigation param)
-    // only for case where there is no formState
-    if (state.formState == null) {
+    // only for case where there is no formState or it's not a dialog (isDialog = false)
+    if (state.formState == null ||
+        (state.formState!.activeFormWidgetState != null &&
+            !state.formState!.activeFormWidgetState!.isDialog)) {
       var value =
           JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
       if (value != null) {
@@ -485,7 +487,12 @@ class JetsDataTableSource extends ChangeNotifier {
         return;
       }
     }
-    var data = await fetchData();
+    Map<String, dynamic>? data;
+    if (state.tableConfig.modelStateFormKey != null) {
+      data = state.formState?.getValue(0, state.tableConfig.modelStateFormKey!);
+    } else {
+      data = await fetchData();
+    }
     if (data != null) {
       // Check if we got columnDef back
       var columnDef = data['columnDef'] as List<dynamic>?;

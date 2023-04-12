@@ -1456,6 +1456,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // View Input Records from Process Errors (table as actionless dialog)
   FormKeys.viewInputRecords: FormConfig(
     key: FormKeys.viewInputRecords,
+    title: "Input Records for a Domain Key",
     actions: [
       FormActionConfig(
           key: ActionKeys.dialogCancel,
@@ -1471,6 +1472,40 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.inputRecordsFromProcessErrorTable,
             dataTableConfig: DTKeys.inputRecordsFromProcessErrorTable,
             tableHeight: 600)
+      ],
+    ],
+  ),
+
+  // View process_errors.rete_session_triples from Process Errors (table as actionless dialog)
+  FormKeys.viewReteTriples: FormConfig(
+    key: FormKeys.viewReteTriples,
+    title: "Rete Session as Triples",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Close",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.reteSessionTriplesTable,
+            dataTableConfig: DTKeys.reteSessionTriplesTable,
+            tableHeight: 1000)
+
+        // FormInputFieldConfig(
+        //     key: FSK.reteSessionTriples,
+        //     label: "Rete Triples",
+        //     hint: "Rete session saved as triples",
+        //     flex: 1,
+        //     autofocus: false,
+        //     obscureText: false,
+        //     textRestriction: TextRestriction.none,
+        //     maxLines: 50,
+        //     maxLength: 2097152),
       ],
     ],
   ),

@@ -86,6 +86,7 @@ class FormKeys {
   // Process Errors Dialogs
   static const viewProcessErrors = "viewProcessErrorsForm";
   static const viewInputRecords = "viewInputRecordsDialog";
+  static const viewReteTriples = "viewReteTriplesDialog";
   // User Admin forms
   static const login = "login";
   static const register = "register";
@@ -130,6 +131,7 @@ class FSK {
   static const domainKey = "domain_key";
   static const domainKeyColumn =
       "domainKeyColumn"; // e.g. Eligibility:domain_key
+  static const reteSessionTriples = "rete_session_triples";
 
   // keys used for mapping
   // key for domain classes data properties
@@ -263,6 +265,7 @@ class ActionKeys {
 
   // for process_error data table
   static const setupShowInputRecords = "setupShowInputRecords";
+  static const setupShowReteTriples = "setupShowReteTriples";
 }
 
 /// Form Action Keys
@@ -283,6 +286,7 @@ class DTKeys {
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
+  static const reteSessionTriplesTable = "reteSessionTriplesTable";
   static const inputRecordsFromProcessErrorTable =
       "inputRecordsFromProcessErrorTable";
 

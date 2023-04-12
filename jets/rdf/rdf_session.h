@@ -27,6 +27,7 @@ namespace jets::rdf {
  *    - asserted graph containing the triples comming from the input source.
  *    - inferred graph containing the inferred triples.
  */
+std::ostream & operator<<(std::ostream & out, RDFSession const* g);
 class RDFSession {
  public:
   using Iterator = RDFSessionIterator;
@@ -45,7 +46,8 @@ class RDFSession {
   RDFSession(RDFGraphPtr meta_graph) 
     : meta_graph_(meta_graph), 
       asserted_graph_(), 
-      inferred_graph_()
+      inferred_graph_(),
+      graph_buf_()
     {
       auto meta_mgr = meta_graph_->get_rmgr();
       asserted_graph_ = create_rdf_graph(meta_mgr, 1);
@@ -518,12 +520,35 @@ class RDFSession {
     return this->inferred_graph_.get();
   }
 
+  // Access to graph_buf_, used by go client
+  inline char const*
+  get_graph_buf(int*v)
+  {
+    if(not v) return nullptr;
+    try {
+      std::ostringstream buf;
+      buf << this << std::endl;
+      this->graph_buf_ = buf.str();
+    } catch (std::exception& err) {
+      LOG(ERROR) << "RDFSession::get_graph_buf: error:"<<err.what();
+      *v = -1;
+      return nullptr;
+    } catch (...) {
+      LOG(ERROR) << "ReteSession::get_graph_buf: unknown error";
+      *v = -1;
+      return nullptr;
+    }
+    *v = 0;
+    return graph_buf_.data();
+  }
+
  protected:
 
  private:
   RDFGraphPtr meta_graph_;
   RDFGraphPtr asserted_graph_;
   RDFGraphPtr inferred_graph_;
+  std::string graph_buf_;     // used by go to pull out the rdf session as text
 };
 
 inline RDFSessionPtr 
