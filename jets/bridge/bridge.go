@@ -796,7 +796,19 @@ func (rs *ReteSession) ExecuteRules() (string, error) {
 	return "", nil
 }
 
-// ReteSession DumpRdfGraph
+// RDFSession GetRdfGraph as text
+func (rs *RDFSession) GetRdfGraph() string {
+	var cret C.int
+	sp := C.get_rdf_graph_txt(rs.hdl, &cret)
+	ret := int(cret)
+	if ret != 0 {
+		fmt.Println("ERROR calling C.get_rdf_graph_txt:", ret)
+		return ""
+	}
+	return C.GoString(sp)
+}
+
+// RDFSession DumpRdfGraph
 func (rs *RDFSession) DumpRdfGraph() error {
 	ret := int(C.dump_rdf_graph(rs.hdl))
 	if ret < 0 {
