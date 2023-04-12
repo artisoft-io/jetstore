@@ -164,6 +164,7 @@ class FSK {
   static const mainTableName = "main_process_input.table_name";
   static const sourcePeriodType = "source_period_type";
   static const automated = "automated";
+  static const maxReteSessionSaved = "max_rete_sessions_saved";
 
   // Pipeline Exec keys
   static const pipelineConfigKey = "pipeline_config_key";

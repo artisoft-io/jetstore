@@ -244,7 +244,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					br := NewBadRow()
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: txt, Valid: true}
-					if !reteSessionSaved && nbrReteSessionSaved < 10 {
+					if !reteSessionSaved && nbrReteSessionSaved < rw.pipelineConfig.maxReteSessionSaved {
 						log.Println("Rete Session Has Rule Exception:", txt, "(rete session saved to process_errors table)")
 						reteSessionSaved = true
 						nbrReteSessionSaved += 1
