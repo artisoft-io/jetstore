@@ -167,7 +167,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 					// send previous grouping
 					select {
 					case dataInputc <- aGroupedJetRows:
-						aGroupedJetRows = groupedJetRows{groupingValue: groupingValue, jetRowSlice: make([]jetRow, 0)}
+						aGroupedJetRows = groupedJetRows{groupingValue: mainGroupingValue.String, jetRowSlice: make([]jetRow, 0)}
 					case <-done:
 						result <- readResult{rowCount, errors.New("data load from input table canceled")}
 						return

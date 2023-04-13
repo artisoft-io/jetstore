@@ -890,7 +890,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     label: 'Pipeline Execution Errors',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
-    isCheckboxSingleSelect: false,
+    isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(
           table: "process_errors",
