@@ -1879,8 +1879,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           configForm: FormKeys.pipelineConfig,
           navigationParams: {
             FSK.key: 0,
-            FSK.processName: 1,
-            FSK.client: 2,
+            FSK.client: 1,
+            FSK.processName: 2,
             FSK.processConfigKey: 3,
             FSK.mainProcessInputKey: 4,
             FSK.mergedProcessInputKeys: 5,
@@ -1904,15 +1904,15 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 1,
-          name: "process_name",
-          label: 'Process',
-          tooltips: 'Process Name',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
           name: "client",
           label: 'Client',
           tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "process_name",
+          label: 'Process',
+          tooltips: 'Process Name',
           isNumeric: false),
       ColumnConfig(
           index: 3,
