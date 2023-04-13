@@ -372,7 +372,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 				br := NewBadRow()
 				br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
 				if row[aJetRow.processInput.groupingPosition].Valid {
-					br.GroupingKey = inputColumnSpec.inputColumn
+					br.GroupingKey = sql.NullString{String: row[aJetRow.processInput.groupingPosition].String, Valid: true}
 				}
 				if inputColumnSpec.inputColumn.Valid {
 					br.InputColumn = inputColumnSpec.inputColumn
