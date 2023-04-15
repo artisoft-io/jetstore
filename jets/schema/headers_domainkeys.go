@@ -280,17 +280,32 @@ func (dkInfo *HeadersAndDomainKeysInfo)GetHeaderPos() []int {
 	return ret
 }
 
+func joinUpper(columns *[]string, sep string) string {
+	if columns == nil {
+		return ""
+	}
+	var buf strings.Builder
+	sz := len(sep)
+	for ipos := range *columns {
+		if ipos > 0 && sz > 0 {
+			buf.WriteString(sep)
+		}
+		buf.WriteString(strings.ToUpper((*columns)[ipos]))
+	}
+	return buf.String()
+}
+
 func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string {
 	var groupingKey string
 	switch dkInfo.HashingAlgo {
 	case "md5":
-		groupingKey = strings.Join(*columns, "")
+		groupingKey = joinUpper(columns, "")
 		groupingKey = uuid.NewMD5(dkInfo.HashingSeed, []byte(groupingKey)).String()
 	case "sha1":
-		groupingKey = strings.Join(*columns, "")
+		groupingKey = joinUpper(columns, "")
 		groupingKey = uuid.NewSHA1(dkInfo.HashingSeed, []byte(groupingKey)).String()
 	default:
-		groupingKey = strings.Join(*columns, ":")
+		groupingKey = joinUpper(columns, ":")
 	}
 	return groupingKey
 }
