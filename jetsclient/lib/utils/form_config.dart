@@ -879,7 +879,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.processMappingTable,
             dataTableConfig: DTKeys.processMappingTable,
-            tableHeight: 600)
+            tableHeight: 700)
       ],
     ],
   ),
