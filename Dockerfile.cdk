@@ -25,8 +25,8 @@ RUN pip install --upgrade pip && \
 RUN npm install -g aws-cdk
 
 RUN \
-  mkdir /github/workspace/jetstore \
-  mkdir /github/workspace/workspace
+  mkdir -p /github/workspace/jetstore \
+  mkdir -p /github/workspace/workspace
 
 WORKDIR /github/workspace/jetstore
 
