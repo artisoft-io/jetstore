@@ -418,10 +418,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     }
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-  }
 
   @override
   void dispose() {

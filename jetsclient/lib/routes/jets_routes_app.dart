@@ -132,7 +132,9 @@ final Map<String, Widget> jetsRoutesMap = {
       screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey,
-          {group = 0}) async {},
+          {group = 0}) async {
+            return null;
+          },
       tableConfig: getTableConfig(DTKeys.inputTable)),
 
   // File Preview
@@ -142,7 +144,9 @@ final Map<String, Widget> jetsRoutesMap = {
       screenConfig: getScreenConfig(ScreenKeys.filePreview),
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey,
-          {group = 0}) async {},
+          {group = 0}) async {
+            return null;
+          },
       tableConfig: getTableConfig(DTKeys.inputFileViewerTable)),
 
   // Pipeline Execution Status Details Viewer
@@ -152,7 +156,9 @@ final Map<String, Widget> jetsRoutesMap = {
       screenConfig: getScreenConfig(ScreenKeys.execStatusDetailsTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey,
-          {group = 0}) async {},
+          {group = 0}) async {
+            return null;
+          },
       tableConfig: getTableConfig(DTKeys.pipelineExecDetailsTable)),
 
   // Process Errors Viewer

@@ -40,7 +40,7 @@ class HttpClient {
         JetsRouterDelegate().user.token = token;
       }
       return HttpResponse(response.statusCode, data);
-    } on Exception catch (e) {
+    } on Exception {
       // print('HTTP Exception details\n$e');
       return HttpResponse(400, "Exception while communicating");
     } catch (e) {

@@ -5,8 +5,8 @@ class JetsRouteData {
   bool get authRequired =>
       !(path.contains('login') || path.contains('register'));
 
-  JetsRouteData(this.path, {Map<String, dynamic>? params})
-      : this.params = params ?? {};
+  JetsRouteData(this.path, {Map<String, dynamic>? m})
+      : params = m ?? {};
 
   @override
   String toString() => 'path: $path | params: $params';
