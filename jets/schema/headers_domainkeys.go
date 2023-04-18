@@ -284,7 +284,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)joinUpper(columns *[]string, sep string) 
 	if columns == nil {
 		return ""
 	}
-	doUpper := dkInfo.HashingOverriden && dkInfo.HashingAlgo == "none"
+	doUpper := !(dkInfo.HashingOverriden && dkInfo.HashingAlgo == "none")
 	var buf strings.Builder
 	sz := len(sep)
 	for ipos := range *columns {
