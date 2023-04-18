@@ -15,13 +15,15 @@ import (
 )
 
 type ReteInputContext struct {
+	jets__client                 *bridge.Resource
 	jets__completed              *bridge.Resource
+	jets__currentSourcePeriod    *bridge.Resource
+	jets__exception              *bridge.Resource
 	jets__istate                 *bridge.Resource
 	jets__key                    *bridge.Resource
 	jets__loop                   *bridge.Resource
+	jets__org                    *bridge.Resource
 	jets__source_period_sequence *bridge.Resource
-	jets__currentSourcePeriod    *bridge.Resource
-	jets__exception              *bridge.Resource
 	jets__state                  *bridge.Resource
 	rdf__type                    *bridge.Resource
 	reMap                        map[string]*regexp.Regexp
@@ -181,6 +183,11 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	if err != nil {
 		return fmt.Errorf("while asserting row jets key: %v", err)
 	}
+	// Asserting client and org (assert empty string if empty)
+	v,_ := reteSession.NewTextLiteral(aJetRow.processInput.client)
+	reteSession.Insert(subject, ri.jets__client, v)
+	v,_ = reteSession.NewTextLiteral(aJetRow.processInput.organization)
+	reteSession.Insert(subject, ri.jets__org, v)
 	// Assert domain columns of the row
 	for icol := 0; icol < ncol; icol++ {
 		// asserting input row with mapping spec

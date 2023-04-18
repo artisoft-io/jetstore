@@ -10,6 +10,7 @@ JetsResources::initialize(RManager * rmgr)
 {
   if(this->is_initialized()) return;
   rmgr->insert_item(mkNull());
+  this->jets__client                   = rmgr->create_resource("jets:client");
   this->jets__completed                = rmgr->create_resource("jets:completed");
   this->jets__entity_property          = rmgr->create_resource("jets:entity_property");
   this->jets__exception                = rmgr->create_resource("jets:exception");
@@ -19,6 +20,7 @@ JetsResources::initialize(RManager * rmgr)
   this->jets__lookup_row               = rmgr->create_resource("jets:lookup_row");
   this->jets__loop                     = rmgr->create_resource("jets:loop");
   this->jets__operator                 = rmgr->create_resource("jets:operator");
+  this->jets__org                      = rmgr->create_resource("jets:org");
   this->jets__source_period_sequence   = rmgr->create_resource("jets:source_period_sequence");
   this->jets__state                    = rmgr->create_resource("jets:State");
   this->jets__value_property           = rmgr->create_resource("jets:value_property");
