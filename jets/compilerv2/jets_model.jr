@@ -5,7 +5,9 @@
 class jets:Entity {
   $base_classes = [owl:Thing],
   $data_properties = [
+    jets:client                 as text, 
     jets:key                    as text, 
+    jets:org                    as text, 
     jets:ruleTag                as array of text,
     rdf:type                    as array of resource
   ],

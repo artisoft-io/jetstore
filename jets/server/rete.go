@@ -94,6 +94,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	var ri ReteInputContext
 	var err error
 	// cache pre-defined resources
+	ri.jets__client, err = rw.js.GetResource("jets:client")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 	ri.jets__completed, err = rw.js.GetResource("jets:completed")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
@@ -107,6 +111,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
 	ri.jets__loop, err = rw.js.GetResource("jets:loop")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__org, err = rw.js.GetResource("jets:org")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}

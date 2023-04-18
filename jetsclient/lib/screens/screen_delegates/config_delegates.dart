@@ -147,6 +147,7 @@ Future<String?> homeFormActions(BuildContext context,
     default:
       print('Oops unknown ActionKey for home form: $actionKey');
   }
+  return null;
 }
 
 /// Validation and Actions delegates for the Source Config forms
@@ -1091,6 +1092,7 @@ Future<String?> processConfigFormActions(BuildContext context,
       print(
           'Oops unknown ActionKey for process and rules config form: $actionKey');
   }
+  return null;
 }
 
 /// Pipeline Config Form / Dialog Validator

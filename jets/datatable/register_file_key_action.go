@@ -145,6 +145,7 @@ func matchingProcessInputKeys(dbpool *pgxpool.Pool, inputRegistryKeys *[]int) (*
 			pi.client = ir.client AND 
 			pi.org = ir.org AND 
 			pi.object_type = ir.object_type AND
+			pi.table_name  = ir.table_name AND
 			pi.source_type = ir.source_type AND
 			ir.key IN (`)
 	buf.WriteString(strings.Join(kstr, ","))
@@ -209,6 +210,7 @@ func processInputInPeriod(dbpool *pgxpool.Pool, sourcePeriodKey, maxInputRegistr
               pi.client = ir.client
               AND pi.org = ir.org
               AND pi.object_type = ir.object_type
+              AND pi.table_name = ir.table_name
               AND pi.source_type = ir.source_type
               AND ir.source_period_key = $1
               AND ir.key <= $2;`
@@ -291,7 +293,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			}
 		}
 
-		// Find all pipeline_config with main_process_input_key and merged_process_input_keys matching one of inputRegistryKeys
+		// Find all pipeline_config with main_process_input_key or merged_process_input_keys matching one of inputRegistryKeys
 		// and ready to execute based on source_period_key
 		// 	- Find all process_input matching any inputRegistryKeys
 		//  - Find all pipeline_config matching any of process_input found

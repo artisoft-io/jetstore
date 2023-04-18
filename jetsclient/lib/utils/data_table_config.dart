@@ -1978,7 +1978,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 12,
+          index: 13,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
