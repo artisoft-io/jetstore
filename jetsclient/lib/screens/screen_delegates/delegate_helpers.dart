@@ -167,3 +167,15 @@ String makeTableNameFromState(Map<String, dynamic> state) {
     state[FSK.objectType],
   );
 }
+
+String makePgArray(dynamic values) {
+  if (values == null) return '{}';
+  if (values is List<String>) {
+    final buf = StringBuffer();
+    buf.write("{");
+    buf.writeAll(values, ",");
+    buf.write("}");
+    return buf.toString();
+  }
+  return values as String;
+}

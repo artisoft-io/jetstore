@@ -55,6 +55,7 @@ String? homeFormValidator(
     case FSK.mainTableName:
     case DTKeys.mainProcessInputTable:
     case DTKeys.mergeProcessInputTable:
+    case DTKeys.injectedProcessInputTable:
     case FSK.mergedInputRegistryKeys:
     case FSK.mergedProcessInputKeys:
     case FSK.sourcePeriodKey:
@@ -437,27 +438,35 @@ String? processInputFormValidator(
       client != null &&
       sourceType != null &&
       entityRdfType != null) {
-    if (sourceType == 'file') {
-      var org = formState.getValue(group, FSK.org);
-      if (org != null) {
-        var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType);
-        if (row == null) {
-          print(
-              "processInputFormActions error: can't find object_type in objectTypeRegistry");
-        } else {
-          // add table_name to form state based on source_type of domain class (rdf:type)
-          String tableName = makeTableName(client, org, row[0]);
-          if (formState.getValue(0, FSK.tableName) != tableName) {
-            // print("SET AND NOTIFY TABLENAME $tableName");
-            formState.setValueAndNotify(0, FSK.tableName, tableName);
+    switch (sourceType) {
+      case 'file':
+        var org = formState.getValue(group, FSK.org);
+        if (org != null) {
+          var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType);
+          if (row == null) {
+            print(
+                "processInputFormActions error: can't find object_type in objectTypeRegistry");
+          } else {
+            // add table_name to form state based on source_type of domain class (rdf:type)
+            String tableName = makeTableName(client, org, row[0]);
+            if (formState.getValue(0, FSK.tableName) != tableName) {
+              // print("SET AND NOTIFY TABLENAME $tableName");
+              formState.setValueAndNotify(0, FSK.tableName, tableName);
+            }
           }
         }
-      }
-    } else {
-      // sourceType == 'domain_table', table name is same as edf:type
-      if (formState.getValue(group, FSK.tableName) != entityRdfType) {
-        formState.setValueAndNotify(group, FSK.tableName, entityRdfType);
-      }
+        break;
+      case 'domain_table':
+        if (formState.getValue(group, FSK.tableName) != entityRdfType) {
+          formState.setValueAndNotify(group, FSK.tableName, entityRdfType);
+        }
+        break;
+      case 'alias_domain_table':
+        // Do nothing, table_name is already in formState
+        break;
+      default:
+        print(
+            "processInputFormActions error: unknown source_type: $sourceType");
     }
   }
 
@@ -483,7 +492,6 @@ String? processInputFormValidator(
       if (v != null) {
         return null;
       }
-      var sourceType = formState.getValue(group, FSK.sourceType) as String?;
       if (sourceType == null || sourceType != 'file') {
         return null;
       }
@@ -513,6 +521,15 @@ String? processInputFormValidator(
         return null;
       }
       return "Lookback period must be provided.";
+    case FSK.tableName:
+      String? value = v;
+      if (value != null && value.characters.isNotEmpty) {
+        return null;
+      }
+      if (sourceType == null || sourceType != 'alias_domain_table') {
+        return null;
+      }
+      return "Table name must be provided.";
 
     // Process Mapping Dialog Validation
     case FSK.inputColumn:
@@ -863,23 +880,6 @@ Future<String?> processInputFormActions(BuildContext context,
           encodedJsonBody: encodedJsonBody);
 
       if (result.statusCode == 200) {
-        // Disable status on process_input table
-        // -------------------------------------
-        // // insert successfull, update process_input status
-        // var encodedJsonBody = jsonEncode(<String, dynamic>{
-        //   'action': 'insert_rows',
-        //   'fromClauses': [
-        //     <String, String>{'table': 'update/process_input'}
-        //   ],
-        //   'data': [
-        //     {
-        //       'key': processInputKey,
-        //       'user_email': JetsRouterDelegate().user.email,
-        //       'status': processInputStatus
-        //     }
-        //   ],
-        // }, toEncodable: (_) => '');
-        // postInsertRows(context, formState, encodedJsonBody);
         // trigger a refresh of the process_mapping table
         formState.parentFormState?.setValue(0, FSK.tableName, null);
         formState.parentFormState
@@ -1136,6 +1136,12 @@ String? pipelineConfigFormValidator(
       }
       return "Max number of rete sessions saved must be provided.";
 
+    case FSK.sourcePeriodType:
+      if (v != null && v.isNotEmpty) {
+        return null;
+      }
+      return "Execution frequency must be selected.";
+
     case FSK.description:
     case FSK.mergedProcessInputKeys:
       return null;
@@ -1217,19 +1223,15 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       // same pattern for merged_process_input_keys
       var mergedProcessInputKeys =
           formState.getValue(0, FSK.mergedProcessInputKeys);
-      if (mergedProcessInputKeys != null) {
-        if (mergedProcessInputKeys is List<String>) {
-          final buf = StringBuffer();
-          buf.write("{");
-          buf.writeAll(mergedProcessInputKeys, ",");
-          buf.write("}");
-          updateState[FSK.mergedProcessInputKeys] = buf.toString();
-        } else {
-          updateState[FSK.mergedProcessInputKeys] = mergedProcessInputKeys;
-        }
-      } else {
-        updateState[FSK.mergedProcessInputKeys] = '{}';
-      }
+      updateState[FSK.mergedProcessInputKeys] = makePgArray(mergedProcessInputKeys);
+      //*
+      print("Pipeline Config: mergedProcessInputKeys are $mergedProcessInputKeys");
+      // same pattern for injected_process_input_keys
+      var injectedProcessInputKeys =
+          formState.getValue(0, FSK.injectedProcessInputKeys);
+      updateState[FSK.injectedProcessInputKeys] = makePgArray(injectedProcessInputKeys);
+      //*
+      print("Pipeline Config: injectedProcessInputKeys are $injectedProcessInputKeys");
       updateState[FSK.automated] = formState.getValue(0, FSK.automated);
       updateState[FSK.description] = formState.getValue(0, FSK.description);
       updateState[FSK.userEmail] = JetsRouterDelegate().user.email;

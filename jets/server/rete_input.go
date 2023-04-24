@@ -39,10 +39,13 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 			continue
 		}
 		var err error
-		if aJetRow.processInput.sourceType == "file" {
+		switch aJetRow.processInput.sourceType {
+		case "file":
 			err = ri.assertInputTextRecord(reteSession, &aJetRow, writeOutputc)
-		} else {
+		case "domain_table", "alias_domain_table":
 			err = ri.assertInputEntityRecord(reteSession, &aJetRow, writeOutputc)
+		default:
+			err = fmt.Errorf("error: unknown source_type in assertInputBundle: %s", aJetRow.processInput.sourceType)
 		}
 		if err != nil {
 			return err

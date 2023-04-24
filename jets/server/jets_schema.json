@@ -843,6 +843,13 @@
         "isNotNull": true
       },
       {
+        "columnName": "injected_process_input_keys",
+        "dataType": "int",
+        "isArray": true,
+        "default": "'{}'",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_object_type",
         "dataType": "text",
         "isNotNull": true

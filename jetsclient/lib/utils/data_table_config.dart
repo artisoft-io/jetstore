@@ -249,8 +249,8 @@ final inputRegistryColumns = [
       index: 3,
       table: "input_registry",
       name: "object_type",
-      label: 'Object Type',
-      tooltips: 'Type of objects in file',
+      label: 'Domain Key',
+      tooltips: 'Domain Key supported by the input records',
       isNumeric: false),
   ColumnConfig(
       index: 4,
@@ -348,8 +348,8 @@ final processInputColumns = [
   ColumnConfig(
       index: 3,
       name: "object_type",
-      label: 'Object Type',
-      tooltips: 'Pipeline Main Object Type',
+      label: 'Domain Key',
+      tooltips: 'Pipeline Grouping Domain Key',
       isNumeric: false),
   ColumnConfig(
       index: 4,
@@ -676,8 +676,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 4,
           name: "main_object_type",
-          label: 'Object Type',
-          tooltips: 'Type of object contained in the main input source',
+          label: 'Domain Key',
+          tooltips: 'Domain Key of the pipeline',
           isNumeric: false),
       ColumnConfig(
           index: 5,
@@ -982,8 +982,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 3,
           name: "main_object_type",
           table: "pipeline_execution_status",
-          label: 'Object Type',
-          tooltips: 'Object Type used for the Domain Key',
+          label: 'Domain Key',
+          tooltips: 'Domain Key of the pipeline',
           isNumeric: false),
       ColumnConfig(
           index: 4,
@@ -1470,6 +1470,7 @@ final Map<String, TableConfig> _tableConfigurations = {
   ),
 
   // Process Input Data Table
+  // on Process Input Configuration Screen
   DTKeys.processInputTable: TableConfig(
     key: DTKeys.processInputTable,
     fromClauses: [
@@ -1496,15 +1497,11 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.objectType: 3,
             FSK.entityRdfType: 4,
             FSK.sourceType: 5,
+            FSK.tableName: 6,
             FSK.lookbackPeriods: 7,
           }),
     ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.tableName,
-        columnIdx: 6,
-      ),
-    ]),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: processInputColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
@@ -1889,7 +1886,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.sourcePeriodType: 8,
             FSK.automated: 9,
             FSK.description: 10,
-            FSK.maxReteSessionSaved: 11
+            FSK.maxReteSessionSaved: 11,
+            FSK.injectedProcessInputKeys: 12
           }),
     ],
     formStateConfig:
@@ -1938,8 +1936,8 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 6,
           name: "main_object_type",
-          label: 'Main Object Type',
-          tooltips: 'Object Type of main input table',
+          label: 'Domain Key',
+          tooltips: 'Domain Key of main input table',
           isNumeric: false),
       ColumnConfig(
           index: 7,
@@ -1973,12 +1971,19 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: true),
       ColumnConfig(
           index: 12,
+          name: "injected_process_input_keys",
+          label: 'Injected Data Process Inut',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 13,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 13,
+          index: 14,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
@@ -2034,6 +2039,32 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
+      WhereClause(column: "source_type", defaultValue: ['file','domain_table']),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: processInputColumns,
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfig)
+  // for selecting FSK.injectedProcessInputKeys
+  FSK.injectedProcessInputKeys: TableConfig(
+    key: FSK.injectedProcessInputKeys,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'process_input')
+    ],
+    label: 'Injected Data Process Inputs',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
+      WhereClause(column: "source_type", defaultValue: ['alias_domain_table']),
     ],
     actions: [],
     formStateConfig:
@@ -2076,101 +2107,111 @@ final Map<String, TableConfig> _tableConfigurations = {
           stateKey: FSK.sourcePeriodType, columnIdx: 9),
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainTableName, columnIdx: 10),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.injectedProcessInputKeys, columnIdx: 11),
     ]),
     columns: [
       ColumnConfig(
           index: 0,
-          table: "pipeline_config",
           name: "key",
+          table: "pipeline_config",
           label: 'Key',
           tooltips: 'Row Primary Key',
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
           index: 1,
-          table: "pipeline_config",
           name: "client",
+          table: "pipeline_config",
           label: 'Client',
           tooltips: 'Client the file came from',
           isNumeric: false),
       ColumnConfig(
           index: 2,
-          table: "pipeline_config",
           name: "process_name",
+          table: "pipeline_config",
           label: 'Process',
           tooltips: 'Process Name',
           isNumeric: false),
       ColumnConfig(
           index: 3,
-          table: "pipeline_config",
           name: "process_config_key",
+          table: "pipeline_config",
           label: 'Process Config',
           tooltips: '',
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
           index: 4,
-          table: "pipeline_config",
           name: "main_process_input_key",
+          table: "pipeline_config",
           label: 'Main Process Input',
           tooltips: '',
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
           index: 5,
-          table: "pipeline_config",
           name: "merged_process_input_keys",
+          table: "pipeline_config",
           label: 'Merged Process Inputs',
           tooltips: '',
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
           index: 6,
-          table: "pipeline_config",
           name: "main_object_type",
-          label: 'Object Type',
-          tooltips: 'Object Type of main input table',
+          table: "pipeline_config",
+          label: 'Domain Key',
+          tooltips: 'Domain Key of main input table',
           isNumeric: false),
       ColumnConfig(
           index: 7,
-          table: "pipeline_config",
           name: "main_source_type",
+          table: "pipeline_config",
           label: 'Main Source Type',
           tooltips: 'Source Type is file or domain_table',
           isNumeric: false),
       ColumnConfig(
           index: 8,
-          table: "pipeline_config",
           name: "description",
+          table: "pipeline_config",
           label: 'Description',
           tooltips: 'Pipeline description',
           isNumeric: false),
       ColumnConfig(
           index: 9,
-          table: "pipeline_config",
           name: "source_period_type",
+          table: "pipeline_config",
           label: 'Frequency',
           tooltips: 'Frequency of execution',
           isNumeric: false),
       ColumnConfig(
           index: 10,
-          table: "process_input",
           name: "table_name",
+          table: "process_input",
           label: 'Main Table Name',
           tooltips: '',
           isNumeric: false,
           isHidden: true),
       ColumnConfig(
           index: 11,
+          name: "injected_process_input_keys",
           table: "pipeline_config",
+          label: 'Injected Data Process Inputs',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 12,
           name: "user_email",
+          table: "pipeline_config",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 12,
-          table: "pipeline_config",
+          index: 13,
           name: "last_update",
+          table: "pipeline_config",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
           isNumeric: false),
@@ -2290,6 +2331,30 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: false,
     whereClauses: [
       WhereClause(column: "key", formStateKey: FSK.mainProcessInputKey),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: processInputColumns,
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+    noFooter: true,
+  ),
+
+  // Table to show the injected_process_input of the selected pipeline above
+  // this is informative to the user
+  DTKeys.injectedProcessInputTable: TableConfig(
+    key: DTKeys.injectedProcessInputTable,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'process_input'),
+    ],
+    label: 'Injected Data Process Input Configuration',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "key", formStateKey: FSK.injectedProcessInputKeys),
     ],
     actions: [],
     formStateConfig:

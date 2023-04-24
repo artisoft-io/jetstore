@@ -159,6 +159,7 @@ class FSK {
   // Pipeline Config keys
   static const mainProcessInputKey = "main_process_input_key";
   static const mergedProcessInputKeys = "merged_process_input_keys";
+  static const injectedProcessInputKeys = "injected_process_input_keys";
   static const mainObjectType = "main_object_type";
   static const mainSourceType = "main_source_type";
   static const mainTableName = "main_process_input.table_name";
@@ -205,6 +206,10 @@ class FSK {
   // from table object_type_registry based on query objectTypeRegistryQuery
   // provides mapping between object_type and entity_rdf_type
   static const objectTypeRegistryCache = "cache.object_type_registry";
+
+  // entityRdfTypeRegistryCache: cache value is a List<String?>
+  // provides list of entity_rdf_type
+  static const entityRdfTypeRegistryCache = "cache.dropdown_items.entity_rdf_type";
 
   // processConfigCache: cache value is a list<list<String?>> (model)
   // from table process_config provides [key, process_name]
@@ -321,6 +326,7 @@ class DTKeys {
   static const pipelineConfigTable = "pipelineConfigTable";
   static const mainProcessInputTable = "mainProcessInputTable";
   static const mergeProcessInputTable = "mergeProcessInputTable";
+  static const injectedProcessInputTable = "injectedProcessInputTable";
   static const fileKeyStagingForPipelineMainProcessInput =
       "fileKeyStagingForPipelineMainProcessInput";
   // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";

@@ -93,8 +93,38 @@ class _JetsDropdownButtonFormFieldState
     super.dispose();
   }
 
+  void setDropdownItems(List<dynamic> rows) {
+    final model = rows.map((e) => (e as List).cast<String?>()).toList();
+    items = [];
+    items.addAll(_config.items);
+    items.addAll(
+        model.map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
+    if (_config.returnedModelCacheKey != null) {
+      widget.formState.addCacheValue(_config.returnedModelCacheKey!, model);
+    }
+    var gotit = false;
+    if (selectedValue != null) {
+      // make sure selectedValue is in the returned list, otherwise set it to null
+      for (var items in model) {
+        for (var item in items) {
+          if (selectedValue == item) {
+            gotit = true;
+            break;
+          }
+        }
+        if (gotit) break;
+      }
+    }
+    if (!gotit) selectedValue = null;
+    setState(() {
+      if (items.isNotEmpty) {
+        selectedValue = selectedValue ?? items[_config.defaultItemPos].value;
+        widget.formState.setValue(_config.group, _config.key, selectedValue);
+      }
+    });
+  }
+
   void queryDropdownItems() async {
-    // if (_config.dropdownItemLoaded) return;
     // Check if we have predicate on formState
     var query = _config.dropdownItemsQuery;
     if (query == null) return;
@@ -111,7 +141,7 @@ class _JetsDropdownButtonFormFieldState
     if (_config.whereStateContains.isNotEmpty) {
       _config.whereStateContains.forEach((key, value) {
         var stateValue = widget.formState.getValue(_config.group, key);
-        if(stateValue is List<String>) {
+        if (stateValue is List<String>) {
           if (value != stateValue[0]) {
             whereMatch = false;
             return;
@@ -125,6 +155,13 @@ class _JetsDropdownButtonFormFieldState
       });
     }
     if (!whereMatch) {
+      // Clear the items
+      if (items.isNotEmpty) {
+        setState(() {
+          predicatePreviousValue = null;
+          items = [];
+        });
+      }
       return;
     }
 
@@ -132,7 +169,16 @@ class _JetsDropdownButtonFormFieldState
     if (_config.stateKeyPredicates.isNotEmpty) {
       for (var key in _config.stateKeyPredicates) {
         var value = widget.formState.getValue(_config.group, key);
-        if (value == null) return;
+        if (value == null) {
+          // Clear the items
+          if (items.isNotEmpty) {
+            setState(() {
+              predicatePreviousValue = null;
+              items = [];
+            });
+          }
+          return;
+        }
         assert((value is String) || (value is List<String>),
             "Error: unexpected type in dropdown formState");
         if (value is String) {
@@ -151,6 +197,15 @@ class _JetsDropdownButtonFormFieldState
     }
     predicatePreviousValue = valueStr;
 
+    if (_config.returnedModelCacheKey != null) {
+      final rows =
+          widget.formState.getCacheValue(_config.returnedModelCacheKey!);
+      if (rows != null) {
+        setDropdownItems(rows);
+        return;
+      }
+    }
+
     var msg = <String, dynamic>{
       'action': 'raw_query',
     };
@@ -164,34 +219,7 @@ class _JetsDropdownButtonFormFieldState
     if (result.statusCode == 200) {
       _config.dropdownItemLoaded = true;
       final rows = result.body['rows'] as List;
-      final model = rows.map((e) => (e as List).cast<String?>()).toList();
-      items = [];
-      items.addAll(_config.items);
-      items.addAll(
-          model.map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
-      if (_config.returnedModelCacheKey != null) {
-        widget.formState.addCacheValue(_config.returnedModelCacheKey!, model);
-      }
-      var gotit = false;
-      if (selectedValue != null) {
-        // make sure selectedValue is in the returned list, otherwise set it to null
-        for (var items in model) {
-          for (var item in items) {
-            if (selectedValue == item) {
-              gotit = true;
-              break;
-            }
-          }
-          if (gotit) break;
-        }
-      }
-      if (!gotit) selectedValue = null;
-      setState(() {
-        if (items.isNotEmpty) {
-          selectedValue = selectedValue ?? items[_config.defaultItemPos].value;
-          widget.formState.setValue(_config.group, _config.key, selectedValue);
-        }
-      });
+      setDropdownItems(rows);
     } else if (result.statusCode == 401) {
       const snackBar = SnackBar(
         content: Text('Session Expired, please login'),
