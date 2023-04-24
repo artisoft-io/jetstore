@@ -158,7 +158,7 @@ func (dtq *DataTableAction) makeWhereClause() string {
 				dtq.WhereClauses[i].Values[0] = "NULL"
 			} else {
 				v := dtq.WhereClauses[i].Values[0]
-				if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") && strings.Contains(v, ",") {
+				if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") {
 					dtq.WhereClauses[i].Values = strings.Split(v[1:len(v)-1], ",")
 					nvalues = len(dtq.WhereClauses[i].Values)
 				}
