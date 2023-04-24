@@ -184,46 +184,19 @@ class JetsDataTableSource extends ChangeNotifier {
     // update selectedRows based on form state,
     // also drop selected row in form state that are no longer in the model
     // in case the where clause has changed
+    formState.clearSelectedRow(config.group, config.key);
     for (int index = 0; index < model!.length; index++) {
       final JetsRow row = model![index];
       var rowKeyValue = row[formStateConfig.keyColumnIdx];
       if (rowKeyValue != null && selValues.contains(rowKeyValue)) {
         selectedRows[index] = true;
+        formState.addSelectedRow(config.group, config.key, rowKeyValue, row);
       }
     }
   }
 
-  // void _onSelectChanged(int index, bool value) {
-  //   // If table is single select, clear the previously selected rows
-  //   if (state.tableConfig.isCheckboxSingleSelect) {
-  //     final config = state.formFieldConfig;
-  //     if (config != null) {
-  //       state.formState?.clearSelectedRow(config.group, config.key);
-  //       for (int i = 0; i < model!.length; i++) {
-  //         selectedRows[i] = false;
-  //         _updateFormState(i, false);
-  //       }
-  //     }
-  //     // if case de-select a single select, then nothing else to do here!
-  //     if (!value) return;
-  //   }
-  //   selectedRows[index] = value;
-  //   _updateFormState(index, value);
-  //   notifyListeners();
-  // }
   void _onSelectChanged(int index, bool value) {
     if (state.tableConfig.isCheckboxSingleSelect && value) {
-      // //*
-      // var formState = state.formState;
-      // final formStateConfig = state.tableConfig.formStateConfig;
-      // if(formState!=null && formStateConfig!=null) {
-      //   final config = state.formFieldConfig!;
-      //   for (var i = 0; i < formStateConfig.otherColumns.length; i++) {
-      //     final otherColConfig = formStateConfig.otherColumns[i];
-      //       formState.setValue(config.group, otherColConfig.stateKey, null);
-      //   }
-      // }
-
       for (int i = 0; i < model!.length; i++) {
         if (selectedRows[i]) {
           selectedRows[i] = false;

@@ -183,7 +183,7 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 
 	// setup to read the primary input table
 	mainProcessInput := reteWorkspace.pipelineConfig.mainProcessInput
-	// Configure all ProcessInput while identifying the main input table
+	// Configure all ProcessInput
 	err = prepareProcessInput(mainProcessInput, reteWorkspace, workspaceMgr)
 	if err != nil {
 		return &result, err
@@ -195,8 +195,20 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 			return &result, err
 		}
 	}
+	for i := range reteWorkspace.pipelineConfig.injectedProcessInput {
+		err = prepareProcessInput(reteWorkspace.pipelineConfig.injectedProcessInput[i],
+			reteWorkspace, workspaceMgr)
+		if err != nil {
+			return &result, err
+		}
+	}
 	if mainProcessInput == nil {
 		return &result, fmt.Errorf("unexpected error: Main ProcessInput is nil in the PipelineConfig")
+	}
+
+	if glogv > 1 {
+		fmt.Println("\nPIPELINE CONFIGURATION:")
+		fmt.Println(reteWorkspace.pipelineConfig.String())
 	}
 
 	// some bookeeping

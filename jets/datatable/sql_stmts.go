@@ -107,16 +107,16 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// pipeline config
 	"update/pipeline_config": {
 		Stmt: `UPDATE jetsapi.pipeline_config SET 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, user_email, last_update) = 
-			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, DEFAULT) 
-			WHERE key = $12`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "user_email", "key"},
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, user_email, last_update) = 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, DEFAULT) 
+			WHERE key = $13`,
+		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "user_email", "key"},
 	},
 	"pipeline_config": {
 		Stmt: `INSERT INTO jetsapi.pipeline_config 
 			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "user_email"},
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "user_email"},
 	},
 
 	// pipeline_execution_status 

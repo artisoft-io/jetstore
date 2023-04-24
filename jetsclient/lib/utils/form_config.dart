@@ -932,19 +932,21 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.objectType,
             returnedModelCacheKey: FSK.objectTypeRegistryCache,
             items: [
-              DropdownItemConfig(label: 'Select an Pipeline Main Object Type'),
+              DropdownItemConfig(label: 'Select an Pipeline Grouping Domain Key'),
             ],
             dropdownItemsQuery:
-                "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
+                "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 100"),
       ],
       [
         FormDropdownFieldConfig(
             key: FSK.entityRdfType,
+            returnedModelCacheKey: FSK.entityRdfTypeRegistryCache,
             items: [
               DropdownItemConfig(label: 'Select a Domain Class'),
             ],
+            //* TODO read from workspace schema domain_classes (compilerv2)
             dropdownItemsQuery:
-                "SELECT entity_rdf_type FROM jetsapi.object_type_registry ORDER BY entity_rdf_type ASC LIMIT 100",
+                "SELECT entity_rdf_type FROM jetsapi.domain_keys_registry ORDER BY entity_rdf_type ASC LIMIT 100",
             stateKeyPredicates: [FSK.objectType]),
         FormInputFieldConfig(
             key: FSK.lookbackPeriods,
@@ -963,6 +965,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Select a Source Type'),
               DropdownItemConfig(label: 'File', value: 'file'),
               DropdownItemConfig(label: 'Domain Table', value: 'domain_table'),
+              DropdownItemConfig(label: 'Alias Domain Table', value: 'alias_domain_table'),
             ],
             defaultItemPos: 0),
         FormDropdownFieldConfig(
@@ -975,6 +978,15 @@ final Map<String, FormConfig> _formConfigurations = {
                 "SELECT org FROM jetsapi.client_org_registry WHERE client = '{client}' ORDER BY org ASC LIMIT 100",
             stateKeyPredicates: [FSK.client, FSK.sourceType],
             whereStateContains: {FSK.sourceType: 'file'}),
+        FormDropdownFieldConfig(
+            key: FSK.tableName,
+            returnedModelCacheKey: FSK.entityRdfTypeRegistryCache,
+            items: [
+              DropdownItemConfig(label: 'Select a Domain Table'),
+            ],
+            dropdownItemsQuery:
+                "SELECT entity_rdf_type FROM jetsapi.object_type_registry ORDER BY entity_rdf_type ASC LIMIT 100",
+            whereStateContains: {FSK.sourceType: 'alias_domain_table'}),
       ],
     ],
   ),
@@ -1367,6 +1379,14 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.mergedProcessInputKeys,
             dataTableConfig: FSK.mergedProcessInputKeys),
       ],
+      [
+        PaddingConfig(),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: FSK.injectedProcessInputKeys,
+            dataTableConfig: FSK.injectedProcessInputKeys),
+      ],
     ],
   ),
 
@@ -1404,10 +1424,6 @@ final Map<String, FormConfig> _formConfigurations = {
             bottomMargin: defaultPadding)
       ],
       [
-        // // Clients filter
-        // FormDataTableFieldConfig(
-        //     key: FSK.client, dataTableConfig: DTKeys.clientTable,flex: 1),
-
         // Pipeline Configuration Table (note using FSK key)
         FormDataTableFieldConfig(
             key: FSK.pipelineConfigKey, dataTableConfig: FSK.pipelineConfigKey),
@@ -1427,6 +1443,17 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: FSK.mainInputRegistryKey,
             dataTableConfig: FSK.mainInputRegistryKey),
+      ],
+      [
+        PaddingConfig(),
+      ],
+      [
+        // Table to show the injected_process_input of the selected pipeline above
+        // this is informative to the user
+        FormDataTableFieldConfig(
+            key: DTKeys.injectedProcessInputTable, 
+            dataTableConfig: DTKeys.injectedProcessInputTable,
+            tableHeight: 225),
       ],
       [
         PaddingConfig(),

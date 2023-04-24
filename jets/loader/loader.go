@@ -382,6 +382,9 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 				var buf strings.Builder
 				switch jetsInputRowJetsKeyAlgo {
 				case "row_hash":
+					// Add sourcePeriodKey in row_hash calculation so if same record in input
+					// for 2 different period, they get different jets:key
+					buf.WriteString(strconv.Itoa(sourcePeriodKey))
 					for _,h := range headersDKInfo.Headers {
 						ipos := headersDKInfo.HeadersPosMap[h]
 						if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
