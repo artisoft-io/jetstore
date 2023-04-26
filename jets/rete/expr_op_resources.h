@@ -21,11 +21,20 @@
 // see ExprUnaryOp and ExprBinaryOp classes.
 namespace jets::rete {
 
+inline int setup_callback_for_visitors(ReteSession * rs, int vertex, ExprBase::ExprDataType && rhs)
+{
+  auto * rdf_session_p = rs->rdf_session();
+  auto cb = create_rete_callback_for_visitors(rs, vertex, get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)));
+  rdf_session_p->asserted_graph()->register_callback(cb);
+  rdf_session_p->inferred_graph()->register_callback(cb);
+  return 0;
+}
+
 using RDFTTYPE = rdf::RdfAstType;
 
 // CreateEntityVisitor
 // --------------------------------------------------------------------------------------
-struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>
+struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CreateEntityVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateEntityVisitor(): rs(nullptr), br(nullptr) {}
@@ -56,7 +65,7 @@ struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>
 
 // CreateLiteralVisitor
 // --------------------------------------------------------------------------------------
-struct CreateLiteralVisitor: public boost::static_visitor<RDFTTYPE>
+struct CreateLiteralVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CreateLiteralVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateLiteralVisitor(): rs(nullptr), br(nullptr) {}
@@ -77,7 +86,7 @@ struct CreateLiteralVisitor: public boost::static_visitor<RDFTTYPE>
 
 // CreateResourceVisitor
 // --------------------------------------------------------------------------------------
-struct CreateResourceVisitor: public boost::static_visitor<RDFTTYPE>
+struct CreateResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CreateResourceVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateResourceVisitor(): rs(nullptr), br(nullptr) {}
@@ -92,7 +101,7 @@ struct CreateResourceVisitor: public boost::static_visitor<RDFTTYPE>
 
 // CreateUUIDResourceVisitor
 // --------------------------------------------------------------------------------------
-struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>
+struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CreateUUIDResourceVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateUUIDResourceVisitor(): rs(nullptr), br(nullptr) {}
@@ -125,6 +134,13 @@ struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
     return rdf::LInt32(objp != nullptr);
   }
 
+  int
+  register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
+  {
+    VLOG(40)<<"ExistVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
+    return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
+  }
+
   ReteSession * rs;
   BetaRow const* br;
 };
@@ -145,11 +161,18 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
     return rdf::LInt32(objp == nullptr);
   }
 
+  int
+  register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
+  {
+    VLOG(40)<<"ExistNotVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
+    return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
+  }
+
   ReteSession * rs;
   BetaRow const* br;
 };
 
-// Visitor * Add truth maintenance
+// SizeOfVisitor * Add truth maintenance
 // --------------------------------------------------------------------------------------
 struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
@@ -170,13 +193,20 @@ struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>
     return rdf::LInt32(size);
   }
 
+  int
+  register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
+  {
+    VLOG(40)<<"SizeOfVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
+    return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
+  }
+
   ReteSession * rs;
   BetaRow const* br;
 };
 
 // IsLiteralVisitor
 // --------------------------------------------------------------------------------------
-struct IsLiteralVisitor: public boost::static_visitor<RDFTTYPE>
+struct IsLiteralVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   IsLiteralVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
 
@@ -198,7 +228,7 @@ struct IsLiteralVisitor: public boost::static_visitor<RDFTTYPE>
 
 // IsNullVisitor
 // --------------------------------------------------------------------------------------
-struct IsNullVisitor: public boost::static_visitor<RDFTTYPE>
+struct IsNullVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   IsNullVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
 
@@ -220,7 +250,7 @@ struct IsNullVisitor: public boost::static_visitor<RDFTTYPE>
 
 // IsResourceVisitor
 // --------------------------------------------------------------------------------------
-struct IsResourceVisitor: public boost::static_visitor<RDFTTYPE>
+struct IsResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   IsResourceVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
 
@@ -242,7 +272,7 @@ struct IsResourceVisitor: public boost::static_visitor<RDFTTYPE>
 
 // RaiseExceptionVisitor
 // --------------------------------------------------------------------------------------
-struct RaiseExceptionVisitor: public boost::static_visitor<RDFTTYPE>
+struct RaiseExceptionVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   RaiseExceptionVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
 

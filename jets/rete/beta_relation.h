@@ -91,6 +91,12 @@ class BetaRelation {
     return create_all_rows_iterator(all_beta_rows_.begin(), all_beta_rows_.end());
   }
 
+  inline BetaRowPtrIteratorPtr
+  get_all_rows_ptr_iterator()const
+  {
+    return create_all_rows_ptr_iterator(all_beta_rows_.begin(), all_beta_rows_.end());
+  }
+
   inline BetaRowIteratorPtr
   get_pending_rows_iterator()const
   {

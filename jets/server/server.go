@@ -334,9 +334,16 @@ func main() {
 		glogv = 3
 		*ps = true
 		*poolSize = 1
-	default:
+	case "0", "":
 		v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
 		glogv = int(v)	
+	default:
+		str := os.Getenv("JETS_LOG_DEBUG")
+		v, _ := strconv.ParseInt(str, 10, 32)
+		glogv = int(v)	
+		*ps = true
+		*poolSize = 1
+		os.Setenv("GLOG_v", str)
 	}
 
 	err := doJob()

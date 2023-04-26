@@ -27,7 +27,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // RegexVisitor
 // --------------------------------------------------------------------------------------
-struct RegexVisitor: public boost::static_visitor<RDFTTYPE>
+struct RegexVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   RegexVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   RegexVisitor(): rs(nullptr), br(nullptr) {}
@@ -47,7 +47,7 @@ struct RegexVisitor: public boost::static_visitor<RDFTTYPE>
 
 // To_upperVisitor
 // --------------------------------------------------------------------------------------
-struct To_upperVisitor: public boost::static_visitor<RDFTTYPE>
+struct To_upperVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   To_upperVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   To_upperVisitor(): rs(nullptr), br(nullptr) {}
@@ -64,7 +64,7 @@ struct To_upperVisitor: public boost::static_visitor<RDFTTYPE>
 
 // To_lowerVisitor
 // --------------------------------------------------------------------------------------
-struct To_lowerVisitor: public boost::static_visitor<RDFTTYPE>
+struct To_lowerVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   To_lowerVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   To_lowerVisitor(): rs(nullptr), br(nullptr) {}
@@ -81,7 +81,7 @@ struct To_lowerVisitor: public boost::static_visitor<RDFTTYPE>
 
 // TrimVisitor
 // --------------------------------------------------------------------------------------
-struct TrimVisitor: public boost::static_visitor<RDFTTYPE>
+struct TrimVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   TrimVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   TrimVisitor(): rs(nullptr), br(nullptr) {}
@@ -96,7 +96,7 @@ struct TrimVisitor: public boost::static_visitor<RDFTTYPE>
 
 // ContainsVisitor
 // --------------------------------------------------------------------------------------
-struct ContainsVisitor: public boost::static_visitor<RDFTTYPE>
+struct ContainsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ContainsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   ContainsVisitor(): rs(nullptr), br(nullptr) {}
@@ -111,7 +111,7 @@ struct ContainsVisitor: public boost::static_visitor<RDFTTYPE>
 
 // LengthOfVisitor
 // --------------------------------------------------------------------------------------
-struct LengthOfVisitor: public boost::static_visitor<RDFTTYPE>
+struct LengthOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   LengthOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T>RDFTTYPE operator()(T lhs)const{RETE_EXCEPTION("Invalid arguments for length_of: ("<<lhs<<")");};
@@ -125,7 +125,7 @@ struct LengthOfVisitor: public boost::static_visitor<RDFTTYPE>
 
 // ParseUsdCurrencyVisitor
 // --------------------------------------------------------------------------------------
-struct ParseUsdCurrencyVisitor: public boost::static_visitor<RDFTTYPE>
+struct ParseUsdCurrencyVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ParseUsdCurrencyVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   ParseUsdCurrencyVisitor(): rs(nullptr), br(nullptr) {}
@@ -155,7 +155,7 @@ struct ParseUsdCurrencyVisitor: public boost::static_visitor<RDFTTYPE>
 
 // ApplyFormatVisitor
 // --------------------------------------------------------------------------------------
-struct ApplyFormatVisitor: public boost::static_visitor<RDFTTYPE>
+struct ApplyFormatVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ApplyFormatVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   ApplyFormatVisitor(): rs(nullptr), br(nullptr) {}
@@ -177,7 +177,7 @@ struct ApplyFormatVisitor: public boost::static_visitor<RDFTTYPE>
 
 // StartsWithVisitor
 // --------------------------------------------------------------------------------------
-struct StartsWithVisitor: public boost::static_visitor<RDFTTYPE>
+struct StartsWithVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   StartsWithVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   StartsWithVisitor(): rs(nullptr), br(nullptr) {}

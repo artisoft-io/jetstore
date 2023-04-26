@@ -26,7 +26,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // LookupVisitor
 // --------------------------------------------------------------------------------------
-struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
+struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   LookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -66,7 +66,7 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
 // LookupRandVisitor
 // --------------------------------------------------------------------------------------
 // Visitor used to lookup table by random key
-struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>
+struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   explicit
   LookupRandVisitor(ReteSession * rs, BetaRow const* br): rs(rs){}
@@ -93,7 +93,7 @@ struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>
 
 // MultiLookupVisitor
 // --------------------------------------------------------------------------------------
-struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
+struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -132,7 +132,7 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
 
 // MultiLookupRandVisitor
 // --------------------------------------------------------------------------------------
-struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>
+struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupRandVisitor(ReteSession * rs, BetaRow const* ): rs(rs) {}
@@ -161,7 +161,7 @@ struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>
 // Calculate the age (in years), typical use:  (dob age_as_of serviceDate)
 // where dob and serviceDate are date literals
 // --------------------------------------------------------------------------------------
-struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>
+struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AgeAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeAsOfVisitor(): rs(nullptr), br(nullptr) {}
@@ -180,7 +180,7 @@ struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>
   BetaRow const* br;
 };
 
-struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>
+struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AgeInMonthsAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeInMonthsAsOfVisitor(): rs(nullptr), br(nullptr) {}
@@ -209,7 +209,7 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>
 
 // MonthPeriodVisitor
 // --------------------------------------------------------------------------------------
-struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>
+struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   MonthPeriodVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   MonthPeriodVisitor(): rs(nullptr), br(nullptr) {}
@@ -230,7 +230,7 @@ struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>
 // ToTypeOfOperator
 // --------------------------------------------------------------------------------------
 // Visitor used by ToTypeOfOperator to determine the rhs data type (return -1 if not valid type)
-struct DataTypeVisitor: public boost::static_visitor<int>
+struct DataTypeVisitor: public boost::static_visitor<int>, public NoCallbackNeeded
 {
   DataTypeVisitor(ReteSession * rs, BetaRow const* ): rs(rs){}
   int operator()(rdf::RDFNull       const& )const{return rdf::rdf_null_t;}
@@ -246,7 +246,7 @@ struct DataTypeVisitor: public boost::static_visitor<int>
   int operator()(rdf::LDatetime     const& )const{return rdf::rdf_literal_datetime_t;}
   ReteSession * rs;
 };
-struct CastVisitor: public boost::static_visitor<RDFTTYPE>
+struct CastVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CastVisitor(ReteSession * rs, int type): rs(rs), type(type){}
   RDFTTYPE operator()(rdf::RDFNull       const&v)const{return v;}
