@@ -490,7 +490,7 @@ namespace jets::rete {
       current_row_itor->next();
     }
     for(const auto & e: l) {
-      std::cout<<"*** marking "<< e << "for removal"<<std::endl;
+      VLOG(50)<<"Marking row "<< e << "for removal";
       current_relation->remove_beta_row(this, e);
     }
 
