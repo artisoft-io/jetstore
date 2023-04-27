@@ -16,7 +16,7 @@
 
 // This file contains the AlphaNode class parameters Fu, Fv, Fw classes
 // Methods usage:
-//  - to_const is used for determining the ReteCallBackImpl to use
+//  - to_const is used ReteCallBackImpl to determine the rdf graph filter
 //  - rdf::AllOrRIndex is used by antecedent terms to invoke find on the rdf_session
 //  - to_r_index is used by consequent terms to evaluate  the functor using the beta row
 //    of the current antecedent (vertex)

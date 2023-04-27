@@ -142,7 +142,7 @@ class BaseIterator: public BetaRowIterator {
   Iterator end_;
 };
 
-// Case Using containier with std::shared_ptr<T>
+// Case Using container with std::shared_ptr<T>
 // as it is the case for the BetaRowSet
 template<class I>
 class PtrAdaptIterator: public BetaRowIterator {
@@ -225,6 +225,67 @@ inline BetaRowIteratorPtr
 create_idx3_rows_iterator(BetaRowIndexes3::const_iterator begin, BetaRowIndexes3::const_iterator end)
 {
   return std::make_shared<BaseIterator<BetaRowIndexes3::const_iterator>>(begin, end);
+}
+
+// Alternate iterator, returning all BetaRowPtr
+class BetaRowPtrIterator;
+using BetaRowPtrIteratorPtr = std::shared_ptr<BetaRowPtrIterator>;
+
+class BetaRowPtrIterator {
+ public:
+  using Iterator = beta_row_set::const_iterator;
+
+  inline 
+  BetaRowPtrIterator(Iterator begin, Iterator end)
+    : itor_(begin),
+      end_(end)
+  {
+  }
+
+  virtual ~BetaRowPtrIterator() {}
+
+  // No need for those, will use shared_ptr
+  BetaRowPtrIterator(BetaRowPtrIterator const& rhs) = delete;
+  BetaRowPtrIterator(BetaRowPtrIterator && rhs) = delete;
+  BetaRowPtrIterator& operator=(BetaRowPtrIterator const& rhs) = delete;
+
+  /**
+   * Test if the iterator has exhausted all items in his collection.
+   *
+   * @return true if the iterator has no more items to return
+   */
+  bool is_end()const
+  {
+    return itor_ == end_;
+  }
+
+  /**
+   * Advance the iterator to the next item
+   *
+   * @return false if the iterator has no more item to return
+   */
+  bool next()
+  {
+    if(is_end()) return false;
+    ++itor_;
+    return not is_end();
+  }
+
+  BetaRowPtr get_row_ptr() const
+  {
+    if(is_end()) return nullptr;
+    return *itor_;
+  } 
+
+ private:
+  Iterator itor_;
+  Iterator end_;
+};
+
+inline BetaRowPtrIteratorPtr 
+create_all_rows_ptr_iterator(beta_row_set::const_iterator begin, beta_row_set::const_iterator end)
+{
+  return std::make_shared<BetaRowPtrIterator>(begin, end);
 }
 
 }  // namespace jets::rete

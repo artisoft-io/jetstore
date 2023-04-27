@@ -25,7 +25,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // EqVisitor
 // --------------------------------------------------------------------------------------
-struct EqVisitor: public boost::static_visitor<RDFTTYPE>
+struct EqVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // Fully expanded example to serve as template
   EqVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
@@ -171,7 +171,7 @@ struct EqVisitor: public boost::static_visitor<RDFTTYPE>
 
 // NeVisitor
 // --------------------------------------------------------------------------------------
-struct NeVisitor: public boost::static_visitor<RDFTTYPE>
+struct NeVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   NeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   NeVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
@@ -224,7 +224,7 @@ struct NeVisitor: public boost::static_visitor<RDFTTYPE>
 
 // LeVisitor
 // --------------------------------------------------------------------------------------
-struct LeVisitor: public boost::static_visitor<RDFTTYPE>
+struct LeVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   LeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   LeVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
@@ -277,7 +277,7 @@ struct LeVisitor: public boost::static_visitor<RDFTTYPE>
 
 // LtVisitor
 // --------------------------------------------------------------------------------------
-struct LtVisitor: public boost::static_visitor<RDFTTYPE>
+struct LtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   LtVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   LtVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
@@ -330,7 +330,7 @@ struct LtVisitor: public boost::static_visitor<RDFTTYPE>
 
 // GeVisitor
 // --------------------------------------------------------------------------------------
-struct GeVisitor: public boost::static_visitor<RDFTTYPE>
+struct GeVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   GeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   GeVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
@@ -383,7 +383,7 @@ struct GeVisitor: public boost::static_visitor<RDFTTYPE>
 
 // GtVisitor
 // --------------------------------------------------------------------------------------
-struct GtVisitor: public boost::static_visitor<RDFTTYPE>
+struct GtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   GtVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   GtVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
@@ -436,7 +436,7 @@ struct GtVisitor: public boost::static_visitor<RDFTTYPE>
 
 // AndVisitor
 // --------------------------------------------------------------------------------------
-struct AndVisitor: public boost::static_visitor<RDFTTYPE>
+struct AndVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AndVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AndVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
@@ -479,7 +479,7 @@ struct AndVisitor: public boost::static_visitor<RDFTTYPE>
 
 // OrVisitor
 // --------------------------------------------------------------------------------------
-struct OrVisitor: public boost::static_visitor<RDFTTYPE>
+struct OrVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   OrVisitor(ReteSession * rs, BetaRow const* br): rs(rs) {}
   OrVisitor(): rs(nullptr), br(nullptr) {} // for use by other operators
@@ -522,11 +522,11 @@ struct OrVisitor: public boost::static_visitor<RDFTTYPE>
 
 // NotVisitor
 // --------------------------------------------------------------------------------------
-struct NotVisitor: public boost::static_visitor<RDFTTYPE>
+struct NotVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   NotVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   NotVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for not: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for not: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}

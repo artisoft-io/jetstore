@@ -26,11 +26,11 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // LookupVisitor
 // --------------------------------------------------------------------------------------
-struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
+struct LookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   LookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for lookup: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->lookup(lhs.name, std::to_string(rhs.data));}
@@ -66,7 +66,7 @@ struct LookupVisitor: public boost::static_visitor<RDFTTYPE>
 // LookupRandVisitor
 // --------------------------------------------------------------------------------------
 // Visitor used to lookup table by random key
-struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>
+struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   explicit
   LookupRandVisitor(ReteSession * rs, BetaRow const* br): rs(rs){}
@@ -93,11 +93,11 @@ struct LookupRandVisitor: public boost::static_visitor<RDFTTYPE>
 
 // MultiLookupVisitor
 // --------------------------------------------------------------------------------------
-struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
+struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for lookup rand: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for lookup rand: ("<<lhs<<", "<<rhs<<")");};
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const{return this->multi_lookup(lhs.name, rhs.name);}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LInt32        rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LUInt32       rhs)const{return this->multi_lookup(lhs.name, std::to_string(rhs.data));}
@@ -132,7 +132,7 @@ struct MultiLookupVisitor: public boost::static_visitor<RDFTTYPE>
 
 // MultiLookupRandVisitor
 // --------------------------------------------------------------------------------------
-struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>
+struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   // This operator is used as: lookup_uri lookup key where lookup_uri is a resource and key is a text literal or a resource
   MultiLookupRandVisitor(ReteSession * rs, BetaRow const* ): rs(rs) {}
@@ -161,11 +161,11 @@ struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>
 // Calculate the age (in years), typical use:  (dob age_as_of serviceDate)
 // where dob and serviceDate are date literals
 // --------------------------------------------------------------------------------------
-struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>
+struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AgeAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeAsOfVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for age_as_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for age_as_of: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
   {
@@ -180,11 +180,11 @@ struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>
   BetaRow const* br;
 };
 
-struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>
+struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AgeInMonthsAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeInMonthsAsOfVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{RETE_EXCEPTION("Invalid arguments for age_in_months_as_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for age_in_months_as_of: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
   {
@@ -209,11 +209,11 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>
 
 // MonthPeriodVisitor
 // --------------------------------------------------------------------------------------
-struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>
+struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   MonthPeriodVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   MonthPeriodVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T>RDFTTYPE operator()(T lhs)const{RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
   RDFTTYPE operator()(rdf::LDate lhs)const
   {
     // monthPeriod = (year-1970)*12 + month
@@ -230,7 +230,7 @@ struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>
 // ToTypeOfOperator
 // --------------------------------------------------------------------------------------
 // Visitor used by ToTypeOfOperator to determine the rhs data type (return -1 if not valid type)
-struct DataTypeVisitor: public boost::static_visitor<int>
+struct DataTypeVisitor: public boost::static_visitor<int>, public NoCallbackNeeded
 {
   DataTypeVisitor(ReteSession * rs, BetaRow const* ): rs(rs){}
   int operator()(rdf::RDFNull       const& )const{return rdf::rdf_null_t;}
@@ -246,7 +246,7 @@ struct DataTypeVisitor: public boost::static_visitor<int>
   int operator()(rdf::LDatetime     const& )const{return rdf::rdf_literal_datetime_t;}
   ReteSession * rs;
 };
-struct CastVisitor: public boost::static_visitor<RDFTTYPE>
+struct CastVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   CastVisitor(ReteSession * rs, int type): rs(rs), type(type){}
   RDFTTYPE operator()(rdf::RDFNull       const&v)const{return v;}

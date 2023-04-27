@@ -51,6 +51,25 @@ class ExprBase {
   explicit ExprBase(int key): key(key) {}
   virtual ~ExprBase() {}
 
+  /**
+   * @brief Register callback with graph
+   * 
+   * Applicable to operator having predicates as argument
+   * that need to participate to the truth maintenance
+   * e.g. operators exists and exists_not
+   * 
+   * Only some binary operator do participate to the truth maintenance
+   * 
+   * @param rete_session 
+   * @param vertex of the rule term (node_vertex) where the filter is attached to
+   * @return int 
+   */
+  virtual int
+  register_callback(ReteSession * rete_session, int vertex)const
+  {
+    return 0;
+  }
+
   virtual ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const=0;
 
@@ -74,6 +93,17 @@ inline std::ostream & operator<<(std::ostream & out, ExprBasePtr node)
   return out;
 }
 
+// Utility class for operator visitor that don't need to register callbacks
+// for truth maintenance
+struct NoCallbackNeeded
+{
+  int
+  register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
+  {
+    return 0;
+  }
+};
+
 // Implementation Classes
 // ======================================================================================
 // ExprConjunction
@@ -87,6 +117,15 @@ class ExprConjunction: public ExprBase {
   explicit ExprConjunction(data_type const&v): ExprBase(), data_(v) {}
   explicit ExprConjunction(data_type &&v): ExprBase(), data_(std::forward<data_type>(v)) {}
   virtual ~ExprConjunction() {}
+
+  int
+  register_callback(ReteSession * rete_session, int vertex)const override
+  {
+    for(auto const& item: this->data_) {
+      item->register_callback(rete_session, vertex);
+    }
+    return 0;
+  }
 
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
@@ -123,6 +162,15 @@ class ExprDisjunction: public ExprBase {
   explicit ExprDisjunction(data_type const&v): ExprBase(), data_(v) {}
   explicit ExprDisjunction(data_type &&v): ExprBase(), data_(std::forward<data_type>(v)) {}
   virtual ~ExprDisjunction() {}
+
+  int
+  register_callback(ReteSession * rete_session, int vertex)const override
+  {
+    for(auto const& item: this->data_) {
+      item->register_callback(rete_session, vertex);
+    }
+    return 0;
+  }
 
   // defined in expr_impl.h
   ExprDataType
@@ -235,6 +283,13 @@ class ExprBinaryOp: public ExprBase {
     : ExprBase(key), lhs_(lhs), rhs_(rhs) {}
   virtual ~ExprBinaryOp() {}
 
+  int
+  register_callback(ReteSession * rete_session, int vertex)const override
+  {
+    return Op(rete_session, nullptr).register_callback(vertex, this->lhs_->eval(rete_session, nullptr), 
+      this->rhs_->eval(rete_session, nullptr));
+  }
+
   // defined in expr_impl.h
   ExprDataType
   eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
@@ -255,44 +310,6 @@ ExprBasePtr
 create_expr_binary_operator(int key, ExprBasePtr lhs, ExprBasePtr rhs)
 {
   return std::make_shared<ExprBinaryOp<Op>>(key, lhs, rhs);
-}
-
-// ExprBinaryStructOp
-// --------------------------------------------------------------------------------------
-/**
- * @brief Binary operator
- * This class use a functor rather than a visitor for the operator
- * @tparam Op is a functor for the binary operator
- */
-template<class Op>
-class ExprBinaryStructOp: public ExprBase {
- public:
- using ExprBase::ExprDataType;
-
-  ExprBinaryStructOp(int key, ExprBasePtr lhs, ExprBasePtr rhs)
-    : ExprBase(key), lhs_(lhs), rhs_(rhs) {}
-  virtual ~ExprBinaryStructOp() {}
-
-  // defined in expr_impl.h
-  ExprDataType
-  eval(ReteSession * rete_session, BetaRow const* beta_row)const override;
-
-  std::ostream & 
-  describe(std::ostream & out)const override
-  {
-    out << "binary_struct("<< this->key << ")";
-    return out;
-  }
-
- private:
-  ExprBasePtr lhs_;
-  ExprBasePtr rhs_;
-};
-template<class Op>
-ExprBasePtr 
-create_expr_binary_struct_operator(int key, ExprBasePtr lhs, ExprBasePtr rhs)
-{
-  return std::make_shared<ExprBinaryStructOp<Op>>(key, lhs, rhs);
 }
 
 // ExprUnaryOp
