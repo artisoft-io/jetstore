@@ -24,7 +24,11 @@ namespace jets::rete {
 inline int setup_callback_for_visitors(ReteSession * rs, int vertex, ExprBase::ExprDataType && rhs)
 {
   auto * rdf_session_p = rs->rdf_session();
-  auto cb = create_rete_callback_for_visitors(rs, vertex, get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)));
+  auto p_filter = get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs));
+  if(not p_filter) {
+      return 0;
+  }
+  auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
   rdf_session_p->asserted_graph()->register_callback(cb);
   rdf_session_p->inferred_graph()->register_callback(cb);
   return 0;
@@ -38,7 +42,7 @@ struct CreateEntityVisitor: public boost::static_visitor<RDFTTYPE>, public NoCal
 {
   CreateEntityVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateEntityVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for create_entity: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for create_entity: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::NamedResource{ this->create_entity(lhs.data==0 ? "":std::to_string(lhs.data)) };}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::NamedResource{ this->create_entity(lhs.data==0 ? "":std::to_string(lhs.data)) };}
@@ -69,7 +73,7 @@ struct CreateLiteralVisitor: public boost::static_visitor<RDFTTYPE>, public NoCa
 {
   CreateLiteralVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateLiteralVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for create_literal: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for create_literal: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return lhs;}
@@ -90,7 +94,7 @@ struct CreateResourceVisitor: public boost::static_visitor<RDFTTYPE>, public NoC
 {
   CreateResourceVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateResourceVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for create_resource: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for create_resource: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32 lhs)const{return rdf::NamedResource(std::to_string(lhs.data));}
   RDFTTYPE operator()(rdf::LString lhs)const{return rdf::NamedResource(lhs.data);}
@@ -105,7 +109,7 @@ struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public
 {
   CreateUUIDResourceVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   CreateUUIDResourceVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for create_uuid_resource: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for create_uuid_resource: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::NamedResource(rdf::create_uuid());}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::NamedResource(rdf::create_uuid());}
@@ -123,7 +127,7 @@ struct CreateUUIDResourceVisitor: public boost::static_visitor<RDFTTYPE>, public
 struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
 {
   ExistVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for exist: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for exist: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
@@ -150,7 +154,7 @@ struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
 struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
 {
   ExistNotVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for exist_not: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for exist_not: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
@@ -177,7 +181,7 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
 struct SizeOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
   SizeOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for size_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for size_of: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
@@ -276,17 +280,17 @@ struct RaiseExceptionVisitor: public boost::static_visitor<RDFTTYPE>, public NoC
 {
   RaiseExceptionVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
 
-  RDFTTYPE operator()(rdf::RDFNull       lhs)const{RETE_EXCEPTION("null");}
-  RDFTTYPE operator()(rdf::BlankNode     lhs)const{RETE_EXCEPTION("blank-node");}
-  RDFTTYPE operator()(rdf::NamedResource lhs)const{RETE_EXCEPTION(lhs.name);}
-  RDFTTYPE operator()(rdf::LInt32        lhs)const{RETE_EXCEPTION(lhs.data);}
-  RDFTTYPE operator()(rdf::LUInt32       lhs)const{RETE_EXCEPTION(lhs.data);}
-  RDFTTYPE operator()(rdf::LInt64        lhs)const{RETE_EXCEPTION(lhs.data);}
-  RDFTTYPE operator()(rdf::LUInt64       lhs)const{RETE_EXCEPTION(lhs.data);}
-  RDFTTYPE operator()(rdf::LDouble       lhs)const{RETE_EXCEPTION(lhs.data);}
-  RDFTTYPE operator()(rdf::LString       lhs)const{RETE_EXCEPTION(lhs.data);}
-  RDFTTYPE operator()(rdf::LDate         lhs)const{RETE_EXCEPTION(lhs.data);}
-  RDFTTYPE operator()(rdf::LDatetime     lhs)const{RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::RDFNull       lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("null");}
+  RDFTTYPE operator()(rdf::BlankNode     lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("blank-node");}
+  RDFTTYPE operator()(rdf::NamedResource lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.name);}
+  RDFTTYPE operator()(rdf::LInt32        lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt32       lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LInt64        lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt64       lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LDouble       lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LString       lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LDate         lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
+  RDFTTYPE operator()(rdf::LDatetime     lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION(lhs.data);}
 
   ReteSession * rs;
   BetaRow const* br;

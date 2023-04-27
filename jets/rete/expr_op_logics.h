@@ -526,7 +526,7 @@ struct NotVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 {
   NotVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   NotVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for not: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for not: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}

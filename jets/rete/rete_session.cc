@@ -20,23 +20,35 @@ namespace jets::rete {
   ReteSession::initialize()
   {
     if(not this->rule_ms_) {
-      RETE_EXCEPTION("ReteSession::Initialize requires a valid ReteMetaStore as argument");
+      std::cout << "ReteSession::Initialize requires a valid ReteMetaStore as argument" << std::endl;
+      return -1;
     }
-    beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
-    // Initialize BetaRelationVector beta_relations_
-    VLOG(20) << "Initialize ReteSession";
-    for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
-      auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
-      // VLOG(30) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
-      auto bn = create_beta_node(meta_node);
-      bn->initialize(this);
-      if(meta_node->is_head_vertice()) {
-        // put an empty BetaRow to kick start the propagation in the rete network
-        bn->insert_beta_row(this, create_beta_row(meta_node, 0));
+    int ret = 0;
+    try {
+      beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
+      // Initialize BetaRelationVector beta_relations_
+      VLOG(20) << "Initialize ReteSession";
+      for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
+        auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
+        // VLOG(30) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
+        auto bn = create_beta_node(meta_node);
+        bn->initialize(this);
+        if(meta_node->is_head_vertice()) {
+          // put an empty BetaRow to kick start the propagation in the rete network
+          bn->insert_beta_row(this, create_beta_row(meta_node, 0));
+        }
+        beta_relations_.push_back(bn);
       }
-      beta_relations_.push_back(bn);
+      ret = this->set_graph_callbacks();
+    } catch (std::exception& err) {
+      LOG(ERROR) << "ReteSession::initialize: error:"<<err.what();
+      this->err_msg_ = std::string(err.what());
+      return -1;
+    } catch (...) {
+      LOG(ERROR) << "ReteSession::initialize: unknown error";
+      this->err_msg_ = std::string("unknown error in executing rules");
+      return -1;
     }
-    auto ret = this->set_graph_callbacks();
     return ret;
   }
 
@@ -472,11 +484,27 @@ namespace jets::rete {
     // Start by retracting all beta rows of current node
     current_relation->clear_pending_rows();    
     auto current_row_itor = current_relation->get_all_rows_ptr_iterator();
+    beta_row_list l;
     while(!current_row_itor->is_end()) {
-      current_relation->remove_beta_row(this, current_row_itor->get_row_ptr());
+      l.push_back(current_row_itor->get_row_ptr());
       current_row_itor->next();
     }
+    for(const auto & e: l) {
+      std::cout<<"*** marking "<< e << "for removal"<<std::endl;
+      current_relation->remove_beta_row(this, e);
+    }
 
+    // Propagate down the network to retract the removed beta rows
+    if(current_relation->has_pending_rows()) {
+      VLOG(35)<<"RETRACT Filter @ Vertex "<<vertex<<" - propagating down the network ...";
+      auto err = this->visit_rete_graph(vertex, false);
+      VLOG(35)<<"RETRACT Filter @ Vertex "<<vertex<<" - propagating down the network ...DONE";
+      if(err) return err;
+    } else {
+      VLOG(35)<<"RETRACT Filter @ Vertex "<<vertex<<" - NO NEED to propagating down the network (no child or rows were cancelled)";
+    }
+
+    // Replay the inference
     // Get an iterator over all rows from the parent beta node
     // which is provided by the alpha node adaptor
     // to replay the inferrence
@@ -543,6 +571,8 @@ namespace jets::rete {
       auto err = this->visit_rete_graph(vertex, true);
       VLOG(35)<<"REPLAY Filter @ Vertex "<<vertex<<" - propagating down the network ...DONE";
       if(err) return err;
+    } else {
+      VLOG(35)<<"REPLAY Filter @ Vertex "<<vertex<<" - NO NEED to propagating down the network (no child or rows were cancelled)";
     }
     return 0;
   }

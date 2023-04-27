@@ -39,7 +39,7 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 {
   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AddVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for ADD: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for ADD: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
@@ -110,7 +110,7 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   SubsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for substraction: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substraction: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
@@ -167,7 +167,7 @@ struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   MultVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for Multiplication: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for Multiplication: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
@@ -208,7 +208,7 @@ struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   DivVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for Division: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for Division: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data/rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
@@ -249,7 +249,7 @@ struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AbsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for Abs: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for Abs: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{abs(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return lhs;}
@@ -351,7 +351,7 @@ registerCallback4MinMaxOf(ReteSession * rs, int vertex, rdf::r_index lhs, rdf::r
     p_filter = rhs;
   }
   if(not p_filter) {
-    RETE_EXCEPTION("Invalid config obj for min_of or max_of, rhs must be a data or object property");
+    return 0;
   }
 
   auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
@@ -363,7 +363,7 @@ registerCallback4MinMaxOf(ReteSession * rs, int vertex, rdf::r_index lhs, rdf::r
 struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
   MaxOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for max_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for max_of: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
@@ -392,7 +392,7 @@ struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>
 struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>
 {
   MinOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for min_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for min_of: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
@@ -421,7 +421,7 @@ struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>
 struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>
 {
   SortedHeadVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for sorted_head: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for sorted_head: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
@@ -474,7 +474,7 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>
     auto p_filter  = rdf_session_p->get_object(get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)), 
       jr->jets__value_property);
     if(not p_filter) {
-      RETE_EXCEPTION("Invalid config obj for sorted_head, it must have jets:value_property");
+      return 0;
     }
 
     auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
@@ -549,7 +549,7 @@ struct ApplySumValuesVisitor
 struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
 {
   SumValuesVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {RETE_EXCEPTION("Invalid arguments for sum_values: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for sum_values: ("<<lhs<<", "<<rhs<<")");};
 
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
@@ -582,7 +582,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
     auto p_filter  = rdf_session_p->get_object(get_resource(rs, std::forward<ExprBase::ExprDataType>(rhs)), 
       jr->jets__value_property);
     if(not p_filter) {
-      RETE_EXCEPTION("Invalid config obj for sum_values, it must have jets:value_property");
+      return 0;
     }
 
     auto cb = create_rete_callback_for_visitors(rs, vertex, p_filter);
@@ -600,7 +600,7 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
 struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ToIntVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for to_int: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_int: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
@@ -625,7 +625,7 @@ struct ToIntVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNe
 struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ToDoubleVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {RETE_EXCEPTION("Invalid arguments for to_double: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_double: ("<<lhs<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}
