@@ -625,8 +625,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "process_input_unique_cstraint",
-        "definition": "CONSTRAINT process_input_unique_cstraintv2 UNIQUE (client, org, object_type, table_name)"
+        "name": "process_input_unique_cstraintv3",
+        "definition": "CONSTRAINT process_input_unique_cstraintv3 UNIQUE (client, object_type, source_type, table_name, entity_rdf_type)"
       }
     ]
   },

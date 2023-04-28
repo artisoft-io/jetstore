@@ -114,7 +114,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	},
 	"pipeline_config": {
 		Stmt: `INSERT INTO jetsapi.pipeline_config 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, user_email) 
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, user_email) 
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "user_email"},
 	},

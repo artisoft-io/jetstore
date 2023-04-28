@@ -1144,6 +1144,7 @@ String? pipelineConfigFormValidator(
 
     case FSK.description:
     case FSK.mergedProcessInputKeys:
+    case FSK.injectedProcessInputKeys:
       return null;
 
     default:
@@ -1224,14 +1225,10 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       var mergedProcessInputKeys =
           formState.getValue(0, FSK.mergedProcessInputKeys);
       updateState[FSK.mergedProcessInputKeys] = makePgArray(mergedProcessInputKeys);
-      //*
-      print("Pipeline Config: mergedProcessInputKeys are $mergedProcessInputKeys");
       // same pattern for injected_process_input_keys
       var injectedProcessInputKeys =
           formState.getValue(0, FSK.injectedProcessInputKeys);
       updateState[FSK.injectedProcessInputKeys] = makePgArray(injectedProcessInputKeys);
-      //*
-      print("Pipeline Config: injectedProcessInputKeys are $injectedProcessInputKeys");
       updateState[FSK.automated] = formState.getValue(0, FSK.automated);
       updateState[FSK.description] = formState.getValue(0, FSK.description);
       updateState[FSK.userEmail] = JetsRouterDelegate().user.email;
