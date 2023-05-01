@@ -17,7 +17,14 @@
       {
         "columnName": "is_main",
         "dataType": "boolean",
+        "default": "false",
         "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "$SCHEMA_workspace_control_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_workspace_control_unique_cstraint UNIQUE (source_file_name)"
       }
     ]
   },
@@ -38,8 +45,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "main_support_files_unique_cstraint",
-        "definition": "CONSTRAINT main_support_files_unique_cstraint UNIQUE (main_file_key, support_file_key)"
+        "name": "$SCHEMA_main_support_files_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_main_support_files_unique_cstraint UNIQUE (main_file_key, support_file_key)"
       }
     ]
   },
@@ -87,8 +94,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "rule_sequences_unique_cstraint",
-        "definition": "CONSTRAINT rule_sequences_unique_cstraint UNIQUE (name)"
+        "name": "$SCHEMA_rule_sequences_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_rule_sequences_unique_cstraint UNIQUE (name)"
       }
     ]
   },
@@ -119,8 +126,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "main_rule_sets_unique_cstraint",
-        "definition": "CONSTRAINT main_rule_sets_unique_cstraint UNIQUE (rule_sequence_key, ruleset_file_key)"
+        "name": "$SCHEMA_main_rule_sets_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_main_rule_sets_unique_cstraint UNIQUE (rule_sequence_key, ruleset_file_key)"
       }
     ]
   },
@@ -153,8 +160,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "domain_classes_unique_cstraint",
-        "definition": "CONSTRAINT domain_classes_unique_cstraint UNIQUE (name)"
+        "name": "$SCHEMA_domain_classes_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_domain_classes_unique_cstraint UNIQUE (name)"
       }
     ]
   },
@@ -175,8 +182,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "base_classes_unique_cstraint",
-        "definition": "CONSTRAINT base_classes_unique_cstraint UNIQUE (domain_class_key, base_class_key)"
+        "name": "$SCHEMA_base_classes_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_base_classes_unique_cstraint UNIQUE (domain_class_key, base_class_key)"
       }
     ]
   },
@@ -220,8 +227,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "data_properties_unique_cstraint",
-        "definition": "CONSTRAINT data_properties_unique_cstraint UNIQUE (name)"
+        "name": "$SCHEMA_data_properties_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_data_properties_unique_cstraint UNIQUE (name)"
       }
     ]
   },
@@ -248,8 +255,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "domain_tables_unique_cstraint",
-        "definition": "CONSTRAINT domain_tables_unique_cstraint UNIQUE (name)"
+        "name": "$SCHEMA_domain_tables_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_domain_tables_unique_cstraint UNIQUE (name)"
       }
     ]
   },
@@ -287,12 +294,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "domain_columns_unique_cstraint1",
-        "definition": "CONSTRAINT domain_columns_unique_cstraint1 UNIQUE (domain_table_key, name)"
-      },
-      {
-        "name": "domain_columns_unique_cstraint2",
-        "definition": "CONSTRAINT domain_columns_unique_cstraint2 UNIQUE (domain_table_key, data_property_key)"
+        "name": "$SCHEMA_domain_columns_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_domain_columns_unique_cstraint UNIQUE (domain_table_key, data_property_key, name)"
       }
     ]
   },
@@ -386,8 +389,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "lookup_tables_unique_cstraint",
-        "definition": "CONSTRAINT lookup_tables_unique_cstraint UNIQUE (name, source_file_key)"
+        "name": "$SCHEMA_lookup_tables_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_lookup_tables_unique_cstraint UNIQUE (name, source_file_key)"
       }
     ]
   },
@@ -419,8 +422,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "lookup_columns_unique_cstraint",
-        "definition": "CONSTRAINT lookup_columns_unique_cstraint UNIQUE (lookup_table_key, name)"
+        "name": "$SCHEMA_lookup_columns_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_lookup_columns_unique_cstraint UNIQUE (lookup_table_key, name)"
       }
     ]
   },
@@ -487,8 +490,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "rule_terms_unique_cstraint",
-        "definition": "CONSTRAINT rule_terms_unique_cstraint UNIQUE (rule_key, rete_node_key)"
+        "name": "$SCHEMA_rule_terms_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_rule_terms_unique_cstraint UNIQUE (rule_key, rete_node_key)"
       }
     ]
   },
@@ -637,8 +640,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "rete_nodes_unique_cstraint",
-        "definition": "CONSTRAINT rete_nodes_unique_cstraint UNIQUE (vertex, type, consequent_seq, source_file_key)"
+        "name": "$SCHEMA_rete_nodes_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_rete_nodes_unique_cstraint UNIQUE (vertex, type, consequent_seq, source_file_key)"
       }
     ]
   },
@@ -683,8 +686,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "beta_row_config_unique_cstraint",
-        "definition": "CONSTRAINT beta_row_config_unique_cstraint UNIQUE (vertex, seq, source_file_key)"
+        "name": "$SCHEMA_beta_row_config_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_beta_row_config_unique_cstraint UNIQUE (vertex, seq, source_file_key)"
       }
     ]
   },
@@ -737,8 +740,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "schema_info_unique_cstraint",
-        "definition": "CONSTRAINT schema_info_unique_cstraint UNIQUE (version_major, version_minor)"
+        "name": "$SCHEMA_schema_info_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_schema_info_unique_cstraint UNIQUE (version_major, version_minor)"
       }
     ]
   }
