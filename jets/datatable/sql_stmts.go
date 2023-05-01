@@ -164,20 +164,113 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// current workspace name (taken from DataTableAction.Workspace) by the
 	// InsertRows pre-processing hook.
 	//
+	// Workspace Control
+	"WORKSPACE/workspace_control": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.workspace_control 
+				(source_file_name,is_main) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_workspace_control_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.workspace_control 
+			WHERE source_file_name=$1`,
+			ColumnKeys: []string{"source_file_name","is_main"},
+		AdminOnly: false,
+	},
+	//
 	// Workspace Resources
 	"WORKSPACE/resources": {
 		Stmt: `WITH e AS(
 				INSERT INTO $SCHEMA.resources 
 				(type,id,value,is_binded,inline,vertex,var_pos,source_file_key) 
 				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-				ON CONFLICT DO NOTHING
+				ON CONFLICT ON CONSTRAINT $SCHEMA_resources_unique_cstraint
+				DO NOTHING
 				RETURNING key
 			)
 			SELECT * FROM e
 			UNION
-					SELECT key FROM $SCHEMA.resources 
-					WHERE type=$1 AND id=$2 AND value=$3 AND is_binded=$4 AND inline=$5 AND vertex=$6 AND var_pos=$7`,
+			SELECT key FROM $SCHEMA.resources 
+			WHERE type=$1 AND id=$2 AND value=$3 AND is_binded=$4 AND inline=$5 AND vertex=$6 AND var_pos=$7`,
 			ColumnKeys: []string{"type","id","value","is_binded","inline","vertex","var_pos","source_file_key"},
+		AdminOnly: false,
+	},
+	//
+	// Domain Classes
+	"WORKSPACE/domain_classes": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.domain_classes 
+				(name,as_table,source_file_key) 
+				VALUES ($1,$2,$3)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_classes_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.domain_classes 
+			WHERE name=$1`,
+			ColumnKeys: []string{"name","as_table","source_file_key"},
+		AdminOnly: false,
+	},
+	// Base Classes
+	"WORKSPACE/base_classes": {
+		Stmt: `
+				INSERT INTO $SCHEMA.base_classes 
+				(domain_class_key,base_class_key) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_base_classes_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"domain_class_key","base_class_key"},
+		AdminOnly: false,
+	},
+	// Data Properties
+	"WORKSPACE/data_properties": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.data_properties 
+				(domain_class_key,name,type,as_array) 
+				VALUES ($1,$2,$3,$4)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_data_properties_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.data_properties 
+			WHERE name=$2`,
+			ColumnKeys: []string{"domain_class_key","name","type","as_array"},
+		AdminOnly: false,
+	},
+	// Domain Tables
+	"WORKSPACE/domain_tables": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.domain_tables 
+				(domain_class_key,name) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_tables_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.domain_tables 
+			WHERE name=$2`,
+			ColumnKeys: []string{"domain_class_key","name"},
+		AdminOnly: false,
+	},
+	// Domain Columns
+	"WORKSPACE/domain_columns": {
+		Stmt: `
+				INSERT INTO $SCHEMA.domain_columns 
+				(domain_table_key,data_property_key,name,as_array) 
+				VALUES ($1,$2,$3,$4)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_columns_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"domain_table_key","data_property_key","name","as_array"},
 		AdminOnly: false,
 	},
 

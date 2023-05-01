@@ -286,6 +286,10 @@ class ExprBinaryOp: public ExprBase {
   int
   register_callback(ReteSession * rete_session, int vertex)const override
   {
+    auto err = this->lhs_->register_callback(rete_session, vertex);
+    if(err) return err;
+    err = this->rhs_->register_callback(rete_session, vertex);
+    if(err) return err;
     return Op(rete_session, nullptr).register_callback(vertex, this->lhs_->eval(rete_session, nullptr), 
       this->rhs_->eval(rete_session, nullptr));
   }

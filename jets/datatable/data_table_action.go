@@ -493,7 +493,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
 
-		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
+		// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
+		// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
 		if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
 			err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
 		} else {

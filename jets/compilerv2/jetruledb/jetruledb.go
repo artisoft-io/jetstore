@@ -1,16 +1,16 @@
 package jetruledb
 
 import (
+	// "context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
+	// "github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -165,17 +165,19 @@ type ClassNode struct {
 
 type DataPropertyNode struct {
 	Type           string              `json:"type"`
+	DomainClassKey int                 `json:"domain_class_key"`
 	Name           string              `json:"name"`
 	AsArray        bool                `json:"as_array"`
 	DbKey          int                 `json:"db_key"` 
 }
 
 type TableNode struct {
-	Type           string              `json:"type"`
+	DomainClassKey int                 `json:"domain_class_key"`
 	TableName      string              `json:"table_name"`
 	ClassName      string              `json:"class_name"`
 	Columns        []TableColumnNode   `json:"columns"`
 	SourceFileName string              `json:"source_file_name"`
+	DbKey          int                 `json:"db_key"` 
 }
 
 type TableColumnNode struct {
@@ -197,44 +199,66 @@ func CompileJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAc
 	return nil, 0, errors.New("TODO: NOT IMPLEMENTED YET")
 }
 
-
+// local context for writing domain model, used within WriteJetrule
+type writeWorkspaceContext struct {
+	model *JetruleModel
+	sourceFileKeys *map[string]int
+	domainClassMap map[string]*ClassNode
+	dataPropertyMap map[string]*DataPropertyNode
+}
 // Persist Jetrule json structure to database
 func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAction, token string) (*map[string]interface{}, int, error) {
 		// if err != nil {
 		// 	return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
 		// }
-	ctx := &datatable.Context{
+	datatableCtx := &datatable.Context{
 		Dbpool: dbpool,
 	}
-	if compileJetruleAction.UpdateSchema {
-		// Update / Create the jetrule schema, table schema name is workspace name
-		err := UpdateSchema(ctx, compileJetruleAction.DropTables, compileJetruleAction.Workspace)
-		if err != nil {
-			log.Printf("while updating jetrule schema for workspace %s: %v\n", compileJetruleAction.Workspace, err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
-		}
+	writeWorkspaceCtx := &writeWorkspaceContext{
+		model: &JetruleModel{},
+		sourceFileKeys: &map[string]int{},
+		domainClassMap: map[string]*ClassNode{},
 	}
 
-	fmt.Println("*** ReadFile:",compileJetruleAction.JetruleFile)
+	log.Println("ReadFile:",compileJetruleAction.JetruleFile)
 	file, err := os.ReadFile(compileJetruleAction.JetruleFile)
 	if err != nil {
 		log.Printf("while reading json file:%v\n",err)
 		return &map[string]interface{}{}, http.StatusBadRequest,err		
 	}
  
-	data := JetruleModel{}
-	err = json.Unmarshal(file, &data)
+	err = json.Unmarshal(file, writeWorkspaceCtx.model)
 	if err != nil {
 		log.Printf("while unmarshaling json:%v\n",err)
 		return &map[string]interface{}{}, http.StatusBadRequest,err		
 	}
+	// //*
+	// fmt.Println("GOT",writeWorkspaceCtx.model)
 
 	// Persist the Resources
-	data.WriteResources(ctx, compileJetruleAction.Workspace, &token)
+	if len(writeWorkspaceCtx.model.Resources) > 0 {
+		log.Println("Writing Resources")
+		writeWorkspaceCtx.WriteResources(datatableCtx, compileJetruleAction.Workspace, &token)	
+	}
+
+	// Persist the Classes & Tables
+	if len(writeWorkspaceCtx.model.Classes) > 0 {
+		log.Println("Writing Domain Classes")
+		writeWorkspaceCtx.WriteDomainClasses(datatableCtx, compileJetruleAction.Workspace, &token)
+		// init the map of domain class
+		for i := range writeWorkspaceCtx.model.Classes {
+			cls := &writeWorkspaceCtx.model.Classes[i]
+			writeWorkspaceCtx.domainClassMap[cls.Name] = cls
+		}
+	}
+	if len(writeWorkspaceCtx.model.Tables) > 0 {
+		log.Println("Writing Domain Tables")
+		writeWorkspaceCtx.WriteDomainTables(datatableCtx, compileJetruleAction.Workspace, &token)
+	}
 
 	//* DEV
 	// Write back as json
-	b, err := json.MarshalIndent(data, "", "  ")
+	b, err := json.MarshalIndent(writeWorkspaceCtx.model, "", "  ")
 	if err != nil {
 		log.Printf("while writing json:%v\n",err)
 		return &map[string]interface{}{}, http.StatusBadRequest,err		
@@ -244,122 +268,243 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
 
-func UpdateSchema(ctx *datatable.Context, dropTables bool, workspace string) error {
-	// read jetrule schema definition using schema in json from location specified by env var
-	schemaFname := os.Getenv("JETS_RULES_SCHEMA_FILE")
-	if len(schemaFname) == 0 {
-		schemaFname = "workspace_schema.json"
+// utility function
+func (ctx *writeWorkspaceContext)insertRows(datatableCtx *datatable.Context, data *[]map[string]interface{}, table string, workspace string, token *string) (returnedKeys *[]int, err error) {
+	// check if data has key 'source_file_name' and convert it into 'source_file_key'
+	if table != "workspace_control" {
+		for i := range *data {
+			s := (*data)[i]["source_file_name"]
+			if s != nil {
+				sourceFileName := s.(string)
+				skey := (*ctx.sourceFileKeys)[sourceFileName]
+				if skey == 0 {
+					keys, err2 := ctx.insertRows(datatableCtx, &[]map[string]interface{}{
+						{"source_file_name": sourceFileName, "is_main": false},
+					}, "workspace_control", workspace, token)
+					if keys == nil || err2 != nil {
+						err = fmt.Errorf("error: no keys or err returned from InsertRows in insertRows (for workspace_control table), err is '%v'", err2)
+						log.Println(err)
+						return
+					}
+					skey = (*keys)[0]
+					// save the key in the context
+					(*ctx.sourceFileKeys)[sourceFileName] = skey
+				}
+				(*data)[i]["source_file_key"] = skey			
+			}
+		}	
 	}
-	// read json file
-	fmt.Println("*** Read Schema File:",schemaFname)
-	file, _ := os.ReadFile(schemaFname)
+	dataTableAction := &datatable.DataTableAction{
+		Action:      "insert_rows",
+		FromClauses: []datatable.FromClause{{Schema: workspace, Table: fmt.Sprintf("WORKSPACE/%s", table)}},
+		Data: *data,
+	}
 
-	// Inject the workspace name as the table schema name
-	jetrule := strings.ReplaceAll(string(file), "$SCHEMA", workspace)
- 
-	// Un-marshal the schema
-	schemaDef := &[]schema.TableDefinition{}
-	err := json.Unmarshal([]byte(jetrule), schemaDef)
+	results, _, err := datatableCtx.InsertRows(dataTableAction, *token)
+	if err != nil {
+		log.Printf("while calling InsertRows:%v\n",err)
+		return
+	}
+	returnedKeys = (*results)["returned_keys"].(*[]int)
+	return
+}
+
+// Transform a struct into json and then back into a row (array of interface{})
+// to insert into database using api
+func appendDataRow(v any, data *[]map[string]interface{}) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		log.Printf("while writing json:%v\n",err)
+		return err
+	}
+	row := map[string]interface{}{}
+	err = json.Unmarshal(b, &row)
 	if err != nil {
 		log.Printf("while reading json:%v\n",err)
-		return err		
+		return err
 	}
-
-	for i := range *schemaDef {
-		fmt.Println("-- Got schema for",(*schemaDef)[i].SchemaName,".",(*schemaDef)[i].TableName)
-		err = (*schemaDef)[i].UpdateTableSchema(ctx.Dbpool, dropTables)
-		if err != nil {
-			return fmt.Errorf("error while jetrule schema: %v", err)
-		}
-	}
+	*data = append(*data, row)
 	return nil
 }
 
 // JetruleModel Methods
 // --------------------
 // WriteResources
-func (model *JetruleModel)WriteResources(ctx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext)WriteResources(datatableCtx *datatable.Context, workspace string, token *string) error {
 
 	data := []map[string]interface{}{}
-	for i := range model.Resources {
-		r := &model.Resources[i]
-		b, err := json.Marshal(r)
+	for i := range ctx.model.Resources {
+		r := &ctx.model.Resources[i]
+		err := appendDataRow(r, &data)
 		if err != nil {
-			log.Printf("while writing json:%v\n",err)
 			return err
 		}
-		row := map[string]interface{}{}
-		err = json.Unmarshal(b, &row)
-		if err != nil {
-			log.Printf("while reading json:%v\n",err)
-			return err
-		}
-		data = append(data, row)
 	}
-	dataTableAction := &datatable.DataTableAction{
-		Action:      "insert_rows",
-		FromClauses: []datatable.FromClause{{Schema: workspace, Table: "WORKSPACE/resources"}},
-		Data: data,
-	}		
-	results, _, err := ctx.InsertRows(dataTableAction, *token)
-	if err != nil {
-		log.Printf("while calling InsertRows:%v\n",err)
-		return err
-	}
-	returnedKeys := (*results)["returned_keys"].(*[]int)
-	if returnedKeys == nil {
-		err = fmt.Errorf("error: no keys returned from InsertRows in WriteResources")
+	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "resources", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteResources, err is '%v'", err)
 		log.Println(err)
 		return err
 	}
-	for i := range model.Resources {
-		r := &model.Resources[i]
+	for i := range ctx.model.Resources {
+		r := &ctx.model.Resources[i]
 		r.DbKey = (*returnedKeys)[i]
 	}
 
 	return nil
 }
 
-// WriteDomainClasses
-func (model *JetruleModel)WriteDomainClasses(ctx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext)getClass(name *string) *ClassNode {
+	switch {
+	case name == nil:
+		return nil
+	case *name == "owl:Thing":
+		return &ClassNode{
+			Name: "owl:Thing",
+			BaseClasses: []string{},
+			DataProperties: []DataPropertyNode{},
+			AsTable: false,
+			SubClasses: []string{},
+			DbKey: 1,
+		}
+	default:
+		return ctx.domainClassMap[*name]
+	}
+}
 
-	//*TODO
+func (ctx *writeWorkspaceContext)getDataPropertyKey(name *string) int {
+	switch {
+	case name == nil:
+		return 0
+	default:
+		p := ctx.dataPropertyMap[*name]
+		if p == nil {
+			return 0
+		}
+		return p.DbKey
+	}
+}
+
+// WriteDomainClasses
+func (ctx *writeWorkspaceContext)WriteDomainClasses(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to domain_classes
 	data := []map[string]interface{}{}
-	for i := range model.Resources {
-		r := &model.Resources[i]
-		b, err := json.Marshal(r)
+	for i := range ctx.model.Classes {
+		cls := &ctx.model.Classes[i]
+		err := appendDataRow(cls, &data)
 		if err != nil {
-			log.Printf("while writing json:%v\n",err)
 			return err
 		}
-		row := map[string]interface{}{}
-		err = json.Unmarshal(b, &row)
-		if err != nil {
-			log.Printf("while reading json:%v\n",err)
-			return err
-		}
-		data = append(data, row)
 	}
-	dataTableAction := &datatable.DataTableAction{
-		Action:      "insert_rows",
-		FromClauses: []datatable.FromClause{{Schema: workspace, Table: "WORKSPACE/resources"}},
-		Data: data,
-	}		
-	results, _, err := ctx.InsertRows(dataTableAction, *token)
-	if err != nil {
-		log.Printf("while calling InsertRows:%v\n",err)
-		return err
-	}
-	returnedKeys := (*results)["returned_keys"].(*[]int)
-	if returnedKeys == nil {
-		err = fmt.Errorf("error: no keys returned from InsertRows in WriteResources")
+	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "domain_classes", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteDomainClasses writing to domain_classes, err is '%v'", err)
 		log.Println(err)
 		return err
 	}
-	for i := range model.Resources {
-		r := &model.Resources[i]
+	for i := range ctx.model.Classes {
+		r := &ctx.model.Classes[i]
 		r.DbKey = (*returnedKeys)[i]
 	}
 
+	// write to base_classes
+	data = data[:0]
+	var row map[string]interface{}
+	for i := range ctx.model.Classes {
+		cls := &ctx.model.Classes[i]
+		for j := range cls.BaseClasses {
+			baseCls := ctx.getClass(&cls.BaseClasses[j])
+			if baseCls == nil {
+				err = fmt.Errorf("error: cannot find domain class with name: %s", cls.BaseClasses[j])
+				log.Println(err)
+				return err		
+			}
+			row = map[string]interface{}{}
+			row["domain_class_key"] = cls.DbKey
+			row["base_class_key"] = baseCls.DbKey
+			data = append(data, row)
+		}
+	}
+	_, err = ctx.insertRows(datatableCtx, &data, "base_classes", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteDomainClasses writing base_classes: %v", err)
+		log.Println(err)
+		return err
+	}
+
+	// write to data_properties
+	data = data[:0]
+	for i := range ctx.model.Classes {
+		cls := &ctx.model.Classes[i]
+		for j := range cls.DataProperties {
+			cls.DataProperties[j].DomainClassKey = cls.DbKey
+			err := appendDataRow(&cls.DataProperties[j], &data)
+			if err != nil {
+				return err
+			}
+			ctx.dataPropertyMap[cls.DataProperties[j].Name] = &cls.DataProperties[j]
+		}
+	}
+	returnedKeys, err = ctx.insertRows(datatableCtx, &data, "data_properties", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteDomainClasses writing data_properties, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+	ipos := 0
+	for i := range ctx.model.Classes {
+		cls := &ctx.model.Classes[i]
+		for j := range cls.DataProperties {
+			r := &cls.DataProperties[j]
+			r.DbKey = (*returnedKeys)[ipos]
+			ipos += 1
+		}
+	}
+	return nil
+}
+
+// WriteDomainTables
+func (ctx *writeWorkspaceContext)WriteDomainTables(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to domain_tables
+	data := []map[string]interface{}{}
+	for i := range ctx.model.Tables {
+		v := &ctx.model.Tables[i]
+		v.DomainClassKey = ctx.getClass(&v.ClassName).DbKey
+		row := map[string]interface{}{}
+		row["domain_class_key"] = v.DomainClassKey
+		row["name"] = v.TableName
+		data = append(data, row)
+	}
+	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "domain_tables", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteDomainTables writing to domain_tables, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+	for i := range ctx.model.Tables {
+		r := &ctx.model.Tables[i]
+		r.DbKey = (*returnedKeys)[i]
+	}
+
+	// write to domain_columns
+	data = data[:0]
+	for i := range ctx.model.Tables {
+		v := &ctx.model.Tables[i]
+		for j := range v.Columns {
+			domainColumn := &v.Columns[j]
+			row := map[string]interface{}{}
+			row["domain_table_key"] = v.DbKey
+			row["data_property_key"] = ctx.getDataPropertyKey(&domainColumn.PropertyName)
+			row["as_array"] = domainColumn.AsArray
+			row["name"] = domainColumn.ColumnName
+			data = append(data, row)
+		}
+	}
+	_, err = ctx.insertRows(datatableCtx, &data, "domain_columns", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteDomainTables writing domain_columns: %v", err)
+		log.Println(err)
+		return err
+	}
 	return nil
 }

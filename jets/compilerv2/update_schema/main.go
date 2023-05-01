@@ -11,9 +11,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compilerv2/jetruledb"
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -27,11 +25,8 @@ import (
 
 // Command Line Arguments
 var workspace           = flag.String("workspace", "", "Workspace of Jetrule file (required)")
-var updateSchema        = flag.Bool("updateSchema", false, "Update table schema in workspace namespace (optional, default: false)")
 var dropTables          = flag.Bool("dropTables", false, "Drop tables in workspace namespace (optional, default: false)")
-var jetruleFile         = flag.String("jetruleFile", "", "Corrected Jetrule file to compile / write (file with ext'.jrcc.json') (required)")
 var usingSshTunnel      = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
-var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var dsn string
 var dbpool *pgxpool.Pool
 
@@ -91,11 +86,8 @@ func doJob() error {
 	// open db connections
 	var err error
 	log.Printf("Command Line Argument: workspace: %s\n", *workspace)
-	log.Printf("Command Line Argument: updateSchema: %v\n", *updateSchema)
 	log.Printf("Command Line Argument: dropTables: %v\n", *dropTables)
-	log.Printf("Command Line Argument: jetruleFile: %s\n", *jetruleFile)
 	log.Printf("Command Line Argument: usingSshTunnel: %v\n", *usingSshTunnel)
-	log.Printf("Command Line Argument: userEmail: %s\n", *userEmail)
 	log.Printf("ENV JETS_DSN_SECRET: %s\n",os.Getenv("JETS_DSN_SECRET"))
 	log.Printf("ENV JETS_REGION: %s\n",os.Getenv("JETS_REGION"))
 	log.Printf("ENV JETS_BUCKET: %s\n",os.Getenv("JETS_BUCKET"))
@@ -107,48 +99,13 @@ func doJob() error {
 		log.Panicf("Cannot get dsn from secret %s: %v",os.Getenv("JETS_DSN_SECRET"), err)
 	}
 
-	log.Println("*** Creating token for",*userEmail)
-	token, err := user.CreateToken(*userEmail)
+	// update / reset db schema
+	// Update / Create the jetrule schema, table schema name is workspace name
+	log.Printf("Updating jetrule schema for workspace '%s'", *workspace)		
+	err = updateWorkspaceSchema()
 	if err != nil {
-		return err
-	}
-
-	// Check if we reset / update db schema
-	if *updateSchema {
-		// Update / Create the jetrule schema, table schema name is workspace name
-		log.Printf("Updating jetrule schema for workspace '%s'", *workspace)		
-		err := updateWorkspaceSchema()
-		if err != nil {
-			log.Printf("while updating jetrule schema for workspace %s: %v\n", *workspace, err)
-			return err		
-		}
-	}
-
-	dbpool, err = pgxpool.Connect(context.Background(), dsn)
-	if err != nil {
-		return fmt.Errorf("while opening db connection on %s: %v", dsn, err)
-	}
-	defer dbpool.Close()
-
-	// The action of the request
-	action := &jetruledb.CompileJetruleAction {
-		Action: "write",
-		UpdateSchema: *updateSchema,
-		Workspace: *workspace,
-		DropTables: *dropTables,
-		JetruleFile: *jetruleFile,
-	}
-	switch {
-	case action.Action == "compile":
-		_, _, err = jetruledb.CompileJetrule(dbpool, action, token)
-		
-	case action.Action == "write":
-		_, _, err = jetruledb.WriteJetrule(dbpool, action, token)
-	default:
-		err = fmt.Errorf("unknown CompileJetruleAction.Action: %s",action.Action)
-	}
-	if err != nil {
-		return fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
+		log.Printf("while updating jetrule schema for workspace %s: %v\n", *workspace, err)
+		return err		
 	}
 
 	return nil
@@ -166,11 +123,6 @@ func main() {
 		errMsg = append(errMsg, "Workspace of Jetrule file (-workspace) must be provided.")
 	}
 
-	if *jetruleFile == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Jetrule file (-jetruleFile) must be provided.")
-	}
-
 	if os.Getenv("JETS_DSN_SECRET") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env var JETS_DSN_SECRET is required.")	
@@ -178,10 +130,6 @@ func main() {
 	if os.Getenv("JETS_REGION") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env var JETS_REGION must be provided.")
-	}
-	if *userEmail == "" {
-		hasErr = true
-		errMsg = append(errMsg, "user email (-userEmail) must be provided.")
 	}
 
 	if hasErr {
