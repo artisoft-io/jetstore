@@ -207,6 +207,14 @@ type RuleConfig struct {
 }
 
 // utility methods
+func mapSourceType(st string) string {
+	switch st {
+	case "alias_domain_table":
+		return "domain_table"
+	default:
+		return st
+	}
+}
 // prepare the sql statement for reading from staging table or domain table (csv)
 // Query with lookback period = 0:
 // -------------------------------
@@ -297,7 +305,7 @@ func (pipelineConfig *PipelineConfig) makeProcessInputSqlStmt(processInput *Proc
 		buf.WriteString(" e.session_id = sr.session_id ")
 		buf.WriteString(" AND ")
 		buf.WriteString(fmt.Sprintf(`sr.client = '%s' AND sr.source_type = '%s'`, 
-			pipelineConfig.mainProcessInput.client, processInput.sourceType))
+			pipelineConfig.mainProcessInput.client, mapSourceType(processInput.sourceType)))
 		buf.WriteString(" AND ")
 		buf.WriteString(fmt.Sprintf(`sr."%s" >= %d`, sourcePeriodType, lowerEndPeriod))
 		buf.WriteString(" AND ")
