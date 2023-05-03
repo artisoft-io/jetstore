@@ -1158,7 +1158,7 @@
         "isNotNull": true
       },
       {
-        "columnName": "process",
+        "columnName": "source_type",
         "dataType": "text",
         "isNotNull": true
       },
@@ -1196,8 +1196,8 @@
     ],
     "indexes": [
       {
-        "indexName": "session_registry_process_client_idx",
-        "indexDef": "INDEX session_registry_process_client_idx ON jetsapi.session_registry (process,client)"
+        "indexName": "session_registry_source_type_client_idx",
+        "indexDef": "INDEX session_registry_source_type_client_idx ON jetsapi.session_registry (source_type,client)"
       },
       {
         "indexName": "session_registry_source_period_key_idx",

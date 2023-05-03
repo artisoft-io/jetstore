@@ -225,7 +225,7 @@ type RuleConfig struct {
 // FROM "Acme_Eligibility" e, jetsapi.session_registry sr
 // WHERE e.session_id = sr.session_id
 //  AND sr.client = {{client}}
-//  AND sr.process = 'server'
+//  AND sr.source_type = '{{processInput.sourceType}}'
 // 	AND sr.month_period >= $5
 // 	AND sr.{{pipeline_config.source_period_type}} <= $6
 // 	AND e."Eligibility:shard_id"=0
@@ -252,7 +252,7 @@ type RuleConfig struct {
 //		 WHERE
 //		 	e.session_id = sr.session_id
 //		 	AND sr.client = 'Acme'
-//		 	AND sr.process = 'server'
+//		 	AND sr.source_type = 'file'
 //		 	AND sr."month_period" >= 636
 //		 	AND sr."month_period" <= 637
 //		 	AND "Eligibility:shard_id" = 0
@@ -296,7 +296,8 @@ func (pipelineConfig *PipelineConfig) makeProcessInputSqlStmt(processInput *Proc
 	if lookbackPeriods > 0 || processInput.sessionId == "" {
 		buf.WriteString(" e.session_id = sr.session_id ")
 		buf.WriteString(" AND ")
-		buf.WriteString(fmt.Sprintf(`sr.client = '%s' AND sr.process = 'server'`, pipelineConfig.mainProcessInput.client))
+		buf.WriteString(fmt.Sprintf(`sr.client = '%s' AND sr.source_type = '%s'`, 
+			pipelineConfig.mainProcessInput.client, processInput.sourceType))
 		buf.WriteString(" AND ")
 		buf.WriteString(fmt.Sprintf(`sr."%s" >= %d`, sourcePeriodType, lowerEndPeriod))
 		buf.WriteString(" AND ")

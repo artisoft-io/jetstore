@@ -79,7 +79,7 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 	// Register the sessionId && Update execution status to pipeline_execution_status table
 	if !doNotLockSessionId {
 		// Lock the session	
-		err = schema.RegisterSession(dbpool, "server", client, sessionId, sourcePeriodKey)
+		err = schema.RegisterSession(dbpool, "domain_table", client, sessionId, sourcePeriodKey)
 		if err != nil {
 			return fmt.Errorf("while recording out session id: %v", err)
 		}
