@@ -112,7 +112,7 @@ func coordinateWork() error {
 
 	// Lock the session
 	client, sessionId, sourcePeriodKey := getPeInfo(dbpool, *peKey)
-	err = schema.RegisterSession(dbpool, "server", client, sessionId, sourcePeriodKey)
+	err = schema.RegisterSession(dbpool, "domain_table", client, sessionId, sourcePeriodKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)
 	}	
