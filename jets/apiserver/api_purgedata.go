@@ -125,7 +125,14 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	log.Println(stmt)
 	_, err = server.dbpool.Exec(context.Background(), stmt)
 	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating input_registry tables: %v", err)
+		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating input_registry table: %v", err)
+	}
+	// Truncate the jetsapi.session_registry
+	stmt = fmt.Sprintf("TRUNCATE %s", pgx.Identifier{"jetsapi", "session_registry"}.Sanitize())
+	log.Println(stmt)
+	_, err = server.dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating session_registry table: %v", err)
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil
 }

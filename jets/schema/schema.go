@@ -395,7 +395,8 @@ func IsSessionExists(dbpool *pgxpool.Pool, sessionId string) (bool, error) {
 	return false, nil
 }
 
-func RegisterSession(dbpool *pgxpool.Pool, sessionId string, sourcePeriodKey int) error {
+// Register the session, process is the tool that executed the session either "loader" or "server"
+func RegisterSession(dbpool *pgxpool.Pool, process, client string, sessionId string, sourcePeriodKey int) error {
 	if sessionId == "" {
 		return fmt.Errorf("error: cannot have empty session")
 	}
@@ -408,12 +409,12 @@ func RegisterSession(dbpool *pgxpool.Pool, sessionId string, sourcePeriodKey int
 		return fmt.Errorf("while reading jetsapi.source_period table for key %d: %v", sourcePeriodKey, err)
 	}
 	// Insert into the session_registry
-	stmt := `INSERT INTO jetsapi.session_registry (session_id, source_period_key, month_period, week_period, day_period) 
-		VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`
-	_, err = dbpool.Exec(context.Background(), stmt, sessionId, sourcePeriodKey, monthPeriod, weekPeriod, dayPeriod)
+	stmt := `INSERT INTO jetsapi.session_registry (process, session_id, client, source_period_key, month_period, week_period, day_period) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`
+	_, err = dbpool.Exec(context.Background(), stmt, process, sessionId, client, sourcePeriodKey, monthPeriod, weekPeriod, dayPeriod)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.session_registry table: %v", err)
 	}
-	log.Printf("Registered session '%s' with source_period_key %d in jetsapi.session_registry table", sessionId, sourcePeriodKey)
+	log.Printf("Registered session '%s' with source_period_key %d for client '%s' from '%s' in jetsapi.session_registry table", sessionId, sourcePeriodKey, client, process)
 	return nil
 }
