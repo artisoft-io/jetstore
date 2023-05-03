@@ -407,10 +407,11 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 			}
 		}
 		// write the full partition of rows to the db
-		copyCount, err = dbpool.CopyFrom(context.Background(), pgx.Identifier{tableName}, headersDKInfo.Headers, pgx.CopyFromRows(inputRows))
+		count, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{tableName}, headersDKInfo.Headers, pgx.CopyFromRows(inputRows))
 		if err != nil {
 			return 0, nil, fmt.Errorf("while copy csv to table: %v", err)
-		}		
+		}
+		copyCount += count
 	}
 }
 // processFile
