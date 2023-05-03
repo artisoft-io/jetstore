@@ -273,6 +273,9 @@ struct ApplyMinMaxVisitor
   //  (s, objp, currentObj).(currentObj, datap, currentValue), with currentObj = currentValue if datap==nullptr
   RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap=nullptr)const
   {
+    if( not s or not objp) {
+      RETE_EXCEPTION("Invalid arguments for min_of/max_of operator, cannot have null lhs or rhs");
+    }
     GtVisitor visitor;
     auto itor = rs->rdf_session()->find(s, objp);
     bool is_first = true;
@@ -287,6 +290,9 @@ struct ApplyMinMaxVisitor
       rdf::r_index currentValue = currentObj;
       if(datap) {
         currentValue = rs->rdf_session()->get_object(currentObj, datap);
+        // Check if no object exist for the relation (currentObj, datap)
+        // if so then return a logical null
+        if(not currentValue) return rdf::Null();
       }
       if(is_first) {
         resultObj = currentObj;
@@ -494,7 +500,7 @@ struct ApplySumValuesVisitor
   ApplySumValuesVisitor(ReteSession * rs): rs(rs) {}
 
   // Apply the visitor to find:
-  //  - case datap is nullptr: the sum of ?v in (s, objp, ?v)
+  //  - case objp is nullptr: the sum of ?v in (s, datap, ?v)
   //  - case datap is not nullptr: the sum of ?v in (s, objp, ?o).(?o, datap, ?v)
   RDFTTYPE operator()(rdf::r_index s, rdf::r_index objp, rdf::r_index datap)const
   {
@@ -566,7 +572,8 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>
     auto const* jr = sess->rmgr()->jets();
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
     if(not datap) {
-      RETE_EXCEPTION("Invalid config obj for sum_values, it must have jets:value_property");
+      // use rhs as data property, i.e. do the sum of ?v in (lhs, rhs, ?v)
+      datap = pr.second;
     }
     auto objp = sess->get_object(pr.second, jr->jets__entity_property);
     return av(pr.first, objp, datap);
