@@ -461,7 +461,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Actions:   jsii.Strings("logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"),
 		Resources: jsii.Strings("*"),
 	}))
-	sourceBucket.GrantRead(ecsTaskRole, nil)
+	sourceBucket.GrantReadWrite(ecsTaskRole, nil)
 
 	// // =================================================================================================================================
 	// // DEFINE SAMPLE TASK -- SHOW HOW TO BUILD CONTAINER OR PULL IMAGE FROM ECR
@@ -527,8 +527,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// ---------------------------------------
 	// Define the JetStore State Machines
 	// ---------------------------------------
-	loaderAndServerSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
-		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "loaderAndServerSM")
 	loaderSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "loaderSM")
 	serverSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
@@ -573,7 +571,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_s3_OUTPUT_PREFIX":        jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_LOADER_SM_ARN":           jsii.String(loaderSmArn),
 			"JETS_SERVER_SM_ARN":           jsii.String(serverSmArn),
-			"JETS_LOADER_SERVER_SM_ARN":    jsii.String(loaderAndServerSmArn),
 			"JETS_LOADER_CHUNCK_SIZE":      jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -625,7 +622,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		var err error
 		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"), 64)
 		if err != nil {
-			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB: %v", err)
+			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB:", err)
 			memLimit = 24576
 		}	
 	} else {
@@ -636,7 +633,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		var err error
 		cpu, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_CPU"), 64)
 		if err != nil {
-			fmt.Println("while parsing JETS_SERVER_TASK_CPU: %v", err)
+			fmt.Println("while parsing JETS_SERVER_TASK_CPU:", err)
 			cpu = 4096
 		}	
 	} else {
@@ -670,7 +667,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_INVALID_CODE":            jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"JETS_LOADER_SM_ARN":           jsii.String(loaderSmArn),
 			"JETS_SERVER_SM_ARN":           jsii.String(serverSmArn),
-			"JETS_LOADER_SERVER_SM_ARN":    jsii.String(loaderAndServerSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
@@ -865,52 +861,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		awscdk.Tags_Of(serverSM).Add(descriptionTagName, jsii.String("State Machine to execute rules in JetStore Platform"), nil)
 	}
 
-	// JetStore Run Loader & Rule Server State Machine
-	//*TODO SNS message
-	notifyFailure2 := sfn.NewPass(scope, jsii.String("notify-failure-loaderAndServerSM"), &sfn.PassProps{})
-	loaderStartExec := sfntask.NewStepFunctionsStartExecution(stack, jsii.String("loaderStartExec"), &sfntask.StepFunctionsStartExecutionProps{
-		StateMachine:       loaderSM,
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
-		Input: sfn.TaskInput_FromObject(&map[string]interface{}{
-			"AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
-			"loaderCommand.$": "$.loaderCommand",
-		}),
-		ResultPath: sfn.JsonPath_DISCARD(),
-		//* NOTE 4h TIMEOUT
-		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
-	})
-	loaderStartExec.AddCatch(notifyFailure2, cp)
-	serverStartExec := sfntask.NewStepFunctionsStartExecution(stack, jsii.String("serverStartExec"), &sfntask.StepFunctionsStartExecutionProps{
-		StateMachine:       serverSM,
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
-		Input: sfn.TaskInput_FromObject(&map[string]interface{}{
-			"AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
-			"serverCommands.$": "$.serverCommands",
-			"reportsCommand.$": "$.reportsCommand",
-			"successUpdate.$":  "$.successUpdate",
-			"errorUpdate.$":    "$.errorUpdate",
-		}),
-		ResultPath: sfn.JsonPath_DISCARD(),
-		//* NOTE 4h TIMEOUT
-		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
-	})
-	serverStartExec.AddCatch(notifyFailure2, cp)
-	loaderStartExec.Next(serverStartExec)
-	loaderAndServerSM := sfn.NewStateMachine(stack, jsii.String("loaderAndServerSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("loaderAndServerSM"),
-		Definition:       loaderStartExec,
-		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(loaderAndServerSM).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(loaderAndServerSM).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(loaderAndServerSM).Add(descriptionTagName, jsii.String("State Machine to load data and execute rules in JetStore Platform"), nil)
-	}
-
 	// ---------------------------------------
 	// Allow JetStore Tasks Running in JetStore Container
 	// permission to execute the StateMachines
@@ -921,7 +871,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Resources: &[]*string{
 			loaderSM.StateMachineArn(),
 			serverSM.StateMachineArn(),
-			loaderAndServerSM.StateMachineArn(),
 		},
 	}))
 
@@ -976,7 +925,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"JETS_LOADER_SM_ARN":                 jsii.String(loaderSmArn),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
-			"JETS_LOADER_SERVER_SM_ARN":          jsii.String(loaderAndServerSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),

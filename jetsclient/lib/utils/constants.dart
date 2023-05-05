@@ -267,7 +267,6 @@ class ActionKeys {
 
   // for pipeline execution dialogs
   static const startPipelineOk = "startPipeline.ok";
-  static const loadAndStartPipelineOk = "loadAndStartPipeline.ok";
 
   // for process_error data table
   static const setupShowInputRecords = "setupShowInputRecords";

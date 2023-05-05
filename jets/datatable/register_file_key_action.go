@@ -362,7 +362,6 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		for _, pcKey := range *pipelineConfigKeys {
 			data := map[string]interface{}{
 				"pipeline_config_key":   strconv.Itoa(pcKey),
-				"load_and_start":        "false",
 				"input_session_id":      nil,
 				"session_id":            strconv.FormatInt(time.Now().UnixMilli(), 10),
 				"source_period_key":     sourcePeriodKey,
@@ -521,17 +520,17 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 			// Inserting source_period
 			year, err := strconv.Atoi(fileKeyObject["year"])
 			if err != nil {
-				log.Println("File Key with invalid year: %s, setting to 1970", fileKeyObject["year"])
+				log.Printf("File Key with invalid year: %s, setting to 1970\n", fileKeyObject["year"])
 				year = 1970
 			}
 			month, err := strconv.Atoi(fileKeyObject["month"])
 			if err != nil {
-				log.Println("File Key with invalid month: %s, setting to 1", fileKeyObject["year"])
+				log.Printf("File Key with invalid month: %s, setting to 1\n", fileKeyObject["year"])
 				year = 1
 			}
 			day, err := strconv.Atoi(fileKeyObject["day"])
 			if err != nil {
-				log.Println("File Key with invalid day: %s, setting to 1", fileKeyObject["year"])
+				log.Printf("File Key with invalid day: %s, setting to 1\n", fileKeyObject["year"])
 				year = 1
 			}
 

@@ -35,7 +35,6 @@ import (
 // JETS_DSN_SECRET
 // JETS_DSN_VALUE
 // JETS_VERSION JetStore version
-// JETS_LOADER_SERVER_SM_ARN state machine arn
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_REGION
 // JETS_SERVER_SM_ARN state machine arn
@@ -167,9 +166,9 @@ func main() {
 				}
 		}
 	} else {
-		if os.Getenv("JETS_LOADER_SERVER_SM_ARN")=="" || os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
+		if os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
 			hasErr = true
-			errMsg = append(errMsg, "Env var JETS_LOADER_SERVER_SM_ARN, JETS_LOADER_SM_ARN, JETS_SERVER_SM_ARN required when not in dev mode.")
+			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARN required when not in dev mode.")
 		}
 	}
 	if hasErr {

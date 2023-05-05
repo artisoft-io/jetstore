@@ -45,7 +45,6 @@ import (
 // JETS_ADMIN_EMAIL (set as admin in dockerfile)
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // AWS_API_SECRET or API_SECRET
-// JETS_LOADER_SERVER_SM_ARN state machine arn
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
 // JETS_LOADER_CHUNCK_SIZE buffer size for input lines, default 200K
@@ -58,9 +57,11 @@ var inFile = flag.String("in_file", "", "the input csv file name (required)")
 var dropTable = flag.Bool("d", false, "drop table if it exists, default is false")
 var dsn = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
 var client = flag.String("client", "", "Client associated with the source location (required)")
+var clientOrg = flag.String("org", "", "Client associated with the source location (required)")
 var objectType = flag.String("objectType", "", "The type of object contained in the file (required)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
+var sourcePeriodKey = flag.Int("sourcePeriodKey", -1, "Source period key associated with the in_file (fileKey)")
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId on successful completion")
 var completedMetric = flag.String("loaderCompletedMetric", "loaderCompleted", "Metric name to register the loader successfull completion (default: loaderCompleted)")
@@ -72,8 +73,6 @@ var inputColumnsPositionsCsv string
 var sep_flag datatable.Chartype = '€'
 var errOutDir string
 var jetsInputRowJetsKeyAlgo string
-var clientOrg string
-var sourcePeriodKey int
 var inputRegistryKey []int
 var devMode bool
 var adminEmail string
@@ -175,24 +174,24 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 			DO UPDATE SET (status, error_message, load_count, bad_row_count, user_email, last_update) =
 			(EXCLUDED.status, EXCLUDED.error_message, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt, 
-		*objectType, tableName, *client, clientOrg, *inFile, *sessionId, sourcePeriodKey, status, errMessage, copyCount, badRowCount, *userEmail)
+		*objectType, tableName, *client, *clientOrg, *inFile, *sessionId, *sourcePeriodKey, status, errMessage, copyCount, badRowCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
-	log.Println("Updated input_loader_status table with main object type:", *objectType,"client", *client, "org", clientOrg)
+	log.Println("Updated input_loader_status table with main object type:", *objectType,"client", *client, "org", *clientOrg)
 	// Register all loads, even when status != "completed" to provide visibility of the loaded data in UI
 	if dkInfo != nil {
 		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
 		ipos := 0
 		for objType := range dkInfo.DomainKeysInfoMap {
-			log.Println("Registering staging table with object type:", objType,"client", *client, "org", clientOrg)
+			log.Println("Registering staging table with object type:", objType,"client", *client, "org", *clientOrg)
 			stmt = `INSERT INTO jetsapi.input_registry (
 				client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
 				VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) 
 				ON CONFLICT DO NOTHING
 				RETURNING key`
 			err = dbpool.QueryRow(context.Background(), stmt, 
-				*client, clientOrg, objType, *inFile, sourcePeriodKey, tableName, *sessionId, *userEmail).Scan(&inputRegistryKey[ipos])
+				*client, *clientOrg, objType, *inFile, *sourcePeriodKey, tableName, *sessionId, *userEmail).Scan(&inputRegistryKey[ipos])
 			if err != nil {
 				return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
@@ -209,7 +208,7 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 				Action: "register_keys",
 				Data: []map[string]interface{}{{
 					"input_registry_keys": inputRegistryKey,
-					"source_period_key": sourcePeriodKey,
+					"source_period_key": *sourcePeriodKey,
 					"file_key": *inFile,
 				}},
 			}, token)
@@ -384,7 +383,7 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 				case "row_hash":
 					// Add sourcePeriodKey in row_hash calculation so if same record in input
 					// for 2 different period, they get different jets:key
-					buf.WriteString(strconv.Itoa(sourcePeriodKey))
+					buf.WriteString(strconv.Itoa(*sourcePeriodKey))
 					for _,h := range headersDKInfo.Headers {
 						ipos := headersDKInfo.HeadersPosMap[h]
 						if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
@@ -752,7 +751,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	// register the session if status is completed
 	if status == "completed" && !*doNotLockSessionId {
 
-		err2 := schema.RegisterSession(dbpool, "file", *client, *sessionId, sourcePeriodKey)
+		err2 := schema.RegisterSession(dbpool, "file", *client, *sessionId, *sourcePeriodKey)
 		if err2 != nil {
 			err = fmt.Errorf("error while registering the session id: %v", err2)
 		}
@@ -815,22 +814,12 @@ func coordinateWork() error {
 		return fmt.Errorf("error: the session id is already used")
 	}
 
-	// Get org and source_period_key from file_key_staging
-	// ---------------------------------------
-	err = dbpool.QueryRow(context.Background(), 
-		"SELECT org, source_period_key FROM jetsapi.file_key_staging WHERE file_key=$1", 
-		*inFile).Scan(&clientOrg, &sourcePeriodKey)
-	if err != nil {
-		return fmt.Errorf("query org, source_period_key from jetsapi.file_key_staging failed: %v", err)
-	}
-	fmt.Println("Got org",clientOrg,"and sourcePeriodKey",sourcePeriodKey,"from file_key_staging")
-
 	// Get the DomainKeysJson and tableName from source_config table
 	// ---------------------------------------
 	var dkJson, cnJson, fwCsv sql.NullString
 	err = dbpool.QueryRow(context.Background(), 
 		"SELECT table_name, domain_keys_json, input_columns_json, input_columns_positions_csv FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
-		*client, clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv)
+		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv)
 	if err != nil {
 		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv from jetsapi.source_config failed: %v", err)
 	}
@@ -951,6 +940,14 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Client name must be provided (-client).")
 	}
+	if *clientOrg == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Client org must be provided (-org).")
+	}
+	if *sourcePeriodKey < 0 {
+		hasErr = true
+		errMsg = append(errMsg, "Source Period Key must be provided (-sourcePeriodKey).")
+	}
 	if *userEmail == "" {
 		hasErr = true
 		errMsg = append(errMsg, "User email must be provided (-userEmail).")
@@ -1006,9 +1003,9 @@ func main() {
 
 	// If not in dev mode, must have state machine arn defined
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
-		if os.Getenv("JETS_LOADER_SERVER_SM_ARN")=="" || os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
+		if os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
 			hasErr = true
-			errMsg = append(errMsg, "Env var JETS_LOADER_SERVER_SM_ARN, JETS_LOADER_SM_ARN, JETS_SERVER_SM_ARN required when not in dev mode.")
+			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARN are required when not in dev mode.")
 		}
 	}
 
@@ -1034,7 +1031,9 @@ func main() {
 	fmt.Println("Got argument: dropTable", *dropTable)
 	fmt.Println("Got argument: len(dsn)", len(*dsn))
 	fmt.Println("Got argument: client", *client)
+	fmt.Println("Got argument: org", *clientOrg)
 	fmt.Println("Got argument: objectType", *objectType)
+	fmt.Println("Got argument: sourcePeriodKey", *sourcePeriodKey)
 	fmt.Println("Got argument: userEmail", *userEmail)
 	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: sessionId", *sessionId)
@@ -1043,7 +1042,6 @@ func main() {
 	fmt.Println("Got argument: loaderCompletedMetric", *completedMetric)
 	fmt.Println("Got argument: loaderFailedMetric", *failedMetric)
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
-	fmt.Printf("ENV JETS_LOADER_SERVER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SERVER_SM_ARN"))
 	fmt.Printf("ENV JETS_LOADER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SM_ARN"))
 	fmt.Printf("ENV JETS_SERVER_SM_ARN: %s\n",os.Getenv("JETS_SERVER_SM_ARN"))
 	fmt.Printf("ENV JETS_LOADER_CHUNCK_SIZE: %s\n",os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
