@@ -495,6 +495,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 		// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
 		// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
+		// Executing the InserRow Stmt
 		if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
 			err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
 		} else {
@@ -530,22 +531,15 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 			}
-			// Add process_name if present in dataTableAction.Data[irow]
-			v := dataTableAction.Data[irow]["process_name"]
-			if v != nil {
-				row["process_name"] = v.(string)
-			}
-			// expected columns in the incoming request that are not columns in the input_loader_status table
-			//*
-			dataTableAction.Data[irow]["load_and_start"] = "false"
-			row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 			// extract the columns we need for the loader
 			objType := row["object_type"]
 			client := row["client"]
+			clientOrg := row["org"]
+			sourcePeriodKey := row["source_period_key"]
 			fileKey := row["file_key"]
 			sessionId := row["session_id"]
 			userEmail := row["user_email"]
-			v = dataTableAction.Data[irow]["loaderFailedMetric"]
+			v := dataTableAction.Data[irow]["loaderFailedMetric"]
 			if v != nil {
 				loaderFailedMetric = v.(string)
 			}
@@ -564,7 +558,9 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			loaderCommand := []string{
 				"-in_file", fileKey.(string),
 				"-client", client.(string),
+				"-org", clientOrg.(string),
 				"-objectType", objType.(string),
+				"-sourcePeriodKey", sourcePeriodKey.(string),
 				"-sessionId", sessionId.(string),
 				"-userEmail", userEmail.(string),
 				"-nbrShards", strconv.Itoa(ctx.NbrShards),
@@ -576,9 +572,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			if loaderFailedMetric != "" {
 				loaderCommand = append(loaderCommand, "-loaderFailedMetric")
 				loaderCommand = append(loaderCommand, loaderFailedMetric)
-			}
-			if row["load_and_start"] == "true" {
-				loaderCommand = append(loaderCommand, "-doNotLockSessionId")
 			}
 			switch {
 			// Call loader synchronously
@@ -613,10 +606,13 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				log.Println("LOADER CAPTURED OUTPUT END")
 				log.Println("============================")
 
-			case row["load_and_start"] != "true":
+			default:
 				// StartExecution load file
 				log.Printf("calling StartExecution loaderSM command: %s", loaderCommand)
-				name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"), map[string]interface{}{"loaderCommand": loaderCommand}, sessionId.(string))
+				name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"), 
+					map[string]interface{}{
+						"loaderCommand": loaderCommand,
+					}, sessionId.(string))
 				if err != nil {
 					log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
 					httpStatus = http.StatusInternalServerError
@@ -624,8 +620,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					return
 				}
 				fmt.Println("Loader State Machine", name, "started")
-			default:
-				log.Printf("input_loader_status insert DO NOTHING: load_and_start: %s, devMode: %v\n", row["load_and_start"], ctx.DevMode)
 			}
 		}
 	case "pipeline_execution_status", "short/pipeline_execution_status":
@@ -651,11 +645,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 			}
-			// expected load_and_start in the incoming request
-			row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 			peKey := strconv.Itoa(returnedKey[irow])
-			objType := dataTableAction.Data[irow]["object_type"]
-			client := row["client"]
 			processName := row["process_name"]
 			//* TODO We should lookup main_input_file_key rather than file_key here
 			fileKey := dataTableAction.Data[irow]["file_key"]
@@ -669,14 +659,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			if v != nil {
 				serverCompletedMetric = v.(string)
 			}
-			v = dataTableAction.Data[irow]["loaderFailedMetric"]
-			if v != nil {
-				loaderFailedMetric = v.(string)
-			}
-			v = dataTableAction.Data[irow]["loaderCompletedMetric"]
-			if v != nil {
-				loaderCompletedMetric = v.(string)
-			}
 			// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
 			if userEmail == nil || sessionId == nil {
 				log.Printf(
@@ -684,17 +666,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while preparing argo/server command")
 				return
-			}
-			// Check required params for loader/server if load+start
-			if row["load_and_start"] == "true" {
-				if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
-					log.Printf(
-						"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v",
-						objType, client, fileKey, sessionId, userEmail)
-					httpStatus = http.StatusInternalServerError
-					err = errors.New("error while preparing argo command for server/argo(load+start) and run")
-					return
-				}
 			}
 			switch {
 			// Call server synchronously
@@ -752,7 +723,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 
 			default:
-				// Invoke states to load+execute or execute only a process
+				// Invoke states to execute a process
 				// Rules Server arguments
 				serverCommands := make([][]string, 0)
 				for shardId := 0; shardId < ctx.NbrShards; shardId++ {
@@ -790,27 +761,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					},
 				}
 				processArn := os.Getenv("JETS_SERVER_SM_ARN")
-				if row["load_and_start"] == "true" {
-					processArn = os.Getenv("JETS_LOADER_SERVER_SM_ARN")
-					loaderCommand := []string{
-						"-in_file", fileKey.(string),
-						"-client", client.(string),
-						"-objectType", objType.(string),
-						"-sessionId", sessionId.(string),
-						"-userEmail", userEmail.(string),
-						"-nbrShards", strconv.Itoa(ctx.NbrShards),
-						"-doNotLockSessionId",
-					}
-					if loaderCompletedMetric != "" {
-						loaderCommand = append(loaderCommand, "-loaderCompletedMetric")
-						loaderCommand = append(loaderCommand, loaderCompletedMetric)
-					}
-					if loaderFailedMetric != "" {
-						loaderCommand = append(loaderCommand, "-loaderFailedMetric")
-						loaderCommand = append(loaderCommand, loaderFailedMetric)
-					}
-					smInput["loaderCommand"] = loaderCommand
-				}
 
 				// StartExecution execute rule
 				log.Printf("calling StartExecution on processArn: %s", processArn)

@@ -73,9 +73,7 @@ Future<String?> homeFormActions(BuildContext context,
     {group = 0}) async {
   switch (actionKey) {
     // Start Pipeline Dialogs
-    // Load & Start Pipeline Dialogs
     case ActionKeys.startPipelineOk:
-    case ActionKeys.loadAndStartPipelineOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
         return null;
@@ -101,37 +99,7 @@ Future<String?> homeFormActions(BuildContext context,
       state[FSK.objectType] = state[FSK.mainObjectType];
       state[FSK.fileKey] = state[FSK.mainInputFileKey];
       state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
-      if (actionKey == ActionKeys.loadAndStartPipelineOk) {
-        state[FSK.org] = state[FSK.org][0];
-        state['load_and_start'] = 'true';
-        state['input_session_id'] = state['session_id'];
-        state['table_name'] = makeTableNameFromState(state);
-      } else {
-        state['load_and_start'] = 'false';
-      }
-      var navigator = Navigator.of(context);
-      if (actionKey == ActionKeys.loadAndStartPipelineOk) {
-        // Send the load insert
-        var encodedJsonBody = jsonEncode(<String, dynamic>{
-          'action': 'insert_rows',
-          'fromClauses': [
-            <String, String>{'table': 'input_loader_status'}
-          ],
-          'data': [state],
-        }, toEncodable: (_) => '');
-        var loadResult = await context.read<HttpClient>().sendRequest(
-            path: ServerEPs.dataTableEP,
-            token: JetsRouterDelegate().user.token,
-            encodedJsonBody: encodedJsonBody);
-        if (loadResult.statusCode != 200) {
-          formState.setValue(
-              0, FSK.serverError, "Something went wrong. Please try again.");
-          navigator.pop(DTActionResult.statusError);
-          return "Something went wrong. Please try again.";
-        }
-        formState.parentFormState
-            ?.setValueAndNotify(group, FSK.key, state['session_id']);
-      }
+
       // Send the pipeline start insert
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
@@ -385,7 +353,6 @@ Future<String?> sourceConfigActions(BuildContext context,
       state['status'] = StatusKeys.submitted;
       state['user_email'] = JetsRouterDelegate().user.email;
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
-      state['load_and_start'] = 'false';
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [
