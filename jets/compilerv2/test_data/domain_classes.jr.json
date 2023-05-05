@@ -4536,5 +4536,6 @@
       "source_file_name": "data_model/medical_claim_model.jr",
       "db_key": 6
     }
-  ]
+  ],
+  "main_rule_file_name": "jet_rules/domain_classes.jr"
 }

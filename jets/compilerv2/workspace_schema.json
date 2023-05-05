@@ -69,6 +69,12 @@
         "dataType": "int",
         "isNotNull": true
       }
+    ],
+    "tableConstraints": [
+      {
+        "name": "$SCHEMA_jetstore_config_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_jetstore_config_unique_cstraint UNIQUE (config_key, config_value, source_file_key)"
+      }
     ]
   },
   {

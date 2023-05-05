@@ -1,0 +1,8 @@
+{
+  "main_rule_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+  "jetstore_config": {
+    "$max_looping": "0",
+    "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+    "type": "jsconfig"
+  }
+}
