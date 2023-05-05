@@ -461,7 +461,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Actions:   jsii.Strings("logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"),
 		Resources: jsii.Strings("*"),
 	}))
-	sourceBucket.GrantRead(ecsTaskRole, nil)
+	sourceBucket.GrantReadWrite(ecsTaskRole, nil)
 
 	// // =================================================================================================================================
 	// // DEFINE SAMPLE TASK -- SHOW HOW TO BUILD CONTAINER OR PULL IMAGE FROM ECR
@@ -625,7 +625,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		var err error
 		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"), 64)
 		if err != nil {
-			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB: %v", err)
+			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB:", err)
 			memLimit = 24576
 		}	
 	} else {
@@ -636,7 +636,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		var err error
 		cpu, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_CPU"), 64)
 		if err != nil {
-			fmt.Println("while parsing JETS_SERVER_TASK_CPU: %v", err)
+			fmt.Println("while parsing JETS_SERVER_TASK_CPU:", err)
 			cpu = 4096
 		}	
 	} else {
