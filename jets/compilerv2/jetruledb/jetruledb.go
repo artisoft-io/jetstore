@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	// "github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
@@ -26,17 +27,18 @@ type CompileJetruleAction struct {
 
 // Jetrule Domain Model
 type JetruleModel struct {
-	MainRuleFileName     string              `json:"main_rule_file_name"`
-	SupportRuleFileNames [] string           `json:"support_rule_file_names"`
-	Resources            []ResourceNode      `json:"resources"`
-	LookupTables         []LookupTableNode   `json:"lookup_tables"`
-	Jetrules             []JetruleNode       `json:"jet_rules"`
-	ReteNodes            []RuleTerm          `json:"rete_nodes"`
-	Imports              map[string][]string `json:"imports"`
-  JetstoreConfig       map[string]string   `json:"jetstore_config"`
-	Classes              []ClassNode         `json:"classes"`
-	Tables               []TableNode         `json:"tables"`
-	Triples              []TripleNode        `json:"triples"`
+	MainRuleFileName     string                    `json:"main_rule_file_name"`
+	SupportRuleFileNames [] string                 `json:"support_rule_file_names"`
+	Resources            []ResourceNode            `json:"resources"`
+	LookupTables         []LookupTableNode         `json:"lookup_tables"`
+	Jetrules             []JetruleNode             `json:"jet_rules"`
+	ReteNodes            []RuleTerm                `json:"rete_nodes"`
+	Imports              map[string][]string       `json:"imports"`
+  JetstoreConfig       map[string]string         `json:"jetstore_config"`
+  RuleSequences        []map[string]interface{}  `json:"rule_sequences"`
+	Classes              []ClassNode               `json:"classes"`
+	Tables               []TableNode               `json:"tables"`
+	Triples              []TripleNode              `json:"triples"`
 } 
 
 type ResourceNode struct {
@@ -218,6 +220,7 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		model: &JetruleModel{},
 		sourceFileKeys: &map[string]int{},
 		domainClassMap: map[string]*ClassNode{},
+		dataPropertyMap: map[string]*DataPropertyNode{},
 	}
 
 	log.Println("ReadFile:",compileJetruleAction.JetruleFile)
@@ -235,6 +238,12 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	// //*
 	// fmt.Println("GOT",writeWorkspaceCtx.model)
 
+	// insert the main rule file in workspace_control table
+	if writeWorkspaceCtx.model.MainRuleFileName != "" {
+		writeWorkspaceCtx.insertRuleFileName(datatableCtx, 
+			writeWorkspaceCtx.model.MainRuleFileName, true, compileJetruleAction.Workspace, &token)
+	}
+
 	// Persist the Resources
 	if len(writeWorkspaceCtx.model.Resources) > 0 {
 		log.Println("Writing Resources")
@@ -243,17 +252,29 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 
 	// Persist the Classes & Tables
 	if len(writeWorkspaceCtx.model.Classes) > 0 {
-		log.Println("Writing Domain Classes")
-		writeWorkspaceCtx.WriteDomainClasses(datatableCtx, compileJetruleAction.Workspace, &token)
 		// init the map of domain class
 		for i := range writeWorkspaceCtx.model.Classes {
 			cls := &writeWorkspaceCtx.model.Classes[i]
 			writeWorkspaceCtx.domainClassMap[cls.Name] = cls
 		}
+		log.Println("Writing Domain Classes")
+		writeWorkspaceCtx.WriteDomainClasses(datatableCtx, compileJetruleAction.Workspace, &token)
 	}
 	if len(writeWorkspaceCtx.model.Tables) > 0 {
 		log.Println("Writing Domain Tables")
 		writeWorkspaceCtx.WriteDomainTables(datatableCtx, compileJetruleAction.Workspace, &token)
+	}
+
+	// Persist the JetStore Config
+	if writeWorkspaceCtx.model.JetstoreConfig != nil {
+		log.Println("Writing JetStore Config")
+		writeWorkspaceCtx.WriteJetStoreConfig(datatableCtx, compileJetruleAction.Workspace, &token)
+	}
+
+	// Persist Rule Sequences
+	if writeWorkspaceCtx.model.RuleSequences != nil {
+		log.Println("Writing Rule Sequences")
+		writeWorkspaceCtx.WriteRuleSequences(datatableCtx, compileJetruleAction.Workspace, &token)
 	}
 
 	//* DEV
@@ -268,7 +289,22 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
 
-// utility function
+// utility functions
+func (ctx *writeWorkspaceContext)insertRuleFileName(datatableCtx *datatable.Context, ruleFileName string, isMain bool, workspace string, token *string) (int, error) {
+	keys, err := ctx.insertRows(datatableCtx, &[]map[string]interface{}{
+		{"source_file_name": ruleFileName, "is_main": isMain},
+	}, "workspace_control", workspace, token)
+	if keys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in insertRows (for workspace_control table), err is '%v'", err)
+		log.Println(err)
+		return 0, err
+	}
+	key := (*keys)[0]
+	// save the key in the context
+	(*ctx.sourceFileKeys)[ruleFileName] = key
+	return key, nil
+}
+
 func (ctx *writeWorkspaceContext)insertRows(datatableCtx *datatable.Context, data *[]map[string]interface{}, table string, workspace string, token *string) (returnedKeys *[]int, err error) {
 	// check if data has key 'source_file_name' and convert it into 'source_file_key'
 	if table != "workspace_control" {
@@ -278,17 +314,12 @@ func (ctx *writeWorkspaceContext)insertRows(datatableCtx *datatable.Context, dat
 				sourceFileName := s.(string)
 				skey := (*ctx.sourceFileKeys)[sourceFileName]
 				if skey == 0 {
-					keys, err2 := ctx.insertRows(datatableCtx, &[]map[string]interface{}{
-						{"source_file_name": sourceFileName, "is_main": false},
-					}, "workspace_control", workspace, token)
-					if keys == nil || err2 != nil {
-						err = fmt.Errorf("error: no keys or err returned from InsertRows in insertRows (for workspace_control table), err is '%v'", err2)
+					skey, err = ctx.insertRuleFileName(datatableCtx, sourceFileName, false, workspace, token)
+					if err != nil {
+						err = fmt.Errorf("while calling insertRuleFileName: %v", err)
 						log.Println(err)
 						return
 					}
-					skey = (*keys)[0]
-					// save the key in the context
-					(*ctx.sourceFileKeys)[sourceFileName] = skey
 				}
 				(*data)[i]["source_file_key"] = skey			
 			}
@@ -506,5 +537,68 @@ func (ctx *writeWorkspaceContext)WriteDomainTables(datatableCtx *datatable.Conte
 		log.Println(err)
 		return err
 	}
+	return nil
+}
+
+// WriteJetStoreConfig
+func (ctx *writeWorkspaceContext)WriteJetStoreConfig(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to jetstore_config
+	data := []map[string]interface{}{}
+	sourceFileName := ctx.model.JetstoreConfig["source_file_name"]
+	for k,v := range ctx.model.JetstoreConfig {
+		if strings.HasPrefix(k, "$") {
+			row := map[string]interface{}{}
+			row["config_key"] = k
+			row["config_value"] = v
+			row["source_file_name"] = sourceFileName
+			data = append(data, row)	
+		}
+	}
+	_, err := ctx.insertRows(datatableCtx, &data, "jetstore_config", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteJetStoreConfig writing jetstore_config: %v", err)
+		log.Println(err)
+		return err
+	}
+
+	return nil
+}
+
+// WriteRuleSequences
+func (ctx *writeWorkspaceContext)WriteRuleSequences(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to rule_sequences
+	returnedKeys, err := ctx.insertRows(datatableCtx, &ctx.model.RuleSequences, "rule_sequences", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteRuleSequences writing to rule_sequences, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+	for i := range ctx.model.RuleSequences {
+		ruleSequence := &ctx.model.RuleSequences[i]
+		(*ruleSequence)["db_key"] = (*returnedKeys)[i]
+	}
+
+	// write to main_rule_sets
+	data := []map[string]interface{}{}
+	for i := range ctx.model.RuleSequences {
+		ruleSequence := &ctx.model.RuleSequences[i]
+		for j, mainRuleSet := range (*ruleSequence)["main_rule_sets"].([]interface{}) {
+			row := map[string]interface{}{}
+			row["rule_sequence_key"] = (*ruleSequence)["db_key"]
+			row["main_ruleset_name"] = mainRuleSet
+			row["ruleset_file_key"] = (*ctx.sourceFileKeys)[mainRuleSet.(string)]
+			row["seq"] = j
+			data = append(data, row)
+
+		}
+	}
+	_, err = ctx.insertRows(datatableCtx, &data, "main_rule_sets", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteRuleSequences writing main_rule_sets: %v", err)
+		log.Println(err)
+		return err
+	}
+
+
 	return nil
 }

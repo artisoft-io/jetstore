@@ -273,5 +273,46 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 			ColumnKeys: []string{"domain_table_key","data_property_key","name","as_array"},
 		AdminOnly: false,
 	},
+	// JetStore Config
+	"WORKSPACE/jetstore_config": {
+		Stmt: `
+				INSERT INTO $SCHEMA.jetstore_config 
+				(config_key,config_value,source_file_key) 
+				VALUES ($1,$2,$3)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_jetstore_config_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"config_key","config_value","source_file_key"},
+		AdminOnly: false,
+	},
+	// Rule Sequences
+	"WORKSPACE/rule_sequences": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.rule_sequences 
+				(name,source_file_key) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_rule_sequences_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.rule_sequences 
+			WHERE name=$1`,
+			ColumnKeys: []string{"name","source_file_key"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/main_rule_sets": {
+		Stmt: `WITH e AS(
+				SELECT key FROM $SCHEMA.workspace_control 
+				WHERE source_file_name = $2
+			)
+			INSERT INTO $SCHEMA.main_rule_sets 
+			(rule_sequence_key,main_ruleset_name,ruleset_file_key,seq) 
+			VALUES ($1,$2,(SELECT e.key FROM e),$3)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_main_rule_sets_unique_cstraint
+			DO NOTHING`,
+			ColumnKeys: []string{"rule_sequence_key","main_ruleset_name","seq"},
+		AdminOnly: false,
+	},
 
 }

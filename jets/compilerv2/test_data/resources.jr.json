@@ -68,5 +68,6 @@
       "key": 303,
       "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
     }
-  ]
+  ],
+  "main_rule_file_name": "jet_rules/resources.jr"
 }

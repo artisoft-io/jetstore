@@ -71,3 +71,4 @@ jets/awssfntest/awssfntest
 cdk/jetstore_one/jetstore_one
 jets/compilerv2/compilerv2
 jets/compilerv2/gpi_interchange_main.jrcc.json
+jets/compilerv2/out.jrcc.json
