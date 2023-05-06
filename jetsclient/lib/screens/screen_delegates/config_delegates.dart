@@ -45,13 +45,6 @@ String? homeFormValidator(
       if (v != null) return null;
       return "Main input source row must be selected";
 
-    case DTKeys.fileKeyStagingForPipelineMainProcessInput:
-      if (v != null) return null;
-      return "File Key row must be selected";
-
-    // case DTKeys.fileKeyStagingForPipelineMergeProcessInput:
-    //   return null;
-
     case FSK.mainTableName:
     case DTKeys.mainProcessInputTable:
     case DTKeys.mergeProcessInputTable:

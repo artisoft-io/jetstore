@@ -2400,38 +2400,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 50,
   ),
 
-  //* TODO Remove this
-  // File Key Staging Table for Load & Start Pipeline Dialog (FormKeys.loadAndStartPipeline)
-  // for selecting FSK.mainInputFileKey
-  DTKeys.fileKeyStagingForPipelineMainProcessInput: TableConfig(
-    key: DTKeys.fileKeyStagingForPipelineMainProcessInput,
-    fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'file_key_staging'),
-      FromClause(schemaName: 'jetsapi', tableName: 'source_period'),
-    ],
-    label: 'Main Input Source - File Key Staging',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
-    whereClauses: [
-      WhereClause(column: "client", formStateKey: FSK.client),
-      WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
-      WhereClause(
-          column: "source_period_key", formStateKey: FSK.sourcePeriodKey),
-      WhereClause(column: "source_period_key", joinWith: "source_period.key"),
-    ],
-    actions: [],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(stateKey: FSK.org, columnIdx: 2),
-      DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.mainInputFileKey, columnIdx: 4),
-    ]),
-    columns: fileKeyStagingColumns,
-    sortColumnName: 'last_update',
-    sortAscending: false,
-    rowsPerPage: 10,
-  ),
-
   // Table to show the merge process_input of the selected pipeline above
   // this is informative to the user
   DTKeys.mergeProcessInputTable: TableConfig(
