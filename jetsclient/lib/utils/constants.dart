@@ -82,7 +82,6 @@ class FormKeys {
   // Pipeline Config & Exec Forms
   static const pipelineConfig = "pipelineConfigDialog";
   static const startPipeline = "startPipelineDialog";
-  static const loadAndStartPipeline = "loadAndStartPipelineDialog";
   // Process Errors Dialogs
   static const viewProcessErrors = "viewProcessErrorsForm";
   static const viewInputRecords = "viewInputRecordsDialog";
@@ -326,9 +325,6 @@ class DTKeys {
   static const mainProcessInputTable = "mainProcessInputTable";
   static const mergeProcessInputTable = "mergeProcessInputTable";
   static const injectedProcessInputTable = "injectedProcessInputTable";
-  static const fileKeyStagingForPipelineMainProcessInput =
-      "fileKeyStagingForPipelineMainProcessInput";
-  // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";
 
   // User administration
   static const usersTable = "userTable";
