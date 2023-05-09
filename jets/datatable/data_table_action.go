@@ -573,16 +573,30 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				loaderCommand = append(loaderCommand, "-loaderFailedMetric")
 				loaderCommand = append(loaderCommand, loaderFailedMetric)
 			}
+			var reportName string
+			if clientOrg.(string) != "" {
+				reportName = fmt.Sprintf("loader/client=%s/object_type=%s/org=%s", client.(string), objType.(string), clientOrg.(string))
+			} else {
+				reportName = fmt.Sprintf("loader/client=%s/object_type=%s", client.(string), objType.(string))
+			}
+			runReportsCommand := []string{
+				"-client", client.(string),
+				"-sessionId", sessionId.(string),
+				"-reportName", reportName,
+				"-filePath", fileKey.(string),
+			}
 			switch {
 			// Call loader synchronously
 			case ctx.DevMode:
 				if ctx.UsingSshTunnel {
 					loaderCommand = append(loaderCommand, "-usingSshTunnel")
+					runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
 				}
+				// Call loader synchronously
 				cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
-				var b bytes.Buffer
-				cmd.Stdout = &b
-				cmd.Stderr = &b
+				var b1 bytes.Buffer
+				cmd.Stdout = &b1
+				cmd.Stderr = &b1
 				log.Printf("Executing loader command '%v'", loaderCommand)
 				err = cmd.Run()
 				if err != nil {
@@ -590,7 +604,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					log.Println("LOADER CAPTURED OUTPUT BEGIN")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					b.WriteTo(os.Stdout)
+					b1.WriteTo(os.Stdout)
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					log.Println("LOADER CAPTURED OUTPUT END")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -601,17 +615,46 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				log.Println("============================")
 				log.Println("LOADER CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
-				b.WriteTo(os.Stdout)
+				b1.WriteTo(os.Stdout)
 				log.Println("============================")
 				log.Println("LOADER CAPTURED OUTPUT END")
 				log.Println("============================")
 
+				// Call run_report synchronously
+				cmd = exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
+				var b2 bytes.Buffer
+				cmd.Stdout = &b2
+				cmd.Stderr = &b2
+				log.Printf("Executing run_reports command '%v'", runReportsCommand)
+				err = cmd.Run()
+				if err != nil {
+					log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					b2.WriteTo(os.Stdout)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("REPORTS CAPTURED OUTPUT END")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while running run_reports command")
+					return
+				}
+				log.Println("============================")
+				log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("============================")
+				b2.WriteTo(os.Stdout)
+				log.Println("============================")
+				log.Println("REPORTS CAPTURED OUTPUT END")
+				log.Println("============================")
+
 			default:
 				// StartExecution load file
-				log.Printf("calling StartExecution loaderSM command: %s", loaderCommand)
+				log.Printf("calling StartExecution loaderSM loaderCommand: %s", loaderCommand)
 				name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"), 
 					map[string]interface{}{
 						"loaderCommand": loaderCommand,
+						"reportsCommand": runReportsCommand,
 					}, sessionId.(string))
 				if err != nil {
 					log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
@@ -666,6 +709,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while preparing argo/server command")
 				return
+			}
+			runReportsCommand := []string{
+				"-processName", processName.(string),
+				"-sessionId", sessionId.(string),
+				"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 			}
 			switch {
 			// Call server synchronously
@@ -722,6 +770,37 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					log.Println("============================")
 				}
 
+				// Call run_report synchronously
+				if ctx.UsingSshTunnel {
+					runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
+				}
+				cmd := exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
+				var b2 bytes.Buffer
+				cmd.Stdout = &b2
+				cmd.Stderr = &b2
+				log.Printf("Executing run_reports command '%v'", runReportsCommand)
+				err = cmd.Run()
+				if err != nil {
+					log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					b2.WriteTo(os.Stdout)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("REPORTS CAPTURED OUTPUT END")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while running run_reports command")
+					return
+				}
+				log.Println("============================")
+				log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("============================")
+				b2.WriteTo(os.Stdout)
+				log.Println("============================")
+				log.Println("REPORTS CAPTURED OUTPUT END")
+				log.Println("============================")
+
 			default:
 				// Invoke states to execute a process
 				// Rules Server arguments
@@ -746,11 +825,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				smInput := map[string]interface{}{
 					"serverCommands": serverCommands,
-					"reportsCommand": []string{
-						"-processName", processName.(string),
-						"-sessionId", sessionId.(string),
-						"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-					},
+					"reportsCommand": runReportsCommand,
 					"successUpdate": []string{
 						"-peKey", peKey,
 						"-status", "completed",

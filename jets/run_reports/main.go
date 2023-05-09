@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -25,6 +26,8 @@ import (
 // JETS_DSN_JSON_VALUE
 // WORKSPACES_HOME Home dir of workspaces
 // WORKSPACE Workspace currently in use
+// JETS_s3_INPUT_PREFIX Input file key prefix
+// JETS_s3_OUTPUT_PREFIX Output file key prefix
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
@@ -41,6 +44,20 @@ var sessionId        = flag.String("sessionId", "", "Process session ID. (requir
 var filePath         = flag.String("filePath", "", "File path for output files. (required)")
 var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
 var reportDefinitions string
+// NOTE 5/5/2023:
+// This run_reports utility is used by serverSM and loaderSM to run reports afer the server and the loader have executed
+// respectivelly. filePath correspond to the output directory where the report is written:
+//	- case server reports: filePath has JETS_s3_OUTPUT_PREFIX (writing to the s3 output folder)
+//	- case loader reports: filePath has JETS_s3_INPUT_PREFIX (writing to s3 input folder)
+// This allows the loader to process the data loaded on the staging table to be re-injected in the platform 
+// by writing back into the platform input folders, although using a different object_type in the output path
+type StringSubstitution struct {
+	Replace string `json:"replace"`
+	With    string `json:"with"`
+}
+type ReportDirectives struct {
+	FilePathSubstitution    []StringSubstitution      `json:"filePathSubstitution"`
+}	
 
 func coordinateWork() error {
 	// open db connection
@@ -58,7 +75,7 @@ func coordinateWork() error {
 	}
 	defer dbpool.Close()
 
-	// Get the report definitions based on processName
+	// Get the report definitions
 	file, err := os.Open(reportDefinitions)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -249,7 +266,38 @@ func main() {
 	if *reportName == "" {
 		*reportName = *processName
 	}
-	reportDefinitions = fmt.Sprintf("%s/%s/reports/%s.sql",wh,ws,*reportName)
+	if strings.HasPrefix(*reportName, "loader/") {
+		reportDefinitions = fmt.Sprintf("%s/%s/reports/%s/report.sql",wh,ws,*reportName)
+		// read the config file for file name replacement directives
+		// read json file
+		configFile := fmt.Sprintf("%s/%s/reports/%s/config.json",wh,ws,*reportName)
+		fmt.Println("*** read report config file:",configFile)
+		file, err := os.ReadFile(configFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Println("Warning report config.json does not exist, skipping")
+			} else {
+				hasErr = true
+				errMsg = append(errMsg, fmt.Sprintf("while reading report config.json:%v", err))		
+			}
+		} else {
+			// Un-marshal the reportDirectives
+			reportDirectives := &ReportDirectives{}
+			err = json.Unmarshal(file, reportDirectives)
+			if err != nil {
+				hasErr = true
+				errMsg = append(errMsg, fmt.Sprintf("Error while parsing report config.json: %v", err))
+			}
+			// The only report directive that we have:
+			for i := range reportDirectives.FilePathSubstitution {
+				*filePath = strings.ReplaceAll(*filePath, 
+					reportDirectives.FilePathSubstitution[i].Replace,
+					reportDirectives.FilePathSubstitution[i].With)
+			}
+		}	
+	} else {
+		reportDefinitions = fmt.Sprintf("%s/%s/reports/%s.sql",wh,ws,*reportName)
+	}
 	if reportDefinitions == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Error: can't determine the report definitions file.")
