@@ -197,22 +197,20 @@ func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
 			}
 			ipos += 1
 		}
-		// Check for any process that are ready to kick off if status == "completed" (i.e. no bad rows)
-		if status == "completed" {
-			context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)
-			token, err := user.CreateToken(*userEmail)
-			if err != nil {
-				return fmt.Errorf("error creating jwt token: %v", err)
-			}
-			context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{
-				Action: "register_keys",
-				Data: []map[string]interface{}{{
-					"input_registry_keys": inputRegistryKey,
-					"source_period_key": *sourcePeriodKey,
-					"file_key": *inFile,
-				}},
-			}, token)
+		// Check for any process that are ready to kick off
+		context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)
+		token, err := user.CreateToken(*userEmail)
+		if err != nil {
+			return fmt.Errorf("error creating jwt token: %v", err)
 		}
+		context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{
+			Action: "register_keys",
+			Data: []map[string]interface{}{{
+				"input_registry_keys": inputRegistryKey,
+				"source_period_key": *sourcePeriodKey,
+				"file_key": *inFile,
+			}},
+		}, token)
 	}
 	return nil
 }
