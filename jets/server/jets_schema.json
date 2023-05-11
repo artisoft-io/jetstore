@@ -709,6 +709,18 @@
         "isNotNull": true
       },
       {
+        "columnName": "devmode_code",
+        "dataType": "text",
+        "default": "'run_server_reports'",
+        "isNotNull": true
+      },
+      {
+        "columnName": "state_machine_name",
+        "dataType": "text",
+        "default": "'serverSM'",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_rules",
         "dataType": "text",
         "isNotNull": true

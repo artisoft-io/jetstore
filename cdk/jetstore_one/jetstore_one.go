@@ -681,6 +681,49 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		awscdk.Tags_Of(loaderSM).Add(descriptionTagName, jsii.String("State Machine to load data into JetStore Platform"), nil)
 	}
 
+	// JetStore Reports State Machine
+	// Run Reports Step Function ECS Task for reportsSM
+	// -----------------------------------------------
+	runReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-reports"), &sfntask.EcsRunTaskProps{
+		Comment:        jsii.String("Run Reports Task"),
+		Cluster:        ecsCluster,
+		Subnets:        isolatedSubnetSelection,
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: runreportTaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: runreportsContainerDef,
+				// Using same api as serverSM from apiserver point of view, taking reportsCommand, 
+				// other SM could use the serverCommand when in need of Map construct
+				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
+			},
+		},
+		ResultPath:         sfn.JsonPath_DISCARD(),
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+	})
+	runReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runReportsTask "))
+	// TODO add a catch on runReportsTask
+
+	// Reports State Machine - reportsSM
+	// --------------------------------
+	reportsSM := sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
+		StateMachineName: jsii.String("reportsSM"),
+		Definition:       runLoaderTask,
+		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
+	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(reportsSM).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(reportsSM).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(reportsSM).Add(descriptionTagName, jsii.String("State Machine to load data into JetStore Platform"), nil)
+	}
+
 	// JetStore Rule Server State Machine
 	// Define the serverTaskDefinition for the serverSM
 	// ------------------------------------------------
@@ -923,6 +966,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Resources: &[]*string{
 			loaderSM.StateMachineArn(),
 			serverSM.StateMachineArn(),
+			reportsSM.StateMachineArn(),
 		},
 	}))
 
