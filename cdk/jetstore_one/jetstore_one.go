@@ -711,7 +711,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// --------------------------------
 	reportsSM := sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("reportsSM"),
-		Definition:       runLoaderTask,
+		Definition:       runReportsTask,
 		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
 	})
 	if phiTagName != nil {
