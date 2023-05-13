@@ -105,11 +105,10 @@ var inputFileEncoding InputEncoding
 
 // Struct to hold column names and positions for fixed-width file encoding
 // ColumnsMap key is record type or empty string if single record type (RecordTypeColumn = nil)
-// In ColumnsMap elemens, ColumnName is <record type>.<record column name> to make it unique across record types
+// In ColumnsMap elements, ColumnName is <record type>.<record column name> to make it unique across record types
 // However RecordTypeColumn.ColumnName is <record column name> without prefix
 // Note that all record type MUST have RecordTypeColumn.ColumnName with same start and end position 
-// Additional Note: record type ending with a star (*) indicate to skip that record, those record type
-// are put in the SkipRecordTypeMap (without the star)
+// Any record having a unrecognized record type (ie not found in ColumnsMap) are ignored.
 type FixedWithColumn struct {
 	Start      int
 	End        int
@@ -120,7 +119,6 @@ type FixedWithEncodingInfo struct {
 	ColumnsMap         map[string]*[]*FixedWithColumn 
 	ColumnsOffsetMap   map[string]int
 	RecordTypeList     []string
-	SkipRecordTypeMap  map[string]bool
 }
 func (c *FixedWithColumn)String() string {
 	return fmt.Sprintf("Start: %d, End: %d, ColumnName: %s", c.Start, c.End, c.ColumnName)
@@ -287,7 +285,8 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 							recordType = strings.TrimSpace(line[s:e])
 						}
 					}
-					if fixedWitdthEncodingInfo.SkipRecordTypeMap[recordType] {
+					columnsInfo, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+					if !ok || columnsInfo == nil {
 						err = skipRecord
 						skippedRecordType = recordType
 					} else {
@@ -296,21 +295,15 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 							log.Printf("Bad fixed-width record: unknown record type '%s' at line %d", recordType, currentLineNumber)
 							err = badFixedWidthRecord
 						} else {
-							columnsInfo, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
-							if !ok || columnsInfo == nil {
-								log.Printf("Bad fixed-width record: unknown record type '%s' at line %d (column info is null)", recordType, currentLineNumber)
-								err = badFixedWidthRecord
-							} else {
-								for i := range *columnsInfo {
-									columnInfo := (*columnsInfo)[i]
-									if columnInfo.Start < ll && columnInfo.End <= ll {
-										record[recordTypeOffset + i] = strings.TrimSpace(line[columnInfo.Start:columnInfo.End])
-									}
-									if jetsDebug >= 2 {
-										fmt.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n",recordTypeOffset + i,record[recordTypeOffset + i],columnInfo.Start,columnInfo.End,recordType, recordTypeOffset)
-									}
+							for i := range *columnsInfo {
+								columnInfo := (*columnsInfo)[i]
+								if columnInfo.Start < ll && columnInfo.End <= ll {
+									record[recordTypeOffset + i] = strings.TrimSpace(line[columnInfo.Start:columnInfo.End])
 								}
-							}	
+								if jetsDebug >= 2 {
+									fmt.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n",recordTypeOffset + i,record[recordTypeOffset + i],columnInfo.Start,columnInfo.End,recordType, recordTypeOffset)
+								}
+							}
 						}	
 					}
 				}
@@ -466,7 +459,13 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 			return nil, 0, 0, errors.New("input csv file is empty")
 		} else if err != nil {
 			return nil, 0, 0, fmt.Errorf("while reading csv headers: %v", err)
-		}	
+		}
+		// Make sure we don't have empty names in rawHeaders
+		for i := range rawHeaders {
+			if rawHeaders[i] == "" {
+				rawHeaders[i] = "Filler"
+			}
+		}
 		fmt.Println("Got input columns (rawHeaders) from csv file:", rawHeaders)
 
 	case HeaderlessCsv:
@@ -522,7 +521,6 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 			ColumnsMap:         make(map[string]*[]*FixedWithColumn),
 			ColumnsOffsetMap:   make(map[string]int),
 			RecordTypeList:     make([]string, 0),
-			SkipRecordTypeMap:  make(map[string]bool),
 		}
 		// Map record's header names and positions
 		// Make an ordered list of record type to properly order the columns' grouping
@@ -547,35 +545,30 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 			if recordTypePos >= 0 {
 				recordType = headerInfo[recordTypePos]
 			}
-			// Check if recordType is a skip record
-			if strings.HasSuffix(recordType, "*") {
-				fixedWitdthEncodingInfo.SkipRecordTypeMap[strings.TrimSuffix(recordType, "*")] = true
-			} else {
-				if !seenRecordType[recordType] {
-					fixedWitdthEncodingInfo.RecordTypeList = append(fixedWitdthEncodingInfo.RecordTypeList, recordType)
-				}
-				seenRecordType[recordType] = true
-				fwColumn := &FixedWithColumn{
-					Start: startV,
-					End:   endV,
-				}
-				if recordTypePos >= 0 {
-					fwColumn.ColumnName = fmt.Sprintf("%s.%s", recordType, headerInfo[columnNamesPos])
-					if headerInfo[columnNamesPos] == recordTypeColumnName {
-						fixedWitdthEncodingInfo.RecordTypeColumn = fwColumn
-					}
-				} else {
-					fwColumn.ColumnName = headerInfo[columnNamesPos]
-				}
-				// Put the fwColumn into the info struct
-				fixedWidthColumnList := fixedWitdthEncodingInfo.ColumnsMap[recordType]
-				if fixedWidthColumnList == nil {
-					fixedWidthColumnList = &[]*FixedWithColumn{fwColumn}
-					fixedWitdthEncodingInfo.ColumnsMap[recordType] = fixedWidthColumnList
-				} else {
-					*fixedWidthColumnList = append(*fixedWidthColumnList, fwColumn)
-				}	
+			if !seenRecordType[recordType] {
+				fixedWitdthEncodingInfo.RecordTypeList = append(fixedWitdthEncodingInfo.RecordTypeList, recordType)
 			}
+			seenRecordType[recordType] = true
+			fwColumn := &FixedWithColumn{
+				Start: startV,
+				End:   endV,
+			}
+			if recordTypePos >= 0 {
+				fwColumn.ColumnName = fmt.Sprintf("%s.%s", recordType, headerInfo[columnNamesPos])
+				if headerInfo[columnNamesPos] == recordTypeColumnName {
+					fixedWitdthEncodingInfo.RecordTypeColumn = fwColumn
+				}
+			} else {
+				fwColumn.ColumnName = headerInfo[columnNamesPos]
+			}
+			// Put the fwColumn into the info struct
+			fixedWidthColumnList := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+			if fixedWidthColumnList == nil {
+				fixedWidthColumnList = &[]*FixedWithColumn{fwColumn}
+				fixedWitdthEncodingInfo.ColumnsMap[recordType] = fixedWidthColumnList
+			} else {
+				*fixedWidthColumnList = append(*fixedWidthColumnList, fwColumn)
+			}	
 		}
 		// Make the rawHeaders list from the fixedWitdthEncodingInfo
 		rawHeaders = make([]string, 0)
@@ -665,7 +658,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 	// ---------------------------------------
 	copyCount, badRowsPosPtr, err := writeFile2DB(dbpool, headersDKInfo, csvReader, fwScanner)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("while writing in_file %s to database: %v", *inFile, err)
+		return nil, 0, 0, err
 	}
 	badRowsPos := *badRowsPosPtr
 
