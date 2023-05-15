@@ -314,5 +314,55 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 			ColumnKeys: []string{"rule_sequence_key","main_ruleset_name","seq"},
 		AdminOnly: false,
 	},
+	// Lookup Tables
+	"WORKSPACE/lookup_tables": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.lookup_tables 
+				(name,table_name,csv_file,lookup_key,lookup_resources,source_file_key) 
+				VALUES ($1,$2,$3,$4,$5,$6)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_lookup_tables_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.lookup_tables 
+			WHERE name=$1`,
+			ColumnKeys: []string{"name","table_name","csv_file","lookup_key","lookup_resources","source_file_key"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/lookup_columns": {
+		Stmt: `
+				INSERT INTO $SCHEMA.lookup_columns 
+				(lookup_table_key,name,type,as_array) 
+				VALUES ($1,$2,$3,$4)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_lookup_columns_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"lookup_table_key","name","type","as_array"},
+		AdminOnly: false,
+	},
+	// Expressions
+	"WORKSPACE/expressions": {
+		// Stmt: `
+		// 	INSERT INTO $SCHEMA.expressions 
+		// 	(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op) 
+		// 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		// 	RETURNING key`,
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.expressions 
+			(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op) 
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_expressions_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.expressions
+		WHERE type=$1 AND arg0_key=$2 AND arg1_key=$3 AND arg2_key=$4 AND arg3_key=$5 AND arg4_key=$6 AND arg5_key=$7 AND op=$8`,
+
+			ColumnKeys: []string{"type", "arg0_key", "arg1_key", "arg2_key", "arg3_key", "arg4_key", "arg5_key", "op"},
+		AdminOnly: false,
+	},
 
 }
