@@ -48,6 +48,8 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.DoReadAction(&dataTableAction)
 	case "preview_file":
 		results, code, err = context.DoPreviewFileAction(&dataTableAction)
+	case "drop_table":
+		results, code, err = context.DropTable(&dataTableAction)
 	default:
 		code = http.StatusUnprocessableEntity
 		err = fmt.Errorf("unknown action: %v", dataTableAction.Action)
