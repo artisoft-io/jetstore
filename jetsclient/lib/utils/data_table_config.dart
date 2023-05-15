@@ -1539,6 +1539,14 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.inputColumnsJson: 8,
             FSK.inputColumnsPositionsCsv: 9,
           }),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          actionName: ActionKeys.dropTable,
+          key: 'dropStagingTable',
+          label: 'Drop Staging Table',
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          style: ActionStyle.secondary),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(

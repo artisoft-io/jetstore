@@ -240,6 +240,7 @@ class ActionKeys {
 
   // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
+  static const dropTable = "dropTable";
 
   // for load file
   static const loaderOk = "loader.ok";

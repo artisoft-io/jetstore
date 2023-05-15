@@ -370,6 +370,25 @@ Future<String?> sourceConfigActions(BuildContext context,
           context, formState, ServerEPs.registerFileKeyEP, encodedJsonBody);
       break;
 
+    // Drop staging table
+    case ActionKeys.dropTable:
+      // No form validation since does not use widgets
+      // var valid = formKey.currentState!.validate();
+      // if (!valid) {
+      //   return;
+      // }
+      var state = formState.getState(0);
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'drop_table',
+        'data': [{
+          'schemaName': 'public',
+          'tableName': state[FSK.tableName][0],
+        }],
+      }, toEncodable: (_) => '');
+      postSimpleAction(
+          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      break;
+
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
       break;
@@ -1184,11 +1203,13 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       // same pattern for merged_process_input_keys
       var mergedProcessInputKeys =
           formState.getValue(0, FSK.mergedProcessInputKeys);
-      updateState[FSK.mergedProcessInputKeys] = makePgArray(mergedProcessInputKeys);
+      updateState[FSK.mergedProcessInputKeys] =
+          makePgArray(mergedProcessInputKeys);
       // same pattern for injected_process_input_keys
       var injectedProcessInputKeys =
           formState.getValue(0, FSK.injectedProcessInputKeys);
-      updateState[FSK.injectedProcessInputKeys] = makePgArray(injectedProcessInputKeys);
+      updateState[FSK.injectedProcessInputKeys] =
+          makePgArray(injectedProcessInputKeys);
       updateState[FSK.automated] = formState.getValue(0, FSK.automated);
       updateState[FSK.description] = formState.getValue(0, FSK.description);
       updateState[FSK.userEmail] = JetsRouterDelegate().user.email;

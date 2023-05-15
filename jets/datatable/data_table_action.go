@@ -1099,6 +1099,35 @@ func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[
 	return &results, http.StatusOK, nil
 }
 
+// DropTable ------------------------------------------------------
+// These are queries to load reference data for widget, e.g. dropdown list of items
+func (ctx *Context) DropTable(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+	for ipos := range dataTableAction.Data {
+		tableName := dataTableAction.Data[ipos]["tableName"]
+		schemaName := dataTableAction.Data[ipos]["schemaName"]
+		if tableName == nil {
+			httpStatus = http.StatusBadRequest
+			err = fmt.Errorf("error: tableName argument is not provided")
+			return
+		}
+		var stmt string
+		if schemaName != nil {
+			stmt = fmt.Sprintf(`DROP TABLE "%s"."%s"`, schemaName.(string), tableName.(string))
+		} else {
+			stmt = fmt.Sprintf(`DROP TABLE public."%s"`, tableName.(string))
+		}
+		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
+		if err != nil && !strings.Contains(err.Error(), "does not exist") {
+			httpStatus = http.StatusBadRequest
+			return
+		}
+	}
+
+	results = &map[string]interface{}{}
+	httpStatus = http.StatusOK
+	return
+}
+
 // func (ctx *Context) readLocalFiles(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
 // 	fileSystem := os.DirFS(*ctx.unitTestDir)
 // 	dirData := make([]map[string]string, 0)
