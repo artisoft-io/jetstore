@@ -56,20 +56,22 @@ type ResourceNode struct {
 }
 
 type LookupTableNode struct {
-  Columns          []LookupColumnNode `json:"columns"`
-  CsvFile          string             `json:"csv_file"`
-  Key              []string           `json:"key"`
-  Name             string             `json:"name"`
-  Resources        []string           `json:"resources"`
-  SourceFileName   string             `json:"source_file_name"`
-  Type             string             `json:"type"`
+  Columns          []map[string]interface{} `json:"columns"`
+  CsvFile          string                   `json:"csv_file"`
+  Key              []string                 `json:"key"`
+  Name             string                   `json:"name"`
+  Resources        []string                 `json:"resources"`
+  SourceFileName   string                   `json:"source_file_name"`
+  Type             string                   `json:"type"`
+	DbKey            int                      `json:"db_key"` 
 }
 
-type LookupColumnNode struct {
-	Type     string `json:"type"`
-	Name     string `json:"name"`
-	AsArray  bool   `json:"as_array"`	
-}
+// LookupTableNode.Columns
+// type LookupColumnNode struct {
+// 	Type     string `json:"type"`
+// 	Name     string `json:"name"`
+// 	AsArray  bool   `json:"as_array"`	
+// }
 
 type JetruleNode struct {
 	Name          string            `json:"name"`	
@@ -86,24 +88,25 @@ type JetruleNode struct {
 
 // RulTerm type is either antecedent or consequent
 type RuleTerm struct {
-	Type                string        `json:"type"`	
-	IsNot               bool          `json:"isNot"`
-	NormalizedLabel     string        `json:"normalizedLabel"`
-	Vertex              int           `json:"vertex"`
-	ParentVertex        int           `json:"parent_vertex"`
-	BetaRelationVars    []string      `json:"beta_relation_vars"`
-	PrunedVars          []string      `json:"pruned_var"`
-	BetaVarNodes	      []BetaVarNode `json:"beta_var_nodes"`
-	ChildrenVertexes    []int         `json:"children_vertexes"`
-	Rules               []string      `json:"rules"`
-	Salience            []int         `json:"salience"`
-	ConsequentSeq       int           `json:"consequent_seq"`             
-	ConsequentForRule   string        `json:"consequent_for_rule"`                  
-	ConsequentSalience  int           `json:"consequent_salience"`                  
-	SubjectKey          int           `json:"subject_key"`          
-	PredicateKey        int           `json:"predicate_key"`            
-	ObjectKey	          int           `json:"object_key"`
-	ObjectExpr          ObjExprNode   `json:"obj_expr"`
+	Type                string                  `json:"type"`	
+	IsNot               bool                    `json:"isNot"`
+	NormalizedLabel     string                  `json:"normalizedLabel"`
+	Vertex              int                     `json:"vertex"`
+	ParentVertex        int                     `json:"parent_vertex"`
+	BetaRelationVars    []string                `json:"beta_relation_vars"`
+	PrunedVars          []string                `json:"pruned_var"`
+	BetaVarNodes	      []BetaVarNode           `json:"beta_var_nodes"`
+	ChildrenVertexes    []int                   `json:"children_vertexes"`
+	Rules               []string                `json:"rules"`
+	Salience            []int                   `json:"salience"`
+	ConsequentSeq       int                     `json:"consequent_seq"`             
+	ConsequentForRule   string                  `json:"consequent_for_rule"`                  
+	ConsequentSalience  int                     `json:"consequent_salience"`                  
+	SubjectKey          int                     `json:"subject_key"`          
+	PredicateKey        int                     `json:"predicate_key"`            
+	ObjectKey	          int                     `json:"object_key"`
+	ObjectExpr          map[string]interface{}  `json:"obj_expr"`
+	Filter              map[string]interface{}  `json:"filter"`
 }
 
 type BetaVarNode struct {
@@ -146,13 +149,14 @@ type BetaVarNode struct {
 // 	ObjectExpr         ObjExprNode  `json:"obj_expr"`
 // }
 
-type ObjExprNode struct {
-	Type string      `json:"type"`
-	Lhs  interface{} `json:"lhs"`
-	Op   string      `json:"op"`
-	Rhs  interface{} `json:"rhs"`
-	Arg  interface{} `json:"arg"`
-}
+// type ObjExprNode struct {
+// 	Type           string              `json:"type"`
+// 	Lhs            interface{}         `json:"lhs"`
+// 	Op             string              `json:"op"`
+// 	Rhs            interface{}         `json:"rhs"`
+// 	Arg            interface{}         `json:"arg"`
+// 	DbKey          int                 `json:"db_key"` 
+// }
 
 type ClassNode struct {
 	Type           string              `json:"type"`
@@ -204,9 +208,11 @@ func CompileJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAc
 // local context for writing domain model, used within WriteJetrule
 type writeWorkspaceContext struct {
 	model *JetruleModel
-	sourceFileKeys *map[string]int
-	domainClassMap map[string]*ClassNode
+	sourceFileKeys  *map[string]int
+	domainClassMap  map[string]*ClassNode
 	dataPropertyMap map[string]*DataPropertyNode
+	// Map[ResourceNode.Key] -> ResourceNode.DbKey
+	resourcesMap    map[int]int
 }
 // Persist Jetrule json structure to database
 func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAction, token string) (*map[string]interface{}, int, error) {
@@ -221,6 +227,7 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		sourceFileKeys: &map[string]int{},
 		domainClassMap: map[string]*ClassNode{},
 		dataPropertyMap: map[string]*DataPropertyNode{},
+		resourcesMap: map[int]int{},
 	}
 
 	log.Println("ReadFile:",compileJetruleAction.JetruleFile)
@@ -247,7 +254,11 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	// Persist the Resources
 	if len(writeWorkspaceCtx.model.Resources) > 0 {
 		log.Println("Writing Resources")
-		writeWorkspaceCtx.WriteResources(datatableCtx, compileJetruleAction.Workspace, &token)	
+		err = writeWorkspaceCtx.WriteResources(datatableCtx, compileJetruleAction.Workspace, &token)	
+		if err != nil {
+			log.Printf("while WriteResources:%v\n",err)
+			return &map[string]interface{}{}, http.StatusBadRequest,err		
+		}
 	}
 
 	// Persist the Classes & Tables
@@ -258,23 +269,59 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 			writeWorkspaceCtx.domainClassMap[cls.Name] = cls
 		}
 		log.Println("Writing Domain Classes")
-		writeWorkspaceCtx.WriteDomainClasses(datatableCtx, compileJetruleAction.Workspace, &token)
+		err = writeWorkspaceCtx.WriteDomainClasses(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteDomainClasses:%v\n",err)
+			return &map[string]interface{}{}, http.StatusBadRequest,err		
+		}
 	}
 	if len(writeWorkspaceCtx.model.Tables) > 0 {
 		log.Println("Writing Domain Tables")
-		writeWorkspaceCtx.WriteDomainTables(datatableCtx, compileJetruleAction.Workspace, &token)
+		err = writeWorkspaceCtx.WriteDomainTables(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteDomainTables:%v\n",err)
+			return &map[string]interface{}{}, http.StatusBadRequest,err		
+		}
 	}
 
 	// Persist the JetStore Config
 	if writeWorkspaceCtx.model.JetstoreConfig != nil {
 		log.Println("Writing JetStore Config")
-		writeWorkspaceCtx.WriteJetStoreConfig(datatableCtx, compileJetruleAction.Workspace, &token)
+		err = writeWorkspaceCtx.WriteJetStoreConfig(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteJetStoreConfig:%v\n",err)
+			return &map[string]interface{}{}, http.StatusBadRequest,err		
+		}
 	}
 
 	// Persist Rule Sequences
 	if writeWorkspaceCtx.model.RuleSequences != nil {
 		log.Println("Writing Rule Sequences")
-		writeWorkspaceCtx.WriteRuleSequences(datatableCtx, compileJetruleAction.Workspace, &token)
+		err = writeWorkspaceCtx.WriteRuleSequences(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteRuleSequences:%v\n",err)
+			return &map[string]interface{}{}, http.StatusBadRequest,err		
+		}
+	}
+
+	// Persist Lookup Tables
+	if writeWorkspaceCtx.model.LookupTables != nil {
+		log.Println("Writing Lookup Tables")
+		err = writeWorkspaceCtx.WriteLookupTables(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteLookupTables:%v\n",err)
+			return &map[string]interface{}{}, http.StatusBadRequest,err		
+		}
+	}
+
+	// Persist Expressions
+	if writeWorkspaceCtx.model.ReteNodes != nil {
+		log.Println("Writing Expressions")
+		err = writeWorkspaceCtx.WriteExpr(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteExpr:%v\n",err)
+			return &map[string]interface{}{}, http.StatusBadRequest,err		
+		}
 	}
 
 	//* DEV
@@ -380,6 +427,7 @@ func (ctx *writeWorkspaceContext)WriteResources(datatableCtx *datatable.Context,
 	for i := range ctx.model.Resources {
 		r := &ctx.model.Resources[i]
 		r.DbKey = (*returnedKeys)[i]
+		ctx.resourcesMap[r.Key] = r.DbKey
 	}
 
 	return nil
@@ -599,6 +647,140 @@ func (ctx *writeWorkspaceContext)WriteRuleSequences(datatableCtx *datatable.Cont
 		return err
 	}
 
+	return nil
+}
+
+// WriteLookupTables
+func (ctx *writeWorkspaceContext)WriteLookupTables(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to lookup_tables
+	data := []map[string]interface{}{}
+	for i := range ctx.model.LookupTables {
+		v := &ctx.model.LookupTables[i]
+		err := appendDataRow(v, &data)
+		if err != nil {
+			return err
+		}
+	}
+	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "lookup_tables", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteLookupTables writing to lookup_tables, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+	for i := range ctx.model.LookupTables {
+		r := &ctx.model.LookupTables[i]
+		r.DbKey = (*returnedKeys)[i]
+	}
+
+	// write to lookup_columns
+	data = data[:0]
+	for i := range ctx.model.LookupTables {
+		lookupTable := &ctx.model.LookupTables[i]
+		for j := range lookupTable.Columns {
+			row := &lookupTable.Columns[j]
+			(*row)["lookup_table_key"] = lookupTable.DbKey
+			data = append(data, *row)
+		}
+	}
+	_, err = ctx.insertRows(datatableCtx, &data, "lookup_columns", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteLookupTables writing lookup_columns: %v", err)
+		log.Println(err)
+		return err
+	}
+
+	return nil
+}
+
+func (ctx *writeWorkspaceContext)expr2Key(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
+	if expr == nil {
+		return 0, fmt.Errorf("error, nil expr argument to expr2Key")
+	}
+	switch vv := (*expr).(type) {
+	case int, float64:
+	case map[string]interface{}:
+		// expr as map[string]interface{}
+		switch vv["type"] {
+		case "binary":
+			var lhs, rhs interface{}
+			var err error
+			lhs = vv["lhs"]
+			vv["arg0_key"], err = ctx.expr2Key(datatableCtx, &lhs, workspace, token)
+			if err != nil {
+				return 0, err
+			}		
+			rhs = vv["rhs"]
+			vv["arg1_key"], err = ctx.expr2Key(datatableCtx, &rhs, workspace, token)
+			if err != nil {
+				return 0, err
+			}
+		case "unary":
+			var arg interface{}
+			var err error
+			arg = vv["arg"]
+			vv["arg0_key"], err = ctx.expr2Key(datatableCtx, &arg, workspace, token)
+			if err != nil {
+				return 0, err
+			}
+		}
+	default:
+		return 0, fmt.Errorf("error, unknown type for expr in expr2Key:%v, type %T", vv,vv)
+	}
+	return ctx.persistExpr(datatableCtx, expr, workspace, token)
+}
+
+func (ctx *writeWorkspaceContext)persistExpr(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
+	if expr == nil {
+		return 0, fmt.Errorf("error, nil expr argument to persistExpr")
+	}
+	data := []map[string]interface{}{}
+	switch vv := (*expr).(type) {
+	case int:
+		// convert the resource key into the db_key
+		data = append(data, map[string]interface{}{
+			"type": "resource",
+			"arg0_key": ctx.resourcesMap[vv], // the resource db_key
+		})
+	case float64:
+		// convert the resource key into the db_key
+		data = append(data, map[string]interface{}{
+			"type": "resource",
+			"arg0_key": ctx.resourcesMap[int(vv)], // the resource db_key
+		})
+	case map[string]interface{}:
+		data = append(data, vv)
+	}
+	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "expressions", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in persistExpr writing to expressions, err is '%v'", err)
+		log.Println(err)
+		return 0, err
+	}
+	return (*returnedKeys)[0], nil
+}
+
+// WriteExpr
+func (ctx *writeWorkspaceContext)WriteExpr(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to expressions
+	var err error
+	var expr interface{}
+	for i := range ctx.model.ReteNodes {
+		v := &ctx.model.ReteNodes[i]
+		if v.Filter != nil {
+			expr = v.Filter
+			v.Filter["db_key"], err = ctx.expr2Key(datatableCtx, &expr, workspace, token)
+			if err != nil {
+				return err
+			}
+		}
+		if v.ObjectExpr != nil {
+			expr = v.ObjectExpr
+			v.ObjectExpr["db_key"], err = ctx.expr2Key(datatableCtx, &expr, workspace, token)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }

@@ -569,11 +569,12 @@
       {
         "columnName": "op",
         "dataType": "text"
-      },
+      }
+    ],
+    "tableConstraints": [
       {
-        "columnName": "source_file_key",
-        "dataType": "int",
-        "isNotNull": true
+        "name": "$SCHEMA_expressions_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_expressions_unique_cstraint UNIQUE (type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op)"
       }
     ]
   },
