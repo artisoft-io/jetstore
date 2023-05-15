@@ -54,6 +54,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.7
 	github.com/aws/aws-sdk-go-v2/service/sfn v1.16.1
 	github.com/badoux/checkmail v1.2.1
+	github.com/dimchansky/utfbom v1.1.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect

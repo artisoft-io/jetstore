@@ -27,6 +27,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/dimchansky/utfbom"
 )
 
 // Command Line Arguments
@@ -433,14 +434,22 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 		}
 		fmt.Println("Got argument: sep_flag", sep_flag)	
 
+		// Remove the Byte Order Mark (BOM) at beggining of the file if present
+		sr, enc := utfbom.Skip(fileHd)
+		fmt.Printf("Detected encoding: %s\n", enc)
+
 		// Setup a csv reader
-		csvReader = csv.NewReader(fileHd)
+		csvReader = csv.NewReader(sr)
 		csvReader.Comma = rune(sep_flag)
 		csvReader.ReuseRecord = true
 
 	case FixedWith:
+		// Remove the Byte Order Mark (BOM) at beggining of the file if present
+		sr, enc := utfbom.Skip(fileHd)
+		fmt.Printf("Detected encoding: %s\n", enc)
+
 		// Setup a fixed-width reader
-		fwScanner = bufio.NewScanner(fileHd)
+		fwScanner = bufio.NewScanner(sr)
 	}
 
 	// Setup a writer for error file (bad records)
