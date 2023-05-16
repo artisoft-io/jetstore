@@ -16,111 +16,112 @@ import (
 )
 
 type CompileJetruleAction struct {
-	Action        string                   `json:"action"`
-	JetruleFile   string                   `json:"jetruleFile"`
-	UserEmail     string                   `json:"userEmail"`
-	Workspace     string                   `json:"workspace"`
-	DropTables    bool                     `json:"drop_tables"`
-	UpdateSchema  bool                     `json:"update_schema"`
-	Data          []map[string]interface{} `json:"data"`
+	Action       string                   `json:"action"`
+	JetruleFile  string                   `json:"jetruleFile"`
+	UserEmail    string                   `json:"userEmail"`
+	Workspace    string                   `json:"workspace"`
+	DropTables   bool                     `json:"drop_tables"`
+	UpdateSchema bool                     `json:"update_schema"`
+	Data         []map[string]interface{} `json:"data"`
 }
 
 // Jetrule Domain Model
 type JetruleModel struct {
-	MainRuleFileName     string                    `json:"main_rule_file_name"`
-	SupportRuleFileNames [] string                 `json:"support_rule_file_names"`
-	Resources            []ResourceNode            `json:"resources"`
-	LookupTables         []LookupTableNode         `json:"lookup_tables"`
-	Jetrules             []JetruleNode             `json:"jet_rules"`
-	ReteNodes            []RuleTerm                `json:"rete_nodes"`
-	Imports              map[string][]string       `json:"imports"`
-  JetstoreConfig       map[string]string         `json:"jetstore_config"`
-  RuleSequences        []map[string]interface{}  `json:"rule_sequences"`
-	Classes              []ClassNode               `json:"classes"`
-	Tables               []TableNode               `json:"tables"`
-	Triples              []TripleNode              `json:"triples"`
-} 
+	MainRuleFileName     string                   `json:"main_rule_file_name"`
+	SupportRuleFileNames []string                 `json:"support_rule_file_names"`
+	Resources            []ResourceNode           `json:"resources"`
+	LookupTables         []LookupTableNode        `json:"lookup_tables"`
+	Jetrules             []JetruleNode            `json:"jet_rules"`
+	ReteNodes            []RuleTerm               `json:"rete_nodes"`
+	Imports              map[string][]string      `json:"imports"`
+	JetstoreConfig       map[string]string        `json:"jetstore_config"`
+	RuleSequences        []map[string]interface{} `json:"rule_sequences"`
+	Classes              []ClassNode              `json:"classes"`
+	Tables               []TableNode              `json:"tables"`
+	Triples              []TripleNode             `json:"triples"`
+}
 
 type ResourceNode struct {
-	Id                string  `json:"id"`
-	Inline            bool    `json:"inline"`        
-	IsAntecedent      bool    `json:"is_antecedent"` 
-	IsBinded          bool    `json:"is_binded"`     
-	Key               int     `json:"key"` 
-	DbKey             int     `json:"db_key"` 
-	SourceFileName    string  `json:"source_file_name"`
-	Type              string  `json:"type"`
-	Value             string  `json:"value"` 
-	VarPos            int     `json:"var_pos"`
-	Vertex            int     `json:"vertex"`
+	Id             string `json:"id"`
+	Inline         bool   `json:"inline"`
+	IsAntecedent   bool   `json:"is_antecedent"`
+	IsBinded       bool   `json:"is_binded"`
+	Key            int    `json:"key"`
+	DbKey          int    `json:"db_key"`
+	SourceFileName string `json:"source_file_name"`
+	Type           string `json:"type"`
+	Value          string `json:"value"`
+	VarPos         int    `json:"var_pos"`
+	Vertex         int    `json:"vertex"`
 }
 
 type LookupTableNode struct {
-  Columns          []map[string]interface{} `json:"columns"`
-  CsvFile          string                   `json:"csv_file"`
-  Key              []string                 `json:"key"`
-  Name             string                   `json:"name"`
-  Resources        []string                 `json:"resources"`
-  SourceFileName   string                   `json:"source_file_name"`
-  Type             string                   `json:"type"`
-	DbKey            int                      `json:"db_key"` 
+	Columns        []map[string]interface{} `json:"columns"`
+	CsvFile        string                   `json:"csv_file"`
+	Key            []string                 `json:"key"`
+	Name           string                   `json:"name"`
+	Resources      []string                 `json:"resources"`
+	SourceFileName string                   `json:"source_file_name"`
+	Type           string                   `json:"type"`
+	DbKey          int                      `json:"db_key"`
 }
 
 // LookupTableNode.Columns
 // type LookupColumnNode struct {
 // 	Type     string `json:"type"`
 // 	Name     string `json:"name"`
-// 	AsArray  bool   `json:"as_array"`	
+// 	AsArray  bool   `json:"as_array"`
 // }
 
 type JetruleNode struct {
-	Name          string            `json:"name"`	
-	Properties    map[string]string `json:"properties"`
-	Optimization  bool              `json:"optimization"`
-	Salience      int               `json:"salience"`
-	Antecedents   []RuleTerm        `json:"antecedents"`
-	Consequents   []RuleTerm        `json:"consequents"`
-	AuthoredLabel    string         `json:"authoredLabel"`        
-	SourceFileName   string         `json:"source_file_name"`         
-	NormalizedLabel  string         `json:"normalizedLabel"`          
-	Label	           string         `json:"label"` 
+	Name            string            `json:"name"`
+	Properties      map[string]string `json:"properties"`
+	Optimization    bool              `json:"optimization"`
+	Salience        int               `json:"salience"`
+	Antecedents     []RuleTerm        `json:"antecedents"`
+	Consequents     []RuleTerm        `json:"consequents"`
+	AuthoredLabel   string            `json:"authoredLabel"`
+	SourceFileName  string            `json:"source_file_name"`
+	NormalizedLabel string            `json:"normalizedLabel"`
+	Label           string            `json:"label"`
 }
 
 // RulTerm type is either antecedent or consequent
 type RuleTerm struct {
-	Type                string                  `json:"type"`	
-	IsNot               bool                    `json:"isNot"`
-	NormalizedLabel     string                  `json:"normalizedLabel"`
-	Vertex              int                     `json:"vertex"`
-	ParentVertex        int                     `json:"parent_vertex"`
-	BetaRelationVars    []string                `json:"beta_relation_vars"`
-	PrunedVars          []string                `json:"pruned_var"`
-	BetaVarNodes	      []BetaVarNode           `json:"beta_var_nodes"`
-	ChildrenVertexes    []int                   `json:"children_vertexes"`
-	Rules               []string                `json:"rules"`
-	Salience            []int                   `json:"salience"`
-	ConsequentSeq       int                     `json:"consequent_seq"`             
-	ConsequentForRule   string                  `json:"consequent_for_rule"`                  
-	ConsequentSalience  int                     `json:"consequent_salience"`                  
-	SubjectKey          int                     `json:"subject_key"`          
-	PredicateKey        int                     `json:"predicate_key"`            
-	ObjectKey	          int                     `json:"object_key"`
-	ObjectExpr          map[string]interface{}  `json:"obj_expr"`
-	Filter              map[string]interface{}  `json:"filter"`
+	Type               string                 `json:"type"`
+	IsNot              bool                   `json:"isNot"`
+	NormalizedLabel    string                 `json:"normalizedLabel"`
+	Vertex             int                    `json:"vertex"`
+	ParentVertex       int                    `json:"parent_vertex"`
+	BetaRelationVars   []string               `json:"beta_relation_vars"`
+	PrunedVars         []string               `json:"pruned_var"`
+	BetaVarNodes       []BetaVarNode          `json:"beta_var_nodes"`
+	ChildrenVertexes   []int                  `json:"children_vertexes"`
+	Rules              []string               `json:"rules"`
+	Salience           []int                  `json:"salience"`
+	ConsequentSeq      int                    `json:"consequent_seq"`
+	ConsequentForRule  string                 `json:"consequent_for_rule"`
+	ConsequentSalience int                    `json:"consequent_salience"`
+	SubjectKey         int                    `json:"subject_key"`
+	PredicateKey       int                    `json:"predicate_key"`
+	ObjectKey          int                    `json:"object_key"`
+	ObjectExpr         map[string]interface{} `json:"obj_expr"`
+	Filter             map[string]interface{} `json:"filter"`
+	DbKey              int                    `json:"db_key"`
 }
 
 type BetaVarNode struct {
-	Type           string `json:"type"`       
-	Id             string `json:"id"`       
-	IsBinded       bool   `json:"is_binded"`     
-	VarPos         int    `json:"var_pos"`    
-	Vertex         int    `json:"vertex"`    
-	Key            int    `json:"key"`    
-	SourceFileName string `json:"source_file_name"`       
+	Type           string    `json:"type"`
+	Id             string    `json:"id"`
+	IsBinded       bool      `json:"is_binded"`
+	VarPos         int       `json:"var_pos"`
+	Vertex         int       `json:"vertex"`
+	SourceFileName string    `json:"source_file_name"`
+	DbKey          int       `json:"db_key"`
 }
 
 // type Antecedent struct {
-// 	Type                string        `json:"type"`	
+// 	Type                string        `json:"type"`
 // 	IsNot               bool          `json:"isNot"`
 // 	NormalizedLabel     string        `json:"normalizedLabel"`
 // 	Vertex              int           `json:"vertex"`
@@ -131,20 +132,20 @@ type BetaVarNode struct {
 // 	ChildrenVertexes    []int         `json:"children_vertexes"`
 // 	Rules               []string      `json:"rules"`
 // 	Salience            []int         `json:"salience"`
-// 	SubjectKey          int           `json:"subject_key"`          
-// 	PredicateKey        int           `json:"predicate_key"`            
+// 	SubjectKey          int           `json:"subject_key"`
+// 	PredicateKey        int           `json:"predicate_key"`
 // 	ObjectKey	          int           `json:"object_key"`
 // }
 
 // type Consequent struct {
-// 	Type               string `json:"type"`   
-// 	NormalizedLabel    string `json:"normalizedLabel"`              
-// 	Vertex             int    `json:"vertex"`     
-// 	ConsequentSeq      int    `json:"consequent_seq"`             
-// 	ConsequentForRule  string `json:"consequent_for_rule"`                  
-// 	ConsequentSalience int    `json:"consequent_salience"`                  
-// 	SubjectKey         int    `json:"subject_key"`          
-// 	PredicateKey       int    `json:"predicate_key"`            
+// 	Type               string `json:"type"`
+// 	NormalizedLabel    string `json:"normalizedLabel"`
+// 	Vertex             int    `json:"vertex"`
+// 	ConsequentSeq      int    `json:"consequent_seq"`
+// 	ConsequentForRule  string `json:"consequent_for_rule"`
+// 	ConsequentSalience int    `json:"consequent_salience"`
+// 	SubjectKey         int    `json:"subject_key"`
+// 	PredicateKey       int    `json:"predicate_key"`
 // 	ObjectKey	         int    `json:"object_key"`
 // 	ObjectExpr         ObjExprNode  `json:"obj_expr"`
 // }
@@ -155,51 +156,50 @@ type BetaVarNode struct {
 // 	Op             string              `json:"op"`
 // 	Rhs            interface{}         `json:"rhs"`
 // 	Arg            interface{}         `json:"arg"`
-// 	DbKey          int                 `json:"db_key"` 
+// 	DbKey          int                 `json:"db_key"`
 // }
 
 type ClassNode struct {
-	Type           string              `json:"type"`
-	Name           string              `json:"name"`
-	BaseClasses    []string            `json:"base_classes"`
-	DataProperties []DataPropertyNode  `json:"data_properties"`
-	SourceFileName string              `json:"source_file_name"`
-	AsTable        bool                `json:"as_table"`
-	SubClasses     []string            `json:"sub_classes"`
-	DbKey          int                 `json:"db_key"` 
+	Type           string             `json:"type"`
+	Name           string             `json:"name"`
+	BaseClasses    []string           `json:"base_classes"`
+	DataProperties []DataPropertyNode `json:"data_properties"`
+	SourceFileName string             `json:"source_file_name"`
+	AsTable        bool               `json:"as_table"`
+	SubClasses     []string           `json:"sub_classes"`
+	DbKey          int                `json:"db_key"`
 }
 
 type DataPropertyNode struct {
-	Type           string              `json:"type"`
-	DomainClassKey int                 `json:"domain_class_key"`
-	Name           string              `json:"name"`
-	AsArray        bool                `json:"as_array"`
-	DbKey          int                 `json:"db_key"` 
+	Type           string `json:"type"`
+	DomainClassKey int    `json:"domain_class_key"`
+	Name           string `json:"name"`
+	AsArray        bool   `json:"as_array"`
+	DbKey          int    `json:"db_key"`
 }
 
 type TableNode struct {
-	DomainClassKey int                 `json:"domain_class_key"`
-	TableName      string              `json:"table_name"`
-	ClassName      string              `json:"class_name"`
-	Columns        []TableColumnNode   `json:"columns"`
-	SourceFileName string              `json:"source_file_name"`
-	DbKey          int                 `json:"db_key"` 
+	DomainClassKey int               `json:"domain_class_key"`
+	TableName      string            `json:"table_name"`
+	ClassName      string            `json:"class_name"`
+	Columns        []TableColumnNode `json:"columns"`
+	SourceFileName string            `json:"source_file_name"`
+	DbKey          int               `json:"db_key"`
 }
 
 type TableColumnNode struct {
-	Type           string    `json:"type"`
-	AsArray        bool      `json:"as_array"`          
-	PropertyName   string    `json:"property_name"`
-	ColumnName     string    `json:"column_name"`
+	Type         string `json:"type"`
+	AsArray      bool   `json:"as_array"`
+	PropertyName string `json:"property_name"`
+	ColumnName   string `json:"column_name"`
 }
 
 type TripleNode struct {
-	Type           string  `json:"type"`
-	SubjectKey     int     `json:"subject_key"`          
-	PredicateKey   int     `json:"predicate_key"`            
-	ObjectKey	     int     `json:"object_key"`
+	Type         string `json:"type"`
+	SubjectKey   int    `json:"subject_key"`
+	PredicateKey int    `json:"predicate_key"`
+	ObjectKey    int    `json:"object_key"`
 }
-
 
 func CompileJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAction, token string) (*map[string]interface{}, int, error) {
 	return nil, 0, errors.New("TODO: NOT IMPLEMENTED YET")
@@ -207,57 +207,58 @@ func CompileJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAc
 
 // local context for writing domain model, used within WriteJetrule
 type writeWorkspaceContext struct {
-	model *JetruleModel
+	model           *JetruleModel
 	sourceFileKeys  *map[string]int
 	domainClassMap  map[string]*ClassNode
 	dataPropertyMap map[string]*DataPropertyNode
 	// Map[ResourceNode.Key] -> ResourceNode.DbKey
-	resourcesMap    map[int]int
+	resourcesMap map[int]int
 }
+
 // Persist Jetrule json structure to database
 func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAction, token string) (*map[string]interface{}, int, error) {
-		// if err != nil {
-		// 	return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
-		// }
+	// if err != nil {
+	// 	return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
+	// }
 	datatableCtx := &datatable.Context{
 		Dbpool: dbpool,
 	}
 	writeWorkspaceCtx := &writeWorkspaceContext{
-		model: &JetruleModel{},
-		sourceFileKeys: &map[string]int{},
-		domainClassMap: map[string]*ClassNode{},
+		model:           &JetruleModel{},
+		sourceFileKeys:  &map[string]int{},
+		domainClassMap:  map[string]*ClassNode{},
 		dataPropertyMap: map[string]*DataPropertyNode{},
-		resourcesMap: map[int]int{},
+		resourcesMap:    map[int]int{},
 	}
 
-	log.Println("ReadFile:",compileJetruleAction.JetruleFile)
+	log.Println("ReadFile:", compileJetruleAction.JetruleFile)
 	file, err := os.ReadFile(compileJetruleAction.JetruleFile)
 	if err != nil {
-		log.Printf("while reading json file:%v\n",err)
-		return &map[string]interface{}{}, http.StatusBadRequest,err		
+		log.Printf("while reading json file:%v\n", err)
+		return &map[string]interface{}{}, http.StatusBadRequest, err
 	}
- 
+
 	err = json.Unmarshal(file, writeWorkspaceCtx.model)
 	if err != nil {
-		log.Printf("while unmarshaling json:%v\n",err)
-		return &map[string]interface{}{}, http.StatusBadRequest,err		
+		log.Printf("while unmarshaling json:%v\n", err)
+		return &map[string]interface{}{}, http.StatusBadRequest, err
 	}
 	// //*
 	// fmt.Println("GOT",writeWorkspaceCtx.model)
 
 	// insert the main rule file in workspace_control table
 	if writeWorkspaceCtx.model.MainRuleFileName != "" {
-		writeWorkspaceCtx.insertRuleFileName(datatableCtx, 
+		writeWorkspaceCtx.insertRuleFileName(datatableCtx,
 			writeWorkspaceCtx.model.MainRuleFileName, true, compileJetruleAction.Workspace, &token)
 	}
 
 	// Persist the Resources
 	if len(writeWorkspaceCtx.model.Resources) > 0 {
 		log.Println("Writing Resources")
-		err = writeWorkspaceCtx.WriteResources(datatableCtx, compileJetruleAction.Workspace, &token)	
+		err = writeWorkspaceCtx.WriteResources(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
-			log.Printf("while WriteResources:%v\n",err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
+			log.Printf("while WriteResources:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
 
@@ -271,16 +272,16 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		log.Println("Writing Domain Classes")
 		err = writeWorkspaceCtx.WriteDomainClasses(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
-			log.Printf("while WriteDomainClasses:%v\n",err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
+			log.Printf("while WriteDomainClasses:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
 	if len(writeWorkspaceCtx.model.Tables) > 0 {
 		log.Println("Writing Domain Tables")
 		err = writeWorkspaceCtx.WriteDomainTables(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
-			log.Printf("while WriteDomainTables:%v\n",err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
+			log.Printf("while WriteDomainTables:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
 
@@ -289,8 +290,8 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		log.Println("Writing JetStore Config")
 		err = writeWorkspaceCtx.WriteJetStoreConfig(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
-			log.Printf("while WriteJetStoreConfig:%v\n",err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
+			log.Printf("while WriteJetStoreConfig:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
 
@@ -299,8 +300,8 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		log.Println("Writing Rule Sequences")
 		err = writeWorkspaceCtx.WriteRuleSequences(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
-			log.Printf("while WriteRuleSequences:%v\n",err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
+			log.Printf("while WriteRuleSequences:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
 
@@ -309,8 +310,8 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		log.Println("Writing Lookup Tables")
 		err = writeWorkspaceCtx.WriteLookupTables(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
-			log.Printf("while WriteLookupTables:%v\n",err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
+			log.Printf("while WriteLookupTables:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
 
@@ -319,8 +320,18 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		log.Println("Writing Expressions")
 		err = writeWorkspaceCtx.WriteExpr(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
-			log.Printf("while WriteExpr:%v\n",err)
-			return &map[string]interface{}{}, http.StatusBadRequest,err		
+			log.Printf("while WriteExpr:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
+		}
+	}
+
+	// Persist Rete Nodes
+	if writeWorkspaceCtx.model.ReteNodes != nil {
+		log.Println("Writing Rete Nodes")
+		err = writeWorkspaceCtx.WriteReteNodes(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteReteNodes:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
 
@@ -328,8 +339,8 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	// Write back as json
 	b, err := json.MarshalIndent(writeWorkspaceCtx.model, "", "  ")
 	if err != nil {
-		log.Printf("while writing json:%v\n",err)
-		return &map[string]interface{}{}, http.StatusBadRequest,err		
+		log.Printf("while writing json:%v\n", err)
+		return &map[string]interface{}{}, http.StatusBadRequest, err
 	}
 	os.WriteFile("out.jrcc.json", b, 0666)
 
@@ -337,7 +348,7 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 }
 
 // utility functions
-func (ctx *writeWorkspaceContext)insertRuleFileName(datatableCtx *datatable.Context, ruleFileName string, isMain bool, workspace string, token *string) (int, error) {
+func (ctx *writeWorkspaceContext) insertRuleFileName(datatableCtx *datatable.Context, ruleFileName string, isMain bool, workspace string, token *string) (int, error) {
 	keys, err := ctx.insertRows(datatableCtx, &[]map[string]interface{}{
 		{"source_file_name": ruleFileName, "is_main": isMain},
 	}, "workspace_control", workspace, token)
@@ -352,7 +363,7 @@ func (ctx *writeWorkspaceContext)insertRuleFileName(datatableCtx *datatable.Cont
 	return key, nil
 }
 
-func (ctx *writeWorkspaceContext)insertRows(datatableCtx *datatable.Context, data *[]map[string]interface{}, table string, workspace string, token *string) (returnedKeys *[]int, err error) {
+func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.Context, data *[]map[string]interface{}, table string, workspace string, token *string) (returnedKeys *[]int, err error) {
 	// check if data has key 'source_file_name' and convert it into 'source_file_key'
 	if table != "workspace_control" {
 		for i := range *data {
@@ -368,19 +379,19 @@ func (ctx *writeWorkspaceContext)insertRows(datatableCtx *datatable.Context, dat
 						return
 					}
 				}
-				(*data)[i]["source_file_key"] = skey			
+				(*data)[i]["source_file_key"] = skey
 			}
-		}	
+		}
 	}
 	dataTableAction := &datatable.DataTableAction{
 		Action:      "insert_rows",
 		FromClauses: []datatable.FromClause{{Schema: workspace, Table: fmt.Sprintf("WORKSPACE/%s", table)}},
-		Data: *data,
+		Data:        *data,
 	}
 
 	results, _, err := datatableCtx.InsertRows(dataTableAction, *token)
 	if err != nil {
-		log.Printf("while calling InsertRows:%v\n",err)
+		log.Printf("while calling InsertRows:%v\n", err)
 		return
 	}
 	returnedKeys = (*results)["returned_keys"].(*[]int)
@@ -392,13 +403,13 @@ func (ctx *writeWorkspaceContext)insertRows(datatableCtx *datatable.Context, dat
 func appendDataRow(v any, data *[]map[string]interface{}) error {
 	b, err := json.Marshal(v)
 	if err != nil {
-		log.Printf("while writing json:%v\n",err)
+		log.Printf("while writing json:%v\n", err)
 		return err
 	}
 	row := map[string]interface{}{}
 	err = json.Unmarshal(b, &row)
 	if err != nil {
-		log.Printf("while reading json:%v\n",err)
+		log.Printf("while reading json:%v\n", err)
 		return err
 	}
 	*data = append(*data, row)
@@ -408,7 +419,7 @@ func appendDataRow(v any, data *[]map[string]interface{}) error {
 // JetruleModel Methods
 // --------------------
 // WriteResources
-func (ctx *writeWorkspaceContext)WriteResources(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteResources(datatableCtx *datatable.Context, workspace string, token *string) error {
 
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Resources {
@@ -433,25 +444,25 @@ func (ctx *writeWorkspaceContext)WriteResources(datatableCtx *datatable.Context,
 	return nil
 }
 
-func (ctx *writeWorkspaceContext)getClass(name *string) *ClassNode {
+func (ctx *writeWorkspaceContext) getClass(name *string) *ClassNode {
 	switch {
 	case name == nil:
 		return nil
 	case *name == "owl:Thing":
 		return &ClassNode{
-			Name: "owl:Thing",
-			BaseClasses: []string{},
+			Name:           "owl:Thing",
+			BaseClasses:    []string{},
 			DataProperties: []DataPropertyNode{},
-			AsTable: false,
-			SubClasses: []string{},
-			DbKey: 1,
+			AsTable:        false,
+			SubClasses:     []string{},
+			DbKey:          1,
 		}
 	default:
 		return ctx.domainClassMap[*name]
 	}
 }
 
-func (ctx *writeWorkspaceContext)getDataPropertyKey(name *string) int {
+func (ctx *writeWorkspaceContext) getDataPropertyKey(name *string) int {
 	switch {
 	case name == nil:
 		return 0
@@ -465,7 +476,7 @@ func (ctx *writeWorkspaceContext)getDataPropertyKey(name *string) int {
 }
 
 // WriteDomainClasses
-func (ctx *writeWorkspaceContext)WriteDomainClasses(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteDomainClasses(datatableCtx *datatable.Context, workspace string, token *string) error {
 	// write to domain_classes
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Classes {
@@ -496,7 +507,7 @@ func (ctx *writeWorkspaceContext)WriteDomainClasses(datatableCtx *datatable.Cont
 			if baseCls == nil {
 				err = fmt.Errorf("error: cannot find domain class with name: %s", cls.BaseClasses[j])
 				log.Println(err)
-				return err		
+				return err
 			}
 			row = map[string]interface{}{}
 			row["domain_class_key"] = cls.DbKey
@@ -543,7 +554,7 @@ func (ctx *writeWorkspaceContext)WriteDomainClasses(datatableCtx *datatable.Cont
 }
 
 // WriteDomainTables
-func (ctx *writeWorkspaceContext)WriteDomainTables(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteDomainTables(datatableCtx *datatable.Context, workspace string, token *string) error {
 	// write to domain_tables
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Tables {
@@ -589,17 +600,17 @@ func (ctx *writeWorkspaceContext)WriteDomainTables(datatableCtx *datatable.Conte
 }
 
 // WriteJetStoreConfig
-func (ctx *writeWorkspaceContext)WriteJetStoreConfig(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteJetStoreConfig(datatableCtx *datatable.Context, workspace string, token *string) error {
 	// write to jetstore_config
 	data := []map[string]interface{}{}
 	sourceFileName := ctx.model.JetstoreConfig["source_file_name"]
-	for k,v := range ctx.model.JetstoreConfig {
+	for k, v := range ctx.model.JetstoreConfig {
 		if strings.HasPrefix(k, "$") {
 			row := map[string]interface{}{}
 			row["config_key"] = k
 			row["config_value"] = v
 			row["source_file_name"] = sourceFileName
-			data = append(data, row)	
+			data = append(data, row)
 		}
 	}
 	_, err := ctx.insertRows(datatableCtx, &data, "jetstore_config", workspace, token)
@@ -613,7 +624,7 @@ func (ctx *writeWorkspaceContext)WriteJetStoreConfig(datatableCtx *datatable.Con
 }
 
 // WriteRuleSequences
-func (ctx *writeWorkspaceContext)WriteRuleSequences(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteRuleSequences(datatableCtx *datatable.Context, workspace string, token *string) error {
 	// write to rule_sequences
 	returnedKeys, err := ctx.insertRows(datatableCtx, &ctx.model.RuleSequences, "rule_sequences", workspace, token)
 	if returnedKeys == nil || err != nil {
@@ -651,7 +662,7 @@ func (ctx *writeWorkspaceContext)WriteRuleSequences(datatableCtx *datatable.Cont
 }
 
 // WriteLookupTables
-func (ctx *writeWorkspaceContext)WriteLookupTables(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteLookupTables(datatableCtx *datatable.Context, workspace string, token *string) error {
 	// write to lookup_tables
 	data := []map[string]interface{}{}
 	for i := range ctx.model.LookupTables {
@@ -692,7 +703,7 @@ func (ctx *writeWorkspaceContext)WriteLookupTables(datatableCtx *datatable.Conte
 	return nil
 }
 
-func (ctx *writeWorkspaceContext)expr2Key(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
+func (ctx *writeWorkspaceContext) expr2Key(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
 	if expr == nil {
 		return 0, fmt.Errorf("error, nil expr argument to expr2Key")
 	}
@@ -708,7 +719,7 @@ func (ctx *writeWorkspaceContext)expr2Key(datatableCtx *datatable.Context, expr 
 			vv["arg0_key"], err = ctx.expr2Key(datatableCtx, &lhs, workspace, token)
 			if err != nil {
 				return 0, err
-			}		
+			}
 			rhs = vv["rhs"]
 			vv["arg1_key"], err = ctx.expr2Key(datatableCtx, &rhs, workspace, token)
 			if err != nil {
@@ -724,12 +735,12 @@ func (ctx *writeWorkspaceContext)expr2Key(datatableCtx *datatable.Context, expr 
 			}
 		}
 	default:
-		return 0, fmt.Errorf("error, unknown type for expr in expr2Key:%v, type %T", vv,vv)
+		return 0, fmt.Errorf("error, unknown type for expr in expr2Key:%v, type %T", vv, vv)
 	}
 	return ctx.persistExpr(datatableCtx, expr, workspace, token)
 }
 
-func (ctx *writeWorkspaceContext)persistExpr(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
+func (ctx *writeWorkspaceContext) persistExpr(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
 	if expr == nil {
 		return 0, fmt.Errorf("error, nil expr argument to persistExpr")
 	}
@@ -738,13 +749,13 @@ func (ctx *writeWorkspaceContext)persistExpr(datatableCtx *datatable.Context, ex
 	case int:
 		// convert the resource key into the db_key
 		data = append(data, map[string]interface{}{
-			"type": "resource",
+			"type":     "resource",
 			"arg0_key": ctx.resourcesMap[vv], // the resource db_key
 		})
 	case float64:
 		// convert the resource key into the db_key
 		data = append(data, map[string]interface{}{
-			"type": "resource",
+			"type":     "resource",
 			"arg0_key": ctx.resourcesMap[int(vv)], // the resource db_key
 		})
 	case map[string]interface{}:
@@ -760,7 +771,7 @@ func (ctx *writeWorkspaceContext)persistExpr(datatableCtx *datatable.Context, ex
 }
 
 // WriteExpr
-func (ctx *writeWorkspaceContext)WriteExpr(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteExpr(datatableCtx *datatable.Context, workspace string, token *string) error {
 	// write to expressions
 	var err error
 	var expr interface{}
@@ -780,6 +791,93 @@ func (ctx *writeWorkspaceContext)WriteExpr(datatableCtx *datatable.Context, work
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func minSalience(v []int) int {
+
+	m := 9999
+	for _,i := range v {
+		if i < m {
+			m = i
+		}
+	}
+	return m
+}
+// WriteReteNodes
+func (ctx *writeWorkspaceContext) WriteReteNodes(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to rete_nodes from RuleTerm struct
+	sourceFileName := ctx.model.JetstoreConfig["source_file_name"]
+	data := []map[string]interface{}{}
+	for i := range ctx.model.ReteNodes {
+		v := &ctx.model.ReteNodes[i]
+		row := map[string]interface{}{
+			"vertex":               v.Vertex,
+			"type":                 v.Type,
+			"subject_key":          v.SubjectKey,
+			"predicate_key":        v.PredicateKey,
+			"object_key":           v.ObjectKey,
+			"parent_vertex":        v.ParentVertex,
+			"normalizedLabel":      v.NormalizedLabel,
+			"consequent_seq":       v.ConsequentSeq,
+			"source_file_name":     sourceFileName,
+		}
+		if v.ObjectExpr != nil {
+			row["obj_expr_key"] = v.ObjectExpr["db_key"]
+		}
+		if v.Filter != nil {
+			row["filter_expr_key"] = v.Filter["db_key"]
+		}
+		if v.Salience != nil {
+			row["salience"] = minSalience(v.Salience)
+		}
+		if v.IsNot {
+			row["is_negation"] = 1
+		} else {
+			if v.Type == "antecedent" {
+				row["is_negation"] = 0
+			}
+		}
+		data = append(data, row)
+	}
+	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "rete_nodes", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteReteNodes writing to rete_nodes, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+	for i := range ctx.model.ReteNodes {
+		r := &ctx.model.ReteNodes[i]
+		r.DbKey = (*returnedKeys)[i]
+	}
+
+	// write to beta_row_config
+	data = []map[string]interface{}{}
+	for i := range ctx.model.ReteNodes {
+		v := &ctx.model.ReteNodes[i]
+		for j := range v.BetaVarNodes {
+			bn := &v.BetaVarNodes[j]
+			row := map[string]interface{}{
+				"vertex":               bn.Vertex,
+				"seq":                  j,
+				"row_pos":              bn.VarPos,
+				"id":                   bn.Id,
+				"source_file_name":     sourceFileName,
+			}
+			if bn.IsBinded {
+				row["is_binded"] = 1
+			} else {
+				row["is_binded"] = 0
+			}
+			data = append(data, row)
+		}
+	}
+	returnedKeys, err = ctx.insertRows(datatableCtx, &data, "beta_row_config", workspace, token)
+	if returnedKeys == nil || err != nil {
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteReteNodes writing to beta_row_config, err is '%v'", err)
+		log.Println(err)
+		return err
 	}
 
 	return nil

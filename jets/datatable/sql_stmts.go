@@ -343,11 +343,6 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	},
 	// Expressions
 	"WORKSPACE/expressions": {
-		// Stmt: `
-		// 	INSERT INTO $SCHEMA.expressions 
-		// 	(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op) 
-		// 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		// 	RETURNING key`,
 		Stmt: `WITH e AS(
 			INSERT INTO $SCHEMA.expressions 
 			(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op) 
@@ -362,6 +357,44 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		WHERE type=$1 AND arg0_key=$2 AND arg1_key=$3 AND arg2_key=$4 AND arg3_key=$5 AND arg4_key=$6 AND arg5_key=$7 AND op=$8`,
 
 			ColumnKeys: []string{"type", "arg0_key", "arg1_key", "arg2_key", "arg3_key", "arg4_key", "arg5_key", "op"},
+		AdminOnly: false,
+	},
+	// Rete Nodes
+	"WORKSPACE/rete_nodes": {
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.rete_nodes
+			(vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, 
+				parent_vertex, "normalizedLabel", source_file_key, is_negation, salience, consequent_seq) 
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_rete_nodes_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.rete_nodes
+		WHERE vertex=$1 AND type=$2 AND consequent_seq=$13 AND source_file_key=$10`,
+
+		ColumnKeys: []string{"vertex", "type", "subject_key", "predicate_key", "object_key", 
+			"obj_expr_key", "filter_expr_key", "parent_vertex", "normalizedLabel", 
+			"source_file_key", "is_negation", "salience", "consequent_seq"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/beta_row_config": {
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.beta_row_config
+			(vertex, seq, source_file_key, row_pos, is_binded, id) 
+			VALUES ($1,$2,$3,$4,$5,$6)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_beta_row_config_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.beta_row_config
+		WHERE vertex=$1 AND seq=$2 AND source_file_key=$3`,
+		
+		ColumnKeys: []string{"vertex", "seq", "source_file_key", "row_pos", "is_binded", "id"},
 		AdminOnly: false,
 	},
 
