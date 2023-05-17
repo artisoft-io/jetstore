@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
+import 'package:jetsclient/utils/constants.dart';
 
 class HttpResponse {
   final int statusCode;
@@ -11,21 +12,35 @@ class HttpResponse {
   HttpResponse(this.statusCode, this.body);
 }
 
-class HttpClient {
+class HttpClientSingleton {
+  factory HttpClientSingleton() => _singlton;
+  static final HttpClientSingleton _singlton = HttpClientSingleton._();
+  HttpClientSingleton._();
   final http.Client httpClient = http.Client();
-  final Uri serverAdd;
+  Uri? serverAdd;
 
-  HttpClient(String serverOrigin) : serverAdd = Uri.parse(serverOrigin);
+  void refreshToken() async {
+    await sendRequest(
+        path: ServerEPs.dataTableEP,
+        token: JetsRouterDelegate().user.token,
+        encodedJsonBody: jsonEncode(
+            <String, dynamic>{'action': 'refresh_token'},
+            toEncodable: (_) => ''));
+      print('*** refreshToken() called');
+  }
 
   Future<HttpResponse> sendRequest(
       {required String path, String? token, String? encodedJsonBody}) async {
     try {
+      if(serverAdd == null) {
+        return HttpResponse(400, "serverAdd not set");
+      }
       // print('*** Request: $encodedJsonBody');
       var h = <String, String>{'Content-Type': 'application/json'};
       if (token != null) {
         h['Authorization'] = 'token $token';
       }
-      var response = await httpClient.post(serverAdd.replace(path: path),
+      var response = await httpClient.post(serverAdd!.replace(path: path),
           headers: h, body: encodedJsonBody);
       // print('Response status: ${response.statusCode} body: ${response.body}');
       // print('Response headers: ${response.headers}');
@@ -38,6 +53,7 @@ class HttpClient {
       token = data['token'];
       if (token != null) {
         JetsRouterDelegate().user.token = token;
+        JetsRouterDelegate().user.lastTokenRefresh = DateTime.now();
       }
       return HttpResponse(response.statusCode, data);
     } on Exception {

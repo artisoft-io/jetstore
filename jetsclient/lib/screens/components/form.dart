@@ -10,7 +10,6 @@ import 'package:jetsclient/screens/components/form_button.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
-import 'package:provider/provider.dart';
 
 class JetsForm extends StatefulWidget {
   const JetsForm({
@@ -37,7 +36,6 @@ class JetsForm extends StatefulWidget {
 }
 
 class JetsFormWidgetState extends State<JetsForm> {
-  late final HttpClient httpClient;
   // alternate to widget.formConfig.inputFields when
   // widget.formConfig.inputFields.isEmpty() and are
   // build in [queryInputFieldItems]
@@ -52,7 +50,6 @@ class JetsFormWidgetState extends State<JetsForm> {
   @override
   void initState() {
     super.initState();
-    httpClient = Provider.of<HttpClient>(context, listen: false);
     widget.formState.activeFormWidgetState = this;
     if (inputFields.isEmpty) {
       if (JetsRouterDelegate().user.isAuthenticated) {
@@ -134,7 +131,7 @@ class JetsFormWidgetState extends State<JetsForm> {
     };
     msg['query_map'] = queryMap;
     var encodedMsg = json.encode(msg);
-    var result = await httpClient.sendRequest(
+    var result = await HttpClientSingleton().sendRequest(
         path: "/dataTable",
         token: JetsRouterDelegate().user.token,
         encodedJsonBody: encodedMsg);

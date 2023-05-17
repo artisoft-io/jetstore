@@ -11,7 +11,6 @@ import 'package:jetsclient/screens/components/dialogs.dart';
 /// onPress method without navigating to a new form, typically use
 /// a simple dialog for confirmation and issue a command to back end
 void purgeDataAction(BuildContext context) async {
-  var client = context.read<HttpClient>();
   var messenger = ScaffoldMessenger.of(context);
   // get user confirmation
   var uc = await showDangerZoneDialog(context,
@@ -23,7 +22,7 @@ void purgeDataAction(BuildContext context) async {
     'table': '',
     'data': [],
   }, toEncodable: (_) => '');
-  var result = await client.sendRequest(
+  var result = await HttpClientSingleton().sendRequest(
       path: ServerEPs.purgeDataEP, 
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
@@ -41,7 +40,6 @@ void purgeDataAction(BuildContext context) async {
 
 /// Rerun database init script
 void rerunDbInitAction(BuildContext context) async {
-  var client = context.read<HttpClient>();
   var messenger = ScaffoldMessenger.of(context);
   // get user confirmation
   var uc = await showDangerZoneDialog(context,
@@ -53,7 +51,7 @@ void rerunDbInitAction(BuildContext context) async {
     'table': '',
     'data': [],
   }, toEncodable: (_) => '');
-  var result = await client.sendRequest(
+  var result = await HttpClientSingleton().sendRequest(
       path: ServerEPs.purgeDataEP, 
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);

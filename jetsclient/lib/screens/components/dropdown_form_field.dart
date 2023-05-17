@@ -36,7 +36,6 @@ class JetsDropdownButtonFormField extends StatefulWidget {
 class _JetsDropdownButtonFormFieldState
     extends State<JetsDropdownButtonFormField> {
   late final FormDropdownFieldConfig _config;
-  late final HttpClient httpClient;
   String? predicatePreviousValue;
   String? selectedValue;
   List<DropdownItemConfig> items = [];
@@ -44,7 +43,6 @@ class _JetsDropdownButtonFormFieldState
   @override
   void initState() {
     super.initState();
-    httpClient = Provider.of<HttpClient>(context, listen: false);
     _config = widget.formFieldConfig;
     // Check if there is a selection made in the form state
     // (case we are editing existing record versus add where there would be no
@@ -211,7 +209,7 @@ class _JetsDropdownButtonFormFieldState
     };
     msg['query'] = query;
     var encodedMsg = json.encode(msg);
-    var result = await httpClient.sendRequest(
+    var result = await HttpClientSingleton().sendRequest(
         path: "/dataTable",
         token: JetsRouterDelegate().user.token,
         encodedJsonBody: encodedMsg);

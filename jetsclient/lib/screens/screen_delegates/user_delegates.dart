@@ -8,7 +8,6 @@ import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:provider/provider.dart';
 
 /// Validation and Actions delegates for the user-related forms
 /// Login Form Validator
@@ -45,7 +44,7 @@ Future<String?> loginFormActions(BuildContext context,
         return null;
       }
       // Use a JSON encoded string to send
-      var client = context.read<HttpClient>();
+      var client = HttpClientSingleton();
       var messenger = ScaffoldMessenger.of(context);
       var result = await client.sendRequest(
           path: ServerEPs.loginEP, encodedJsonBody: formState.encodeState(0));
@@ -140,9 +139,8 @@ Future<String?> registrationFormActions(BuildContext context,
   switch (actionKey) {
     case ActionKeys.register:
       // Use a JSON encoded string to send
-      var client = context.read<HttpClient>();
       var messenger = ScaffoldMessenger.of(context);
-      var result = await client.sendRequest(
+      var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.registerEP,
           encodedJsonBody: formState.encodeState(0));
       // if (!mounted) return; needed?
@@ -177,7 +175,6 @@ Future<String?> registrationFormActions(BuildContext context,
 Future<String?> userAdminFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {int group = 0}) async {
-  var client = context.read<HttpClient>();
   var messenger = ScaffoldMessenger.of(context);
   switch (actionKey) {
     case ActionKeys.toggleUserActive:
@@ -202,7 +199,7 @@ Future<String?> userAdminFormActions(BuildContext context,
         ],
         'data': data,
       }, toEncodable: (_) => '');
-      var result = await client.sendRequest(
+      var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
@@ -238,7 +235,7 @@ Future<String?> userAdminFormActions(BuildContext context,
         ],
         'data': data,
       }, toEncodable: (_) => '');
-      var result = await client.sendRequest(
+      var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);

@@ -7,7 +7,7 @@ import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
-import 'package:provider/provider.dart';
+// import 'package:provider/provider.dart';
 import 'package:jetsclient/utils/download.dart';
 import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
 
@@ -380,10 +380,12 @@ Future<String?> sourceConfigActions(BuildContext context,
       var state = formState.getState(0);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'drop_table',
-        'data': [{
-          'schemaName': 'public',
-          'tableName': state[FSK.tableName][0],
-        }],
+        'data': [
+          {
+            'schemaName': 'public',
+            'tableName': state[FSK.tableName][0],
+          }
+        ],
       }, toEncodable: (_) => '');
       postSimpleAction(
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
@@ -447,6 +449,11 @@ String? processInputFormValidator(
         print(
             "processInputFormActions error: unknown source_type: $sourceType");
     }
+  }
+
+  // Check if we need to refresh the token - case of long running form
+  if (JetsRouterDelegate().user.isTokenAged) {
+    HttpClientSingleton().refreshToken();
   }
 
   switch (key) {
@@ -717,7 +724,7 @@ Future<String?> processInputFormActions(BuildContext context,
         "sortColumn": "data_property",
         "sortAscending": true
       };
-      var result = await context.read<HttpClient>().sendRequest(
+      var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: json.encode(query));
@@ -805,7 +812,8 @@ Future<String?> processInputFormActions(BuildContext context,
 
     // Process Mapping Dialog
     case ActionKeys.mapperOk:
-      if (!formState.isFormValid()) {
+    case ActionKeys.mapperDraft:
+      if (!formState.isFormValid() && actionKey == ActionKeys.mapperOk) {
         return null;
       }
       // Insert rows to process_mapping, if successful update process_input.status
@@ -833,7 +841,7 @@ Future<String?> processInputFormActions(BuildContext context,
           }
         ],
       }, toEncodable: (_) => '');
-      var deleteResult = await context.read<HttpClient>().sendRequest(
+      var deleteResult = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: deleteJsonBody);
@@ -853,7 +861,7 @@ Future<String?> processInputFormActions(BuildContext context,
         'data': formState.getInternalState(),
       }, toEncodable: (_) => '');
       // Insert rows to process_mapping
-      var result = await context.read<HttpClient>().sendRequest(
+      var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
@@ -932,7 +940,7 @@ Future<String?> processConfigFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       var navigator = Navigator.of(context);
       // First delete existing rule config triples
-      var deleteResult = await context.read<HttpClient>().sendRequest(
+      var deleteResult = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: deleteJsonBody);

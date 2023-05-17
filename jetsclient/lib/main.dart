@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
-import 'package:provider/provider.dart';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart' as foundation;
@@ -22,6 +21,7 @@ void main() {
   // print("hostname: $hostname");
   // print("port: $port");
   var serverOrigin = "$protocol//$hostname:$port";
+  HttpClientSingleton().serverAdd = Uri.parse(serverOrigin);
   runApp(JetsClient(serverOrigin: serverOrigin));
 }
 
@@ -50,17 +50,11 @@ class JetsClientState extends State<JetsClient> {
           fontFamily: 'Roboto'),
       // colorSchemeSeed: const Color.fromRGBO(118, 219, 21, 1.0)),
       initial: AdaptiveThemeMode.light,
-      builder: (theme, darkTheme) => MultiProvider(
-        providers: [
-          // http Client
-          Provider(create: (context) => HttpClient(widget.serverOrigin)),
-        ],
-        child: MaterialApp.router(
-          title: 'JetStore',
-          theme: theme,
-          routerDelegate: jetsRouteDelegate,
-          routeInformationParser: jetsRouteInformationParser,
-        ),
+      builder: (theme, darkTheme) => MaterialApp.router(
+        title: 'JetStore',
+        theme: theme,
+        routerDelegate: jetsRouteDelegate,
+        routeInformationParser: jetsRouteInformationParser,
       ),
     );
   }

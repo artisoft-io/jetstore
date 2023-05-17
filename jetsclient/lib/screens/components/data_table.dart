@@ -297,9 +297,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     // The data table label is changed for inputFileViewer
     label = tableConfig.label;
 
-    dataSource = JetsDataTableSource(
-        state: this,
-        httpClient: Provider.of<HttpClient>(context, listen: false));
+    dataSource = JetsDataTableSource(state: this);
     dataSource.addListener(triggetRefreshListner);
 
     isTableEditable = tableConfig.isCheckboxVisible;
@@ -418,7 +416,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     }
   }
 
-
   @override
   void dispose() {
     JetsRouterDelegate().removeListener(navListener);
@@ -466,7 +463,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             formConfig.makeFormState(parentFormState: formState);
 
         // Need to use navigationParams for formState-less form (e.g. ScreenOne)
-        // and stateFormNavigationParams for when having formState 
+        // and stateFormNavigationParams for when having formState
         //* TODO consider adding formState to ScreenOne
         //       Add defaultValue to stateFormNavigationParams
         // add state information to dialogFormState if navigationParams exists
