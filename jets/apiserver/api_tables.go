@@ -50,6 +50,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.DoPreviewFileAction(&dataTableAction)
 	case "drop_table":
 		results, code, err = context.DropTable(&dataTableAction)
+	case "refresh_token":
+		results = &map[string]interface{}{}
+		code = http.StatusOK
+		err = nil
 	default:
 		code = http.StatusUnprocessableEntity
 		err = fmt.Errorf("unknown action: %v", dataTableAction.Action)

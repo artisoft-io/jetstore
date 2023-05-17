@@ -5,7 +5,6 @@ import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:provider/provider.dart';
 
 /// unpack an array to it's first element
 String? unpack(dynamic elm) {
@@ -29,7 +28,7 @@ Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
     String encodedJsonBody) async {
   var navigator = Navigator.of(context);
   var messenger = ScaffoldMessenger.of(context);
-  var result = await context.read<HttpClient>().sendRequest(
+  var result = await HttpClientSingleton().sendRequest(
       path: ServerEPs.dataTableEP,
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
@@ -72,7 +71,7 @@ Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
 Future<int> postSimpleAction(BuildContext context, JetsFormState formState,
     String serverEndPoint, String encodedJsonBody) async {
   var messenger = ScaffoldMessenger.of(context);
-  var result = await context.read<HttpClient>().sendRequest(
+  var result = await HttpClientSingleton().sendRequest(
       path: serverEndPoint,
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
@@ -98,7 +97,7 @@ Future<JetsDataModel?> queryJetsDataModel(
     String serverEndPoint,
     String encodedJsonBody) async {
   var messenger = ScaffoldMessenger.of(context);
-  var result = await context.read<HttpClient>().sendRequest(
+  var result = await HttpClientSingleton().sendRequest(
       path: serverEndPoint,
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
@@ -126,7 +125,7 @@ Future<Map<String, JetsDataModel?>?> queryMapJetsDataModel(
     String serverEndPoint,
     String encodedJsonBody) async {
   var messenger = ScaffoldMessenger.of(context);
-  var result = await context.read<HttpClient>().sendRequest(
+  var result = await HttpClientSingleton().sendRequest(
       path: serverEndPoint,
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);

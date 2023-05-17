@@ -62,6 +62,15 @@ class _JetsFormButtonState extends State<JetsFormButton> {
   @override
   Widget build(BuildContext context) {
     final themeData = Theme.of(context);
+    var isOn = false;
+    if (widget.formActionConfig.enableOnlyWhenFormValid) {
+      isOn = widget.formState.isFormValid();
+    } else if(widget.formActionConfig.enableOnlyWhenFormNotValid) {
+      isOn = !widget.formState.isFormValid();
+    } else {
+      isOn = !widget.formActionConfig.enableOnlyWhenFormValid ||
+                    widget.formState.isFormValid();
+    }
     return Expanded(
       flex: widget.formActionConfig.flex,
       child: Padding(
@@ -72,9 +81,7 @@ class _JetsFormButtonState extends State<JetsFormButton> {
             widget.formActionConfig.bottomMargin),
         child: ElevatedButton(
             style: buttonStyle(_buttonStyle, themeData),
-            onPressed: !widget.formActionConfig.enableOnlyWhenFormValid ||
-                    widget.formState.isFormValid()
-                ? () => widget.actionsDelegate(
+            onPressed: isOn ? () => widget.actionsDelegate(
                     context, widget.formKey, formState, config.key,
                     group: config.group)
                 : null,

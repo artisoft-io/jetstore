@@ -9,9 +9,8 @@ import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 
 class JetsDataTableSource extends ChangeNotifier {
-  JetsDataTableSource({required this.state, required this.httpClient});
+  JetsDataTableSource({required this.state});
   final JetsDataTableState state;
-  final HttpClient httpClient;
   JetsDataModel? model;
   int _totalRowCount = 0;
   List<bool> selectedRows = <bool>[];
@@ -399,7 +398,7 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>?> fetchData() async {
-    var result = await httpClient.sendRequest(
+    var result = await HttpClientSingleton().sendRequest(
         path: state.tableConfig.apiPath,
         token: JetsRouterDelegate().user.token,
         encodedJsonBody: json.encode(_makeQuery()));

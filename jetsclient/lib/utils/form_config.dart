@@ -392,6 +392,7 @@ class FormActionConfig extends FormFieldConfig {
     required this.buttonStyle,
     this.labelByStyle = const <ActionStyle, String>{},
     this.enableOnlyWhenFormValid = false,
+    this.enableOnlyWhenFormNotValid = false,
     this.leftMargin = 0.0,
     this.topMargin = 0.0,
     this.rightMargin = 0.0,
@@ -401,6 +402,7 @@ class FormActionConfig extends FormFieldConfig {
   final Map<ActionStyle, String> labelByStyle;
   final ActionStyle buttonStyle;
   final bool enableOnlyWhenFormValid;
+  final bool enableOnlyWhenFormNotValid;
   final double leftMargin;
   final double topMargin;
   final double rightMargin;
@@ -999,6 +1001,14 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.mapperOk,
           label: "Save",
           enableOnlyWhenFormValid: true,
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
+      FormActionConfig(
+          key: ActionKeys.mapperDraft,
+          label: "Save as Draft",
+          enableOnlyWhenFormNotValid: true,
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding,
