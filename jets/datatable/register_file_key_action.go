@@ -200,14 +200,15 @@ func matchingPipelineConfigKeys(dbpool *pgxpool.Pool, processInputKeys *[]int) (
 }
 
 // Find all process_input having a matching input_registry where source_period_key = sourcePeriodKey
-func processInputInPeriod(dbpool *pgxpool.Pool, sourcePeriodKey, maxInputRegistryKey int) (*[]int, error) {
+// for the given client
+func processInputInPeriod(dbpool *pgxpool.Pool, sourcePeriodKey, maxInputRegistryKey int, client string) (*[]int, error) {
 	stmt := ` SELECT
               pi.key
             FROM
               jetsapi.process_input pi,
               jetsapi.input_registry ir
-            WHERE
-              pi.client = ir.client
+            WHERE pi.client = $3
+              AND ir.client = $3
               AND pi.org = ir.org
               AND pi.object_type = ir.object_type
               AND pi.table_name = ir.table_name
@@ -216,7 +217,7 @@ func processInputInPeriod(dbpool *pgxpool.Pool, sourcePeriodKey, maxInputRegistr
               AND ir.key <= $2;`
 	piKeySet := make(map[int]bool, 0)
 	var piKey int
-	rows, err := dbpool.Query(context.Background(), stmt, sourcePeriodKey, maxInputRegistryKey)
+	rows, err := dbpool.Query(context.Background(), stmt, sourcePeriodKey, maxInputRegistryKey, client)
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +287,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		// Get the input_registry key
 		inputRegistryKeys := registerFileKeyAction.Data[irow]["input_registry_keys"].([]int)
 		sourcePeriodKey := registerFileKeyAction.Data[irow]["source_period_key"].(int)
+		client := registerFileKeyAction.Data[irow]["client"].(string)
 		maxInputRegistryKey := -1
 		for _, key := range inputRegistryKeys {
 			if key > maxInputRegistryKey {
@@ -331,8 +333,8 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		}
 
 		// Find all process_input having a matching input_registry where source_period_key = sourcePeriodKey
-		// Limit to process_input with matching input_registry with key <= maxInputRegistryKey
-		processInputKeys, err = processInputInPeriod(ctx.Dbpool, sourcePeriodKey, maxInputRegistryKey)
+		// Limit to process_input with matching input_registry with key <= maxInputRegistryKey for client
+		processInputKeys, err = processInputInPeriod(ctx.Dbpool, sourcePeriodKey, maxInputRegistryKey, client)
 		if err != nil {
 			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying all process_input in source_period_key: %v", err)
 			return nil, http.StatusInternalServerError, err2
@@ -374,21 +376,28 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			//    "pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys",
 			//    "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"
 			// Columns to select:
-			//    "process_name", "client","main_input_registry_key", "main_input_file_key", "main_object_type", "merged_input_registry_keys",
+			//    "process_name", "main_input_registry_key", "main_input_file_key", "main_object_type", "merged_input_registry_keys",
 			// Using QueryRow to make sure only one row is returned with the latest ir.key
-			var process_name, client, main_object_type string
+			var process_name, main_object_type string
 			var main_input_registry_key int
 			var file_key sql.NullString
 			merged_process_input_keys := make([]int, 0)
 
-			stmt := `SELECT  pc.process_name, pc.client, ir.key, ir.file_key, ir.object_type, pc.merged_process_input_keys
-			         FROM jetsapi.pipeline_config pc, jetsapi.process_input pi, jetsapi.input_registry ir
-							 WHERE pc.key = $1 AND pc.main_process_input_key = pi.key AND
-							       pi.client = ir.client AND pi.org = ir.org AND pi.object_type = ir.object_type AND pi.source_type = ir.source_type AND
-										 ir.source_period_key = $2
-							 ORDER BY ir.key DESC`
+			// SELECT  process_name, main_input_registry_key, file_key, main_object_type, merged_process_input_keys
+			// ir is the main_input_registry record being selected for the pipeline_config (pc) record with the specified source_period_key
+			stmt := `SELECT  pc.process_name, ir.key, ir.file_key, ir.object_type, pc.merged_process_input_keys
+			          FROM jetsapi.pipeline_config pc, jetsapi.process_input pi, jetsapi.input_registry ir
+							 WHERE pc.key = $1 
+							   AND pc.main_process_input_key = pi.key 
+								 AND pi.client = ir.client 
+								 AND pi.org = ir.org 
+								 AND pi.object_type = ir.object_type 
+								 AND pi.source_type = ir.source_type 
+								 AND pi.table_name = ir.table_name 
+								 AND ir.source_period_key = $2
+						ORDER BY ir.key DESC`
 			err = ctx.Dbpool.QueryRow(context.Background(), stmt, pcKey, sourcePeriodKey).Scan(
-				&process_name, &client, &main_input_registry_key, &file_key, &main_object_type, &merged_process_input_keys)
+				&process_name, &main_input_registry_key, &file_key, &main_object_type, &merged_process_input_keys)
 			if err != nil {
 				return nil, http.StatusInternalServerError,
 					fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying pipeline_config to start a pipeline: %v", err)
@@ -402,9 +411,15 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			merged_input_registry_keys := make([]int, len(merged_process_input_keys))
 			var irKey int
 			for ipos, piKey := range merged_process_input_keys {
-				stmt := `SELECT ir.key FROM jetsapi.input_registry ir, jetsapi.process_input pi
-				         WHERE pi.key = $1 AND ir.client = pi.client AND ir.org = pi.org AND ir.object_type = pi.object_type AND
-								       ir.source_type = pi.source_type AND ir.source_period_key = $2
+				stmt := `SELECT ir.key 
+				          FROM jetsapi.input_registry ir, jetsapi.process_input pi
+				         WHERE pi.key = $1 
+								   AND ir.client = pi.client 
+									 AND ir.org = pi.org 
+									 AND ir.object_type = pi.object_type 
+									 AND ir.source_type = pi.source_type 
+									 AND ir.table_name = pi.table_name 
+									 AND ir.source_period_key = $2
 								 ORDER BY ir.key DESC`
 				err = ctx.Dbpool.QueryRow(context.Background(), stmt, piKey, sourcePeriodKey).Scan(&irKey)
 				if err != nil {
