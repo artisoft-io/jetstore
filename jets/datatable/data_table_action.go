@@ -555,10 +555,14 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				err = errors.New("error while running loader command")
 				return
 			}
+			org := clientOrg.(string)
+			if org == "" {
+				org = "''"
+			}
 			loaderCommand := []string{
 				"-in_file", fileKey.(string),
 				"-client", client.(string),
-				"-org", clientOrg.(string),
+				"-org", org,
 				"-objectType", objType.(string),
 				"-sourcePeriodKey", sourcePeriodKey.(string),
 				"-sessionId", sessionId.(string),
