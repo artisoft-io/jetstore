@@ -1022,6 +1022,9 @@ func main() {
 		sessionId = &sessId
 		log.Println("sessionId is set to", *sessionId)
 	}
+	if *clientOrg == "''" {
+		*clientOrg = ""
+	}
 	
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
