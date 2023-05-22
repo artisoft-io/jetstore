@@ -473,6 +473,12 @@
         "dataType": "int",
         "isNotNull": true
       }
+    ],
+    "tableConstraints": [
+      {
+        "name": "$SCHEMA_jet_rules_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_jet_rules_unique_cstraint UNIQUE (name, source_file_key)"
+      }
     ]
   },
   {
@@ -525,6 +531,12 @@
         "indexName": "rule_properties_idx",
         "indexDef": "INDEX rule_properties_idx ON $SCHEMA.rule_properties (rule_key)"
       }
+    ],
+    "tableConstraints": [
+      {
+        "name": "$SCHEMA_rule_properties_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_rule_properties_unique_cstraint UNIQUE (rule_key, name, value)"
+      }
     ]
   },
   {
@@ -544,37 +556,56 @@
       },
       {
         "columnName": "arg0_key",
-        "dataType": "int"
+        "dataType": "int",
+        "default": "-1",
+        "isNotNull": true
       },
       {
         "columnName": "arg1_key",
-        "dataType": "int"
+        "dataType": "int",
+        "default": "-1",
+        "isNotNull": true
       },
       {
         "columnName": "arg2_key",
-        "dataType": "int"
+        "dataType": "int",
+        "default": "-1",
+        "isNotNull": true
       },
       {
         "columnName": "arg3_key",
-        "dataType": "int"
+        "dataType": "int",
+        "default": "-1",
+        "isNotNull": true
       },
       {
         "columnName": "arg4_key",
-        "dataType": "int"
+        "dataType": "int",
+        "default": "-1",
+        "isNotNull": true
       },
       {
         "columnName": "arg5_key",
-        "dataType": "int"
+        "dataType": "int",
+        "default": "-1",
+        "isNotNull": true
       },
       {
         "columnName": "op",
-        "dataType": "text"
+        "dataType": "text",
+        "default": "",
+        "isNotNull": true
+      },
+      {
+        "columnName": "source_file_key",
+        "dataType": "int",
+        "isNotNull": true
       }
     ],
     "tableConstraints": [
       {
         "name": "$SCHEMA_expressions_unique_cstraint",
-        "definition": "CONSTRAINT $SCHEMA_expressions_unique_cstraint UNIQUE (type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op)"
+        "definition": "CONSTRAINT $SCHEMA_expressions_unique_cstraint UNIQUE (type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op, source_file_key)"
       }
     ]
   },
@@ -623,7 +654,7 @@
         "dataType": "int"
       },
       {
-        "columnName": "normalizedLabel",
+        "columnName": "normalized_label",
         "dataType": "text"
       },
       {
@@ -727,6 +758,12 @@
       {
         "indexName": "triples_source_file_key_idx",
         "indexDef": "INDEX triples_source_file_key_idx ON $SCHEMA.triples (source_file_key)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "$SCHEMA_triples_unique_cstraint",
+        "definition": "CONSTRAINT $SCHEMA_triples_unique_cstraint UNIQUE (subject_key, predicate_key, object_key, source_file_key)"
       }
     ]
   },

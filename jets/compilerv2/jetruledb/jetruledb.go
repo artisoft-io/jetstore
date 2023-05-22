@@ -74,16 +74,17 @@ type LookupTableNode struct {
 // }
 
 type JetruleNode struct {
-	Name            string            `json:"name"`
-	Properties      map[string]string `json:"properties"`
-	Optimization    bool              `json:"optimization"`
-	Salience        int               `json:"salience"`
-	Antecedents     []RuleTerm        `json:"antecedents"`
-	Consequents     []RuleTerm        `json:"consequents"`
-	AuthoredLabel   string            `json:"authoredLabel"`
-	SourceFileName  string            `json:"source_file_name"`
-	NormalizedLabel string            `json:"normalizedLabel"`
-	Label           string            `json:"label"`
+	Name            string                    `json:"name"`
+	Properties      map[string]string         `json:"properties"`
+	Optimization    bool                      `json:"optimization"`
+	Salience        int                       `json:"salience"`
+	Antecedents     []RuleTerm                `json:"antecedents"`
+	Consequents     []RuleTerm                `json:"consequents"`
+	AuthoredLabel   string                    `json:"authoredLabel"`
+	SourceFileName  string                    `json:"source_file_name"`
+	NormalizedLabel string                    `json:"normalizedLabel"`
+	Label           string                    `json:"label"`
+	DbKey              int                    `json:"db_key"`
 }
 
 // RulTerm type is either antecedent or consequent
@@ -195,10 +196,11 @@ type TableColumnNode struct {
 }
 
 type TripleNode struct {
-	Type         string `json:"type"`
-	SubjectKey   int    `json:"subject_key"`
-	PredicateKey int    `json:"predicate_key"`
-	ObjectKey    int    `json:"object_key"`
+	Type           string       `json:"type"`
+	SubjectKey     int          `json:"subject_key"`
+	PredicateKey   int          `json:"predicate_key"`
+	ObjectKey      int          `json:"object_key"`
+	SourceFileName string       `json:"source_file_name"`
 }
 
 func CompileJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleAction, token string) (*map[string]interface{}, int, error) {
@@ -213,6 +215,9 @@ type writeWorkspaceContext struct {
 	dataPropertyMap map[string]*DataPropertyNode
 	// Map[ResourceNode.Key] -> ResourceNode.DbKey
 	resourcesMap map[int]int
+	// Map of ReteNode using composite key
+	// Map[RuleTerm.Vertex+RuleTerm.ConsequentSeq] -> RuleTerm
+	reteNodeMap map[string]*RuleTerm
 }
 
 // Persist Jetrule json structure to database
@@ -229,6 +234,7 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		domainClassMap:  map[string]*ClassNode{},
 		dataPropertyMap: map[string]*DataPropertyNode{},
 		resourcesMap:    map[int]int{},
+		reteNodeMap:     map[string]*RuleTerm{},
 	}
 
 	log.Println("ReadFile:", compileJetruleAction.JetruleFile)
@@ -331,6 +337,26 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 		err = writeWorkspaceCtx.WriteReteNodes(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteReteNodes:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
+		}
+	}
+
+	// Persist Jet Rules
+	if writeWorkspaceCtx.model.Jetrules != nil {
+		log.Println("Writing Jet Rules")
+		err = writeWorkspaceCtx.WriteJetRules(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteJetRules:%v\n", err)
+			return &map[string]interface{}{}, http.StatusBadRequest, err
+		}
+	}
+
+	// Persist Triples
+	if writeWorkspaceCtx.model.Triples != nil {
+		log.Println("Writing Triples")
+		err = writeWorkspaceCtx.WriteTriples(datatableCtx, compileJetruleAction.Workspace, &token)
+		if err != nil {
+			log.Printf("while WriteTriples:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
 	}
@@ -740,6 +766,44 @@ func (ctx *writeWorkspaceContext) expr2Key(datatableCtx *datatable.Context, expr
 	return ctx.persistExpr(datatableCtx, expr, workspace, token)
 }
 
+func (ctx *writeWorkspaceContext) applyDefaults2Expressions(data *[]map[string]interface{}) (*[]map[string]interface{}, error) {
+	if data == nil {
+		return nil, fmt.Errorf("error: data is nil in applyDefaults2Expressions")
+	}
+	for i := range *data {
+		_, ok := (*data)[i]["arg0_key"]
+		if !ok {
+			(*data)[i]["arg0_key"] = -1
+		}
+		_, ok = (*data)[i]["arg1_key"]
+		if !ok {
+			(*data)[i]["arg1_key"] = -1
+		}
+		_, ok = (*data)[i]["arg2_key"]
+		if !ok {
+			(*data)[i]["arg2_key"] = -1
+		}
+		_, ok = (*data)[i]["arg3_key"]
+		if !ok {
+			(*data)[i]["arg3_key"] = -1
+		}
+		_, ok = (*data)[i]["arg4_key"]
+		if !ok {
+			(*data)[i]["arg4_key"] = -1
+		}
+		_, ok = (*data)[i]["arg5_key"]
+		if !ok {
+			(*data)[i]["arg5_key"] = -1
+		}
+		_, ok = (*data)[i]["op"]
+		if !ok {
+			(*data)[i]["op"] = ""
+		}
+		(*data)[i]["source_file_key"] = (*ctx.sourceFileKeys)[ctx.model.MainRuleFileName]
+	}
+	return data, nil
+}
+
 func (ctx *writeWorkspaceContext) persistExpr(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
 	if expr == nil {
 		return 0, fmt.Errorf("error, nil expr argument to persistExpr")
@@ -761,7 +825,11 @@ func (ctx *writeWorkspaceContext) persistExpr(datatableCtx *datatable.Context, e
 	case map[string]interface{}:
 		data = append(data, vv)
 	}
-	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "expressions", workspace, token)
+	dataWithDefaults, err := ctx.applyDefaults2Expressions(&data)
+	if err != nil {
+		return 0, fmt.Errorf("bug, unexpected error: %v", err)
+	}
+	returnedKeys, err := ctx.insertRows(datatableCtx, dataWithDefaults, "expressions", workspace, token)
 	if returnedKeys == nil || err != nil {
 		err = fmt.Errorf("error: no keys or err returned from InsertRows in persistExpr writing to expressions, err is '%v'", err)
 		log.Println(err)
@@ -819,7 +887,7 @@ func (ctx *writeWorkspaceContext) WriteReteNodes(datatableCtx *datatable.Context
 			"predicate_key":        v.PredicateKey,
 			"object_key":           v.ObjectKey,
 			"parent_vertex":        v.ParentVertex,
-			"normalizedLabel":      v.NormalizedLabel,
+			"normalized_label":     v.NormalizedLabel,
 			"consequent_seq":       v.ConsequentSeq,
 			"source_file_name":     sourceFileName,
 		}
@@ -840,6 +908,9 @@ func (ctx *writeWorkspaceContext) WriteReteNodes(datatableCtx *datatable.Context
 			}
 		}
 		data = append(data, row)
+
+		// keep a map of the ReteNode for JetRules to reference them
+		ctx.reteNodeMap[fmt.Sprintf("%d|%d", v.Vertex, v.ConsequentSeq)] = v
 	}
 	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "rete_nodes", workspace, token)
 	if returnedKeys == nil || err != nil {
@@ -873,9 +944,142 @@ func (ctx *writeWorkspaceContext) WriteReteNodes(datatableCtx *datatable.Context
 			data = append(data, row)
 		}
 	}
-	returnedKeys, err = ctx.insertRows(datatableCtx, &data, "beta_row_config", workspace, token)
+	_, err = ctx.insertRows(datatableCtx, &data, "beta_row_config", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteReteNodes writing to beta_row_config, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+
+	return nil
+}
+// WriteJetRules
+func (ctx *writeWorkspaceContext) WriteJetRules(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to jet_rules
+	data := []map[string]interface{}{}
+	for i := range ctx.model.Jetrules {
+		v := &ctx.model.Jetrules[i]
+		row := map[string]interface{}{
+			"name":                 v.Name,
+			"salience":             v.Salience,
+			"optimization":         v.Optimization,
+			"authored_label":       v.AuthoredLabel,
+			"normalized_label":     v.NormalizedLabel,
+			"label":                v.Label,
+			"source_file_name":     v.SourceFileName,
+		}
+		data = append(data, row)
+	}
+	returnedKeys, err := ctx.insertRows(datatableCtx, &data, "jet_rules", workspace, token)
 	if returnedKeys == nil || err != nil {
-		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteReteNodes writing to beta_row_config, err is '%v'", err)
+		err = fmt.Errorf("error: no keys or err returned from InsertRows in WriteJetRules writing to jet_rules, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+	for i := range ctx.model.Jetrules {
+		r := &ctx.model.Jetrules[i]
+		r.DbKey = (*returnedKeys)[i]
+	}
+
+	// write to rule_properties
+	data = []map[string]interface{}{}
+	for i := range ctx.model.Jetrules {
+		v := &ctx.model.Jetrules[i]
+		for pname,pvalue := range v.Properties {
+			row := map[string]interface{}{
+				"rule_key":    v.DbKey,
+				"name":        pname,
+				"value":       pvalue,
+			}
+			data = append(data, row)
+		}
+	}
+	_, err = ctx.insertRows(datatableCtx, &data, "rule_properties", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteJetRules writing to rule_properties, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+
+	// write to rule_terms
+	data = []map[string]interface{}{}
+	for i := range ctx.model.Jetrules {
+		v := &ctx.model.Jetrules[i]
+		for j := range v.Antecedents {
+			rt := &v.Antecedents[j]
+			ruleTerm, ok := ctx.reteNodeMap[fmt.Sprintf("%d|%d", rt.Vertex, rt.ConsequentSeq)]
+			if !ok {
+				err = fmt.Errorf("bug: RuleTerm with 'vertex|consequent_seq' of '%d|%d' not found", rt.Vertex, rt.ConsequentSeq)
+				log.Println(err)
+				return err
+			}
+			row := map[string]interface{}{
+				"rule_key":        v.DbKey,
+				"rete_node_key":   ruleTerm.DbKey,
+				"is_antecedent":   true,
+			}
+			data = append(data, row)
+		}
+		for j := range v.Consequents {
+			rt := &v.Consequents[j]
+			ruleTerm, ok := ctx.reteNodeMap[fmt.Sprintf("%d|%d", rt.Vertex, rt.ConsequentSeq)]
+			if !ok {
+				err = fmt.Errorf("bug: RuleTerm with 'vertex|consequent_seq' of '%d|%d' not found", rt.Vertex, rt.ConsequentSeq)
+				log.Println(err)
+				return err
+			}
+			row := map[string]interface{}{
+				"rule_key":        v.DbKey,
+				"rete_node_key":   ruleTerm.DbKey,
+				"is_antecedent":   false,
+			}
+			data = append(data, row)
+		}
+	}
+	_, err = ctx.insertRows(datatableCtx, &data, "rule_terms", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteJetRules writing to rule_terms, err is '%v'", err)
+		log.Println(err)
+		return err
+	}
+
+	return nil
+}
+// WriteTriples
+func (ctx *writeWorkspaceContext) WriteTriples(datatableCtx *datatable.Context, workspace string, token *string) error {
+	// write to triples
+	data := []map[string]interface{}{}
+	for i := range ctx.model.Triples {
+		v := &ctx.model.Triples[i]
+		s, ok := ctx.resourcesMap[v.SubjectKey]
+		if !ok {
+			err := fmt.Errorf("error: subject_key not found in resourceMap")
+			log.Println(err)
+			return err	
+		}
+		p, ok := ctx.resourcesMap[v.PredicateKey]
+		if !ok {
+			err := fmt.Errorf("error: predicate_key not found in resourceMap")
+			log.Println(err)
+			return err	
+		}
+		o, ok := ctx.resourcesMap[v.ObjectKey]
+		if !ok {
+			err := fmt.Errorf("error: object_key not found in resourceMap")
+			log.Println(err)
+			return err	
+		}
+		row := map[string]interface{}{
+			"subject_key":          s,
+			"predicate_key":        p,
+			"object_key":           o,
+			"source_file_name":     v.SourceFileName,
+		}
+		data = append(data, row)
+	}
+	_, err := ctx.insertRows(datatableCtx, &data, "triples", workspace, token)
+	if err != nil {
+		err = fmt.Errorf("error: err returned from InsertRows in WriteTriples writing to triples, err is '%v'", err)
 		log.Println(err)
 		return err
 	}

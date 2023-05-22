@@ -526,6 +526,7 @@ class JetRuleRete:
       'type': 'triple',
       'subject_key': self._map_elm(state, t3['subject'], 'triple'),
       'predicate_key': self._map_elm(state, t3['predicate'], 'triple'),
-      'object_key': self._map_elm(state, t3['object'], 'triple')
+      'object_key': self._map_elm(state, t3['object'], 'triple'),
+      'source_file_name': t3['source_file_name']
     } for t3 in self.ctx.triples ]
 
