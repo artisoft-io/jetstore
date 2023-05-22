@@ -146,10 +146,10 @@ func (server *Server) checkJetStoreDbVersion() error {
 
 		case jetstoreVersion > version:
 			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
-				log.Println("New JetStore Release deployed, rebuilding all tables and running workspace db init script")
+				log.Println("New JetStore Release deployed, rebuilding all tables")
 				server.ResetDomainTables(&PurgeDataAction{
 					Action: "reset_domain_tables",
-					RunUiDbInitScript: true,
+					RunUiDbInitScript: false,
 					Data: []map[string]interface{}{},
 				})
 				server.addVersionToDb(jetstoreVersion)
