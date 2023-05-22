@@ -345,8 +345,8 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	"WORKSPACE/expressions": {
 		Stmt: `WITH e AS(
 			INSERT INTO $SCHEMA.expressions 
-			(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op) 
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op, source_file_key) 
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 			ON CONFLICT ON CONSTRAINT $SCHEMA_expressions_unique_cstraint
 			DO NOTHING
 			RETURNING key
@@ -354,9 +354,9 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		SELECT * FROM e
 		UNION
 		SELECT key FROM $SCHEMA.expressions
-		WHERE type=$1 AND arg0_key=$2 AND arg1_key=$3 AND arg2_key=$4 AND arg3_key=$5 AND arg4_key=$6 AND arg5_key=$7 AND op=$8`,
+		WHERE type=$1 AND arg0_key=$2 AND arg1_key=$3 AND arg2_key=$4 AND arg3_key=$5 AND arg4_key=$6 AND arg5_key=$7 AND op=$8 AND source_file_key=$9`,
 
-			ColumnKeys: []string{"type", "arg0_key", "arg1_key", "arg2_key", "arg3_key", "arg4_key", "arg5_key", "op"},
+			ColumnKeys: []string{"type", "arg0_key", "arg1_key", "arg2_key", "arg3_key", "arg4_key", "arg5_key", "op", "source_file_key"},
 		AdminOnly: false,
 	},
 	// Rete Nodes
@@ -364,7 +364,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		Stmt: `WITH e AS(
 			INSERT INTO $SCHEMA.rete_nodes
 			(vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, 
-				parent_vertex, "normalizedLabel", source_file_key, is_negation, salience, consequent_seq) 
+				parent_vertex, "normalized_label", source_file_key, is_negation, salience, consequent_seq) 
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 			ON CONFLICT ON CONSTRAINT $SCHEMA_rete_nodes_unique_cstraint
 			DO NOTHING
@@ -376,7 +376,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		WHERE vertex=$1 AND type=$2 AND consequent_seq=$13 AND source_file_key=$10`,
 
 		ColumnKeys: []string{"vertex", "type", "subject_key", "predicate_key", "object_key", 
-			"obj_expr_key", "filter_expr_key", "parent_vertex", "normalizedLabel", 
+			"obj_expr_key", "filter_expr_key", "parent_vertex", "normalized_label", 
 			"source_file_key", "is_negation", "salience", "consequent_seq"},
 		AdminOnly: false,
 	},
@@ -397,5 +397,56 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		ColumnKeys: []string{"vertex", "seq", "source_file_key", "row_pos", "is_binded", "id"},
 		AdminOnly: false,
 	},
-
+	// Jet Rules
+	"WORKSPACE/jet_rules": {
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.jet_rules
+			(name, optimization, salience, authored_label, normalized_label, label, source_file_key) 
+			VALUES ($1,$2,$3,$4,$5,$6,$7)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_jet_rules_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.jet_rules
+		WHERE name=$1 AND source_file_key=$7`,
+		
+		ColumnKeys: []string{"name", "optimization", "salience", "authored_label", "normalized_label", "label", "source_file_key"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/rule_properties": {
+		Stmt: `
+			INSERT INTO $SCHEMA.rule_properties
+			(rule_key, name, value) 
+			VALUES ($1,$2,$3)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_rule_properties_unique_cstraint
+			DO NOTHING`,
+		
+		ColumnKeys: []string{"rule_key", "name", "value"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/rule_terms": {
+		Stmt: `
+			INSERT INTO $SCHEMA.rule_terms
+			(rule_key, rete_node_key, is_antecedent) 
+			VALUES ($1,$2,$3)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_rule_terms_unique_cstraint
+			DO NOTHING`,
+		
+		ColumnKeys: []string{"rule_key", "rete_node_key", "is_antecedent"},
+		AdminOnly: false,
+	},
+	// Triples
+	"WORKSPACE/triples": {
+		Stmt: `
+			INSERT INTO $SCHEMA.triples
+			(subject_key, predicate_key, object_key, source_file_key) 
+			VALUES ($1,$2,$3,$4)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_triples_unique_cstraint
+			DO NOTHING`,
+		
+		ColumnKeys: []string{"subject_key", "predicate_key", "object_key", "source_file_key"},
+		AdminOnly: false,
+	},
 }

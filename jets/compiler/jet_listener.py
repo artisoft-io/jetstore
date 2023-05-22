@@ -432,7 +432,9 @@ class JetListener(JetRuleListener):
       subject = self.parseObjectAtom(self.escape(ctx.s.getText()), None)
       predicate = self.parseObjectAtom(self.escape(ctx.p.getText()), None)
       object = self.parseObjectAtom(ctx.o.getText(), ctx.o.kws)
-      triple = { 'type': 'triple', 'subject':subject, 'predicate':predicate, 'object':object }
+      triple = { 'type': 'triple', 
+                'subject':subject, 'predicate':predicate, 'object':object,
+                'source_file_name': self.current_file_name }
       self.triples.append(triple)
     except:
       pass
