@@ -94,7 +94,7 @@ func SyncWorkspaceFiles() error {
 				if err != nil {
 					return fmt.Errorf("failed to download input file: %v", err)
 				}
-				fmt.Println("downloaded", nsz,"bytes from s3")
+				fmt.Println("downloaded",key,"size", nsz,"bytes from s3")
 			}
 		}
 	}

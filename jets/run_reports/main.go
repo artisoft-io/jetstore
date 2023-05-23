@@ -29,6 +29,7 @@ import (
 // WORKSPACE Workspace currently in use
 // JETS_s3_INPUT_PREFIX Input file key prefix
 // JETS_s3_OUTPUT_PREFIX Output file key prefix
+// JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
@@ -85,6 +86,17 @@ func coordinateWork() error {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}
 	defer dbpool.Close()
+
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	if os.Getenv("JETSTORE_DEV_MODE") == "" {
+		// We're not in dev mode, sync the overriten workspace files
+		err := workspace.SyncWorkspaceFiles()
+		if err != nil {
+			log.Println("Error while synching workspace file from s3:",err)
+			return err
+		}
+	}
 
 	// Get the report definitions
 	file, err := os.Open(reportScriptPath)
@@ -165,6 +177,7 @@ func coordinateWork() error {
 	// Done with the report part, see if we need to rebuild the lookup tables
 	if reportDirectives.UpdateLookupTables {
 		// sync workspace files from s3 to locally
+		// to make sure we get the report we just created
 		err := workspace.SyncWorkspaceFiles()
 		if err != nil {
 			return fmt.Errorf("failed to sync workspace files: %v", err)
@@ -346,6 +359,7 @@ func main() {
 	fmt.Println("Is updateLookupTables?", reportDirectives.UpdateLookupTables)
 	fmt.Println("Report outputPath:", outputPath)
 	fmt.Println("Report definitions file:", reportScriptPath)
+	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 
 	err = coordinateWork()
 	if err != nil {
