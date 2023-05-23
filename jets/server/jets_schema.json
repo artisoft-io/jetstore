@@ -19,6 +19,28 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "workspace_version",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "version",
+        "dataType": "text",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "workspace_version_unique_cstraint",
+        "definition": "CONSTRAINT workspace_version_unique_cstraint UNIQUE (version)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "users",
     "columns": [
       {

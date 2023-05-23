@@ -2,22 +2,20 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -67,6 +65,7 @@ type ReportDirectives struct {
 	ReportScript         string               `json:"reportScript"`
 	UpdateLookupTables   bool                 `json:"updateLookupTables"`
 	OutputS3Prefix       string               `json:"outputS3Prefix"`
+	OutputPath           string               `json:"outputPath"`
 }
 
 var reportDirectives = &ReportDirectives{}
@@ -147,156 +146,34 @@ func coordinateWork() error {
 		stmt = strings.TrimSpace(stmt)
 		fname := fmt.Sprintf("%s/%s", outputPath, name)
 
-		if reportDirectives.UpdateLookupTables {
-			// Save to local file system, currently this is only when reportDirectives.UpdateLookupTables is true
-			stmt = strings.ReplaceAll(stmt, "$CLIENT_%", fmt.Sprintf("'%s_%%'", *client))
-			stmt = strings.ReplaceAll(stmt, "$CLIENT", fmt.Sprintf("'%s'", *client))
-			stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("'%s'", *sessionId))
-			fmt.Println("STMT: name:", name, "output file name:", fname, "stmt:", stmt)
-			// local mode -- print results to output
-			rows, err := dbpool.Query(context.Background(), stmt)
-			if err != nil {
-				log.Printf("While executing stmt in local mode: %v", err)
-				return err
-			}
-			defer rows.Close()
-			nCol := len(rows.FieldDescriptions())
-			// Open destination file
-			file, err := os.Create(fname)
-			if err != nil {
-				log.Printf("While opening local output file: %v", err)
-				return err
-			}
-			csvWriter := csv.NewWriter(file)
-			defer csvWriter.Flush()
-			// Write headers
-			headers := make([]string, nCol)
-			fieldDescription := rows.FieldDescriptions()
-			for i := range fieldDescription {
-				headers[i] = string(fieldDescription[i].Name)
-				fmt.Println("*****@@* DatatypeOID for",headers[i],"is",fieldDescription[i].DataTypeOID)
-			}
-			err = csvWriter.Write(headers)
-			if err != nil {
-				log.Printf("While writing headers to local output file: %v", err)
-				return err
-			}
-			// Write records
-			for rows.Next() {
-				dataRow := make([]interface{}, nCol)
-				for i := 0; i < nCol; i++ {
-					switch fieldDescription[i].DataTypeOID {
-					case 25:
-						dataRow[i] = &sql.NullString{}
-					case 1700:
-						dataRow[i] = &sql.NullFloat64{}
-					default:
-						err = fmt.Errorf("unknown data type OID: %d", fieldDescription[i].DataTypeOID)
-						log.Println(err)
-						return err	
-					}
-				}
-				// scan the row
-				if err = rows.Scan(dataRow...); err != nil {
-					log.Printf("While scanning the row: %v", err)
-					return err
-				}
-				flatRow := make([]string, nCol)
-				for i := 0; i < nCol; i++ {
-					switch fieldDescription[i].DataTypeOID {
-					case 25:
-						ns := dataRow[i].(*sql.NullString)
-						if ns.Valid {
-							flatRow[i] = ns.String
-						}
-					case 1700:
-						nf := dataRow[i].(*sql.NullFloat64)
-						if nf.Valid {
-							flatRow[i] = strconv.FormatFloat(nf.Float64, 'f', -1, 64)
-						}
-					default:
-						err = fmt.Errorf("unknown data type OID: %d", fieldDescription[i].DataTypeOID)
-						log.Println(err)
-						return err	
-					}
-				}
-				err = csvWriter.Write(flatRow)
-				if err != nil {
-					log.Printf("While writing record to local output file: %v", err)
-					return err
-				}
-			}
-		} else {
-			// save to s3 mode
-			stmt = strings.ReplaceAll(stmt, "$CLIENT_%", fmt.Sprintf("''%s_%%''", *client))
-			stmt = strings.ReplaceAll(stmt, "$CLIENT", fmt.Sprintf("''%s''", *client))
-			stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("''%s''", *sessionId))
-			fmt.Println("STMT: name:", name, "output file name:", fname, "stmt:", stmt)
-			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, *awsBucket, fname, *awsRegion, options)
-			fmt.Println("S3 QUERY:", s3Stmt)
-			fmt.Println("------")
-			var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
-			err = dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
-			if err != nil {
-				return fmt.Errorf("while executing s3 query %s: %v", stmt, err)
-			}
-			fmt.Println("Report:", name, "rowsUploaded", rowsUploaded, "filesUploaded", filesUploaded, "bytesUploaded", bytesUploaded)
+		// save to s3
+		stmt = strings.ReplaceAll(stmt, "$CLIENT_%", fmt.Sprintf("''%s_%%''", *client))
+		stmt = strings.ReplaceAll(stmt, "$CLIENT", fmt.Sprintf("''%s''", *client))
+		stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("''%s''", *sessionId))
+		fmt.Println("STMT: name:", name, "output file name:", fname, "stmt:", stmt)
+		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, *awsBucket, fname, *awsRegion, options)
+		fmt.Println("S3 QUERY:", s3Stmt)
+		fmt.Println("------")
+		var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
+		err = dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
+		if err != nil {
+			return fmt.Errorf("while executing s3 query %s: %v", stmt, err)
 		}
+		fmt.Println("Report:", name, "rowsUploaded", rowsUploaded, "filesUploaded", filesUploaded, "bytesUploaded", bytesUploaded)
 	}
 
 	// Done with the report part, see if we need to rebuild the lookup tables
 	if reportDirectives.UpdateLookupTables {
-		// Compile the lookup table locally
-		wh := os.Getenv("WORKSPACES_HOME")
-		wk := os.Getenv("WORKSPACE")
-		compilerPath := fmt.Sprintf("%s/%s/compile_workspace.sh", wh, wk)
-
-		cmd := exec.Command(compilerPath)
-		var b2 bytes.Buffer
-		cmd.Stdout = &b2
-		cmd.Stderr = &b2
-		log.Printf("Executing compile_workspace command '%v'", compilerPath)
-		err = cmd.Run()
+		// sync workspace files from s3 to locally
+		err := workspace.SyncWorkspaceFiles()
 		if err != nil {
-			log.Printf("while executing compile_workspace command '%v': %v", compilerPath, err)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("COMPILE WORKSPACE CAPTURED OUTPUT BEGIN")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			b2.WriteTo(os.Stdout)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("COMPILE WORKSPACE CAPTURED OUTPUT END")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			return fmt.Errorf("failed to sync workspace files: %v", err)
+		}
+
+		version := strconv.FormatInt(time.Now().Unix(), 10)
+		err = workspace.CompileWorkspace(dbpool, version)
+		if err != nil {
 			return err
-		}
-		log.Println("============================")
-		log.Println("COMPILE WORKSPACE CAPTURED OUTPUT BEGIN")
-		log.Println("============================")
-		b2.WriteTo(os.Stdout)
-		log.Println("============================")
-		log.Println("COMPILE WORKSPACE CAPTURED OUTPUT END")
-		log.Println("============================")
-
-		// Copy the sqlite file to s3
-		sourcesPath := []string{
-			fmt.Sprintf("%s/%s/lookup.db", wh, wk),
-			fmt.Sprintf("%s/%s/workspace.db", wh, wk),
-		}
-		sourcesKey := []string{
-			fmt.Sprintf("jetstore/workspaces/%s/lookup.db", wk),
-			fmt.Sprintf("jetstore/workspaces/%s/workspace.db", wk),
-		}
-		for i := range sourcesPath {
-			// aws integration: Copy the file to awsBucket
-			file, err := os.Open(sourcesPath[i])
-			if err != nil {
-				log.Printf("While opening local output file: %v", err)
-				return err
-			}
-			err = awsi.UploadToS3(*awsBucket, *awsRegion, sourcesKey[i], file)
-			if err != nil {
-				return fmt.Errorf("failed to upload file to s3: %v", err)
-			}
-
 		}
 	}
 
@@ -404,17 +281,19 @@ func main() {
 	// Apply / update the reportDirectives
 	outputPath = *filePath
 	switch {
-	case reportDirectives.UpdateLookupTables:
-		// will be writing the report in the lookup folder of the local workspace
-		outputPath = fmt.Sprintf("%s/%s/lookups", wh, ws)
 	case reportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
+		// Write the output file in the jetstore input folder of s3
 		outputPath = strings.ReplaceAll(outputPath,
 			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
 			os.Getenv("JETS_s3_INPUT_PREFIX"))
 	case reportDirectives.OutputS3Prefix != "":
+		// Write output file to a location based on a custom s3 prefix
 		outputPath = strings.ReplaceAll(outputPath,
 			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
 			reportDirectives.OutputS3Prefix)
+	case reportDirectives.OutputPath != "":
+		// Write output file to a specified s3 location
+		outputPath = reportDirectives.OutputPath
 	}
 	for i := range reportDirectives.FilePathSubstitution {
 		outputPath = strings.ReplaceAll(outputPath,
