@@ -463,7 +463,13 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 	// RegisterFileKeyAction.Data is not used in this action
 
 	// Get all keys from bucket
-	keys, err := awsi.ListS3Objects(os.Getenv("JETS_BUCKET"), os.Getenv("JETS_REGION"))
+	var prefix *string
+	if os.Getenv("JETS_s3_INPUT_PREFIX") != "" {
+		p := os.Getenv("JETS_s3_INPUT_PREFIX")
+		prefix = &p
+	}
+
+	keys, err := awsi.ListS3Objects(prefix, os.Getenv("JETS_BUCKET"), os.Getenv("JETS_REGION"))
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while calling awsi.ListS3Objects: %v", err)
 	}
