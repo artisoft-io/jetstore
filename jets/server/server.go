@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -40,6 +41,7 @@ type dbConnections struct {
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
 // GLOG_V log level
+// JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 
 // Command Line Arguments
 var awsDsnSecret        = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
@@ -140,6 +142,7 @@ func doJob() error {
 	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n",os.Getenv("JETS_SERVER_SM_ARN"))
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Printf("ENV JETS_INVALID_CODE: %s\n",os.Getenv("JETS_INVALID_CODE"))
+	log.Printf("ENV JETSTORE_DEV_MODE: %s\n",os.Getenv("JETSTORE_DEV_MODE"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	if *doNotLockSessionId {
 		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
@@ -161,6 +164,18 @@ func doJob() error {
 		defer dbc.joinNodes[i].dbpool.Close()
 	}
 	dbpool = dbc.mainNode.dbpool
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	if os.Getenv("JETSTORE_DEV_MODE") == "" {
+		// We're not in dev mode, sync the overriten workspace files
+		err := workspace.SyncWorkspaceFiles()
+		if err != nil {
+			log.Println("Error while synching workspace file from s3:",err)
+			return err
+		}
+	}
+
+	// Read pipeline configuration
 	pipelineConfig, err := readPipelineConfig(dbpool, *pipelineConfigKey, *pipelineExecKey)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
