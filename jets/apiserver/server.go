@@ -218,9 +218,13 @@ func (server *Server) checkWorkspaceVersion() error {
 	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
 	err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 	switch {
-	case err.Error() == "no rows in result set":
-		log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
-		return nil
+	case err != nil:
+		if err.Error() == "no rows in result set" {
+			log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
+			return nil	
+		}
+		log.Println("Error while reading workspace version from workspace_version table:",err)
+		return err
 
 	case jetstoreVersion > version:
 		// recompile workspace, set the workspace version to be same as jetstore version
@@ -229,10 +233,6 @@ func (server *Server) checkWorkspaceVersion() error {
 			log.Println("Error while compiling workspace:",err)
 			return err
 		}
-
-	case err != nil:
-		log.Println("Error while reading workspace version from workspace_version table:",err)
-		return err
 
 	default:
 		log.Println("JetStore version in database", version, ">=", "workspace version", jetstoreVersion,", no need to recompile workspace")
