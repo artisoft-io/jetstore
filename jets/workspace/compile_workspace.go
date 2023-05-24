@@ -20,41 +20,6 @@ import (
 // WORKSPACE_DB_PATH location of workspace db (sqlite db)
 // WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
 
-// DELETE THIS
-// // Function to copy lookup.db and workspace.db from s3 locally if present
-// // Used by rule execution and apiserver upon startup
-// func SyncWorkspaceLocalDB() error {
-// 	bucket := os.Getenv("JETS_BUCKET")
-// 	region := os.Getenv("JETS_REGION")
-// 	wh := os.Getenv("WORKSPACES_HOME")
-// 	wk := os.Getenv("WORKSPACE")
-
-// 	// Copy the sqlite file from s3
-// 	localPath := []string{
-// 		fmt.Sprintf("%s/%s/lookup.db", wh, wk),
-// 		fmt.Sprintf("%s/%s/workspace.db", wh, wk),
-// 	}
-// 	sourcesKey := []string{
-// 		fmt.Sprintf("jetstore/workspaces/%s/lookup.db", wk),
-// 		fmt.Sprintf("jetstore/workspaces/%s/workspace.db", wk),
-// 	}
-// 	for i := range localPath {
-// 		// aws integration: Copy the file to awsBucket
-// 		file, err := os.Create(localPath[i])
-// 		if err != nil {
-// 			log.Printf("While opening local output file: %v", err)
-// 			return err
-// 		}
-// 		nsz, err := awsi.DownloadFromS3(bucket, region, sourcesKey[i], file)
-// 		file.Close()
-// 		if err != nil {
-// 			return fmt.Errorf("failed to download file from s3: %v", err)
-// 		}
-// 		fmt.Println("downloaded", nsz,"bytes from s3")
-// 	}
-// 	return nil
-// }
-
 // Function to pull override workspace files from s3 to the
 // container workspace (local copy).
 // Need this when:
