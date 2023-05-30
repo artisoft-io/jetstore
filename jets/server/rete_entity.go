@@ -39,23 +39,27 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 	// 	log.Println("    ",inBundleRow.processInput.processInputMapping[ipos].dataProperty,"  =  ",inBundleRow.rowData[ipos], ", range ",inBundleRow.processInput.processInputMapping[ipos].rdfType,", array?",inBundleRow.processInput.processInputMapping[ipos].isArray)
 	// }
 	// get the jets:key and create the subject for the row
-	// if it's an alias_domain_table, assign a new jets:key
+	// if it's an alias_domain_table, assign a new jets:key unless Class Name is unchanged
 	isAliasTable := false
 	var jetsKey, tagName string
-	switch inBundleRow.processInput.sourceType {
-	case "alias_domain_table":
-		isAliasTable = true
+	
+	if inBundleRow.processInput.sourceType == "alias_domain_table" {
+		tagName = "Alias Domain"	// for printing only
+		if inBundleRow.processInput.entityRdfType != inBundleRow.processInput.tableName {
+		 isAliasTable = true			// apply special processinf: assign new jets:key and rdf:type
+ 		}
+  } else {
+		tagName = "Domain"
+	}
+
+	if isAliasTable {
 		jetsKey = uuid.New().String()
-		tagName = "Alias Domain"
-	case "domain_table":
+	} else {
 		jets__key := inBundleRow.rowData[inBundleRow.processInput.keyPosition].(*sql.NullString)
 		if !jets__key.Valid {
 			return fmt.Errorf("error jets:key in input row is not valid")
 		}
 		jetsKey = jets__key.String
-		tagName = "Domain"
-	default:
-		return  fmt.Errorf("error: unknown source_type in assertInputEntityRecord: %s", inBundleRow.processInput.sourceType)
 	}
 
 	subject, err := reteSession.NewResource(jetsKey)
