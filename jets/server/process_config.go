@@ -215,7 +215,7 @@ func mapSourceType(st string) string {
 		return st
 	}
 }
-// prepare the sql statement for reading from staging table or domain table (csv)
+// prepare the sql statement for reading from staging table or domain table
 // Query with lookback period = 0:
 // -------------------------------
 // "SELECT  {{column_names}}
@@ -225,6 +225,8 @@ func mapSourceType(st string) string {
 //  ORDER BY {{processInput.groupingColumn}} ASC
 //
 // Query with lookback period > 0:
+// NOTE: case merge-in use operator {{OPER}}: <= (merge in current period)
+// NOTE: case alias domain table use operator {{OPER}}: < (exclude current period when injecting entities)
 // -------------------------------
 // -- with $5 = (current - lookback_periods)
 // -- with $6 = (current)
@@ -235,7 +237,7 @@ func mapSourceType(st string) string {
 //  AND sr.client = {{client}}
 //  AND sr.source_type = '{{processInput.sourceType}}'
 // 	AND sr.month_period >= $5
-// 	AND sr.{{pipeline_config.source_period_type}} <= $6
+// 	AND sr.{{pipeline_config.source_period_type}} {{OPER}} $6
 // 	AND e."Eligibility:shard_id"=0
 // ORDER BY e."Eligibility:domain_key" ASC
 //
@@ -262,7 +264,7 @@ func mapSourceType(st string) string {
 //		 	AND sr.client = 'Acme'
 //		 	AND sr.source_type = 'file'
 //		 	AND sr."month_period" >= 636
-//		 	AND sr."month_period" <= 637
+//		 	AND sr."month_period" {{OPER}} 637
 //		 	AND "Eligibility:shard_id" = 0
 //		 ORDER BY
 //		 	"Eligibility:domain_key" ASC
@@ -309,7 +311,14 @@ func (pipelineConfig *PipelineConfig) makeProcessInputSqlStmt(processInput *Proc
 		buf.WriteString(" AND ")
 		buf.WriteString(fmt.Sprintf(`sr."%s" >= %d`, sourcePeriodType, lowerEndPeriod))
 		buf.WriteString(" AND ")
+		//NOTE Did not implement fix #746
 		buf.WriteString(fmt.Sprintf(`sr."%s" <= %d`, sourcePeriodType, currentSourcePeriod))
+		//NOTE Did not implement fix #746
+		// if processInput.sourceType == "alias_domain_table" {
+		// 	buf.WriteString(fmt.Sprintf(`sr."%s" < %d`, sourcePeriodType, currentSourcePeriod))
+		// } else {
+		// 	buf.WriteString(fmt.Sprintf(`sr."%s" <= %d`, sourcePeriodType, currentSourcePeriod))
+		// }
 	} else {
 		buf.WriteString(fmt.Sprintf(" e.session_id = '%s'",processInput.sessionId))	
 	}
