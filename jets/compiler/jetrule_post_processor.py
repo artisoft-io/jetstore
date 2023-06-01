@@ -159,6 +159,10 @@ class JetRulesPostProcessor:
     for sub_class_name in class_item['sub_classes']:
       if sub_class_name not in visited_classes:
         self.add_sub_classes_columns(columns, visited_classes, self.classes_dict[sub_class_name])
+    # do base classes of sub class recursivelly
+    for base_class_name in class_item['base_classes']:
+      if base_class_name not in visited_classes:
+        self.add_base_classes_columns(columns, visited_classes, self.classes_dict[base_class_name])
 
   # =====================================================================================
   # createResourcesForLookupTables
