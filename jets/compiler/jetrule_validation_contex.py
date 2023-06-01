@@ -134,6 +134,22 @@ class ValidationContext:
         return False
       elm['value'] = name
     return True
+  
+  # for entity_type == 'triple', applicable to subject and predicate
+  # Auto create resource if identifier is not defined
+  def validateTripleIdentifier(self, elm: object, source_fname: str) -> bool:
+    var = elm['value']
+    # print('*** Validate Triple Identifier for', self.entity_type, self.entity_name, 'visiting elm type', self.elm_type, 'validating identifier', var)
+    defined = var in self.jetrule_ctx.defined_resources
+    if not defined:
+      is_predefined = self.jetrule_ctx.isValidPredefinedResources(var, var)
+      if is_predefined is True:
+        self.jetrule_ctx.addResource(var, var, 'predefined')
+        return True
+        
+      # Add resource automatically
+      self.jetrule_ctx.addResource(var, var, source_fname)
+    return True
 
   def has_errors(self):
     return self.jetrule_ctx.ERROR
