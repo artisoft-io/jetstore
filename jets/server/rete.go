@@ -312,7 +312,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					entityRow := make([]interface{}, ncol)
 					for i := 0; i < ncol; i++ {
 						domainColumn := &tableSpec.Columns[i]
-						// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
+						// log.Println("Found entity with subject:",subject.AsTextSilent(), "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 						switch {
 						case domainColumn.ColumnName == "session_id":
 							entityRow[i] = *outSessionId

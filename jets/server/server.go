@@ -168,7 +168,7 @@ func doJob() error {
 	// When in dev mode, the apiserver refreshes the overriten workspace files
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
 		// We're not in dev mode, sync the overriten workspace files
-		err := workspace.SyncWorkspaceFiles()
+		err := workspace.SyncWorkspaceFiles(false)
 		if err != nil {
 			log.Println("Error while synching workspace file from s3:",err)
 			return err
