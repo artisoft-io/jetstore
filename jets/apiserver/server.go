@@ -203,7 +203,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 // Check the workspace version in db, if jetstore version is more recent, recompile workspace
 func (server *Server) checkWorkspaceVersion() error {
 	// Download overriten workspace files from s3 if any
-	err := workspace.SyncWorkspaceFiles()
+	err := workspace.SyncWorkspaceFiles(devMode)
 	if err != nil {
 		log.Println("Error while synching workspace file from s3:",err)
 		return err
@@ -233,10 +233,13 @@ func (server *Server) checkWorkspaceVersion() error {
 
 	case jetstoreVersion > version.String:
 		// recompile workspace, set the workspace version to be same as jetstore version
-		err = workspace.CompileWorkspace(server.dbpool, jetstoreVersion)
-		if err != nil {
-			log.Println("Error while compiling workspace:",err)
-			return err
+		// Skip this if in DEV MODE
+		if !devMode {
+			err = workspace.CompileWorkspace(server.dbpool, jetstoreVersion)
+			if err != nil {
+				log.Println("Error while compiling workspace:",err)
+				return err
+			}	
 		}
 
 	default:

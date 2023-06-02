@@ -26,7 +26,7 @@ import (
 //	- starting a task requiring local workspace (e.g. run_report to get latest report definition)
 //	- starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
 //	- starting rule server to get the latest lookup.db and workspace.db
-func SyncWorkspaceFiles() error {
+func SyncWorkspaceFiles(isDevMode bool) error {
 	bucket := os.Getenv("JETS_BUCKET")
 	region := os.Getenv("JETS_REGION")
 	wh := os.Getenv("WORKSPACES_HOME")
@@ -37,8 +37,10 @@ func SyncWorkspaceFiles() error {
 		fmt.Sprintf("jetstore/workspaces/%s/lookups", wk),
 		fmt.Sprintf("jetstore/workspaces/%s/process_config", wk),
 		fmt.Sprintf("jetstore/workspaces/%s/reports", wk),
-		fmt.Sprintf("jetstore/workspaces/%s/lookup.db", wk),
-		fmt.Sprintf("jetstore/workspaces/%s/workspace.db", wk),
+	}
+	if !isDevMode {
+		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/lookup.db", wk))
+		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/workspace.db", wk))
 	}
 	log.Println("Synching overriten workspace file from s3")
 	for i := range prefixes {

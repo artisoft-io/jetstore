@@ -207,12 +207,13 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 		default:
 			fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
 		}
-	} else {
-		// No domain key info json provided, use jets:key as domain key
-		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
-			ColumnNames: []string{"jets:key"},
-			ObjectType: mainObjectType,
-		}
+	// } else {
+	// 	// No domain key info json provided, use jets:key as domain key
+	// 	//* TODO This is not used since mainObjectType == "" here
+	// 	dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
+	// 		ColumnNames: []string{"jets:key"},
+	// 		ObjectType: mainObjectType,
+	// 	}
 
 	}
 
