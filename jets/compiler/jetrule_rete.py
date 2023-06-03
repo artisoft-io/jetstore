@@ -98,8 +98,8 @@ class JetRuleRete:
       for consequent in rule['consequents']:
         vertex = consequent['vertex']
         consequent_copy = consequent.copy()
-        consequent_copy['consequent_seq'] = consequent_seq
         consequent_seq += 1
+        consequent_copy['consequent_seq'] = consequent_seq
         consequent_copy['consequent_for_rule'] = rule['name']
         consequent_copy['consequent_salience'] = rule['salience']
         self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent_copy)
