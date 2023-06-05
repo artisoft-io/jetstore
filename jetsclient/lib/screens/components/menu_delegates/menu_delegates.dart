@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/utils/constants.dart';
-import 'package:provider/provider.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 
