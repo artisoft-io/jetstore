@@ -16,7 +16,17 @@ int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_
   if(not rete_db_path) return -1;
   auto * factory = new ReteMetaStoreFactory();
   *handle = factory;
-  int res = factory->load_database(rete_db_path, lookup_data_db_path);
+  int res = 0;
+  try {
+    res = factory->load_database(rete_db_path, lookup_data_db_path);
+  } catch(jets::rete_exception ex) {
+    LOG(ERROR)<<"create_jetstore_hdl: ERROR while loading database '"<< rete_db_path<<"': "<<ex;
+    return -1;
+  } catch(...) {
+    LOG(ERROR)<<"create_jetstore_hdl: Unknown ERROR while loading database" << rete_db_path;
+    return -1;
+  }
+
   if(res) {
     LOG(ERROR) << "create_jetstore_hdl: ERROR while loading database "<<
       rete_db_path<<", code "<<res;
