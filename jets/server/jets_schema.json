@@ -41,6 +41,44 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "workspace_registry",
+    "description": "Registry of all workspaces available to the cluster.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "workspace_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "workspace_uri",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "description",
+        "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "workspace_name_unique_cstraint",
+        "definition": "CONSTRAINT workspace_name_unique_cstraint UNIQUE (workspace_name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "users",
     "columns": [
       {

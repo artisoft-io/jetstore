@@ -54,6 +54,10 @@ class ScreenKeys {
   static const filePreview = "filePreviewScreen";
   static const execStatusDetailsTable = "execStatusDetailsTable";
   static const processErrorsTable = "processErrorsTable";
+
+  // Workspace IDE Screens
+  static const workspaceRegistry = "workspaceRegistryScreen";
+  static const wsDomainClasses = "wsDomainClassesScreen";
 }
 
 /// Form ID Keys
@@ -90,6 +94,10 @@ class FormKeys {
   static const login = "login";
   static const register = "register";
   static const userAdmin = "userAdmin";
+
+  // Workspace IDE forms
+  static const workspaceRegistry = "workspaceRegistry";
+  static const addWorkspace = "addWorkspace";
 }
 
 /// Form State Keys
@@ -174,6 +182,11 @@ class FSK {
   static const year = "year";
   static const month = "month";
   static const day = "day";
+
+  // Form Keys for Workspace IDE
+  static const wsName = "workspace_name";
+  static const wsURI = "workspace_uri";
+
 
   // reserved keys for cache
 
@@ -271,6 +284,9 @@ class ActionKeys {
   // for process_error data table
   static const setupShowInputRecords = "setupShowInputRecords";
   static const setupShowReteTriples = "setupShowReteTriples";
+
+  // Workspace IDE ActionKeys
+  static const addWorkspaceOk = "addWorkspaceOk";
 }
 
 /// Form Action Keys
@@ -327,8 +343,15 @@ class DTKeys {
   static const mergeProcessInputTable = "mergeProcessInputTable";
   static const injectedProcessInputTable = "injectedProcessInputTable";
 
-  // User administration
+  // User administration DT
   static const usersTable = "userTable";
+
+  // Workspace IDE DT
+  static const workspaceRegistryTable = "workspaceRegistryTable";
+  static const wsDomainClassesTable = "wsDomainClassesTable";
+  static const wsDomainTablesTable = "wsDomainTablesTable";
+  static const wsLookupsTable = "wsLookupsTable";
+  static const wsJetRulesTable = "wsJetRulesTable";
 }
 
 /// API Server endpoints

@@ -8,9 +8,10 @@ import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/process_errors_delegates.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/utils/constants.dart';
-import 'package:jetsclient/utils/data_table_config.dart';
-import 'package:jetsclient/utils/form_config.dart';
-import 'package:jetsclient/utils/screen_config.dart';
+import 'package:jetsclient/utils/data_table_config_impl.dart';
+import 'package:jetsclient/utils/form_config_impl.dart';
+import 'package:jetsclient/utils/modules/workspace_ide/screen_delegates.dart';
+import 'package:jetsclient/utils/screen_config_impl.dart';
 
 const PARAM_CHAR = ':';
 
@@ -31,6 +32,16 @@ const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
 const userAdminPath = '/userAdmin';
+
+// Workspace IDE paths
+const workspaceRegistryPath = '/workspace';
+const workspaceHomePath = '/workspace/:ws_name/home';
+const wsDomainClassesPath = '/workspace/:ws_name/domainClasses';
+const wsDomainClasseDetailsPath = '/workspace/:ws_name/domainClasses/:class_name';
+const wsDomainTablesPath = '/workspace/:ws_name/domainTables';
+const wsDomainTableDetailsPath = '/workspace/:ws_name/domainTables/:table_name';
+const wsJetRulesPath = '/workspace/:ws_name/jetRules';
+const wsJetRuleDetailsPath = '/workspace/:ws_name/jetRules/:rule_name';
 
 final Map<String, Widget> jetsRoutesMap = {
   // Home Screen
@@ -87,6 +98,24 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.processConfig),
       formValidatorDelegate: processConfigFormValidator,
       formActionsDelegate: processConfigFormActions),
+
+  // Workspace IDE - Workspace Selector
+  workspaceRegistryPath: ScreenOne(
+      key: const Key(ScreenKeys.workspaceRegistry),
+      screenPath: JetsRouteData(workspaceRegistryPath),
+      screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
+      validatorDelegate: workspaceIDEFormValidator,
+      actionsDelegate: workspaceIDEFormActions,
+      tableConfig: getTableConfig(DTKeys.workspaceRegistryTable)),
+
+  // Workspace IDE - Workspace Registry (aka Home)
+  workspaceHomePath: ScreenWithForm(
+      key: const Key(ScreenKeys.workspaceRegistry),
+      screenPath: JetsRouteData(workspaceHomePath),
+      screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
+      formConfig: getFormConfig(FormKeys.workspaceRegistry),
+      formValidatorDelegate: workspaceIDEFormValidator,
+      formActionsDelegate: workspaceIDEFormActions),
 
   // Pipeline Config
   pipelineConfigPath: ScreenOne(

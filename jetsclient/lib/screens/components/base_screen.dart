@@ -5,6 +5,7 @@ import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/screen_config.dart';
+import 'package:jetsclient/utils/screen_config_impl.dart';
 
 /// Signature for building the widget of main area of BaseScreen.
 typedef ScreenWidgetBuilder = Widget Function(BaseScreenState baseScreenState);
