@@ -159,10 +159,10 @@ TEST(ExprTest, AddVisitor1Test) {
 }
 
 TEST(ExprTest, AddVisitor2Test) {
-  EXPECT_THROW(create_expr_binary_operator<AddVisitor>(0,
+  EXPECT_EQ(create_expr_binary_operator<AddVisitor>(0,
     create_expr_cst(rdf::RdfAstType(rdf::LInt32(1))), 
     create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, nullptr), 
-    rete_exception );
+    rdf::Null() );
 }
 
 TEST(ExprTest, AddVisitor3Test) {
@@ -400,17 +400,17 @@ TEST(ExprTest, EqVisitor5Test) {
 
 // RegexVisitor Test -----------------------------------------------------------------------
 TEST(ExprTest, RegexVisitor1Test) {
-  EXPECT_THROW(create_expr_binary_operator<RegexVisitor>(0, 
+  EXPECT_EQ(create_expr_binary_operator<RegexVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))),
     create_expr_cst(rdf::RdfAstType(rdf::LInt32(1)))
     )->eval(nullptr, nullptr), 
-    rete_exception );
+    rdf::Null() );
     
-  EXPECT_THROW(create_expr_binary_operator<RegexVisitor>(0, 
+  EXPECT_EQ(create_expr_binary_operator<RegexVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))),
     create_expr_cst(rdf::RdfAstType(rdf::RDFNull()))
     )->eval(nullptr, nullptr), 
-    rete_exception );
+    rdf::Null() );
     
   EXPECT_EQ(create_expr_binary_operator<RegexVisitor>(0, 
       create_expr_cst(rdf::RdfAstType(rdf::LString("Hello World"))),
@@ -439,12 +439,17 @@ TEST(ExprTest, RegexVisitor1Test) {
 
 // To_upperVisitor Test -----------------------------------------------------------------------
 TEST(ExprTest, to_upperVisitor1Test) {
-  EXPECT_THROW(create_expr_unary_operator<To_upperVisitor>(0, 
+  EXPECT_EQ(create_expr_unary_operator<To_upperVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, nullptr), 
-    rete_exception );
+    rdf::Null() );
     
-  EXPECT_THROW(create_expr_unary_operator<To_upperVisitor>(0, 
+  EXPECT_EQ(create_expr_unary_operator<To_upperVisitor>(0, 
     create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, nullptr), 
+    rdf::Null() );
+    
+  BetaRow br;
+  EXPECT_THROW(create_expr_unary_operator<To_upperVisitor>(0, 
+    create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, &br), 
     rete_exception );
     
   EXPECT_EQ(create_expr_unary_operator<To_upperVisitor>(0, 
@@ -458,12 +463,13 @@ TEST(ExprTest, to_upperVisitor1Test) {
 
 // To_lowerVisitor Test -----------------------------------------------------------------------
 TEST(ExprTest, ToLowerVisitor1Test) {
+  BetaRow br;
   EXPECT_THROW(create_expr_unary_operator<To_lowerVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, &br), 
     rete_exception );
     
   EXPECT_THROW(create_expr_unary_operator<To_lowerVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, &br), 
     rete_exception );
     
   EXPECT_EQ(create_expr_unary_operator<To_lowerVisitor>(0, 
@@ -477,12 +483,13 @@ TEST(ExprTest, ToLowerVisitor1Test) {
 
 // TrimVisitor Test -----------------------------------------------------------------------
 TEST(ExprTest, TrimVisitor1Test) {
+  BetaRow br;
   EXPECT_THROW(create_expr_unary_operator<TrimVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::NamedResource("r2"))))->eval(nullptr, &br), 
     rete_exception );
     
   EXPECT_THROW(create_expr_unary_operator<TrimVisitor>(0, 
-    create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, nullptr), 
+    create_expr_cst(rdf::RdfAstType(rdf::BlankNode(22))))->eval(nullptr, &br), 
     rete_exception );
     
   EXPECT_EQ(create_expr_unary_operator<TrimVisitor>(0, 
@@ -606,7 +613,8 @@ TEST(ExprTest, Expression2Test) {
       create_expr_cst(rdf::RdfAstType(rdf::LString("3")))
   ));
   auto expr = create_expr_disjunction(data);
-  EXPECT_THROW(rdf::to_bool(expr->eval(nullptr, nullptr)), rete_exception);
+  BetaRow br;
+  EXPECT_THROW(rdf::to_bool(expr->eval(nullptr, &br)), rete_exception);
 }
 
 TEST(ExprTest, Expression3Test) {
