@@ -34,7 +34,7 @@ const registerPath = '/register';
 const userAdminPath = '/userAdmin';
 
 // Workspace IDE paths
-const workspaceRegistryPath = '/workspace';
+const workspaceRegistryPath = '/workspaces';
 const workspaceHomePath = '/workspace/:ws_name/home';
 const wsDomainClassesPath = '/workspace/:ws_name/domainClasses';
 const wsDomainClasseDetailsPath = '/workspace/:ws_name/domainClasses/:class_name';
