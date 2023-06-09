@@ -192,5 +192,37 @@ struct StartsWithVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallb
   BetaRow const* br;
 };
 
+// CreateNamedMd5UUIDVisitor
+// --------------------------------------------------------------------------------------
+// Operator: uuid_md5
+// Create a text literal containing a name-base uuid using MD5 hashing
+struct CreateNamedMd5UUIDVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  CreateNamedMd5UUIDVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for uuid_md5: ("<<lhs<<")");};
+  RDFTTYPE operator()(rdf::LString lhs)const
+  {
+    return rdf::LString(rdf::create_md5_uuid(std::move(lhs.data)));
+  }
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
+// CreateNamedSha1UUIDVisitor
+// --------------------------------------------------------------------------------------
+// Operator: uuid_sha1
+// Create a text literal containing a name-base uuid using SHA1 hashing
+struct CreateNamedSha1UUIDVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  CreateNamedSha1UUIDVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for uuid_md5: ("<<lhs<<")");};
+  RDFTTYPE operator()(rdf::LString lhs)const
+  {
+    return rdf::LString(rdf::create_sha1_uuid(std::move(lhs.data)));
+  }
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 } // namespace jets::rete
 #endif // JETS_RETE_EXPR_OP_STRINGS_H

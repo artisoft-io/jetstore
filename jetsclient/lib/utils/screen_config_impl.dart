@@ -1,9 +1,9 @@
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/screens/components/menu_delegates/menu_delegates.dart';
 import 'package:jetsclient/utils/screen_config.dart';
+import 'package:jetsclient/utils/modules/workspace_ide/screen_config.dart';
 
 import '../routes/jets_routes_app.dart';
-
 
 final defaultMenuEntries = [
   MenuEntry(
@@ -30,10 +30,10 @@ final defaultMenuEntries = [
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
       routePath: pipelineConfigPath),
-  MenuEntry(
-      key: 'workspaceIDEHome',
-      label: 'Workspace IDE Home',
-      routePath: workspaceRegistryPath),
+  // MenuEntry(
+  //     key: 'workspaceIDEHome',
+  //     label: 'Workspace IDE Home',
+  //     routePath: workspaceRegistryPath),
   MenuEntry(
       otherPageStyle: ActionStyle.danger,
       key: 'dataPurge',
@@ -48,9 +48,7 @@ final defaultMenuEntries = [
 
 final adminMenuEntries = [
   MenuEntry(
-      key: 'userAdmin',
-      label: 'User Administration',
-      routePath: userAdminPath),
+      key: 'userAdmin', label: 'User Administration', routePath: userAdminPath),
   MenuEntry(
       otherPageStyle: ActionStyle.danger,
       key: 'dataPurge',
@@ -199,8 +197,11 @@ final Map<String, ScreenConfig> _screenConfigurations = {
 ScreenConfig getScreenConfig(String key) {
   var config = _screenConfigurations[key];
   if (config == null) {
-    throw Exception(
-        'ERROR: Invalid program configuration: screen configuration $key not found');
+    config = getWorkspaceScreenConfig(key);
+    if (config == null) {
+      throw Exception(
+          'ERROR: Invalid program configuration: screen configuration $key not found');
+    }
   }
   return config;
 }

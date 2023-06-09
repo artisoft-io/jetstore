@@ -90,11 +90,13 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "not")               return create_expr_unary_operator<NotVisitor>(key, arg);
 
   // String operators
-  if(op == "to_upper")          return create_expr_unary_operator<To_upperVisitor>(key, arg);
-  if(op == "to_lower")          return create_expr_unary_operator<To_lowerVisitor>(key, arg);
-  if(op == "trim")              return create_expr_unary_operator<TrimVisitor>(key, arg);
-  if(op == "length_of")         return create_expr_unary_operator<LengthOfVisitor>(key, arg);
+  if(op == "to_upper")           return create_expr_unary_operator<To_upperVisitor>(key, arg);
+  if(op == "to_lower")           return create_expr_unary_operator<To_lowerVisitor>(key, arg);
+  if(op == "trim")               return create_expr_unary_operator<TrimVisitor>(key, arg);
+  if(op == "length_of")          return create_expr_unary_operator<LengthOfVisitor>(key, arg);
   if(op == "parse_usd_currency") return create_expr_unary_operator<ParseUsdCurrencyVisitor>(key, arg);
+  if(op == "uuid_md5")           return create_expr_unary_operator<CreateNamedMd5UUIDVisitor>(key, arg);
+  if(op == "uuid_sha1")          return create_expr_unary_operator<CreateNamedSha1UUIDVisitor>(key, arg);
 
   // Resource operators
   if(op == "create_entity")     return create_expr_unary_operator<CreateEntityVisitor>(key, arg);
