@@ -38,6 +38,7 @@ int delete_jetstore_hdl( HJETS handle )
 {
   if(not handle) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(handle);
+  factory->reset();
   delete factory;
   return 0;
 }
