@@ -18,10 +18,10 @@ final defaultMenuEntries = [
       key: 'inputSourceMapping',
       label: 'Input Source Mapping',
       routePath: inputSourceMappingPath),
-  MenuEntry(
-      key: 'processInput',
-      label: 'Process Input Configuration',
-      routePath: processInputPath),
+  // MenuEntry(
+  //     key: 'processInput',
+  //     label: 'Process Input Configuration',
+  //     routePath: processInputPath),
   MenuEntry(
       key: 'processConfig',
       label: 'Client Rules Configurations',
