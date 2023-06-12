@@ -27,7 +27,8 @@ const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
 const processErrorsPath = '/processErrors/:session_id';
 
 const processConfigPath = '/processConfig';
-const pipelineConfigPath = '/pipelineConfig';
+const pipelineConfigPath = '/pipelineConfig/:x';
+const pipelineConfigEditFormPath = '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
@@ -50,8 +51,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(homePath),
       screenConfig: getScreenConfig(ScreenKeys.home),
       formConfig: getFormConfig(FormKeys.home),
-      formValidatorDelegate: homeFormValidator,
-      formActionsDelegate: homeFormActions),
+  ),
 
   // Client & Organization Admin
   clientAdminPath: ScreenWithForm(
@@ -59,9 +59,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(clientAdminPath),
       screenConfig: getScreenConfig(ScreenKeys.clientAdmin),
       formConfig: getFormConfig(FormKeys.clientAdmin),
-      // Using source config validator and actions since no widget here
-      formValidatorDelegate: sourceConfigValidator,
-      formActionsDelegate: sourceConfigActions),
+  ),
 
   // Source Config
   sourceConfigPath: ScreenWithForm(
@@ -69,8 +67,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(sourceConfigPath),
       screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
       formConfig: getFormConfig(FormKeys.sourceConfig),
-      formValidatorDelegate: sourceConfigValidator,
-      formActionsDelegate: sourceConfigActions),
+  ),
 
   // Input Source Mapping
   inputSourceMappingPath: ScreenWithForm(
@@ -78,8 +75,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(inputSourceMappingPath),
       screenConfig: getScreenConfig(ScreenKeys.inputSourceMapping),
       formConfig: getFormConfig(FormKeys.inputSourceMapping),
-      formValidatorDelegate: processInputFormValidator,
-      formActionsDelegate: processInputFormActions),
+  ),
 
   // Process Input
   processInputPath: ScreenWithForm(
@@ -87,8 +83,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(processInputPath),
       screenConfig: getScreenConfig(ScreenKeys.processInput),
       formConfig: getFormConfig(FormKeys.processInput),
-      formValidatorDelegate: processInputFormValidator,
-      formActionsDelegate: processInputFormActions),
+  ),
 
   // Process Config and Client Rule Config
   processConfigPath: ScreenWithForm(
@@ -96,8 +91,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(processConfigPath),
       screenConfig: getScreenConfig(ScreenKeys.processConfig),
       formConfig: getFormConfig(FormKeys.processConfig),
-      formValidatorDelegate: processConfigFormValidator,
-      formActionsDelegate: processConfigFormActions),
+  ),
 
   // Workspace IDE - Workspace Selector
   workspaceRegistryPath: ScreenOne(
@@ -114,10 +108,16 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(workspaceHomePath),
       screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
       formConfig: getFormConfig(FormKeys.workspaceRegistry),
-      formValidatorDelegate: workspaceIDEFormValidator,
-      formActionsDelegate: workspaceIDEFormActions),
+  ),
 
   // Pipeline Config
+  // pipelineConfigPath: ScreenWithForm(
+  //   key: const Key(ScreenKeys.pipelineConfig),
+  //   screenPath: JetsRouteData(pipelineConfigPath),
+  //   screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
+  //   formConfig: getFormConfig(FormKeys.pipelineConfigForm),
+  //   formValidatorDelegate: pipelineConfigFormValidator,
+  //   formActionsDelegate: pipelineConfigFormActions),
   pipelineConfigPath: ScreenOne(
     key: const Key(ScreenKeys.pipelineConfig),
     screenPath: JetsRouteData(pipelineConfigPath),
@@ -127,14 +127,21 @@ final Map<String, Widget> jetsRoutesMap = {
     tableConfig: getTableConfig(DTKeys.pipelineConfigTable),
   ),
 
+  // Edit Form for Pipeline Config
+  pipelineConfigEditFormPath: ScreenWithForm(
+    key: const Key(ScreenKeys.pipelineConfigEdit),
+    screenPath: JetsRouteData(pipelineConfigEditFormPath),
+    screenConfig: getScreenConfig(ScreenKeys.pipelineConfigEdit),
+    formConfig: getFormConfig(FormKeys.pipelineConfigEditForm),
+  ),
+
   // Login Screen
   loginPath: ScreenWithForm(
       key: const Key(ScreenKeys.login),
       screenPath: JetsRouteData(loginPath),
       screenConfig: getScreenConfig(ScreenKeys.login),
       formConfig: getFormConfig(FormKeys.login),
-      formValidatorDelegate: loginFormValidator,
-      formActionsDelegate: loginFormActions),
+  ),
 
   // Register Screen
   registerPath: ScreenWithForm(
@@ -142,8 +149,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(registerPath),
       screenConfig: getScreenConfig(ScreenKeys.register),
       formConfig: getFormConfig(FormKeys.register),
-      formValidatorDelegate: registrationFormValidator,
-      formActionsDelegate: registrationFormActions),
+  ),
 
   // User Adminstration Screen
   userAdminPath: ScreenWithForm(
@@ -151,8 +157,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(userAdminPath),
       screenConfig: getScreenConfig(ScreenKeys.userAdmin),
       formConfig: getFormConfig(FormKeys.userAdmin),
-      formValidatorDelegate: (formState, p2, p3, p4) => null,
-      formActionsDelegate: userAdminFormActions),
+  ),
 
   // Domain Table Viewer
   domainTableViewerPath: ScreenOne(
@@ -196,8 +201,7 @@ final Map<String, Widget> jetsRoutesMap = {
       screenPath: JetsRouteData(processErrorsPath),
       screenConfig: getScreenConfig(ScreenKeys.processErrorsTable),
       formConfig: getFormConfig(FormKeys.viewProcessErrors),
-      formValidatorDelegate: (formState, p2, p3, p4) => null,
-      formActionsDelegate: processErrorsActions),
+  ),
 
   // Page Not Found
   pageNotFoundPath: const MessageScreen(message: "Opps 404!"),

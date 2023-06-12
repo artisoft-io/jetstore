@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
+import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -1229,10 +1231,20 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
         ],
         'data': [updateState],
       }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
+      // return postInsertRows(context, formState, encodedJsonBody);
+      final res = await postSimpleAction(
+          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      if (res == 200) {
+        JetsRouterDelegate()(JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
+      } else {
+        // There was an error, just pop back to the page
+        // ignore: use_build_context_synchronously
+        Navigator.of(context).pop();
+      }
+      return null;
 
     case ActionKeys.dialogCancel:
-      Navigator.of(context).pop();
+      JetsRouterDelegate()(JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
       break;
     default:
       print('Oops unknown ActionKey for pipeline config form: $actionKey');

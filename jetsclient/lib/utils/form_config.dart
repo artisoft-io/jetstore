@@ -76,6 +76,8 @@ class FormConfig {
     this.metadataQueries,
     this.stateKeyPredicates,
     this.formWithDynamicRows,
+    required this.formValidatorDelegate,
+    required this.formActionsDelegate,
   });
   final String key;
   final String? title;
@@ -99,6 +101,9 @@ class FormConfig {
     }
     return unique.length;
   }
+
+  final ValidatorDelegate formValidatorDelegate;
+  final FormActionsDelegate formActionsDelegate;
 
   JetsFormState makeFormState({JetsFormState? parentFormState}) {
     return JetsFormState(
@@ -223,8 +228,8 @@ class FormInputFieldConfig extends FormFieldConfig {
       formFieldConfig: this,
       onChanged: (p0) => jetsFormWidgetState.widget.formState
           .setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
-      formValidator: ((group, key, v) => jetsFormWidgetState.widget
-          .validatorDelegate(
+      formValidator: ((group, key, v) => jetsFormWidgetState.widget.formConfig
+          .formValidatorDelegate(
               jetsFormWidgetState.widget.formState, group, key, v)),
       formState: jetsFormWidgetState.widget.formState,
     );
@@ -277,8 +282,8 @@ class FormDropdownFieldConfig extends FormFieldConfig {
       formFieldConfig: this,
       onChanged: (p0) => jetsFormWidgetState.widget.formState
           .setValueAndNotify(group, key, p0),
-      formValidator: ((group, key, v) => jetsFormWidgetState.widget
-          .validatorDelegate(
+      formValidator: ((group, key, v) => jetsFormWidgetState.widget.formConfig
+          .formValidatorDelegate(
               jetsFormWidgetState.widget.formState, group, key, v)),
       formState: jetsFormWidgetState.widget.formState,
     );
@@ -327,7 +332,7 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
       formValidator: ((group, key, v) =>
-          jetsFormWidgetState.widget.validatorDelegate(state, group, key, v)),
+          jetsFormWidgetState.widget.formConfig.formValidatorDelegate(state, group, key, v)),
       formState: state,
       selectedValue: state.getValue(group, key),
     );
@@ -364,8 +369,8 @@ class FormDataTableFieldConfig extends FormFieldConfig {
           formFieldConfig: this,
           tableConfig: getTableConfig(dataTableConfig),
           formState: state,
-          validatorDelegate: jetsFormWidgetState.widget.validatorDelegate,
-          actionsDelegate: jetsFormWidgetState.widget.actionsDelegate,
+          validatorDelegate: jetsFormWidgetState.widget.formConfig.formValidatorDelegate,
+          actionsDelegate: jetsFormWidgetState.widget.formConfig.formActionsDelegate,
         ),
       ),
     );
@@ -419,6 +424,6 @@ class FormActionConfig extends FormFieldConfig {
         formActionConfig: this,
         formKey: jetsFormWidgetState.widget.formKey,
         formState: jetsFormWidgetState.widget.formState,
-        actionsDelegate: jetsFormWidgetState.widget.actionsDelegate);
+        actionsDelegate: jetsFormWidgetState.widget.formConfig.formActionsDelegate);
   }
 }

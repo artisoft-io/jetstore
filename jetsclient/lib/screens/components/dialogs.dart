@@ -89,8 +89,6 @@ Future<void> showFormDialog<T>(
     required BuildContext context,
     required JetsFormState formState,
     required FormConfig formConfig,
-    required ValidatorDelegate validatorDelegate,
-    required FormActionsDelegate actionsDelegate,
     required DialogResultHandler<T> resultHandler}) async {
   resultHandler(
       context, formState,
@@ -117,8 +115,6 @@ Future<void> showFormDialog<T>(
             formPath: screenPath,
             formState: formState,
             formConfig: formConfig,
-            validatorDelegate: validatorDelegate,
-            actionsDelegate: actionsDelegate,
             isDialog: true,
           )
               ),

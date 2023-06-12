@@ -134,6 +134,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),
 
+  // Pipeline Config Edit Screen
+  ScreenKeys.pipelineConfigEdit: ScreenConfig(
+      key: ScreenKeys.pipelineConfigEdit,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Edit Pipelines Configuration',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
   // Login Screen
   ScreenKeys.login: ScreenConfig(
       key: ScreenKeys.login,

@@ -18,16 +18,12 @@ class JetsForm extends StatefulWidget {
     required this.formState,
     required this.formKey,
     required this.formConfig,
-    required this.validatorDelegate,
-    required this.actionsDelegate,
     this.isDialog = false,
   }) : super(key: key);
 
   final JetsFormState formState;
   final GlobalKey<FormState> formKey;
   final FormConfig formConfig;
-  final ValidatorDelegate validatorDelegate;
-  final FormActionsDelegate actionsDelegate;
   final JetsRouteData formPath;
   final bool isDialog;
 
@@ -260,7 +256,7 @@ class JetsFormWidgetState extends State<JetsForm> {
                                     formActionConfig: e,
                                     formKey: widget.formKey,
                                     formState: widget.formState,
-                                    actionsDelegate: widget.actionsDelegate))
+                                    actionsDelegate: widget.formConfig.formActionsDelegate))
                                 .toList()),
                       ),
                     );

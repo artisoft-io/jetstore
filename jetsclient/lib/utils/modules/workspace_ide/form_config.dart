@@ -1,5 +1,6 @@
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
+import 'package:jetsclient/utils/modules/workspace_ide/screen_delegates.dart';
 
 
 final Map<String, FormConfig> _formConfigurations = {
@@ -29,6 +30,8 @@ final Map<String, FormConfig> _formConfigurations = {
         //     dataTableConfig: DTKeys.pipelineExecStatusTable)
       ],
     ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
   ),
   // Add Client Dialog
   FormKeys.addWorkspace: FormConfig(
@@ -83,6 +86,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 120),
       ],
     ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
   ),
 
 };
