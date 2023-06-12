@@ -497,8 +497,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
           context: context,
           formState: dialogFormState,
           formConfig: formConfig,
-          validatorDelegate: dialogValidatorDelegate,
-          actionsDelegate: actionsDelegate,
           resultHandler: dialogResultHandler,
         );
         break;
@@ -510,10 +508,13 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         JetsRow? row = dataSource.getFirstSelectedRow();
         // check if no row is selected while we expect to have one selected
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
-        var params = ac.navigationParams?.map((key, value) {
-          if (value is String?) return MapEntry(key, value);
-          return MapEntry(key, row![value]);
-        });
+        Map<String, dynamic>? params;
+        if (row != null) {
+          params = ac.navigationParams?.map((key, value) {
+            if (value is String?) return MapEntry(key, value);
+            return MapEntry(key, row[value]);
+          });
+        }
         // print("NAVIGATING to ${ac.configScreenPath}, with ${params}");
         JetsRouterDelegate()(
             JetsRouteData(ac.configScreenPath!, params: params));
@@ -582,8 +583,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
           context: context,
           formState: dialogFormState,
           formConfig: formConfig,
-          validatorDelegate: dialogValidatorDelegate,
-          actionsDelegate: actionsDelegate,
           resultHandler: dialogResultHandler,
         );
         break;

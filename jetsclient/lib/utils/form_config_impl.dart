@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
+import 'package:jetsclient/screens/screen_delegates/process_errors_delegates.dart';
+import 'package:jetsclient/screens/screen_delegates/user_delegates.dart';
 
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -28,6 +31,8 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: DTKeys.pipelineExecStatusTable)
       ],
     ],
+    formValidatorDelegate: homeFormValidator,
+    formActionsDelegate: homeFormActions,
   ),
 
   // Login Form
@@ -71,6 +76,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 80)
       ],
     ],
+    formValidatorDelegate: loginFormValidator,
+    formActionsDelegate: loginFormActions,
   ),
   // User Registration Form
   FormKeys.register: FormConfig(
@@ -128,6 +135,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 80),
       ],
     ],
+    formValidatorDelegate: registrationFormValidator,
+    formActionsDelegate:  registrationFormActions,
   ),
   // User Administration Form (actionless -- user table has the actions)
   FormKeys.userAdmin: FormConfig(
@@ -139,6 +148,8 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.usersTable, dataTableConfig: DTKeys.usersTable)
       ],
     ],
+    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formActionsDelegate: userAdminFormActions,
   ),
 
   // Client & Org Admin
@@ -161,6 +172,9 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: DTKeys.orgNameTable),
       ],
     ],
+    // Using source config validator and actions since no widget here
+    formValidatorDelegate: sourceConfigValidator,
+    formActionsDelegate: sourceConfigActions,
   ),
 
   // Add Client Dialog
@@ -205,6 +219,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 80),
       ],
     ],
+    formValidatorDelegate: sourceConfigValidator,
+    formActionsDelegate: sourceConfigActions,
   ),
 
   // Add Organization Dialog
@@ -249,6 +265,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 80),
       ],
     ],
+    formValidatorDelegate: sourceConfigValidator,
+    formActionsDelegate: sourceConfigActions,
   ),
 
   // Source Config
@@ -271,6 +289,8 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: DTKeys.fileKeyStagingTable),
       ],
     ],
+    formValidatorDelegate: sourceConfigValidator,
+    formActionsDelegate: sourceConfigActions,
   ),
 
   // addSourceConfig - Dialog to add/update Source Config
@@ -405,6 +425,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 51200),
       ],
     ],
+    formValidatorDelegate: sourceConfigValidator,
+    formActionsDelegate: sourceConfigActions,
   ),
   // loadRawRows - Dialog to load / replace process mapping
   FormKeys.loadRawRows: FormConfig(
@@ -446,6 +468,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 51200),
       ],
     ],
+    formValidatorDelegate: processInputFormValidator,
+    formActionsDelegate: processInputFormActions,
   ),
   // Process Input Form (table as actionless form)
   // Define ProcessInput and mapping definition
@@ -467,6 +491,8 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: 700)
       ],
     ],
+    formValidatorDelegate: processInputFormValidator,
+    formActionsDelegate: processInputFormActions,
   ),
   // Process Input Form (table as actionless form)
   // Define ProcessInput Configuration
@@ -483,6 +509,8 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: 800)
       ],
     ],
+    formValidatorDelegate: processInputFormValidator,
+    formActionsDelegate: processInputFormActions,
   ),
   // addProcessInput - Dialog to add process input
   FormKeys.addProcessInput: FormConfig(
@@ -576,6 +604,8 @@ final Map<String, FormConfig> _formConfigurations = {
             whereStateContains: {FSK.sourceType: 'alias_domain_table'}),
       ],
     ],
+    formValidatorDelegate: processInputFormValidator,
+    formActionsDelegate: processInputFormActions,
   ),
   // processMapping - Dialog to mapping intake file structure to canonical model
   FormKeys.processMapping: FormConfig(
@@ -720,6 +750,8 @@ final Map<String, FormConfig> _formConfigurations = {
         ],
       ];
     },
+    formValidatorDelegate: processInputFormValidator,
+    formActionsDelegate: processInputFormActions,
   ),
   // ruleConfig - Dialog to enter rule config triples
   FormKeys.rulesConfig: FormConfig(
@@ -839,6 +871,8 @@ final Map<String, FormConfig> _formConfigurations = {
         ],
       ];
     },
+    formValidatorDelegate: processConfigFormValidator,
+    formActionsDelegate: processConfigFormActions,
   ),
 
   // Process & Rules Config (actionless)
@@ -871,12 +905,31 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: DTKeys.ruleConfigTable)
       ],
     ],
+    formValidatorDelegate: processConfigFormValidator,
+    formActionsDelegate: processConfigFormActions,
   ),
 
-  // Add/Edit pipelineConfig - Dialog to add / edit pipeline config
-  FormKeys.pipelineConfig: FormConfig(
-    key: FormKeys.pipelineConfig,
+  // Add/Edit pipelineConfig - Edit Form to add / edit pipeline config
+  FormKeys.pipelineConfigForm: FormConfig(
+    key: FormKeys.pipelineConfigForm,
     title: "Pipeline Configuration",
+    actions: [
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.pipelineConfigTable,
+            dataTableConfig: DTKeys.pipelineConfigTable),
+      ],
+    ],
+    formValidatorDelegate: pipelineConfigFormValidator,
+    formActionsDelegate: pipelineConfigFormActions,
+  ),
+
+  // Add/Edit pipelineConfig - Edit Form to add / edit pipeline config
+  FormKeys.pipelineConfigEditForm: FormConfig(
+    key: FormKeys.pipelineConfigEditForm,
+    title: "Edit Pipeline Configuration",
     actions: [
       FormActionConfig(
           key: ActionKeys.pipelineConfigOk,
@@ -983,6 +1036,8 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: FSK.injectedProcessInputKeys),
       ],
     ],
+    formValidatorDelegate: pipelineConfigFormValidator,
+    formActionsDelegate: pipelineConfigFormActions,
   ),
 
   // Start Pipeline - Dialog
@@ -1067,6 +1122,8 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: FSK.mergedInputRegistryKeys),
       ],
     ],
+    formValidatorDelegate: homeFormValidator,
+    formActionsDelegate: homeFormActions,
   ),
 
   // View Process Errors (table as actionless form)
@@ -1083,6 +1140,8 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: 600)
       ],
     ],
+    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formActionsDelegate: processErrorsActions,
   ),
 
   // View Input Records from Process Errors (table as actionless dialog)
@@ -1106,6 +1165,8 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: 600)
       ],
     ],
+    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formActionsDelegate: processErrorsActions,
   ),
 
   // View process_errors.rete_session_triples from Process Errors (table as actionless dialog)
@@ -1140,6 +1201,8 @@ final Map<String, FormConfig> _formConfigurations = {
         //     maxLength: 2097152),
       ],
     ],
+    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formActionsDelegate: processErrorsActions,
   ),
 };
 

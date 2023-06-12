@@ -18,10 +18,10 @@ final defaultMenuEntries = [
       key: 'inputSourceMapping',
       label: 'Input Source Mapping',
       routePath: inputSourceMappingPath),
-  MenuEntry(
-      key: 'processInput',
-      label: 'Process Input Configuration',
-      routePath: processInputPath),
+  // MenuEntry(
+  //     key: 'processInput',
+  //     label: 'Process Input Configuration',
+  //     routePath: processInputPath),
   MenuEntry(
       key: 'processConfig',
       label: 'Client Rules Configurations',
@@ -130,6 +130,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       key: ScreenKeys.pipelineConfig,
       appBarLabel: 'JetStore Workspace',
       title: 'Pipelines Configuration',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries),
+
+  // Pipeline Config Edit Screen
+  ScreenKeys.pipelineConfigEdit: ScreenConfig(
+      key: ScreenKeys.pipelineConfigEdit,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Edit Pipelines Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries),

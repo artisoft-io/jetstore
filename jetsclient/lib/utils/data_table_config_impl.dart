@@ -1650,21 +1650,14 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [],
     actions: [
       ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'newPipelineConfig',
-          label: 'New Pipeline Config',
-          style: ActionStyle.primary,
-          isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.pipelineConfig),
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
+          actionType: DataTableActionType.showScreen,
           key: 'configurePipeline',
-          label: 'Configure Pipeline',
+          label: 'Add/Update Pipeline Configuration',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: true,
-          configForm: FormKeys.pipelineConfig,
+          isEnabledWhenHavingSelectedRows: null,
+          configScreenPath: pipelineConfigEditFormPath,
+          configForm: FormKeys.pipelineConfigEditForm,
           navigationParams: {
             FSK.key: 0,
             FSK.client: 1,
@@ -1785,7 +1778,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfig)
+  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfigEditForm)
   // for selecting FSK.mainProcessInputKey
   FSK.mainProcessInputKey: TableConfig(
     key: FSK.mainProcessInputKey,
@@ -1799,7 +1792,26 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
     ],
-    actions: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addProcessInput',
+          label: 'Add/Update Process Input Configuration',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.addProcessInput,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.client: 1,
+            FSK.org: 2,
+            FSK.objectType: 3,
+            FSK.entityRdfType: 4,
+            FSK.sourceType: 5,
+            FSK.tableName: 6,
+            FSK.lookbackPeriods: 7,
+          }),
+    ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.mainObjectType,
@@ -1816,7 +1828,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfig)
+  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfigEditForm)
   // for selecting FSK.mergedProcessInputKeys
   FSK.mergedProcessInputKeys: TableConfig(
     key: FSK.mergedProcessInputKeys,
@@ -1833,7 +1845,26 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(
           column: "source_type", defaultValue: ['file', 'domain_table']),
     ],
-    actions: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addProcessInput',
+          label: 'Add/Update Process Input Configuration',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.addProcessInput,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.client: 1,
+            FSK.org: 2,
+            FSK.objectType: 3,
+            FSK.entityRdfType: 4,
+            FSK.sourceType: 5,
+            FSK.tableName: 6,
+            FSK.lookbackPeriods: 7,
+          }),
+    ],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: processInputColumns,
@@ -1842,7 +1873,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
-  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfig)
+  // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfigEditForm)
   // for selecting FSK.injectedProcessInputKeys
   FSK.injectedProcessInputKeys: TableConfig(
     key: FSK.injectedProcessInputKeys,
@@ -1858,7 +1889,26 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(column: "source_type", defaultValue: ['alias_domain_table']),
     ],
-    actions: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addProcessInput',
+          label: 'Add/Update Process Input Configuration',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.addProcessInput,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.client: 1,
+            FSK.org: 2,
+            FSK.objectType: 3,
+            FSK.entityRdfType: 4,
+            FSK.sourceType: 5,
+            FSK.tableName: 6,
+            FSK.lookbackPeriods: 7,
+          }),
+    ],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: processInputColumns,

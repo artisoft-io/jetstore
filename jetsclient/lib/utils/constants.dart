@@ -45,6 +45,7 @@ class ScreenKeys {
   static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
   static const pipelineConfig = "pipelineConfigScreen";
+  static const pipelineConfigEdit = "pipelineConfigEditScreen";
 
   static const login = "loginScreen";
   static const register = "registerScreen";
@@ -84,7 +85,8 @@ class FormKeys {
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
   // Pipeline Config & Exec Forms
-  static const pipelineConfig = "pipelineConfigDialog";
+  static const pipelineConfigForm = "pipelineConfigForm";
+  static const pipelineConfigEditForm = "pipelineConfigEditForm";
   static const startPipeline = "startPipelineDialog";
   // Process Errors Dialogs
   static const viewProcessErrors = "viewProcessErrorsForm";
