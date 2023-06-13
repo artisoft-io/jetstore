@@ -46,7 +46,7 @@ var sessionId = flag.String("sessionId", "", "Process session ID. (required if -
 var filePath = flag.String("filePath", "", "File path for output files. (required)")
 var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
 var outputPath string
-var reportScriptPath string
+var reportScriptPaths []string
 
 // NOTE 5/5/2023:
 // This run_reports utility is used by serverSM, loaderSM, and reportsSM to run reports.
@@ -63,7 +63,7 @@ type StringSubstitution struct {
 }
 type ReportDirectives struct {
 	FilePathSubstitution []StringSubstitution `json:"filePathSubstitution"`
-	ReportScript         string               `json:"reportScript"`
+	ReportScripts        []string             `json:"reportScripts"`
 	UpdateLookupTables   bool                 `json:"updateLookupTables"`
 	OutputS3Prefix       string               `json:"outputS3Prefix"`
 	OutputPath           string               `json:"outputPath"`
@@ -71,34 +71,7 @@ type ReportDirectives struct {
 
 var reportDirectives = &ReportDirectives{}
 
-func coordinateWork() error {
-	// open db connection
-	var err error
-	if *awsDsnSecret != "" {
-		// Get the dsn from the aws secret
-		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
-		if err != nil {
-			return fmt.Errorf("while getting dsn from aws secret: %v", err)
-		}
-	}
-	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
-	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
-	}
-	defer dbpool.Close()
-
-	// Fetch overriten workspace files if not in dev mode
-	// When in dev mode, the apiserver refreshes the overriten workspace files
-	isDevMode := true
-	if os.Getenv("JETSTORE_DEV_MODE") == "" {
-		// We're not in dev mode, sync the overriten workspace files
-		isDevMode = false
-	}
-	err = workspace.SyncWorkspaceFiles(isDevMode)
-	if err != nil {
-		log.Println("Error while synching workspace file from s3:",err)
-		return err
-	}
+func runReport(dbpool *pgxpool.Pool, reportScriptPath string) error {
 
 	// Get the report definitions
 	file, err := os.Open(reportScriptPath)
@@ -173,7 +146,46 @@ func coordinateWork() error {
 		if err != nil {
 			return fmt.Errorf("while executing s3 query %s: %v", stmt, err)
 		}
-		fmt.Println("Report:", name, "rowsUploaded", rowsUploaded, "filesUploaded", filesUploaded, "bytesUploaded", bytesUploaded)
+		fmt.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
+	}
+	return nil
+}
+
+func coordinateWork() error {
+	// open db connection
+	var err error
+	if *awsDsnSecret != "" {
+		// Get the dsn from the aws secret
+		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		if err != nil {
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		}
+	}
+	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	if err != nil {
+		return fmt.Errorf("while opening db connection: %v", err)
+	}
+	defer dbpool.Close()
+
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	isDevMode := true
+	if os.Getenv("JETSTORE_DEV_MODE") == "" {
+		// We're not in dev mode, sync the overriten workspace files
+		isDevMode = false
+	}
+	err = workspace.SyncWorkspaceFiles(isDevMode)
+	if err != nil {
+		log.Println("Error while synching workspace file from s3:",err)
+		return err
+	}
+
+	// Run the reports
+	for i := range reportScriptPaths {
+		err = runReport(dbpool, reportScriptPaths[i])
+		if err != nil {
+			return err
+		}
 	}
 
 	// Done with the report part, see if we need to rebuild the lookup tables
@@ -322,14 +334,17 @@ func main() {
 	outputPath = strings.TrimSuffix(outputPath, "/")
 
 	// Put the full path to the ReportScript
-	if reportDirectives.ReportScript != "" {
-		reportScriptPath = fmt.Sprintf("%s/%s/reports/%s", wh, ws, reportDirectives.ReportScript)
+	reportScriptPaths = make([]string, 0)
+	if len(reportDirectives.ReportScripts) > 0 {
+		for i := range reportDirectives.ReportScripts {
+			reportScriptPaths = append(reportScriptPaths, fmt.Sprintf("%s/%s/reports/%s", wh, ws, reportDirectives.ReportScripts[i]))
+		}
 	} else {
-		// reportScript defaults to process name
-		reportScriptPath = fmt.Sprintf("%s/%s/reports/%s.sql", wh, ws, *reportName)
+		// reportScripts defaults to process name
+		reportScriptPaths = append(reportScriptPaths, fmt.Sprintf("%s/%s/reports/%s.sql", wh, ws, *reportName))
 	}
 
-	if reportScriptPath == "" {
+	if len(reportScriptPaths) == 0 {
 		hasErr = true
 		errMsg = append(errMsg, "Error: can't determine the report definitions file.")
 	}
@@ -360,7 +375,9 @@ func main() {
 	fmt.Println("Got argument: originalFilePath", *originalFileName)
 	fmt.Println("Is updateLookupTables?", reportDirectives.UpdateLookupTables)
 	fmt.Println("Report outputPath:", outputPath)
-	fmt.Println("Report definitions file:", reportScriptPath)
+	for i := range reportScriptPaths {
+		fmt.Println("Report definitions file:", reportScriptPaths[i])
+	}
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 
 	err = coordinateWork()
