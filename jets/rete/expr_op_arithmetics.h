@@ -293,6 +293,7 @@ struct ApplyMinMaxVisitor
         // Check if no object exist for the relation (currentObj, datap)
         // if so then skip it
       }
+      // skip missing values (currentValue would be null)
       if(not currentValue) {
         if(is_first) {
           resultObj = currentObj;
