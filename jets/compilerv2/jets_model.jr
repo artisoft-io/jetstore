@@ -14,7 +14,14 @@ class jets:Entity {
   $as_table = false
 };
 
+# Marker class to indicate the entity is a mapped entity
+# This is used by the server process to ensure we extract only mapped entities
+class jets:InputRecord {
+  $base_classes = [owl:Thing],
+  $as_table = false
+};
 
+# State class used in rule engine working memory
 class jets:State {
   $base_classes = [owl:Thing],
   $data_properties = [

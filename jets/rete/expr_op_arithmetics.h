@@ -291,27 +291,29 @@ struct ApplyMinMaxVisitor
       if(datap) {
         currentValue = rs->rdf_session()->get_object(currentObj, datap);
         // Check if no object exist for the relation (currentObj, datap)
-        // if so then return a logical null
-        if(not currentValue) return rdf::Null();
+        // if so then skip it
       }
-      if(is_first) {
-        resultObj = currentObj;
-        resultValue = currentValue;
-        is_first = false;
-      } else {
-        // visitor is for: lhs > rhs
-        // to have min, do if resultValue > currentValue, then resultValue = currentValue
-        // to have max, do if currentValue > resultValue, then resultValue = currentValue
-        if(this->is_min) {
-          lhs = resultValue;
-          rhs = currentValue;
-        } else {
-          lhs = currentValue;
-          rhs = resultValue;
-        }
-        if(rdf::to_bool(boost::apply_visitor(visitor, *lhs, *rhs))) {
+      // skip missing values (currentValue would be null)
+      if(not currentValue) {
+        if(is_first) {
           resultObj = currentObj;
-          resultValue = currentValue; 
+          resultValue = currentValue;
+          is_first = false;
+        } else {
+          // visitor is for: lhs > rhs
+          // to have min, do if resultValue > currentValue, then resultValue = currentValue
+          // to have max, do if currentValue > resultValue, then resultValue = currentValue
+          if(this->is_min) {
+            lhs = resultValue;
+            rhs = currentValue;
+          } else {
+            lhs = currentValue;
+            rhs = resultValue;
+          }
+          if(rdf::to_bool(boost::apply_visitor(visitor, *lhs, *rhs))) {
+            resultObj = currentObj;
+            resultValue = currentValue; 
+          }
         }
       }
       itor.next();
@@ -522,7 +524,9 @@ struct ApplySumValuesVisitor
           res = *val;
           is_first = false;
         } else {
-          res = boost::apply_visitor(visitor, res, *val);
+          if(val->which() != rdf::rdf_null_t) {
+            res = boost::apply_visitor(visitor, res, *val);
+          }
         }
         itor.next();
       }
@@ -532,14 +536,15 @@ struct ApplySumValuesVisitor
       bool is_first = true;
       while(!itor.is_end()) {
         auto val = rs->rdf_session()->get_object(itor.get_object(), datap);
-        if(not val) {
-          RETE_EXCEPTION("Invalid arguments for sum_values in the form (s, objp, ?o).(?o, datap, ?v), missing datap");
-        }
-        if(is_first) {
-          res = *val;
-          is_first = false;
-        } else {
-          res = boost::apply_visitor(visitor, res, *val);
+        if(val) {
+          if(is_first) {
+            res = *val;
+            is_first = false;
+          } else {
+            if(val->which() != rdf::rdf_null_t) {
+              res = boost::apply_visitor(visitor, res, *val);
+            }
+          }
         }
         itor.next();
       }

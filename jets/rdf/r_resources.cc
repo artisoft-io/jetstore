@@ -14,6 +14,7 @@ JetsResources::initialize(RManager * rmgr)
   this->jets__completed                = rmgr->create_resource("jets:completed");
   this->jets__entity_property          = rmgr->create_resource("jets:entity_property");
   this->jets__exception                = rmgr->create_resource("jets:exception");
+  this->jets__input_record             = rmgr->create_resource("jets:InputRecord");
   this->jets__istate                   = rmgr->create_resource("jets:iState");
   this->jets__key                      = rmgr->create_resource("jets:key");
   this->jets__lookup_multi_rows        = rmgr->create_resource("jets:lookup_multi_rows");

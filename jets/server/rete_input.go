@@ -19,6 +19,7 @@ type ReteInputContext struct {
 	jets__completed              *bridge.Resource
 	jets__currentSourcePeriod    *bridge.Resource
 	jets__exception              *bridge.Resource
+	jets__input_record           *bridge.Resource
 	jets__istate                 *bridge.Resource
 	jets__key                    *bridge.Resource
 	jets__loop                   *bridge.Resource
@@ -173,11 +174,15 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	if err != nil {
 		return fmt.Errorf("while creating row's jets:key literal (NewTextLiteral): %v", err)
 	}
-	if subject == nil || ri.rdf__type == nil || aJetRow.processInput.entityRdfTypeResource == nil {
+	if subject == nil || ri.rdf__type == nil || ri.jets__input_record == nil || aJetRow.processInput.entityRdfTypeResource == nil {
 		return fmt.Errorf("ERROR while asserting row rdf type")
 	}
 	// Assert the rdf:type of the row
 	_, err = reteSession.Insert(subject, ri.rdf__type, aJetRow.processInput.entityRdfTypeResource)
+	if err != nil {
+		return fmt.Errorf("while asserting row rdf type: %v", err)
+	}
+	_, err = reteSession.Insert(subject, ri.rdf__type, ri.jets__input_record)
 	if err != nil {
 		return fmt.Errorf("while asserting row rdf type: %v", err)
 	}

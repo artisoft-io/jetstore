@@ -29,6 +29,7 @@ struct JetsResources {
   r_index jets__completed{nullptr};
   r_index jets__entity_property{nullptr};
   r_index jets__exception{nullptr};
+  r_index jets__input_record{nullptr};
   r_index jets__istate{nullptr};
   r_index jets__key{nullptr};
   r_index jets__lookup_multi_rows{nullptr};
