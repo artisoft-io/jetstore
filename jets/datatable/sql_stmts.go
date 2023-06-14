@@ -141,7 +141,8 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		Stmt: `INSERT INTO jetsapi.file_key_staging 
 			(client, org, object_type, file_key, source_period_key) 
 			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT DO NOTHING`,
+			ON CONFLICT ON CONSTRAINT file_key_staging_unique_cstraintv3
+			DO UPDATE SET last_update = DEFAULT`,
 		ColumnKeys: []string{"client", "org", "object_type", "file_key", "source_period_key"},
 	},
 
