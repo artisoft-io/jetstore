@@ -363,6 +363,7 @@ func listenAndServe() error {
 	server.Router.Handle("/assets/NOTICES", fs).Methods("GET")
 	server.Router.Handle("/assets/fonts/MaterialIcons-Regular.otf", fs).Methods("GET")
 	server.Router.Handle("/assets/AssetManifest.json", fs).Methods("GET")
+	server.Router.Handle("/assets/AssetManifest.bin", fs).Methods("GET")
 	server.Router.Handle("/assets/AssetManifest.smcbin", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Bold.ttf", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Italic.ttf", fs).Methods("GET")
