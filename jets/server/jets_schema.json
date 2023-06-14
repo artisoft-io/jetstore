@@ -334,8 +334,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "file_key_staging_unique_cstraintv2",
-        "definition": "CONSTRAINT file_key_staging_unique_cstraint UNIQUE (file_key)"
+        "name": "file_key_staging_unique_cstraintv3",
+        "definition": "CONSTRAINT file_key_staging_unique_cstraintv3 UNIQUE (file_key)"
       }
     ]
   },
@@ -600,8 +600,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "input_registry_unique_cstraint",
-        "definition": "CONSTRAINT input_registry_unique_cstraintv2 UNIQUE (client, org, object_type, table_name, session_id)"
+        "name": "input_registry_unique_cstraintv3",
+        "definition": "CONSTRAINT input_registry_unique_cstraintv3 UNIQUE (client, org, object_type, table_name, session_id)"
       }
     ]
   },
@@ -685,8 +685,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "process_input_unique_cstraintv3",
-        "definition": "CONSTRAINT process_input_unique_cstraintv3 UNIQUE (client, object_type, source_type, table_name, entity_rdf_type)"
+        "name": "process_input_unique_cstraintv4",
+        "definition": "CONSTRAINT process_input_unique_cstraintv4 UNIQUE (client, object_type, source_type, table_name, entity_rdf_type, lookback_periods)"
       }
     ]
   },

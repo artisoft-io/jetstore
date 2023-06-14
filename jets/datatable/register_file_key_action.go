@@ -92,40 +92,45 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		}
 
 		// Start the loader if automated flag is set on source_config table
-		client := registerFileKeyAction.Data[irow]["client"]
-		org := registerFileKeyAction.Data[irow]["org"]
-		objectType := registerFileKeyAction.Data[irow]["object_type"]
-		var tableName string
-		var automated int
-		stmt := "SELECT table_name, automated FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated)
-		if err != nil {
-			return nil, http.StatusNotFound,
-				fmt.Errorf("in RegisterKeys while querying source_config to start a load: %v", err)
-		}
-		if automated > 0 {
-			sessionId := time.Now().UnixMilli()
-
-			// insert into input_loader_status and kick off loader (dev mode)
-			dataTableAction := DataTableAction{
-				Action:      "insert_rows",
-				FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
-				Data: []map[string]interface{}{{
-					"file_key":              fileKey,
-					"table_name":            tableName,
-					"client":                client,
-					"org":                   org,
-					"object_type":           objectType,
-					"session_id":            strconv.FormatInt(sessionId, 10),
-					"source_period_key":     source_period_key,
-					"status":                "submitted",
-					"user_email":            "system",
-					"loaderCompletedMetric": "autoLoaderCompleted",
-					"loaderFailedMetric":    "autoLoaderFailed",
-				}}}
-			_, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
+		// and if not a test file
+		if strings.Contains(fileKey.(string), "/test_") {
+			log.Println("File key is test file, skiping the automated load")
+		} else {
+			client := registerFileKeyAction.Data[irow]["client"]
+			org := registerFileKeyAction.Data[irow]["org"]
+			objectType := registerFileKeyAction.Data[irow]["object_type"]
+			var tableName string
+			var automated int
+			stmt := "SELECT table_name, automated FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated)
 			if err != nil {
-				return nil, httpStatus, fmt.Errorf("while starting loader automatically for key %s: %v", fileKey, err)
+				return nil, http.StatusNotFound,
+					fmt.Errorf("in RegisterKeys while querying source_config to start a load: %v", err)
+			}
+			if automated > 0 {
+				sessionId := time.Now().UnixMilli()
+
+				// insert into input_loader_status and kick off loader (dev mode)
+				dataTableAction := DataTableAction{
+					Action:      "insert_rows",
+					FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
+					Data: []map[string]interface{}{{
+						"file_key":              fileKey,
+						"table_name":            tableName,
+						"client":                client,
+						"org":                   org,
+						"object_type":           objectType,
+						"session_id":            strconv.FormatInt(sessionId, 10),
+						"source_period_key":     source_period_key,
+						"status":                "submitted",
+						"user_email":            "system",
+						"loaderCompletedMetric": "autoLoaderCompleted",
+						"loaderFailedMetric":    "autoLoaderFailed",
+					}}}
+				_, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
+				if err != nil {
+					return nil, httpStatus, fmt.Errorf("while starting loader automatically for key %s: %v", fileKey, err)
+				}
 			}
 		}
 	}
