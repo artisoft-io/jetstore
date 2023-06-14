@@ -165,6 +165,7 @@ func doJob() error {
 }
 
 func main() {
+	fmt.Println("CMD LINE ARGS:",os.Args[1:])
 	flag.Parse()
 
 	// validate command line arguments
