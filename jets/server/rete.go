@@ -130,6 +130,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
+	ri.jets__input_record, err = rw.js.GetResource("jets:InputRecord")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 	ri.jets__currentSourcePeriod, err = rw.js.GetResource("jets:currentSourcePeriod")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
@@ -290,6 +294,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// We don't extract historical entities but only one from the current source period
 				// identified with jets:source_period_sequence == 0 or
 				// entities created during the rule session, identified with jets:source_period_sequence is null
+				// Additional Measure: entities with jets:source_period_sequence == 0, must have jets:InputRecord
+				// as rdf:type to ensure it's a mapped entity and not an injected entity.
+				// Note: Do not save the jets:InputEntity marker type
 				keepObj := true
 				obj, err := rdfSession.GetObject(subject, ri.jets__source_period_sequence)
 				if err != nil {
@@ -300,7 +307,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 					if err != nil {
 						return &result, fmt.Errorf("range of predicate jets:source_period_sequence is not int for an entity of type %s: %v", tableSpec.ClassName, err)
 					}
-					if v > 0 {
+					if v == 0 {
+						// Check if obj has marker type jets:InputRecord, if not don't extract obj
+						isInputRecord, err := rdfSession.Contains(subject, ri.rdf__type, ri.jets__input_record)
+						if err != nil {
+							return &result, fmt.Errorf("while checking if entity has marker class jets:InputRecord for an entity of type %s: %v", tableSpec.ClassName, err)
+						}
+						if isInputRecord == 0 {
+							keepObj = false	
+						}	
+					} else {
 						keepObj = false
 					}
 				}
@@ -354,7 +370,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 									log.Println("BAD EXTRACT:", br)
 									br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 								}
-								data = append(data, obj)
+								if !(domainColumn.ColumnName == "rdf:type" && obj.(string) == "jets:InputRecord") {
+									data = append(data, obj)
+								}
 								itor.Next()
 							}
 							if domainColumn.IsArray {
