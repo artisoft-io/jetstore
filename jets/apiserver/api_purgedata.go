@@ -63,25 +63,25 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 // Also migrate the system tables to latest schema and conditionally run the workspace db init script
 	func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 
-	// Delete the input staging tables
+	// Delete the input staging tables, ignore error here since input_loader_status does not exist
+	// in initial deployment
 	stmt := "SELECT DISTINCT table_name FROM jetsapi.input_loader_status"
 	rows, err := server.dbpool.Query(context.Background(), stmt)
-	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("while selecting staging tables: %v", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		// scan the row
-		var tableName string
-		if err = rows.Scan(&tableName); err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("while scaning staging tables: %v", err)
-		}
-		// Drop the table
-		stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{"public", tableName}.Sanitize())
-		log.Println(stmt)
-		_, err := server.dbpool.Exec(context.Background(), stmt)
-		if err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("while droping staging tables: %v", err)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			// scan the row
+			var tableName string
+			if err = rows.Scan(&tableName); err != nil {
+				return nil, http.StatusInternalServerError, fmt.Errorf("while scaning staging tables: %v", err)
+			}
+			// Drop the table
+			stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{"public", tableName}.Sanitize())
+			log.Println(stmt)
+			_, err := server.dbpool.Exec(context.Background(), stmt)
+			if err != nil {
+				return nil, http.StatusInternalServerError, fmt.Errorf("while droping staging tables: %v", err)
+			}
 		}
 	}
 
