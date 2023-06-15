@@ -124,12 +124,18 @@ func (server *Server) checkJetStoreDbVersion() error {
 		// run update db with workspace init script
 		log.Println("JetStore version table does not exist, initializing the db")
 		// Cleanup any remaining
-		server.ResetDomainTables(&PurgeDataAction{
+		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action: "reset_domain_tables",
 			RunUiDbInitScript: true,
 			Data: []map[string]interface{}{},
 		})
-		server.addVersionToDb(jetstoreVersion)
+		if err != nil {
+			return fmt.Errorf("while calling ResetDomainTables to initialize db: %v", err)
+		}
+		err = server.addVersionToDb(jetstoreVersion)
+		if err != nil {
+			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
+		}
 	} else {
 
 		// Check the release in database vs current release
@@ -139,22 +145,34 @@ func (server *Server) checkJetStoreDbVersion() error {
 		switch {
 		case err != nil:
 			log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
-			server.ResetDomainTables(&PurgeDataAction{
+			_, _, err = server.ResetDomainTables(&PurgeDataAction{
 				Action: "reset_domain_tables",
 				RunUiDbInitScript: true,
 				Data: []map[string]interface{}{},
 			})
-			server.addVersionToDb(jetstoreVersion)
-
+			if err != nil {
+				return fmt.Errorf("while calling ResetDomainTables to initialize db (no version exist in db): %v", err)
+			}
+			err = server.addVersionToDb(jetstoreVersion)
+			if err != nil {
+				return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
+			}
+	
 		case jetstoreVersion > version:
 			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
 				log.Println("New JetStore Release deployed, rebuilding all tables")
-				server.ResetDomainTables(&PurgeDataAction{
+				_, _, err = server.ResetDomainTables(&PurgeDataAction{
 					Action: "reset_domain_tables",
 					RunUiDbInitScript: false,
 					Data: []map[string]interface{}{},
 				})
-				server.addVersionToDb(jetstoreVersion)
+				if err != nil {
+					return fmt.Errorf("while calling ResetDomainTables for new release: %v", err)
+				}
+				err = server.addVersionToDb(jetstoreVersion)
+				if err != nil {
+					return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
+				}
 			} else {
 				log.Println("New JetStore Release deployed, migrating tables to latest schema")
 				serverArgs = []string{ "-migrateDb" }
@@ -194,8 +212,11 @@ func (server *Server) checkJetStoreDbVersion() error {
 		log.Println("UPDATE_DB CAPTURED OUTPUT END")
 		log.Println("============================")
 
-		server.addVersionToDb(jetstoreVersion)
-	}
+		err = server.addVersionToDb(jetstoreVersion)
+		if err != nil {
+			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
+		}
+}
 	return nil
 }
 
