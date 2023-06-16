@@ -213,6 +213,13 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 	}
 }
 
+func mkCatchProps() *sfn.CatchProps {
+	return &sfn.CatchProps{
+		Errors:       jsii.Strings("States.ALL"),
+		ResultPath:   sfn.JsonPath_DISCARD(),
+	}
+}
+
 // Main Function
 func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreOneStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
@@ -617,10 +624,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
-	cp := &sfn.CatchProps{
-		Errors:       jsii.Strings("States.ALL"),
-		ResultPath:   sfn.JsonPath_DISCARD(),
-	}
 	// ================================================
 	// Create Loader State Machine
 	// Loader ECS Task
@@ -791,7 +794,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateReportsSuccessStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from updateReportsSuccessStatusTask"))
-	runReportsTask.AddCatch(updateReportsErrorStatusTask, cp).Next(updateReportsSuccessStatusTask)
+	runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusTask)
 
 	// Reports State Machine - reportsSM
 	// --------------------------------
@@ -983,11 +986,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		MaxConcurrency: jsii.Number(maxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, cp).Next(runServerReportsTask)
+	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(runServerReportsTask)
 
-	runServerReportsTask.AddCatch(updateServerErrorStatusTask, cp).Next(updateServerSuccessStatusTask)
-	updateServerSuccessStatusTask.AddCatch(notifyFailure, cp).Next(notifySuccess)
-	updateServerErrorStatusTask.AddCatch(notifyFailure, cp).Next(notifyFailure)
+	runServerReportsTask.AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(updateServerSuccessStatusTask)
+	updateServerSuccessStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
+	updateServerErrorStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
 
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
