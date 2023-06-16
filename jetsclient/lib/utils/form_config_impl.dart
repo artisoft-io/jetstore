@@ -17,11 +17,6 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: DTKeys.inputRegistryTable,
-            dataTableConfig: DTKeys.inputRegistryTable)
-      ],
-      [
-        FormDataTableFieldConfig(
             key: DTKeys.inputLoaderStatusTable,
             dataTableConfig: DTKeys.inputLoaderStatusTable)
       ],
@@ -29,6 +24,11 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.pipelineExecStatusTable,
             dataTableConfig: DTKeys.pipelineExecStatusTable)
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.inputRegistryTable,
+            dataTableConfig: DTKeys.inputRegistryTable)
       ],
     ],
     formValidatorDelegate: homeFormValidator,
