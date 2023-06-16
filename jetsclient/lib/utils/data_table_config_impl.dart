@@ -2127,7 +2127,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       FromClause(schemaName: 'jetsapi', tableName: 'input_registry'),
       FromClause(schemaName: 'jetsapi', tableName: 'source_period')
     ],
-    label: 'Input Registry',
+    label: 'File and Domain Table Registry',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
