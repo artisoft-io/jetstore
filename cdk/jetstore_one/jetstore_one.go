@@ -669,7 +669,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	runLoaderReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderReportsTask "))
-	// TODO add a catch on runLoaderTask and runLoaderReportsTask
+	//* TODO add a catch on runLoaderTask and runLoaderReportsTask
 	runLoaderTask.Next(runLoaderReportsTask)
 
 	// Loader State Machine - loaderSM
@@ -753,25 +753,26 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// Status Update: update_error Step Function ECS Task for reportsSM
 	// --------------------------------------------------
-	updateReportsErrorStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-reports-error"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Update Reports Status with Error"),
-		Cluster:        ecsCluster,
-		Subnets:        isolatedSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
-			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-		}),
-		TaskDefinition: updateStatusTaskDefinition,
-		ContainerOverrides: &[]*sfntask.ContainerOverride{
-			{
-				ContainerDefinition: updateStatusContainerDef,
-				Command:             sfn.JsonPath_ListAt(jsii.String("$.errorUpdate")),
-			},
-		},
-		ResultPath:         sfn.JsonPath_DISCARD(),
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
-	})
-	updateReportsErrorStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from  updateReportsErrorStatusTask"))
+	//* Investgating issue #780 - disabling AddCatch, updateReportsErrorStatusTask not needed for now
+	// updateReportsErrorStatusTask := sfntask.NewEcsRunTask(stack, jsii.String("update-status-reports-error"), &sfntask.EcsRunTaskProps{
+	// 	Comment:        jsii.String("Update Reports Status with Error"),
+	// 	Cluster:        ecsCluster,
+	// 	Subnets:        isolatedSubnetSelection,
+	// 	AssignPublicIp: jsii.Bool(false),
+	// 	LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+	// 		PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+	// 	}),
+	// 	TaskDefinition: updateStatusTaskDefinition,
+	// 	ContainerOverrides: &[]*sfntask.ContainerOverride{
+	// 		{
+	// 			ContainerDefinition: updateStatusContainerDef,
+	// 			Command:             sfn.JsonPath_ListAt(jsii.String("$.errorUpdate")),
+	// 		},
+	// 	},
+	// 	ResultPath:         sfn.JsonPath_DISCARD(),
+	// 	IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+	// })
+	// updateReportsErrorStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from  updateReportsErrorStatusTask"))
 
 	// Status Update: update_success Step Function ECS Task for reportsSM
 	// ----------------------------------------------------
@@ -794,7 +795,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateReportsSuccessStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from updateReportsSuccessStatusTask"))
-	runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusTask)
+	//* Investgating issue #780 - disabling AddCatch
+	// runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusTask)
+	runReportsTask.Next(updateReportsSuccessStatusTask)
 
 	// Reports State Machine - reportsSM
 	// --------------------------------
@@ -986,11 +989,20 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		MaxConcurrency: jsii.Number(maxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(runServerReportsTask)
+	//* Investgating issue #780 - disabling AddCatch, inlining mkCatchProps()
+	// runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(runServerReportsTask)
+	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, &sfn.CatchProps{
+		Errors:       jsii.Strings("States.ALL"),
+		ResultPath:   sfn.JsonPath_DISCARD(),
+	}).Next(runServerReportsTask)
 
-	runServerReportsTask.AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(updateServerSuccessStatusTask)
-	updateServerSuccessStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
-	updateServerErrorStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
+	//* Investgating issue #780 - disabling AddCatch
+	// runServerReportsTask.AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(updateServerSuccessStatusTask)
+	// updateServerSuccessStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
+	// updateServerErrorStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
+	runServerReportsTask.Next(updateServerSuccessStatusTask)
+	updateServerSuccessStatusTask.Next(notifySuccess)
+	updateServerErrorStatusTask.Next(notifyFailure)
 
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
