@@ -761,7 +761,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Runtime: awslambda.Runtime_GO_1_X(),
 		Entry:   jsii.String("lambdas"),
 		Bundling: &awslambdago.BundlingOptions{
-			GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
+			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
 			"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
