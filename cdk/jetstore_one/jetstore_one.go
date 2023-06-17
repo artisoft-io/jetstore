@@ -235,6 +235,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// The code that defines your stack goes here
 	// Create a bucket that, when something is added to it, it causes the Lambda function to fire, which starts a container running.
+	// typescript example
+	// const bucket = new s3.Bucket(this, 'example-bucket', {
+	// 	accessControl: s3.BucketAccessControl.BUCKET_OWNER_FULL_CONTROL,
+	// 	encryption: s3.BucketEncryption.S3_MANAGED,
+	// 	blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
+	// });
 	var sourceBucket awss3.IBucket
 	bucketName := os.Getenv("JETS_BUCKET_NAME")
 	if bucketName == "" {
@@ -243,6 +249,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			AutoDeleteObjects:      jsii.Bool(true),
 			BlockPublicAccess:      awss3.BlockPublicAccess_BLOCK_ALL(),
 			Versioned:              jsii.Bool(true),
+			AccessControl: awss3.BucketAccessControl_BUCKET_OWNER_FULL_CONTROL, 
 			ServerAccessLogsPrefix: jsii.String("AccessLogs/"),
 		})
 		if phiTagName != nil {
