@@ -27,7 +27,7 @@ import (
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 
-	// awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
+	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	s3deployment "github.com/aws/aws-cdk-go/awscdk/v2/awss3deployment"
 )
 
@@ -754,6 +754,26 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		}),
 	})
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	// ALTERNATE - Status Update using lambda function
+	// --------------------------------------------------------------------------------------------------------------
+	statusUpdateLambda := awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
+		Description: jsii.String("Lambda function to register file key with jetstore db"),
+		Runtime: awslambda.Runtime_GO_1_X(),
+		Entry:   jsii.String("lambdas"),
+		Bundling: &awslambdago.BundlingOptions{
+			GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
+		},
+		Environment: &map[string]*string{
+			"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_DSN_SECRET":     rdsSecret.SecretName(),
+		},
+		MemorySize: jsii.Number(128),
+		Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
+		Vpc: vpc,
+		VpcSubnets: isolatedSubnetSelection,
+	})
+	statusUpdateLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
+	rdsSecret.GrantRead(statusUpdateLambda, nil)
 
 	// Run Reports ECS Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
