@@ -249,7 +249,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			AutoDeleteObjects:      jsii.Bool(true),
 			BlockPublicAccess:      awss3.BlockPublicAccess_BLOCK_ALL(),
 			Versioned:              jsii.Bool(true),
-			AccessControl: awss3.BucketAccessControl_BUCKET_OWNER_FULL_CONTROL, 
+			// AccessControl: awss3.BucketAccessControl_BUCKET_OWNER_FULL_CONTROL, 
 			ServerAccessLogsPrefix: jsii.String("AccessLogs/"),
 		})
 		if phiTagName != nil {
