@@ -77,6 +77,10 @@ func getTypeName(dtype int) string {
 	return "unknown";
 }
 
+func GetTypeName(dtype int) string {
+	return getTypeName(dtype)
+}
+
 func LoadJetRules(process_name string, rete_db_path string, lookup_db_path string) (*JetStore, error) {
 	var js JetStore
 	js.process_name = process_name
