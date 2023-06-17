@@ -1233,27 +1233,26 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add the RDS alerts
 	AddRdsAlarms(stack, rdsCluster, alarmAction, props)
 
-	// NO JUMP SERVER = USE VPC PEERING
-	// // Add jump server
-	// if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
-	// 	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
-	// 		Vpc:             vpc,
-	// 		InstanceName:    jsii.String("JetstoreJumpServer"),
-	// 		SubnetSelection: publicSubnetSelection,
-	// 	})
-	// 	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
-	// 	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
-	// 	bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
-	// 	if phiTagName != nil {
-	// 		awscdk.Tags_Of(bastionHost).Add(phiTagName, jsii.String("false"), nil)
-	// 	}
-	// 	if piiTagName != nil {
-	// 		awscdk.Tags_Of(bastionHost).Add(piiTagName, jsii.String("false"), nil)
-	// 	}
-	// 	if descriptionTagName != nil {
-	// 		awscdk.Tags_Of(bastionHost).Add(descriptionTagName, jsii.String("Bastion host for JetStore Platform"), nil)
-	// 	}
-	// }
+	// Add jump server
+	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
+		bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
+			Vpc:             vpc,
+			InstanceName:    jsii.String("JetstoreJumpServer"),
+			SubnetSelection: publicSubnetSelection,
+		})
+		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
+		bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
+		if phiTagName != nil {
+			awscdk.Tags_Of(bastionHost).Add(phiTagName, jsii.String("false"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(bastionHost).Add(piiTagName, jsii.String("false"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(bastionHost).Add(descriptionTagName, jsii.String("Bastion host for JetStore Platform"), nil)
+		}
+	}
 
 	// BEGIN Create a Sample Lambda function to start the sample container task.
 	// registerKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("registerKeyLambda"), &awslambdago.GoFunctionProps{
