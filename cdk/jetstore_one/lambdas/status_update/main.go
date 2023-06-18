@@ -52,7 +52,7 @@ func main() {
 }
 
 func handler(ctx context.Context, s3Event events.S3Event) (err error) {
-	logger.Info("Starting...")
+	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
 	for i, record := range s3Event.Records {
 		s3 := record.S3
 		logger.Info("Processing File Key", zap.Int("index", i), zap.Int("count", len(s3Event.Records)), zap.String("bucketName", s3.Bucket.Name), zap.String("objectKey", s3.Object.Key))
