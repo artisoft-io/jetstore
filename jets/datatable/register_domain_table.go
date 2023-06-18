@@ -9,7 +9,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/artisoft-io/jetstore/jets/server/workspace"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
