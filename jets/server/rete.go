@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/server/rdf"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
@@ -262,7 +262,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 						nbrReteSessionSaved += 1
 						br.ReteSessionSaved = "Y"
 						br.ReteSessionTriples = sql.NullString{
-							String: string(datatable.RDFSessionAsTableJson(rdfSession, 20000)),
+							String: string(rdf.RDFSessionAsTableJson(rdfSession, 20000)),
 							Valid: true,
 						}
 					} else {

@@ -1,4 +1,4 @@
-package datatable
+package rdf
 
 import (
 	"encoding/json"
