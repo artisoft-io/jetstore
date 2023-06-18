@@ -759,7 +759,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	statusUpdateLambda := awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to register file key with jetstore db"),
 		Runtime: awslambda.Runtime_GO_1_X(),
-		Entry:   jsii.String("lambdas"),
+		Entry:   jsii.String("lambdas/status_update"),
 		Bundling: &awslambdago.BundlingOptions{
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
