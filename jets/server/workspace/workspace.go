@@ -4,13 +4,13 @@ package workspace
 // from the workspace sqlite database
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"strings"
 
+	jw "github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
@@ -206,7 +206,7 @@ func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTable
 			}
 			// Initializing Domain Keys Info
 			domainHeaders := domainTable.DomainHeaders()
-			objectTypes, domainKeysJson, err := GetDomainKeysInfo(workspaceDb.Dbpool, domainTable.ClassName)
+			objectTypes, domainKeysJson, err := jw.GetDomainKeysInfo(workspaceDb.Dbpool, domainTable.ClassName)
 			if err != nil {
 				return domainTableMap, fmt.Errorf("while calling GetDomainKeysInfo: %v", err)
 			}
@@ -252,30 +252,13 @@ func (workspaceDb *WorkspaceDb) LoadJetStoreProperties(ruleset string) (JetStore
 }
 
 
-// ExtTableInfo: multi value arg for extending tables with volatile fields
-type ExtTableInfo map[string][]string
-
-func GetDomainKeysInfo(dbpool *pgxpool.Pool, rdfType string) (*[]string, *string, error) {
-	objectTypes := make([]string, 0)
-	var domainKeysJson string
-	stmt := "SELECT object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type=$1"
-	err := dbpool.QueryRow(context.Background(), stmt, rdfType).Scan(&objectTypes, &domainKeysJson)
-	if err != nil && err.Error() != "no rows in result set" {
-		log.Printf("Error in GetDomainKeysInfo while querying domain_keys_registry for rdfType %s: %v", rdfType, err)
-		return &objectTypes, &domainKeysJson, 
-			fmt.Errorf("in GetDomainKeysInfo while querying domain_keys_registry for rdfType %s: %w", rdfType, err)
-	}	
-	return &objectTypes, &domainKeysJson, nil
-}
-
-
 func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, dropExisting bool, extVR []string) error {
 	var err error
 	if len(tableSpec.Columns) == 0 {
 		return errors.New("error: no tables provided from workspace")
 	}
 	// Get the ObjectTypes associated with the Domain Keys
-	objectTypes, _, err := GetDomainKeysInfo(dbpool, tableSpec.ClassName)
+	objectTypes, _, err := jw.GetDomainKeysInfo(dbpool, tableSpec.ClassName)
 	if err != nil {
 		return err
 	}	
