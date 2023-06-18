@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/artisoft-io/jetstore/jets/server/workspace"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )

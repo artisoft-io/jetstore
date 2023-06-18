@@ -12,7 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/server/rdf"
-	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/artisoft-io/jetstore/jets/server/workspace"
 )
 
 type ReteWorkspace struct {
