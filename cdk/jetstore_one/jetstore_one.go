@@ -835,6 +835,21 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateReportsSuccessStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from updateReportsSuccessStatusTask"))
+	// ALTERNATE using Lambda
+	// Status Update: update_success Step Function Task for reportsSM
+	// --------------------------------------------------------------------------------------------------------------
+	// const stateMachine = new sfn.StateMachine(this, 'MyStateMachine', {
+	// 	definition: new tasks.LambdaInvoke(this, "MyLambdaTask", {
+	// 		lambdaFunction: helloFunction
+	// 	}).next(new sfn.Succeed(this, "GreetedWorld"))
+	// });
+	updateReportsSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateStatusSuccessLambdaTask"), &sfntask.LambdaInvokeProps{
+		Comment: jsii.String("Lambda Task to update status to success"),
+		LambdaFunction: statusUpdateLambda,
+		InputPath: jsii.String("$.successUpdate"),
+		ResultPath: sfn.JsonPath_DISCARD(),
+	})
+	// ALTERNATE ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	// Status Update: update_error Step Function ECS Task for reportsSM
 	// --------------------------------------------------
@@ -858,7 +873,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 	updateReportsErrorStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from  updateReportsErrorStatusTask"))
 	
-	runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusTask)
+	// runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusTask)
+	runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusLambdaTask)
 
 	// Reports State Machine - reportsSM
 	// --------------------------------------------------------------------------------------------------------------
