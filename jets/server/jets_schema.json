@@ -64,6 +64,11 @@
         "dataType": "text"
       },
       {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
         "dataType": "datetime",
         "default": "now()",

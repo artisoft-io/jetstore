@@ -44,6 +44,8 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.InsertRawRows(&dataTableAction, user.ExtractToken(r))
 	case "insert_rows":
 		results, code, err = context.InsertRows(&dataTableAction, user.ExtractToken(r))
+	case "workspace_insert_rows":
+		results, code, err = context.WorkspaceInsertRows(&dataTableAction, user.ExtractToken(r))
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)
 	case "preview_file":

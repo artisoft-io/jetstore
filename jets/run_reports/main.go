@@ -169,12 +169,13 @@ func coordinateWork() error {
 
 	// Fetch overriten workspace files if not in dev mode
 	// When in dev mode, the apiserver refreshes the overriten workspace files
+	workspaceName := os.Getenv("WORKSPACE")
 	isDevMode := true
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
 		// We're not in dev mode, sync the overriten workspace files
 		isDevMode = false
 	}
-	err = workspace.SyncWorkspaceFiles(isDevMode)
+	err = workspace.SyncWorkspaceFiles(workspaceName, isDevMode)
 	if err != nil {
 		log.Println("Error while synching workspace file from s3:",err)
 		return err
@@ -192,13 +193,13 @@ func coordinateWork() error {
 	if reportDirectives.UpdateLookupTables {
 		// sync workspace files from s3 to locally
 		// to make sure we get the report we just created
-		err := workspace.SyncWorkspaceFiles(isDevMode)
+		err := workspace.SyncWorkspaceFiles(workspaceName, isDevMode)
 		if err != nil {
 			return fmt.Errorf("failed to sync workspace files: %v", err)
 		}
 
 		version := strconv.FormatInt(time.Now().Unix(), 10)
-		err = workspace.CompileWorkspace(dbpool, version)
+		err = workspace.CompileWorkspace(dbpool, workspaceName, version)
 		if err != nil {
 			return err
 		}

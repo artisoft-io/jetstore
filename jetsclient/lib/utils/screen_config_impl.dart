@@ -30,10 +30,10 @@ final defaultMenuEntries = [
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
       routePath: pipelineConfigPath),
-  // MenuEntry(
-  //     key: 'workspaceIDEHome',
-  //     label: 'Workspace IDE Home',
-  //     routePath: workspaceRegistryPath),
+  MenuEntry(
+      key: 'workspaceIDEHome',
+      label: 'Workspace IDE Home',
+      routePath: workspaceRegistryPath),
   MenuEntry(
       otherPageStyle: ActionStyle.danger,
       key: 'dataPurge',

@@ -154,6 +154,11 @@ func main() {
 		}
 	}
 
+	if os.Getenv("WORKSPACES_HOME")=="" || os.Getenv("WORKSPACE")=="" {
+		hasErr = true
+		errMsg = append(errMsg, "Env var WORKSPACES_HOME, and WORKSPACE are required.")
+	}
+
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if devMode {
 		if strings.HasPrefix(*unitTestDir, ".") {

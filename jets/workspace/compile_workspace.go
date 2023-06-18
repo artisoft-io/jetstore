@@ -26,21 +26,20 @@ import (
 //	- starting a task requiring local workspace (e.g. run_report to get latest report definition)
 //	- starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
 //	- starting rule server to get the latest lookup.db and workspace.db
-func SyncWorkspaceFiles(isDevMode bool) error {
+func SyncWorkspaceFiles(workspaceName string, isDevMode bool) error {
 	bucket := os.Getenv("JETS_BUCKET")
 	region := os.Getenv("JETS_REGION")
 	wh := os.Getenv("WORKSPACES_HOME")
-	wk := os.Getenv("WORKSPACE")
 	// sync workspace files from s3 to locally
 	//* TODO more prefix: sync workspace files from s3 to locally to compile workspace
 	prefixes := []string{
-		fmt.Sprintf("jetstore/workspaces/%s/lookups", wk),
-		fmt.Sprintf("jetstore/workspaces/%s/process_config", wk),
-		fmt.Sprintf("jetstore/workspaces/%s/reports", wk),
+		fmt.Sprintf("jetstore/workspaces/%s/lookups", workspaceName),
+		fmt.Sprintf("jetstore/workspaces/%s/process_config", workspaceName),
+		fmt.Sprintf("jetstore/workspaces/%s/reports", workspaceName),
 	}
 	if !isDevMode {
-		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/lookup.db", wk))
-		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/workspace.db", wk))
+		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/lookup.db", workspaceName))
+		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/workspace.db", workspaceName))
 	}
 	log.Println("Synching overriten workspace file from s3")
 	for i := range prefixes {
@@ -69,13 +68,12 @@ func SyncWorkspaceFiles(isDevMode bool) error {
 	return nil
 }
 
-func CompileWorkspace(dbpool *pgxpool.Pool, version string) error {
+func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error {
 
 		bucket := os.Getenv("JETS_BUCKET")
 		region := os.Getenv("JETS_REGION")
 		wh := os.Getenv("WORKSPACES_HOME")
-		wk := os.Getenv("WORKSPACE")
-		compilerPath := fmt.Sprintf("%s/%s/compile_workspace.sh", wh, wk)
+		compilerPath := fmt.Sprintf("%s/%s/compile_workspace.sh", wh, workspaceName)
 
 		// Compile the workspace locally
 		cmd := exec.Command(compilerPath)
@@ -105,12 +103,12 @@ func CompileWorkspace(dbpool *pgxpool.Pool, version string) error {
 
 		// Copy the sqlite file to s3
 		sourcesPath := []string{
-			fmt.Sprintf("%s/%s/lookup.db", wh, wk),
-			fmt.Sprintf("%s/%s/workspace.db", wh, wk),
+			fmt.Sprintf("%s/%s/lookup.db", wh, workspaceName),
+			fmt.Sprintf("%s/%s/workspace.db", wh, workspaceName),
 		}
 		sourcesKey := []string{
-			fmt.Sprintf("jetstore/workspaces/%s/lookup.db", wk),
-			fmt.Sprintf("jetstore/workspaces/%s/workspace.db", wk),
+			fmt.Sprintf("jetstore/workspaces/%s/lookup.db", workspaceName),
+			fmt.Sprintf("jetstore/workspaces/%s/workspace.db", workspaceName),
 		}
 		for i := range sourcesPath {
 			// aws integration: Copy the file to awsBucket

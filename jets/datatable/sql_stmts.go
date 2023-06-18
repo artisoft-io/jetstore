@@ -159,6 +159,30 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		AdminOnly: true,
 	},
 
+	// Statements for Rule Workspace Administration (tables part of jetsapi schema)
+	// ----------------------------------------------------------------------------------------------
+	// source config
+	"workspace_registry": {
+		Stmt: `INSERT INTO jetsapi.workspace_registry 
+			(workspace_name, workspace_uri, description, user_email) 
+			VALUES ($1, $2, $3, $4)
+			RETURNING key`,
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "user_email"},
+	},
+	"update/workspace_registry": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(workspace_name, workspace_uri, description, user_email, last_update) 
+			= ($1, $2, $3, $4, DEFAULT) WHERE key = $5`,
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "user_email", "key"},
+	},
+	// compile workspace (insert into workspace_registry and trigger compile workspace)
+	"compile_workspace": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(user_email, last_update) 
+			= ($2, DEFAULT) WHERE workspace_name = $1`,
+		ColumnKeys: []string{"workspace_name", "user_email"},
+	},
+
 	// Statements for Rule Workspace
 	// ----------------------------------------------------------------------------------------------
 	// Statement key that starts with WORKSPACE/ have a pre-execution hook that replace $SCHEMA by the

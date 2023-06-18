@@ -289,6 +289,7 @@ class ActionKeys {
 
   // Workspace IDE ActionKeys
   static const addWorkspaceOk = "addWorkspaceOk";
+  static const compileWorkspace = "compileWorkspace";
 }
 
 /// Form Action Keys
