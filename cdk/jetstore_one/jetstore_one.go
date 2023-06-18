@@ -838,11 +838,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// ALTERNATE using Lambda
 	// Status Update: update_success Step Function Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
-	// const stateMachine = new sfn.StateMachine(this, 'MyStateMachine', {
-	// 	definition: new tasks.LambdaInvoke(this, "MyLambdaTask", {
-	// 		lambdaFunction: helloFunction
-	// 	}).next(new sfn.Succeed(this, "GreetedWorld"))
-	// });
 	updateReportsSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateStatusSuccessLambdaTask"), &sfntask.LambdaInvokeProps{
 		Comment: jsii.String("Lambda Task to update status to success"),
 		LambdaFunction: statusUpdateLambda,
@@ -872,9 +867,19 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateReportsErrorStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from  updateReportsErrorStatusTask"))
+	// ALTERNATE using Lambda
+	// Status Update: update_success Step Function Task for reportsSM
+	// --------------------------------------------------------------------------------------------------------------
+	updateReportsErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateReportsErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
+		Comment: jsii.String("Lambda Task to update status to error/failed"),
+		LambdaFunction: statusUpdateLambda,
+		InputPath: jsii.String("$.errorUpdate"),
+		ResultPath: sfn.JsonPath_DISCARD(),
+	})
+	// ALTERNATE ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	
 	// runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusTask)
-	runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusLambdaTask)
+	runReportsTask.AddCatch(updateReportsErrorStatusLambdaTask, mkCatchProps()).Next(updateReportsSuccessStatusLambdaTask)
 
 	// Reports State Machine - reportsSM
 	// --------------------------------------------------------------------------------------------------------------
@@ -1024,6 +1029,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateServerErrorStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from  updateServerErrorStatusTask"))
+	// ALTERNATE using Lambda
+	// Status Update: update_success Step Function Task for reportsSM
+	// --------------------------------------------------------------------------------------------------------------
+	updateServerErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
+		Comment: jsii.String("Lambda Task to update server status to error/failed"),
+		LambdaFunction: statusUpdateLambda,
+		InputPath: jsii.String("$.errorUpdate"),
+		ResultPath: sfn.JsonPath_DISCARD(),
+	})
+	// ALTERNATE ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	// Status Update: update_success Step Function Task for serverSM
 	// ----------------------------------------------------
@@ -1046,6 +1061,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	updateServerSuccessStatusTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from updateServerSuccessStatusTask"))
+	// ALTERNATE using Lambda
+	// Status Update: update_success Step Function Task for reportsSM
+	// --------------------------------------------------------------------------------------------------------------
+	updateServerSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
+		Comment: jsii.String("Lambda Task to update server status to success"),
+		LambdaFunction: statusUpdateLambda,
+		InputPath: jsii.String("$.successUpdate"),
+		ResultPath: sfn.JsonPath_DISCARD(),
+	})
+	// ALTERNATE ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	//*TODO SNS message
 	notifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
@@ -1071,10 +1096,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 
 	// Chaining the SF Tasks
-	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(runServerReportsTask)
-	runServerReportsTask.AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(updateServerSuccessStatusTask)
-	updateServerSuccessStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
-	updateServerErrorStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
+	// // Version using ECS Task for Status Update
+	// runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(runServerReportsTask)
+	// runServerReportsTask.AddCatch(updateServerErrorStatusTask, mkCatchProps()).Next(updateServerSuccessStatusTask)
+	// updateServerSuccessStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
+	// updateServerErrorStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
+	// Version using Lambda for Status Update
+	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(runServerReportsTask)
+	runServerReportsTask.AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(updateServerSuccessStatusLambdaTask)
+	updateServerSuccessStatusLambdaTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
+	updateServerErrorStatusLambdaTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
 
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
