@@ -764,8 +764,20 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
-			"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_DSN_SECRET":     rdsSecret.SecretName(),
+			"JETS_BUCKET":                        sourceBucket.BucketName(),
+			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+			"JETS_DSN_SECRET":                    rdsSecret.SecretName(),
+			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
+			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
+			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
+			"JETS_LOADER_SM_ARN":                 jsii.String(loaderSmArn),
+			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
+			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
+			"SYSTEM_USER":                        jsii.String("admin"),
 		},
 		MemorySize: jsii.Number(128),
 		Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
@@ -774,6 +786,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 	statusUpdateLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
 	rdsSecret.GrantRead(statusUpdateLambda, nil)
+	// NOTE following added below due to dependency
+	// statusUpdateLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
+	// adminPwdSecret.GrantRead(statusUpdateLambda, nil)
 
 	// Run Reports ECS Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
@@ -1259,6 +1274,27 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
 
+	// Connectivity info for lambda functions to apiserver
+	p := uiPort
+	s := uiLoadBalancer.LoadBalancerDnsName()
+	if os.Getenv("JETS_ELB_MODE") == "public" {
+		p = uiPort + 1
+		s = serviceLoadBalancer.LoadBalancerDnsName()
+	}
+	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *s, p)
+	statusUpdateLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from StatusUpdateLambda"))
+	adminPwdSecret.GrantRead(statusUpdateLambda, nil)
+	statusUpdateLambda.AddEnvironment(
+		jsii.String("SYSTEM_PWD_SECRET"),
+		adminPwdSecret.SecretName(),
+		&awslambda.EnvironmentOptions{},	
+	)
+	statusUpdateLambda.AddEnvironment(
+		jsii.String("JETS_API_URL"),
+		jsii.String(jetsApiUrl),
+		&awslambda.EnvironmentOptions{},	
+	)
+
 	// Add the ELB alerts
 	AddElbAlarms(stack, "UiElb", uiLoadBalancer, alarmAction, props)
 	if os.Getenv("JETS_ELB_MODE") == "public" {
@@ -1311,15 +1347,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// rdsSecret.GrantRead(registerKeyLambda, nil)
 	// END Create a Lambda function to register File Keys with JetStore DB
 
-	// BEGIN ALTERNATE with python lamdba fnc
 	// Lambda to register key from s3
-	p := uiPort
-	s := uiLoadBalancer.LoadBalancerDnsName()
-	if os.Getenv("JETS_ELB_MODE") == "public" {
-		p = uiPort + 1
-		s = serviceLoadBalancer.LoadBalancerDnsName()
-	}
-	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *s, p)
+	// BEGIN ALTERNATE with python lamdba fnc
 	registerKeyLambda := awslambda.NewFunction(stack, jsii.String("registerKeyLambda"), &awslambda.FunctionProps{
 		Description: jsii.String("Lambda to register s3 key to JetStore"),
 		Code:        awslambda.NewAssetCode(jsii.String("lambdas"), nil),

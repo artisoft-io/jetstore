@@ -60,10 +60,10 @@ func handler(ctx context.Context, s3Event events.S3Event) (err error) {
 
 		// open db connections
 		// ---------------------------------------
-		dsn := "dsn"
-		awsDsnSecret := "awsDsnSecret"
-		awsRegion := "awsRegion"
-		usingSshTunnel := true
+		var dsn string
+		awsDsnSecret := os.Getenv("JETS_DSN_SECRET")
+		awsRegion := os.Getenv("JETS_REGION")
+		usingSshTunnel := false
 
 		if awsDsnSecret != "" {
 			// Get the dsn from the aws secret
