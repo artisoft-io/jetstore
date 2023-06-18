@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/aws/aws-lambda-go/events"
+	"github.com/artisoft-io/jetstore/jets/status_update/delegate"
+
+	// "github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"go.uber.org/zap"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Sample lambda function in go for future needs
@@ -31,7 +32,7 @@ func main() {
 		panic("failed to create logger: " + err.Error())
 	}
 
-	// Load config.
+	// Check required env var
 	c.IsValid = true
 	c.AWSRegion = os.Getenv("JETS_REGION")
 	if c.AWSRegion == "" {
@@ -51,33 +52,68 @@ func main() {
 	lambda.Start(handler)
 }
 
-func handler(ctx context.Context, s3Event events.S3Event) (err error) {
+// apiserver:
+// with loaderCommand:
+// runReportsCommand := []string{
+// 	"-client", client.(string),
+// 	"-sessionId", sessionId.(string),
+// 	"-reportName", reportName,
+// 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+// }
+// with serverCommands:
+// runReportsCommand := []string{
+// 	"-processName", processName.(string),
+// 	"-sessionId", sessionId.(string),
+// 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+// }
+// status_update arguments:
+// "successUpdate": []string{
+// 	"-peKey", peKey,
+// 	"-status", "completed",
+// },
+// "errorUpdate": []string{
+// 	"-peKey", peKey,
+// 	"-status", "failed",
+// },
+// ["-peKey", "1269", "-status", "got it!"]
+
+func handler(ctx context.Context, arguments []string) (err error) {
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
-	for i, record := range s3Event.Records {
-		s3 := record.S3
-		logger.Info("Processing File Key", zap.Int("index", i), zap.Int("count", len(s3Event.Records)), zap.String("bucketName", s3.Bucket.Name), zap.String("objectKey", s3.Object.Key))
-	}
-
-		// open db connections
-		// ---------------------------------------
-		var dsn string
-		awsDsnSecret := os.Getenv("JETS_DSN_SECRET")
-		awsRegion := os.Getenv("JETS_REGION")
-		usingSshTunnel := false
-
-		if awsDsnSecret != "" {
-			// Get the dsn from the aws secret
-			dsnStr, err := awsi.GetDsnFromSecret(awsDsnSecret, awsRegion, usingSshTunnel, 10)
-			if err != nil {
-				return fmt.Errorf("while getting dsn from aws secret: %v", err)
+	var ca delegate.CommandArguments
+	var currentKey string
+	for i := range arguments {
+		// logger.Info("Processing File Key", zap.Int("index", i), zap.Int("count", len(s3Event.Records)), zap.String("bucketName", s3.Bucket.Name), zap.String("objectKey", s3.Object.Key))
+		switch {
+		case strings.HasPrefix(arguments[i], "-"):
+			currentKey = arguments[i]
+		default:
+			switch currentKey {
+			case "-peKey":
+				v, err := strconv.Atoi(arguments[i])
+				if err != nil {
+					logger.Error("while parsing peKey:", zap.NamedError("error", err))
+					return err
+				}
+				ca.PeKey = v
+			case "-status":
+				ca.Status = arguments[i]
+			default:
+				logger.Error("unsuported key:", zap.String("key", arguments[i]))
 			}
-			dsn = dsnStr
 		}
-		dbpool, err := pgxpool.Connect(context.Background(), dsn)
-		if err != nil {
-			return fmt.Errorf("while opening db connection: %v", err)
-		}
-		defer dbpool.Close()
+	}
+	errors := ca.ValidateArguments()
+	for _, m := range errors {
+		logger.Error("Validation Error:", zap.String("errMsg", m))
+	}
+	if len(errors) > 0 {
+		panic("Invalid arguments")
+	}
+	err = ca.CoordinateWork()
+	if err != nil {
+		logger.Error("while updating status (ca.CoordinateWork()):", zap.NamedError("error", err))
+		return err
+	}
 
 	return
 }
