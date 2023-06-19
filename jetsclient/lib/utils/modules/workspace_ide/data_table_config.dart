@@ -18,11 +18,17 @@ final Map<String, TableConfig> _tableConfigurations = {
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'addWorkspace',
-          label: 'Add Workspace',
+          label: 'Add/Update Workspace',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.addWorkspace),
+          configForm: FormKeys.addWorkspace,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.wsName: 1,
+            FSK.wsURI: 2,
+            FSK.description: 3,
+          }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'compileWorkspace',
@@ -30,8 +36,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          // actionName: ActionKeys.compileWorkspace
-          ),
+          actionName: ActionKeys.compileWorkspace),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'deleteWorkspace',
@@ -44,26 +49,63 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.client,
+        stateKey: FSK.key,
         columnIdx: 0,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.wsName,
+        columnIdx: 1,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.wsURI,
+        columnIdx: 2,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.description,
+        columnIdx: 3,
       ),
     ]),
     columns: [
       ColumnConfig(
           index: 0,
-          name: "client",
-          label: 'Client Name',
+          name: "key",
+          label: 'Key',
           tooltips: '',
-          isNumeric: false),
+          isNumeric: true,
+          isHidden: true),
       ColumnConfig(
           index: 1,
-          name: "details",
-          label: 'Client details',
-          tooltips: '',
+          name: "workspace_name",
+          label: 'Workspace Name',
+          tooltips: 'Workspace identifier',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "workspace_uri",
+          label: 'Workspace Repo',
+          tooltips: 'Workspace Repository Location',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "description",
+          label: 'Description',
+          tooltips: 'Workspace Repository Location',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "user_email",
+          label: 'User Email',
+          tooltips: 'User who made the last change',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "last_update",
+          label: 'Last Update',
+          tooltips: 'Last time the workspace was compiled',
           isNumeric: false),
     ],
-    sortColumnName: 'client',
-    sortAscending: true,
+    sortColumnName: 'last_update',
+    sortAscending: false,
     rowsPerPage: 10,
   ),
 

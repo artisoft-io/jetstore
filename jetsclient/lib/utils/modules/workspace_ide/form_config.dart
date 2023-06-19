@@ -15,19 +15,8 @@ final Map<String, FormConfig> _formConfigurations = {
         // Worksace Registry Table
         FormDataTableFieldConfig(
             key: DTKeys.workspaceRegistryTable,
-            dataTableConfig: DTKeys.workspaceRegistryTable)
-      ],
-      [
-        // Domain Classes Table
-        // FormDataTableFieldConfig(
-        //     key: DTKeys.inputLoaderStatusTable,
-        //     dataTableConfig: DTKeys.inputLoaderStatusTable)
-      ],
-      [
-        // Domain Tables Table
-        // FormDataTableFieldConfig(
-        //     key: DTKeys.pipelineExecStatusTable,
-        //     dataTableConfig: DTKeys.pipelineExecStatusTable)
+            dataTableConfig: DTKeys.workspaceRegistryTable,
+            tableHeight: 600)
       ],
     ],
     formValidatorDelegate: workspaceIDEFormValidator,
