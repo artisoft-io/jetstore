@@ -93,24 +93,22 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.processConfig),
   ),
 
-  // Workspace IDE - Workspace Selector
-  workspaceRegistryPath: ScreenOne(
+  // Workspace IDE - Workspace Registry
+  workspaceRegistryPath: ScreenWithForm(
       key: const Key(ScreenKeys.workspaceRegistry),
       screenPath: JetsRouteData(workspaceRegistryPath),
       screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
-      validatorDelegate: workspaceIDEFormValidator,
-      actionsDelegate: workspaceIDEFormActions,
-      tableConfig: getTableConfig(DTKeys.workspaceRegistryTable)),
+      formConfig: getFormConfig(FormKeys.workspaceRegistry)),
 
-  // Workspace IDE - Workspace Registry (aka Home)
-  workspaceHomePath: ScreenWithForm(
-      key: const Key(ScreenKeys.workspaceRegistry),
-      screenPath: JetsRouteData(workspaceHomePath),
-      screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
-      formConfig: getFormConfig(FormKeys.workspaceRegistry),
-  ),
+  // // Workspace IDE - Workspace Home
+  // workspaceHomePath: ScreenWithForm(
+  //     key: const Key(ScreenKeys.workspaceHome),
+  //     screenPath: JetsRouteData(workspaceHomePath),
+  //     screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
+  //     formConfig: getFormConfig(FormKeys.workspaceRegistry),
+  // ),
 
-  // Pipeline Config
+  // Pipeline Config (screen removed but still defined for future use)
   // pipelineConfigPath: ScreenWithForm(
   //   key: const Key(ScreenKeys.pipelineConfig),
   //   screenPath: JetsRouteData(pipelineConfigPath),
