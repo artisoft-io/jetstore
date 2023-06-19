@@ -284,17 +284,17 @@ struct ApplyMinMaxVisitor
     rdf::r_index lhs, rhs;
     while(!itor.is_end()) {
       rdf::r_index currentObj = itor.get_object();
-      if(not currentObj) {
+      if(currentObj == nullptr) {
         RETE_EXCEPTION("BUG in ApplyMinMaxVisitor: unexpected null value");
       }
       rdf::r_index currentValue = currentObj;
-      if(datap) {
+      if(datap != nullptr) {
         currentValue = rs->rdf_session()->get_object(currentObj, datap);
         // Check if no object exist for the relation (currentObj, datap)
         // if so then skip it
       }
       // skip missing values (currentValue would be null)
-      if(not currentValue) {
+      if(currentValue != nullptr) {
         if(is_first) {
           resultObj = currentObj;
           resultValue = currentValue;
