@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
 
@@ -48,7 +49,6 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
-
     // Add/Update Workspace Entry
     case ActionKeys.addWorkspaceOk:
       var valid = formKey.currentState!.validate();
@@ -75,6 +75,9 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
     case ActionKeys.compileWorkspace:
       var state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
+      state[FSK.key] = state[FSK.key][0];
+      state[FSK.wsName] = state[FSK.wsName][0];
+      state[FSK.wsURI] = state[FSK.wsURI][0];
       print('Compiling Workspace state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
@@ -83,7 +86,11 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         ],
         'data': [state],
       }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
+      JetsSpinnerOverlay.of(context).show();
+      await postSimpleAction(
+          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      JetsSpinnerOverlay.of(context).hide();
+      return null;
 
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();

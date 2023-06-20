@@ -8,6 +8,7 @@ import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/form_button.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
@@ -225,44 +226,47 @@ class JetsFormWidgetState extends State<JetsForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
-      child: FocusTraversalGroup(
-        child: Form(
-            key: widget.formKey,
-            child: AutofillGroup(
-              child: ListView.builder(
-                  itemBuilder: (BuildContext context, int index) {
-                    if (index < inputFields.length) {
-                      var fc = inputFields[index];
-                      return Row(
-                        children: fc
-                            .map((e) => e.makeFormField(
-                                  screenPath: widget.formPath,
-                                  jetsFormWidgetState: this,
-                                ))
-                            .toList(),
+    return JetsSpinnerOverlay(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+        child: FocusTraversalGroup(
+          child: Form(
+              key: widget.formKey,
+              child: AutofillGroup(
+                child: ListView.builder(
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index < inputFields.length) {
+                        var fc = inputFields[index];
+                        return Row(
+                          children: fc
+                              .map((e) => e.makeFormField(
+                                    screenPath: widget.formPath,
+                                    jetsFormWidgetState: this,
+                                  ))
+                              .toList(),
+                        );
+                      }
+                      // case last: row of buttons
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                              0, defaultPadding, 0, 0),
+                          child: Row(
+                              children: widget.formConfig.actions
+                                  .map((e) => JetsFormButton(
+                                      key: Key(e.key),
+                                      formActionConfig: e,
+                                      formKey: widget.formKey,
+                                      formState: widget.formState,
+                                      actionsDelegate: widget
+                                          .formConfig.formActionsDelegate))
+                                  .toList()),
+                        ),
                       );
-                    }
-                    // case last: row of buttons
-                    return Center(
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
-                        child: Row(
-                            children: widget.formConfig.actions
-                                .map((e) => JetsFormButton(
-                                    key: Key(e.key),
-                                    formActionConfig: e,
-                                    formKey: widget.formKey,
-                                    formState: widget.formState,
-                                    actionsDelegate: widget.formConfig.formActionsDelegate))
-                                .toList()),
-                      ),
-                    );
-                  },
-                  itemCount: inputFields.length + 1),
-            )),
+                    },
+                    itemCount: inputFields.length + 1),
+              )),
+        ),
       ),
     );
   }
