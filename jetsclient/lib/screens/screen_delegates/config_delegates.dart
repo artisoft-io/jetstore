@@ -6,6 +6,7 @@ import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -103,6 +104,7 @@ Future<String?> homeFormActions(BuildContext context,
         ],
         'data': [state],
       }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
       return postInsertRows(context, formState, encodedJsonBody);
 
     case ActionKeys.dialogCancel:
@@ -355,6 +357,7 @@ Future<String?> sourceConfigActions(BuildContext context,
         ],
         'data': [state],
       }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
       return postInsertRows(context, formState, encodedJsonBody);
 
     // Sync File Keys with web storage (s3)
