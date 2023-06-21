@@ -125,6 +125,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error
 		}
 
 		// insert the new workspace version in jetsapi db
+		log.Println("Updating workspace version in database to",version)
 		stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1)"
 		_, err = dbpool.Exec(context.Background(), stmt, version)
 		if err != nil {
