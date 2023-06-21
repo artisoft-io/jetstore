@@ -363,10 +363,10 @@ struct GeVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeede
   RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{std::cmp_greater_equal(lhs.data, rhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{boost::numeric_cast<double>(lhs.data) >= rhs.data};}
 
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{lhs.data <= boost::numeric_cast<double>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{lhs.data <= boost::numeric_cast<double>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{lhs.data <= boost::numeric_cast<double>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{lhs.data <= boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt32        rhs)const{return rdf::LInt32{lhs.data >= boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt32       rhs)const{return rdf::LInt32{lhs.data >= boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LInt64        rhs)const{return rdf::LInt32{lhs.data >= boost::numeric_cast<double>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LUInt64       rhs)const{return rdf::LInt32{lhs.data >= boost::numeric_cast<double>(rhs.data)};}
   RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDouble       rhs)const{return rdf::LInt32{is_ge(lhs, rhs)};}
 
   RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const{return rdf::LInt32{lhs.data >= rhs.data};}
