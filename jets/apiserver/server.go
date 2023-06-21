@@ -119,7 +119,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 	var serverArgs []string
 	var version string
 	jetstoreVersion := os.Getenv("JETS_VERSION")
-	log.Println("JetStore version JETS_VERSION is", jetstoreVersion)
+	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
 	if !tableExists {
 		// run update db with workspace init script
 		log.Println("JetStore version table does not exist, initializing the db")
@@ -159,6 +159,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 			}
 	
 		case jetstoreVersion > version:
+			log.Println("JetStore deployed version (in database) is", version)
 			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
 				log.Println("New JetStore Release deployed, rebuilding all tables")
 				_, _, err = server.ResetDomainTables(&PurgeDataAction{
@@ -179,7 +180,8 @@ func (server *Server) checkJetStoreDbVersion() error {
 			}
 
 		default:
-			log.Println("JetStore version in database", version, ">=", "deployed version", jetstoreVersion)
+			log.Println("JetStore deployed version (in database) is", version)
+			log.Println("JetStore version in database", version, ">=", "JetStore image version", jetstoreVersion)
 		}
 	}
 
@@ -254,6 +256,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		return nil	
 
 	case jetstoreVersion > version.String:
+		log.Println("Workspace deployed version (in database) is", version.String)
 		// recompile workspace, set the workspace version to be same as jetstore version
 		// Skip this if in DEV MODE
 		if !devMode {
@@ -265,7 +268,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		}
 
 	default:
-		log.Println("JetStore version in database", version, ">=", "workspace version", jetstoreVersion,", no need to recompile workspace")
+		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion,", no need to recompile workspace")
 	}
 	return nil
 }
