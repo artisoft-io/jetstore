@@ -14,8 +14,11 @@ ENV JETS_GIT_SHA=${JETS_GIT_SHA}
 RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
     echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
     echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \
-    echo "----------------*********************-------------" >> /VERSION.txt
-
+    echo "----------------*********************-------------" >> /VERSION.txt && \
+    echo "----------------JetStore-Version------------------" && \
+    echo "JETS_VERSION: ${JETS_VERSION}"                      && \
+    echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      && \
+    echo "----------------*********************-------------" 
 # Copy libraries and apps from builder
 ENV JETS_BUILD_DIR /usr/local/go/build
 ENV JETS_BIN_DIR /usr/local/go/bin
