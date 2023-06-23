@@ -51,8 +51,8 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, pipelineExecutionKey int) error 
 			return fmt.Errorf("while calling GetDomainKeysInfo for table %s: %v", outTables[i], err)
 		}
 		for j := range *objectTypes {
-			domainTableFileKey := fmt.Sprintf("%s/client=%s/object_type=%s/year=%d/month=%d/day=%d/%s",
-			prefix, client, (*objectTypes)[j], sourcePeriod.Year, sourcePeriod.Month, sourcePeriod.Day, outTables[i])
+			domainTableFileKey := fmt.Sprintf("%s/client=%s/year=%d/month=%d/day=%d/%s",
+				prefix, client, sourcePeriod.Year, sourcePeriod.Month, sourcePeriod.Day, outTables[i])
 			stmt := `INSERT INTO jetsapi.input_registry 
 			(client, object_type, file_key, table_name, source_type, session_id, source_period_key, user_email)
 			VALUES ($1, $2, $3, $4, 'domain_table', $5, $6, $7)
