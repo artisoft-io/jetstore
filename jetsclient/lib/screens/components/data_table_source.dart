@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/export_routes.dart';
@@ -234,7 +235,12 @@ class JetsDataTableSource extends ChangeNotifier {
                     model![index][e.index] ?? 'null',
                     maxLines: e.maxLines,
                   )))
-              : DataCell(Text(model![index][e.index] ?? 'null')))
+              : DataCell(Text(model![index][e.index] ?? 'null'),
+                  onLongPress: () {
+                  Clipboard.setData(ClipboardData(text: model![index][e.index] ?? 'null'));
+                  ScaffoldMessenger.of(state.context).showSnackBar(
+                      const SnackBar(content: Text("Copied to Clipboard")));
+                }))
           .toList(),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable && isWhereClauseSatisfied

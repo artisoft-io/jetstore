@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/utils/form_config.dart';
 import 'dart:async';
 import 'jets_route_information_parser.dart';
 import 'jets_routes_app.dart';
@@ -22,6 +23,9 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   List<MaterialPage> _pages = [];
   Map<String, List<MaterialPage>> routesPagesMap = {};
   Map<String, String> routePrevMap = {};
+  List<double?>? splitViewControllerWeights;
+  String? selectedClient;
+  List<DropdownItemConfig> clients = [];
 
   @override
   GlobalKey<NavigatorState>? get navigatorKey => _navigatorKey;
@@ -31,6 +35,10 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
 
   bool isDarkMode(BuildContext context) {
     return AdaptiveTheme.of(context).mode == AdaptiveThemeMode.dark;
+  }
+
+  bool isAuthenticated() {
+    return user.isAuthenticated;
   }
 
   void _setRoutePages(JetsRouteData routeData) {

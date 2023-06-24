@@ -8,6 +8,7 @@ import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/utils/form_config.dart';
 
 /// Validation and Actions delegates for the user-related forms
 /// Login Form Validator
@@ -60,6 +61,24 @@ Future<String?> loginFormActions(BuildContext context,
         if (devMode != null) {
           JetsRouterDelegate().devMode = devMode == "true";
         }
+        // Get list of clients
+        var msg = <String, dynamic>{
+          'action': 'raw_query',
+          'query':
+              'SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 200'
+        };
+        var encodedMsg = json.encode(msg);
+        result = await HttpClientSingleton().sendRequest(
+            path: "/dataTable",
+            token: JetsRouterDelegate().user.token,
+            encodedJsonBody: encodedMsg);
+        if (result.statusCode == 200) {
+          JetsRouterDelegate().clients = (result.body['rows']
+                  as List)
+              .map((e) => DropdownItemConfig(label: e[0]!, value: e[0]))
+              .toList();
+        }
+
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Login Successful!'),

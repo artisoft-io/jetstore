@@ -32,20 +32,24 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   // workspaceRegistry Screen
   ScreenKeys.workspaceRegistry: ScreenConfig(
       key: ScreenKeys.workspaceRegistry,
+      type: ScreenType.other,
       appBarLabel: 'JetStore Workspace IDE',
       title: 'Welcome to JetStore Workspace IDE!',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: workspaceRegistryMenuEntries),
+      menuEntries: workspaceRegistryMenuEntries,
+      adminMenuEntries: workspaceRegistryMenuEntries),
 
-  // domainClasses Screen
+  // Workspace IDE Home Screen
   ScreenKeys.wsDomainClasses: ScreenConfig(
       key: ScreenKeys.wsDomainClasses,
+      type: ScreenType.workspace,
       appBarLabel: 'JetStore Workspace IDE',
       title: 'Domain Classes',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: workspaceIDEMenuEntries),
+      menuEntries: workspaceIDEMenuEntries,
+      adminMenuEntries: workspaceIDEMenuEntries),
 };
 
 

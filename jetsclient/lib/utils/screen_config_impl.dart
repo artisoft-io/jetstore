@@ -7,6 +7,10 @@ import '../routes/jets_routes_app.dart';
 
 final defaultMenuEntries = [
   MenuEntry(
+      key: 'jetstoreHome',
+      label: 'JetStore Home',
+      routePath: homePath),
+  MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
       routePath: clientAdminPath),
@@ -48,6 +52,34 @@ final defaultMenuEntries = [
 
 final adminMenuEntries = [
   MenuEntry(
+      key: 'jetstoreHome',
+      label: 'JetStore Home',
+      routePath: homePath),
+  MenuEntry(
+      key: 'clientOrgAdmin',
+      label: 'Clients and Organizations',
+      routePath: clientAdminPath),
+  MenuEntry(
+      key: 'sourceConfig',
+      label: 'File Staging Area',
+      routePath: sourceConfigPath),
+  MenuEntry(
+      key: 'inputSourceMapping',
+      label: 'Input Source Mapping',
+      routePath: inputSourceMappingPath),
+  MenuEntry(
+      key: 'processConfig',
+      label: 'Client Rules Configurations',
+      routePath: processConfigPath),
+  MenuEntry(
+      key: 'pipelineConfig',
+      label: 'Pipelines Configuration',
+      routePath: pipelineConfigPath),
+  MenuEntry(
+      key: 'workspaceIDEHome',
+      label: 'Workspace IDE Home',
+      routePath: workspaceRegistryPath),
+  MenuEntry(
       key: 'userAdmin', label: 'User Administration', routePath: userAdminPath),
   MenuEntry(
       otherPageStyle: ActionStyle.danger,
@@ -69,7 +101,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Welcome to JetStore Workspace!',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Client & Organization Admin Screen
   ScreenKeys.clientAdmin: ScreenConfig(
@@ -78,7 +111,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Clients and Organizations Administration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Source Config Screen
   ScreenKeys.sourceConfig: ScreenConfig(
@@ -87,7 +121,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'File Staging Area',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Domain Table Viewer Screen
   ScreenKeys.domainTableViewer: ScreenConfig(
@@ -96,7 +131,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Input File Staging Table',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Input Source Mapping Screen
   ScreenKeys.inputSourceMapping: ScreenConfig(
@@ -105,7 +141,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Input Source Mapping',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Process Input Configuration Screen
   ScreenKeys.processInput: ScreenConfig(
@@ -114,7 +151,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Process Input Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Rules Config Screen
   ScreenKeys.processConfig: ScreenConfig(
@@ -123,7 +161,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Rules Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Pipeline Config Screen
   ScreenKeys.pipelineConfig: ScreenConfig(
@@ -132,7 +171,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Pipelines Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Pipeline Config Edit Screen
   ScreenKeys.pipelineConfigEdit: ScreenConfig(
@@ -141,34 +181,41 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Edit Pipelines Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // Login Screen
   ScreenKeys.login: ScreenConfig(
       key: ScreenKeys.login,
+      type: ScreenType.other,
       appBarLabel: 'JetStore Workspace',
       title: 'Please login',
       showLogout: false,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: []),
+      menuEntries: [],
+      adminMenuEntries: []),
 
   // Registration Screen
   ScreenKeys.register: ScreenConfig(
       key: ScreenKeys.register,
+      type: ScreenType.other,
       appBarLabel: 'JetStore Workspace',
       title: 'Welcome, please register',
       showLogout: false,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: []),
+      menuEntries: [],
+      adminMenuEntries: []),
 
   // UserAdmin Screen
   ScreenKeys.userAdmin: ScreenConfig(
       key: ScreenKeys.userAdmin,
+      type: ScreenType.other,
       appBarLabel: 'JetStore Workspace',
       title: 'User Administration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: adminMenuEntries),
+      menuEntries: adminMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   ScreenKeys.fileRegistryTable: ScreenConfig(
       key: ScreenKeys.fileRegistryTable,
@@ -176,7 +223,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Staging Table or Domain Table View',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   ScreenKeys.filePreview: ScreenConfig(
       key: ScreenKeys.filePreview,
@@ -184,7 +232,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Input File Preview',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   ScreenKeys.execStatusDetailsTable: ScreenConfig(
       key: ScreenKeys.execStatusDetailsTable,
@@ -192,7 +241,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Pipeline Execution Details',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   ScreenKeys.processErrorsTable: ScreenConfig(
       key: ScreenKeys.processErrorsTable,
@@ -200,7 +250,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       title: 'Pipeline Execution Errors',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries),
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 };
 
 ScreenConfig getScreenConfig(String key) {
