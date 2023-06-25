@@ -31,6 +31,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
+          key: 'openWorkspace',
+          label: 'Open Workspace',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.openWorkspace),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
           key: 'compileWorkspace',
           label: 'Compile Workspace',
           style: ActionStyle.secondary,

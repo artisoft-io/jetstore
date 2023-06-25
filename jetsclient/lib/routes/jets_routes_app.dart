@@ -3,14 +3,11 @@ import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/screen_form.dart';
 import 'package:jetsclient/screens/screen_one.dart';
-import 'package:jetsclient/screens/screen_delegates/user_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
-import 'package:jetsclient/screens/screen_delegates/process_errors_delegates.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config_impl.dart';
 import 'package:jetsclient/utils/form_config_impl.dart';
-import 'package:jetsclient/utils/modules/workspace_ide/screen_delegates.dart';
 import 'package:jetsclient/utils/screen_config_impl.dart';
 
 const PARAM_CHAR = ':';
@@ -100,13 +97,13 @@ final Map<String, Widget> jetsRoutesMap = {
       screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
       formConfig: getFormConfig(FormKeys.workspaceRegistry)),
 
-  // // Workspace IDE - Workspace Home
-  // workspaceHomePath: ScreenWithForm(
-  //     key: const Key(ScreenKeys.workspaceHome),
-  //     screenPath: JetsRouteData(workspaceHomePath),
-  //     screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
-  //     formConfig: getFormConfig(FormKeys.workspaceRegistry),
-  // ),
+  // Workspace IDE - Workspace Home
+  workspaceHomePath: ScreenWithForm(
+      key: const Key(ScreenKeys.workspaceHome),
+      screenPath: JetsRouteData(workspaceHomePath),
+      screenConfig: getScreenConfig(ScreenKeys.workspaceHome),
+      formConfig: getFormConfig(FormKeys.workspaceHome),
+  ),
 
   // Pipeline Config (screen removed but still defined for future use)
   // pipelineConfigPath: ScreenWithForm(

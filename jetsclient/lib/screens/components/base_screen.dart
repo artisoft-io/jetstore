@@ -49,6 +49,47 @@ class BaseScreenState extends State<BaseScreen> {
     super.dispose();
   }
 
+  TreeNode _makeTreeNode(int level, BuildContext context, ThemeData themeData,
+      MenuEntry menuEntry) {
+    List<TreeNode>? childs = menuEntry.children.isNotEmpty
+        ? menuEntry.children
+            .map((e) => _makeTreeNode(level + 1, context, themeData, e))
+            .toList()
+        : null;
+    fn() => menuEntry.routePath != null
+        ? JetsRouterDelegate()(JetsRouteData(menuEntry.routePath!))
+        : menuEntry.menuAction != null
+            ? menuEntry.menuAction!(context)
+            : null;
+    return TreeNode(
+        content: (level == 0)
+            ? Expanded(
+                child: ElevatedButton(
+                  style: buttonStyle(
+                      JetsRouterDelegate().currentConfiguration?.path ==
+                              menuEntry.routePath
+                          ? menuEntry.onPageStyle
+                          : menuEntry.otherPageStyle,
+                      themeData),
+                  onPressed: fn,
+                  child: Center(child: Text(menuEntry.label)),
+                ),
+              )
+            : Expanded(
+                child: TextButton(
+                  // style: buttonStyle(
+                  //     JetsRouterDelegate().currentConfiguration?.path ==
+                  //             menuEntry.routePath
+                  //         ? menuEntry.onPageStyle
+                  //         : menuEntry.otherPageStyle,
+                  //     themeData),
+                  onPressed: fn,
+                  child: Center(child: Text(menuEntry.label)),
+                ),
+              ),
+        children: childs);
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData themeData = Theme.of(context);
@@ -131,26 +172,8 @@ class BaseScreenState extends State<BaseScreen> {
                 flex: 24,
                 child: TreeView(
                     nodes: menuEntries
-                        .map((menuEntry) => TreeNode(
-                                content: Expanded(
-                              child: ElevatedButton(
-                                style: buttonStyle(
-                                    JetsRouterDelegate()
-                                                .currentConfiguration
-                                                ?.path ==
-                                            menuEntry.routePath
-                                        ? menuEntry.onPageStyle
-                                        : menuEntry.otherPageStyle,
-                                    themeData),
-                                onPressed: () => menuEntry.routePath != null
-                                    ? JetsRouterDelegate()(
-                                        JetsRouteData(menuEntry.routePath!))
-                                    : menuEntry.menuAction != null
-                                        ? menuEntry.menuAction!(context)
-                                        : null,
-                                child: Center(child: Text(menuEntry.label)),
-                              ),
-                            )))
+                        .map((menuEntry) =>
+                            _makeTreeNode(0, context, themeData, menuEntry))
                         .toList()),
               )
             ]),
