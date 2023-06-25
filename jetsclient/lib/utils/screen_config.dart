@@ -38,6 +38,7 @@ class MenuEntry {
     required this.label,
     this.routePath,
     this.menuAction,
+    this.children = const [],
   });
   final ActionStyle onPageStyle;
   final ActionStyle otherPageStyle;
@@ -45,4 +46,5 @@ class MenuEntry {
   final String label;
   final String? routePath;
   final MenuActionDelegate? menuAction;
+  List<MenuEntry> children;
 }

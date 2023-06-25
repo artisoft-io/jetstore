@@ -53,15 +53,33 @@ class BaseScreenState extends State<BaseScreen> {
   Widget build(BuildContext context) {
     final ThemeData themeData = Theme.of(context);
     var dropdownItems = [DropdownItemConfig(label: 'Select client')];
-    if (widget.screenConfig.type == ScreenType.home) {
-      dropdownItems.addAll(JetsRouterDelegate().clients);
-    } else {
-      JetsRouterDelegate().selectedClient = null;
+    List<MenuEntry> menuEntries = [];
+
+    switch (widget.screenConfig.type) {
+      case ScreenType.home:
+        dropdownItems.addAll(JetsRouterDelegate().clients);
+        JetsRouterDelegate().workspaceMenuState = [];
+        menuEntries = JetsRouterDelegate().user.isAdmin
+            ? widget.screenConfig.adminMenuEntries
+            : widget.screenConfig.menuEntries;
+        break;
+      case ScreenType.other:
+        JetsRouterDelegate().selectedClient = null;
+        JetsRouterDelegate().workspaceMenuState = [];
+        menuEntries = JetsRouterDelegate().user.isAdmin
+            ? widget.screenConfig.adminMenuEntries
+            : widget.screenConfig.menuEntries;
+        break;
+      case ScreenType.workspace:
+        JetsRouterDelegate().selectedClient = null;
+        menuEntries = JetsRouterDelegate().workspaceMenuState;
+        break;
+      default:
+        // unknown
+        print(
+            'Oops unknown widget.screenConfig.type: ${widget.screenConfig.type}');
     }
 
-    final menuEntries = JetsRouterDelegate().user.isAdmin
-        ? widget.screenConfig.adminMenuEntries
-        : widget.screenConfig.menuEntries;
     return Scaffold(
         appBar: appBar(
             context, widget.screenConfig.appBarLabel, widget.screenConfig,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/utils/form_config.dart';
+import 'package:jetsclient/utils/screen_config.dart';
 import 'dart:async';
 import 'jets_route_information_parser.dart';
 import 'jets_routes_app.dart';
@@ -26,6 +27,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   List<double?>? splitViewControllerWeights;
   String? selectedClient;
   List<DropdownItemConfig> clients = [];
+  List<MenuEntry> workspaceMenuState = [];
 
   @override
   GlobalKey<NavigatorState>? get navigatorKey => _navigatorKey;
