@@ -77,14 +77,14 @@ class BaseScreenState extends State<BaseScreen> {
               )
             : Expanded(
                 child: TextButton(
-                  // style: buttonStyle(
-                  //     JetsRouterDelegate().currentConfiguration?.path ==
-                  //             menuEntry.routePath
-                  //         ? menuEntry.onPageStyle
-                  //         : menuEntry.otherPageStyle,
-                  //     themeData),
                   onPressed: fn,
-                  child: Center(child: Text(menuEntry.label)),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      menuEntry.label,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                  )),
                 ),
               ),
         children: childs);

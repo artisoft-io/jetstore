@@ -54,6 +54,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   }
 
   void call(JetsRouteData appRoute) {
+    print("Routing to page ${appRoute.path}");
     _setRoutePages(appRoute);
     notifyListeners();
   }

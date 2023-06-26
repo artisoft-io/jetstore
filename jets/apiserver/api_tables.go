@@ -46,6 +46,17 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.InsertRows(&dataTableAction, user.ExtractToken(r))
 	case "workspace_insert_rows":
 		results, code, err = context.WorkspaceInsertRows(&dataTableAction, user.ExtractToken(r))
+	case "workspace_query_structure":
+		// This function returns encoded json ready to return to client
+		resultsB, code, err := context.WorkspaceQueryStructure(&dataTableAction, user.ExtractToken(r))
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, code, err)
+			return
+		}
+		JSONB(w, http.StatusOK, *resultsB)
+		return
+	
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)
 	case "preview_file":
