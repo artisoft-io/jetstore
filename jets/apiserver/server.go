@@ -40,12 +40,12 @@ func authh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user_id, err := user.TokenValid(r)
 		if err != nil {
-			// //*
+			// DEV
 			// log.Println("*** authh for",r.URL.Path,", Unauthorized")
 			ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
 			return
 		}
-		// //*
+		// DEV
 		// log.Println("* authh for",r.URL.Path,", Authorized for user ID", user_id)
 		// Get a refresh token
 		token, err := user.CreateToken(user_id)
@@ -61,7 +61,7 @@ func authh(next http.HandlerFunc) http.HandlerFunc {
 // Middleware Function for allowing selected cors client
 func corsh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// //*
+		// DEV
 		// log.Println("* cors for",r.URL.Path,", Origin Header:", r.Header.Get("Origin"))
 		//* check that origin is what we expect
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))

@@ -78,9 +78,11 @@ var inputRegistryKey []int
 var devMode bool
 var adminEmail string
 var jetsDebug int
+var processingErrors []string
 
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator for csv files, default is auto detect between pipe ('|'), tab ('\t') or comma (',')")
+	processingErrors = make([]string, 0)
 }
 
 // Define an enum indicating the encoding of the input file
@@ -252,13 +254,17 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 	var record []string
 	recordTypeOffset := 0
 	currentLineNumber := 0
+	if inputFileEncoding == Csv {
+		// To account for the header line
+		currentLineNumber += 1
+	}
 	badFixedWidthRecord := errors.New("bad fixed-width record")
 	skipRecord := errors.New("skip record")
 	var skippedRecordType string
 	for {
 		inputRows := make([][]interface{}, 0, filePartitionSize)
 		// read and write up to filePartitionSize rows
-		for partitionIndex = 0; partitionIndex < filePartitionSize; partitionIndex++ {
+		NextRow: for partitionIndex = 0; partitionIndex < filePartitionSize; partitionIndex++ {
 			currentLineNumber += 1
 			err = nil
 
@@ -357,7 +363,9 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 				for _,ot := range *objTypes {
 					groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
 					if err != nil {
-						return 0, nil, err
+						badRowsPos = append(badRowsPos, currentLineNumber)
+						processingErrors = append(processingErrors, err.Error())
+						goto NextRow
 					}
 					if jetsDebug >= 2 {
 						fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
@@ -748,19 +756,26 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	status := "completed"
 	if badRowCount > 0 || err != nil  {
 		status = "errors"
+		if err != nil {
+			processingErrors = append(processingErrors, err.Error())
+			err = nil	
+		}
 	}
 	// register the session if status is completed
 	if status == "completed" && !*doNotLockSessionId {
 
-		err2 := schema.RegisterSession(dbpool, "file", *client, *sessionId, *sourcePeriodKey)
-		if err2 != nil {
-			err = fmt.Errorf("error while registering the session id: %v", err2)
+		err = schema.RegisterSession(dbpool, "file", *client, *sessionId, *sourcePeriodKey)
+		if err != nil {
+			status = "errors"
+			processingErrors = append(processingErrors, fmt.Sprintf("error while registering the session id: %v", err))
+			err = nil
 		}
 	}
 	var errMessage string
-	if err != nil {
-		errMessage = fmt.Sprintf("%v", err)
+	if len(processingErrors) > 0 {
+		errMessage = strings.Join(processingErrors, ",")
 	}
+
 	dimentions := &map[string]string {
 		"client": *client,
 		"object_type": *objectType,
@@ -770,6 +785,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	} else {
 		awsi.LogMetric(*failedMetric, dimentions, 1)
 	}
+
 	err = registerCurrentLoad(copyCount, badRowCount, dbpool, headersDKInfo, status, errMessage)
 	if err != nil {
 		return false, fmt.Errorf("error while registering the load: %v", err)

@@ -170,11 +170,13 @@ class BaseScreenState extends State<BaseScreen> {
                 ),
               Expanded(
                 flex: 24,
-                child: TreeView(
-                    nodes: menuEntries
-                        .map((menuEntry) =>
-                            _makeTreeNode(0, context, themeData, menuEntry))
-                        .toList()),
+                child: SingleChildScrollView(
+                  child: TreeView(
+                      nodes: menuEntries
+                          .map((menuEntry) =>
+                              _makeTreeNode(0, context, themeData, menuEntry))
+                          .toList()),
+                ),
               )
             ]),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

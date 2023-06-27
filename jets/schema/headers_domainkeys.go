@@ -8,19 +8,34 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+// available functions for preprocessing input column values used in domain keys
+var preprocessingFunctions map[string]bool
+var preprocessingFncRe *regexp.Regexp
+var dateParsingRe *regexp.Regexp
+func init() {
+	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
+	dateParsingRe = regexp.MustCompile(`(\d{1,4})-?\/?(\d{1,2})-?\/?(\d{1,4})`)
+	preprocessingFunctions = map[string]bool{
+		"format_date": true,
+	}
+}
 type DomainKeyInfo struct {
 	// list of input column name making the domain key
 	ColumnNames      []string
 	// list of input column position making the domain key
 	ColumnPos        []int
+	// list of pre-processing functions for the input column (one per column)
+	PreprocessFnc    []string
 	// Object type associated with the Domain Key
 	ObjectType       string
 	// Column position of column `objectType`:domain_key in the output table
@@ -141,6 +156,20 @@ func (dkInfo *HeadersAndDomainKeysInfo)String() string {
 	return buf.String()
 }
 
+func parseColumn(column *string) []string {
+	v := preprocessingFncRe.FindStringSubmatch(*column)
+	if len(v) < 3 {
+		return nil
+	}
+	if len(v[1]) == 0 || len(v[2]) == 0 {
+		return nil
+	}
+	if !preprocessingFunctions[v[1]] {
+		return nil
+	}
+	return v
+}
+
 // initialize (domainKeysJson string)
 // --------------------------------------------------------------------------------------
 // Compute output table columns and associated domain keys
@@ -203,18 +232,23 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 				default:
 						fmt.Println("domainKeysJson contains",vv,"which is of a type that is not supported")
 				}
-			}		
+			}
 		default:
 			fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
 		}
-	// } else {
-	// 	// No domain key info json provided, use jets:key as domain key
-	// 	//* TODO This is not used since mainObjectType == "" here
-	// 	dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
-	// 		ColumnNames: []string{"jets:key"},
-	// 		ObjectType: mainObjectType,
-	// 	}
 
+		// Extract the preprocessing functions that are decorating the column names (if any)
+		// regex to extract preprocessing function, e.g., format_date(columnName)
+		for _,dk := range dkInfo.DomainKeysInfoMap {
+			dk.PreprocessFnc = make([]string, len(dk.ColumnNames))
+			for i := range dk.ColumnNames {
+				v := parseColumn(&dk.ColumnNames[i])
+				if v != nil {
+					dk.ColumnNames[i] = v[2]
+					dk.PreprocessFnc[i] = v[1]
+				}		
+			}
+		}
 	}
 
 	// Complete the reserved columns by adding the domain keys
@@ -326,6 +360,71 @@ func (dkInfo *HeadersAndDomainKeysInfo)IsDomainKeyIsJetsKey(objectType *string) 
 	return false
 }
 
+func applyPreprocessingFunction(fncName, value string) (string, error) {
+	switch fncName {
+	case "":
+		return value, nil
+	case "format_date":
+		v := dateParsingRe.FindStringSubmatch(value)
+		if len(v) < 4 {
+			return "", fmt.Errorf("Value is not a date: %s",value)
+		}
+		l1 :=len(v[1]);
+		l2 :=len(v[2]);
+		l3 :=len(v[3]);
+		if l1 == 0 || l2 == 0 || l3 == 0 {
+			return "", fmt.Errorf("Value is not a date: %s",value)
+		}
+		// input format 2/19/1968 : mm/dd/yyyy
+		// input format 2012-07-27 : yyyy-mm-dd (same order as output)
+		// input format 20120727 : yyyymmdd (same as output) 
+		// input format 2012-7-9 : yyyymmdd
+		var year, month, day int
+		var err error
+		switch {
+		case l1 == 4:
+			// format yyyy mm dd
+			year, err = strconv.Atoi(v[1])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			month, err = strconv.Atoi(v[2])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			day, err = strconv.Atoi(v[3])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+		case l3 == 4:
+			// format mm dd yyyy -> yyyy mm dd
+			year, err = strconv.Atoi(v[3])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			month, err = strconv.Atoi(v[1])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			day, err = strconv.Atoi(v[2])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+		default:
+			return "", fmt.Errorf("unknown date format: %s",value)
+		}	
+		// validating the date - must validate since corner case of 2003812 will give 2003-81-2 and
+		// not the correct date of 2003-8-12
+		tm := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		if tm.Year() != year || tm.Month() != time.Month(month) || tm.Day() != day {
+			return "", fmt.Errorf("invalid date: %s",value)
+		}
+		formatedDate := fmt.Sprintf("%d%02d%02d",year, month, day)
+		return formatedDate, nil
+	default:
+		return "", fmt.Errorf("unknown pre-processing function " + fncName)
+	}
+}
 func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, recordTypeOffset int, jetsKey *string) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {
@@ -340,17 +439,26 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 		}
 		recPos := dk.ColumnPos[0] + recordTypeOffset
 		if recPos < len(*record) {
-			cols := []string{(*record)[recPos]}
+			// apply the pre-processing function, e.g. format_date for domain key generation
+			value, err := applyPreprocessingFunction(dk.PreprocessFnc[0], (*record)[recPos])
+			if err != nil {
+				return "", 0, err
+			}
+			cols := []string{value}
 			groupingKey := dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		}
 		return "", 0, fmt.Errorf("error: domain key is invalid, make sure it is not a reserved column for ObjectType %s", *objectType)
 	}
 	cols := make([]string, len(dk.ColumnPos))
+	var err error
 	for ipos := range dk.ColumnPos {
 		recPos := dk.ColumnPos[ipos] + recordTypeOffset
 		if recPos < len(*record) {
-			cols[ipos] = (*record)[recPos]
+			cols[ipos], err = applyPreprocessingFunction(dk.PreprocessFnc[ipos], (*record)[recPos])
+			if err != nil {
+				return "", 0, err
+			}
 		} else {
 			return "", 0, fmt.Errorf("error: domain key is invalid, make sure it is not a reserved column for ObjectType %s", *objectType)
 		}
@@ -381,8 +489,8 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 		case string:
 			cols[ipos] = value
 		default:
-			log.Println("Error: Domain Key column is not a string")
-			cols[ipos] = ""
+			log.Println("Error: Domain Key column", dk.ColumnNames[ipos],"is not a string")
+			return "", 0, nil
 		}
 	}
 	groupingKey := dkInfo.makeGroupingKey(&cols)
