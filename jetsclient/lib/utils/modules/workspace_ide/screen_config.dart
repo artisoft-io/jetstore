@@ -13,39 +13,43 @@ final List<MenuEntry> workspaceRegistryMenuEntries = [
       label: 'Workspace IDE Home',
       routePath: workspaceRegistryPath),
 ];
-final List<MenuEntry> workspaceIDEMenuEntries = [
-  MenuEntry(
-      key: 'workspaceIDEHome',
-      label: 'Select Another Workspace',
-      routePath: workspaceRegistryPath),
-  MenuEntry(
-      key: 'domainClasses',
-      label: 'Domain Classes',
-      routePath: wsDomainClassesPath),
-  MenuEntry(
-      key: 'domainTables',
-      label: 'Domain Tables',
-      routePath: wsDomainTablesPath),
-];
+// final List<MenuEntry> workspaceIDEMenuEntries = [
+//   MenuEntry(
+//       key: 'workspaceIDEHome',
+//       label: 'Select Another Workspace',
+//       routePath: workspaceRegistryPath),
+//   MenuEntry(
+//       key: 'domainClasses',
+//       label: 'Domain Classes',
+//       routePath: wsDomainClassesPath),
+//   MenuEntry(
+//       key: 'domainTables',
+//       label: 'Domain Tables',
+//       routePath: wsDomainTablesPath),
+// ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {
   // workspaceRegistry Screen
   ScreenKeys.workspaceRegistry: ScreenConfig(
       key: ScreenKeys.workspaceRegistry,
+      type: ScreenType.other,
       appBarLabel: 'JetStore Workspace IDE',
       title: 'Welcome to JetStore Workspace IDE!',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: workspaceRegistryMenuEntries),
+      menuEntries: workspaceRegistryMenuEntries,
+      adminMenuEntries: workspaceRegistryMenuEntries),
 
-  // domainClasses Screen
-  ScreenKeys.wsDomainClasses: ScreenConfig(
-      key: ScreenKeys.wsDomainClasses,
+  // Workspace IDE Home Screen
+  ScreenKeys.workspaceHome: ScreenConfig(
+      key: ScreenKeys.workspaceHome,
+      type: ScreenType.workspace,
       appBarLabel: 'JetStore Workspace IDE',
-      title: 'Domain Classes',
+      title: 'Workspace Home',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
-      menuEntries: workspaceIDEMenuEntries),
+      menuEntries: [],
+      adminMenuEntries: []),
 };
 
 

@@ -58,7 +58,7 @@ class ScreenKeys {
 
   // Workspace IDE Screens
   static const workspaceRegistry = "workspaceRegistryScreen";
-  static const wsDomainClasses = "wsDomainClassesScreen";
+  static const workspaceHome = "workspaceHome";
 }
 
 /// Form ID Keys
@@ -99,6 +99,7 @@ class FormKeys {
 
   // Workspace IDE forms
   static const workspaceRegistry = "workspaceRegistry";
+  static const workspaceHome = "workspaceHome";
   static const addWorkspace = "addWorkspace";
 }
 
@@ -290,6 +291,7 @@ class ActionKeys {
   // Workspace IDE ActionKeys
   static const addWorkspaceOk = "addWorkspaceOk";
   static const compileWorkspace = "compileWorkspace";
+  static const openWorkspace = "openWorkspace";
 }
 
 /// Form Action Keys

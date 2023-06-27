@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/data_table_model.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 
@@ -15,6 +17,7 @@ class JetsDataTableSource extends ChangeNotifier {
   int _totalRowCount = 0;
   List<bool> selectedRows = <bool>[];
   bool _whereClauseSatisfied = false;
+  bool _addWhereClauseOnClient = true;
 
   int get rowCount => model != null ? model!.length : 0;
   int get totalRowCount => _totalRowCount;
@@ -234,7 +237,13 @@ class JetsDataTableSource extends ChangeNotifier {
                     model![index][e.index] ?? 'null',
                     maxLines: e.maxLines,
                   )))
-              : DataCell(Text(model![index][e.index] ?? 'null')))
+              : DataCell(Text(model![index][e.index] ?? 'null'),
+                  onLongPress: () {
+                  Clipboard.setData(
+                      ClipboardData(text: model![index][e.index] ?? 'null'));
+                  ScaffoldMessenger.of(state.context).showSnackBar(
+                      const SnackBar(content: Text("Copied to Clipboard")));
+                }))
           .toList(),
       selected: selectedRows[index],
       onSelectChanged: state.isTableEditable && isWhereClauseSatisfied
@@ -255,6 +264,11 @@ class JetsDataTableSource extends ChangeNotifier {
       final v = state.formState?.getValue(config.group, wc.column);
       assert(v is String, "Error: Column Name not found in stateForm");
       columnName = v;
+    }
+
+    // Check if the Wehereclause column is client
+    if (wc.column == 'client') {
+      _addWhereClauseOnClient = false;
     }
 
     // Check if value is comming from screen param (navigation param)
@@ -278,6 +292,9 @@ class JetsDataTableSource extends ChangeNotifier {
     if (config != null && wc.predicate != null) {
       var value =
           state.formState?.getValue(config.group, wc.predicate!.formStateKey);
+      if (wc.predicate!.formStateKey == FSK.client) {
+        _addWhereClauseOnClient = false;
+      }
       if (value != wc.predicate!.expectedValue) {
         predicateSatisfied = false;
       }
@@ -335,7 +352,14 @@ class JetsDataTableSource extends ChangeNotifier {
 
   dynamic _makeQuery() {
     final columns = state.tableConfig.columns;
+    // reset _addWhereClauseOnClient
+    _addWhereClauseOnClient = true;
+    // Check if there is a select client in context
+    if (JetsRouterDelegate().selectedClient == null) {
+      _addWhereClauseOnClient = false;
+    }
     // List of Column for select stmt
+    var hasClientColumn = false;
     List<Map<String, String>> selectColumns = [];
     if (columns.isNotEmpty) {
       selectColumns = List<Map<String, String>>.generate(
@@ -344,6 +368,14 @@ class JetsDataTableSource extends ChangeNotifier {
                 'table': columns[index].table ?? '',
                 'column': columns[index].name
               });
+      for (final col in columns) {
+        if (col.name == 'client') {
+          hasClientColumn = true;
+        }
+      }
+    }
+    if (!hasClientColumn) {
+      _addWhereClauseOnClient = false;
     }
     var msg = <String, dynamic>{'action': state.tableConfig.apiAction};
     // from clauses (table name(s))
@@ -375,6 +407,16 @@ class JetsDataTableSource extends ChangeNotifier {
         whereClauses.add(wcValue);
       }
     }
+    // if _addWhereClauseOnClient is still true, then add to where clause
+    if (_addWhereClauseOnClient) {
+      // Add to where clause
+      whereClauses.add(<String, dynamic>{
+        'table': state.tableConfig.fromClauses[0].tableName,
+        'column': 'client',
+        'values': [JetsRouterDelegate().selectedClient!],
+      });
+    }
+
     if (whereClauses.isNotEmpty) {
       msg['whereClauses'] = whereClauses;
     }

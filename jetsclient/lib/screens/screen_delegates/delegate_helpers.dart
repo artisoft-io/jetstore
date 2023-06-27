@@ -88,6 +88,27 @@ Future<int> postSimpleAction(BuildContext context, JetsFormState formState,
   return result.statusCode;
 }
 
+/// postRawAction - minimalist post action (does no navigation or callback invocation)
+/// returns the HttpResponse, notify user via SnackBar if success or error
+Future<HttpResponse> postRawAction(BuildContext context, String serverEndPoint, String encodedJsonBody) async {
+  var messenger = ScaffoldMessenger.of(context);
+  var result = await HttpClientSingleton().sendRequest(
+      path: serverEndPoint,
+      token: JetsRouterDelegate().user.token,
+      encodedJsonBody: encodedJsonBody);
+
+  // print("Got reply $result \nwith status code ${result.statusCode}");
+  if (result.statusCode == 200) {
+    // Inform the user and transition
+    const snackBar = SnackBar(content: Text('Request successfully completed'));
+    messenger.showSnackBar(snackBar);
+  } else {
+    const snackBar = SnackBar(content: Text('Something went wrong. Please try again.'));
+    messenger.showSnackBar(snackBar);
+  }
+  return result;
+}
+
 // Action: raw_query
 // returns list of rows
 // returns JetsDataModel? = List<List<String?>>?

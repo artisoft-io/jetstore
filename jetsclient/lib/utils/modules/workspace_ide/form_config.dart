@@ -4,7 +4,7 @@ import 'package:jetsclient/utils/modules/workspace_ide/screen_delegates.dart';
 
 
 final Map<String, FormConfig> _formConfigurations = {
-  // Workspace Home Form
+  // Workspace Registry Form
   FormKeys.workspaceRegistry: FormConfig(
     key: FormKeys.workspaceRegistry,
     actions: [
@@ -22,7 +22,25 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: workspaceIDEFormValidator,
     formActionsDelegate: workspaceIDEFormActions,
   ),
-  // Add Client Dialog
+  // Workspace Home Form
+  FormKeys.workspaceHome: FormConfig(
+    key: FormKeys.workspaceHome,
+    actions: [
+      // Action-less form
+    ],
+    inputFields: [
+      [
+        // // Worksace Registry Table
+        // FormDataTableFieldConfig(
+        //     key: DTKeys.workspaceRegistryTable,
+        //     dataTableConfig: DTKeys.workspaceRegistryTable,
+        //     tableHeight: 600)
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+  // Add Workspace Dialog
   FormKeys.addWorkspace: FormConfig(
     key: FormKeys.addWorkspace,
     title: "Add Workspace",
