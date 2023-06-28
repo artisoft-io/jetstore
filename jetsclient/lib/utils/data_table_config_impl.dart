@@ -1162,6 +1162,76 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Source Period Table for Load ALL Files Dialog
+  FSK.sourcePeriodKey: TableConfig(
+    key: FSK.sourcePeriodKey,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'source_period'),
+      FromClause(schemaName: 'jetsapi', tableName: 'file_key_staging'),
+    ],
+    label: 'Select the date to load the files from',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(table: "file_key_staging", column: "client", formStateKey: FSK.client),
+      WhereClause(table: "file_key_staging", column: "org", formStateKey: FSK.org),
+      WhereClause(table: "file_key_staging", column: "object_type", formStateKey: FSK.objectType),
+      WhereClause(table: "source_period", column: "key", joinWith: "file_key_staging.source_period_key"),
+    ],
+    distinctOnClauses: ["source_period.day_period"],
+    actions: [],
+    formStateConfig:
+      DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+        DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.dayPeriod,
+          columnIdx: 4,
+        ),
+      ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          table: "source_period",
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          table: "source_period",
+          name: "year",
+          label: 'Year',
+          tooltips: 'Year the file was received',
+          isNumeric: true),
+      ColumnConfig(
+          index: 2,
+          table: "source_period",
+          name: "month",
+          label: 'Month',
+          tooltips: 'Month of the year the file was received',
+          isNumeric: true),
+      ColumnConfig(
+          index: 3,
+          table: "source_period",
+          name: "day",
+          label: 'Day',
+          tooltips: 'Day of the month the file was received',
+          isNumeric: true),
+      ColumnConfig(
+          index: 4,
+          table: "source_period",
+          name: "day_period",
+          label: 'Day Period',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+    ],
+    sortColumnName: 'day_period',
+    sortAscending: true,
+    rowsPerPage: 15,
+  ),
+
   // Input Source Mapping: use Source Config to select table
   DTKeys.inputSourceMapping: TableConfig(
     key: DTKeys.inputSourceMapping,
@@ -1321,6 +1391,19 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.codeValuesMappingJson: 7,
             FSK.inputColumnsJson: 8,
             FSK.inputColumnsPositionsCsv: 9,
+          }),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'loadAllFiles',
+          label: 'Load ALL Files',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.loadAllFiles,
+          navigationParams: {
+            FSK.client: 1,
+            FSK.org: 2,
+            FSK.objectType: 3,
           }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -2062,63 +2145,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: true,
     rowsPerPage: 100,
   ),
-
-  // // Source Config Table for Pipeline Execution Forms
-  // FSK.sourcePeriodKey: TableConfig(
-  //   key: FSK.sourcePeriodKey,
-  //   fromClauses: [
-  //     FromClause(schemaName: 'jetsapi', tableName: 'source_period')
-  //   ],
-  //   label: 'Source Period of the Input Sources',
-  //   apiPath: '/dataTable',
-  //   isCheckboxVisible: true,
-  //   isCheckboxSingleSelect: true,
-  //   whereClauses: [
-  //     WhereClause(
-  //         column: "day",
-  //         defaultValue: ["1"],
-  //         predicate: FormStatePredicate(
-  //             formStateKey: FSK.sourcePeriodType,
-  //             expectedValue: 'month_period')),
-  //     WhereClause(
-  //         column: "day",
-  //         defaultValue: ["99"],
-  //         predicate: FormStatePredicate(formStateKey: FSK.sourcePeriodType)),
-  //   ],
-  //   actions: [],
-  //   formStateConfig:
-  //       DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
-  //   columns: [
-  //     ColumnConfig(
-  //         index: 0,
-  //         name: "key",
-  //         label: 'Key',
-  //         tooltips: 'Row Primary Key',
-  //         isNumeric: true,
-  //         isHidden: true),
-  //     ColumnConfig(
-  //         index: 1,
-  //         name: "year",
-  //         label: 'Year',
-  //         tooltips: 'Year the file was received',
-  //         isNumeric: true),
-  //     ColumnConfig(
-  //         index: 2,
-  //         name: "month",
-  //         label: 'Month',
-  //         tooltips: 'Month of the year the file was received',
-  //         isNumeric: true),
-  //     ColumnConfig(
-  //         index: 3,
-  //         name: "day",
-  //         label: 'Day',
-  //         tooltips: 'Day of the month the file was received',
-  //         isNumeric: true),
-  //   ],
-  //   sortColumnName: 'year',
-  //   sortAscending: false,
-  //   rowsPerPage: 10,
-  // ),
 
   // Input Registry Table for Home screen
   DTKeys.inputRegistryTable: TableConfig(

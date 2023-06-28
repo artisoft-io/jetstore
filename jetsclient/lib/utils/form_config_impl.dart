@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/process_errors_delegates.dart';
+import 'package:jetsclient/screens/screen_delegates/source_config_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/user_delegates.dart';
 
 import 'package:jetsclient/utils/constants.dart';
@@ -428,6 +429,36 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: sourceConfigValidator,
     formActionsDelegate: sourceConfigActions,
   ),
+
+  // Load All Files
+  FormKeys.loadAllFiles: FormConfig(
+    key: FormKeys.loadAllFiles,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.loadAllFilesOk,
+          label: "Load All Files",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: FSK.sourcePeriodKey,
+            tableHeight: 600,
+            dataTableConfig: FSK.sourcePeriodKey)
+      ],
+    ],
+    formValidatorDelegate: loadAllFilesValidator,
+    formActionsDelegate: loadAllFilesActions,
+  ),
+
   // loadRawRows - Dialog to load / replace process mapping
   FormKeys.loadRawRows: FormConfig(
     key: FormKeys.loadRawRows,

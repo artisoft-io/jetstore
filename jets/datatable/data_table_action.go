@@ -55,17 +55,18 @@ func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 
 // sql access builder
 type DataTableAction struct {
-	Action        string                   `json:"action"`
-	RawQuery      string                   `json:"query"`
-	RawQueryMap   map[string]string        `json:"query_map"`
-	Columns       []Column                 `json:"columns"`
-	FromClauses   []FromClause             `json:"fromClauses"`
-	WhereClauses  []WhereClause            `json:"whereClauses"`
-	SortColumn    string                   `json:"sortColumn"`
-	SortAscending bool                     `json:"sortAscending"`
-	Offset        int                      `json:"offset"`
-	Limit         int                      `json:"limit"`
-	Data          []map[string]interface{} `json:"data"`
+	Action                string                   `json:"action"`
+	RawQuery              string                   `json:"query"`
+	RawQueryMap           map[string]string        `json:"query_map"`
+	Columns               []Column                 `json:"columns"`
+	FromClauses           []FromClause             `json:"fromClauses"`
+	WhereClauses          []WhereClause            `json:"whereClauses"`
+	DistinctOnClauses     []string                 `json:"distinctOnClauses"`
+	SortColumn            string                   `json:"sortColumn"`
+	SortAscending         bool                     `json:"sortAscending"`
+	Offset                int                      `json:"offset"`
+	Limit                 int                      `json:"limit"`
+	Data                  []map[string]interface{} `json:"data"`
 }
 type Column struct {
 	Table string    `json:"table"`
@@ -93,10 +94,10 @@ type DataTableColumnDef struct {
 
 func (dtq *DataTableAction) makeSelectColumns() string {
 	if len(dtq.Columns) == 0 {
-		return "SELECT *"
+		return "*"
 	}
 	var buf strings.Builder
-	buf.WriteString("SELECT ")
+	buf.WriteString(" ")
 	isFirst := true
 	for i := range dtq.Columns {
 		if !isFirst {
@@ -126,6 +127,24 @@ func (dtq *DataTableAction) makeFromClauses() string {
 			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].Table}.Sanitize())
 		}
 	}
+	return buf.String()
+}
+
+func (dtq *DataTableAction) makeDistinctOnClauses() string {
+	if len(dtq.DistinctOnClauses) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	buf.WriteString("DISTINCT ON(")
+	isFirst := true
+	for i := range dtq.DistinctOnClauses {
+		if !isFirst {
+			buf.WriteString(", ")
+		}
+		isFirst = false
+		buf.WriteString(pgx.Identifier(strings.Split(dtq.DistinctOnClauses[i],".")).Sanitize())
+	}
+	buf.WriteString(")")
 	return buf.String()
 }
 
@@ -992,13 +1011,17 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// //*
 
 	// Build the query
-	// SELECT "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
+	// SELECT DISTINCT ON ("table"."key") "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
 	var buf strings.Builder
-	fromClause := dataTableAction.makeFromClauses()
+	buf.WriteString("SELECT ")
+	buf.WriteString(dataTableAction.makeDistinctOnClauses())
 	buf.WriteString(dataTableAction.makeSelectColumns())
+
 	buf.WriteString(" FROM ")
+	fromClause := dataTableAction.makeFromClauses()
 	buf.WriteString(fromClause)
 	buf.WriteString(" ")
+
 	whereClause := dataTableAction.makeWhereClause()
 	buf.WriteString(whereClause)
 	if len(dataTableAction.SortColumn) > 0 {
@@ -1018,17 +1041,24 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	resultRows, err := execQuery(ctx.Dbpool, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("While executing query from tables %s: %v", fromClause, err)
+			fmt.Errorf("while executing query from tables %s: %v", fromClause, err)
 	}
 
 	// get the total nbr of row
 	//* TODO add where clause to filter deleted items
-	stmt := fmt.Sprintf("SELECT count(*) FROM %s %s", fromClause, whereClause)
+	var stmt string
+	if len(dataTableAction.DistinctOnClauses) > 0 {
+		//* TODO this works only when a single column in distinct clause
+		stmt = fmt.Sprintf("SELECT count(distinct %s) FROM %s %s", 
+			dataTableAction.DistinctOnClauses[0], fromClause, whereClause)	
+	} else {
+		stmt = fmt.Sprintf("SELECT count(*) FROM %s %s", fromClause, whereClause)
+	}
 	var totalRowCount int
 	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("While getting total row count from tables %s: %v", fromClause, err)
+			fmt.Errorf("while getting total row count from tables %s: %v", fromClause, err)
 	}
 
 	results["totalRowCount"] = totalRowCount

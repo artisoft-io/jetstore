@@ -19,6 +19,7 @@ class TableConfig {
       this.defaultToAllRows = false,
       required this.fromClauses,
       required this.whereClauses,
+      this.distinctOnClauses = const[],
       this.refreshOnKeyUpdateEvent = const [],
       this.formStateConfig,
       required this.sortColumnName,
@@ -37,6 +38,7 @@ class TableConfig {
   final bool defaultToAllRows;
   final List<FromClause> fromClauses;
   final List<WhereClause> whereClauses;
+  final List<String> distinctOnClauses;
   final List<String> refreshOnKeyUpdateEvent;
   final DataTableFormStateConfig? formStateConfig;
   final String sortColumnName;

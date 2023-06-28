@@ -74,7 +74,7 @@ class FormKeys {
   static const sourceConfig = "sourceConfigForm";
   static const addSourceConfig = "addSourceConfigDialog";
   static const loadRawRows = "loadRawRowsDialog";
-  static const loadFile = "loadFileDialog";
+  static const loadAllFiles = "loadAllFilesDialog";
   // Input Source Mapping Forms
   static const inputSourceMapping = "inputSourceMapping";
   static const processMapping = "processMappingDialog";
@@ -182,9 +182,12 @@ class FSK {
   static const mainInputRegistryKey = "main_input_registry_key";
   static const mainInputFileKey = "main_input_file_key";
   static const mergedInputRegistryKeys = "merged_input_registry_keys";
+
+  // Source Period keys
   static const year = "year";
   static const month = "month";
   static const day = "day";
+  static const dayPeriod = "day_period";
 
   // Form Keys for Workspace IDE
   static const wsName = "workspace_name";
@@ -260,6 +263,7 @@ class ActionKeys {
 
   // for load file
   static const loaderOk = "loader.ok";
+  static const loadAllFilesOk = "loadAllFiles.ok";
 
   // to sync file key with web storage (s3)
   static const syncFileKey = "syncFileKey";

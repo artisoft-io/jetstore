@@ -45,7 +45,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = server.ExportClientConfiguration(&action)
 	default:
 		code = http.StatusUnprocessableEntity
-		err = fmt.Errorf("unknown action: %v", action.Action)
+		err = fmt.Errorf("DoPurgeDataAction: unknown action: %v", action.Action)
 	}
 	if err != nil {
 		log.Printf("Error: %v", err)

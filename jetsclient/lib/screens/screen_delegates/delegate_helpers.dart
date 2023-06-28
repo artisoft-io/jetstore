@@ -25,11 +25,11 @@ String? unpack(dynamic elm) {
 /// NOTE: does navigator.pop with DTActionResult enum
 /// NOTE: ignore error status code == 409 (http confict) //* TODO change this?
 Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
-    String encodedJsonBody) async {
+    String encodedJsonBody,{String serverEndPoint=ServerEPs.dataTableEP}) async {
   var navigator = Navigator.of(context);
   var messenger = ScaffoldMessenger.of(context);
   var result = await HttpClientSingleton().sendRequest(
-      path: ServerEPs.dataTableEP,
+      path: serverEndPoint,
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
 
