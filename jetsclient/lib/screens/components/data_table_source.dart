@@ -399,6 +399,11 @@ class JetsDataTableSource extends ChangeNotifier {
     }
     msg['fromClauses'] = fromClauses;
 
+    // Distinct On clause
+    if (state.tableConfig.distinctOnClauses.isNotEmpty) {
+      msg['distinctOnClauses'] = state.tableConfig.distinctOnClauses;
+    }
+
     // add WHERE clauses
     List<Map<String, dynamic>> whereClauses = [];
     for (final wc in state.tableConfig.whereClauses) {

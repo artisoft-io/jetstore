@@ -69,7 +69,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		err = nil
 	default:
 		code = http.StatusUnprocessableEntity
-		err = fmt.Errorf("unknown action: %v", dataTableAction.Action)
+		err = fmt.Errorf("DoDataTableAction: unknown action: %v", dataTableAction.Action)
 	}
 	if err != nil {
 		log.Printf("Error: %v", err)

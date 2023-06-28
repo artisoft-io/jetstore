@@ -28,6 +28,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 	if !ok {
 		return nil, http.StatusInternalServerError, errors.New("error cannot find file_key_staging stmt")
 	}
+	sessionId := time.Now().UnixMilli()
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range registerFileKeyAction.Data {
 		// fileKeyObject with defaults
@@ -108,7 +109,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					fmt.Errorf("in RegisterKeys while querying source_config to start a load: %v", err)
 			}
 			if automated > 0 {
-				sessionId := time.Now().UnixMilli()
+				// to make sure we don't duplicate session_id
+				sessionId += 1
 
 				// insert into input_loader_status and kick off loader (dev mode)
 				dataTableAction := DataTableAction{
@@ -134,6 +136,112 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			}
 		}
 	}
+	return &map[string]interface{}{}, http.StatusOK, nil
+}
+
+// Load All Files for client/org/object_type from a given day_period
+func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+	var err error
+	sessionId := time.Now().UnixMilli()
+	for irow := range registerFileKeyAction.Data {
+
+		// Get the staging table name
+		client := registerFileKeyAction.Data[irow]["client"]
+		org := registerFileKeyAction.Data[irow]["org"]
+		objectType := registerFileKeyAction.Data[irow]["object_type"]
+		sourcePeriodKey := registerFileKeyAction.Data[irow]["source_period_key"]
+		userEmail := registerFileKeyAction.Data[irow]["user_email"]
+		// //DEV
+		// fmt.Println("**** LoadAllFiles called with client",client, org,"objectType",objectType,"userEmail",userEmail)
+		var tableName string
+		stmt := `
+			SELECT table_name
+			FROM jetsapi.source_config 
+			WHERE client=$1 AND org=$2 AND object_type=$3`
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName)
+		if err != nil {
+			return nil, http.StatusNotFound,
+				fmt.Errorf("in LoadAllFiles while querying source_config to get staging table name: %v", err)
+		}
+
+		// Get all file keys to load
+		fileKeys := make([]string, 0)
+		sourcePeriodKeys := make([]string, 0)
+		stmt = `
+			WITH sp AS(
+				SELECT sp1.* 
+				FROM jetsapi.source_period sp1, jetsapi.source_period sp2 
+				WHERE sp1.day_period >= sp2.day_period
+				  AND sp2.key = $4
+			)
+			SELECT DISTINCT fk.file_key, fk.source_period_key
+			FROM sp, jetsapi.file_key_staging fk 
+			WHERE fk.client=$1 
+			  AND fk.org=$2 
+				AND fk.object_type=$3
+				AND sp.key = fk.source_period_key
+			ORDER BY file_key`
+		rows, err := ctx.Dbpool.Query(context.Background(), stmt, client, org, objectType, sourcePeriodKey)
+		if err != nil {
+			if err.Error() == "no rows in result set" {
+				return &map[string]interface{}{}, http.StatusOK, nil
+			}
+			return nil, http.StatusInternalServerError,
+				fmt.Errorf("in LoadAllFiles while querying all file keys to load: %v", err)
+		}
+		defer rows.Close()
+		var fkey string
+		var pkey int
+		for rows.Next() {
+			// scan the row
+			if err = rows.Scan(&fkey, &pkey); err != nil {
+				return nil, http.StatusInternalServerError,
+				fmt.Errorf("in LoadAllFiles while scanning all file keys to load: %v", err)
+			}
+			fileKeys = append(fileKeys, fkey)
+			sourcePeriodKeys = append(sourcePeriodKeys, strconv.Itoa(pkey))
+		}
+
+		// Start the loader by inserting into input_loader_status
+
+		// insert into input_loader_status and kick off loader (dev mode)
+		dataTableAction := DataTableAction{
+			Action:      "insert_rows",
+			FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
+			Data: make([]map[string]interface{}, 0),
+		}		
+		for i := range fileKeys {
+			// Make sure we don't duplicate session_id
+			sessionId += 1
+			dataTableAction.Data = append(dataTableAction.Data, map[string]interface{}{
+				"file_key":              fileKeys[i],
+				"table_name":            tableName,
+				"client":                client,
+				"org":                   org,
+				"object_type":           objectType,
+				"session_id":            strconv.FormatInt(sessionId, 10),
+				"source_period_key":     sourcePeriodKeys[i],
+				"status":                "submitted",
+				"user_email":            userEmail,
+				"loaderCompletedMetric": "autoLoaderCompleted",
+				"loaderFailedMetric":    "autoLoaderFailed",
+			})
+		}
+
+		// fmt.Printf("*** DataTable Action to Load ALL Files: \n")
+		// for i := range dataTableAction.Data {
+		// 	fmt.Printf("* %v\n",dataTableAction.Data[i])
+		// }
+		_, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
+		if err != nil {
+			return nil, httpStatus, fmt.Errorf("while starting loader automatically for %d keys: %v", len(fileKeys), err)
+		}
+	}
+
+
+
+
+
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
 
