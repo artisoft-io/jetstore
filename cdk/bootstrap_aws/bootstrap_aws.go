@@ -29,6 +29,8 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 	provider := iam.NewOpenIdConnectProvider(stack, jsii.String("JSProvider"), &iam.OpenIdConnectProviderProps{
 		Url: jsii.String("https://token.actions.githubusercontent.com"),
 		ClientIds: jsii.Strings("sts.amazonaws.com"),
+		// see https://github.blog/changelog/2023-06-27-github-actions-update-on-oidc-integration-with-aws/
+		Thumbprints: jsii.Strings("6938fd4d98bab03faadb97b34396831e3780aea1", "1c58a3a8518e8759bf075b76b750d4f2df264fcd"),
 	})
 
 	/**
