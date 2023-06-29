@@ -66,6 +66,20 @@ inline datetime to_datetime(date t) {
 }
 
 /**
+ * Function to convert a date to unix timestamp (nbr of sec since 1/1/1970)
+ *
+ * Delegates to Boost.
+ * @param t date from which to convert
+ * @return int the timestamp equivalent to the date
+ */
+inline int to_timestamp(date d) {
+	using namespace boost::posix_time;
+	static ptime epoch(boost::gregorian::date(1970, 1, 1));
+	time_duration::sec_type secs = (ptime(d, seconds(0)) - epoch).total_seconds();
+	return int(secs);
+}
+
+/**
  * String representation of date. Delegates to iso_extended_string of boost.
  *
  * Format: 	To YYYY-MM-DD where all components are integers.

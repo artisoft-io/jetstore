@@ -207,6 +207,21 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public No
   BetaRow const* br;
 };
 
+// ToTimestampVisitor
+// --------------------------------------------------------------------------------------
+struct ToTimestampVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  ToTimestampVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  ToTimestampVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  RDFTTYPE operator()(rdf::LDate lhs)const
+  {
+    return rdf::LInt32(rdf::to_timestamp(lhs.data));
+  }
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 // MonthPeriodVisitor
 // --------------------------------------------------------------------------------------
 struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
@@ -222,6 +237,43 @@ struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     int month = ymd.month.as_number();
     int year = ymd.year;
     return rdf::LInt32((year-1970)*12 + month);
+  }
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
+// WeekPeriodVisitor
+// --------------------------------------------------------------------------------------
+struct WeekPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  WeekPeriodVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  WeekPeriodVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  RDFTTYPE operator()(rdf::LDate lhs)const
+  {
+    // secPerDay = 24 * 60 * 60 = 84400
+    // secPerWeek = 7 * secPerDay = 604800
+    // weekPeriod = int(unixTime/secPerWeek + 1)
+    auto timestamp = rdf::to_timestamp(lhs.data);
+    return rdf::LInt32((timestamp / 604800) + 1);
+  }
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
+// DayPeriodVisitor
+// --------------------------------------------------------------------------------------
+struct DayPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  DayPeriodVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  DayPeriodVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  RDFTTYPE operator()(rdf::LDate lhs)const
+  {
+    // secPerDay = 24 * 60 * 60 = 84400
+    // dayPeriod = int(unixTime/secPerDay + 1)
+    auto timestamp = rdf::to_timestamp(lhs.data);
+    return rdf::LInt32((timestamp / 84400) + 1);
   }
   ReteSession * rs;
   BetaRow const* br;

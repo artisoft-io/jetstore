@@ -134,6 +134,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
+	ri.jets__sourcePeriodType, err = rw.js.GetResource("jets:sourcePeriodType")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 	ri.jets__currentSourcePeriod, err = rw.js.GetResource("jets:currentSourcePeriod")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
@@ -168,11 +172,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 				return &result, fmt.Errorf("while creating rete session: %v", err)
 			}
 
-			// Set the current source period in the rdf session
+			// Set the current source period and period type in the rdf session
 			r, _ := reteSession.NewIntLiteral(rw.pipelineConfig.currentSourcePeriod)
 			_, err = reteSession.Insert(ri.jets__istate, ri.jets__currentSourcePeriod, r)
 			if err != nil {
 				return &result, fmt.Errorf("while inserting jets:currentSourcePeriod to rdf session: %v", err)
+			}
+			r, _ = reteSession.NewTextLiteral(rw.pipelineConfig.sourcePeriodType)
+			_, err = reteSession.Insert(ri.jets__istate, ri.jets__sourcePeriodType, r)
+			if err != nil {
+				return &result, fmt.Errorf("while inserting jets:sourcePeriodType to rdf session: %v", err)
 			}
 
 			if iset == 0 {

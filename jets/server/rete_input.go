@@ -17,6 +17,7 @@ import (
 type ReteInputContext struct {
 	jets__client                 *bridge.Resource
 	jets__completed              *bridge.Resource
+	jets__sourcePeriodType       *bridge.Resource
 	jets__currentSourcePeriod    *bridge.Resource
 	jets__exception              *bridge.Resource
 	jets__input_record           *bridge.Resource
