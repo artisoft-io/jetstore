@@ -465,7 +465,7 @@ class JetRuleReteSQLite:
   # Put resource entities as well: resource (constant) and var (binded)
   # expr is the resource key, so we can call persist directly.
   def _expr_2_key(self, expr: Dict[str, object]) -> int:
-    assert expr, 'Expecting expression'
+    assert expr is not None, 'Expecting expression'
     # Check if we have a resource key
     if isinstance(expr, int):
       return self._persist_expr(expr)
@@ -486,7 +486,7 @@ class JetRuleReteSQLite:
   # -------------------------------------------------------------------------------------
   # Add expr to expressions table
   def _persist_expr(self, expr: Dict[str, object]) -> int:
-    assert expr, 'Expecting expression'
+    assert expr is not None, 'Expecting expression'
     assert self.write_cursor, 'Expecting self.write_cursor'
     key = self.expr_last_key
     self.expr_last_key += 1
