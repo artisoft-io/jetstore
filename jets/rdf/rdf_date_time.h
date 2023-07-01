@@ -72,11 +72,11 @@ inline datetime to_datetime(date t) {
  * @param t date from which to convert
  * @return int the timestamp equivalent to the date
  */
-inline int to_timestamp(date d) {
+inline long int to_timestamp(date d) {
 	using namespace boost::posix_time;
 	static ptime epoch(boost::gregorian::date(1970, 1, 1));
 	time_duration::sec_type secs = (ptime(d, seconds(0)) - epoch).total_seconds();
-	return int(secs);
+	return secs;
 }
 
 /**

@@ -684,20 +684,15 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     actions: [
       ActionConfig(
-          actionType: DataTableActionType.doActionShowDialog,
+          actionType: DataTableActionType.showDialog,
           key: 'showErrorInputRecords',
           label: 'View Input Records',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionName: ActionKeys.setupShowInputRecords,
           configForm: FormKeys.viewInputRecords,
           // Copy state data from formState to dialogFormState
           stateFormNavigationParams: {
-            // keys that will be set by ActionKeys.setupShowInputRecords
-            // FSK.sessionId,
-            // FSK.domainKey,
-            // FSK.tableName,
             FSK.pipelineExectionStatusKey: FSK.pipelineExectionStatusKey,
             FSK.objectType: FSK.objectType,
             FSK.processName: FSK.processName,
@@ -825,16 +820,42 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 50,
   ),
 
-  // View Input Records from Error Table
+  // View Input Records for a rule process with an exception (from Error Table)
   DTKeys.inputRecordsFromProcessErrorTable: TableConfig(
       key: DTKeys.inputRecordsFromProcessErrorTable,
-      fromClauses: [FromClause(schemaName: 'public', tableName: '')],
       label: 'Input Records for Process Errors',
       apiPath: '/dataTable',
       isCheckboxVisible: false,
       isCheckboxSingleSelect: false,
+      fromClauses: [
+        FromClause(schemaName: 'public', tableName: ''),
+        FromClause(schemaName: '', tableName: 'sessions'),
+      ],
+      withClauses: [
+        WithClause(withName: 'sessions', 
+          asStatement: """
+            SELECT sr.session_id AS sess_id
+            FROM
+              jetsapi.pipeline_execution_status pe,
+              jetsapi.source_period sp,
+              jetsapi.session_registry sr,
+              "{table_name}" mc
+            WHERE pe.key = CASE {lookback_periods} WHEN 0 THEN NULL ELSE {pipeline_execution_status_key} END
+              AND pe.source_period_key = sp.key 
+              AND sr.session_id = mc.session_id
+              AND sr.month_period >= (sp.month_period - {lookback_periods})
+              AND sr.month_period <= sp.month_period
+            UNION
+            SELECT '{session_id}'""",
+          stateVariables: [
+            FSK.pipelineExectionStatusKey,
+            FSK.tableName,
+            FSK.lookbackPeriods,
+            FSK.sessionId,
+          ]),
+      ],
       whereClauses: [
-        WhereClause(column: "session_id", formStateKey: FSK.sessionId),
+        WhereClause(column: "session_id", joinWith: "sessions.sess_id"),
         WhereClause(
             column: FSK.domainKeyColumn,
             lookupColumnInFormState: true,
@@ -1162,6 +1183,59 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // File Key Staging Data Table used to multi-load files
+  DTKeys.fileKeyStagingMultiLoadTable: TableConfig(
+    key: DTKeys.fileKeyStagingMultiLoadTable,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'file_key_staging'),
+      FromClause(schemaName: '', tableName: 'sp'),
+    ],
+    label: 'File Keys Selected',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    defaultToAllRows: false, // when where clause fails
+    withClauses: [
+      WithClause(
+          withName: "sp",
+          asStatement: '''SELECT sp1.* 
+          FROM jetsapi.source_period sp1, jetsapi.source_period sp2 
+          WHERE sp1.day_period >= sp2.day_period 
+            AND sp2.key = {source_period_key}''',
+          stateVariables: [FSK.sourcePeriodKey])
+    ],
+    distinctOnClauses: ["file_key"],
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "org", formStateKey: FSK.org),
+      WhereClause(column: "object_type", formStateKey: FSK.objectType),
+      WhereClause(column: "source_period_key", joinWith: "sp.key"),
+    ],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          actionName: ActionKeys.loaderMultiOk,
+          key: 'loadMultiFile',
+          label: 'Load Selected Files',
+          style: ActionStyle.primary,
+          isEnabledWhenHavingSelectedRows: true),
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.fileKey,
+        columnIdx: 4,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.sourcePeriodKey,
+        columnIdx: 9,
+      ),
+    ]),
+    columns: fileKeyStagingColumns,
+    sortColumnName: 'file_key',
+    sortAscending: false,
+    rowsPerPage: 50,
+  ),
+
   // Source Period Table for Load ALL Files Dialog
   FSK.sourcePeriodKey: TableConfig(
     key: FSK.sourcePeriodKey,
@@ -1174,20 +1248,29 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [
-      WhereClause(table: "file_key_staging", column: "client", formStateKey: FSK.client),
-      WhereClause(table: "file_key_staging", column: "org", formStateKey: FSK.org),
-      WhereClause(table: "file_key_staging", column: "object_type", formStateKey: FSK.objectType),
-      WhereClause(table: "source_period", column: "key", joinWith: "file_key_staging.source_period_key"),
+      WhereClause(
+          table: "file_key_staging",
+          column: "client",
+          formStateKey: FSK.client),
+      WhereClause(
+          table: "file_key_staging", column: "org", formStateKey: FSK.org),
+      WhereClause(
+          table: "file_key_staging",
+          column: "object_type",
+          formStateKey: FSK.objectType),
+      WhereClause(
+          table: "source_period",
+          column: "key",
+          joinWith: "file_key_staging.source_period_key"),
     ],
     distinctOnClauses: ["source_period.day_period"],
     actions: [],
-    formStateConfig:
-      DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-        DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.dayPeriod,
-          columnIdx: 4,
-        ),
-      ]),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.dayPeriod,
+        columnIdx: 4,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -1858,7 +1941,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'last_update',
     sortAscending: false,
-    rowsPerPage: 10,
+    rowsPerPage: 50,
   ),
 
   // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfigEditForm)

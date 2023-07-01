@@ -34,17 +34,26 @@ typedef JetsFormFieldRowBuilder = List<List<FormFieldConfig>> Function(
 
 typedef InputFieldType = List<List<FormFieldConfig>>;
 
+// a do nothing function
+Future<String?> pass(BuildContext context, GlobalKey<FormState> formKey,
+    JetsFormState formState, String actionKey,
+    {int group = 0}) async {
+  return null;
+}
+
 /// Form Configuration
 /// [title] is used mostly for dialog forms.
 /// Simple case  is when [inputFields] are provided (most case)
 /// Special case, when [inputFields] is empty, then [inputFieldRowBuilder]
 /// shall be provided along with [inputFieldsQuery] and optionally
 /// [dropdownItemsQueries], [metadataQueries], and [stateKeyPredicates].
-/// [inputFieldsQuery] is to provide the list of data properties of the
-/// input canonical model that must be mapped.
+///
+/// [inputFieldsQuery] is to provide the list of items (e.g. data properties
+///  of the input canonical model that must be mapped for the mapping screen.
 /// This query the object_type_mapping_details table and returns 2 columns:
 /// data_property (domain class data property)
-/// and is_required (indicating that mapping must be specified).
+/// and is_required (indicating that mapping must be specified)).
+///
 /// The returned data elements are provided to the [inputFieldRow] argument of the
 /// [JetsFormFieldRowBuilder].
 /// [dropdownItemsQueries] is to provide a cache of dropdown items for use
@@ -331,8 +340,8 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => state.setValueAndNotify(group, key, p0),
-      formValidator: ((group, key, v) =>
-          jetsFormWidgetState.widget.formConfig.formValidatorDelegate(state, group, key, v)),
+      formValidator: ((group, key, v) => jetsFormWidgetState.widget.formConfig
+          .formValidatorDelegate(state, group, key, v)),
       formState: state,
       selectedValue: state.getValue(group, key),
     );
@@ -369,8 +378,10 @@ class FormDataTableFieldConfig extends FormFieldConfig {
           formFieldConfig: this,
           tableConfig: getTableConfig(dataTableConfig),
           formState: state,
-          validatorDelegate: jetsFormWidgetState.widget.formConfig.formValidatorDelegate,
-          actionsDelegate: jetsFormWidgetState.widget.formConfig.formActionsDelegate,
+          validatorDelegate:
+              jetsFormWidgetState.widget.formConfig.formValidatorDelegate,
+          actionsDelegate:
+              jetsFormWidgetState.widget.formConfig.formActionsDelegate,
         ),
       ),
     );
@@ -424,6 +435,7 @@ class FormActionConfig extends FormFieldConfig {
         formActionConfig: this,
         formKey: jetsFormWidgetState.widget.formKey,
         formState: jetsFormWidgetState.widget.formState,
-        actionsDelegate: jetsFormWidgetState.widget.formConfig.formActionsDelegate);
+        actionsDelegate:
+            jetsFormWidgetState.widget.formConfig.formActionsDelegate);
   }
 }
