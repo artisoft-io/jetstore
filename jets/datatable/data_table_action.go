@@ -55,33 +55,39 @@ func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 
 // sql access builder
 type DataTableAction struct {
-	Action                string                   `json:"action"`
-	RawQuery              string                   `json:"query"`
-	RawQueryMap           map[string]string        `json:"query_map"`
-	Columns               []Column                 `json:"columns"`
-	FromClauses           []FromClause             `json:"fromClauses"`
-	WhereClauses          []WhereClause            `json:"whereClauses"`
-	DistinctOnClauses     []string                 `json:"distinctOnClauses"`
-	SortColumn            string                   `json:"sortColumn"`
-	SortAscending         bool                     `json:"sortAscending"`
-	Offset                int                      `json:"offset"`
-	Limit                 int                      `json:"limit"`
-	Data                  []map[string]interface{} `json:"data"`
+	Action            string                   `json:"action"`
+	RawQuery          string                   `json:"query"`
+	RawQueryMap       map[string]string        `json:"query_map"`
+	Columns           []Column                 `json:"columns"`
+	FromClauses       []FromClause             `json:"fromClauses"`
+	WhereClauses      []WhereClause            `json:"whereClauses"`
+	WithClauses       []WithClause             `json:"withClauses"`
+	DistinctOnClauses []string                 `json:"distinctOnClauses"`
+	SortColumn        string                   `json:"sortColumn"`
+	SortAscending     bool                     `json:"sortAscending"`
+	Offset            int                      `json:"offset"`
+	Limit             int                      `json:"limit"`
+	Data              []map[string]interface{} `json:"data"`
 }
 type Column struct {
-	Table string    `json:"table"`
-	Column string   `json:"column"`
+	Table  string `json:"table"`
+	Column string `json:"column"`
 }
 type FromClause struct {
-	Schema  string `json:"schema"`
-	Table   string `json:"table"`
+	Schema string `json:"schema"`
+	Table  string `json:"table"`
+}
+type WithClause struct {
+	Name string `json:"name"`
+	Stmt string `json:"stmt"`
 }
 type WhereClause struct {
-	Table string    `json:"table"`
-	Column string   `json:"column"`
-	Values []string `json:"values"`
-	JoinWith string `json:"joinWith"`
+	Table    string   `json:"table"`
+	Column   string   `json:"column"`
+	Values   []string `json:"values"`
+	JoinWith string   `json:"joinWith"`
 }
+
 // DataTableColumnDef used when returning the column definition
 // obtained from db catalog
 type DataTableColumnDef struct {
@@ -142,17 +148,33 @@ func (dtq *DataTableAction) makeDistinctOnClauses() string {
 			buf.WriteString(", ")
 		}
 		isFirst = false
-		buf.WriteString(pgx.Identifier(strings.Split(dtq.DistinctOnClauses[i],".")).Sanitize())
+		buf.WriteString(pgx.Identifier(strings.Split(dtq.DistinctOnClauses[i], ".")).Sanitize())
 	}
 	buf.WriteString(")")
 	return buf.String()
 }
 
-// var pgArrayRe *regexp.Regexp
-// func init() {
-// 	pgArrayRe = regexp.MustCompile(`\d+`)
+func (dtq *DataTableAction) makeWithClause() string {
+	if len(dtq.WithClauses) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	isFirst := true
+	for i := range dtq.WithClauses {
+		wc := &dtq.WithClauses[i]
+		if !isFirst {
+			buf.WriteString(", ")
+		}
+		isFirst = false
+		buf.WriteString("WITH ")
+		buf.WriteString(wc.Name)
+		buf.WriteString(" AS (")
+		buf.WriteString(wc.Stmt)
+		buf.WriteString(")")
+	}
+	return buf.String()
+}
 
-// }
 func (dtq *DataTableAction) makeWhereClause() string {
 	if len(dtq.WhereClauses) == 0 {
 		return ""
@@ -295,6 +317,7 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 }
 
 type Chartype rune
+
 // Single character type for csv options
 func (s *Chartype) String() string {
 	return fmt.Sprintf("%#U", *s)
@@ -335,7 +358,6 @@ func DetectDelimiter(buf []byte) (sep_flag Chartype, err error) {
 	return
 }
 
-
 // InsertRawRows ------------------------------------------------------
 // Insert row function using a raw text buffer containing cst/tsv rows
 // Delegates to InsertRows
@@ -347,7 +369,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 	for irow := range *inData {
 
 		buf := (*inData)[irow]["raw_rows"]
-		userEmail := (*inData)[irow]["user_email"];
+		userEmail := (*inData)[irow]["user_email"]
 		if buf == nil || userEmail == nil {
 			log.Printf("Error request is missing raw_rows or user_email from request with Table %s", requestTable)
 			httpStatus = http.StatusInternalServerError
@@ -371,7 +393,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 		var sepFlag Chartype
 		sepFlag, err = DetectDelimiter(byteBuf)
 		if err != nil {
-			log.Printf("Error while detecting delimiters for raw_rows: %v",err)
+			log.Printf("Error while detecting delimiters for raw_rows: %v", err)
 			httpStatus = http.StatusBadRequest
 			err = errors.New("error while detecting delimiters for raw_rows")
 			return
@@ -394,7 +416,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 				break
 			}
 			if err2 != nil {
-				log.Printf("Error parsing raw_rows: %v",err2)
+				log.Printf("Error parsing raw_rows: %v", err2)
 				httpStatus = http.StatusBadRequest
 				err = fmt.Errorf("error while parsing raw_rows: %v", err2)
 				return
@@ -427,28 +449,28 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 			objectType := dataTableAction.Data[0]["object_type"]
 			if client != nil && objectType != nil {
 				if org == nil || org == "" {
-					tableName = fmt.Sprintf("%s_%s",client, objectType)
+					tableName = fmt.Sprintf("%s_%s", client, objectType)
 				} else {
-					tableName = fmt.Sprintf("%s_%s_%s",client, org, objectType)
+					tableName = fmt.Sprintf("%s_%s_%s", client, org, objectType)
 				}
 				if tableName != "" {
 					for irow := range dataTableAction.Data {
 						dataTableAction.Data[irow]["table_name"] = tableName
 					}
-				}	
+				}
 			}
 			if tableName == "" {
 				tableName = dataTableAction.Data[0]["table_name"].(string)
 			}
 			// Remove existing rows in database
-			stmt :=  `DELETE FROM jetsapi.process_mapping 
+			stmt := `DELETE FROM jetsapi.process_mapping 
 			WHERE table_name = $1`
 			_, err = ctx.Dbpool.Exec(context.Background(), stmt, tableName)
 			if err != nil {
-				log.Printf("Error while deleting from process_mapping: %v",err)
+				log.Printf("Error while deleting from process_mapping: %v", err)
 				httpStatus = http.StatusBadRequest
 				return
-			}		
+			}
 			dataTableAction.FromClauses[0].Table = "process_mapping"
 		}
 		// send it through InsertRow
@@ -525,7 +547,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			if strings.Contains(err.Error(), "duplicate key value") {
 				httpStatus = http.StatusConflict
 				err = errors.New("duplicate key value")
-				return	
+				return
 			} else {
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while inserting into a table")
@@ -674,9 +696,9 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			default:
 				// StartExecution load file
 				log.Printf("calling StartExecution loaderSM loaderCommand: %s", loaderCommand)
-				name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"), 
+				name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"),
 					map[string]interface{}{
-						"loaderCommand": loaderCommand,
+						"loaderCommand":  loaderCommand,
 						"reportsCommand": runReportsCommand,
 					}, sessionId.(string))
 				if err != nil {
@@ -878,7 +900,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					},
 				}
 				processArn := strings.TrimSuffix(os.Getenv("JETS_SERVER_SM_ARN"), "serverSM")
-				processArn += stateMachineName 
+				processArn += stateMachineName
 
 				// StartExecution execute rule
 				log.Printf("calling StartExecution on processArn: %s", processArn)
@@ -903,7 +925,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 // utility method
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
 	// //DEV
-	// fmt.Println("*** UI Query:", *query)
+	// fmt.Println("\n*** UI Query:\n", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
@@ -982,9 +1004,9 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 		results["columnDef"] = columnsDef
 		// Add table's label
 		if dataTableAction.FromClauses[0].Schema == "public" {
-			results["label"] = 	fmt.Sprintf("Table %s", dataTableAction.FromClauses[0].Table)
+			results["label"] = fmt.Sprintf("Table %s", dataTableAction.FromClauses[0].Table)
 		} else {
-			results["label"] = 	fmt.Sprintf("Table %s.%s", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
+			results["label"] = fmt.Sprintf("Table %s.%s", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
 		}
 	}
 
@@ -1013,7 +1035,10 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// Build the query
 	// SELECT DISTINCT ON ("table"."key") "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
 	var buf strings.Builder
-	buf.WriteString("SELECT ")
+	// Start with the WITH statements
+	withClause := dataTableAction.makeWithClause()
+	buf.WriteString(withClause)
+	buf.WriteString(" SELECT ")
 	buf.WriteString(dataTableAction.makeDistinctOnClauses())
 	buf.WriteString(dataTableAction.makeSelectColumns())
 
@@ -1049,10 +1074,10 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	var stmt string
 	if len(dataTableAction.DistinctOnClauses) > 0 {
 		//* TODO this works only when a single column in distinct clause
-		stmt = fmt.Sprintf("SELECT count(distinct %s) FROM %s %s", 
-			dataTableAction.DistinctOnClauses[0], fromClause, whereClause)	
+		stmt = fmt.Sprintf("%s SELECT count(distinct %s) FROM %s %s",
+			withClause, dataTableAction.DistinctOnClauses[0], fromClause, whereClause)
 	} else {
-		stmt = fmt.Sprintf("SELECT count(*) FROM %s %s", fromClause, whereClause)
+		stmt = fmt.Sprintf("%s SELECT count(*) FROM %s %s", withClause, fromClause, whereClause)
 	}
 	var totalRowCount int
 	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
@@ -1070,10 +1095,10 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
 
 	// Validation
-	if len(dataTableAction.WhereClauses) == 0 || 
+	if len(dataTableAction.WhereClauses) == 0 ||
 		len(dataTableAction.WhereClauses[0].Values) == 0 ||
 		dataTableAction.WhereClauses[0].Column != "file_key" {
-			return nil, http.StatusBadRequest, fmt.Errorf("invalid request, expecting file_key in where clause")
+		return nil, http.StatusBadRequest, fmt.Errorf("invalid request, expecting file_key in where clause")
 	}
 	awsBucket := os.Getenv("JETS_BUCKET")
 	awsRegion := os.Getenv("JETS_REGION")
@@ -1083,7 +1108,7 @@ func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[
 
 	// to package up the result
 	fileKey := dataTableAction.WhereClauses[0].Values[0]
-	results := map[string]interface{} {
+	results := map[string]interface{}{
 		"label": fmt.Sprintf("Preview of %s", fileKey),
 	}
 	results["columnDef"] = []DataTableColumnDef{
@@ -1107,7 +1132,7 @@ func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to download input file: %v", err)
 	}
-	fmt.Println("downloaded", nsz,"bytes from s3")
+	fmt.Println("downloaded", nsz, "bytes from s3")
 
 	// Read the file
 	fileHd.Seek(0, 0)
@@ -1119,7 +1144,7 @@ func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[
 
 	done := false
 	for !done && fileScanner.Scan() {
-		row := []interface{} {
+		row := []interface{}{
 			fileScanner.Text(),
 		}
 		resultRows = append(resultRows, row)

@@ -109,6 +109,7 @@ class FormKeys {
 /// to keys expected in message sent to apiserver
 class FSK {
   static const key = "key";
+  static const label = "label";
   static const tableName = "table_name";
   static const fileKey = "file_key";
 
@@ -264,6 +265,7 @@ class ActionKeys {
   // for load file
   static const loaderOk = "loader.ok";
   static const loadAllFilesOk = "loadAllFiles.ok";
+  static const loaderMultiOk = "loaderMulti.ok";
 
   // to sync file key with web storage (s3)
   static const syncFileKey = "syncFileKey";
@@ -328,6 +330,7 @@ class DTKeys {
   // File Staging Area / Source Config DT
   static const sourceConfigTable = "sourceConfigTable";
   static const fileKeyStagingTable = "fileKeyStagingTable";
+  static const fileKeyStagingMultiLoadTable = "fileKeyStagingMultiLoadTable";
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";

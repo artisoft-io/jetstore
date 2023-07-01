@@ -352,6 +352,7 @@ class JetsDataTableSource extends ChangeNotifier {
 
   dynamic _makeQuery() {
     final columns = state.tableConfig.columns;
+    final config = state.formFieldConfig;
     // reset _addWhereClauseOnClient
     _addWhereClauseOnClient = true;
     // Check if there is a select client in context
@@ -377,7 +378,28 @@ class JetsDataTableSource extends ChangeNotifier {
     if (!hasClientColumn) {
       _addWhereClauseOnClient = false;
     }
+    // The message aka DataTableAction (from data_table_action.go)
     var msg = <String, dynamic>{'action': state.tableConfig.apiAction};
+
+    // With clauses
+    List<Map<String, String>> withClauses = [];
+    for (final wc in state.tableConfig.withClauses) {
+      var stmt = wc.asStatement;
+      for (final k in wc.stateVariables) {
+        if (config == null) {
+          print("ERROR: Table having WITH statement but FormDataTableFieldConfig is null!");
+        }
+        final v = state.formState?.getValue(config!.group, k);
+        stmt = stmt.replaceAll(RegExp('{$k}'), v ?? 'NULL');
+      }
+      stmt = stmt.replaceAll(RegExp("'NULL'"), 'NULL');
+      withClauses.add(<String, String>{
+        'name': wc.withName,
+        'stmt': stmt,
+      });
+    }
+    msg['withClauses'] = withClauses;
+
     // from clauses (table name(s))
     List<Map<String, String>> fromClauses = [];
     for (final fc in state.tableConfig.fromClauses) {
@@ -392,10 +414,18 @@ class JetsDataTableSource extends ChangeNotifier {
           print("Error: Don't have a table_name!");
         }
       }
-      fromClauses.add(<String, String>{
-        'schema': fc.schemaName,
-        'table': table,
-      });
+      if (fc.asTableName.isNotEmpty) {
+        fromClauses.add(<String, String>{
+          'schema': fc.schemaName,
+          'table': table,
+          'asTable': fc.asTableName,
+        });
+      } else {
+        fromClauses.add(<String, String>{
+          'schema': fc.schemaName,
+          'table': table,
+        });
+      }
     }
     msg['fromClauses'] = fromClauses;
 

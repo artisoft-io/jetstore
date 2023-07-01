@@ -1,4 +1,3 @@
-import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -19,12 +18,13 @@ class TableConfig {
       this.defaultToAllRows = false,
       required this.fromClauses,
       required this.whereClauses,
-      this.distinctOnClauses = const[],
+      this.distinctOnClauses = const [],
       this.refreshOnKeyUpdateEvent = const [],
       this.formStateConfig,
       required this.sortColumnName,
       required this.sortAscending,
       required this.rowsPerPage,
+      this.withClauses = const [],
       this.noFooter = false});
   final String key;
   final String label;
@@ -36,6 +36,7 @@ class TableConfig {
   final List<ActionConfig> actions;
   final List<ColumnConfig> columns;
   final bool defaultToAllRows;
+  final List<WithClause> withClauses;
   final List<FromClause> fromClauses;
   final List<WhereClause> whereClauses;
   final List<String> distinctOnClauses;
@@ -173,13 +174,30 @@ class ColumnConfig {
   final double columnWidth;
 }
 
+class WithClause {
+  WithClause({
+    required this.withName,
+    required this.asStatement,
+    this.stateVariables = const [],
+  });
+  final String withName;
+  final String asStatement;
+  // asStatement contains substituion like this {{stateVariableName}}
+  // with is substituted with the variable value from the Form State object
+  // It's an error to have a stateless form with a table containing WithClause
+  // with state variables.
+  final List<String> stateVariables;
+}
+
 class FromClause {
   FromClause({
     required this.schemaName,
     required this.tableName,
+    this.asTableName = '',
   });
   final String schemaName;
   final String tableName;
+  final String asTableName;
 }
 
 class FormStatePredicate {

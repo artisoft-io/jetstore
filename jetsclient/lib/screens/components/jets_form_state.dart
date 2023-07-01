@@ -190,7 +190,7 @@ class JetsFormState extends ChangeNotifier {
   void setValue(int group, String key, dynamic value) {
     // print(
     //     "setValue: group $group, key $key, value $value :: groupCount $groupCount");
-    assert(group < groupCount, "invalid group $group key is $key value $value");
+    assert(group < groupCount, "setValue: invalid group: $group, key is $key, value $value");
     var didit = false;
     if (value == null) {
       // remove the binding if any
