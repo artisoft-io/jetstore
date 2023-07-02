@@ -162,6 +162,11 @@ class JetsFormState extends ChangeNotifier {
     return _updatedKeys[group].contains(key);
   }
 
+  Set<String> getUpdatedKeys(int group) {
+    assert(group < groupCount, "invalid group");
+    return _updatedKeys[group];
+  } 
+
   /// Check for keys marked as invalid, if any are found then the form does not
   /// pass validation
   bool isFormValid() {

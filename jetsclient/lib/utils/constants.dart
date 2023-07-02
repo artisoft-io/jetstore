@@ -47,6 +47,9 @@ class ScreenKeys {
   static const pipelineConfig = "pipelineConfigScreen";
   static const pipelineConfigEdit = "pipelineConfigEditScreen";
 
+  // Query Tool
+  static const queryToolScreen = "queryToolScreen";
+
   static const login = "loginScreen";
   static const register = "registerScreen";
   static const userAdmin = "userAdminScreen";
@@ -92,6 +95,8 @@ class FormKeys {
   static const viewProcessErrors = "viewProcessErrorsForm";
   static const viewInputRecords = "viewInputRecordsDialog";
   static const viewReteTriples = "viewReteTriplesDialog";
+  // Query Tool Forms
+  static const queryToolForm = "queryToolForm";
   // User Admin forms
   static const login = "login";
   static const register = "register";
@@ -143,6 +148,12 @@ class FSK {
   static const domainKeyColumn =
       "domainKeyColumn"; // e.g. Eligibility:domain_key
   static const reteSessionTriples = "rete_session_triples";
+
+  // Query Tool
+  static const rawQuery = "raw_query";
+  static const rawQueryReady = "raw_query.ready";
+  static const rawDdlQueryReady = "raw_query.ddl.ready";
+  static const queryReady = "query.ready";
 
   // keys used for mapping
   // key for domain classes data properties
@@ -270,6 +281,11 @@ class ActionKeys {
   // to sync file key with web storage (s3)
   static const syncFileKey = "syncFileKey";
 
+  // Query Tool Actions
+  static const queryToolOk = "queryTool.ok";
+  static const queryToolDdlOk = "queryTool.ddl.ok";
+
+
   // for add process input dialog
   static const addProcessInputOk = "addProcessInputOk";
   // for process mapping dialog
@@ -334,6 +350,9 @@ class DTKeys {
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
+
+  // QueryTool ResultSetTable
+  static const queryToolResultSetTable = "queryToolResultSetTable";
 
   // Input File Viewer DT
   static const inputFileViewerTable = "inputFileViewerTable";

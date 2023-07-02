@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/process_errors_delegates.dart';
+import 'package:jetsclient/screens/screen_delegates/query_tool_screen_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/source_config_delegates.dart';
 import 'package:jetsclient/screens/screen_delegates/user_delegates.dart';
 
@@ -1324,6 +1325,51 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     formValidatorDelegate: (formState, p2, p3, p4) => null,
     formActionsDelegate: processErrorsActions,
+  ),
+
+  // Query Tool Form
+  FormKeys.queryToolForm: FormConfig(
+    key: FormKeys.queryToolForm,
+    title: "Query Tool",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.queryToolOk,
+          label: "Submit Query",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+      FormActionConfig(
+          key: ActionKeys.queryToolDdlOk,
+          label: "Submit DDL",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.rawQuery,
+            label: "Query",
+            hint: "Paste query",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 10,
+            maxLength: 51200),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.queryToolResultSetTable,
+            flex: 50,
+            dataTableConfig: DTKeys.queryToolResultSetTable,
+            tableHeight: 400)
+      ],
+    ],
+    formValidatorDelegate: queryToolFormValidator,
+    formActionsDelegate: queryToolFormActions,
   ),
 };
 

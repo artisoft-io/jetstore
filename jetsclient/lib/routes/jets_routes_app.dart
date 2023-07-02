@@ -19,6 +19,7 @@ const sourceConfigPath = '/sourceConfig';
 const inputSourceMappingPath = '/inputSourceMapping';
 const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
+const queryToolPath = '/queryTool';
 const filePreviewPath = '/filePreviewPath/:file_key';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
 const processErrorsPath = '/processErrors/:session_id';
@@ -165,6 +166,14 @@ final Map<String, Widget> jetsRoutesMap = {
             return null;
           },
       tableConfig: getTableConfig(DTKeys.inputTable)),
+
+  // Query Tool
+  queryToolPath: ScreenWithForm(
+      key: const Key(ScreenKeys.queryToolScreen),
+      screenPath: JetsRouteData(queryToolPath),
+      screenConfig: getScreenConfig(ScreenKeys.queryToolScreen),
+      formConfig: getFormConfig(FormKeys.queryToolForm),
+  ),
 
   // File Preview
   filePreviewPath: ScreenOne(

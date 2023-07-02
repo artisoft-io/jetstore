@@ -12,21 +12,11 @@ final List<MenuEntry> workspaceRegistryMenuEntries = [
       key: 'workspaceIDEHome',
       label: 'Workspace IDE Home',
       routePath: workspaceRegistryPath),
+  MenuEntry(
+      key: 'queryTool',
+      label: 'Query Tool',
+      routePath: queryToolPath),
 ];
-// final List<MenuEntry> workspaceIDEMenuEntries = [
-//   MenuEntry(
-//       key: 'workspaceIDEHome',
-//       label: 'Select Another Workspace',
-//       routePath: workspaceRegistryPath),
-//   MenuEntry(
-//       key: 'domainClasses',
-//       label: 'Domain Classes',
-//       routePath: wsDomainClassesPath),
-//   MenuEntry(
-//       key: 'domainTables',
-//       label: 'Domain Tables',
-//       routePath: wsDomainTablesPath),
-// ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {
   // workspaceRegistry Screen
