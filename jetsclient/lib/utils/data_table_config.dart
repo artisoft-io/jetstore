@@ -25,6 +25,8 @@ class TableConfig {
       required this.sortAscending,
       required this.rowsPerPage,
       this.withClauses = const [],
+      this.sqlQuery,
+      this.requestColumnDef = false,
       this.noFooter = false});
   final String key;
   final String label;
@@ -36,6 +38,8 @@ class TableConfig {
   final List<ActionConfig> actions;
   final List<ColumnConfig> columns;
   final bool defaultToAllRows;
+  final RawQuery? sqlQuery;
+  final bool requestColumnDef;
   final List<WithClause> withClauses;
   final List<FromClause> fromClauses;
   final List<WhereClause> whereClauses;
@@ -182,6 +186,19 @@ class WithClause {
   });
   final String withName;
   final String asStatement;
+  // asStatement contains substituion like this {{stateVariableName}}
+  // with is substituted with the variable value from the Form State object
+  // It's an error to have a stateless form with a table containing WithClause
+  // with state variables.
+  final List<String> stateVariables;
+}
+
+class RawQuery {
+  RawQuery({
+    required this.sqlQuery,
+    this.stateVariables = const [],
+  });
+  final String sqlQuery;
   // asStatement contains substituion like this {{stateVariableName}}
   // with is substituted with the variable value from the Form State object
   // It's an error to have a stateless form with a table containing WithClause

@@ -67,6 +67,8 @@ type DataTableAction struct {
 	SortAscending     bool                     `json:"sortAscending"`
 	Offset            int                      `json:"offset"`
 	Limit             int                      `json:"limit"`
+	// used for raw_query action only
+	RequestColumnDef  bool                     `json:"requestColumnDef"`
 	Data              []map[string]interface{} `json:"data"`
 }
 type Column struct {
@@ -96,6 +98,21 @@ type DataTableColumnDef struct {
 	Label     string `json:"label"`
 	Tooltips  string `json:"tooltips"`
 	IsNumeric bool   `json:"isnumeric"`
+}
+
+func (dc *DataTableColumnDef) String() string {
+	var buf strings.Builder
+	buf.WriteString("DataTableColumnDef( Index: ")
+	buf.WriteString(strconv.Itoa(dc.Index))
+	buf.WriteString(", Name: ")
+	buf.WriteString(dc.Name)
+	buf.WriteString(", Label: ")
+	buf.WriteString(dc.Label)
+	buf.WriteString(", Tooltip: ")
+	buf.WriteString(dc.Tooltips)
+	buf.WriteString(")")
+	return buf.String()
+
 }
 
 func (dtq *DataTableAction) makeSelectColumns() string {
@@ -272,15 +289,10 @@ func isNumeric(dtype string) bool {
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
-	// // Check if we're in dev mode and the query is delegated to a proxy implementation
-	// if ctx.DevMode && len(*ctx.unitTestDir) > 0 {
-	// 	// We're in dev mode, see if we override the table being queried
-	// 	switch {
-	// 	case strings.Contains(dataTableAction.RawQuery, "file_key_staging"):
-	// 		return ctx.readLocalFiles(dataTableAction)
-	// 	}
-	// }
-	resultRows, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
+
+	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
 		err = fmt.Errorf("while executing raw query: %v", err2)
@@ -289,6 +301,27 @@ func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map
 
 	results = &map[string]interface{}{
 		"rows": resultRows,
+		"columnDef": columnDefs,
+	}
+	httpStatus = http.StatusOK
+	return
+}
+
+func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+	// fmt.Println("*** ExecDataManagementStatement called, query:",dataTableAction.RawQuery)
+
+	// resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	resultRows, columnDefs, err2 := execDDL(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	
+	if err2 != nil {
+		httpStatus = http.StatusInternalServerError
+		err = fmt.Errorf("while executing raw query: %v", err2)
+		return
+	}
+
+	results = &map[string]interface{}{
+		"rows": resultRows,
+		"columnDef": columnDefs,
 	}
 	httpStatus = http.StatusOK
 	return
@@ -301,8 +334,13 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
 		// fmt.Println("Query:",v)
-		resultRows, err2 := execQuery(ctx.Dbpool, dataTableAction, &v)
+		resultRows, _, err2 := execQuery(ctx.Dbpool, dataTableAction, &v)
 		if err2 != nil {
+			if strings.Contains(err2.Error(), "SQLSTATE") {
+				httpStatus = http.StatusBadRequest
+				err = err2
+				return	
+			}
 			httpStatus = http.StatusInternalServerError
 			err = fmt.Errorf("while executing raw query: %v", err2)
 			return
@@ -922,18 +960,62 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	return
 }
 
+func dataTypeFromOID(oid uint32) string {
+	switch oid {
+	case 25, 1009:	                    return "string"
+	case 700,701,1121:                  return "double"
+	case 1082,1182:                     return "date"
+	case 1083,1183:                     return "time"
+	case 1114,1115:                     return "timestamp"
+	case 23, 1007:                      return "int"
+	case 20, 1016:                      return "long"
+	}
+	return "unknown"
+}
+
+func isArrayFromOID(oid uint32) bool {
+	switch oid {
+	case 1009, 1007,1182, 1183, 1115, 1121, 1016:	return true
+	}
+	return false
+}
+
 // utility method
-func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
+func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Println("\n*** UI Query:\n", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
+	var columnDefs []DataTableColumnDef
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
 		log.Printf("While executing dataTable query: %v", err)
-		return &resultRows, err
+		return nil, nil, err
 	}
 	defer rows.Close()
-	nCol := len(rows.FieldDescriptions())
+	fd := rows.FieldDescriptions()
+	nCol := len(fd)
+	if dataTableAction.RequestColumnDef {
+		columnDefs = make([]DataTableColumnDef, nCol)
+		for i := range fd {
+			columnDefs[i].Index = i
+			columnDefs[i].Name = string(fd[i].Name)
+			columnDefs[i].Label = columnDefs[i].Name
+			dataType := dataTypeFromOID(fd[i].DataTypeOID) 
+			if isNumeric(dataType) {
+				columnDefs[i].IsNumeric = true
+			}
+
+			isArray := ""
+			if isArrayFromOID(fd[i].DataTypeOID) {
+				isArray = "array of "
+			}
+			columnDefs[i].Tooltips = fmt.Sprintf("DataType oid %d, size %d (%s%s)", 
+				fd[i].DataTypeOID, fd[i].DataTypeSize, 
+				isArray,
+				dataType,
+			)
+		}
+	}
 	for rows.Next() {
 		dataRow := make([]interface{}, nCol)
 		for i := 0; i < nCol; i++ {
@@ -942,7 +1024,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 		// scan the row
 		if err = rows.Scan(dataRow...); err != nil {
 			log.Printf("While scanning the row: %v", err)
-			return &resultRows, err
+			return nil, nil, err
 		}
 		flatRow := make([]interface{}, nCol)
 		for i := 0; i < nCol; i++ {
@@ -955,7 +1037,28 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 		}
 		resultRows = append(resultRows, flatRow)
 	}
-	return &resultRows, nil
+	return &resultRows, &columnDefs, nil
+}
+
+func execDDL(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
+	// //DEV
+	// fmt.Println("\n*** UI Query:\n", *query)
+	results, err := dbpool.Exec(context.Background(), *query)
+	if err != nil {
+		log.Printf("While executing dataTable query: %v", err)
+		return nil, nil, err
+	}
+	columnDefs := []DataTableColumnDef{{
+		Index: 0,
+		Name: "results",
+		Label: "Results",
+		Tooltips: "Exec resut",
+		IsNumeric: false,
+	}}
+	resultRows := make([][]interface{}, 1)
+	resultRows[0] = make([]interface{}, 1)
+	resultRows[0][0] = results.String()
+	return &resultRows, &columnDefs, nil
 }
 
 // DoReadAction ------------------------------------------------------
@@ -1063,7 +1166,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 
 	// Perform the query
 	query := buf.String()
-	resultRows, err := execQuery(ctx.Dbpool, dataTableAction, &query)
+	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
 			fmt.Errorf("while executing query from tables %s: %v", fromClause, err)

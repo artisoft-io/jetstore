@@ -235,8 +235,10 @@ class FormInputFieldConfig extends FormFieldConfig {
     return JetsTextFormField(
       key: UniqueKey(),
       formFieldConfig: this,
-      onChanged: (p0) => jetsFormWidgetState.widget.formState
-          .setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null),
+      onChanged: (p0) {
+        jetsFormWidgetState.widget.formState
+            .setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null);
+      },
       formValidator: ((group, key, v) => jetsFormWidgetState.widget.formConfig
           .formValidatorDelegate(
               jetsFormWidgetState.widget.formState, group, key, v)),

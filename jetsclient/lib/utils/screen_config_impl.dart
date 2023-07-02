@@ -134,6 +134,17 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       menuEntries: defaultMenuEntries,
       adminMenuEntries: adminMenuEntries),
 
+  // Query Tool Screen
+  ScreenKeys.queryToolScreen: ScreenConfig(
+      key: ScreenKeys.queryToolScreen,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Query Tool',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: workspaceRegistryMenuEntries,
+      adminMenuEntries: workspaceRegistryMenuEntries,
+      type: ScreenType.other),
+
   // Input Source Mapping Screen
   ScreenKeys.inputSourceMapping: ScreenConfig(
       key: ScreenKeys.inputSourceMapping,

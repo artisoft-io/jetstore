@@ -2441,6 +2441,25 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortAscending: false,
       rowsPerPage: 50),
 
+  // Query Tool Result Viewer Data Table
+  DTKeys.queryToolResultSetTable: TableConfig(
+      key: DTKeys.queryToolResultSetTable,
+      fromClauses: [FromClause(schemaName: 'public', tableName: '')],
+      apiAction: 'raw_query', // will be overriden for data management stmt
+      requestColumnDef: true,
+      label: 'Query Result',
+      apiPath: '/dataTable',
+      isCheckboxVisible: false,
+      isCheckboxSingleSelect: false,
+      whereClauses: [
+        WhereClause(column: '', formStateKey: FSK.queryReady),
+      ],
+      actions: [],
+      columns: [],
+      sortColumnName: '',
+      sortAscending: false,
+      rowsPerPage: 1),
+
   // Input File Viewer Data Table
   DTKeys.inputFileViewerTable: TableConfig(
       key: DTKeys.inputFileViewerTable,
