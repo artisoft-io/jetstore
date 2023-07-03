@@ -20,6 +20,7 @@ class JetsSpinnerOverlay extends StatefulWidget {
 
 class JetsSpinnerOverlayState extends State<JetsSpinnerOverlay> {
   bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
   void show() {
     setState(() {

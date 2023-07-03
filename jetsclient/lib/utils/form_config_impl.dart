@@ -1327,9 +1327,9 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: processErrorsActions,
   ),
 
-  // Query Tool Form
-  FormKeys.queryToolForm: FormConfig(
-    key: FormKeys.queryToolForm,
+  // Query Tool Input Form
+  FormKeys.queryToolInputForm: FormConfig(
+    key: FormKeys.queryToolInputForm,
     title: "Query Tool",
     actions: [
       FormActionConfig(
@@ -1353,19 +1353,27 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.rawQuery,
             label: "Query",
             hint: "Paste query",
-            flex: 1,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLines: 10,
             maxLength: 51200),
       ],
+    ],
+    formValidatorDelegate: queryToolFormValidator,
+    formActionsDelegate: queryToolFormActions,
+  ),
+
+  // Query Tool Result Viewer Form
+  FormKeys.queryToolResultViewForm: FormConfig(
+    key: FormKeys.queryToolResultViewForm,
+    actions: [],
+    inputFields: [
       [
         FormDataTableFieldConfig(
             key: DTKeys.queryToolResultSetTable,
-            flex: 50,
             dataTableConfig: DTKeys.queryToolResultSetTable,
-            tableHeight: 400)
+            tableHeight: 600)
       ],
     ],
     formValidatorDelegate: queryToolFormValidator,

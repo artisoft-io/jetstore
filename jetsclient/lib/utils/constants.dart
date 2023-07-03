@@ -96,7 +96,8 @@ class FormKeys {
   static const viewInputRecords = "viewInputRecordsDialog";
   static const viewReteTriples = "viewReteTriplesDialog";
   // Query Tool Forms
-  static const queryToolForm = "queryToolForm";
+  static const queryToolInputForm = "queryToolInputForm";
+  static const queryToolResultViewForm = "queryToolResultViewForm";
   // User Admin forms
   static const login = "login";
   static const register = "register";

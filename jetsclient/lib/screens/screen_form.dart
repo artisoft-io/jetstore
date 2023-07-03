@@ -5,6 +5,7 @@ import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/screens/components/base_screen.dart';
+import 'package:jetsclient/utils/constants.dart';
 
 class ScreenWithForm extends BaseScreen {
   ScreenWithForm({
@@ -12,13 +13,33 @@ class ScreenWithForm extends BaseScreen {
     required super.screenPath,
     required super.screenConfig,
     required this.formConfig,
-  }) : super(builder: (State<BaseScreen> baseState) {
+  }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithFormState;
-          return JetsForm(
-              formPath: screenPath,
-              formState: state.formState,
-              formKey: state.formKey,
-              formConfig: formConfig);
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(
+                  flex: 1,
+                  fit: FlexFit.tight,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        defaultPadding, 2 * defaultPadding, 0, 0),
+                    child: Text(
+                      screenConfig.title,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  flex: 8,
+                  fit: FlexFit.tight,
+                  child: JetsForm(
+                      formPath: screenPath,
+                      formState: state.formState,
+                      formKey: state.formKey,
+                      formConfig: formConfig),
+                ),
+              ]);
         });
 
   final FormConfig formConfig;
@@ -33,8 +54,10 @@ class ScreenWithFormState extends BaseScreenState {
   late final FormConfig formConfig;
 
   ScreenWithForm get _widget => super.widget as ScreenWithForm;
-  ValidatorDelegate get validatorDelegate => _widget.formConfig.formValidatorDelegate;
-  FormActionsDelegate get actionsDelegate => _widget.formConfig.formActionsDelegate;
+  ValidatorDelegate get validatorDelegate =>
+      _widget.formConfig.formValidatorDelegate;
+  FormActionsDelegate get actionsDelegate =>
+      _widget.formConfig.formActionsDelegate;
 
   @override
   void initState() {
@@ -48,6 +71,5 @@ class ScreenWithFormState extends BaseScreenState {
     // reset the updated keys since these updates is to put default values
     // and is not from user interactions
     formState.resetUpdatedKeys(0);
-    
   }
 }
