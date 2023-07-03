@@ -40,7 +40,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
               ? formFieldConfig.autovalidateMode
               : AutovalidateMode.disabled,
           builder: (FormFieldState<WidgetField> field) {
-            // print("*** REFRESHING TABLE");
+            print("*** REFRESHING TABLE");
             final state = field as JetsDataTableState;
             final context = field.context;
             final ThemeData themeData = Theme.of(context);

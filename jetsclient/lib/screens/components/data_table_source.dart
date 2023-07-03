@@ -528,7 +528,7 @@ class JetsDataTableSource extends ChangeNotifier {
     if (!state.mounted) return null;
     if (result.statusCode == 200) {
       // update the [model]
-      // print("*** Data Table Got Data");
+      print("*** Data Table Got Data");
       return result.body;
     } else if (result.statusCode == 401) {
       const snackBar = SnackBar(
@@ -581,6 +581,7 @@ class JetsDataTableSource extends ChangeNotifier {
         model = null;
         _totalRowCount = 0;
         notifyListeners();
+        print("*** Table has blocking filter, no refresh");
         return;
       }
     }
