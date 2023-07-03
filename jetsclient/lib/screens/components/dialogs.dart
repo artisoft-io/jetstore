@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
@@ -22,7 +23,8 @@ void showAlertDialog(BuildContext context, String message) {
 }
 
 /// Danger Zone alert dialog, requesting user confirmation to proceed
-Future<String?> showDangerZoneDialog(BuildContext context, String message) async {
+Future<String?> showDangerZoneDialog(
+    BuildContext context, String message) async {
   final ThemeData td = Theme.of(context);
   return showDialog<String?>(
     context: context,
@@ -48,7 +50,8 @@ Future<String?> showDangerZoneDialog(BuildContext context, String message) async
 }
 
 /// Danger Zone alert dialog, requesting user confirmation to proceed
-Future<String?> showConfirmationDialog(BuildContext context, String message) async {
+Future<String?> showConfirmationDialog(
+    BuildContext context, String message) async {
   final ThemeData td = Theme.of(context);
   return showDialog<String?>(
     context: context,
@@ -91,34 +94,37 @@ Future<void> showFormDialog<T>(
     required FormConfig formConfig,
     required DialogResultHandler<T> resultHandler}) async {
   resultHandler(
-      context, formState,
+      context,
+      formState,
       await showDialog<T>(
         context: context,
         builder: (context) => Dialog(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Flexible(
-                flex: 1,
-                fit: FlexFit.tight,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(defaultPadding, 2*defaultPadding, 0, 0),
-                  child: Text(
-                    formConfig.title ?? "",
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Flexible(
+            flex: 1,
+            fit: FlexFit.tight,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  defaultPadding, 2 * defaultPadding, 0, 0),
+              child: Text(
+                formConfig.title ?? "",
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
-              Flexible(
-                flex: 8,
-                fit: FlexFit.tight,
+            ),
+          ),
+          Flexible(
+              flex: 8,
+              fit: FlexFit.tight,
+              child: JetsSpinnerOverlay(
                 child: JetsForm(
-            formKey: formKey,
-            formPath: screenPath,
-            formState: formState,
-            formConfig: formConfig,
-            isDialog: true,
-          )
-              ),
-            ])
-        ),
+                  formKey: formKey,
+                  formPath: screenPath,
+                  formState: formState,
+                  formConfig: formConfig,
+                  isDialog: true,
+                ),
+              )),
+        ])),
       ));
 }
