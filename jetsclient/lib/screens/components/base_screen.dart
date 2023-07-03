@@ -3,15 +3,16 @@ import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
+import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/utils/screen_config.dart';
-import 'package:jetsclient/utils/screen_config_impl.dart';
 import 'package:split_view/split_view.dart';
 import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
 
 /// Signature for building the widget of main area of BaseScreen.
-typedef ScreenWidgetBuilder = Widget Function(BaseScreenState baseScreenState);
+typedef ScreenWidgetBuilder = Widget Function(
+    BuildContext context, BaseScreenState baseScreenState);
 
 class BaseScreen extends StatefulWidget {
   const BaseScreen({
@@ -79,12 +80,12 @@ class BaseScreenState extends State<BaseScreen> {
                 child: TextButton(
                   onPressed: fn,
                   child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      menuEntry.label,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                  )),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        menuEntry.label,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      )),
                 ),
               ),
         children: childs);
@@ -179,25 +180,7 @@ class BaseScreenState extends State<BaseScreen> {
                 ),
               )
             ]),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Flexible(
-                flex: 1,
-                fit: FlexFit.tight,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      defaultPadding, 2 * defaultPadding, 0, 0),
-                  child: Text(
-                    widget.screenConfig.title,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-              ),
-              Flexible(
-                flex: 8,
-                fit: FlexFit.tight,
-                child: widget.builder(this),
-              ),
-            ]),
+            JetsSpinnerOverlay(child: widget.builder(context, this)),
           ],
         ));
   }

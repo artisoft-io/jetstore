@@ -4,6 +4,7 @@ import 'package:jetsclient/screens/components/base_screen.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
 import 'package:jetsclient/utils/form_config.dart';
+import 'package:jetsclient/utils/constants.dart';
 
 class ScreenOne extends BaseScreen {
   ScreenOne({
@@ -13,13 +14,33 @@ class ScreenOne extends BaseScreen {
     required this.tableConfig,
     required this.validatorDelegate,
     required this.actionsDelegate,
-  }) : super(builder: (State<BaseScreen> baseState) {
-          return JetsDataTableWidget(
-              key: Key(screenConfig.key),
-              screenPath: screenPath,
-              tableConfig: tableConfig,
-              validatorDelegate: validatorDelegate,
-              actionsDelegate: actionsDelegate);
+  }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(
+                  flex: 1,
+                  fit: FlexFit.tight,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        defaultPadding, 2 * defaultPadding, 0, 0),
+                    child: Text(
+                      screenConfig.title,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  flex: 8,
+                  fit: FlexFit.tight,
+                  child: JetsDataTableWidget(
+                      key: Key(screenConfig.key),
+                      screenPath: screenPath,
+                      tableConfig: tableConfig,
+                      validatorDelegate: validatorDelegate,
+                      actionsDelegate: actionsDelegate),
+                ),
+              ]);
         });
   final TableConfig tableConfig;
   final ValidatorDelegate validatorDelegate;

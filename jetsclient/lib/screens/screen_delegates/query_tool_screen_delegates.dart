@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Validation and Actions delegates for the workspaceIDE forms
@@ -41,13 +42,23 @@ Future<String?> queryToolFormActions(BuildContext context,
         return null;
       }
       final query = formState.getValue(group, FSK.rawQuery);
-      if (actionKey == ActionKeys.queryToolOk) {
-        formState.setValue(group, FSK.rawQueryReady, query);
-      } else {
-        formState.setValue(group, FSK.rawDdlQueryReady, query);
+      final viewFormState = formState.peersFormState?[1];
+      if (viewFormState == null) {
+        print(
+            'ERROR: queryToolFormActions does not have access to data table to refresh it');
+        return 'ERROR: queryToolFormActions is not properly configured';
       }
-      formState.setValueAndNotify(group, FSK.queryReady, query);
+      if (actionKey == ActionKeys.queryToolOk) {
+        viewFormState.setValue(group, FSK.rawQueryReady, query);
+      } else {
+        viewFormState.setValue(group, FSK.rawDdlQueryReady, query);
+      }
+      viewFormState.setValueAndNotify(group, FSK.queryReady, query);
       // JetsSpinnerOverlay.of(context).show();
+            // // hide the spinner if showing
+            // if(JetsSpinnerOverlay.of(context).isLoading) {
+            //   JetsSpinnerOverlay.of(context).hide();
+            // }
       return null;
 
     case ActionKeys.dialogCancel:
