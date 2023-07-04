@@ -1357,7 +1357,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLines: 10,
-            maxLength: 51200),
+            maxLength: 4000000),
       ],
     ],
     formValidatorDelegate: queryToolFormValidator,
