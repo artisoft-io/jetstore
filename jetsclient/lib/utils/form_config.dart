@@ -76,6 +76,7 @@ class FormConfig {
     required this.key,
     this.title,
     this.inputFields = const [],
+    this.formTabsConfig = const [],
     this.inputFieldRowBuilder,
     required this.actions,
     this.queries,
@@ -90,7 +91,10 @@ class FormConfig {
   });
   final String key;
   final String? title;
+  // For form without tabs (classic forms)
   final InputFieldType inputFields;
+  // Form form with tabs
+  final List<FormTabConfig> formTabsConfig;
   final JetsFormFieldRowBuilder? inputFieldRowBuilder;
   final List<FormActionConfig> actions;
   final String? inputFieldsQuery;
@@ -120,6 +124,15 @@ class FormConfig {
   }
 }
 
+class FormTabConfig {
+  FormTabConfig({
+    required this.label,
+    required this.inputField,
+  });
+  final String label;
+  final FormFieldConfig inputField;
+}
+
 abstract class FormFieldConfig {
   FormFieldConfig({
     required this.key,
@@ -143,7 +156,8 @@ abstract class FormFieldConfig {
   /// it's a FormField and must have arguments context and formState erased.
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   });
 }
 
@@ -161,7 +175,8 @@ class PaddingConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   }) {
     return SizedBox(
       height: height,
@@ -193,7 +208,8 @@ class TextFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   }) {
     return JetsTextField(
       fieldConfig: this,
@@ -230,19 +246,18 @@ class FormInputFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   }) {
     return JetsTextFormField(
       key: UniqueKey(),
       formFieldConfig: this,
       onChanged: (p0) {
-        jetsFormWidgetState.widget.formState
-            .setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null);
+        formState.setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null);
       },
-      formValidator: ((group, key, v) => jetsFormWidgetState.widget.formConfig
-          .formValidatorDelegate(
-              jetsFormWidgetState.widget.formState, group, key, v)),
-      formState: jetsFormWidgetState.widget.formState,
+      formValidator: ((group, key, v) =>
+          formConfig.formValidatorDelegate(formState, group, key, v)),
+      formState: formState,
     );
   }
 }
@@ -285,18 +300,17 @@ class FormDropdownFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   }) {
     return JetsDropdownButtonFormField(
       key: UniqueKey(),
       screenPath: screenPath,
       formFieldConfig: this,
-      onChanged: (p0) => jetsFormWidgetState.widget.formState
-          .setValueAndNotify(group, key, p0),
-      formValidator: ((group, key, v) => jetsFormWidgetState.widget.formConfig
-          .formValidatorDelegate(
-              jetsFormWidgetState.widget.formState, group, key, v)),
-      formState: jetsFormWidgetState.widget.formState,
+      onChanged: (p0) => formState.setValueAndNotify(group, key, p0),
+      formValidator: ((group, key, v) =>
+          formConfig.formValidatorDelegate(formState, group, key, v)),
+      formState: formState,
     );
   }
 
@@ -334,18 +348,18 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   }) {
-    var state = jetsFormWidgetState.widget.formState;
     return JetsDropdownWithSharedItemsFormField(
       key: UniqueKey(),
       screenPath: screenPath,
       formFieldConfig: this,
-      onChanged: (p0) => state.setValueAndNotify(group, key, p0),
-      formValidator: ((group, key, v) => jetsFormWidgetState.widget.formConfig
-          .formValidatorDelegate(state, group, key, v)),
-      formState: state,
-      selectedValue: state.getValue(group, key),
+      onChanged: (p0) => formState.setValueAndNotify(group, key, p0),
+      formValidator: ((group, key, v) =>
+          formConfig.formValidatorDelegate(formState, group, key, v)),
+      formState: formState,
+      selectedValue: formState.getValue(group, key),
     );
   }
 }
@@ -367,26 +381,20 @@ class FormDataTableFieldConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   }) {
-    var state = jetsFormWidgetState.widget.formState;
-    return Expanded(
-      child: SizedBox(
+    return SizedBox(
         width: tableWidth,
         height: tableHeight,
         child: JetsDataTableWidget(
-          key: UniqueKey(),
-          screenPath: screenPath,
-          formFieldConfig: this,
-          tableConfig: getTableConfig(dataTableConfig),
-          formState: state,
-          validatorDelegate:
-              jetsFormWidgetState.widget.formConfig.formValidatorDelegate,
-          actionsDelegate:
-              jetsFormWidgetState.widget.formConfig.formActionsDelegate,
-        ),
-      ),
-    );
+            key: UniqueKey(),
+            screenPath: screenPath,
+            formFieldConfig: this,
+            tableConfig: getTableConfig(dataTableConfig),
+            formState: formState,
+            validatorDelegate: formConfig.formValidatorDelegate,
+            actionsDelegate: formConfig.formActionsDelegate));
   }
 }
 
@@ -430,14 +438,14 @@ class FormActionConfig extends FormFieldConfig {
   @override
   Widget makeFormField({
     required JetsRouteData screenPath,
-    required JetsFormWidgetState jetsFormWidgetState,
+    required FormConfig formConfig,
+    required JetsFormState formState,
   }) {
     return JetsFormButton(
         key: UniqueKey(),
         formActionConfig: this,
-        formKey: jetsFormWidgetState.widget.formKey,
-        formState: jetsFormWidgetState.widget.formState,
-        actionsDelegate:
-            jetsFormWidgetState.widget.formConfig.formActionsDelegate);
+        formKey: formState.formKey!,
+        formState: formState,
+        actionsDelegate: formConfig.formActionsDelegate);
   }
 }

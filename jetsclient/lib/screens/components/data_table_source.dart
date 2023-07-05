@@ -283,9 +283,7 @@ class JetsDataTableSource extends ChangeNotifier {
 
     // Check if value is comming from screen param (navigation param)
     // only for case where there is no formState or it's not a dialog (isDialog = false)
-    if (state.formState == null ||
-        (state.formState!.activeFormWidgetState != null &&
-            !state.formState!.activeFormWidgetState!.isDialog)) {
+    if (state.formState == null || !state.formState!.isDialog) {
       var value =
           JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
       if (value != null) {

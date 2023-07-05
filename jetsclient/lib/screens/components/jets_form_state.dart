@@ -71,6 +71,12 @@ class JetsFormState extends ChangeNotifier {
   /// number of validation groups in the form state
   int groupCount;
 
+  /// Indicates if the form associated with this state is a dialog
+  bool isDialog = false;
+
+  /// The associated formKey (used in screen delegate actions to trigger form validation)
+  GlobalKey<FormState>? formKey;
+
   /// Active [JetsForm] instance associated with this [JetsFormState]
   /// Usefull when need to modify the list of input fields such as for
   /// dialog having a [FormConfig] with [formWithDynamicRows] set to [true]

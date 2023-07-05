@@ -100,29 +100,25 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      flex: widget.formFieldConfig.flex,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
-        child: TextFormField(
-          autofocus: _config.autofocus,
-          controller: _controller,
-          focusNode: _node,
-          showCursor: _focused,
-          obscureText: _config.obscureText,
-          maxLines: _config.maxLines,
-          maxLength: _config.maxLength,
-          maxLengthEnforcement: MaxLengthEnforcement.enforced,
-          decoration: InputDecoration(
-            hintText: _config.hint,
-            labelText: _config.label,
-          ),
-          onChanged: widget.onChanged,
-          validator: (p0) =>
-              widget.formValidator(_config.group, _config.key, p0),
-          autovalidateMode: _config.autovalidateMode,
-          autofillHints: _config.autofillHints,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
+      child: TextFormField(
+        autofocus: _config.autofocus,
+        controller: _controller,
+        focusNode: _node,
+        showCursor: _focused,
+        obscureText: _config.obscureText,
+        maxLines: _config.maxLines,
+        maxLength: _config.maxLength,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        decoration: InputDecoration(
+          hintText: _config.hint,
+          labelText: _config.label,
         ),
+        onChanged: widget.onChanged,
+        validator: (p0) => widget.formValidator(_config.group, _config.key, p0),
+        autovalidateMode: _config.autovalidateMode,
+        autofillHints: _config.autofillHints,
       ),
     );
   }
