@@ -26,6 +26,7 @@ type PipelineConfig struct {
 	sourcePeriodKey          int
 	maxReteSessionSaved      int
 	currentSourcePeriod      int
+	currentSourcePeriodDate  string
 	mainProcessInputKey      int
 	mergedProcessInputKeys   []int
 	injectedProcessInputKeys []int
@@ -46,6 +47,7 @@ func (pc *PipelineConfig)String() string {
 	buf.WriteString(fmt.Sprintf("  sourcePeriodType: %s", pc.sourcePeriodType))
 	buf.WriteString(fmt.Sprintf("  sourcePeriodKey: %d", pc.sourcePeriodKey))
 	buf.WriteString(fmt.Sprintf("  currentSourcePeriod: %d", pc.currentSourcePeriod))
+	buf.WriteString(fmt.Sprintf("  currentSourcePeriodDate: %s", pc.currentSourcePeriodDate))
 	buf.WriteString(fmt.Sprintf("\n  mainProcessInput: %s", pc.mainProcessInput.String()))
 	for ipos := range pc.mergedProcessInput {
 		buf.WriteString(fmt.Sprintf("\n  mergedProcessInput[%d]: %s", ipos, pc.mergedProcessInput[ipos].String()))
@@ -492,12 +494,16 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 			p.sessionId = sessionId
 		}
 
-		// Get the currentSourcePeriod
+		// Get the currentSourcePeriod & currentSourcePeriodDate
+		var year, month, day int
 		err = dbpool.QueryRow(context.Background(),
-			fmt.Sprintf("SELECT %s FROM jetsapi.source_period WHERE key = %d", pc.sourcePeriodType, pc.sourcePeriodKey)).Scan(&pc.currentSourcePeriod)
+			fmt.Sprintf("SELECT %s, year, month, day FROM jetsapi.source_period WHERE key = %d", pc.sourcePeriodType, pc.sourcePeriodKey)).Scan(
+				&pc.currentSourcePeriod, &year, &month, &day)
 		if err != nil {
 			return &pc, fmt.Errorf("while reading from source_period table: %v", err)
 		}
+		pc.currentSourcePeriodDate = fmt.Sprintf("%d/%d/%d", year, month, day)
+		log.Println("Current Source Period Date for pipeline:", pc.currentSourcePeriodDate)
 
 	} else {
 		log.Println("*** Input session id not specified, take the latest from input_registry (uncommon use case)")

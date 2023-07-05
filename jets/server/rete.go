@@ -142,6 +142,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
+	ri.jets__currentSourcePeriodDate, err = rw.js.GetResource("jets:currentSourcePeriodDate")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 	ri.jets__exception, err = rw.js.GetResource("jets:exception")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
@@ -177,6 +181,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 			_, err = reteSession.Insert(ri.jets__istate, ri.jets__currentSourcePeriod, r)
 			if err != nil {
 				return &result, fmt.Errorf("while inserting jets:currentSourcePeriod to rdf session: %v", err)
+			}
+			r, _ = reteSession.NewDateLiteral(rw.pipelineConfig.currentSourcePeriodDate)
+			_, err = reteSession.Insert(ri.jets__istate, ri.jets__currentSourcePeriodDate, r)
+			if err != nil {
+				return &result, fmt.Errorf("while inserting jets:currentSourcePeriodDate to rdf session: %v", err)
 			}
 			r, _ = reteSession.NewTextLiteral(rw.pipelineConfig.sourcePeriodType)
 			_, err = reteSession.Insert(ri.jets__istate, ri.jets__sourcePeriodType, r)

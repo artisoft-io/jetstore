@@ -239,7 +239,7 @@ class JetsFormWidgetState extends State<JetsForm> {
                         children: fc
                             .map((e) => Flexible(
                                 flex: 1,
-                                fit: FlexFit.loose,
+                                fit: FlexFit.tight,
                                 child: e.makeFormField(
                                     screenPath: widget.formPath,
                                     formConfig: widget.formConfig,
