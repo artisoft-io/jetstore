@@ -41,12 +41,12 @@ class JetsFormWidgetState extends State<JetsForm> {
       ? alternateInputFields
       : widget.formConfig.inputFields;
 
-  bool get isDialog => widget.isDialog;
-
   @override
   void initState() {
     super.initState();
     widget.formState.activeFormWidgetState = this;
+    widget.formState.isDialog = widget.isDialog;
+    widget.formState.formKey = widget.formKey;
     if (inputFields.isEmpty) {
       if (JetsRouterDelegate().user.isAuthenticated) {
         queryInputFieldItems();
@@ -237,18 +237,21 @@ class JetsFormWidgetState extends State<JetsForm> {
                       var fc = inputFields[index];
                       return Row(
                         children: fc
-                            .map((e) => e.makeFormField(
-                                  screenPath: widget.formPath,
-                                  jetsFormWidgetState: this,
-                                ))
+                            .map((e) => Flexible(
+                                flex: 1,
+                                fit: FlexFit.tight,
+                                child: e.makeFormField(
+                                    screenPath: widget.formPath,
+                                    formConfig: widget.formConfig,
+                                    formState: widget.formState)))
                             .toList(),
                       );
                     }
                     // case last: row of buttons
                     return Center(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                            0, defaultPadding, 0, 0),
+                        padding:
+                            const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
                         child: Row(
                             children: widget.formConfig.actions
                                 .map((e) => JetsFormButton(
@@ -256,13 +259,15 @@ class JetsFormWidgetState extends State<JetsForm> {
                                     formActionConfig: e,
                                     formKey: widget.formKey,
                                     formState: widget.formState,
-                                    actionsDelegate: widget
-                                        .formConfig.formActionsDelegate))
+                                    actionsDelegate:
+                                        widget.formConfig.formActionsDelegate))
                                 .toList()),
                       ),
                     );
                   },
-                  itemCount: inputFields.length + 1),
+                  itemCount: widget.formConfig.actions.isNotEmpty
+                      ? inputFields.length + 1
+                      : inputFields.length),
             )),
       ),
     );

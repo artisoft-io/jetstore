@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
+import 'package:jetsclient/screens/components/form_with_tabs.dart';
 
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
@@ -33,11 +34,17 @@ class ScreenWithForm extends BaseScreen {
                 Flexible(
                   flex: 8,
                   fit: FlexFit.tight,
-                  child: JetsForm(
-                      formPath: screenPath,
-                      formState: state.formState,
-                      formKey: state.formKey,
-                      formConfig: formConfig),
+                  child: formConfig.formTabsConfig.isNotEmpty
+                      ? JetsFormWithTabs(
+                          formPath: screenPath,
+                          formState: state.formState,
+                          formKey: state.formKey,
+                          formConfig: formConfig)
+                      : JetsForm(
+                          formPath: screenPath,
+                          formState: state.formState,
+                          formKey: state.formKey,
+                          formConfig: formConfig),
                 ),
               ]);
         });

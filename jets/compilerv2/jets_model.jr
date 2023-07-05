@@ -25,11 +25,12 @@ class jets:InputRecord {
 class jets:State {
   $base_classes = [owl:Thing],
   $data_properties = [
-    jets:completed              as bool,
-    jets:sourcePeriodType       as text, 
-    jets:currentSourcePeriod    as int, 
-    jets:exception              as text,
-    jets:loop                   as int
+    jets:completed                  as bool,
+    jets:sourcePeriodType           as text, 
+    jets:currentSourcePeriod        as int, 
+    jets:currentSourcePeriodDate    as date, 
+    jets:exception                  as text,
+    jets:loop                       as int
   ],
   $as_table = false
 };

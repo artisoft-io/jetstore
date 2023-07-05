@@ -15,21 +15,22 @@ import (
 )
 
 type ReteInputContext struct {
-	jets__client                 *bridge.Resource
-	jets__completed              *bridge.Resource
-	jets__sourcePeriodType       *bridge.Resource
-	jets__currentSourcePeriod    *bridge.Resource
-	jets__exception              *bridge.Resource
-	jets__input_record           *bridge.Resource
-	jets__istate                 *bridge.Resource
-	jets__key                    *bridge.Resource
-	jets__loop                   *bridge.Resource
-	jets__org                    *bridge.Resource
-	jets__source_period_sequence *bridge.Resource
-	jets__state                  *bridge.Resource
-	rdf__type                    *bridge.Resource
-	reMap                        map[string]*regexp.Regexp
-	argdMap                      map[string]float64
+	jets__client                     *bridge.Resource
+	jets__completed                  *bridge.Resource
+	jets__sourcePeriodType           *bridge.Resource
+	jets__currentSourcePeriod        *bridge.Resource
+	jets__currentSourcePeriodDate    *bridge.Resource
+	jets__exception                  *bridge.Resource
+	jets__input_record               *bridge.Resource
+	jets__istate                     *bridge.Resource
+	jets__key                        *bridge.Resource
+	jets__loop                       *bridge.Resource
+	jets__org                        *bridge.Resource
+	jets__source_period_sequence     *bridge.Resource
+	jets__state                      *bridge.Resource
+	rdf__type                        *bridge.Resource
+	reMap                            map[string]*regexp.Regexp
+	argdMap                          map[string]float64
 }
 
 // main processing function to execute rules

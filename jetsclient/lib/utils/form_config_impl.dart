@@ -16,22 +16,22 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       // Action-less form
     ],
-    inputFields: [
-      [
-        FormDataTableFieldConfig(
-            key: DTKeys.inputLoaderStatusTable,
-            dataTableConfig: DTKeys.inputLoaderStatusTable)
-      ],
-      [
-        FormDataTableFieldConfig(
-            key: DTKeys.pipelineExecStatusTable,
-            dataTableConfig: DTKeys.pipelineExecStatusTable)
-      ],
-      [
-        FormDataTableFieldConfig(
-            key: DTKeys.inputRegistryTable,
-            dataTableConfig: DTKeys.inputRegistryTable)
-      ],
+    formTabsConfig: [
+      FormTabConfig(
+          label: 'File Loader Status',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.inputLoaderStatusTable,
+              dataTableConfig: DTKeys.inputLoaderStatusTable)),
+      FormTabConfig(
+          label: 'Pipeline Execution Status',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.pipelineExecStatusTable,
+              dataTableConfig: DTKeys.pipelineExecStatusTable)),
+      FormTabConfig(
+          label: 'Data Registry',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.inputRegistryTable,
+              dataTableConfig: DTKeys.inputRegistryTable)),
     ],
     formValidatorDelegate: homeFormValidator,
     formActionsDelegate: homeFormActions,
@@ -164,13 +164,11 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormDataTableFieldConfig(
             key: DTKeys.clientAdminTable,
-            tableHeight: 400,
-            dataTableConfig: DTKeys.clientAdminTable)
-      ],
-      [
+            tableHeight: 600,
+            dataTableConfig: DTKeys.clientAdminTable),
         FormDataTableFieldConfig(
             key: DTKeys.orgNameTable,
-            tableHeight: 400,
+            tableHeight: 600,
             dataTableConfig: DTKeys.orgNameTable),
       ],
     ],
