@@ -101,7 +101,7 @@ RUN \
   && mkdir -p ${WORK_HOME}/output_params 
 
 # Copy the cloud9 scripts
-COPY --chown=jsuser:jsuser cloud9_*.sh /go/cloud9_scripts/
+COPY --chown=jsuser:jsuser utils/cloud9_*.sh /go/cloud9_scripts/
 
 RUN chown -Rc jsuser /go
 USER jsuser
