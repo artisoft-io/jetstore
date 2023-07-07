@@ -88,6 +88,7 @@ class FormConfig {
     this.formWithDynamicRows,
     required this.formValidatorDelegate,
     required this.formActionsDelegate,
+    this.useListView,
   });
   final String key;
   final String? title;
@@ -104,6 +105,7 @@ class FormConfig {
   final Map<String, String>? metadataQueries;
   final List<String>? stateKeyPredicates;
   final bool? formWithDynamicRows;
+  final bool? useListView;
 
   int groupCount() {
     var unique = <int>{};

@@ -233,7 +233,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		return err
 	}
 	// Check if need to recompile workspace, skip if in dev mode
-	if os.Getenv("JETSTORE_DEV_MODE") != "" {
+	if devMode {
 		// We're in dev mode, the user is responsible to compile workspace when needed
 		return nil
 	}

@@ -40,6 +40,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // Login Form
   FormKeys.login: FormConfig(
     key: FormKeys.login,
+    useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.login,
@@ -84,6 +85,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // User Registration Form
   FormKeys.register: FormConfig(
     key: FormKeys.register,
+    useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.register,

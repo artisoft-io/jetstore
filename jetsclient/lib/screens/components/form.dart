@@ -36,6 +36,7 @@ class JetsFormWidgetState extends State<JetsForm> {
   // widget.formConfig.inputFields.isEmpty() and are
   // build in [queryInputFieldItems]
   InputFieldType alternateInputFields = [];
+  bool? get useListView => widget.formConfig.useListView;
 
   InputFieldType get inputFields => widget.formConfig.inputFields.isEmpty
       ? alternateInputFields
@@ -225,51 +226,95 @@ class JetsFormWidgetState extends State<JetsForm> {
 
   @override
   Widget build(BuildContext context) {
+    print("*** Number of Page Rows: ${inputFields.length}");
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
-      child: FocusTraversalGroup(
-        child: Form(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+        child: FocusTraversalGroup(
+          child: Form(
             key: widget.formKey,
             child: AutofillGroup(
-              child: ListView.builder(
-                  itemBuilder: (BuildContext context, int index) {
-                    if (index < inputFields.length) {
-                      var fc = inputFields[index];
-                      return Row(
-                        children: fc
-                            .map((e) => Flexible(
-                                flex: 1,
-                                fit: FlexFit.tight,
-                                child: e.makeFormField(
-                                    screenPath: widget.formPath,
-                                    formConfig: widget.formConfig,
-                                    formState: widget.formState)))
-                            .toList(),
-                      );
-                    }
-                    // case last: row of buttons
-                    return Center(
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(0, defaultPadding, 0, 0),
-                        child: Row(
-                            children: widget.formConfig.actions
-                                .map((e) => JetsFormButton(
-                                    key: Key(e.key),
-                                    formActionConfig: e,
-                                    formKey: widget.formKey,
-                                    formState: widget.formState,
-                                    actionsDelegate:
-                                        widget.formConfig.formActionsDelegate))
-                                .toList()),
-                      ),
-                    );
-                  },
-                  itemCount: widget.formConfig.actions.isNotEmpty
-                      ? inputFields.length + 1
-                      : inputFields.length),
-            )),
-      ),
-    );
+                // When inputFields.length > 5 use ListView
+                // otherwise expand the controls to occupy the viewport
+                child: inputFields.length > 5 || (useListView!=null && useListView==true)
+                    ? ListView.builder(
+                        itemBuilder: (BuildContext context, int index) {
+                          if (index < inputFields.length) {
+                            var fc = inputFields[index];
+                            return Row(
+                              children: fc
+                                  .map((e) => Flexible(
+                                      flex: 1,
+                                      fit: FlexFit.tight,
+                                      child: e.makeFormField(
+                                          screenPath: widget.formPath,
+                                          formConfig: widget.formConfig,
+                                          formState: widget.formState)))
+                                  .toList(),
+                            );
+                          }
+                          // case last: row of buttons
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                  0, defaultPadding, 0, 0),
+                              child: Row(
+                                  children: widget.formConfig.actions
+                                      .map((e) => JetsFormButton(
+                                          key: Key(e.key),
+                                          formActionConfig: e,
+                                          formKey: widget.formKey,
+                                          formState: widget.formState,
+                                          actionsDelegate: widget
+                                              .formConfig.formActionsDelegate))
+                                      .toList()),
+                            ),
+                          );
+                        },
+                        itemCount: widget.formConfig.actions.isNotEmpty
+                            ? inputFields.length + 1
+                            : inputFields.length)
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: List<Widget>.generate(
+                            widget.formConfig.actions.isNotEmpty
+                                ? inputFields.length + 1
+                                : inputFields.length,
+                            (index) => index < inputFields.length
+                                // widgets of the form's row
+                                ? Flexible(
+                                    flex: 10,
+                                    fit: FlexFit.tight,
+                                    child: Row(
+                                      children: inputFields[index]
+                                          .map((e) => Flexible(
+                                              fit: FlexFit.tight,
+                                              child: e.makeFormField(
+                                                  screenPath: widget.formPath,
+                                                  formConfig: widget.formConfig,
+                                                  formState: widget.formState)))
+                                          .toList(),
+                                    ),
+                                  )
+                                // last row of form action button
+                                : Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          0, defaultPadding, 0, 0),
+                                      child: Row(
+                                          children: widget.formConfig.actions
+                                              .map((e) => JetsFormButton(
+                                                  key: Key(e.key),
+                                                  formActionConfig: e,
+                                                  formKey: widget.formKey,
+                                                  formState: widget.formState,
+                                                  actionsDelegate: widget
+                                                      .formConfig
+                                                      .formActionsDelegate))
+                                              .toList()),
+                                    ),
+                                  )),
+                      )),
+          ),
+        ));
   }
 }
