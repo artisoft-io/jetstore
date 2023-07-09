@@ -540,7 +540,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		userEmail, err2 := user.ExtractTokenID(token)
 		if err2 != nil || userEmail != *ctx.AdminEmail {
 			httpStatus = http.StatusUnauthorized
-			err = errors.New("error: unauthorized, only admin can delete users")
+			err = errors.New("error: unauthorized, only admin can perform statement")
 			return
 		}
 	}

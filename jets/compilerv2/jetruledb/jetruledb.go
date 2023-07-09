@@ -12,6 +12,7 @@ import (
 
 	// "github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -424,24 +425,6 @@ func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.Context, da
 	return
 }
 
-// Transform a struct into json and then back into a row (array of interface{})
-// to insert into database using api
-func appendDataRow(v any, data *[]map[string]interface{}) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		log.Printf("while writing json:%v\n", err)
-		return err
-	}
-	row := map[string]interface{}{}
-	err = json.Unmarshal(b, &row)
-	if err != nil {
-		log.Printf("while reading json:%v\n", err)
-		return err
-	}
-	*data = append(*data, row)
-	return nil
-}
-
 // JetruleModel Methods
 // --------------------
 // WriteResources
@@ -450,7 +433,7 @@ func (ctx *writeWorkspaceContext) WriteResources(datatableCtx *datatable.Context
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Resources {
 		r := &ctx.model.Resources[i]
-		err := appendDataRow(r, &data)
+		err := dbutils.AppendDataRow(r, &data)
 		if err != nil {
 			return err
 		}
@@ -507,7 +490,7 @@ func (ctx *writeWorkspaceContext) WriteDomainClasses(datatableCtx *datatable.Con
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Classes {
 		cls := &ctx.model.Classes[i]
-		err := appendDataRow(cls, &data)
+		err := dbutils.AppendDataRow(cls, &data)
 		if err != nil {
 			return err
 		}
@@ -554,7 +537,7 @@ func (ctx *writeWorkspaceContext) WriteDomainClasses(datatableCtx *datatable.Con
 		cls := &ctx.model.Classes[i]
 		for j := range cls.DataProperties {
 			cls.DataProperties[j].DomainClassKey = cls.DbKey
-			err := appendDataRow(&cls.DataProperties[j], &data)
+			err := dbutils.AppendDataRow(&cls.DataProperties[j], &data)
 			if err != nil {
 				return err
 			}
@@ -693,7 +676,7 @@ func (ctx *writeWorkspaceContext) WriteLookupTables(datatableCtx *datatable.Cont
 	data := []map[string]interface{}{}
 	for i := range ctx.model.LookupTables {
 		v := &ctx.model.LookupTables[i]
-		err := appendDataRow(v, &data)
+		err := dbutils.AppendDataRow(v, &data)
 		if err != nil {
 			return err
 		}

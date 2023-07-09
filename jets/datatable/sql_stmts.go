@@ -183,6 +183,18 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		ColumnKeys: []string{"workspace_name", "user_email"},
 	},
 
+	// Workspace Changes - keeping track of assets changed
+	"workspace_changes": {
+		Stmt: `INSERT INTO jetsapi.workspace_changes 
+			(workspace_name, oid, file_name, content_type, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT ON CONSTRAINT workspace_changes_unique_cstraint
+			DO UPDATE SET (oid, status, user_email, last_update) = 
+			(EXCLUDED.oid, EXCLUDED.status, EXCLUDED.user_email, DEFAULT)
+			RETURNING key`,
+		ColumnKeys: []string{"workspace_name", "oid", "file_name", "content_type", "status", "user_email"},
+	},
+
 	// Statements for Rule Workspace
 	// ----------------------------------------------------------------------------------------------
 	// Statement key that starts with WORKSPACE/ have a pre-execution hook that replace $SCHEMA by the
@@ -221,7 +233,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 			UNION
 			SELECT key FROM $SCHEMA.resources 
 			WHERE type=$1 AND id=$2 AND value=$3 AND is_binded=$4 AND inline=$5 AND vertex=$6 AND var_pos=$7`,
-			ColumnKeys: []string{"type","id","value","is_binded","inline","vertex","var_pos","source_file_key"},
+		ColumnKeys: []string{"type","id","value","is_binded","inline","vertex","var_pos","source_file_key"},
 		AdminOnly: false,
 	},
 	//
