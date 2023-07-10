@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -222,14 +223,14 @@ func (server *Server) checkJetStoreDbVersion() error {
 	return nil
 }
 
-// Download overriten workspace files from s3
-// Check the workspace version in db, if jetstore version is more recent, recompile workspace
+// Download overriten workspace files from jetstore database
+// Check the workspace version in db, if jetstore image version is more recent, recompile workspace
 func (server *Server) checkWorkspaceVersion() error {
 	// Download overriten workspace files from s3 if any
 	workspaceName := os.Getenv("WORKSPACE")
-	err := workspace.SyncWorkspaceFiles(workspaceName, devMode)
+	err := workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, devMode)
 	if err != nil {
-		log.Println("Error while synching workspace file from s3:",err)
+		log.Println("Error while synching workspace file from database:",err)
 		return err
 	}
 	// Check if need to recompile workspace, skip if in dev mode

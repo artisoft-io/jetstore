@@ -9,7 +9,6 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
 // 

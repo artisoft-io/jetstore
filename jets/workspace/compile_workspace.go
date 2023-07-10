@@ -9,69 +9,51 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // This file contains functions to compile and sync the workspace
-// between s3 and the local container
-// JETS_BUCKET
-// JETS_REGION
+// between jetstore database and the local container
 // WORKSPACE_DB_PATH location of workspace db (sqlite db)
 // WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
 
-// Function to pull override workspace files from s3 to the
+// Function to pull override workspace files from databse to the
 // container workspace (local copy).
 // Need this when:
 //	- starting a task requiring local workspace (e.g. run_report to get latest report definition)
 //	- starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
 //	- starting rule server to get the latest lookup.db and workspace.db
-func SyncWorkspaceFiles(workspaceName string, isDevMode bool) error {
-	bucket := os.Getenv("JETS_BUCKET")
-	region := os.Getenv("JETS_REGION")
+func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status string, isDevMode bool) error {
 	wh := os.Getenv("WORKSPACES_HOME")
-	// sync workspace files from s3 to locally
-	//* TODO more prefix: sync workspace files from s3 to locally to compile workspace
-	prefixes := []string{
-		fmt.Sprintf("jetstore/workspaces/%s/lookups", workspaceName),
-		fmt.Sprintf("jetstore/workspaces/%s/process_config", workspaceName),
-		fmt.Sprintf("jetstore/workspaces/%s/reports", workspaceName),
+	// sync workspace files from db to locally
+	// Get all file_name that are modified
+	fileObjects, err := dbutils.QueryFileObject(dbpool, workspaceName, status)
+	if err != nil {
+		return err
 	}
-	if !isDevMode {
-		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/lookup.db", workspaceName))
-		prefixes = append(prefixes, fmt.Sprintf("jetstore/workspaces/%s/workspace.db", workspaceName))
-	}
-	log.Println("Synching overriten workspace file from s3")
-	for i := range prefixes {
-		keys, err := awsi.ListS3Objects(&prefixes[i], bucket, region)
-		if err != nil {
-			return err
-		}
-		if keys != nil {
-			for _,key := range *keys {
-				fileHd, err := os.Create(strings.Replace(key, "jetstore/workspaces", wh, 1))
-				if err != nil {
-					return fmt.Errorf("failed to open local workspace file for write: %v", err)
-				}
-		
-				// Download the object
-				nsz, err := awsi.DownloadFromS3(bucket, region, key, fileHd)
-				fileHd.Close()
-				if err != nil {
-					return fmt.Errorf("failed to download input file: %v", err)
-				}
-				fmt.Println("downloaded",key,"size", nsz,"bytes from s3")
+	for _,fo := range fileObjects {
+		// When in DEV_MODE do not override lookup.db and workspace.db
+		if !isDevMode || !strings.HasSuffix(fo.FileName, ".db") {
+			fileHd, err := os.Create(fmt.Sprintf("%s/%s", wh, fo.FileName))
+			if err != nil {
+				return fmt.Errorf("failed to open local workspace file %s for write: %v", fo.FileName, err)
 			}
+			n, err := fo.ReadObject(dbpool, fileHd)
+			if err != nil {
+				return fmt.Errorf("failed to read file object %s from database for write: %v", fo.FileName, err)
+			}
+			log.Println("Updated file", fo.FileName,"size",n)
+		} else {
+			log.Println("Skipping file", fo.FileName)
 		}
 	}
-	log.Println("Done synching overriten workspace file from s3")
+	log.Println("Done synching overriten workspace file from database")
 	return nil
 }
 
 func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error {
 
-		bucket := os.Getenv("JETS_BUCKET")
-		region := os.Getenv("JETS_REGION")
 		wh := os.Getenv("WORKSPACES_HOME")
 		compilerPath := fmt.Sprintf("%s/%s/compile_workspace.sh", wh, workspaceName)
 
@@ -101,14 +83,17 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error
 		log.Println("COMPILE WORKSPACE CAPTURED OUTPUT END")
 		log.Println("============================")
 
-		// Copy the sqlite file to s3
+		// Copy the sqlite file to db
 		sourcesPath := []string{
 			fmt.Sprintf("%s/%s/lookup.db", wh, workspaceName),
 			fmt.Sprintf("%s/%s/workspace.db", wh, workspaceName),
 		}
-		sourcesKey := []string{
-			fmt.Sprintf("jetstore/workspaces/%s/lookup.db", workspaceName),
-			fmt.Sprintf("jetstore/workspaces/%s/workspace.db", workspaceName),
+		fileNames := []string{ "lookup.db", "workspace.db" }
+		fo := dbutils.FileDbObject{
+			WorkspaceName: workspaceName,
+			ContentType: "sqlite",
+			Status: dbutils.FO_Open,
+			UserEmail: "system",
 		}
 		for i := range sourcesPath {
 			// aws integration: Copy the file to awsBucket
@@ -117,10 +102,12 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error
 				log.Printf("While opening local output file: %v", err)
 				return err
 			}
-			err = awsi.UploadToS3(bucket, region, sourcesKey[i], file)
+			fo.FileName = fileNames[i]
+			fo.Oid = 0
+			_,err = fo.WriteObject(dbpool, file)
 			file.Close()
 			if err != nil {
-				return fmt.Errorf("failed to upload file to s3: %v", err)
+				return fmt.Errorf("failed to upload file to db: %v", err)
 			}
 		}
 

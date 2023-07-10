@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -168,7 +169,7 @@ func doJob() error {
 	// When in dev mode, the apiserver refreshes the overriten workspace files
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
 		// We're not in dev mode, sync the overriten workspace files
-	err := workspace.SyncWorkspaceFiles(os.Getenv("WORKSPACE"), false)
+	err := workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, false)
 		if err != nil {
 			log.Println("Error while synching workspace file from s3:",err)
 			return err

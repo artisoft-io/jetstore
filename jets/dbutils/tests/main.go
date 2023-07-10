@@ -36,8 +36,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	var token string
-	n, err := fo.WriteObject(dbpool, fd, &token)
+	n, err := fo.WriteObject(dbpool, fd)
 	fmt.Println("WriteObject done of size",n,"object oid is",fo.Oid,"error is",err)
 
 	n, err = fo.ReadObject(dbpool, os.Stdout)
@@ -54,7 +53,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	n, err = fo.WriteObject(dbpool, fd, &token)
+	n, err = fo.WriteObject(dbpool, fd)
 	fmt.Println("UPDATED WriteObject done of size",n,"object oid is",fo.Oid,"error is",err)
 	n, err = fo.ReadObject(dbpool, os.Stdout)
 	fmt.Println("UPDATED ReadObject done of size",n,"object oid is",fo.Oid,"error is",err)
