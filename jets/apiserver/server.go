@@ -228,7 +228,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 func (server *Server) checkWorkspaceVersion() error {
 	// Download overriten workspace files from s3 if any
 	workspaceName := os.Getenv("WORKSPACE")
-	err := workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, devMode)
+	err := workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", devMode)
 	if err != nil {
 		log.Println("Error while synching workspace file from database:",err)
 		return err

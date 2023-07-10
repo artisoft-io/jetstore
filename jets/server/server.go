@@ -169,11 +169,14 @@ func doJob() error {
 	// When in dev mode, the apiserver refreshes the overriten workspace files
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
 		// We're not in dev mode, sync the overriten workspace files
-	err := workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, false)
+		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
+		err := workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false)
 		if err != nil {
-			log.Println("Error while synching workspace file from s3:",err)
+			log.Println("Error while synching workspace file from db:",err)
 			return err
 		}
+	} else {
+		log.Println("We are in DEV_MODE, do not sync workspace file from db")
 	}
 
 	// Read pipeline configuration

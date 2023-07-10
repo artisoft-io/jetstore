@@ -24,18 +24,23 @@ import (
 //	- starting a task requiring local workspace (e.g. run_report to get latest report definition)
 //	- starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
 //	- starting rule server to get the latest lookup.db and workspace.db
-func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status string, isDevMode bool) error {
+func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType string, skipSqliteFiles bool) error {
 	wh := os.Getenv("WORKSPACES_HOME")
 	// sync workspace files from db to locally
 	// Get all file_name that are modified
-	fileObjects, err := dbutils.QueryFileObject(dbpool, workspaceName, status)
+	if len(contentType) > 0 {
+		log.Printf("Start synching overriten workspace file with status '%s' and content_type '%s' from database", status, contentType)
+	} else {
+		log.Printf("Start synching overriten workspace file with status '%s' from database", status)
+	}
+	fileObjects, err := dbutils.QueryFileObject(dbpool, workspaceName, status, contentType)
 	if err != nil {
 		return err
 	}
 	for _,fo := range fileObjects {
-		// When in DEV_MODE do not override lookup.db and workspace.db
-		if !isDevMode || !strings.HasSuffix(fo.FileName, ".db") {
-			fileHd, err := os.Create(fmt.Sprintf("%s/%s", wh, fo.FileName))
+		// When in skipSqliteFiles == true, do not override lookup.db and workspace.db
+		if !skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db") {
+			fileHd, err := os.Create(fmt.Sprintf("%s/%s%s", wh, workspaceName, fo.FileName))
 			if err != nil {
 				return fmt.Errorf("failed to open local workspace file %s for write: %v", fo.FileName, err)
 			}

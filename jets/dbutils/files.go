@@ -34,11 +34,20 @@ const (
 	// FO_Deleted string = "deleted"
 )
 
-// Query workspace_changes table for rows by workspace_name and status
-func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, status string) ([]*FileDbObject, error) {
-	rows, err := dbpool.Query(context.Background(),
-		`SELECT key, oid, file_name, content_type, user_email	FROM jetsapi.workspace_changes 
-		WHERE workspace_name = $1 AND status = $2`, workspaceName, status)
+// Query workspace_changes table for rows by workspace_name, status, and optionally content_type (if not empty)
+func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, status, contentType string) ([]*FileDbObject, error) {
+	var stmt string
+	var rows pgx.Rows
+	var err error
+	if len(contentType) > 0 {
+		stmt = `SELECT key, oid, file_name, content_type, user_email	FROM jetsapi.workspace_changes 
+		WHERE workspace_name = $1 AND status = $2 AND content_type = $3`
+		rows, err = dbpool.Query(context.Background(), stmt, workspaceName, status, contentType)
+		} else {
+		stmt = `SELECT key, oid, file_name, content_type, user_email	FROM jetsapi.workspace_changes 
+		WHERE workspace_name = $1 AND status = $2`
+		rows, err = dbpool.Query(context.Background(), stmt, workspaceName, status)
+	}
 	if err != nil {
 		return nil, err
 	}

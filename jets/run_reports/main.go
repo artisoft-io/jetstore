@@ -72,7 +72,7 @@ type ReportDirectives struct {
 
 var reportDirectives = &ReportDirectives{}
 
-func runReport(dbpool *pgxpool.Pool, reportScriptPath string) error {
+func runReport(dbpool *pgxpool.Pool, reportScriptPath string, updatedKeys *[]string) error {
 
 	// Get the report definitions
 	file, err := os.Open(reportScriptPath)
@@ -133,6 +133,7 @@ func runReport(dbpool *pgxpool.Pool, reportScriptPath string) error {
 		}
 		stmt = strings.TrimSpace(stmt)
 		fname := fmt.Sprintf("%s/%s", outputPath, name)
+		*updatedKeys = append(*updatedKeys, fname)
 
 		// save to s3 - to fname
 		stmt = strings.ReplaceAll(stmt, "$CLIENT_%", fmt.Sprintf("''%s_%%''", *client))
@@ -168,23 +169,20 @@ func coordinateWork() error {
 	}
 	defer dbpool.Close()
 
-	// Fetch overriten workspace files if not in dev mode
-	// When in dev mode, the apiserver refreshes the overriten workspace files
+	// Fetch overriten workspace files (here we want the reports definitions in particular)
+	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
 	workspaceName := os.Getenv("WORKSPACE")
-	isDevMode := true
-	if os.Getenv("JETSTORE_DEV_MODE") == "" {
-		// We're not in dev mode, sync the overriten workspace files
-		isDevMode = false
-	}
-	err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, isDevMode)
+	err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports", true)
 	if err != nil {
 		log.Println("Error while synching workspace file from db:",err)
 		return err
 	}
 
+	// Keep track of files (reports) written to s3 (case UpdateLookupTables)
+	updatedKeys := make([]string, 0)
 	// Run the reports
 	for i := range reportScriptPaths {
-		err = runReport(dbpool, reportScriptPaths[i])
+		err = runReport(dbpool, reportScriptPaths[i], &updatedKeys)
 		if err != nil {
 			return err
 		}
@@ -194,9 +192,11 @@ func coordinateWork() error {
 	if reportDirectives.UpdateLookupTables {
 		// sync s3 reports to to db and locally
 		// to make sure we get the report we just created
-		err = awsi.SyncS3Files(dbpool, reportDirectives.OutputPath, reportDirectives.OutputPath)
-		if err != nil {
-			return fmt.Errorf("failed to sync s3 files: %v", err)
+		for i := range updatedKeys {
+			err = awsi.SyncS3Files(dbpool, workspaceName, updatedKeys[i], reportDirectives.OutputPath, "lookups")
+			if err != nil {
+				return fmt.Errorf("failed to sync s3 files: %v", err)
+			}	
 		}
 
 		version := strconv.FormatInt(time.Now().Unix(), 10)
