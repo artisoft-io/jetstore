@@ -1293,5 +1293,68 @@
         "indexDef": "INDEX session_registry_day_period_idx ON jetsapi.session_registry (day_period ASC)"
       }
     ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "workspace_changes",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "workspace_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "oid",
+        "dataType": "uint",
+        "isNotNull": true
+      },
+      {
+        "columnName": "file_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "content_type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "workspace_changes_workspace_name_idx",
+        "indexDef": "INDEX workspace_changes_workspace_name_idx ON jetsapi.workspace_changes (workspace_name)"
+      },
+      {
+        "indexName": "workspace_changes_workspace_name_status_idx",
+        "indexDef": "INDEX workspace_changes_workspace_name_status_idx ON jetsapi.workspace_changes (workspace_name, status)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "workspace_changes_unique_cstraint",
+        "definition": "CONSTRAINT workspace_changes_unique_cstraint UNIQUE (workspace_name, file_name)"
+      }
+    ]
   }
 ]

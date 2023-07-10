@@ -221,7 +221,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 			UNION
 			SELECT key FROM $SCHEMA.resources 
 			WHERE type=$1 AND id=$2 AND value=$3 AND is_binded=$4 AND inline=$5 AND vertex=$6 AND var_pos=$7`,
-			ColumnKeys: []string{"type","id","value","is_binded","inline","vertex","var_pos","source_file_key"},
+		ColumnKeys: []string{"type","id","value","is_binded","inline","vertex","var_pos","source_file_key"},
 		AdminOnly: false,
 	},
 	//
