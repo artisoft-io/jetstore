@@ -97,6 +97,42 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceIDEFormActions,
   ),
 
+  // Workspace File Editor
+  FormKeys.workspaceFileEditor: FormConfig(
+    key: FormKeys.workspaceFileEditor,
+    title: "Workspace File Editor",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.wsSaveFileOk,
+          label: "Save",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsFileEditorContent,
+            label: "File Content",
+            hint: "Edit or paste file here",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 50,
+            maxLength: 512000),
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
 };
 
 FormConfig? getWorkspaceFormConfig(String key) {

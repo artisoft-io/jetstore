@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
@@ -110,6 +112,7 @@ type WorkspaceNode struct {
 	Type          string                   `json:"type"`
 	Label         string                   `json:"label"`
 	RoutePath     string                   `json:"route_path"`
+	RouteParams   map[string]string        `json:"route_params"`
 	Children      *[]*WorkspaceNode        `json:"children"`
 }
 // WorkspaceQueryStructure ------------------------------------------------------
@@ -120,6 +123,8 @@ type WorkspaceNode struct {
 //		case "workspace_file_structure": structure based on files of the workspace
 //		case "workspace_object_structure": structure based on object (rule, lookup, class, etc) of the workspace
 // Initial implementation use workspace_file_structure
+// NOTE: routePath must correspond to the parametrized url (needed by ui MenuEntry)
+// NOTE: routeParam contains the routePath parameters (needed by ui MenuEntry)
 // Input dataTableAction.Data:
 //      [
 //      	{
@@ -139,7 +144,10 @@ type WorkspaceNode struct {
 //						"key": "a1",
 //            "type": "dir",
 //						"label": "Jet Rules",
-//						"route_path": "/workspace/jets_ws/jetRules",
+//						"route_path": "/workspace/:ws_name/jetRules",
+//						"route_params": {
+//								"ws_name": "jets_ws",
+//						},
 //						"children": [
 //							{
 //								"key": "a1.1",
@@ -150,8 +158,12 @@ type WorkspaceNode struct {
 //										"key": "a1.1.1",
 //                    "type": "file",
 //										"label": "mapping_rules.jr",
-//										"route_path": "/workspace/jets_ws/wsFile/jet_rules%03mapping_rules.jr"
-//									}
+//										"route_path": "/workspace/:ws_name/wsFile/:file_name",
+//										"route_params": {
+//											"ws_name": "jets_ws",
+//											"file_name": "jet_rules%03mapping_rules.jr",
+//										}
+//							 	  }
 //								]
 //							}		
 //						]
@@ -187,7 +199,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 	switch requestType {
 	case "workspace_file_structure":
 		// Data Model (.jr)
-		fmt.Println("** Visiting data_model:")
+		// fmt.Println("** Visiting data_model:")
 		workspaceNode, err = visitDirWrapper(root, "data_model", "Data Model", &[]string{".jr",".csv"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:",err)
@@ -198,7 +210,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		resultData = append(resultData, workspaceNode)
 
 		// Jets Rules (.jr, .jr.sql)
-		fmt.Println("** Visiting jet_rules:")
+		// fmt.Println("** Visiting jet_rules:")
 		workspaceNode, err = visitDirWrapper(root, "jet_rules", "Jets Rules", &[]string{".jr",".jr.sql"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:",err)
@@ -209,7 +221,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		resultData = append(resultData, workspaceNode)
 
 		// Lookups (.jr)
-		fmt.Println("** Visiting lookups:")
+		// fmt.Println("** Visiting lookups:")
 		workspaceNode, err = visitDirWrapper(root, "lookups", "Lookups", &[]string{".jr",".csv"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:",err)
@@ -220,7 +232,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		resultData = append(resultData, workspaceNode)
 
 		// Process Configurations (workspace_init_db.sql)
-		fmt.Println("** Visiting process_config:")
+		// fmt.Println("** Visiting process_config:")
 		workspaceNode, err = visitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:",err)
@@ -231,7 +243,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		resultData = append(resultData, workspaceNode)
 
 		// Process Sequences (.jr)
-		fmt.Println("** Visiting process_sequence:")
+		// fmt.Println("** Visiting process_sequence:")
 		workspaceNode, err = visitDirWrapper(root, "process_sequence", "Process Sequences", &[]string{".jr"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:",err)
@@ -242,7 +254,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		resultData = append(resultData, workspaceNode)
 
 		// Reports (.sql, .json)
-		fmt.Println("** Visiting reports:")
+		// fmt.Println("** Visiting reports:")
 		workspaceNode, err = visitDirWrapper(root, "reports", "Reports", &[]string{".sql", ".json"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:",err)
@@ -305,7 +317,10 @@ func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceNam
 	results := &WorkspaceNode{
 		Key: dir,
 		Label: dirLabel,
-		RoutePath: fmt.Sprintf("/workspace/%s/%s", workspaceName, dir),
+		RoutePath: fmt.Sprintf("/workspace/:ws_name/%s", dir),
+		RouteParams: map[string]string{
+			"ws_name": workspaceName,
+		},
 		Children: children,
 	}
 
@@ -340,7 +355,7 @@ func visitChildren(root, relativeRoot, dir string, filters *[]string, workspaceN
 // Note: This function cannot be called recursively, otherwise it will interrupt WalDir
 func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName string) ( *[]*WorkspaceNode, error) {
 
-	fmt.Println("*visitDir called for dir:",dir)
+	// fmt.Println("*visitDir called for dir:",dir)
 	fileSystem := os.DirFS(fmt.Sprintf("%s/%s", root, dir))
 	children := make([]*WorkspaceNode, 0)
 	
@@ -358,7 +373,7 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 		if info.IsDir() {
 
 			subdir := info.Name()
-			fmt.Println("visiting directory:", subdir)
+			// fmt.Println("visiting directory:", subdir)
 			children = append(children, &WorkspaceNode{
 				Key: path,
 				Type: "dir",
@@ -376,13 +391,16 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 				}
 			}
 			if keepEntry {
-				fmt.Println("visiting file:", filename)
+				// fmt.Println("visiting file:", filename)
 				children = append(children, &WorkspaceNode{
 					Key: path,
 					Type: "file",
 					Label: filename,
-					RoutePath: fmt.Sprintf("/workspace/%s/wsFile/%s", workspaceName, 
-							url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename))),
+					RoutePath: "/workspace/:ws_name/wsFile/:file_name",
+					RouteParams: map[string]string{
+						"ws_name": workspaceName,
+						"file_name": url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename)),
+					},
 				})
 			}
 		}
@@ -394,4 +412,105 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 		return nil, err
 	}
 	return &children, nil
+}
+
+// GetWorkspaceFileContent --------------------------------------------------------------------------
+// Function to get the workspace file content based on relative file name
+// Read the file from the workspace on file system since it's already in sync with database
+func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	request := dataTableAction.Data[0]
+	wsName := request["ws_name"]
+	wsFileName := request["file_name"]
+	if wsName == nil || wsFileName == nil {
+		err = fmt.Errorf("GetWorkspaceFileContent: missing ws_name or file_name")
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	workspaceName := wsName.(string)
+	fileName, err := url.QueryUnescape(wsFileName.(string))
+	if err != nil {
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+
+	// Read file from local workspace
+	var content []byte
+	content, err = os.ReadFile(fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName))
+	if err != nil {
+		err = fmt.Errorf("failed to read local workspace file %s: %v", fileName, err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	results = &map[string]interface{} {
+		"file_name": wsFileName,
+		"file_content": string(content),
+	}
+	return
+}
+
+var rContentType = regexp.MustCompile(`\/(.*?)\/`)
+// SaveWorkspaceFileContent --------------------------------------------------------------------------
+// Function to get the workspace file content based on relative file name
+// Read the file from the workspace on file system since it's already in sync with database
+func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	request := dataTableAction.Data[0]
+	wsName := request["workspace_name"]
+	wsFileName := request["file_name"]
+	wsFileContent := request["file_content"]
+	if wsName == nil || wsFileName == nil || wsFileContent == nil {
+		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name, file_content, or file_name")
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	workspaceName := wsName.(string)
+	fileName := wsFileName.(string)
+
+	// Write file to local workspace
+	data := []byte(wsFileContent.(string))
+	path := fmt.Sprintf("%s/%s%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName)
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		err = fmt.Errorf("failed to write local workspace file %s: %v", fileName, err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+
+	// Write file and metadata to database
+	var fileHd *os.File
+	fileHd, err = os.Open(path)
+	if err != nil {
+		err = fmt.Errorf("(2) failed to open local workspace file %s: %v", fileName, err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	defer fileHd.Close()
+	contentType := rContentType.FindString(fileName)
+	if contentType == "" {
+		err = fmt.Errorf("failed to find contentType in %s", fileName)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	fo := dbutils.FileDbObject{
+		WorkspaceName: workspaceName,
+		FileName:      fileName,
+		ContentType:   contentType,
+		Status:        dbutils.FO_Open,
+		UserEmail:     "system",
+	}
+	n, err := fo.WriteObject(ctx.Dbpool, fileHd)
+	if err != nil {
+		err = fmt.Errorf("failed to save local workspace file %s in database: %v", fileName, err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	fmt.Println("uploaded", fo.FileName, "size", n, "bytes to database")
+	results = &map[string]interface{} {
+		"file_name": wsFileName,
+	}
+	return
 }

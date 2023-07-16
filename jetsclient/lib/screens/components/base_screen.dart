@@ -50,6 +50,18 @@ class BaseScreenState extends State<BaseScreen> {
     super.dispose();
   }
 
+  // Note: The menuAction may do the routing, hence doing menuAction first.
+  //       If no menuAction, do routing only if defined, otherwise do nothing
+  void doMenuOnPress(MenuEntry menuEntry) {
+      if (menuEntry.menuAction != null) {
+        menuEntry.menuAction!(context, menuEntry);
+        setState(() {});
+      } else if (menuEntry.routePath != null) {
+        JetsRouterDelegate()(
+            JetsRouteData(menuEntry.routePath!, params: menuEntry.routeParams));
+      }
+  }
+
   TreeNode _makeTreeNode(int level, BuildContext context, ThemeData themeData,
       MenuEntry menuEntry) {
     List<TreeNode>? childs = menuEntry.children.isNotEmpty
@@ -57,11 +69,8 @@ class BaseScreenState extends State<BaseScreen> {
             .map((e) => _makeTreeNode(level + 1, context, themeData, e))
             .toList()
         : null;
-    fn() => menuEntry.routePath != null
-        ? JetsRouterDelegate()(JetsRouteData(menuEntry.routePath!))
-        : menuEntry.menuAction != null
-            ? menuEntry.menuAction!(context)
-            : null;
+    // Note: The menuAction may do the routing, hence doing menuAction first.
+    //       If no menuAction, do routing only if defined, otherwise do nothing
     return TreeNode(
         content: (level == 0)
             ? Expanded(
@@ -72,13 +81,13 @@ class BaseScreenState extends State<BaseScreen> {
                           ? menuEntry.onPageStyle
                           : menuEntry.otherPageStyle,
                       themeData),
-                  onPressed: fn,
+                  onPressed: () => doMenuOnPress(menuEntry),
                   child: Center(child: Text(menuEntry.label)),
                 ),
               )
             : Expanded(
                 child: TextButton(
-                  onPressed: fn,
+                  onPressed: () => doMenuOnPress(menuEntry),
                   child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(

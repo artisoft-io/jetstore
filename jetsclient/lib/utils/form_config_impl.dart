@@ -927,16 +927,6 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: DTKeys.clientsAndProcessesTableView),
       ],
       [
-        // Instruction
-        TextFieldConfig(
-            label: "To view and/or edit the Client Rule Configuration,"
-                " select a Client and a Rule Process above "
-                " to see the configuration triples below.",
-            maxLines: 5,
-            topMargin: defaultPadding,
-            bottomMargin: defaultPadding)
-      ],
-      [
         FormDataTableFieldConfig(
             key: DTKeys.ruleConfigTable,
             tableHeight: 400,

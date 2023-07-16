@@ -71,12 +71,45 @@ class ScreenWithFormState extends BaseScreenState {
     super.initState();
     formState = _widget.formConfig.makeFormState();
 
-    // Initialize the Form State with the current navigation params
+    print("*** initState for ScreenWithForm");
+
+    // // Initialize the Form State with the current navigation params
+    // //* TODO - Stop using group 0 as a special group with validation keys
+    // JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
+    //   formState.setValue(0, key, value);
+    // });
+    // // reset the updated keys since these updates is to put default values
+    // // and is not from user interactions
+    // //* TODO - Stop using group 0 as a special group with validation keys
+    // formState.resetUpdatedKeys(0);
+    triggetRefreshListner();
+    JetsRouterDelegate().addListener(triggetRefreshListner);
+
+    // // REMOVE THIS
+    // // Invoke initializationAction on the formActionelegate if
+    // // initializationAction is not null. This is used to fetch form
+    // // initialization data (e.g. file content for file editor)
+    // if(_widget.screenConfig.initializationDelegate != null) {
+    //   _widget.screenConfig.initializationDelegate!([formState]);
+    //   // setState(() {});
+    // }
+  }
+
+  void triggetRefreshListner() {
     JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
       formState.setValue(0, key, value);
     });
     // reset the updated keys since these updates is to put default values
     // and is not from user interactions
-    formState.resetUpdatedKeys(0);
+    //* TODO - Stop using group 0 as a special group with validation keys
+    // formState.resetUpdatedKeys(0);
+    setState(() {});
   }
+
+  @override
+  void dispose() {
+    JetsRouterDelegate().removeListener(triggetRefreshListner);
+    super.dispose();
+  }
+
 }

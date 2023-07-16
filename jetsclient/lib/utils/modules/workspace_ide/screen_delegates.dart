@@ -39,6 +39,7 @@ String? workspaceIDEFormValidator(
       return "Workspace URI must be provided.";
 
     case FSK.description:
+    case FSK.wsFileEditorContent:
       return null;
 
     default:
@@ -51,11 +52,13 @@ String? workspaceIDEFormValidator(
 // Utility function to create MenuEntry recursively
 List<MenuEntry> mapMenuEntry(List<dynamic> data) {
   final v = data.map((e) => MenuEntry(
-      key: e!["key"],
-      label: e!["label"],
-      routePath: e!["route_path"],
-      children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
-  ));
+        key: e!["key"],
+        label: e!["label"],
+        routePath: e!["route_path"],
+        routeParams: e!["route_params"],
+        menuAction: workspaceIDEFileEditor,
+        children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
+      ));
   return v.toList();
 }
 
@@ -107,7 +110,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         showAlertDialog(context, "Something went wrong. Please try again.");
         return null;
       }
-      // print("OK, WE GOT ${httpResponse.body}");
+      print("OK, WE GOT ${httpResponse.body}");
       final resultType = httpResponse.body["result_type"];
       if (resultType != null && resultType == "workspace_file_structure") {
         // Setup MenuEntry as the workspace file structure
@@ -119,35 +122,6 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         return null;
       }
 
-      // //* DO SAMPLE RETURN OF MENU ITEMS
-      // JetsRouterDelegate().workspaceMenuState = [
-      //   MenuEntry(key: "m1", label: "Classes", children: [
-      //     MenuEntry(
-      //         key: "m1.1",
-      //         label: "jets:Entity",
-      //         children: [MenuEntry(key: "m1.1.1", label: "wrs_c:RuleConfig")]),
-      //     MenuEntry(key: "m2.1", label: "wrs:WalrusBase", children: [
-      //       MenuEntry(key: "m2.1.1", label: "wrs:BaseClaim", children: [
-      //         MenuEntry(key: "m2.1.1.1", label: "wrs:CorePharmacy", children: [
-      //           MenuEntry(key: "m2m1m1m1m1", label: "wrs:PharmacyClaim")
-      //         ])
-      //       ])
-      //     ]),
-      //     MenuEntry(
-      //       key: "m3.1",
-      //       label: "wrs:OpenFields",
-      //     ),
-      //     MenuEntry(
-      //       key: "m5.1",
-      //       label: "wrs:CommonClaim",
-      //     ),
-      //     MenuEntry(
-      //       key: "m4.1",
-      //       label: "tmp:MappingVariables",
-      //     ),
-      //   ]),
-      // ];
-      // //* DO SAMPLE RETURN OF MENU ITEMS
       // Navigate to workspace home page
       Map<String, dynamic> params = {
         "ws_name": state[FSK.wsName],
@@ -159,7 +133,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       return null;
 
     case ActionKeys.compileWorkspace:
-      var state = formState.getState(0);
+      final state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
       state[FSK.key] = state[FSK.key][0];
       state[FSK.wsName] = state[FSK.wsName][0];
@@ -178,6 +152,30 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       JetsSpinnerOverlay.of(context).hide();
       return null;
 
+    // File Editor - Save
+    case ActionKeys.wsSaveFileOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      final state = formState.getState(0);
+      state['user_email'] = JetsRouterDelegate().user.email;
+      print('File Editor::Save File state: $state');
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'save_workspace_file_content',
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      final result =
+          await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      JetsSpinnerOverlay.of(context).hide();
+      if (result.statusCode != 200 && result.statusCode != 401) {
+        print('Something went wrong while saving file: $result');
+        showAlertDialog(context, "Something went wrong. Please try again.");
+      }
+      return null;
+
+    // Cancel Dialog / Form
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
       break;
@@ -185,4 +183,39 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       print('Oops unknown ActionKey for workspaceIDE Form: $actionKey');
   }
   return null;
+}
+
+/// Workspace File Editor
+/// Initialization Delegate for File Editor Screen
+// void workspaceIDEFileEditor(List<JetsFormState> formStates) async {
+void workspaceIDEFileEditor(BuildContext context, MenuEntry? menuEntry) async {
+  if (menuEntry == null || menuEntry.routeParams == null) return;
+  // state contains file_name and ws_name (from Navigation)
+  // Need to get file_content from apiserver
+  print(
+      'Calling get file content to Initialize File Editor with menuEntry: $menuEntry');
+  var encodedJsonBody = jsonEncode(<String, dynamic>{
+    'action': 'get_workspace_file_content',
+    'data': [menuEntry.routeParams],
+  }, toEncodable: (_) => '');
+  var result = await HttpClientSingleton().sendRequest(
+      path: ServerEPs.dataTableEP,
+      token: JetsRouterDelegate().user.token,
+      encodedJsonBody: encodedJsonBody);
+
+  print("Got reply with status code ${result.statusCode}");
+  if (result.statusCode == 200) {
+    // state[FSK.wsFileEditorContent] =
+    menuEntry.routeParams![FSK.wsFileEditorContent] =
+        result.body[FSK.wsFileEditorContent] as String?;
+  } else {
+    print("Setting error message to ${FSK.wsFileEditorContent}");
+    menuEntry.routeParams![FSK.wsFileEditorContent] =
+        "Oops, Something went wrong. Could not get the file content";
+    // formStates[0].setValueAndNotify(0, FSK.wsFileEditorContent,
+    //     "Oops, Something went wrong. Could not get the file content");
+  }
+  // Do routing to page
+  JetsRouterDelegate()(
+      JetsRouteData(menuEntry.routePath!, params: menuEntry.routeParams));
 }

@@ -71,6 +71,11 @@ Future<String?> pass(BuildContext context, GlobalKey<FormState> formKey,
 /// Note that all queries are grouped into the map [queries] with a query key
 /// used by [inputFieldsQuery], [dropdownItemsQueries], [metadataQueries],
 /// and [stateKeyPredicates].
+///
+/// [initializationDelegate] when not null is invoked to initialize the form state(s)
+/// or any data preparation that is needed.
+/// This is invoked in [ScreenWithFormState.initState] and
+/// [ScreenWithMultiFormsState.initState]
 class FormConfig {
   FormConfig({
     required this.key,

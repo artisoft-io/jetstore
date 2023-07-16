@@ -5,11 +5,12 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
+import 'package:jetsclient/utils/screen_config.dart';
 
 /// Menu Delegates are action functions to perform on the menu button
 /// onPress method without navigating to a new form, typically use
 /// a simple dialog for confirmation and issue a command to back end
-void purgeDataAction(BuildContext context) async {
+void purgeDataAction(BuildContext context, MenuEntry? menuEntry) async {
   var messenger = ScaffoldMessenger.of(context);
   // get user confirmation
   var uc = await showDangerZoneDialog(context,
@@ -38,7 +39,7 @@ void purgeDataAction(BuildContext context) async {
 }
 
 /// Rerun database init script
-void rerunDbInitAction(BuildContext context) async {
+void rerunDbInitAction(BuildContext context, MenuEntry? menuEntry) async {
   var messenger = ScaffoldMessenger.of(context);
   // get user confirmation
   var uc = await showDangerZoneDialog(context,
