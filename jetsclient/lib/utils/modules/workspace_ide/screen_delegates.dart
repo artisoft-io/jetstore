@@ -188,8 +188,9 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
 /// Workspace File Editor
 /// Initialization Delegate for File Editor Screen
 // void workspaceIDEFileEditor(List<JetsFormState> formStates) async {
-void workspaceIDEFileEditor(BuildContext context, MenuEntry? menuEntry) async {
-  if (menuEntry == null || menuEntry.routeParams == null) return;
+Future<int> workspaceIDEFileEditor(
+    BuildContext context, MenuEntry? menuEntry) async {
+  if (menuEntry == null || menuEntry.routeParams == null) return 200;
   // state contains file_name and ws_name (from Navigation)
   // Need to get file_content from apiserver
   print(
@@ -214,8 +215,10 @@ void workspaceIDEFileEditor(BuildContext context, MenuEntry? menuEntry) async {
         "Oops, Something went wrong. Could not get the file content";
     // formStates[0].setValueAndNotify(0, FSK.wsFileEditorContent,
     //     "Oops, Something went wrong. Could not get the file content");
+    return result.statusCode;
   }
   // Do routing to page
   JetsRouterDelegate()(
       JetsRouteData(menuEntry.routePath!, params: menuEntry.routeParams));
+  return 200;
 }

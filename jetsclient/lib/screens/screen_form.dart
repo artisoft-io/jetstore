@@ -16,6 +16,7 @@ class ScreenWithForm extends BaseScreen {
     required this.formConfig,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithFormState;
+          print("*** BUILDING ScreenWithForm: ${screenConfig.title}");
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

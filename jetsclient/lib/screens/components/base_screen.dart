@@ -3,6 +3,7 @@ import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
+import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -38,7 +39,7 @@ class BaseScreenState extends State<BaseScreen> {
   }
 
   void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path == homePath &&
+    if (JetsRouterDelegate().currentConfiguration?.path == widget.screenPath.path &&
         mounted) {
       setState(() {});
     }
@@ -52,14 +53,17 @@ class BaseScreenState extends State<BaseScreen> {
 
   // Note: The menuAction may do the routing, hence doing menuAction first.
   //       If no menuAction, do routing only if defined, otherwise do nothing
-  void doMenuOnPress(MenuEntry menuEntry) {
-      if (menuEntry.menuAction != null) {
-        menuEntry.menuAction!(context, menuEntry);
-        setState(() {});
-      } else if (menuEntry.routePath != null) {
-        JetsRouterDelegate()(
-            JetsRouteData(menuEntry.routePath!, params: menuEntry.routeParams));
+  void doMenuOnPress(MenuEntry menuEntry) async {
+    if (menuEntry.menuAction != null) {
+      final statusCode = await menuEntry.menuAction!(context, menuEntry);
+      if (statusCode != 200) {
+        showAlertDialog(context, 'Something went wrong. Please try again.');
       }
+      navListener();
+    } else if (menuEntry.routePath != null) {
+      JetsRouterDelegate()(
+          JetsRouteData(menuEntry.routePath!, params: menuEntry.routeParams));
+    }
   }
 
   TreeNode _makeTreeNode(int level, BuildContext context, ThemeData themeData,
@@ -109,14 +113,14 @@ class BaseScreenState extends State<BaseScreen> {
     switch (widget.screenConfig.type) {
       case ScreenType.home:
         dropdownItems.addAll(JetsRouterDelegate().clients);
-        JetsRouterDelegate().workspaceMenuState = [];
+        // JetsRouterDelegate().workspaceMenuState = [];
         menuEntries = JetsRouterDelegate().user.isAdmin
             ? widget.screenConfig.adminMenuEntries
             : widget.screenConfig.menuEntries;
         break;
       case ScreenType.other:
         JetsRouterDelegate().selectedClient = null;
-        JetsRouterDelegate().workspaceMenuState = [];
+        // JetsRouterDelegate().workspaceMenuState = [];
         menuEntries = JetsRouterDelegate().user.isAdmin
             ? widget.screenConfig.adminMenuEntries
             : widget.screenConfig.menuEntries;

@@ -30,7 +30,7 @@ class ScreenConfig {
 /// that does not require to navigate to a new form but perform the action
 /// "in place" on the screen having the menu item
 /// The functions are defined in menu_delegates folder
-typedef MenuActionDelegate = void Function(
+typedef MenuActionDelegate = Future<int> Function(
     BuildContext context, MenuEntry? menuEntry);
 
 class MenuEntry {

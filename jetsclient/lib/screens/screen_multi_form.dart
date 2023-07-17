@@ -15,6 +15,7 @@ class ScreenWithMultiForms extends BaseScreen {
     required this.formConfig,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithMultiFormsState;
+          print("*** BUILDING * ScreenWithMultiForms: ${screenConfig.title}");
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: List<Widget>.generate(formConfig.length + 1, (index) {
