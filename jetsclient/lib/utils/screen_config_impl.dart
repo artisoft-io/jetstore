@@ -3,7 +3,7 @@ import 'package:jetsclient/screens/components/menu_delegates/menu_delegates.dart
 import 'package:jetsclient/utils/screen_config.dart';
 import 'package:jetsclient/utils/modules/workspace_ide/screen_config.dart';
 
-import '../routes/jets_routes_app.dart';
+import 'package:jetsclient/routes/jets_routes_app.dart';
 
 final defaultMenuEntries = [
   MenuEntry(

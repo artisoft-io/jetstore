@@ -29,7 +29,7 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 	provider := iam.NewOpenIdConnectProvider(stack, jsii.String("JSProvider"), &iam.OpenIdConnectProviderProps{
 		Url: jsii.String("https://token.actions.githubusercontent.com"),
 		ClientIds: jsii.Strings("sts.amazonaws.com"),
-		// see https://github.blog/changelog/2023-06-27-github-actions-update-on-oidc-integration-with-aws/
+		// Thumbprints no longer needed but no harm leaving them
 		Thumbprints: jsii.Strings("6938fd4d98bab03faadb97b34396831e3780aea1", "1c58a3a8518e8759bf075b76b750d4f2df264fcd"),
 	})
 
@@ -122,6 +122,19 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 
 func main() {
 	defer jsii.Close()
+	fmt.Println("Got following env var")
+	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
+	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
+	fmt.Println("env AWS_ROLE:", os.Getenv("AWS_ROLE"))
+	fmt.Println("env GH_ORG_NAME:", os.Getenv("GH_ORG_NAME"))
+	fmt.Println("env GH_REPO_NAME:", os.Getenv("GH_REPO_NAME"))
+	fmt.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
+	fmt.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
+	fmt.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
+	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
+	fmt.Println("env JETS_TAG_NAME_PHI:", os.Getenv("JETS_TAG_NAME_PHI"))
+	fmt.Println("env JETS_TAG_NAME_PII:", os.Getenv("JETS_TAG_NAME_PII"))
+	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 
 	// Verify that we have all the required env variables
 	hasErr := false

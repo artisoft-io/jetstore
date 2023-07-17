@@ -62,6 +62,7 @@ class ScreenKeys {
   // Workspace IDE Screens
   static const workspaceRegistry = "workspaceRegistryScreen";
   static const workspaceHome = "workspaceHome";
+  static const workspaceFileEditor = "workspaceFileEditorScreen";
 }
 
 /// Form ID Keys
@@ -107,6 +108,7 @@ class FormKeys {
   static const workspaceRegistry = "workspaceRegistry";
   static const workspaceHome = "workspaceHome";
   static const addWorkspace = "addWorkspace";
+  static const workspaceFileEditor = "workspaceFileEditorForm";
 }
 
 /// Form State Keys
@@ -205,6 +207,8 @@ class FSK {
   // Form Keys for Workspace IDE
   static const wsName = "workspace_name";
   static const wsURI = "workspace_uri";
+  static const wsFileName = "file_name";
+  static const wsFileEditorContent = "file_content";
 
 
   // reserved keys for cache
@@ -315,6 +319,7 @@ class ActionKeys {
   static const addWorkspaceOk = "addWorkspaceOk";
   static const compileWorkspace = "compileWorkspace";
   static const openWorkspace = "openWorkspace";
+  static const wsSaveFileOk = "wsSaveFileOk";
 }
 
 /// Form Action Keys

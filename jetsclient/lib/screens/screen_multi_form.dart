@@ -15,6 +15,7 @@ class ScreenWithMultiForms extends BaseScreen {
     required this.formConfig,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithMultiFormsState;
+          print("*** BUILDING * ScreenWithMultiForms: ${screenConfig.title}");
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: List<Widget>.generate(formConfig.length + 1, (index) {
@@ -71,13 +72,22 @@ class ScreenWithMultiFormsState extends BaseScreenState {
     final params = JetsRouterDelegate().currentConfiguration?.params;
     for (var i = 0; i < _widget.formConfig.length; i++) {
       params?.forEach((key, value) {
-        //* NOTE need to move away for using group 0 as global group...
+        //* TODO - Stop using group 0 as a special group with validation keys
         formState[i].setValue(0, key, value);
       });
       // reset the updated keys since these updates is to put default values
       // and is not from user interactions
+      //* TODO - Stop using group 0 as a special group with validation keys
       formState[i].resetUpdatedKeys(0);
       formState[i].peersFormState = formState;
     }
+
+    // // REMOVE THIS
+    // // Invoke initializationAction on the formActionelegate if
+    // // initializationAction is not null. This is used to fetch form
+    // // initialization data (e.g. file content for file editor)
+    // if(_widget.screenConfig.initializationDelegate != null) {
+    //   _widget.screenConfig.initializationDelegate!(formState);
+    // }
   }
 }

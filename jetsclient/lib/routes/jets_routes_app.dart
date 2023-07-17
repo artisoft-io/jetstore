@@ -36,6 +36,8 @@ const userAdminPath = '/userAdmin';
 // Workspace IDE paths
 const workspaceRegistryPath = '/workspaces';
 const workspaceHomePath = '/workspace/:ws_name/home';
+const workspaceFileEditorPath = '/workspace/:ws_name/wsFile/:file_name';
+
 const wsDomainClassesPath = '/workspace/:ws_name/domainClasses';
 const wsDomainClasseDetailsPath = '/workspace/:ws_name/domainClasses/:class_name';
 const wsDomainTablesPath = '/workspace/:ws_name/domainTables';
@@ -107,14 +109,15 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.workspaceHome),
   ),
 
-  // Pipeline Config (screen removed but still defined for future use)
-  // pipelineConfigPath: ScreenWithForm(
-  //   key: const Key(ScreenKeys.pipelineConfig),
-  //   screenPath: JetsRouteData(pipelineConfigPath),
-  //   screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
-  //   formConfig: getFormConfig(FormKeys.pipelineConfigForm),
-  //   formValidatorDelegate: pipelineConfigFormValidator,
-  //   formActionsDelegate: pipelineConfigFormActions),
+  // Workspace IDE - File Editor
+  workspaceFileEditorPath: ScreenWithForm(
+      key: const Key(ScreenKeys.workspaceFileEditor),
+      screenPath: JetsRouteData(workspaceFileEditorPath),
+      screenConfig: getScreenConfig(ScreenKeys.workspaceFileEditor),
+      formConfig: getFormConfig(FormKeys.workspaceFileEditor),
+  ),
+
+  // Pipeline Config
   pipelineConfigPath: ScreenOne(
     key: const Key(ScreenKeys.pipelineConfig),
     screenPath: JetsRouteData(pipelineConfigPath),

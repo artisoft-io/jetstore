@@ -1,5 +1,6 @@
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
+import 'package:jetsclient/utils/modules/workspace_ide/screen_delegates.dart';
 import 'package:jetsclient/utils/screen_config.dart';
 
 //*TODO Take path params from current Navigator provider (current page)
@@ -36,6 +37,17 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       type: ScreenType.workspace,
       appBarLabel: 'JetStore Workspace IDE',
       title: 'Workspace Home',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: [],
+      adminMenuEntries: []),
+
+  // Workspace IDE File Editor
+  ScreenKeys.workspaceFileEditor: ScreenConfig(
+      key: ScreenKeys.workspaceFileEditor,
+      type: ScreenType.workspace,
+      appBarLabel: 'JetStore Workspace IDE',
+      title: 'Workspace File Editor',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: [],

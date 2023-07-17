@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Screen type, determine mainly the left panel content
 enum ScreenType { home, workspace, other }
 
 class ScreenConfig {
-  ScreenConfig(
-      {required this.key,
-      this.type = ScreenType.home,
-      required this.appBarLabel,
-      required this.title,
-      required this.showLogout,
-      required this.leftBarLogo,
-      required this.menuEntries,
-      required this.adminMenuEntries});
+  ScreenConfig({
+    required this.key,
+    this.type = ScreenType.home,
+    required this.appBarLabel,
+    required this.title,
+    required this.showLogout,
+    required this.leftBarLogo,
+    required this.menuEntries,
+    required this.adminMenuEntries,
+  });
   final ScreenType type;
   final String key;
   final String appBarLabel;
@@ -28,7 +30,8 @@ class ScreenConfig {
 /// that does not require to navigate to a new form but perform the action
 /// "in place" on the screen having the menu item
 /// The functions are defined in menu_delegates folder
-typedef MenuActionDelegate = void Function(BuildContext context);
+typedef MenuActionDelegate = Future<int> Function(
+    BuildContext context, MenuEntry? menuEntry);
 
 class MenuEntry {
   MenuEntry({
@@ -37,6 +40,7 @@ class MenuEntry {
     required this.key,
     required this.label,
     this.routePath,
+    this.routeParams,
     this.menuAction,
     this.children = const [],
   });
@@ -45,6 +49,7 @@ class MenuEntry {
   final String key;
   final String label;
   final String? routePath;
+  final Map<String, dynamic>? routeParams;
   final MenuActionDelegate? menuAction;
   List<MenuEntry> children;
 }

@@ -57,9 +57,9 @@ class JetsRouteInformationParser extends RouteInformationParser<JetsRouteData> {
   @override
   Future<JetsRouteData> parseRouteInformation(
           RouteInformation routeInformation) async =>
-      jetsRoutesParser(routeInformation.location ?? '');
+      jetsRoutesParser(routeInformation.uri.path);
 
   @override
   RouteInformation? restoreRouteInformation(JetsRouteData configuration) =>
-      RouteInformation(location: buildRouteLocation(configuration));
+      RouteInformation(uri: Uri.parse(buildRouteLocation(configuration)));
 }

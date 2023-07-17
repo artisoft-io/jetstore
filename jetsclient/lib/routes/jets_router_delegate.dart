@@ -54,7 +54,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   }
 
   void call(JetsRouteData appRoute) {
-    print("Routing to page ${appRoute.path}");
+    print("Routing to page ${appRoute.path} with params.length ${appRoute.params.length}");
     _setRoutePages(appRoute);
     notifyListeners();
   }
@@ -101,6 +101,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
 
   void _buildListPages() {
     final myRoutes = jetsRoutesMap.keys.toList();
+    // print("*** _buildListPages called, myRoutes: $myRoutes");
 
     for (var route in myRoutes) {
       List<MaterialPage> pagesList = [];

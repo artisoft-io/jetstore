@@ -58,6 +58,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		}
 		JSONB(w, http.StatusOK, *resultsB)
 		return
+	case "get_workspace_file_content":
+		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
+	case "save_workspace_file_content":
+		results, code, err = context.SaveWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
 	
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)
