@@ -81,7 +81,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if strings.Contains(err.Error(), "duplicate key value") {
 				httpStatus = http.StatusConflict
 				err = errors.New("duplicate key value")
-				return	
+				return
 			} else {
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while inserting into a table")
@@ -102,74 +102,80 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 // This struct correspond to MenuEntry for the ui
 type WorkspaceStructure struct {
-	Key                string              `json:"key"`
-	WorkspaceName      string              `json:"workspace_name"`
-	ResultType         string              `json:"result_type"`
-	ResultData         *[]*WorkspaceNode   `json:"result_data"`
+	Key           string            `json:"key"`
+	WorkspaceName string            `json:"workspace_name"`
+	ResultType    string            `json:"result_type"`
+	ResultData    *[]*WorkspaceNode `json:"result_data"`
 }
 type WorkspaceNode struct {
-	Key           string                   `json:"key"`
-	Type          string                   `json:"type"`
-	Label         string                   `json:"label"`
-	RoutePath     string                   `json:"route_path"`
-	RouteParams   map[string]string        `json:"route_params"`
-	Children      *[]*WorkspaceNode        `json:"children"`
+	Key         string            `json:"key"`
+	Type        string            `json:"type"`
+	Label       string            `json:"label"`
+	RoutePath   string            `json:"route_path"`
+	RouteParams map[string]string `json:"route_params"`
+	Children    *[]*WorkspaceNode `json:"children"`
 }
+
 // WorkspaceQueryStructure ------------------------------------------------------
 // Function to query the workspace structure, it returns a hierarchical structure
 // modeled based on ui MenuEntry class.
 // It uses a virtual table name to indicate the level of granularity of the structure
 // dataTableAction.FromClauses[0].Table:
-//		case "workspace_file_structure": structure based on files of the workspace
-//		case "workspace_object_structure": structure based on object (rule, lookup, class, etc) of the workspace
+//
+//	case "workspace_file_structure": structure based on files of the workspace
+//	case "workspace_object_structure": structure based on object (rule, lookup, class, etc) of the workspace
+//
 // Initial implementation use workspace_file_structure
 // NOTE: routePath must correspond to the parametrized url (needed by ui MenuEntry)
 // NOTE: routeParam contains the routePath parameters (needed by ui MenuEntry)
 // Input dataTableAction.Data:
-//      [
-//      	{
-//      		"key": "123",
-//      		"workspace_name": "jets_ws",
-//      		"workspace_uri": "uri here",
-//      		"user_email": "email here"
-//      	}
-//      ]
+//
+//	[
+//		{
+//			"key": "123",
+//			"workspace_name": "jets_ws",
+//			"workspace_uri": "uri here",
+//			"user_email": "email here"
+//		}
+//	]
+//
 // Output results:
-//			{
-//				"key": "123",
-//				"workspace_name": "jets_ws",
-//			  "result_type": "workspace_file_structure",
-//				"result_data": [
-//					{
-//						"key": "a1",
-//            "type": "dir",
-//						"label": "Jet Rules",
-//						"route_path": "/workspace/:ws_name/jetRules",
-//						"route_params": {
-//								"ws_name": "jets_ws",
-//						},
-//						"children": [
-//							{
-//								"key": "a1.1",
-//                "type": "dir",
-//								"label": "folder name",
-//								"children": [
-//									{
-//										"key": "a1.1.1",
-//                    "type": "file",
-//										"label": "mapping_rules.jr",
-//										"route_path": "/workspace/:ws_name/wsFile/:file_name",
-//										"route_params": {
-//											"ws_name": "jets_ws",
-//											"file_name": "jet_rules%03mapping_rules.jr",
-//										}
-//							 	  }
-//								]
-//							}		
-//						]
-//					}
-//				]
-//			}
+//
+//				{
+//					"key": "123",
+//					"workspace_name": "jets_ws",
+//				  "result_type": "workspace_file_structure",
+//					"result_data": [
+//						{
+//							"key": "a1",
+//	           "type": "dir",
+//							"label": "Jet Rules",
+//							"route_path": "/workspace/:workspace_name/jetRules",
+//							"route_params": {
+//									"workspace_name": "jets_ws",
+//							},
+//							"children": [
+//								{
+//									"key": "a1.1",
+//	               "type": "dir",
+//									"label": "folder name",
+//									"children": [
+//										{
+//											"key": "a1.1.1",
+//	                   "type": "file",
+//											"label": "mapping_rules.jr",
+//											"route_path": "/workspace/:workspace_name/wsFile/:file_name",
+//											"route_params": {
+//												"workspace_name": "jets_ws",
+//												"file_name": "jet_rules%03mapping_rules.jr",
+//											}
+//								 	  }
+//									]
+//								}
+//							]
+//						}
+//					]
+//				}
 func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, token string) (results *[]byte, httpStatus int, err error) {
 	// Validate the arguments
 	if len(dataTableAction.Data) == 0 || len(dataTableAction.FromClauses) == 0 {
@@ -200,34 +206,34 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 	case "workspace_file_structure":
 		// Data Model (.jr)
 		// fmt.Println("** Visiting data_model:")
-		workspaceNode, err = visitDirWrapper(root, "data_model", "Data Model", &[]string{".jr",".csv"}, workspaceName)
+		workspaceNode, err = visitDirWrapper(root, "data_model", "Data Model", &[]string{".jr", ".csv"}, workspaceName)
 		if err != nil {
-			log.Println("while walking workspace structure:",err)
+			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
-			return	
+			return
 		}
 		resultData = append(resultData, workspaceNode)
 
 		// Jets Rules (.jr, .jr.sql)
 		// fmt.Println("** Visiting jet_rules:")
-		workspaceNode, err = visitDirWrapper(root, "jet_rules", "Jets Rules", &[]string{".jr",".jr.sql"}, workspaceName)
+		workspaceNode, err = visitDirWrapper(root, "jet_rules", "Jets Rules", &[]string{".jr", ".jr.sql"}, workspaceName)
 		if err != nil {
-			log.Println("while walking workspace structure:",err)
+			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
-			return	
+			return
 		}
 		resultData = append(resultData, workspaceNode)
 
 		// Lookups (.jr)
 		// fmt.Println("** Visiting lookups:")
-		workspaceNode, err = visitDirWrapper(root, "lookups", "Lookups", &[]string{".jr",".csv"}, workspaceName)
+		workspaceNode, err = visitDirWrapper(root, "lookups", "Lookups", &[]string{".jr", ".csv"}, workspaceName)
 		if err != nil {
-			log.Println("while walking workspace structure:",err)
+			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
-			return	
+			return
 		}
 		resultData = append(resultData, workspaceNode)
 
@@ -235,10 +241,10 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		// fmt.Println("** Visiting process_config:")
 		workspaceNode, err = visitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)
 		if err != nil {
-			log.Println("while walking workspace structure:",err)
+			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
-			return	
+			return
 		}
 		resultData = append(resultData, workspaceNode)
 
@@ -246,10 +252,10 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		// fmt.Println("** Visiting process_sequence:")
 		workspaceNode, err = visitDirWrapper(root, "process_sequence", "Process Sequences", &[]string{".jr"}, workspaceName)
 		if err != nil {
-			log.Println("while walking workspace structure:",err)
+			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
-			return	
+			return
 		}
 		resultData = append(resultData, workspaceNode)
 
@@ -257,18 +263,18 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		// fmt.Println("** Visiting reports:")
 		workspaceNode, err = visitDirWrapper(root, "reports", "Reports", &[]string{".sql", ".json"}, workspaceName)
 		if err != nil {
-			log.Println("while walking workspace structure:",err)
+			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while walking workspace folder")
-			return	
+			return
 		}
 		resultData = append(resultData, workspaceNode)
 
 		// compile_workspace.sh
 		resultData = append(resultData, &WorkspaceNode{
-			Key: "compile_workspace",
-			Label: "Compile Workspace Script",
-			RoutePath: fmt.Sprintf("/workspace/%s/wsFile/%s", workspaceName, url.QueryEscape("compile_workspace.sh")),	
+			Key:       "compile_workspace",
+			Label:     "Compile Workspace Script",
+			RoutePath: fmt.Sprintf("/workspace/%s/wsFile/%s", workspaceName, url.QueryEscape("compile_workspace.sh")),
 		})
 	default:
 		httpStatus = http.StatusBadRequest
@@ -278,10 +284,10 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 	var v []byte
 	v, err = json.Marshal(WorkspaceStructure{
-		Key: wskey.(string),
+		Key:           wskey.(string),
 		WorkspaceName: workspaceName,
-		ResultType: requestType,
-		ResultData: &resultData,
+		ResultType:    requestType,
+		ResultData:    &resultData,
 	})
 	// v, err = json.MarshalIndent(WorkspaceStructure{
 	// 	Key: wskey.(string),
@@ -297,15 +303,15 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 	return
 }
 
-func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceName string) ( *WorkspaceNode, error) {
+func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceName string) (*WorkspaceNode, error) {
 	var children *[]*WorkspaceNode
 	var err error
 	children, err = visitDir(root, dir, dir, filters, workspaceName)
 	if err != nil {
-		return	nil, err
+		return nil, err
 	}
 
-	for _,c := range *children {
+	for _, c := range *children {
 		if c.Type == "dir" {
 			c.Children, err = visitChildren(root+"/"+dir, dir+"/"+c.Label, c.Label, filters, workspaceName)
 			if err != nil {
@@ -315,11 +321,11 @@ func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceNam
 	}
 
 	results := &WorkspaceNode{
-		Key: dir,
-		Label: dirLabel,
-		RoutePath: fmt.Sprintf("/workspace/:ws_name/%s", dir),
+		Key:       dir,
+		Label:     dirLabel,
+		RoutePath: fmt.Sprintf("/workspace/:workspace_name/%s", dir),
 		RouteParams: map[string]string{
-			"ws_name": workspaceName,
+			"workspace_name": workspaceName,
 		},
 		Children: children,
 	}
@@ -332,15 +338,15 @@ func visitChildren(root, relativeRoot, dir string, filters *[]string, workspaceN
 	var err error
 	children, err = visitDir(root, relativeRoot, dir, filters, workspaceName)
 	if err != nil {
-		return	nil, err
+		return nil, err
 	}
 
-	for _,c := range *children {
+	for _, c := range *children {
 		if c.Type == "dir" {
 			c.Children, err = visitChildren(root+"/"+dir, relativeRoot+"/"+c.Label, c.Label, filters, workspaceName)
 			if err != nil {
-				return	nil, err
-			}		
+				return nil, err
+			}
 		}
 	}
 
@@ -353,12 +359,12 @@ func visitChildren(root, relativeRoot, dir string, filters *[]string, workspaceN
 // relativeRoot is file relative root with respect to workspace root (file path within workspace)
 // relativeRoot includes dir as the last component of it
 // Note: This function cannot be called recursively, otherwise it will interrupt WalDir
-func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName string) ( *[]*WorkspaceNode, error) {
+func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName string) (*[]*WorkspaceNode, error) {
 
 	// fmt.Println("*visitDir called for dir:",dir)
 	fileSystem := os.DirFS(fmt.Sprintf("%s/%s", root, dir))
 	children := make([]*WorkspaceNode, 0)
-	
+
 	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
 		// fmt.Println("*** WalkDir @",path, "err is",err)
 		if err != nil {
@@ -375,8 +381,8 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 			subdir := info.Name()
 			// fmt.Println("visiting directory:", subdir)
 			children = append(children, &WorkspaceNode{
-				Key: path,
-				Type: "dir",
+				Key:   path,
+				Type:  "dir",
 				Label: subdir,
 			})
 			return fs.SkipDir
@@ -393,13 +399,13 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 			if keepEntry {
 				// fmt.Println("visiting file:", filename)
 				children = append(children, &WorkspaceNode{
-					Key: path,
-					Type: "file",
-					Label: filename,
-					RoutePath: "/workspace/:ws_name/wsFile/:file_name",
+					Key:       path,
+					Type:      "file",
+					Label:     filename,
+					RoutePath: "/workspace/:workspace_name/wsFile/:file_name",
 					RouteParams: map[string]string{
-						"ws_name": workspaceName,
-						"file_name": url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename)),
+						"workspace_name": workspaceName,
+						"file_name":      url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename)),
 					},
 				})
 			}
@@ -408,7 +414,7 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 	})
 
 	if err != nil {
-		log.Println("while walking workspace dir:",err)
+		log.Println("while walking workspace dir:", err)
 		return nil, err
 	}
 	return &children, nil
@@ -420,10 +426,10 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
-	wsName := request["ws_name"]
+	wsName := request["workspace_name"]
 	wsFileName := request["file_name"]
 	if wsName == nil || wsFileName == nil {
-		err = fmt.Errorf("GetWorkspaceFileContent: missing ws_name or file_name")
+		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name or file_name")
 		fmt.Println(err)
 		httpStatus = http.StatusBadRequest
 		return
@@ -444,14 +450,13 @@ func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, to
 		httpStatus = http.StatusBadRequest
 		return
 	}
-	results = &map[string]interface{} {
-		"file_name": wsFileName,
+	results = &map[string]interface{}{
+		"file_name":    wsFileName,
 		"file_content": string(content),
 	}
 	return
 }
 
-var rContentType = regexp.MustCompile(`\/(.*?)\/`)
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
 // Function to get the workspace file content based on relative file name
 // Read the file from the workspace on file system since it's already in sync with database
@@ -462,17 +467,22 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 	wsFileName := request["file_name"]
 	wsFileContent := request["file_content"]
 	if wsName == nil || wsFileName == nil || wsFileContent == nil {
-		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name, file_content, or file_name")
+		err = fmt.Errorf("SaveWorkspaceFileContent: missing workspace_name, file_content, or file_name")
 		fmt.Println(err)
 		httpStatus = http.StatusBadRequest
 		return
 	}
 	workspaceName := wsName.(string)
-	fileName := wsFileName.(string)
+	fileName, err := url.QueryUnescape(wsFileName.(string))
+	if err != nil {
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
 
 	// Write file to local workspace
 	data := []byte(wsFileContent.(string))
-	path := fmt.Sprintf("%s/%s%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName)
+	path := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName)
 	err = os.WriteFile(path, data, 0644)
 	if err != nil {
 		err = fmt.Errorf("failed to write local workspace file %s: %v", fileName, err)
@@ -489,7 +499,11 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 		return
 	}
 	defer fileHd.Close()
-	contentType := rContentType.FindString(fileName)
+	p := strings.Index(fileName, "/")
+	var contentType string
+	if p > 0 {
+		contentType = fileName[0:p]
+	}
 	if contentType == "" {
 		err = fmt.Errorf("failed to find contentType in %s", fileName)
 		httpStatus = http.StatusBadRequest
@@ -509,7 +523,7 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 		return
 	}
 	fmt.Println("uploaded", fo.FileName, "size", n, "bytes to database")
-	results = &map[string]interface{} {
+	results = &map[string]interface{}{
 		"file_name": wsFileName,
 	}
 	return

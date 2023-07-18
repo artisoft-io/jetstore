@@ -124,7 +124,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
 
       // Navigate to workspace home page
       Map<String, dynamic> params = {
-        "ws_name": state[FSK.wsName],
+        "workspace_name": state[FSK.wsName],
       };
       print("NAVIGATING to $workspaceHomePath, with $params");
       JetsRouterDelegate()(JetsRouteData(workspaceHomePath, params: params));
@@ -191,7 +191,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
 Future<int> workspaceIDEFileEditor(
     BuildContext context, MenuEntry? menuEntry) async {
   if (menuEntry == null || menuEntry.routeParams == null) return 200;
-  // state contains file_name and ws_name (from Navigation)
+  // state contains file_name and workspace_name (from Navigation)
   // Need to get file_content from apiserver
   print(
       'Calling get file content to Initialize File Editor with menuEntry: $menuEntry');
