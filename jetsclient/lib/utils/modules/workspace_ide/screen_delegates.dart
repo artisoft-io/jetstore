@@ -110,7 +110,6 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         showAlertDialog(context, "Something went wrong. Please try again.");
         return null;
       }
-      print("OK, WE GOT ${httpResponse.body}");
       final resultType = httpResponse.body["result_type"];
       if (resultType != null && resultType == "workspace_file_structure") {
         // Setup MenuEntry as the workspace file structure
@@ -255,7 +254,6 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         print('Delete All Workspace Changes: unexpected null workspace_name');
         return 'Delete All Workspace Changes: unexpected null workspace_name';
       }
-      print('WorkspaceHome::Delete ALL Changes state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_all_workspace_changes',
         'data': [state],
@@ -290,8 +288,6 @@ Future<int> initializeWorkspaceFileEditor(
   if (menuEntry == null || menuEntry.routeParams == null) return 200;
   // state contains file_name and workspace_name (from Navigation)
   // Need to get file_content from apiserver
-  print(
-      'Calling get file content to Initialize File Editor with menuEntry: $menuEntry');
   var encodedJsonBody = jsonEncode(<String, dynamic>{
     'action': 'get_workspace_file_content',
     'data': [menuEntry.routeParams],
@@ -301,13 +297,11 @@ Future<int> initializeWorkspaceFileEditor(
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
 
-  print("Got reply with status code ${result.statusCode}");
   if (result.statusCode == 200) {
     // state[FSK.wsFileEditorContent] =
     menuEntry.routeParams![FSK.wsFileEditorContent] =
         result.body[FSK.wsFileEditorContent] as String?;
   } else {
-    print("Setting error message to ${FSK.wsFileEditorContent}");
     menuEntry.routeParams![FSK.wsFileEditorContent] =
         "Oops, Something went wrong. Could not get the file content";
     // formStates[0].setValueAndNotify(0, FSK.wsFileEditorContent,

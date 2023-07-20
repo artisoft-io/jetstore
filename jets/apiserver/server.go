@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
@@ -226,13 +227,21 @@ func (server *Server) checkJetStoreDbVersion() error {
 // Download overriten workspace files from jetstore database
 // Check the workspace version in db, if jetstore image version is more recent, recompile workspace
 func (server *Server) checkWorkspaceVersion() error {
-	// Download overriten workspace files from s3 if any
+	var err error
 	workspaceName := os.Getenv("WORKSPACE")
-	err := workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", devMode)
+
+	// Copy the workspace files to a stash location (needed when we delete/revert file changes)
+	err = datatable.StashWorkspaceFiles(workspaceName)
+	if err != nil {
+		//* TODO Log to a new workspace error table to report in UI
+		log.Printf("Error while stashing workspace file: %v", err)
+	}
+
+	// Download overriten workspace files from s3 if any
+	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", devMode)
 	if err != nil {
 		//* TODO Log to a new workspace error table to report in UI
 		log.Println("Error while synching workspace file from database:",err)
-		// return err
 	}
 	// Check if need to recompile workspace, skip if in dev mode
 	if devMode {

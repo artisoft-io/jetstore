@@ -1,12 +1,15 @@
 package datatable
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"strconv"
 	"time"
 
@@ -527,6 +530,101 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 	return
 }
 
+func stashPath() string {
+	return fmt.Sprintf("%s/ws:stash", os.Getenv("WORKSPACES_HOME"))
+}
+
+// StashWorkspaceFiles --------------------------------------------------------------------------
+// Function to copy all workspace files to a stash location
+// The stash is used when deleting workspace changes to restore the file to original content
+func StashWorkspaceFiles(workspaceName string) error {
+	workspacePath := fmt.Sprintf("%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName)
+	stashPath := stashPath()
+	log.Printf("Stashing workspace files from %s to %s", workspacePath, stashPath)
+
+	// make sure the stash directory exists
+	var err error
+	if err2 := os.Mkdir(stashPath, 0755); os.IsExist(err2) {
+		log.Println("Workspace stash", stashPath, "exists")
+ } else {
+		log.Println("Workspace stash directory ", stashPath, "created")
+ }
+
+	// copy all files if targetDir does not exists
+	if _, err2 := os.Stat(fmt.Sprintf("%s/%s", stashPath, workspaceName)); err2 != nil {
+		log.Println("Stashing workspace files")
+		targetDir := fmt.Sprintf("--target-directory=%s", stashPath)
+		cmd := exec.Command("cp", "--recursive", "--no-dereference", targetDir, workspacePath)
+		var b bytes.Buffer
+		cmd.Stdout = &b
+		cmd.Stderr = &b
+		err = cmd.Run()
+		if err != nil {
+			log.Printf("while executing cp to stash of the workspace files: %v", err)
+		} else {
+			log.Println("cp workspace files to stash output:")
+		}
+		b.WriteTo(os.Stdout)
+		log.Println("============================")
+
+		// Removing files that we don't want to be restaured
+		targetDir = fmt.Sprintf("%s/%s", stashPath, workspaceName)
+		exec.Command("rm", "--recursive", "--force", fmt.Sprintf("%s/.git", targetDir)).Run()
+		exec.Command("rm", "--recursive", "--force", fmt.Sprintf("%s/.github", targetDir)).Run()
+		exec.Command("rm", "--recursive", "--force", fmt.Sprintf("%s/.gitignore", targetDir)).Run()
+		exec.Command("rm", "--recursive", "--force", fmt.Sprintf("%s/lookup.db", targetDir)).Run()
+		exec.Command("rm", "--recursive", "--force", fmt.Sprintf("%s/workspace.db", targetDir)).Run()
+	} else {
+		log.Println("Workspace files already stashed, not overriting them")
+	}
+
+	return err
+}
+
+// Function to restore file from stash, it copy src file to dst
+func copy(src, dst string) (int64, error) {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return 0, err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return 0, fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+	nBytes, err := io.Copy(destination, source)
+	return nBytes, err
+}
+
+// Restaure (copy dir recursively) srcDir to dstDir
+func restaure(srcDir, dstDir string) error {
+	targetDir := fmt.Sprintf("--target-directory=%s", dstDir)
+	cmd := exec.Command("cp", "--recursive", "--no-dereference", targetDir, srcDir)
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("while executing restaure from stash all the workspace files: %v", err)
+	} else {
+		log.Println("restaure all workspace files from stash output:")
+	}
+	b.WriteTo(os.Stdout)
+	log.Println("============================")
+	return err
+}
+
 // DeleteWorkspaceChanges --------------------------------------------------------------------------
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
@@ -554,6 +652,16 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 			log.Printf("While deleting row in workspace_changes table: %v", err)
 			httpStatus = http.StatusBadRequest
 			return
+		}
+		// restauring file from stash (if exists, do not report error if fails)
+		stashPath := stashPath()
+		source := fmt.Sprintf("%s/%s/%s", stashPath, wsName, wsFileName)
+		destination := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), wsName, wsFileName)
+		log.Printf("Restauring file %s to %s", source, destination)
+		if n, err2 := copy(source, destination); err2 != nil {
+			log.Println("while restauring file:", err2)
+		} else {
+			log.Println("copied", n, "bytes")
 		}
 	}
 	results = &map[string]interface{}{}
@@ -584,6 +692,15 @@ func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, 
 		httpStatus = http.StatusBadRequest
 		return
 	}
+
+	// Restauring all workspace  files
+	stashPath := stashPath()
+	source := fmt.Sprintf("%s/%s", stashPath, wsName)
+	log.Printf("Restauring all workspace files from %s", source)
+	if err2 := restaure(source, os.Getenv("WORKSPACES_HOME")); err2 != nil {
+		log.Println("while restauring all workspace files:", err2)
+	}
+
 	results = &map[string]interface{}{}
 	return
 }

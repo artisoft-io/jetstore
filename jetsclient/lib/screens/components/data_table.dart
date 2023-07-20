@@ -547,9 +547,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       case DataTableActionType.doActionShowDialog:
         JetsRow? row = dataSource.getFirstSelectedRow();
         // check if no row is selected while we expect to have one selected
-        if (formState == null) {
-          print("formState is null!!");
-        }
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
         if (formState == null || ac.actionName == null) return;
         if (ac.configForm == null) return;
@@ -572,7 +569,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             group: 0);
         if (err != null) {
           // ignore: use_build_context_synchronously
-          print("doActionShowDialog: Got error from ActionDelegate: $err");
           showAlertDialog(context, err);
         }
 
