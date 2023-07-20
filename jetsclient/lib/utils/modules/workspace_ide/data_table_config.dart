@@ -117,6 +117,108 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Workspace Changes
+  DTKeys.workspaceChangesTable: TableConfig(
+    key: DTKeys.workspaceChangesTable,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'workspace_changes')
+    ],
+    label: 'Workspace Registry',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "workspace_name", formStateKey: FSK.wsName),
+    ],
+    refreshOnKeyUpdateEvent: ['state_modified'],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'revertChanges',
+          label: 'Delete/Revert Changes',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteWorkspaceChanges),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'revertAllChanges',
+          label: 'Delete/Revert ALL Changes',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          actionName: ActionKeys.deleteAllWorkspaceChanges),
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.wsOid,
+        columnIdx: 2,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.wsFileName,
+        columnIdx: 3,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "workspace_name",
+          label: 'Workspace Name',
+          tooltips: 'Workspace identifier',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "oid",
+          label: 'Change OID',
+          tooltips: 'Database Large Object ID',
+          isNumeric: true),
+      ColumnConfig(
+          index: 3,
+          name: "file_name",
+          label: 'File Name',
+          tooltips: 'Workspace File Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "content_type",
+          label: 'Content Type',
+          tooltips: 'Workspace Content Type',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "status",
+          label: 'Change Status',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "user_email",
+          label: 'User Email',
+          tooltips: 'User who made the last change',
+          isNumeric: false),
+      ColumnConfig(
+          index: 7,
+          name: "last_update",
+          label: 'Last Update',
+          tooltips: 'Last time the workspace was compiled',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 20,
+  ),
+
 };
 
 TableConfig? getWorkspaceTableConfig(String key) {

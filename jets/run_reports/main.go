@@ -193,9 +193,9 @@ func coordinateWork() error {
 		// sync s3 reports to to db and locally
 		// to make sure we get the report we just created
 		for i := range updatedKeys {
-			err = awsi.SyncS3Files(dbpool, workspaceName, updatedKeys[i], reportDirectives.OutputPath, "lookups")
+			err = awsi.SyncS3Files(dbpool, workspaceName, updatedKeys[i], reportDirectives.OutputPath + "/", "lookups")
 			if err != nil {
-				return fmt.Errorf("failed to sync s3 files: %v", err)
+				return fmt.Errorf("run_reports: failed to sync s3 files: %v", err)
 			}	
 		}
 

@@ -30,15 +30,15 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     inputFields: [
       [
-        // // Worksace Registry Table
-        // FormDataTableFieldConfig(
-        //     key: DTKeys.workspaceRegistryTable,
-        //     dataTableConfig: DTKeys.workspaceRegistryTable,
-        //     tableHeight: 600)
+        // Worksace Changes (workspace_changes) Table
+        FormDataTableFieldConfig(
+            key: DTKeys.workspaceChangesTable,
+            dataTableConfig: DTKeys.workspaceChangesTable,
+            tableHeight: 600)
       ],
     ],
-    formValidatorDelegate: workspaceIDEFormValidator,
-    formActionsDelegate: workspaceIDEFormActions,
+    formValidatorDelegate: workspaceHomeFormValidator,
+    formActionsDelegate: workspaceHomeFormActions,
   ),
   // Add Workspace Dialog
   FormKeys.addWorkspace: FormConfig(
@@ -129,8 +129,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 512000),
       ],
     ],
-    formValidatorDelegate: workspaceIDEFormValidator,
-    formActionsDelegate: workspaceIDEFormActions,
+    formValidatorDelegate: workspaceHomeFormValidator,
+    formActionsDelegate: workspaceHomeFormActions,
   ),
 
 };

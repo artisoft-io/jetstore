@@ -31,8 +31,6 @@ class _JetsFormButtonState extends State<JetsFormButton> {
   void initState() {
     super.initState();
     _buttonStyle = config.buttonStyle;
-    // print(
-    //     "INIT Form Button, setValue ${config.group}, ${config.key}, $_buttonStyle ");
     formState.setValue(config.group, config.key, _buttonStyle);
     formState.addListener(_handleStateChange);
   }

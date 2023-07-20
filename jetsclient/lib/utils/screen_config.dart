@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Screen type, determine mainly the left panel content

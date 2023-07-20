@@ -43,7 +43,6 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
   void initState() {
     super.initState();
     _config = widget.formFieldConfig;
-    print("*** initState for JetsTextFormField with ${widget.formState.getValue(_config.group, _config.key)}");
     _controller = TextEditingController(
         text: widget.formState.getValue(_config.group, _config.key));
     _controller.addListener(() {

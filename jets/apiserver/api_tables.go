@@ -62,6 +62,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
 	case "save_workspace_file_content":
 		results, code, err = context.SaveWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
+	case "delete_workspace_changes":
+		results, code, err = context.DeleteWorkspaceChanges(&dataTableAction, user.ExtractToken(r))
+	case "delete_all_workspace_changes":
+		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, user.ExtractToken(r))
 	
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)
