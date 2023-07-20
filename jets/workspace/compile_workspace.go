@@ -40,7 +40,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 	for _,fo := range fileObjects {
 		// When in skipSqliteFiles == true, do not override lookup.db and workspace.db
 		if !skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db") {
-			fileHd, err := os.Create(fmt.Sprintf("%s/%s%s", wh, workspaceName, fo.FileName))
+			fileHd, err := os.Create(fmt.Sprintf("%s/%s/%s", wh, workspaceName, fo.FileName))
 			if err != nil {
 				return fmt.Errorf("failed to open local workspace file %s for write: %v", fo.FileName, err)
 			}

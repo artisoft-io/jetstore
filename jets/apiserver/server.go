@@ -230,8 +230,9 @@ func (server *Server) checkWorkspaceVersion() error {
 	workspaceName := os.Getenv("WORKSPACE")
 	err := workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", devMode)
 	if err != nil {
+		//* TODO Log to a new workspace error table to report in UI
 		log.Println("Error while synching workspace file from database:",err)
-		return err
+		// return err
 	}
 	// Check if need to recompile workspace, skip if in dev mode
 	if devMode {

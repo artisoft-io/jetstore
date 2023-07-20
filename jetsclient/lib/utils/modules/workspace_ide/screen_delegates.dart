@@ -56,7 +56,7 @@ List<MenuEntry> mapMenuEntry(List<dynamic> data) {
         label: e!["label"],
         routePath: e!["route_path"],
         routeParams: e!["route_params"],
-        menuAction: workspaceIDEFileEditor,
+        menuAction: initializeWorkspaceFileEditor,
         children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
       ));
   return v.toList();
@@ -152,6 +152,36 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       JetsSpinnerOverlay.of(context).hide();
       return null;
 
+    // Cancel Dialog / Form
+    case ActionKeys.dialogCancel:
+      Navigator.of(context).pop();
+      break;
+    default:
+      print('Oops unknown ActionKey for workspaceIDE Form: $actionKey');
+  }
+  return null;
+}
+
+/// Workspace File Editor
+///
+/// Validation delegate for the Workspace Home
+String? workspaceHomeFormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
+  assert((v is String?) || (v is List<String>?),
+      "Workspace Home Form has unexpected data type");
+  switch (key) {
+    default:
+      print(
+          'Oops Workspace Home Form Validator has no validator configured for form field $key');
+  }
+  return null;
+}
+
+/// Workspace Home Form Actions
+Future<String?> workspaceHomeFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
+    {group = 0}) async {
+  switch (actionKey) {
     // File Editor - Save
     case ActionKeys.wsSaveFileOk:
       var valid = formKey.currentState!.validate();
@@ -175,20 +205,87 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }
       return null;
 
+    // Delete Workspace Changes (multi select)
+    case ActionKeys.deleteWorkspaceChanges:
+      final state = formState.getState(0);
+      // This is a multi select table, convert the multi-select
+      // that is column-oriented into a request that is row-oriented
+      final wsName = state[FSK.wsName] as String?;
+      final keys = state[FSK.key] as List<String>?;
+      final oids = state[FSK.wsOid] as List<String>?;
+      final fnames = state[FSK.wsFileName] as List<String>?;
+      if (wsName == null || keys == null || oids == null || fnames == null) {
+        print('Delete Workspace Changes: unexpected null');
+        return 'Delete Workspace Changes: unexpected null';
+      }
+      List<dynamic> requestData = [];
+      for (var i = 0; i < keys.length; i++) {
+        requestData.add(<String, dynamic>{
+          FSK.key: keys[i],
+          FSK.wsOid: oids[i],
+          FSK.wsName: wsName,
+          FSK.wsFileName: fnames[i],
+          FSK.userEmail: JetsRouterDelegate().user.email,
+        });
+      }
+      print('WorkspaceHome::Delete Changes requestData: $requestData');
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'delete_workspace_changes',
+        'data': requestData,
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      final result =
+          await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      // ignore: use_build_context_synchronously
+      JetsSpinnerOverlay.of(context).hide();
+      if (result.statusCode != 200 && result.statusCode != 401) {
+        print('Something went wrong while deleting file changes: $result');
+        return 'Something went wrong while deleting file changes: $result';
+      }
+      // Mark the formState as modified to trigger a table refresh
+      // Note, the key 'state_modified' is not used
+      formState.setValueAndNotify(0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
+      return null;
+
+    // Delete ALL Workspace Changes
+    case ActionKeys.deleteAllWorkspaceChanges:
+      final state = formState.getState(0);
+      final wsName = state[FSK.wsName] as String?;
+      if (wsName == null) {
+        print('Delete All Workspace Changes: unexpected null workspace_name');
+        return 'Delete All Workspace Changes: unexpected null workspace_name';
+      }
+      print('WorkspaceHome::Delete ALL Changes state: $state');
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'delete_all_workspace_changes',
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      final result =
+          await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      // ignore: use_build_context_synchronously
+      JetsSpinnerOverlay.of(context).hide();
+      if (result.statusCode != 200 && result.statusCode != 401) {
+        print('Something went wrong while deleting all file changes: $result');
+        return 'Something went wrong while deleting all file changes: $result';
+      }
+      // Mark the formState as modified to trigger a table refresh
+      // Note, the key 'state_modified' is registered in tableConfig
+      formState.setValueAndNotify(0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
+      return null;
+
     // Cancel Dialog / Form
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
       break;
     default:
-      print('Oops unknown ActionKey for workspaceIDE Form: $actionKey');
+      print('Oops unknown ActionKey for Workspace Home Form: $actionKey');
   }
   return null;
 }
 
-/// Workspace File Editor
 /// Initialization Delegate for File Editor Screen
-// void workspaceIDEFileEditor(List<JetsFormState> formStates) async {
-Future<int> workspaceIDEFileEditor(
+Future<int> initializeWorkspaceFileEditor(
     BuildContext context, MenuEntry? menuEntry) async {
   if (menuEntry == null || menuEntry.routeParams == null) return 200;
   // state contains file_name and workspace_name (from Navigation)

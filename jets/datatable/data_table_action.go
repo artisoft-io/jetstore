@@ -1052,7 +1052,7 @@ func execDDL(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *stri
 		Index: 0,
 		Name: "results",
 		Label: "Results",
-		Tooltips: "Exec resut",
+		Tooltips: "Exec result",
 		IsNumeric: false,
 	}}
 	resultRows := make([][]interface{}, 1)

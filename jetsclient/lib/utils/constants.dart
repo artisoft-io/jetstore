@@ -209,6 +209,7 @@ class FSK {
   static const wsURI = "workspace_uri";
   static const wsFileName = "file_name";
   static const wsFileEditorContent = "file_content";
+  static const wsOid = "oid";
 
 
   // reserved keys for cache
@@ -320,6 +321,8 @@ class ActionKeys {
   static const compileWorkspace = "compileWorkspace";
   static const openWorkspace = "openWorkspace";
   static const wsSaveFileOk = "wsSaveFileOk";
+  static const deleteWorkspaceChanges = "deleteWorkspaceChanges";
+  static const deleteAllWorkspaceChanges = "deleteAllWorkspaceChanges";
 }
 
 /// Form Action Keys
@@ -385,6 +388,7 @@ class DTKeys {
 
   // Workspace IDE DT
   static const workspaceRegistryTable = "workspaceRegistryTable";
+  static const workspaceChangesTable = "workspaceChangesTable";
   static const wsDomainClassesTable = "wsDomainClassesTable";
   static const wsDomainTablesTable = "wsDomainTablesTable";
   static const wsLookupsTable = "wsLookupsTable";

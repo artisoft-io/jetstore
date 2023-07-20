@@ -457,8 +457,7 @@ func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, to
 }
 
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
-// Function to get the workspace file content based on relative file name
-// Read the file from the workspace on file system since it's already in sync with database
+// Function to save the workspace file content in local workspace file system and in database
 func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
@@ -525,5 +524,66 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 	results = &map[string]interface{}{
 		"file_name": wsFileName,
 	}
+	return
+}
+
+// DeleteWorkspaceChanges --------------------------------------------------------------------------
+// Function to delete workspace file changes based on rows in workspace_changes
+// Delete the workspace_changes row and the associated large object
+func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	for ipos := range dataTableAction.Data {
+		request := dataTableAction.Data[ipos]
+		wsName := request["workspace_name"]
+		wsOid := request["oid"]
+		wsFileName := request["file_name"]
+		wsUserEmail := request["user_email"]
+		wsKey := request["key"]
+		if wsName == nil || wsOid==nil || wsFileName == nil || wsKey == nil || wsUserEmail==nil {
+			err = fmt.Errorf("DeleteWorkspaceChanges: missing workspace_name, oid, key, user email, or file_name")
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
+		fmt.Println("DeleteWorkspaceChanges: Deleting key",wsKey,"file name",wsFileName)
+		stmt := fmt.Sprintf("SELECT lo_unlink(%s); DELETE FROM jetsapi.workspace_changes WHERE key = %s", 
+				wsOid.(string), wsKey.(string))
+		fmt.Println("DELETE stmt:",stmt)
+		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
+		if err != nil {
+			log.Printf("While deleting row in workspace_changes table: %v", err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
+	}
+	results = &map[string]interface{}{}
+	return
+}
+
+// DeleteAllWorkspaceChanges --------------------------------------------------------------------------
+// Function to delete workspace file changes based on rows in workspace_changes
+// Delete the workspace_changes row and the associated large object
+func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	request := dataTableAction.Data[0]
+	wsName := request["workspace_name"]
+	if wsName == nil {
+		err = fmt.Errorf("DeleteAllWorkspaceChanges: missing workspace_name")
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	fmt.Println("DeleteAllWorkspaceChanges: woarkspace_name",wsName)
+	stmt := fmt.Sprintf(
+			"SELECT lo_unlink(oid) FROM jetsapi.workspace_changes WHERE workspace_name = '%s'; DELETE FROM jetsapi.workspace_changes WHERE workspace_name = '%s'", 
+			wsName.(string), wsName.(string))
+	fmt.Println("DELETE stmt:",stmt)
+	_, err = ctx.Dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		log.Printf("While deleting row in workspace_changes table: %v", err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	results = &map[string]interface{}{}
 	return
 }
