@@ -39,7 +39,8 @@ class BaseScreenState extends State<BaseScreen> {
   }
 
   void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path == widget.screenPath.path &&
+    if (JetsRouterDelegate().currentConfiguration?.path ==
+            widget.screenPath.path &&
         mounted) {
       setState(() {});
     }
@@ -49,6 +50,21 @@ class BaseScreenState extends State<BaseScreen> {
   void dispose() {
     JetsRouterDelegate().removeListener(navListener);
     super.dispose();
+  }
+
+  ActionStyle getActionStyle(MenuEntry menuEntry) {
+    final routeData = JetsRouterDelegate().currentConfiguration;
+    if (routeData == null) return menuEntry.otherPageStyle;
+    if (menuEntry.onPageRouteParam == null) {
+      return routeData.path == menuEntry.routePath
+          ? menuEntry.onPageStyle
+          : menuEntry.otherPageStyle;
+    }
+    if (menuEntry.routeParams == null) return menuEntry.otherPageStyle;
+    return routeData.params[menuEntry.onPageRouteParam] ==
+            menuEntry.routeParams![menuEntry.onPageRouteParam]
+        ? menuEntry.onPageStyle
+        : menuEntry.otherPageStyle;
   }
 
   // Note: The menuAction may do the routing, hence doing menuAction first.
@@ -79,18 +95,14 @@ class BaseScreenState extends State<BaseScreen> {
         content: (level == 0)
             ? Expanded(
                 child: ElevatedButton(
-                  style: buttonStyle(
-                      JetsRouterDelegate().currentConfiguration?.path ==
-                              menuEntry.routePath
-                          ? menuEntry.onPageStyle
-                          : menuEntry.otherPageStyle,
-                      themeData),
+                  style: buttonStyle(getActionStyle(menuEntry), themeData),
                   onPressed: () => doMenuOnPress(menuEntry),
                   child: Center(child: Text(menuEntry.label)),
                 ),
               )
             : Expanded(
                 child: TextButton(
+                  style: buttonStyle(getActionStyle(menuEntry), themeData),
                   onPressed: () => doMenuOnPress(menuEntry),
                   child: Align(
                       alignment: Alignment.centerLeft,
@@ -112,6 +124,8 @@ class BaseScreenState extends State<BaseScreen> {
 
     switch (widget.screenConfig.type) {
       case ScreenType.home:
+        // Home screen and all (pipeline) config & operational pages
+        // All screen with client filter
         dropdownItems.addAll(JetsRouterDelegate().clients);
         // JetsRouterDelegate().workspaceMenuState = [];
         menuEntries = JetsRouterDelegate().user.isAdmin
@@ -119,6 +133,8 @@ class BaseScreenState extends State<BaseScreen> {
             : widget.screenConfig.menuEntries;
         break;
       case ScreenType.other:
+        // All screens w/o client filter
+        // Screens w/o workspace content as left menu tree
         JetsRouterDelegate().selectedClient = null;
         // JetsRouterDelegate().workspaceMenuState = [];
         menuEntries = JetsRouterDelegate().user.isAdmin
@@ -126,6 +142,8 @@ class BaseScreenState extends State<BaseScreen> {
             : widget.screenConfig.menuEntries;
         break;
       case ScreenType.workspace:
+        // All workspace IDE screens w/o client filter
+        // All screens with workspace content in left menu tree
         JetsRouterDelegate().selectedClient = null;
         menuEntries = JetsRouterDelegate().workspaceMenuState;
         break;
@@ -140,6 +158,7 @@ class BaseScreenState extends State<BaseScreen> {
             context, widget.screenConfig.appBarLabel, widget.screenConfig,
             showLogout: widget.screenConfig.showLogout),
         body: SplitView(
+          // SplitView: Left menu & client area
           viewMode: SplitViewMode.Horizontal,
           indicator: const SplitIndicator(viewMode: SplitViewMode.Horizontal),
           activeIndicator: const SplitIndicator(
@@ -152,8 +171,10 @@ class BaseScreenState extends State<BaseScreen> {
           onWeightChanged: (w) =>
               JetsRouterDelegate().splitViewControllerWeights = w,
           children: [
+            // Left menu
             Column(children: [
               const SizedBox(height: defaultPadding),
+              // JetStore logo as button to home screen
               Expanded(
                   flex: 3,
                   child: ConstrainedBox(
@@ -165,6 +186,7 @@ class BaseScreenState extends State<BaseScreen> {
                           icon: Image.asset(widget.screenConfig.leftBarLogo)))),
               const SizedBox(height: defaultPadding),
               if (widget.screenConfig.type == ScreenType.home)
+                // Client filter drop down in left menu
                 Expanded(
                   flex: 1,
                   child: Padding(
@@ -182,6 +204,7 @@ class BaseScreenState extends State<BaseScreen> {
                             .toList()),
                   ),
                 ),
+              // Left menu as TreeView
               Expanded(
                 flex: 24,
                 child: SingleChildScrollView(
@@ -193,6 +216,7 @@ class BaseScreenState extends State<BaseScreen> {
                 ),
               )
             ]),
+            // Client area
             JetsSpinnerOverlay(child: widget.builder(context, this)),
           ],
         ));

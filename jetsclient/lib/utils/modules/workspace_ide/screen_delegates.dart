@@ -55,8 +55,11 @@ List<MenuEntry> mapMenuEntry(List<dynamic> data) {
         key: e!["key"],
         label: e!["label"],
         routePath: e!["route_path"],
+        onPageRouteParam: FSK.wsFileName,
         routeParams: e!["route_params"],
         menuAction: initializeWorkspaceFileEditor,
+        onPageStyle: ActionStyle.menuSelected,
+        otherPageStyle: ActionStyle.menuAlternate,
         children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
       ));
   return v.toList();

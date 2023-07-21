@@ -8,15 +8,20 @@ import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/screens/components/base_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 
-class ScreenWithForm extends BaseScreen {
-  ScreenWithForm({
+/// Screen with tabs across the top, each tab contains a form
+/// The BaseScreen contains the tab controller, which has the number
+/// of tabs the screen has.
+/// Each tab has a JetsForm or a JetsFormWithTabs and each tab has the same
+/// screen layout (screenConfig) and share the same validation and action delegates
+class ScreenWithTabsWithForm extends BaseScreen {
+  ScreenWithTabsWithForm({
     required super.key,
     required super.screenPath,
     required super.screenConfig,
     required this.formConfig,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
-          final state = baseState as ScreenWithFormState;
-          print("*** BUILDING ScreenWithForm: ${screenConfig.title}");
+          final state = baseState as ScreenWithTabsWithFormState;
+          print("*** BUILDING ScreenWithTabsWithForm: ${screenConfig.title}");
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -53,14 +58,14 @@ class ScreenWithForm extends BaseScreen {
   final FormConfig formConfig;
 
   @override
-  State<BaseScreen> createState() => ScreenWithFormState();
+  State<BaseScreen> createState() => ScreenWithTabsWithFormState();
 }
 
-class ScreenWithFormState extends BaseScreenState {
+class ScreenWithTabsWithFormState extends BaseScreenState {
   late final JetsFormState formState;
   final formKey = GlobalKey<FormState>();
 
-  ScreenWithForm get _widget => super.widget as ScreenWithForm;
+  ScreenWithTabsWithForm get _widget => super.widget as ScreenWithTabsWithForm;
   ValidatorDelegate get validatorDelegate =>
       _widget.formConfig.formValidatorDelegate;
   FormActionsDelegate get actionsDelegate =>
@@ -71,7 +76,7 @@ class ScreenWithFormState extends BaseScreenState {
     super.initState();
     formState = _widget.formConfig.makeFormState();
 
-    print("*** initState for ScreenWithForm");
+    print("*** initState for ScreenWithTabsWithForm");
 
     triggetRefreshListner();
     JetsRouterDelegate().addListener(triggetRefreshListner);

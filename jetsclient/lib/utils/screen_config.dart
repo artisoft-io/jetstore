@@ -39,6 +39,7 @@ class MenuEntry {
     required this.key,
     required this.label,
     this.routePath,
+    this.onPageRouteParam,
     this.routeParams,
     this.menuAction,
     this.children = const [],
@@ -48,6 +49,9 @@ class MenuEntry {
   final String key;
   final String label;
   final String? routePath;
+  // onPageRouteParam is a key in routeParams to indicate
+  // if this menu item correspond to the page on screen
+  final String? onPageRouteParam;
   final Map<String, dynamic>? routeParams;
   final MenuActionDelegate? menuAction;
   List<MenuEntry> children;

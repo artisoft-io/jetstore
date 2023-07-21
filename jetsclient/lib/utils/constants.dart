@@ -4,9 +4,9 @@ const defaultPadding = 16.0;
 const betweenTheButtonsPadding = 8.0;
 
 /// Button action style, used by both JetsDataTable and JetsForm
-enum ActionStyle { primary, secondary, alternate, danger }
+enum ActionStyle { primary, secondary, alternate, menuSelected, menuAlternate, danger }
 
-ButtonStyle buttonStyle(ActionStyle style, ThemeData td) {
+ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
   switch (style) {
     case ActionStyle.danger:
       return ElevatedButton.styleFrom(
@@ -25,6 +25,16 @@ ButtonStyle buttonStyle(ActionStyle style, ThemeData td) {
         foregroundColor: td.colorScheme.onPrimaryContainer,
         backgroundColor: Colors.orange.shade200,
       ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.menuSelected:
+      return TextButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.menuAlternate:
+      return null;
 
     default: // primary
       return ElevatedButton.styleFrom(
