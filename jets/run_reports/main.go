@@ -136,10 +136,10 @@ func runReport(dbpool *pgxpool.Pool, reportScriptPath string, updatedKeys *[]str
 		*updatedKeys = append(*updatedKeys, fname)
 
 		// save to s3 - to fname
-		stmt = strings.ReplaceAll(stmt, "$CLIENT_%", fmt.Sprintf("''%s_%%''", *client))
-		stmt = strings.ReplaceAll(stmt, "$CLIENT", fmt.Sprintf("''%s''", *client))
-		stmt = strings.ReplaceAll(stmt, "$SESSIONID", fmt.Sprintf("''%s''", *sessionId))
+		stmt = strings.ReplaceAll(stmt, "$CLIENT", *client)
+		stmt = strings.ReplaceAll(stmt, "$SESSIONID", *sessionId)
 		fmt.Println("STMT: name:", name, "output file name:", fname, "stmt:", stmt)
+		stmt = strings.ReplaceAll(stmt, "'", "''")
 		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, *awsBucket, fname, *awsRegion, options)
 		fmt.Println("S3 QUERY:", s3Stmt)
 		fmt.Println("------")
