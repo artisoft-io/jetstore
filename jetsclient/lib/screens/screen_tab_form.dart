@@ -19,51 +19,133 @@ class ScreenWithTabsWithForm extends BaseScreen {
     required super.screenPath,
     required super.screenConfig,
     required this.formConfig,
+    this.formConfigWhenTabs,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithTabsWithFormState;
-          print("*** BUILDING ScreenWithTabsWithForm: ${screenConfig.title}");
-          return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Flexible(
-                  flex: 1,
-                  fit: FlexFit.tight,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                        defaultPadding, 2 * defaultPadding, 0, 0),
-                    child: Text(
-                      screenConfig.title,
-                      style: Theme.of(context).textTheme.headlineMedium,
+          // print("*** BUILDING ScreenWithTabsWithForm, title is ${screenConfig.title}");
+          return state.tabsStateHelper.tabsParams.isEmpty ||
+                  formConfigWhenTabs == null
+              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (screenConfig.title != null)
+                    Flexible(
+                      flex: 1,
+                      fit: FlexFit.tight,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            defaultPadding, 2 * defaultPadding, 0, 0),
+                        child: Text(
+                          screenConfig.title!,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                      ),
                     ),
+                  Flexible(
+                    flex: 8,
+                    fit: FlexFit.tight,
+                    child: formConfig.formTabsConfig.isNotEmpty
+                        ? JetsFormWithTabs(
+                            formPath: screenPath,
+                            formState: state.formStateWhenNoTabs,
+                            formKey: state.formKey,
+                            formConfig: formConfig)
+                        : JetsForm(
+                            formPath: screenPath,
+                            formState: state.formStateWhenNoTabs,
+                            formKey: state.formKey,
+                            formConfig: formConfig),
                   ),
-                ),
-                Flexible(
-                  flex: 8,
-                  fit: FlexFit.tight,
-                  child: formConfig.formTabsConfig.isNotEmpty
-                      ? JetsFormWithTabs(
-                          formPath: screenPath,
-                          formState: state.formState,
-                          formKey: state.formKey,
-                          formConfig: formConfig)
-                      : JetsForm(
-                          formPath: screenPath,
-                          formState: state.formState,
-                          formKey: state.formKey,
-                          formConfig: formConfig),
-                ),
-              ]);
+                ])
+              : Column(children: [
+                  TabBar(
+                      controller: state.tabController,
+                      tabs: List<Tab>.generate(
+                          state.tabsStateHelper.tabsParams.length,
+                          (index) => Tab(
+                                  child: Row(
+                                children: [
+                                  Text(
+                                      state.tabsStateHelper.tabsParams[index]
+                                          .label,
+                                      textAlign: TextAlign.left,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                      overflow: TextOverflow.ellipsis),
+                                  IconButton(
+                                      onPressed: () => state.removeTab(index),
+                                      icon: Icon(Icons.close,
+                                          color: Colors.blue.shade400)),
+                                ],
+                              )))),
+                  // The actual tabs
+                  Flexible(
+                      flex: 8,
+                      fit: FlexFit.tight,
+                      child: TabBarView(
+                          controller: state.tabController,
+                          children: List<Widget>.generate(
+                              state.tabsStateHelper.tabsParams.length,
+                              (index) => Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (screenConfig.title != null)
+                                          Flexible(
+                                            flex: 1,
+                                            fit: FlexFit.tight,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                      defaultPadding,
+                                                      2 * defaultPadding,
+                                                      0,
+                                                      0),
+                                              child: Text(
+                                                screenConfig.title!,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .headlineMedium,
+                                              ),
+                                            ),
+                                          ),
+                                        Flexible(
+                                          flex: 8,
+                                          fit: FlexFit.tight,
+                                          child: formConfigWhenTabs!
+                                                  .formTabsConfig.isNotEmpty
+                                              ? JetsFormWithTabs(
+                                                  formPath: screenPath,
+                                                  formState: state
+                                                      .tabsStateHelper
+                                                      .tabsParams[index]
+                                                      .formState,
+                                                  formKey: state.formKey,
+                                                  formConfig:
+                                                      formConfigWhenTabs)
+                                              : JetsForm(
+                                                  formPath: screenPath,
+                                                  formState: state
+                                                      .tabsStateHelper
+                                                      .tabsParams[index]
+                                                      .formState,
+                                                  formKey: state.formKey,
+                                                  formConfig:
+                                                      formConfigWhenTabs),
+                                        ),
+                                      ]))))
+                ]);
         });
 
   final FormConfig formConfig;
+  final FormConfig? formConfigWhenTabs;
 
   @override
   State<BaseScreen> createState() => ScreenWithTabsWithFormState();
 }
 
 class ScreenWithTabsWithFormState extends BaseScreenState {
-  late final JetsFormState formState;
   final formKey = GlobalKey<FormState>();
+  late final JetsFormState formStateWhenNoTabs;
 
   ScreenWithTabsWithForm get _widget => super.widget as ScreenWithTabsWithForm;
   ValidatorDelegate get validatorDelegate =>
@@ -74,22 +156,15 @@ class ScreenWithTabsWithFormState extends BaseScreenState {
   @override
   void initState() {
     super.initState();
-    formState = _widget.formConfig.makeFormState();
-
-    print("*** initState for ScreenWithTabsWithForm");
-
-    triggetRefreshListner();
+    formStateWhenNoTabs = _widget.formConfig.makeFormState();
+    // triggetRefreshListner();
     JetsRouterDelegate().addListener(triggetRefreshListner);
   }
 
   void triggetRefreshListner() {
     JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
-      formState.setValue(0, key, value);
+      formStateWhenNoTabs.setValue(0, key, value);
     });
-    // reset the updated keys since these updates is to put default values
-    // and is not from user interactions
-    //* TODO - Stop using group 0 as a special group with validation keys
-    // formState.resetUpdatedKeys(0);
     setState(() {});
   }
 
@@ -98,5 +173,4 @@ class ScreenWithTabsWithFormState extends BaseScreenState {
     JetsRouterDelegate().removeListener(triggetRefreshListner);
     super.dispose();
   }
-
 }

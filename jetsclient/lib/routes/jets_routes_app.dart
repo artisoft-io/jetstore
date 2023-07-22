@@ -6,6 +6,7 @@ import 'package:jetsclient/screens/screen_multi_form.dart';
 import 'package:jetsclient/screens/screen_one.dart';
 import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
 import 'package:jetsclient/models/user.dart';
+import 'package:jetsclient/screens/screen_tab_form.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config_impl.dart';
 import 'package:jetsclient/utils/form_config_impl.dart';
@@ -37,7 +38,6 @@ const userAdminPath = '/userAdmin';
 // Workspace IDE paths
 const workspaceRegistryPath = '/workspaces';
 const workspaceHomePath = '/workspace/:workspace_name/home';
-const workspaceFileEditorPath = '/workspace/:workspace_name/wsFile/:file_name';
 
 const wsDomainClassesPath = '/workspace/:workspace_name/domainClasses';
 const wsDomainClasseDetailsPath =
@@ -105,19 +105,12 @@ final Map<String, Widget> jetsRoutesMap = {
       formConfig: getFormConfig(FormKeys.workspaceRegistry)),
 
   // Workspace IDE - Workspace Home
-  workspaceHomePath: ScreenWithForm(
+  workspaceHomePath: ScreenWithTabsWithForm(
     key: const Key(ScreenKeys.workspaceHome),
     screenPath: JetsRouteData(workspaceHomePath),
     screenConfig: getScreenConfig(ScreenKeys.workspaceHome),
     formConfig: getFormConfig(FormKeys.workspaceHome),
-  ),
-
-  // Workspace IDE - File Editor
-  workspaceFileEditorPath: ScreenWithForm(
-    key: const Key(ScreenKeys.workspaceFileEditor),
-    screenPath: JetsRouteData(workspaceFileEditorPath),
-    screenConfig: getScreenConfig(ScreenKeys.workspaceFileEditor),
-    formConfig: getFormConfig(FormKeys.workspaceFileEditor),
+    formConfigWhenTabs: getFormConfig(FormKeys.workspaceFileEditor),
   ),
 
   // Pipeline Config

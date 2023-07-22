@@ -36,7 +36,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       key: ScreenKeys.workspaceHome,
       type: ScreenType.workspace,
       appBarLabel: 'JetStore Workspace IDE',
-      title: 'Workspace Home',
+      // title: 'Workspace Home',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: [],

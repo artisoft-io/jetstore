@@ -15,11 +15,15 @@ class ScreenWithMultiForms extends BaseScreen {
     required this.formConfig,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithMultiFormsState;
-          print("*** BUILDING * ScreenWithMultiForms: ${screenConfig.title}");
+          // print("*** BUILDING * ScreenWithMultiForms: ${screenConfig.title}");
+          var l = formConfig.length + 1;
+          if (screenConfig.title == null) {
+            l = formConfig.length;
+          }
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: List<Widget>.generate(formConfig.length + 1, (index) {
-                if (index == 0) {
+              children: List<Widget>.generate(l, (index) {
+                if (index == 0 && screenConfig.title != null) {
                   return Flexible(
                     flex: 1,
                     fit: FlexFit.tight,
@@ -27,20 +31,21 @@ class ScreenWithMultiForms extends BaseScreen {
                       padding: const EdgeInsets.fromLTRB(
                           defaultPadding, 2 * defaultPadding, 0, 0),
                       child: Text(
-                        screenConfig.title,
+                        screenConfig.title!,
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                     ),
                   );
                 }
+                final idx = screenConfig.title == null ? index : index - 1;
                 return Flexible(
-                  flex: 4 + (index-1)*8,
+                  flex: 4 + idx * 8,
                   fit: FlexFit.tight,
                   child: JetsForm(
                       formPath: screenPath,
-                      formState: state.formState[index - 1],
+                      formState: state.formState[idx],
                       formKey: GlobalKey<FormState>(),
-                      formConfig: formConfig[index - 1]),
+                      formConfig: formConfig[idx]),
                 );
               }));
         });
@@ -81,13 +86,5 @@ class ScreenWithMultiFormsState extends BaseScreenState {
       formState[i].resetUpdatedKeys(0);
       formState[i].peersFormState = formState;
     }
-
-    // // REMOVE THIS
-    // // Invoke initializationAction on the formActionelegate if
-    // // initializationAction is not null. This is used to fetch form
-    // // initialization data (e.g. file content for file editor)
-    // if(_widget.screenConfig.initializationDelegate != null) {
-    //   _widget.screenConfig.initializationDelegate!(formState);
-    // }
   }
 }

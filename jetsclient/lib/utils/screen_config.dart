@@ -9,7 +9,7 @@ class ScreenConfig {
     required this.key,
     this.type = ScreenType.home,
     required this.appBarLabel,
-    required this.title,
+    this.title,
     required this.showLogout,
     required this.leftBarLogo,
     required this.menuEntries,
@@ -18,7 +18,7 @@ class ScreenConfig {
   final ScreenType type;
   final String key;
   final String appBarLabel;
-  final String title;
+  final String? title;
   final bool showLogout;
   final String leftBarLogo;
   final List<MenuEntry> menuEntries;
@@ -30,7 +30,7 @@ class ScreenConfig {
 /// "in place" on the screen having the menu item
 /// The functions are defined in menu_delegates folder
 typedef MenuActionDelegate = Future<int> Function(
-    BuildContext context, MenuEntry? menuEntry);
+    BuildContext context, MenuEntry menuEntry, State<StatefulWidget> state);
 
 class MenuEntry {
   MenuEntry({

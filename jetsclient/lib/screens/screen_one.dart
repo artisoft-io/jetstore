@@ -18,6 +18,7 @@ class ScreenOne extends BaseScreen {
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (screenConfig.title != null)
                 Flexible(
                   flex: 1,
                   fit: FlexFit.tight,
@@ -25,7 +26,7 @@ class ScreenOne extends BaseScreen {
                     padding: const EdgeInsets.fromLTRB(
                         defaultPadding, 2 * defaultPadding, 0, 0),
                     child: Text(
-                      screenConfig.title,
+                      screenConfig.title!,
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),

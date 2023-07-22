@@ -5,8 +5,10 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
+import 'package:jetsclient/screens/components/base_screen.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/jets_tab_controller.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
@@ -128,7 +130,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       Map<String, dynamic> params = {
         "workspace_name": state[FSK.wsName],
       };
-      print("NAVIGATING to $workspaceHomePath, with $params");
+      // print(
+      //     "Action.openWorkspace: NAVIGATING to $workspaceHomePath, with $params");
       JetsRouterDelegate()(JetsRouteData(workspaceHomePath, params: params));
 
       JetsSpinnerOverlay.of(context).hide();
@@ -192,7 +195,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       }
       final state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
-      print('File Editor::Save File state: $state');
+      // print('File Editor::Save File state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'save_workspace_file_content',
         'data': [state],
@@ -230,7 +233,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
           FSK.userEmail: JetsRouterDelegate().user.email,
         });
       }
-      print('WorkspaceHome::Delete Changes requestData: $requestData');
+      // print('WorkspaceHome::Delete Changes requestData: $requestData');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_workspace_changes',
         'data': requestData,
@@ -246,7 +249,8 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       }
       // Mark the formState as modified to trigger a table refresh
       // Note, the key 'state_modified' is not used
-      formState.setValueAndNotify(0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
+      formState.setValueAndNotify(
+          0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
       return null;
 
     // Delete ALL Workspace Changes
@@ -257,11 +261,11 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         print('Delete All Workspace Changes: unexpected null workspace_name');
         return 'Delete All Workspace Changes: unexpected null workspace_name';
       }
+      JetsSpinnerOverlay.of(context).show();
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_all_workspace_changes',
         'data': [state],
       }, toEncodable: (_) => '');
-      JetsSpinnerOverlay.of(context).show();
       final result =
           await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
       // ignore: use_build_context_synchronously
@@ -272,7 +276,8 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       }
       // Mark the formState as modified to trigger a table refresh
       // Note, the key 'state_modified' is registered in tableConfig
-      formState.setValueAndNotify(0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
+      formState.setValueAndNotify(
+          0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
       return null;
 
     // Cancel Dialog / Form
@@ -287,32 +292,55 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
 
 /// Initialization Delegate for File Editor Screen
 Future<int> initializeWorkspaceFileEditor(
-    BuildContext context, MenuEntry? menuEntry) async {
-  if (menuEntry == null || menuEntry.routeParams == null) return 200;
-  // state contains file_name and workspace_name (from Navigation)
+    BuildContext context, MenuEntry menuEntry, State<StatefulWidget> s) async {
+  if (menuEntry.routeParams == null) return 200;
+  final state = s as BaseScreenState;
+  final tabIndex = menuEntry.routeParams!['tab.index'] as int?;
+  if (tabIndex != null) {
+    state.tabController.animateTo(tabIndex);
+    return 200;
+  }
   // Need to get file_content from apiserver
+  // JetsSpinnerOverlay.of(context).show();
   var encodedJsonBody = jsonEncode(<String, dynamic>{
     'action': 'get_workspace_file_content',
     'data': [menuEntry.routeParams],
   }, toEncodable: (_) => '');
+
   var result = await HttpClientSingleton().sendRequest(
       path: ServerEPs.dataTableEP,
       token: JetsRouterDelegate().user.token,
       encodedJsonBody: encodedJsonBody);
 
+  // JetsSpinnerOverlay.of(context).hide();
+
   if (result.statusCode == 200) {
-    // state[FSK.wsFileEditorContent] =
-    menuEntry.routeParams![FSK.wsFileEditorContent] =
-        result.body[FSK.wsFileEditorContent] as String?;
+    final formState = JetsFormState(initialGroupCount: 1);
+    formState.setValue(0, FSK.wsName, menuEntry.routeParams![FSK.wsName]);
+    formState.setValue(
+        0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
+    formState.setValue(
+        0, FSK.wsFileEditorContent, result.body[FSK.wsFileEditorContent]);
+    state.tabsStateHelper.addTab(
+        tabParams: JetsTabParams(
+            workspaceName: menuEntry.routeParams![FSK.wsName],
+            label: menuEntry.label,
+            fileName: menuEntry.routeParams![FSK.wsFileName],
+            // fileContent: result.body[FSK.wsFileEditorContent],
+            fileContent: '',
+            formState: formState));
+
+    // Put the file name in current route config so the menu gets highlighted
+    JetsRouterDelegate().currentConfiguration!.params[FSK.wsFileName] =
+        menuEntry.routeParams![FSK.wsFileName];
+    // PUT TAB INDEX in menuEntry.routeParams for when clicking on menu again
+    final l = state.tabsStateHelper.tabsParams.length;
+    menuEntry.routeParams!['tab.index'] = l - 1;
+    state.resetTabController(l - 1, l);
+    // state.tabController.animateTo(state.tabsStateHelper.tabsParams.length);
   } else {
-    menuEntry.routeParams![FSK.wsFileEditorContent] =
-        "Oops, Something went wrong. Could not get the file content";
-    // formStates[0].setValueAndNotify(0, FSK.wsFileEditorContent,
-    //     "Oops, Something went wrong. Could not get the file content");
+    print("Oops, Something went wrong. Could not get the file content");
     return result.statusCode;
   }
-  // Do routing to page
-  JetsRouterDelegate()(
-      JetsRouteData(menuEntry.routePath!, params: menuEntry.routeParams));
   return 200;
 }

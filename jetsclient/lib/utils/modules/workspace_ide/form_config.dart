@@ -100,7 +100,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // Workspace File Editor
   FormKeys.workspaceFileEditor: FormConfig(
     key: FormKeys.workspaceFileEditor,
-    title: "Workspace File Editor",
+    // title: "Workspace File Editor",
     actions: [
       FormActionConfig(
           key: ActionKeys.wsSaveFileOk,
@@ -108,12 +108,6 @@ final Map<String, FormConfig> _formConfigurations = {
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
-      FormActionConfig(
-          key: ActionKeys.dialogCancel,
-          label: "Cancel",
-          buttonStyle: ActionStyle.secondary,
-          leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
     ],
     inputFields: [
       [

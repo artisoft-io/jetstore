@@ -16,10 +16,11 @@ class ScreenWithForm extends BaseScreen {
     required this.formConfig,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithFormState;
-          print("*** BUILDING ScreenWithForm: ${screenConfig.title}");
+          // print("*** BUILDING ScreenWithForm: ${screenConfig.title}");
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if(screenConfig.title != null)
                 Flexible(
                   flex: 1,
                   fit: FlexFit.tight,
@@ -27,7 +28,7 @@ class ScreenWithForm extends BaseScreen {
                     padding: const EdgeInsets.fromLTRB(
                         defaultPadding, 2 * defaultPadding, 0, 0),
                     child: Text(
-                      screenConfig.title,
+                      screenConfig.title!,
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),
@@ -70,9 +71,6 @@ class ScreenWithFormState extends BaseScreenState {
   void initState() {
     super.initState();
     formState = _widget.formConfig.makeFormState();
-
-    print("*** initState for ScreenWithForm");
-
     triggetRefreshListner();
     JetsRouterDelegate().addListener(triggetRefreshListner);
   }

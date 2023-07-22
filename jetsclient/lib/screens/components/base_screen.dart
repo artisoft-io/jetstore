@@ -4,6 +4,7 @@ import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/app_bar.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
+import 'package:jetsclient/screens/components/jets_tab_controller.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -31,14 +32,19 @@ class BaseScreen extends StatefulWidget {
   State<BaseScreen> createState() => BaseScreenState();
 }
 
-class BaseScreenState extends State<BaseScreen> {
+class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
+  final tabsStateHelper = JetsTabsStateHelper();
+  late var tabController = TabController(length: 0, vsync: this);
+
   @override
   void initState() {
     super.initState();
     JetsRouterDelegate().addListener(navListener);
+    tabsStateHelper.addListener(navListener);
   }
 
   void navListener() async {
+    // print("*** BaseScreenState navListener called...");
     if (JetsRouterDelegate().currentConfiguration?.path ==
             widget.screenPath.path &&
         mounted) {
@@ -46,9 +52,55 @@ class BaseScreenState extends State<BaseScreen> {
     }
   }
 
+  void syncMenuWithTab() {
+    // print("*** BaseScreenState * syncMenuWithTab called with tabIndex ${tabController.index}");
+    // Put the file name in current route config so the menu gets highlighted
+    JetsRouterDelegate().currentConfiguration!.params[FSK.wsFileName] =
+        tabsStateHelper.tabsParams[tabController.index].fileName;
+    setState(() {});
+  }
+
+  void removeRecursive(MenuEntry menuEntry, int index) {
+    final tabIndex = menuEntry.routeParams?['tab.index'] as int?;
+    if(tabIndex != null && tabIndex >= index) {
+      if(tabIndex == index) {
+        // Got it, erase the tab.index
+        menuEntry.routeParams!['tab.index'] = null;
+      } else {
+        // reduce tabIndex by 1
+        menuEntry.routeParams!['tab.index'] = tabIndex - 1;
+      }
+    }
+    for (var childEntry in menuEntry.children) {
+      removeRecursive(childEntry, index);
+    }
+  }
+
+  void removeTab(int index) {
+    // print(
+    //     "*** removeTab called @ $index with ${JetsRouterDelegate().workspaceMenuState.length}");
+    for (var menuEntry in JetsRouterDelegate().workspaceMenuState) {
+      removeRecursive(menuEntry, index);
+    }
+    tabsStateHelper.removeTab(index: index);
+    resetTabController(
+        index > 0 ? index - 1 : 0, tabsStateHelper.tabsParams.length);
+    syncMenuWithTab();
+  }
+
+  void resetTabController(int initialIndex, int length) {
+    tabController.removeListener(syncMenuWithTab);
+    tabController.dispose();
+    tabController =
+        TabController(length: length, initialIndex: initialIndex, vsync: this);
+    tabController.addListener(syncMenuWithTab);
+  }
+
   @override
   void dispose() {
     JetsRouterDelegate().removeListener(navListener);
+    tabController.removeListener(syncMenuWithTab);
+    tabController.dispose();
     super.dispose();
   }
 
@@ -71,7 +123,7 @@ class BaseScreenState extends State<BaseScreen> {
   //       If no menuAction, do routing only if defined, otherwise do nothing
   void doMenuOnPress(MenuEntry menuEntry) async {
     if (menuEntry.menuAction != null) {
-      final statusCode = await menuEntry.menuAction!(context, menuEntry);
+      final statusCode = await menuEntry.menuAction!(context, menuEntry, this);
       if (statusCode != 200) {
         showAlertDialog(context, 'Something went wrong. Please try again.');
       }
@@ -152,7 +204,7 @@ class BaseScreenState extends State<BaseScreen> {
         print(
             'Oops unknown widget.screenConfig.type: ${widget.screenConfig.type}');
     }
-
+    // print("*** BUILDING BaseScreen");
     return Scaffold(
         appBar: appBar(
             context, widget.screenConfig.appBarLabel, widget.screenConfig,

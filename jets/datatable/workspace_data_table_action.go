@@ -325,9 +325,10 @@ func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceNam
 	results := &WorkspaceNode{
 		Key:       dir,
 		Label:     dirLabel,
-		RoutePath: fmt.Sprintf("/workspace/:workspace_name/%s", dir),
+		RoutePath: "/workspace/:workspace_name/home",
 		RouteParams: map[string]string{
 			"workspace_name": workspaceName,
+			"label": dirLabel,
 		},
 		Children: children,
 	}
@@ -404,10 +405,11 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 					Key:       path,
 					Type:      "file",
 					Label:     filename,
-					RoutePath: "/workspace/:workspace_name/wsFile/:file_name",
+					RoutePath: "/workspace/:workspace_name/home",
 					RouteParams: map[string]string{
 						"workspace_name": workspaceName,
 						"file_name":      url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename)),
+						"label": filename,
 					},
 				})
 			}
