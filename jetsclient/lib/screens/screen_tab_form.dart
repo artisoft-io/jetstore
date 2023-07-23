@@ -88,64 +88,24 @@ class ScreenWithTabsWithForm extends BaseScreen {
                           controller: state.tabController,
                           children: List<Widget>.generate(
                               state.tabsStateHelper.tabsParams.length,
-                              (index) => Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (screenConfig.title != null)
-                                          Flexible(
-                                            flex: 1,
-                                            fit: FlexFit.tight,
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.fromLTRB(
-                                                      defaultPadding,
-                                                      2 * defaultPadding,
-                                                      0,
-                                                      0),
-                                              child: Text(
-                                                screenConfig.title!,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .headlineMedium,
-                                              ),
-                                            ),
-                                          ),
-                                        Flexible(
-                                          flex: 8,
-                                          fit: FlexFit.tight,
-                                          child: state
-                                                  .tabsStateHelper
-                                                  .tabsParams[index]
-                                                  .formConfig
-                                                  .formTabsConfig
-                                                  .isNotEmpty
-                                              ? JetsFormWithTabs(
-                                                  key: GlobalKey(),
-                                                  formPath: screenPath,
-                                                  formState: state
-                                                      .tabsStateHelper
-                                                      .tabsParams[index]
-                                                      .formState,
-                                                  formKey: state.formKey,
-                                                  formConfig: state
-                                                      .tabsStateHelper
-                                                      .tabsParams[index]
-                                                      .formConfig)
-                                              : JetsForm(
-                                                  key: GlobalKey(),
-                                                  formPath: screenPath,
-                                                  formState: state
-                                                      .tabsStateHelper
-                                                      .tabsParams[index]
-                                                      .formState,
-                                                  formKey: state.formKey,
-                                                  formConfig: state
-                                                      .tabsStateHelper
-                                                      .tabsParams[index]
-                                                      .formConfig),
-                                        ),
-                                      ]))))
+                              (index) => state.tabsStateHelper.tabsParams[index]
+                                      .formConfig.formTabsConfig.isNotEmpty
+                                  ? JetsFormWithTabs(
+                                      key: GlobalKey(),
+                                      formPath: screenPath,
+                                      formState: state.tabsStateHelper
+                                          .tabsParams[index].formState,
+                                      formKey: state.formKey,
+                                      formConfig: state.tabsStateHelper
+                                          .tabsParams[index].formConfig)
+                                  : JetsForm(
+                                      key: GlobalKey(),
+                                      formPath: screenPath,
+                                      formState: state.tabsStateHelper
+                                          .tabsParams[index].formState,
+                                      formKey: state.formKey,
+                                      formConfig: state.tabsStateHelper
+                                          .tabsParams[index].formConfig))))
                 ]);
         });
 
