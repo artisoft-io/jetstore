@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/utils/form_config.dart';
 
 class JetsTabParams {
   JetsTabParams({
     required this.workspaceName,
     required this.label,
     required this.fileName,
-    required this.fileContent,
+    required this.formConfig,
     required this.formState,
   });
   final String workspaceName;
   final String label;
   final String fileName;
-  final String fileContent;
+  final FormConfig formConfig;
   final JetsFormState formState;
 }
 

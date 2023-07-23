@@ -12,7 +12,9 @@ import 'package:jetsclient/screens/components/jets_tab_controller.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
+import 'package:jetsclient/utils/form_config_impl.dart';
 import 'package:jetsclient/utils/screen_config.dart';
+import 'package:jetsclient/utils/form_config.dart';
 
 /// Validation and Actions delegates for the workspaceIDE forms
 String? workspaceIDEFormValidator(
@@ -52,18 +54,43 @@ String? workspaceIDEFormValidator(
 }
 
 // Utility function to create MenuEntry recursively
+// Note: Cap file size to 120K (120000), larger than that we don't bring them in ui
+// Note: MenuEntry.formConfigKey is constructed from e['type'] and e['key']
+// (file, data_model, jet_rules, lookups)
+// It is used in initializeWorkspaceFileEditor to get the formConfig to use.
 List<MenuEntry> mapMenuEntry(List<dynamic> data) {
-  final v = data.map((e) => MenuEntry(
-        key: e!["key"],
-        label: e!["label"],
-        routePath: e!["route_path"],
-        onPageRouteParam: FSK.wsFileName,
-        routeParams: e!["route_params"],
-        menuAction: initializeWorkspaceFileEditor,
-        onPageStyle: ActionStyle.menuSelected,
-        otherPageStyle: ActionStyle.menuAlternate,
-        children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
-      ));
+  final v = data.map((e) {
+    final etype = e!['type'] as String;
+    final key = e!["key"] as String;
+    final routePath = e!['route_path'] as String;
+    final size = e!['size'] as double;
+    String? formConfigKey;
+    switch (etype) {
+      case 'dir':
+        break;
+      case 'file':
+        formConfigKey = FormKeys.workspaceFileEditor;
+        break;
+      case 'section':
+        formConfigKey = "workspace.$key.form";
+        break;
+      default:
+        print("ERROR in mapMenuEntry: unknown menuEntry type: $etype");
+    }
+    return MenuEntry(
+      key: key,
+      label: e!["label"],
+      routePath:
+          size < 120000 ? (routePath.isNotEmpty ? routePath : null) : null,
+      onPageRouteParam: etype == 'file' ? FSK.wsFileName : null,
+      routeParams: e!["route_params"],
+      menuAction: size < 120000 ? initializeWorkspaceFileEditor : null,
+      formConfigKey: formConfigKey,
+      onPageStyle: ActionStyle.menuSelected,
+      otherPageStyle: ActionStyle.menuAlternate,
+      children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
+    );
+  });
   return v.toList();
 }
 
@@ -300,47 +327,60 @@ Future<int> initializeWorkspaceFileEditor(
     state.tabController.animateTo(tabIndex);
     return 200;
   }
-  // Need to get file_content from apiserver
-  // JetsSpinnerOverlay.of(context).show();
-  var encodedJsonBody = jsonEncode(<String, dynamic>{
-    'action': 'get_workspace_file_content',
-    'data': [menuEntry.routeParams],
-  }, toEncodable: (_) => '');
-
-  var result = await HttpClientSingleton().sendRequest(
-      path: ServerEPs.dataTableEP,
-      token: JetsRouterDelegate().user.token,
-      encodedJsonBody: encodedJsonBody);
-
-  // JetsSpinnerOverlay.of(context).hide();
-
-  if (result.statusCode == 200) {
-    final formState = JetsFormState(initialGroupCount: 1);
-    formState.setValue(0, FSK.wsName, menuEntry.routeParams![FSK.wsName]);
-    formState.setValue(
-        0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
-    formState.setValue(
-        0, FSK.wsFileEditorContent, result.body[FSK.wsFileEditorContent]);
-    state.tabsStateHelper.addTab(
-        tabParams: JetsTabParams(
-            workspaceName: menuEntry.routeParams![FSK.wsName],
-            label: menuEntry.label,
-            fileName: menuEntry.routeParams![FSK.wsFileName],
-            // fileContent: result.body[FSK.wsFileEditorContent],
-            fileContent: '',
-            formState: formState));
-
-    // Put the file name in current route config so the menu gets highlighted
-    JetsRouterDelegate().currentConfiguration!.params[FSK.wsFileName] =
-        menuEntry.routeParams![FSK.wsFileName];
-    // PUT TAB INDEX in menuEntry.routeParams for when clicking on menu again
-    final l = state.tabsStateHelper.tabsParams.length;
-    menuEntry.routeParams!['tab.index'] = l - 1;
-    state.resetTabController(l - 1, l);
-    // state.tabController.animateTo(state.tabsStateHelper.tabsParams.length);
-  } else {
-    print("Oops, Something went wrong. Could not get the file content");
-    return result.statusCode;
+  FormConfig? formConfig;
+  if (menuEntry.formConfigKey != null) {
+    formConfig = getFormConfig(menuEntry.formConfigKey!);
   }
+  if (formConfig == null) return 200;
+
+  final formState = JetsFormState(initialGroupCount: 1);
+  formState.setValue(0, FSK.wsName, menuEntry.routeParams![FSK.wsName]);
+  formState.setValue(
+      0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
+
+  // based on MenuEntry.formConfigKey fetch info from server (if file editor)
+  // and get the formConfig
+  if(menuEntry.formConfigKey == FormKeys.workspaceFileEditor) {
+    // Need to get file_content from apiserver
+    // JetsSpinnerOverlay.of(context).show();
+    final encodedJsonBody = jsonEncode(<String, dynamic>{
+      'action': 'get_workspace_file_content',
+      'data': [menuEntry.routeParams],
+    }, toEncodable: (_) => '');
+
+    final result = await HttpClientSingleton().sendRequest(
+        path: ServerEPs.dataTableEP,
+        token: JetsRouterDelegate().user.token,
+        encodedJsonBody: encodedJsonBody);
+
+    // JetsSpinnerOverlay.of(context).hide();
+
+    if (result.statusCode == 200) {
+      formState.setValue(
+          0, FSK.wsFileEditorContent, result.body[FSK.wsFileEditorContent]);
+
+      // Put the file name in current route config so the menu gets highlighted
+      JetsRouterDelegate().currentConfiguration!.params[FSK.wsFileName] =
+          menuEntry.routeParams![FSK.wsFileName];
+    } else {
+      print("Oops, Something went wrong. Could not get the file content");
+      return result.statusCode;
+    }
+  }
+
+  // Create the tab info for the tab manager
+  state.tabsStateHelper.addTab(
+      tabParams: JetsTabParams(
+          workspaceName: menuEntry.routeParams![FSK.wsName],
+          label: menuEntry.label,
+          fileName: menuEntry.routeParams![FSK.wsFileName],
+          formConfig: getFormConfig(FormKeys.workspaceFileEditor),
+          formState: formState));
+
+  // PUT TAB INDEX in menuEntry.routeParams for when clicking on menu again
+  final l = state.tabsStateHelper.tabsParams.length;
+  menuEntry.routeParams!['tab.index'] = l - 1;
+  state.resetTabController(l - 1, l);
+
   return 200;
 }

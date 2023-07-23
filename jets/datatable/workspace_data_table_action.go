@@ -102,6 +102,66 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	return
 }
 
+
+// DoWorkspaceReadAction ------------------------------------------------------
+func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
+
+	if dataTableAction.WorkspaceName == "" {
+		return nil, http.StatusBadRequest, fmt.Errorf("invaid request, missing workspace_name")
+	}
+	// Replace table schema with value $SCHEMA with the workspace_name
+	for i := range dataTableAction.FromClauses {
+		if dataTableAction.FromClauses[i].Schema == "$SCHEMA" {
+			dataTableAction.FromClauses[i].Schema = dataTableAction.WorkspaceName
+		}
+	}
+	
+	// to package up the result
+	results := make(map[string]interface{})
+	var columnsDef []DataTableColumnDef
+	var err error
+
+	if len(dataTableAction.Columns) == 0 {
+		// Get table column definition
+		columnsDef, err = dataTableAction.getColumnsDefinitions(ctx.Dbpool)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
+
+		dataTableAction.SortColumn = columnsDef[0].Name
+		results["columnDef"] = columnsDef
+
+		// Add table's label
+		if dataTableAction.FromClauses[0].Schema == "public" {
+			results["label"] = fmt.Sprintf("Table %s", dataTableAction.FromClauses[0].Table)
+		} else {
+			results["label"] = fmt.Sprintf("Table %s.%s", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
+		}
+	}
+
+	// Build the query
+	query, nbrRowsQuery := dataTableAction.buildQuery()
+
+	// Perform the query
+	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
+	if err != nil {
+		return nil, http.StatusInternalServerError,
+			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+	}
+
+	// get the total nbr of row
+	var totalRowCount int
+	err = ctx.Dbpool.QueryRow(context.Background(), nbrRowsQuery).Scan(&totalRowCount)
+	if err != nil {
+		return nil, http.StatusInternalServerError,
+			fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+	}
+
+	results["totalRowCount"] = totalRowCount
+	results["rows"] = resultRows
+	return &results, http.StatusOK, nil
+}
+
 // This struct correspond to MenuEntry for the ui
 type WorkspaceStructure struct {
 	Key           string            `json:"key"`
@@ -112,6 +172,7 @@ type WorkspaceStructure struct {
 type WorkspaceNode struct {
 	Key         string            `json:"key"`
 	Type        string            `json:"type"`
+	Size        int64             `json:"size"`
 	Label       string            `json:"label"`
 	RoutePath   string            `json:"route_path"`
 	RouteParams map[string]string `json:"route_params"`
@@ -275,9 +336,15 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		// compile_workspace.sh
 		resultData = append(resultData, &WorkspaceNode{
 			Key:       "compile_workspace",
+			Type:       "file",
 			Label:     "Compile Workspace Script",
-			RoutePath: fmt.Sprintf("/workspace/%s/wsFile/%s", workspaceName, url.QueryEscape("compile_workspace.sh")),
-		})
+			RoutePath: "/workspace/:workspace_name/home",
+			RouteParams: map[string]string{
+				"workspace_name": workspaceName,
+				"file_name":      url.QueryEscape("compile_workspace.sh"),
+				"label": "compile_workspace.sh",
+			},
+})
 	default:
 		httpStatus = http.StatusBadRequest
 		err = errors.New("invalid workspace request type")
@@ -324,6 +391,7 @@ func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceNam
 
 	results := &WorkspaceNode{
 		Key:       dir,
+		Type:      "section",
 		Label:     dirLabel,
 		RoutePath: "/workspace/:workspace_name/home",
 		RouteParams: map[string]string{
@@ -401,10 +469,18 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 			}
 			if keepEntry {
 				// fmt.Println("visiting file:", filename)
+				fileInfo, err := info.Info()
+				var size int64
+				if err != nil {
+					log.Println("while trying to get the file size:",err)
+				} else {
+					size = fileInfo.Size()
+				}
 				children = append(children, &WorkspaceNode{
 					Key:       path,
 					Type:      "file",
 					Label:     filename,
+					Size:      size,
 					RoutePath: "/workspace/:workspace_name/home",
 					RouteParams: map[string]string{
 						"workspace_name": workspaceName,

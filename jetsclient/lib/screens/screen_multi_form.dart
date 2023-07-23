@@ -42,6 +42,7 @@ class ScreenWithMultiForms extends BaseScreen {
                   flex: 4 + idx * 8,
                   fit: FlexFit.tight,
                   child: JetsForm(
+                      key: GlobalKey(),
                       formPath: screenPath,
                       formState: state.formState[idx],
                       formKey: GlobalKey<FormState>(),

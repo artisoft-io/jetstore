@@ -72,7 +72,6 @@ class ScreenKeys {
   // Workspace IDE Screens
   static const workspaceRegistry = "workspaceRegistryScreen";
   static const workspaceHome = "workspaceHome";
-  static const workspaceFileEditor = "workspaceFileEditorScreen";
 }
 
 /// Form ID Keys
@@ -118,8 +117,13 @@ class FormKeys {
   static const workspaceRegistry = "workspaceRegistry";
   static const workspaceHome = "workspaceHome";
   static const addWorkspace = "addWorkspace";
-  static const workspaceFileEditor = "workspaceFileEditorForm";
-  static const wsDomainClass = "workspaceDomainClassForm";
+  // Forms for each section of the workspace, incl file editor
+  // Note: The formConfig key is constructed in initializeWorkspaceFileEditor
+  static const workspaceFileEditor = "workspace.file.form";
+  static const wsDataModelForm = "workspace.data_model.form";
+  static const wsJetRulesForm = "workspace.jet_rules.form";
+  static const wsLookupsForm = "workspace.lookups.form";
+  // ... more to come
 }
 
 /// Form State Keys

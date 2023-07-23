@@ -642,6 +642,7 @@ final Map<String, FormConfig> _formConfigurations = {
             whereStateContains: {FSK.sourceType: 'alias_domain_table'}),
       ],
     ],
+    useListView: true,
     formValidatorDelegate: processInputFormValidator,
     formActionsDelegate: processInputFormActions,
   ),

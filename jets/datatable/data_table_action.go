@@ -56,6 +56,7 @@ func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 // sql access builder
 type DataTableAction struct {
 	Action            string                   `json:"action"`
+	WorkspaceName     string                   `json:"workspaceName"`
 	RawQuery          string                   `json:"query"`
 	RawQueryMap       map[string]string        `json:"query_map"`
 	Columns           []Column                 `json:"columns"`
@@ -113,6 +114,83 @@ func (dc *DataTableColumnDef) String() string {
 	buf.WriteString(")")
 	return buf.String()
 
+}
+
+// Return DataTableAction query and stmt to get the number of rows
+func (dtq *DataTableAction) buildQuery() (string, string) {
+	// Build the query
+	// SELECT DISTINCT ON ("table"."key") "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
+	var buf strings.Builder
+
+	// Start with the WITH statements
+	withClause := dtq.makeWithClause()
+	buf.WriteString(withClause)
+	buf.WriteString(" SELECT ")
+	buf.WriteString(dtq.makeDistinctOnClauses())
+	buf.WriteString(dtq.makeSelectColumns())
+
+	buf.WriteString(" FROM ")
+	fromClause := dtq.makeFromClauses()
+	buf.WriteString(fromClause)
+	buf.WriteString(" ")
+
+	whereClause := dtq.makeWhereClause()
+	buf.WriteString(whereClause)
+	if len(dtq.SortColumn) > 0 {
+		buf.WriteString(" ORDER BY ")
+		buf.WriteString(pgx.Identifier{dtq.SortColumn}.Sanitize())
+		if !dtq.SortAscending {
+			buf.WriteString(" DESC ")
+		}
+	}
+	buf.WriteString(" OFFSET ")
+	buf.WriteString(fmt.Sprintf("%d", dtq.Offset))
+	buf.WriteString(" LIMIT ")
+	buf.WriteString(fmt.Sprintf("%d", dtq.Limit))
+
+	// Query for number of rows 
+	var stmt string
+
+	if len(dtq.DistinctOnClauses) > 0 {
+		//* TODO this works only when a single column in distinct clause
+		stmt = fmt.Sprintf("%s SELECT count(distinct %s) FROM %s %s",
+			withClause, dtq.DistinctOnClauses[0], fromClause, whereClause)
+	} else {
+		stmt = fmt.Sprintf("%s SELECT count(*) FROM %s %s", withClause, fromClause, whereClause)
+	}
+	return buf.String(), stmt
+}
+
+// Get Column definition
+func (dtq *DataTableAction) getColumnsDefinitions(dbpool *pgxpool.Pool) ([]DataTableColumnDef, error) {
+
+	var columnsDef []DataTableColumnDef
+	// Get table column definition
+	//* TODO use cache
+	tableSchema, err := schema.GetTableSchema(dbpool, dtq.FromClauses[0].Schema, dtq.FromClauses[0].Table)
+	if err != nil {
+		return nil, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dtq.FromClauses[0].Schema, dtq.FromClauses[0].Table, err)
+	}
+	columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
+	for _, colDef := range tableSchema.Columns {
+		columnsDef = append(columnsDef, DataTableColumnDef{
+			Name:      colDef.ColumnName,
+			Label:     colDef.ColumnName,
+			Tooltips:  colDef.ColumnName,
+			IsNumeric: isNumeric(colDef.DataType)})
+		dtq.Columns = append(dtq.Columns, Column{Column: colDef.ColumnName})
+	}
+	sort.Slice(columnsDef, func(l, r int) bool { return columnsDef[l].Name < columnsDef[r].Name })
+	// need to reset the column index due to the sort
+	for i := range columnsDef {
+		columnsDef[i].Index = i
+	}
+	dtq.Columns = make([]Column, 0, len(tableSchema.Columns))
+	for i := range columnsDef {
+		dtq.Columns = append(dtq.Columns, Column{Column: columnsDef[i].Name})
+	}
+
+	return columnsDef, nil
 }
 
 func (dtq *DataTableAction) makeSelectColumns() string {
@@ -1077,34 +1155,18 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	results := make(map[string]interface{})
 
 	var columnsDef []DataTableColumnDef
+	var err error
+
 	if len(dataTableAction.Columns) == 0 {
 		// Get table column definition
-		//* TODO use cache
-		tableSchema, err := schema.GetTableSchema(ctx.Dbpool, dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
+		columnsDef, err = dataTableAction.getColumnsDefinitions(ctx.Dbpool)		
 		if err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table, err)
-		}
-		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
-		for _, colDef := range tableSchema.Columns {
-			columnsDef = append(columnsDef, DataTableColumnDef{
-				Name:      colDef.ColumnName,
-				Label:     colDef.ColumnName,
-				Tooltips:  colDef.ColumnName,
-				IsNumeric: isNumeric(colDef.DataType)})
-			dataTableAction.Columns = append(dataTableAction.Columns, Column{Column: colDef.ColumnName})
-		}
-		sort.Slice(columnsDef, func(l, r int) bool { return columnsDef[l].Name < columnsDef[r].Name })
-		// need to reset the column index due to the sort
-		for i := range columnsDef {
-			columnsDef[i].Index = i
-		}
-		dataTableAction.Columns = make([]Column, 0, len(tableSchema.Columns))
-		for i := range columnsDef {
-			dataTableAction.Columns = append(dataTableAction.Columns, Column{Column: columnsDef[i].Name})
+			return nil, http.StatusInternalServerError, err
 		}
 
 		dataTableAction.SortColumn = columnsDef[0].Name
 		results["columnDef"] = columnsDef
+
 		// Add table's label
 		if dataTableAction.FromClauses[0].Schema == "public" {
 			results["label"] = fmt.Sprintf("Table %s", dataTableAction.FromClauses[0].Table)
@@ -1136,57 +1198,21 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// //*
 
 	// Build the query
-	// SELECT DISTINCT ON ("table"."key") "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
-	var buf strings.Builder
-	// Start with the WITH statements
-	withClause := dataTableAction.makeWithClause()
-	buf.WriteString(withClause)
-	buf.WriteString(" SELECT ")
-	buf.WriteString(dataTableAction.makeDistinctOnClauses())
-	buf.WriteString(dataTableAction.makeSelectColumns())
-
-	buf.WriteString(" FROM ")
-	fromClause := dataTableAction.makeFromClauses()
-	buf.WriteString(fromClause)
-	buf.WriteString(" ")
-
-	whereClause := dataTableAction.makeWhereClause()
-	buf.WriteString(whereClause)
-	if len(dataTableAction.SortColumn) > 0 {
-		buf.WriteString(" ORDER BY ")
-		buf.WriteString(pgx.Identifier{dataTableAction.SortColumn}.Sanitize())
-		if !dataTableAction.SortAscending {
-			buf.WriteString(" DESC ")
-		}
-	}
-	buf.WriteString(" OFFSET ")
-	buf.WriteString(fmt.Sprintf("%d", dataTableAction.Offset))
-	buf.WriteString(" LIMIT ")
-	buf.WriteString(fmt.Sprintf("%d", dataTableAction.Limit))
+	query, stmt := dataTableAction.buildQuery()
 
 	// Perform the query
-	query := buf.String()
 	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("while executing query from tables %s: %v", fromClause, err)
+			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
 	}
 
 	// get the total nbr of row
-	//* TODO add where clause to filter deleted items
-	var stmt string
-	if len(dataTableAction.DistinctOnClauses) > 0 {
-		//* TODO this works only when a single column in distinct clause
-		stmt = fmt.Sprintf("%s SELECT count(distinct %s) FROM %s %s",
-			withClause, dataTableAction.DistinctOnClauses[0], fromClause, whereClause)
-	} else {
-		stmt = fmt.Sprintf("%s SELECT count(*) FROM %s %s", withClause, fromClause, whereClause)
-	}
 	var totalRowCount int
 	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("while getting total row count from tables %s: %v", fromClause, err)
+			fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
 	}
 
 	results["totalRowCount"] = totalRowCount

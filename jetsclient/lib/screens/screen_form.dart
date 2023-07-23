@@ -38,11 +38,13 @@ class ScreenWithForm extends BaseScreen {
                   fit: FlexFit.tight,
                   child: formConfig.formTabsConfig.isNotEmpty
                       ? JetsFormWithTabs(
+                          key: GlobalKey(),
                           formPath: screenPath,
                           formState: state.formState,
                           formKey: state.formKey,
                           formConfig: formConfig)
                       : JetsForm(
+                          key: GlobalKey(),
                           formPath: screenPath,
                           formState: state.formState,
                           formKey: state.formKey,
@@ -82,7 +84,7 @@ class ScreenWithFormState extends BaseScreenState {
     // reset the updated keys since these updates is to put default values
     // and is not from user interactions
     //* TODO - Stop using group 0 as a special group with validation keys
-    // formState.resetUpdatedKeys(0);
+    formState.resetUpdatedKeys(0);
     setState(() {});
   }
 

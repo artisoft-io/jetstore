@@ -224,11 +224,12 @@ final Map<String, TableConfig> _tableConfigurations = {
   DTKeys.wsDomainClassTable: TableConfig(
     key: DTKeys.wsDomainClassTable,
     fromClauses: [
-      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_classes'),
-      FromClause(schemaName: "/SCHEMA/", tableName: 'workspace_control'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'domain_classes'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'workspace_control'),
     ],
     label: 'Data Model',
     apiPath: '/dataTable',
+    apiAction: 'workspace_read',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: false,
     whereClauses: [
@@ -282,11 +283,12 @@ final Map<String, TableConfig> _tableConfigurations = {
   DTKeys.wsDataPropertyTable: TableConfig(
     key: DTKeys.wsDataPropertyTable,
     fromClauses: [
-      FromClause(schemaName: "/SCHEMA/", tableName: 'data_properties'),
-      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_classes'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'data_properties'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'domain_classes'),
     ],
     label: 'Data Model',
     apiPath: '/dataTable',
+    apiAction: 'workspace_read',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: false,
     whereClauses: [
@@ -347,11 +349,12 @@ final Map<String, TableConfig> _tableConfigurations = {
   DTKeys.wsDomainTableTable: TableConfig(
     key: DTKeys.wsDomainTableTable,
     fromClauses: [
-      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_tables'),
-      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_columns'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'domain_tables'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'domain_columns'),
     ],
     label: 'Data Model',
     apiPath: '/dataTable',
+    apiAction: 'workspace_read',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: false,
     whereClauses: [

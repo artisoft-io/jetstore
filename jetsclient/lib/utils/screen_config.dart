@@ -32,6 +32,11 @@ class ScreenConfig {
 typedef MenuActionDelegate = Future<int> Function(
     BuildContext context, MenuEntry menuEntry, State<StatefulWidget> state);
 
+/// MenuConfig
+/// MenuConfig.formConfigKey is used by ScreenWithTabsWithForm
+/// where each tab can have a different formConfig
+/// and the routing is done within the same page using
+/// the menuAction
 class MenuEntry {
   MenuEntry({
     this.onPageStyle = ActionStyle.primary,
@@ -42,6 +47,7 @@ class MenuEntry {
     this.onPageRouteParam,
     this.routeParams,
     this.menuAction,
+    this.formConfigKey,
     this.children = const [],
   });
   final ActionStyle onPageStyle;
@@ -54,5 +60,6 @@ class MenuEntry {
   final String? onPageRouteParam;
   final Map<String, dynamic>? routeParams;
   final MenuActionDelegate? menuAction;
+  final String? formConfigKey;
   List<MenuEntry> children;
 }

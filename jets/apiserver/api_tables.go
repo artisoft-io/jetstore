@@ -67,6 +67,9 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	case "delete_all_workspace_changes":
 		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, user.ExtractToken(r))
 	
+	case "workspace_read":
+		results, code, err = context.DoWorkspaceReadAction(&dataTableAction)
+	
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)
 	case "preview_file":

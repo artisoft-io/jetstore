@@ -38,6 +38,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
 
   @override
   void initState() {
+    // print("*** base_screen initState called with key ${widget.key}");
     super.initState();
     JetsRouterDelegate().addListener(navListener);
     tabsStateHelper.addListener(navListener);
@@ -62,8 +63,8 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
 
   void removeRecursive(MenuEntry menuEntry, int index) {
     final tabIndex = menuEntry.routeParams?['tab.index'] as int?;
-    if(tabIndex != null && tabIndex >= index) {
-      if(tabIndex == index) {
+    if (tabIndex != null && tabIndex >= index) {
+      if (tabIndex == index) {
         // Got it, erase the tab.index
         menuEntry.routeParams!['tab.index'] = null;
       } else {

@@ -479,6 +479,16 @@ class JetsDataTableSource extends ChangeNotifier {
       }
     }
     msg['sortAscending'] = state.sortAscending;
+
+    // Adding workspace_name if in formState or in current route
+    var workspaceName =
+        state.formState?.getValue(state.formFieldConfig!.group, FSK.wsName);
+    workspaceName ??=
+        JetsRouterDelegate().currentConfiguration?.params[FSK.wsName];
+    if (workspaceName != null) {
+      msg['workspaceName'] = workspaceName;
+    }
+
     // print("*** Query object $msg");
     return msg;
   }

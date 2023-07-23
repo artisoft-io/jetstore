@@ -128,8 +128,8 @@ final Map<String, FormConfig> _formConfigurations = {
   ),
 
   // Workspace Domain Class Table
-  FormKeys.wsDomainClass: FormConfig(
-    key: FormKeys.wsDomainClass,
+  FormKeys.wsDataModelForm: FormConfig(
+    key: FormKeys.wsDataModelForm,
     actions: [
       // Action-less form
     ],

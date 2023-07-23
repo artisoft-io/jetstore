@@ -110,7 +110,6 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: JetsRouteData(workspaceHomePath),
     screenConfig: getScreenConfig(ScreenKeys.workspaceHome),
     formConfig: getFormConfig(FormKeys.workspaceHome),
-    formConfigWhenTabs: getFormConfig(FormKeys.workspaceFileEditor),
   ),
 
   // Pipeline Config
