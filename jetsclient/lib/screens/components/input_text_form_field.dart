@@ -122,7 +122,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
         autovalidateMode: _config.autovalidateMode,
         autofillHints: _config.autofillHints,
         style: const TextStyle(
-          fontFamily: 'Roboto',
+          fontFamily: 'Victor Mono',
           fontWeight: FontWeight.w500,
           fontFeatures: [FontFeature.tabularFigures()],
         ),
