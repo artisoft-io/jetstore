@@ -220,7 +220,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       final oids = state[FSK.wsOid] as List<String>?;
       final fnames = state[FSK.wsFileName] as List<String>?;
       if (wsName == null || keys == null || oids == null || fnames == null) {
-        print('Delete Workspace Changes: unexpected null');
+        print('Delete Workspace Changes: unexpected null, state is $state');
         return 'Delete Workspace Changes: unexpected null';
       }
       List<dynamic> requestData = [];

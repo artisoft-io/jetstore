@@ -127,6 +127,33 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceHomeFormActions,
   ),
 
+  // Workspace Domain Class Table
+  FormKeys.wsDomainClass: FormConfig(
+    key: FormKeys.wsDomainClass,
+    actions: [
+      // Action-less form
+    ],
+    formTabsConfig: [
+      FormTabConfig(
+          label: 'Domain Classes',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsDomainClassTable,
+              dataTableConfig: DTKeys.wsDomainClassTable)),
+      FormTabConfig(
+          label: 'Data Properties',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsDataPropertyTable,
+              dataTableConfig: DTKeys.wsDataPropertyTable)),
+      FormTabConfig(
+          label: 'Domain Tables',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsDomainTableTable,
+              dataTableConfig: DTKeys.wsDomainTableTable)),
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
 };
 
 FormConfig? getWorkspaceFormConfig(String key) {

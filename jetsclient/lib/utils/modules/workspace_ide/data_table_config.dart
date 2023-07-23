@@ -219,6 +219,187 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 20,
   ),
 
+  // Workspace - Data Model Tables
+  // domain_classes table
+  DTKeys.wsDomainClassTable: TableConfig(
+    key: DTKeys.wsDomainClassTable,
+    fromClauses: [
+      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_classes'),
+      FromClause(schemaName: "/SCHEMA/", tableName: 'workspace_control'),
+    ],
+    label: 'Data Model',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "source_file_key", joinWith: "workspace_control.key"),
+    ],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          table: "domain_classes",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "name",
+          table: "domain_classes",
+          label: 'Class Name',
+          tooltips: 'Domain Class Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "as_table",
+          table: "domain_classes",
+          label: 'Persisted as Table?',
+          tooltips: 'Boolean (1:true, 0:false) indicating if this Domain Class is converted into a Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "source_file_name",
+          table: "workspace_control",
+          label: 'Source File Name',
+          tooltips: 'File containing the Class definition',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Workspace - Data Model Tables
+  // data_properties table
+  DTKeys.wsDataPropertyTable: TableConfig(
+    key: DTKeys.wsDataPropertyTable,
+    fromClauses: [
+      FromClause(schemaName: "/SCHEMA/", tableName: 'data_properties'),
+      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_classes'),
+    ],
+    label: 'Data Model',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(column: "domain_class_key", joinWith: "domain_classes.key"),
+    ],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          table: "data_properties",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "name",
+          table: "domain_classes",
+          label: 'Class Name',
+          tooltips: 'Domain Class Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "name",
+          table: "data_properties",
+          label: 'Property Name',
+          tooltips: 'Domain Property Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "type",
+          table: "data_properties",
+          label: 'Property Type',
+          tooltips: 'Range type of the property',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "as_array",
+          table: "data_properties",
+          label: 'Is Array?',
+          tooltips: 'Is the property multi value?',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
+  // Workspace - Data Model Tables
+  // domain_tables/domain_columns table
+  DTKeys.wsDomainTableTable: TableConfig(
+    key: DTKeys.wsDomainTableTable,
+    fromClauses: [
+      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_tables'),
+      FromClause(schemaName: "/SCHEMA/", tableName: 'domain_columns'),
+    ],
+    label: 'Data Model',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(table: "domain_columns", column: "domain_table_key", joinWith: "domain_tables.key"),
+    ],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          table: "domain_tables",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "name",
+          table: "domain_tables",
+          label: 'Table Name',
+          tooltips: 'Domain Table Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "name",
+          table: "domain_columns",
+          label: 'Column Name',
+          tooltips: 'Domain Column Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "as_array",
+          table: "domain_columns",
+          label: 'Is Array?',
+          tooltips: 'Is the column multi value?',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 10,
+  ),
+
 };
 
 TableConfig? getWorkspaceTableConfig(String key) {

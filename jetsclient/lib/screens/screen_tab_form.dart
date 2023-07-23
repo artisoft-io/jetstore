@@ -157,7 +157,9 @@ class ScreenWithTabsWithFormState extends BaseScreenState {
   void initState() {
     super.initState();
     formStateWhenNoTabs = _widget.formConfig.makeFormState();
-    // triggetRefreshListner();
+    // Must trigger refresh to capture param from nvigation route and put it in 
+    // freashfly created formState
+    triggetRefreshListner();
     JetsRouterDelegate().addListener(triggetRefreshListner);
   }
 

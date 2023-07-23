@@ -119,6 +119,7 @@ class FormKeys {
   static const workspaceHome = "workspaceHome";
   static const addWorkspace = "addWorkspace";
   static const workspaceFileEditor = "workspaceFileEditorForm";
+  static const wsDomainClass = "workspaceDomainClassForm";
 }
 
 /// Form State Keys
@@ -399,10 +400,11 @@ class DTKeys {
   // Workspace IDE DT
   static const workspaceRegistryTable = "workspaceRegistryTable";
   static const workspaceChangesTable = "workspaceChangesTable";
-  static const wsDomainClassesTable = "wsDomainClassesTable";
-  static const wsDomainTablesTable = "wsDomainTablesTable";
+  static const wsDomainTableTable = "wsDomainTableTable";
   static const wsLookupsTable = "wsLookupsTable";
   static const wsJetRulesTable = "wsJetRulesTable";
+  static const wsDomainClassTable = "wsDomainClassTable";
+  static const wsDataPropertyTable = "wsDataPropertyTable";
 }
 
 /// API Server endpoints
