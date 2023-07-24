@@ -56,8 +56,8 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
   void syncMenuWithTab() {
     // print("*** BaseScreenState * syncMenuWithTab called with tabIndex ${tabController.index}");
     // Put the file name in current route config so the menu gets highlighted
-    JetsRouterDelegate().currentConfiguration!.params[FSK.wsFileName] =
-        tabsStateHelper.tabsParams[tabController.index].fileName;
+    JetsRouterDelegate().currentConfiguration!.params[FSK.pageMatchKey] =
+        tabsStateHelper.tabsParams[tabController.index].pageMatchKey;
     setState(() {});
   }
 
@@ -108,14 +108,12 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
   ActionStyle getActionStyle(MenuEntry menuEntry) {
     final routeData = JetsRouterDelegate().currentConfiguration;
     if (routeData == null) return menuEntry.otherPageStyle;
-    if (menuEntry.onPageRouteParam == null) {
+    if (menuEntry.pageMatchKey == null) {
       return routeData.path == menuEntry.routePath
           ? menuEntry.onPageStyle
           : menuEntry.otherPageStyle;
     }
-    if (menuEntry.routeParams == null) return menuEntry.otherPageStyle;
-    return routeData.params[menuEntry.onPageRouteParam] ==
-            menuEntry.routeParams![menuEntry.onPageRouteParam]
+    return routeData.params[FSK.pageMatchKey] == menuEntry.pageMatchKey
         ? menuEntry.onPageStyle
         : menuEntry.otherPageStyle;
   }

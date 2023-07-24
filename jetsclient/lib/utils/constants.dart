@@ -225,6 +225,8 @@ class FSK {
   static const wsFileName = "file_name";
   static const wsFileEditorContent = "file_content";
   static const wsOid = "oid";
+  // matching menuItem and current page (virtual page)
+  static const pageMatchKey = "pageMatchKey";
 
 
   // reserved keys for cache

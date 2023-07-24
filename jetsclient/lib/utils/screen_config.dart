@@ -44,7 +44,7 @@ class MenuEntry {
     required this.key,
     required this.label,
     this.routePath,
-    this.onPageRouteParam,
+    this.pageMatchKey,
     this.routeParams,
     this.menuAction,
     this.formConfigKey,
@@ -55,9 +55,10 @@ class MenuEntry {
   final String key;
   final String label;
   final String? routePath;
-  // onPageRouteParam is a key in routeParams to indicate
-  // if this menu item correspond to the page on screen
-  final String? onPageRouteParam;
+  // PageMatchKey is a value to match menuItem and page on screen
+  // by matching value between menuItem and a value placed in current page route
+  // parameters (this is used by screens having mutiple formConfig (virtual pages))
+  final String? pageMatchKey;
   final Map<String, dynamic>? routeParams;
   final MenuActionDelegate? menuAction;
   final String? formConfigKey;

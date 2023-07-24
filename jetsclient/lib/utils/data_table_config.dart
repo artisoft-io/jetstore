@@ -22,6 +22,7 @@ class TableConfig {
       this.refreshOnKeyUpdateEvent = const [],
       this.formStateConfig,
       required this.sortColumnName,
+      this.sortColumnTableName = '',
       required this.sortAscending,
       required this.rowsPerPage,
       this.withClauses = const [],
@@ -47,6 +48,7 @@ class TableConfig {
   final List<String> refreshOnKeyUpdateEvent;
   final DataTableFormStateConfig? formStateConfig;
   final String sortColumnName;
+  final String sortColumnTableName;
   final bool sortAscending;
   final int rowsPerPage;
   final bool noFooter;

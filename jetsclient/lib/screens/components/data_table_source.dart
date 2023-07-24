@@ -469,13 +469,16 @@ class JetsDataTableSource extends ChangeNotifier {
     if (columns.isNotEmpty) {
       msg['columns'] = selectColumns;
       msg['sortColumn'] = state.sortColumnName;
+      msg['sortColumnTable'] = state.sortColumnTableName;
     } else {
       if (state.columnNameMaps.isNotEmpty) {
         msg['columns'] = state.columnNameMaps;
         msg['sortColumn'] = state.sortColumnName;
+        msg['sortColumnTable'] = state.sortColumnTableName;
       } else {
         msg['columns'] = [];
         msg['sortColumn'] = '';
+        msg['sortColumnTable'] = '';
       }
     }
     msg['sortAscending'] = state.sortAscending;

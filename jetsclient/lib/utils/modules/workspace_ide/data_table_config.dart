@@ -273,9 +273,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'File containing the Class definition',
           isNumeric: false),
     ],
-    sortColumnName: 'last_update',
-    sortAscending: false,
-    rowsPerPage: 10,
+    sortColumnName: 'name',
+    sortColumnTableName: 'domain_classes',
+    sortAscending: true,
+    rowsPerPage: 20,
   ),
 
   // Workspace - Data Model Tables
@@ -339,9 +340,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Is the property multi value?',
           isNumeric: false),
     ],
-    sortColumnName: 'last_update',
-    sortAscending: false,
-    rowsPerPage: 10,
+    sortColumnName: 'name',
+    sortColumnTableName: 'domain_classes',
+    sortAscending: true,
+    rowsPerPage: 20,
   ),
 
   // Workspace - Data Model Tables
@@ -351,6 +353,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: "\$SCHEMA", tableName: 'domain_tables'),
       FromClause(schemaName: "\$SCHEMA", tableName: 'domain_columns'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'data_properties'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'domain_classes'),
     ],
     label: 'Data Model',
     apiPath: '/dataTable',
@@ -359,6 +363,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: false,
     whereClauses: [
       WhereClause(table: "domain_columns", column: "domain_table_key", joinWith: "domain_tables.key"),
+      WhereClause(table: "domain_columns", column: "data_property_key", joinWith: "data_properties.key"),
+      WhereClause(table: "data_properties", column: "domain_class_key", joinWith: "domain_classes.key"),
     ],
     actions: [ ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -392,15 +398,30 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 3,
+          name: "type",
+          table: "data_properties",
+          label: 'Data Type',
+          tooltips: 'Column data type',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
           name: "as_array",
           table: "domain_columns",
           label: 'Is Array?',
           tooltips: 'Is the column multi value?',
           isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "name",
+          table: "domain_classes",
+          label: 'Origin Class Name',
+          tooltips: 'Origin Domain Class Name of the Column',
+          isNumeric: false),
     ],
-    sortColumnName: 'last_update',
-    sortAscending: false,
-    rowsPerPage: 10,
+    sortColumnName: 'name',
+    sortColumnTableName: 'domain_tables',
+    sortAscending: true,
+    rowsPerPage: 20,
   ),
 
 };

@@ -6,13 +6,13 @@ class JetsTabParams {
   JetsTabParams({
     required this.workspaceName,
     required this.label,
-    required this.fileName,
+    required this.pageMatchKey,
     required this.formConfig,
     required this.formState,
   });
   final String workspaceName;
   final String label;
-  final String fileName;
+  final String pageMatchKey;
   final FormConfig formConfig;
   final JetsFormState formState;
 }

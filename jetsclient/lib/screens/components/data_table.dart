@@ -255,6 +255,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   bool isTableEditable = false;
   int? sortColumnIndex;
   String sortColumnName = '';
+  String sortColumnTableName = '';
   bool sortAscending = false;
 
   // pagination state
@@ -326,6 +327,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       print("error: table has no visible columns!");
       sortColumnIndex = null;
       sortColumnName = '';
+      sortColumnTableName = '';
       return;
     }
     if (columnIndex < 0 || columnIndex >= filteredColumns.length) {
@@ -337,10 +339,12 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             print("error: table sort column is not visible!");
             sortColumnIndex = null;
             sortColumnName = '';
+            sortColumnTableName = '';
             return;
           } else {
             sortColumnIndex = sortPos;
             sortColumnName = col.name;
+            sortColumnTableName = col.table ?? '';
             return;
           }
         }
@@ -351,11 +355,13 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       var col = filteredColumns.elementAt(columnIndex);
       sortColumnIndex = columnIndex;
       sortColumnName = col.name;
+      sortColumnTableName = col.table ?? '';
       return;
     }
     print("error: table sort column unexpected fall through!");
     sortColumnIndex = null;
     sortColumnName = '';
+    sortColumnTableName = '';
   }
 
   DataColumn makeDataColumn(ColumnConfig e) {

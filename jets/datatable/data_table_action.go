@@ -65,6 +65,7 @@ type DataTableAction struct {
 	WithClauses       []WithClause             `json:"withClauses"`
 	DistinctOnClauses []string                 `json:"distinctOnClauses"`
 	SortColumn        string                   `json:"sortColumn"`
+	SortColumnTable   string                   `json:"sortColumnTable"`
 	SortAscending     bool                     `json:"sortAscending"`
 	Offset            int                      `json:"offset"`
 	Limit             int                      `json:"limit"`
@@ -138,7 +139,11 @@ func (dtq *DataTableAction) buildQuery() (string, string) {
 	buf.WriteString(whereClause)
 	if len(dtq.SortColumn) > 0 {
 		buf.WriteString(" ORDER BY ")
-		buf.WriteString(pgx.Identifier{dtq.SortColumn}.Sanitize())
+		if len(dtq.SortColumnTable) > 0 {
+			buf.WriteString(pgx.Identifier{dtq.SortColumnTable, dtq.SortColumn}.Sanitize())
+		} else {
+			buf.WriteString(pgx.Identifier{dtq.SortColumn}.Sanitize())
+		}
 		if !dtq.SortAscending {
 			buf.WriteString(" DESC ")
 		}

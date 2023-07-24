@@ -61,33 +61,39 @@ String? workspaceIDEFormValidator(
 List<MenuEntry> mapMenuEntry(List<dynamic> data) {
   final v = data.map((e) {
     final etype = e!['type'] as String;
-    final key = e!["key"] as String;
+    final pageMatchKey = e![FSK.pageMatchKey] ?? '';
     final routePath = e!['route_path'] as String;
     final size = e!['size'] as double;
     String? formConfigKey;
+    var onPageStyle = ActionStyle.primary;
+    var otherPageStyle = ActionStyle.secondary;
     switch (etype) {
       case 'dir':
         break;
       case 'file':
         formConfigKey = FormKeys.workspaceFileEditor;
+        onPageStyle = ActionStyle.menuSelected;
+        otherPageStyle = ActionStyle.menuAlternate;
         break;
       case 'section':
-        formConfigKey = "workspace.$key.form";
+        formConfigKey = "workspace.$pageMatchKey.form";
+        onPageStyle = ActionStyle.menuSelected;
+        otherPageStyle = ActionStyle.menuAlternate;
         break;
       default:
         print("ERROR in mapMenuEntry: unknown menuEntry type: $etype");
     }
     return MenuEntry(
-      key: key,
-      label: e!["label"],
+      key: pageMatchKey ?? '',
+      label: e!["label"] ?? '',
       routePath:
           size < 120000 ? (routePath.isNotEmpty ? routePath : null) : null,
-      onPageRouteParam: etype == 'file' ? FSK.wsFileName : null,
+      pageMatchKey: pageMatchKey,
       routeParams: e!["route_params"],
       menuAction: size < 120000 ? initializeWorkspaceFileEditor : null,
       formConfigKey: formConfigKey,
-      onPageStyle: ActionStyle.menuSelected,
-      otherPageStyle: ActionStyle.menuAlternate,
+      onPageStyle: onPageStyle,
+      otherPageStyle: otherPageStyle,
       children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
     );
   });
@@ -125,9 +131,15 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
     case ActionKeys.openWorkspace:
       var state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
-      state[FSK.key] = state[FSK.key][0];
-      state[FSK.wsName] = state[FSK.wsName][0];
-      state[FSK.wsURI] = state[FSK.wsURI][0];
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
       final encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_query_structure',
         'fromClauses': [
@@ -320,9 +332,16 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
 /// Initialization Delegate for File Editor Screen
 Future<int> initializeWorkspaceFileEditor(
     BuildContext context, MenuEntry menuEntry, State<StatefulWidget> s) async {
+  assert(menuEntry.pageMatchKey != null,
+      'menuEntry ${menuEntry.label} as null pageMatchKey');
   if (menuEntry.routeParams == null) return 200;
   final state = s as BaseScreenState;
   final tabIndex = menuEntry.routeParams!['tab.index'] as int?;
+
+  // Put the pageMatchKey in current route config so the menu gets highlighted
+  JetsRouterDelegate().currentConfiguration!.params[FSK.pageMatchKey] =
+      menuEntry.pageMatchKey;
+
   if (tabIndex != null) {
     state.tabController.animateTo(tabIndex);
     return 200;
@@ -335,12 +354,11 @@ Future<int> initializeWorkspaceFileEditor(
 
   final formState = JetsFormState(initialGroupCount: 1);
   formState.setValue(0, FSK.wsName, menuEntry.routeParams![FSK.wsName]);
-  formState.setValue(
-      0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
+  formState.setValue(0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
 
   // based on MenuEntry.formConfigKey fetch info from server (if file editor)
   // and get the formConfig
-  if(menuEntry.formConfigKey == FormKeys.workspaceFileEditor) {
+  if (menuEntry.formConfigKey == FormKeys.workspaceFileEditor) {
     // Need to get file_content from apiserver
     // JetsSpinnerOverlay.of(context).show();
     final encodedJsonBody = jsonEncode(<String, dynamic>{
@@ -358,10 +376,6 @@ Future<int> initializeWorkspaceFileEditor(
     if (result.statusCode == 200) {
       formState.setValue(
           0, FSK.wsFileEditorContent, result.body[FSK.wsFileEditorContent]);
-
-      // Put the file name in current route config so the menu gets highlighted
-      JetsRouterDelegate().currentConfiguration!.params[FSK.wsFileName] =
-          menuEntry.routeParams![FSK.wsFileName];
     } else {
       print("Oops, Something went wrong. Could not get the file content");
       return result.statusCode;
@@ -371,10 +385,11 @@ Future<int> initializeWorkspaceFileEditor(
   // Create the tab info for the tab manager
   state.tabsStateHelper.addTab(
       tabParams: JetsTabParams(
-          workspaceName: menuEntry.routeParams![FSK.wsName],
+          workspaceName: menuEntry.routeParams![FSK.wsName] ?? '',
           label: menuEntry.label,
-          fileName: menuEntry.routeParams![FSK.wsFileName],
-          formConfig: getFormConfig(FormKeys.workspaceFileEditor),
+          pageMatchKey: menuEntry.pageMatchKey!,
+          formConfig: getFormConfig(
+              menuEntry.formConfigKey ?? FormKeys.workspaceFileEditor),
           formState: formState));
 
   // PUT TAB INDEX in menuEntry.routeParams for when clicking on menu again
