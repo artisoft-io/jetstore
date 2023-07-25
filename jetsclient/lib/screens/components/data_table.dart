@@ -188,6 +188,8 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                                   controller: state._horizontalController,
                                   padding: const EdgeInsets.all(defaultPadding),
                                   child: DataTable(
+                                    dataRowMinHeight: tableConfig.dataRowMinHeight,
+                                    dataRowMaxHeight: tableConfig.dataRowMaxHeight,
                                     columns: dataColumns.isNotEmpty
                                         ? dataColumns
                                         : [const DataColumn(label: Text(' '))],
@@ -366,7 +368,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
   DataColumn makeDataColumn(ColumnConfig e) {
     return DataColumn(
-        label: Text(e.label),
+        label: Text(e.label, maxLines: e.maxLines > 0 ? e.maxLines : null,),
         numeric: e.isNumeric,
         tooltip: e.tooltips,
         onSort: ((columnIndex, ascending) =>

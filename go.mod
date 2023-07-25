@@ -11,11 +11,12 @@ require (
 	github.com/aws/constructs-go/constructs/v10 v10.1.168
 	github.com/aws/jsii-runtime-go v1.71.0
 	github.com/golang-jwt/jwt/v4 v4.4.2
-	go.uber.org/zap v1.13.0
+	go.uber.org/zap v1.21.0
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
+	github.com/apache/thrift v0.0.0-20181112125854-24918abba929 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.17.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.9 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.0 // indirect
@@ -37,9 +38,10 @@ require (
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv5/v2 v2.0.21 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/xitongsys/parquet-go v1.5.1 // indirect
 	github.com/yuin/goldmark v1.4.13 // indirect
-	go.uber.org/atomic v1.6.0 // indirect
-	go.uber.org/multierr v1.5.0 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
@@ -68,6 +70,7 @@ require (
 	github.com/lib/pq v1.10.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/prozz/aws-embedded-metrics-golang v1.2.0
+	github.com/xitongsys/parquet-go-source v0.0.0-20230607234618-40034c8066df
 	golang.org/x/crypto v0.1.0
 	golang.org/x/text v0.4.0 // indirect
 )

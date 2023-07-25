@@ -154,6 +154,33 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceIDEFormActions,
   ),
 
+  // Workspace Jet Rules Table
+  FormKeys.wsJetRulesForm: FormConfig(
+    key: FormKeys.wsJetRulesForm,
+    actions: [
+      // Action-less form
+    ],
+    formTabsConfig: [
+      FormTabConfig(
+          label: 'Jet Rules',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsJetRulesTable,
+              dataTableConfig: DTKeys.wsJetRulesTable)),
+      FormTabConfig(
+          label: 'Rule Terms',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsRuleTermsTable,
+              dataTableConfig: DTKeys.wsRuleTermsTable)),
+      FormTabConfig(
+          label: 'Files Relationship',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsMainSupportFilesTable,
+              dataTableConfig: DTKeys.wsMainSupportFilesTable)),
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
 };
 
 FormConfig? getWorkspaceFormConfig(String key) {

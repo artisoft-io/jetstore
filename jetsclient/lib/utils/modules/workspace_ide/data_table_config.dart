@@ -424,6 +424,193 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 20,
   ),
 
+  // Workspace - Jet Rules Tables
+  // jet_rules table
+  DTKeys.wsJetRulesTable: TableConfig(
+    key: DTKeys.wsJetRulesTable,
+    fromClauses: [
+      FromClause(schemaName: "\$SCHEMA", tableName: 'jet_rules'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'workspace_control'),
+    ],
+    label: 'Data Model',
+    apiPath: '/dataTable',
+    apiAction: 'workspace_read',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    dataRowMinHeight: 64,
+    dataRowMaxHeight: 90,
+    whereClauses: [
+      WhereClause(table: "jet_rules", column: "source_file_key", joinWith: "workspace_control.key"),
+    ],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          table: "jet_rules",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "name",
+          table: "jet_rules",
+          label: 'Rule Name',
+          tooltips: 'Jet Rule Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "salience",
+          table: "jet_rules",
+          label: 'Rule Salience',
+          tooltips: 'Jet Rule Salience',
+          isNumeric: true),
+      ColumnConfig(
+          index: 3,
+          name: "authored_label",
+          table: "jet_rules",
+          label: 'Jet Rule',
+          tooltips: 'Jet Rule as Written',
+          maxLines: 5,
+          columnWidth: 900,
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "source_file_name",
+          table: "workspace_control",
+          label: 'Source File Name',
+          tooltips: 'File containing the Jet Rule definition',
+          isNumeric: false),
+    ],
+    sortColumnName: 'name',
+    sortColumnTableName: 'jet_rules',
+    sortAscending: true,
+    rowsPerPage: 20,
+  ),
+
+  // Workspace - Jet Rules Tables
+  // rule_terms table
+  DTKeys.wsRuleTermsTable: TableConfig(
+    key: DTKeys.wsRuleTermsTable,
+    fromClauses: [
+      FromClause(schemaName: "\$SCHEMA", tableName: 'rule_terms'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'jet_rules'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'rete_nodes'),
+    ],
+    label: 'Rule Terms',
+    apiPath: '/dataTable',
+    apiAction: 'workspace_read',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(table: "rule_terms", column: "rule_key", joinWith: "jet_rules.key"),
+      WhereClause(table: "rule_terms", column: "rete_node_key", joinWith: "rete_nodes.key"),
+    ],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "name",
+          table: "jet_rules",
+          label: 'Rule Name',
+          tooltips: 'Jet Rule Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "vertex",
+          table: "rete_nodes",
+          label: 'Rule Vertex',
+          tooltips: 'Jet Rule Vertex',
+          isNumeric: true),
+      ColumnConfig(
+          index: 2,
+          name: "parent_vertex",
+          table: "rete_nodes",
+          label: 'Parent Rule Vertex',
+          tooltips: 'Jet Rule Parent Vertex',
+          isNumeric: true),
+      ColumnConfig(
+          index: 3,
+          name: "normalized_label",
+          table: "rete_nodes",
+          label: 'Jet Rule Term',
+          tooltips: 'Jet Rule Term using normalized label',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "consequent_seq",
+          table: "rete_nodes",
+          label: 'Consequent Seq',
+          tooltips: '0: Antecedent, 1+: Consequent',
+          isNumeric: true),
+    ],
+    sortColumnName: 'name',
+    sortColumnTableName: 'jet_rules',
+    sortAscending: true,
+    rowsPerPage: 20,
+  ),
+
+  // Workspace - Jet Rules Tables
+  // main_support_files table
+  DTKeys.wsMainSupportFilesTable: TableConfig(
+    key: DTKeys.wsMainSupportFilesTable,
+    fromClauses: [
+      FromClause(schemaName: "\$SCHEMA", tableName: 'main_support_files'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'workspace_control', asTableName: 'main_file'),
+      FromClause(schemaName: "\$SCHEMA", tableName: 'workspace_control', asTableName: 'support_file'),
+    ],
+    label: 'Rule Terms',
+    apiPath: '/dataTable',
+    apiAction: 'workspace_read',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(table: "main_support_files", column: "main_file_key", joinWith: "main_file.key"),
+      WhereClause(table: "main_support_files", column: "support_file_key", joinWith: "support_file.key"),
+    ],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "source_file_name",
+          table: "main_file",
+          label: 'Main Rule Module',
+          tooltips: 'Main Rule Module',
+          isNumeric: false,
+          isHidden: false),
+      ColumnConfig(
+          index: 1,
+          name: "source_file_name",
+          table: "support_file",
+          label: 'Jet Rule File',
+          tooltips: 'Jet Rule File',
+          isNumeric: false),
+    ],
+    sortColumnName: 'source_file_name',
+    sortColumnTableName: 'main_file',
+    sortAscending: true,
+    rowsPerPage: 20,
+  ),
+
 };
 
 TableConfig? getWorkspaceTableConfig(String key) {

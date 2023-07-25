@@ -406,11 +406,18 @@ class DTKeys {
   // Workspace IDE DT
   static const workspaceRegistryTable = "workspaceRegistryTable";
   static const workspaceChangesTable = "workspaceChangesTable";
+  
+  // Workspace - Data Model Tables
   static const wsDomainTableTable = "wsDomainTableTable";
-  static const wsLookupsTable = "wsLookupsTable";
-  static const wsJetRulesTable = "wsJetRulesTable";
   static const wsDomainClassTable = "wsDomainClassTable";
   static const wsDataPropertyTable = "wsDataPropertyTable";
+
+  // Workspace - Jet Rules Tables
+  static const wsJetRulesTable = "wsJetRulesTable";
+  static const wsRuleTermsTable = "wsRuleTermsTable";
+  static const wsMainSupportFilesTable = "wsMainSupportFilesTable";
+
+  static const wsLookupsTable = "wsLookupsTable";
 }
 
 /// API Server endpoints
