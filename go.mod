@@ -5,6 +5,7 @@ go 1.19
 require github.com/jackc/pgx/v4 v4.17.2
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.17.2
 	github.com/aws/aws-sdk-go-v2/config v1.18.0
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.39
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.2
@@ -16,8 +17,8 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
-	github.com/apache/thrift v0.0.0-20181112125854-24918abba929 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.17.2 // indirect
+	github.com/apache/arrow/go/arrow v0.0.0-20200730104253-651201b0f516 // indirect
+	github.com/apache/thrift v0.14.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.9 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.0 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.19 // indirect
@@ -36,9 +37,12 @@ require (
 	github.com/cdklabs/awscdk-asset-awscli-go/awscliv1/v2 v2.2.16 // indirect
 	github.com/cdklabs/awscdk-asset-kubectl-go/kubectlv20/v2 v2.1.1 // indirect
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv5/v2 v2.0.21 // indirect
+	github.com/golang/snappy v0.0.3 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
-	github.com/xitongsys/parquet-go v1.5.1 // indirect
+	github.com/pierrec/lz4/v4 v4.1.8 // indirect
+	github.com/xitongsys/parquet-go-source v0.0.0-20200817004010-026bad9b25d0 // indirect
 	github.com/yuin/goldmark v1.4.13 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
@@ -46,6 +50,7 @@ require (
 	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
 
 require (
@@ -70,7 +75,8 @@ require (
 	github.com/lib/pq v1.10.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/prozz/aws-embedded-metrics-golang v1.2.0
-	github.com/xitongsys/parquet-go-source v0.0.0-20230607234618-40034c8066df
 	golang.org/x/crypto v0.1.0
 	golang.org/x/text v0.4.0 // indirect
 )
+
+require github.com/xitongsys/parquet-go v1.6.2

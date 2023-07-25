@@ -18,7 +18,6 @@ import (
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/xitongsys/parquet-go-source/local"
 	"github.com/xitongsys/parquet-go/writer"
 )
 
@@ -118,7 +117,7 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 
 	if parquetOutput {
 		// save report locally in parquet
-		fmt.Println("STMT", name, "saved in parquet format")
+		fmt.Println("STMT", name, "saving in parquet format")
 		// Create temp directory for the local parquet file
 		tempDir, err := os.MkdirTemp("", "jetstore")
 		if err != nil {
@@ -128,7 +127,7 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 	
 		// open the parquet writer
 		tempFileName := fmt.Sprintf("%s/csv.parquet", tempDir)
-		fw, err := local.NewLocalFileWriter(tempFileName)
+		fw, err := NewLocalFileWriter(tempFileName)
 		if err != nil {
 			return "", fmt.Errorf("while opening parquet file for write: %v", err)
 		}
@@ -162,7 +161,7 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 					inColFromOutCol[outPos] = inPos
 					outPos += 1
 				case "double":
-					csvSchema = append(csvSchema, fmt.Sprintf("name=%s, type=FLOAT", columName))
+					csvSchema = append(csvSchema, fmt.Sprintf("name=%s, type=DOUBLE", columName))
 					csvDatatypes = append(csvDatatypes, datatype)
 					outColFromInCol[inPos] = outPos
 					inColFromOutCol[outPos] = inPos
@@ -233,28 +232,28 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 						if ns.Valid {
 							flatRow[outPos] = ns.String
 						} else {
-							flatRow[outPos] = nil
+							flatRow[outPos] = ""
 						}
 					case "double":
 						ns := dataRow[inPos].(*sql.NullFloat64)
 						if ns.Valid {
 							flatRow[outPos] = ns.Float64
 						} else {
-							flatRow[outPos] = nil
+							flatRow[outPos] = float64(0)
 						}
 					case "timestamp", "long":
 						ns := dataRow[inPos].(*sql.NullInt64)
 						if ns.Valid {
 							flatRow[outPos] = ns.Int64
 						} else {
-							flatRow[outPos] = nil
+							flatRow[outPos] = int64(0)
 						}
 					case "int":
 						ns := dataRow[inPos].(*sql.NullInt32)
 						if ns.Valid {
 							flatRow[outPos] = ns.Int32
 						} else {
-							flatRow[outPos] = nil
+							flatRow[outPos] = int32(0)
 						}
 					}
 				} else {
@@ -284,9 +283,6 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 			return "", fmt.Errorf("while copying to s3: %v", err)
 		}
 		fmt.Println("Report:", name, "rowsUploaded containing", rowCount, "rows")
-
-		// Delete temp dir and file
-		os.RemoveAll(tempDir)
 
 	} else {
 		// save to s3 file s3FileName
