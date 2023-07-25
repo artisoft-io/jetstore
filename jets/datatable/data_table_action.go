@@ -22,6 +22,7 @@ import (
 	// "time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 
@@ -78,8 +79,9 @@ type Column struct {
 	Column string `json:"column"`
 }
 type FromClause struct {
-	Schema string `json:"schema"`
-	Table  string `json:"table"`
+	Schema   string `json:"schema"`
+	Table    string `json:"table"`
+	AsTable  string `json:"asTable"`
 }
 type WithClause struct {
 	Name string `json:"name"`
@@ -182,7 +184,7 @@ func (dtq *DataTableAction) getColumnsDefinitions(dbpool *pgxpool.Pool) ([]DataT
 			Name:      colDef.ColumnName,
 			Label:     colDef.ColumnName,
 			Tooltips:  colDef.ColumnName,
-			IsNumeric: isNumeric(colDef.DataType)})
+			IsNumeric: dbutils.IsNumeric(colDef.DataType)})
 		dtq.Columns = append(dtq.Columns, Column{Column: colDef.ColumnName})
 	}
 	sort.Slice(columnsDef, func(l, r int) bool { return columnsDef[l].Name < columnsDef[r].Name })
@@ -231,6 +233,10 @@ func (dtq *DataTableAction) makeFromClauses() string {
 			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].Schema, dtq.FromClauses[i].Table}.Sanitize())
 		} else {
 			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].Table}.Sanitize())
+		}
+		if dtq.FromClauses[i].AsTable != "" {
+			buf.WriteString(" AS ")
+			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].AsTable}.Sanitize())
 		}
 	}
 	return buf.String()
@@ -346,15 +352,6 @@ type SqlInsertDefinition struct {
 	Stmt       string
 	ColumnKeys []string
 	AdminOnly  bool
-}
-
-func isNumeric(dtype string) bool {
-	switch dtype {
-	case "int", "long", "uint", "ulong", "double":
-		return true
-	default:
-		return false
-	}
 }
 
 // var tableSchemaCache *lru.Cache
@@ -1043,30 +1040,10 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	return
 }
 
-func dataTypeFromOID(oid uint32) string {
-	switch oid {
-	case 25, 1009:	                    return "string"
-	case 700,701,1121:                  return "double"
-	case 1082,1182:                     return "date"
-	case 1083,1183:                     return "time"
-	case 1114,1115:                     return "timestamp"
-	case 23, 1007:                      return "int"
-	case 20, 1016:                      return "long"
-	}
-	return "unknown"
-}
-
-func isArrayFromOID(oid uint32) bool {
-	switch oid {
-	case 1009, 1007,1182, 1183, 1115, 1121, 1016:	return true
-	}
-	return false
-}
-
 // utility method
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
-	// //DEV
-	// fmt.Println("\n*** UI Query:\n", *query)
+	//DEV
+	fmt.Println("\n*** UI Query:\n", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	var columnDefs []DataTableColumnDef
 	rows, err := dbpool.Query(context.Background(), *query)
@@ -1083,13 +1060,13 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			columnDefs[i].Index = i
 			columnDefs[i].Name = string(fd[i].Name)
 			columnDefs[i].Label = columnDefs[i].Name
-			dataType := dataTypeFromOID(fd[i].DataTypeOID) 
-			if isNumeric(dataType) {
+			dataType := dbutils.DataTypeFromOID(fd[i].DataTypeOID) 
+			if dbutils.IsNumeric(dataType) {
 				columnDefs[i].IsNumeric = true
 			}
 
 			isArray := ""
-			if isArrayFromOID(fd[i].DataTypeOID) {
+			if dbutils.IsArrayFromOID(fd[i].DataTypeOID) {
 				isArray = "array of "
 			}
 			columnDefs[i].Tooltips = fmt.Sprintf("DataType oid %d, size %d (%s%s)", 
