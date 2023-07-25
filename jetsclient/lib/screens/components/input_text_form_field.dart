@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
@@ -119,6 +121,11 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
         validator: (p0) => widget.formValidator(_config.group, _config.key, p0),
         autovalidateMode: _config.autovalidateMode,
         autofillHints: _config.autofillHints,
+        style: const TextStyle(
+          fontFamily: 'Victor Mono',
+          fontWeight: FontWeight.w500,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }

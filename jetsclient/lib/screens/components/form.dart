@@ -232,7 +232,7 @@ class JetsFormWidgetState extends State<JetsForm> {
           child: Form(
             key: widget.formKey,
             child: AutofillGroup(
-                // When inputFields.length > 5 use ListView
+                // When inputFields.length > 5 or useListView==true then use ListView
                 // otherwise expand the controls to occupy the viewport
                 child: inputFields.length > 5 || (useListView!=null && useListView==true)
                     ? ListView.builder(

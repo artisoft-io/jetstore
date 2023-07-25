@@ -22,12 +22,15 @@ class TableConfig {
       this.refreshOnKeyUpdateEvent = const [],
       this.formStateConfig,
       required this.sortColumnName,
+      this.sortColumnTableName = '',
       required this.sortAscending,
       required this.rowsPerPage,
       this.withClauses = const [],
       this.sqlQuery,
       this.requestColumnDef = false,
-      this.noFooter = false});
+      this.noFooter = false,
+      this.dataRowMinHeight,
+      this.dataRowMaxHeight});
   final String key;
   final String label;
   final String apiPath;
@@ -47,9 +50,12 @@ class TableConfig {
   final List<String> refreshOnKeyUpdateEvent;
   final DataTableFormStateConfig? formStateConfig;
   final String sortColumnName;
+  final String sortColumnTableName;
   final bool sortAscending;
   final int rowsPerPage;
   final bool noFooter;
+  final double? dataRowMinHeight;
+  final double? dataRowMaxHeight;
 }
 
 /// enum describing the type of actions that are available to data table

@@ -469,16 +469,29 @@ class JetsDataTableSource extends ChangeNotifier {
     if (columns.isNotEmpty) {
       msg['columns'] = selectColumns;
       msg['sortColumn'] = state.sortColumnName;
+      msg['sortColumnTable'] = state.sortColumnTableName;
     } else {
       if (state.columnNameMaps.isNotEmpty) {
         msg['columns'] = state.columnNameMaps;
         msg['sortColumn'] = state.sortColumnName;
+        msg['sortColumnTable'] = state.sortColumnTableName;
       } else {
         msg['columns'] = [];
         msg['sortColumn'] = '';
+        msg['sortColumnTable'] = '';
       }
     }
     msg['sortAscending'] = state.sortAscending;
+
+    // Adding workspace_name if in formState or in current route
+    var workspaceName =
+        state.formState?.getValue(state.formFieldConfig!.group, FSK.wsName);
+    workspaceName ??=
+        JetsRouterDelegate().currentConfiguration?.params[FSK.wsName];
+    if (workspaceName != null) {
+      msg['workspaceName'] = workspaceName;
+    }
+
     // print("*** Query object $msg");
     return msg;
   }
@@ -526,7 +539,7 @@ class JetsDataTableSource extends ChangeNotifier {
     if (!state.mounted) return null;
     if (result.statusCode == 200) {
       // update the [model]
-      print("*** Data Table Got Data");
+      // print("*** Data Table Got Data");
       return result.body;
     } else if (result.statusCode == 401) {
       const snackBar = SnackBar(
@@ -579,7 +592,7 @@ class JetsDataTableSource extends ChangeNotifier {
         model = null;
         _totalRowCount = 0;
         notifyListeners();
-        print("*** Table has blocking filter, no refresh");
+        // print("*** Table has blocking filter, no refresh");
         return;
       }
     }

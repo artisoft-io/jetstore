@@ -10,7 +10,7 @@ import 'package:jetsclient/utils/screen_config.dart';
 /// Menu Delegates are action functions to perform on the menu button
 /// onPress method without navigating to a new form, typically use
 /// a simple dialog for confirmation and issue a command to back end
-Future<int> purgeDataAction(BuildContext context, MenuEntry? menuEntry) async {
+Future<int> purgeDataAction(BuildContext context, MenuEntry menuEntry, State<StatefulWidget> state) async {
   var messenger = ScaffoldMessenger.of(context);
   // get user confirmation
   var uc = await showDangerZoneDialog(context,
@@ -41,7 +41,7 @@ Future<int> purgeDataAction(BuildContext context, MenuEntry? menuEntry) async {
 
 /// Rerun database init script
 Future<int> rerunDbInitAction(
-    BuildContext context, MenuEntry? menuEntry) async {
+    BuildContext context, MenuEntry menuEntry, State<StatefulWidget> state) async {
   var messenger = ScaffoldMessenger.of(context);
   // get user confirmation
   var uc = await showDangerZoneDialog(context,

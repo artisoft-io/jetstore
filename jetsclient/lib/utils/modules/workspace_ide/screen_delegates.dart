@@ -5,12 +5,16 @@ import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
+import 'package:jetsclient/screens/components/base_screen.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/screens/components/jets_tab_controller.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
+import 'package:jetsclient/utils/form_config_impl.dart';
 import 'package:jetsclient/utils/screen_config.dart';
+import 'package:jetsclient/utils/form_config.dart';
 
 /// Validation and Actions delegates for the workspaceIDE forms
 String? workspaceIDEFormValidator(
@@ -50,15 +54,49 @@ String? workspaceIDEFormValidator(
 }
 
 // Utility function to create MenuEntry recursively
+// Note: Cap file size to 120K (120000), larger than that we don't bring them in ui
+// Note: MenuEntry.formConfigKey is constructed from e['type'] and e['key']
+// (file, data_model, jet_rules, lookups)
+// It is used in initializeWorkspaceFileEditor to get the formConfig to use.
 List<MenuEntry> mapMenuEntry(List<dynamic> data) {
-  final v = data.map((e) => MenuEntry(
-        key: e!["key"],
-        label: e!["label"],
-        routePath: e!["route_path"],
-        routeParams: e!["route_params"],
-        menuAction: initializeWorkspaceFileEditor,
-        children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
-      ));
+  final v = data.map((e) {
+    final etype = e!['type'] as String;
+    final pageMatchKey = e![FSK.pageMatchKey] ?? '';
+    final routePath = e!['route_path'] as String;
+    final size = e!['size'] as double;
+    String? formConfigKey;
+    var onPageStyle = ActionStyle.primary;
+    var otherPageStyle = ActionStyle.secondary;
+    switch (etype) {
+      case 'dir':
+        break;
+      case 'file':
+        formConfigKey = FormKeys.workspaceFileEditor;
+        onPageStyle = ActionStyle.menuSelected;
+        otherPageStyle = ActionStyle.menuAlternate;
+        break;
+      case 'section':
+        formConfigKey = "workspace.$pageMatchKey.form";
+        onPageStyle = ActionStyle.menuSelected;
+        otherPageStyle = ActionStyle.menuAlternate;
+        break;
+      default:
+        print("ERROR in mapMenuEntry: unknown menuEntry type: $etype");
+    }
+    return MenuEntry(
+      key: pageMatchKey ?? '',
+      label: e!["label"] ?? '',
+      routePath:
+          size < 120000 ? (routePath.isNotEmpty ? routePath : null) : null,
+      pageMatchKey: pageMatchKey,
+      routeParams: e!["route_params"],
+      menuAction: size < 120000 ? initializeWorkspaceFileEditor : null,
+      formConfigKey: formConfigKey,
+      onPageStyle: onPageStyle,
+      otherPageStyle: otherPageStyle,
+      children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
+    );
+  });
   return v.toList();
 }
 
@@ -93,9 +131,15 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
     case ActionKeys.openWorkspace:
       var state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
-      state[FSK.key] = state[FSK.key][0];
-      state[FSK.wsName] = state[FSK.wsName][0];
-      state[FSK.wsURI] = state[FSK.wsURI][0];
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
       final encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_query_structure',
         'fromClauses': [
@@ -125,7 +169,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       Map<String, dynamic> params = {
         "workspace_name": state[FSK.wsName],
       };
-      print("NAVIGATING to $workspaceHomePath, with $params");
+      // print(
+      //     "Action.openWorkspace: NAVIGATING to $workspaceHomePath, with $params");
       JetsRouterDelegate()(JetsRouteData(workspaceHomePath, params: params));
 
       JetsSpinnerOverlay.of(context).hide();
@@ -189,7 +234,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       }
       final state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
-      print('File Editor::Save File state: $state');
+      // print('File Editor::Save File state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'save_workspace_file_content',
         'data': [state],
@@ -214,7 +259,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       final oids = state[FSK.wsOid] as List<String>?;
       final fnames = state[FSK.wsFileName] as List<String>?;
       if (wsName == null || keys == null || oids == null || fnames == null) {
-        print('Delete Workspace Changes: unexpected null');
+        print('Delete Workspace Changes: unexpected null, state is $state');
         return 'Delete Workspace Changes: unexpected null';
       }
       List<dynamic> requestData = [];
@@ -227,7 +272,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
           FSK.userEmail: JetsRouterDelegate().user.email,
         });
       }
-      print('WorkspaceHome::Delete Changes requestData: $requestData');
+      // print('WorkspaceHome::Delete Changes requestData: $requestData');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_workspace_changes',
         'data': requestData,
@@ -243,7 +288,8 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       }
       // Mark the formState as modified to trigger a table refresh
       // Note, the key 'state_modified' is not used
-      formState.setValueAndNotify(0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
+      formState.setValueAndNotify(
+          0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
       return null;
 
     // Delete ALL Workspace Changes
@@ -254,11 +300,11 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         print('Delete All Workspace Changes: unexpected null workspace_name');
         return 'Delete All Workspace Changes: unexpected null workspace_name';
       }
+      JetsSpinnerOverlay.of(context).show();
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_all_workspace_changes',
         'data': [state],
       }, toEncodable: (_) => '');
-      JetsSpinnerOverlay.of(context).show();
       final result =
           await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
       // ignore: use_build_context_synchronously
@@ -269,7 +315,8 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       }
       // Mark the formState as modified to trigger a table refresh
       // Note, the key 'state_modified' is registered in tableConfig
-      formState.setValueAndNotify(0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
+      formState.setValueAndNotify(
+          0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
       return null;
 
     // Cancel Dialog / Form
@@ -284,32 +331,71 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
 
 /// Initialization Delegate for File Editor Screen
 Future<int> initializeWorkspaceFileEditor(
-    BuildContext context, MenuEntry? menuEntry) async {
-  if (menuEntry == null || menuEntry.routeParams == null) return 200;
-  // state contains file_name and workspace_name (from Navigation)
-  // Need to get file_content from apiserver
-  var encodedJsonBody = jsonEncode(<String, dynamic>{
-    'action': 'get_workspace_file_content',
-    'data': [menuEntry.routeParams],
-  }, toEncodable: (_) => '');
-  var result = await HttpClientSingleton().sendRequest(
-      path: ServerEPs.dataTableEP,
-      token: JetsRouterDelegate().user.token,
-      encodedJsonBody: encodedJsonBody);
+    BuildContext context, MenuEntry menuEntry, State<StatefulWidget> s) async {
+  assert(menuEntry.pageMatchKey != null,
+      'menuEntry ${menuEntry.label} as null pageMatchKey');
+  if (menuEntry.routeParams == null) return 200;
+  final state = s as BaseScreenState;
+  final tabIndex = menuEntry.routeParams!['tab.index'] as int?;
 
-  if (result.statusCode == 200) {
-    // state[FSK.wsFileEditorContent] =
-    menuEntry.routeParams![FSK.wsFileEditorContent] =
-        result.body[FSK.wsFileEditorContent] as String?;
-  } else {
-    menuEntry.routeParams![FSK.wsFileEditorContent] =
-        "Oops, Something went wrong. Could not get the file content";
-    // formStates[0].setValueAndNotify(0, FSK.wsFileEditorContent,
-    //     "Oops, Something went wrong. Could not get the file content");
-    return result.statusCode;
+  // Put the pageMatchKey in current route config so the menu gets highlighted
+  JetsRouterDelegate().currentConfiguration!.params[FSK.pageMatchKey] =
+      menuEntry.pageMatchKey;
+
+  if (tabIndex != null) {
+    state.tabController.animateTo(tabIndex);
+    return 200;
   }
-  // Do routing to page
-  JetsRouterDelegate()(
-      JetsRouteData(menuEntry.routePath!, params: menuEntry.routeParams));
+  FormConfig? formConfig;
+  if (menuEntry.formConfigKey != null) {
+    formConfig = getFormConfig(menuEntry.formConfigKey!);
+  }
+  if (formConfig == null) return 200;
+
+  final formState = JetsFormState(initialGroupCount: 1);
+  formState.setValue(0, FSK.wsName, menuEntry.routeParams![FSK.wsName]);
+  formState.setValue(0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
+
+  // based on MenuEntry.formConfigKey fetch info from server (if file editor)
+  // and get the formConfig
+  if (menuEntry.formConfigKey == FormKeys.workspaceFileEditor) {
+    // Need to get file_content from apiserver
+    // JetsSpinnerOverlay.of(context).show();
+    final encodedJsonBody = jsonEncode(<String, dynamic>{
+      'action': 'get_workspace_file_content',
+      'data': [menuEntry.routeParams],
+    }, toEncodable: (_) => '');
+
+    final result = await HttpClientSingleton().sendRequest(
+        path: ServerEPs.dataTableEP,
+        token: JetsRouterDelegate().user.token,
+        encodedJsonBody: encodedJsonBody);
+
+    // JetsSpinnerOverlay.of(context).hide();
+
+    if (result.statusCode == 200) {
+      formState.setValue(
+          0, FSK.wsFileEditorContent, result.body[FSK.wsFileEditorContent]);
+    } else {
+      print("Oops, Something went wrong. Could not get the file content");
+      return result.statusCode;
+    }
+  }
+
+  // Create the tab info for the tab manager
+  state.tabsStateHelper.addTab(
+      tabParams: JetsTabParams(
+          workspaceName: menuEntry.routeParams![FSK.wsName] ?? '',
+          label: menuEntry.label,
+          pageMatchKey: menuEntry.pageMatchKey!,
+          formConfig: getFormConfig(
+              menuEntry.formConfigKey ?? FormKeys.workspaceFileEditor),
+          formState: formState));
+
+  // PUT TAB INDEX in menuEntry.routeParams for when clicking on menu again
+  final l = state.tabsStateHelper.tabsParams.length;
+  menuEntry.routeParams!['tab.index'] = l - 1;
+  state.resetTabController(l - 1, l);
+
   return 200;
 }

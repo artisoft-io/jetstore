@@ -40,7 +40,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
               ? formFieldConfig.autovalidateMode
               : AutovalidateMode.disabled,
           builder: (FormFieldState<WidgetField> field) {
-            print("*** REFRESHING TABLE");
+            // print("*** REFRESHING TABLE");
             final state = field as JetsDataTableState;
             final context = field.context;
             final ThemeData themeData = Theme.of(context);
@@ -188,6 +188,8 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                                   controller: state._horizontalController,
                                   padding: const EdgeInsets.all(defaultPadding),
                                   child: DataTable(
+                                    dataRowMinHeight: tableConfig.dataRowMinHeight,
+                                    dataRowMaxHeight: tableConfig.dataRowMaxHeight,
                                     columns: dataColumns.isNotEmpty
                                         ? dataColumns
                                         : [const DataColumn(label: Text(' '))],
@@ -255,6 +257,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   bool isTableEditable = false;
   int? sortColumnIndex;
   String sortColumnName = '';
+  String sortColumnTableName = '';
   bool sortAscending = false;
 
   // pagination state
@@ -326,6 +329,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       print("error: table has no visible columns!");
       sortColumnIndex = null;
       sortColumnName = '';
+      sortColumnTableName = '';
       return;
     }
     if (columnIndex < 0 || columnIndex >= filteredColumns.length) {
@@ -337,10 +341,12 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             print("error: table sort column is not visible!");
             sortColumnIndex = null;
             sortColumnName = '';
+            sortColumnTableName = '';
             return;
           } else {
             sortColumnIndex = sortPos;
             sortColumnName = col.name;
+            sortColumnTableName = col.table ?? '';
             return;
           }
         }
@@ -351,16 +357,18 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       var col = filteredColumns.elementAt(columnIndex);
       sortColumnIndex = columnIndex;
       sortColumnName = col.name;
+      sortColumnTableName = col.table ?? '';
       return;
     }
     print("error: table sort column unexpected fall through!");
     sortColumnIndex = null;
     sortColumnName = '';
+    sortColumnTableName = '';
   }
 
   DataColumn makeDataColumn(ColumnConfig e) {
     return DataColumn(
-        label: Text(e.label),
+        label: Text(e.label, maxLines: e.maxLines > 0 ? e.maxLines : null,),
         numeric: e.isNumeric,
         tooltip: e.tooltips,
         onSort: ((columnIndex, ascending) =>

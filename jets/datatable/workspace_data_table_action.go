@@ -102,6 +102,65 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	return
 }
 
+// DoWorkspaceReadAction ------------------------------------------------------
+func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
+
+	if dataTableAction.WorkspaceName == "" {
+		return nil, http.StatusBadRequest, fmt.Errorf("invaid request, missing workspace_name")
+	}
+	// Replace table schema with value $SCHEMA with the workspace_name
+	for i := range dataTableAction.FromClauses {
+		if dataTableAction.FromClauses[i].Schema == "$SCHEMA" {
+			dataTableAction.FromClauses[i].Schema = dataTableAction.WorkspaceName
+		}
+	}
+
+	// to package up the result
+	results := make(map[string]interface{})
+	var columnsDef []DataTableColumnDef
+	var err error
+
+	if len(dataTableAction.Columns) == 0 {
+		// Get table column definition
+		columnsDef, err = dataTableAction.getColumnsDefinitions(ctx.Dbpool)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
+
+		dataTableAction.SortColumn = columnsDef[0].Name
+		results["columnDef"] = columnsDef
+
+		// Add table's label
+		if dataTableAction.FromClauses[0].Schema == "public" {
+			results["label"] = fmt.Sprintf("Table %s", dataTableAction.FromClauses[0].Table)
+		} else {
+			results["label"] = fmt.Sprintf("Table %s.%s", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
+		}
+	}
+
+	// Build the query
+	query, nbrRowsQuery := dataTableAction.buildQuery()
+
+	// Perform the query
+	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
+	if err != nil {
+		return nil, http.StatusInternalServerError,
+			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+	}
+
+	// get the total nbr of row
+	var totalRowCount int
+	err = ctx.Dbpool.QueryRow(context.Background(), nbrRowsQuery).Scan(&totalRowCount)
+	if err != nil {
+		return nil, http.StatusInternalServerError,
+			fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+	}
+
+	results["totalRowCount"] = totalRowCount
+	results["rows"] = resultRows
+	return &results, http.StatusOK, nil
+}
+
 // This struct correspond to MenuEntry for the ui
 type WorkspaceStructure struct {
 	Key           string            `json:"key"`
@@ -110,12 +169,14 @@ type WorkspaceStructure struct {
 	ResultData    *[]*WorkspaceNode `json:"result_data"`
 }
 type WorkspaceNode struct {
-	Key         string            `json:"key"`
-	Type        string            `json:"type"`
-	Label       string            `json:"label"`
-	RoutePath   string            `json:"route_path"`
-	RouteParams map[string]string `json:"route_params"`
-	Children    *[]*WorkspaceNode `json:"children"`
+	Key          string            `json:"key"`
+	PageMatchKey string            `json:"pageMatchKey"`
+	Type         string            `json:"type"`
+	Size         int64             `json:"size"`
+	Label        string            `json:"label"`
+	RoutePath    string            `json:"route_path"`
+	RouteParams  map[string]string `json:"route_params"`
+	Children     *[]*WorkspaceNode `json:"children"`
 }
 
 // WorkspaceQueryStructure ------------------------------------------------------
@@ -274,9 +335,16 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 		// compile_workspace.sh
 		resultData = append(resultData, &WorkspaceNode{
-			Key:       "compile_workspace",
-			Label:     "Compile Workspace Script",
-			RoutePath: fmt.Sprintf("/workspace/%s/wsFile/%s", workspaceName, url.QueryEscape("compile_workspace.sh")),
+			Key:          "compile_workspace",
+			Type:         "file",
+			PageMatchKey: "compile_workspace.sh",
+			Label:        "Compile Workspace Script",
+			RoutePath:    "/workspace/:workspace_name/home",
+			RouteParams: map[string]string{
+				"workspace_name": workspaceName,
+				"file_name":      url.QueryEscape("compile_workspace.sh"),
+				"label":          "compile_workspace.sh",
+			},
 		})
 	default:
 		httpStatus = http.StatusBadRequest
@@ -323,11 +391,14 @@ func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceNam
 	}
 
 	results := &WorkspaceNode{
-		Key:       dir,
-		Label:     dirLabel,
-		RoutePath: fmt.Sprintf("/workspace/:workspace_name/%s", dir),
+		Key:          dir,
+		Type:         "section",
+		PageMatchKey: dir,
+		Label:        dirLabel,
+		RoutePath:    "/workspace/:workspace_name/home",
 		RouteParams: map[string]string{
 			"workspace_name": workspaceName,
+			"label": dirLabel,
 		},
 		Children: children,
 	}
@@ -383,9 +454,14 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 			subdir := info.Name()
 			// fmt.Println("visiting directory:", subdir)
 			children = append(children, &WorkspaceNode{
-				Key:   path,
-				Type:  "dir",
-				Label: subdir,
+				Key:          path,
+				Type:         "dir",
+				PageMatchKey: path,
+				Label:        subdir,
+				RouteParams: map[string]string{
+					"workspace_name": workspaceName,
+					"label": subdir,
+		},
 			})
 			return fs.SkipDir
 
@@ -400,14 +476,25 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 			}
 			if keepEntry {
 				// fmt.Println("visiting file:", filename)
+				fileInfo, err := info.Info()
+				var size int64
+				if err != nil {
+					log.Println("while trying to get the file size:", err)
+				} else {
+					size = fileInfo.Size()
+				}
+				relativeFileName := url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename))
 				children = append(children, &WorkspaceNode{
-					Key:       path,
-					Type:      "file",
-					Label:     filename,
-					RoutePath: "/workspace/:workspace_name/wsFile/:file_name",
+					Key:          path,
+					Type:         "file",
+					PageMatchKey: relativeFileName,
+					Label:        filename,
+					Size:         size,
+					RoutePath:    "/workspace/:workspace_name/home",
 					RouteParams: map[string]string{
 						"workspace_name": workspaceName,
-						"file_name":      url.QueryEscape(fmt.Sprintf("%s/%s", relativeRoot, filename)),
+						"file_name":      relativeFileName,
+						"label":          filename,
 					},
 				})
 			}
@@ -546,9 +633,9 @@ func StashWorkspaceFiles(workspaceName string) error {
 	var err error
 	if err2 := os.Mkdir(stashPath, 0755); os.IsExist(err2) {
 		log.Println("Workspace stash", stashPath, "exists")
- } else {
+	} else {
 		log.Println("Workspace stash directory ", stashPath, "created")
- }
+	}
 
 	// copy all files if targetDir does not exists
 	if _, err2 := os.Stat(fmt.Sprintf("%s/%s", stashPath, workspaceName)); err2 != nil {
@@ -637,16 +724,16 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 		wsFileName := request["file_name"]
 		wsUserEmail := request["user_email"]
 		wsKey := request["key"]
-		if wsName == nil || wsOid==nil || wsFileName == nil || wsKey == nil || wsUserEmail==nil {
+		if wsName == nil || wsOid == nil || wsFileName == nil || wsKey == nil || wsUserEmail == nil {
 			err = fmt.Errorf("DeleteWorkspaceChanges: missing workspace_name, oid, key, user email, or file_name")
 			fmt.Println(err)
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		fmt.Println("DeleteWorkspaceChanges: Deleting key",wsKey,"file name",wsFileName)
-		stmt := fmt.Sprintf("SELECT lo_unlink(%s); DELETE FROM jetsapi.workspace_changes WHERE key = %s", 
-				wsOid.(string), wsKey.(string))
-		fmt.Println("DELETE stmt:",stmt)
+		fmt.Println("DeleteWorkspaceChanges: Deleting key", wsKey, "file name", wsFileName)
+		stmt := fmt.Sprintf("SELECT lo_unlink(%s); DELETE FROM jetsapi.workspace_changes WHERE key = %s",
+			wsOid.(string), wsKey.(string))
+		fmt.Println("DELETE stmt:", stmt)
 		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			log.Printf("While deleting row in workspace_changes table: %v", err)
@@ -681,11 +768,11 @@ func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, 
 		httpStatus = http.StatusBadRequest
 		return
 	}
-	fmt.Println("DeleteAllWorkspaceChanges: woarkspace_name",wsName)
+	fmt.Println("DeleteAllWorkspaceChanges: woarkspace_name", wsName)
 	stmt := fmt.Sprintf(
-			"SELECT lo_unlink(oid) FROM jetsapi.workspace_changes WHERE workspace_name = '%s'; DELETE FROM jetsapi.workspace_changes WHERE workspace_name = '%s'", 
-			wsName.(string), wsName.(string))
-	fmt.Println("DELETE stmt:",stmt)
+		"SELECT lo_unlink(oid) FROM jetsapi.workspace_changes WHERE workspace_name = '%s'; DELETE FROM jetsapi.workspace_changes WHERE workspace_name = '%s'",
+		wsName.(string), wsName.(string))
+	fmt.Println("DELETE stmt:", stmt)
 	_, err = ctx.Dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		log.Printf("While deleting row in workspace_changes table: %v", err)

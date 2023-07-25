@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
-import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Validation and Actions delegates for the workspaceIDE forms

@@ -73,3 +73,4 @@ jets/compilerv2/compilerv2
 jets/compilerv2/gpi_interchange_main.jrcc.json
 jets/compilerv2/out.jrcc.json
 jets/dbutils/tests/tests
+jets/run_reports/test_data/test_data
