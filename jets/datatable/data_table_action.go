@@ -1042,8 +1042,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 // utility method
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
-	//DEV
-	fmt.Println("\n*** UI Query:\n", *query)
+	// //DEV
+	// fmt.Println("\n*** UI Query:\n", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	var columnDefs []DataTableColumnDef
 	rows, err := dbpool.Query(context.Background(), *query)
