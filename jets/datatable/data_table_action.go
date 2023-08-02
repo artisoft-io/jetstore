@@ -838,7 +838,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, dataTableAction.Data[0]["process_name"]).Scan(&devModeCode, &stateMachineName)
 		if err != nil {
-			log.Printf("While getting devModeCode, stateMachineName from process_config: %v", err)
+			log.Printf("While getting devModeCode, stateMachineName from process_config WHERE process_name = '%s': %v", dataTableAction.Data[0]["process_name"], err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while reading from a table")
 			return
