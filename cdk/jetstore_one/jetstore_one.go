@@ -1221,15 +1221,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// JETS_ELB_MODE == public: deploy ELB in public subnet and public facing
 	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
 	var uiLoadBalancer, serviceLoadBalancer awselb.ApplicationLoadBalancer
+	elbSubnetSelection := isolatedSubnetSelection
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		internetFacing := false
 		if os.Getenv("JETS_ELB_INTERNET_FACING") == "true" {
 			internetFacing = true
+			elbSubnetSelection = publicSubnetSelection
 		}
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(internetFacing),
-			VpcSubnets:     publicSubnetSelection,
+			VpcSubnets:      elbSubnetSelection,
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
