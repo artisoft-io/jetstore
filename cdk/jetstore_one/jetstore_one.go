@@ -1222,9 +1222,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
 	var uiLoadBalancer, serviceLoadBalancer awselb.ApplicationLoadBalancer
 	if os.Getenv("JETS_ELB_MODE") == "public" {
+		internetFacing := false
+		if os.Getenv("JETS_ELB_INTERNET_FACING") == "true" {
+			internetFacing = true
+		}
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
-			InternetFacing: jsii.Bool(true),
+			InternetFacing: jsii.Bool(internetFacing),
 			VpcSubnets:     publicSubnetSelection,
 		})
 		if phiTagName != nil {
@@ -1459,7 +1463,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_IMAGE_TAG (required)
 // JETS_UI_PORT (defaults 8080)
 // JETS_ELB_MODE (defaults private)
-// JETS_CERT_ARN (not required)
+// JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
+// JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
 // NBR_SHARDS (defaults to 1)
 // TASK_MAX_CONCURRENCY (defaults to 1)
 // JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
@@ -1500,6 +1505,7 @@ func main() {
 	fmt.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
 	fmt.Println("env JETS_ELB_MODE:", os.Getenv("JETS_ELB_MODE"))
 	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
+	fmt.Println("env JETS_ELB_INTERNET_FACING:", os.Getenv("JETS_ELB_INTERNET_FACING"))
 	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
 	fmt.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
 	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
@@ -1539,6 +1545,16 @@ func main() {
 	if os.Getenv("JETS_ELB_MODE") == "public" && os.Getenv("JETS_CERT_ARN") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variable 'JETS_CERT_ARN' is required when 'JETS_ELB_MODE'==public.")
+	}
+	if os.Getenv("JETS_ELB_MODE") == "public" && os.Getenv("JETS_ELB_INTERNET_FACING") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variable 'JETS_ELB_INTERNET_FACING' is required when 'JETS_ELB_MODE'==public.")
+	}
+	if os.Getenv("JETS_ELB_INTERNET_FACING") != "" {
+		if os.Getenv("JETS_ELB_INTERNET_FACING") != "true" && os.Getenv("JETS_ELB_INTERNET_FACING") != "false" {
+			hasErr = true
+			errMsg = append(errMsg, "Env variable 'JETS_ELB_INTERNET_FACING' must have value 'true' or 'false' (no quotes)")
+		}
 	}
 	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" || os.Getenv("JETS_s3_OUTPUT_PREFIX") == "" {
 		hasErr = true
