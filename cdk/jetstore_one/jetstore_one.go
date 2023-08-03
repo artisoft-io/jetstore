@@ -14,7 +14,7 @@ import (
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
+	// "github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
 
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
@@ -28,7 +28,7 @@ import (
 	jsii "github.com/aws/jsii-runtime-go"
 
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
-	s3deployment "github.com/aws/aws-cdk-go/awscdk/v2/awss3deployment"
+	// s3deployment "github.com/aws/aws-cdk-go/awscdk/v2/awss3deployment"
 )
 
 type DbClusterVisitor struct {
