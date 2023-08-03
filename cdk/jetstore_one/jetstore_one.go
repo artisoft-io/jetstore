@@ -281,16 +281,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Value: sourceBucket.BucketName(),
 	})
 
-	// Copy test files from workspace data folder to the bucket
-	testFilesPath := fmt.Sprintf("%s/%s/data/test_data", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
-	s3deployment.NewBucketDeployment(stack, jsii.String("WorkspaceTestFilesDeployment"), &s3deployment.BucketDeploymentProps{
-		Sources: &[]s3deployment.ISource{
-			s3deployment.Source_Asset(jsii.String(testFilesPath), &awss3assets.AssetOptions{}),
-		},
-		DestinationBucket:    sourceBucket,
-		DestinationKeyPrefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-		Prune:                jsii.Bool(false),
-	})
+	// // Copy test files from workspace data folder to the bucket
+	// testFilesPath := fmt.Sprintf("%s/%s/data/test_data", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
+	// s3deployment.NewBucketDeployment(stack, jsii.String("WorkspaceTestFilesDeployment"), &s3deployment.BucketDeploymentProps{
+	// 	Sources: &[]s3deployment.ISource{
+	// 		s3deployment.Source_Asset(jsii.String(testFilesPath), &awss3assets.AssetOptions{}),
+	// 	},
+	// 	DestinationBucket:    sourceBucket,
+	// 	DestinationKeyPrefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+	// 	Prune:                jsii.Bool(false),
+	// })
 
 	// Create a VPC to run tasks in.
 	// ----------------------------------------------------------------------------------------------
