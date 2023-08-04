@@ -787,7 +787,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	statusUpdateLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
 	rdsSecret.GrantRead(statusUpdateLambda, nil)
 	// NOTE following added below due to dependency
-	// statusUpdateLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
+	// statusUpdateLambda.Connections().AllowTo(apiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
 	// adminPwdSecret.GrantRead(statusUpdateLambda, nil)
 
 	// Run Reports ECS Task for reportsSM
@@ -1220,7 +1220,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// JETS_ELB_MODE == public: deploy ELB in public subnet and public facing
 	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
-	var uiLoadBalancer, serviceLoadBalancer awselb.ApplicationLoadBalancer
+	var uiLoadBalancer, serviceLoadBalancer, apiLoadBalancer awselb.ApplicationLoadBalancer
 	elbSubnetSelection := isolatedSubnetSelection
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		internetFacing := false
@@ -1256,6 +1256,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(serviceLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for S3 notification listener lambda"), nil)
 		}
+		apiLoadBalancer = serviceLoadBalancer
 	} else {
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
@@ -1271,6 +1272,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
 		}
+		apiLoadBalancer = uiLoadBalancer
 	}
 	var err error
 	var uiPort float64 = 8080
@@ -1281,7 +1283,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		}
 	}
 	var listener, serviceListener awselb.ApplicationListener
-	// When TLS is used, lambda function use a different port w/o tls protocol
+	// When TLS is used, lambda function use a different port w/o tls protocol via apiLoadBalancer
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		listener = uiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort),
@@ -1293,7 +1295,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		})
 		serviceListener = serviceLoadBalancer.AddListener(jsii.String("ServiceListener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort + 1),
-			Open:     jsii.Bool(true),
+			Open:     jsii.Bool(false),
 			Protocol: awselb.ApplicationProtocol_HTTP,
 		})
 	} else {
@@ -1329,13 +1331,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// Connectivity info for lambda functions to apiserver
 	p := uiPort
-	s := uiLoadBalancer.LoadBalancerDnsName()
+	s := apiLoadBalancer.LoadBalancerDnsName()
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		p = uiPort + 1
-		s = serviceLoadBalancer.LoadBalancerDnsName()
 	}
 	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *s, p)
-	statusUpdateLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from StatusUpdateLambda"))
+	statusUpdateLambda.Connections().AllowTo(apiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from StatusUpdateLambda"))
 	adminPwdSecret.GrantRead(statusUpdateLambda, nil)
 	statusUpdateLambda.AddEnvironment(
 		jsii.String("SYSTEM_PWD_SECRET"),
@@ -1418,7 +1419,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Vpc:        vpc,
 		VpcSubnets: isolatedSubnetSelection,
 	})
-	registerKeyLambda.Connections().AllowTo(uiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
+	registerKeyLambda.Connections().AllowTo(apiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
 	adminPwdSecret.GrantRead(registerKeyLambda, nil)
 	// END ALTERNATE with python lamdba fnc
 	if phiTagName != nil {
