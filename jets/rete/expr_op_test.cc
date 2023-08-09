@@ -481,6 +481,62 @@ TEST_F(ExprOpTest, MonthPeriodOfTest1) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32((2000-1970)*12 + 7)));
 }
+// String operator: substring_of
+TEST_F(ExprOpTest, SubstringOfVisitor1) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  rdf::r_index config = rmgr->create_resource("config");
+  sess->insert(config, rmgr->jets()->jets__from, rmgr->create_literal(2));
+  sess->insert(config, rmgr->jets()->jets__length, rmgr->create_literal(4));
+  SubstringOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("config");
+  rdf::LString rhs("==Allo===");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("Allo")));
+}
+TEST_F(ExprOpTest, SubstringOfVisitor2) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  rdf::r_index config = rmgr->create_resource("config");
+  sess->insert(config, rmgr->jets()->jets__from, rmgr->create_literal(2));
+  sess->insert(config, rmgr->jets()->jets__length, rmgr->create_literal(20));
+  SubstringOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("config");
+  rdf::LString rhs("==Allo");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("Allo")));
+}
+TEST_F(ExprOpTest, CharAtVisitor1) {
+  CharAtVisitor op(this->rete_session.get(), nullptr);
+  rdf::LString lhs("==Allo");
+  rdf::LInt32 rhs(2);
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("A")));
+}
+TEST_F(ExprOpTest, ReplaceCharOfVisitor1) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  rdf::r_index config = rmgr->create_resource("config");
+  sess->insert(config, rmgr->jets()->jets__replace_chars, rmgr->create_literal("`' "));
+  sess->insert(config, rmgr->jets()->jets__replace_with, rmgr->create_literal("_"));
+  ReplaceCharOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("config");
+  rdf::LString rhs("something`that'different or else");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("something_that_different_or_else")));
+}
+TEST_F(ExprOpTest, ReplaceCharOfVisitor2) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  rdf::r_index config = rmgr->create_resource("config");
+  sess->insert(config, rmgr->jets()->jets__replace_chars, rmgr->create_literal("`' "));
+  sess->insert(config, rmgr->jets()->jets__replace_with, rmgr->create_literal("_"));
+  ReplaceCharOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("config");
+  rdf::LString rhs("something`that");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("something_that")));
+}
 
 }   // namespace
 }   // namespace jets::rdf

@@ -48,6 +48,9 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
   if(op == "apply_format")      return create_expr_binary_operator<ApplyFormatVisitor>(key, lhs, rhs);
   if(op == "contains")          return create_expr_binary_operator<ContainsVisitor>(key, lhs, rhs);
   if(op == "starts_with")       return create_expr_binary_operator<StartsWithVisitor>(key, lhs, rhs);
+  if(op == "substring_of")      return create_expr_binary_operator<SubstringOfVisitor>(key, lhs, rhs);
+  if(op == "char_at")           return create_expr_binary_operator<CharAtVisitor>(key, lhs, rhs);
+  if(op == "replace_char_of")   return create_expr_binary_operator<ReplaceCharOfVisitor>(key, lhs, rhs);
 
   // Resource operators
   if(op == "size_of")           return create_expr_binary_operator<SizeOfVisitor>(key, lhs, rhs);
