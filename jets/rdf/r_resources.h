@@ -29,14 +29,18 @@ struct JetsResources {
   r_index jets__completed{nullptr};
   r_index jets__entity_property{nullptr};
   r_index jets__exception{nullptr};
+  r_index jets__from{nullptr};
   r_index jets__input_record{nullptr};
   r_index jets__istate{nullptr};
   r_index jets__key{nullptr};
+  r_index jets__length{nullptr};
   r_index jets__lookup_multi_rows{nullptr};
   r_index jets__lookup_row{nullptr};
   r_index jets__loop{nullptr};
   r_index jets__operator{nullptr};
   r_index jets__org{nullptr};
+  r_index jets__replace_chars{nullptr};
+  r_index jets__replace_with{nullptr};
   r_index jets__source_period_sequence{nullptr};
   r_index jets__state{nullptr};
   r_index jets__value_property{nullptr};

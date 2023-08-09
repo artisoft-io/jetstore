@@ -192,6 +192,109 @@ struct StartsWithVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallb
   BetaRow const* br;
 };
 
+// SubstringOfVisitor
+// --------------------------------------------------------------------------------------
+struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  SubstringOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  SubstringOfVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substring_of: ("<<lhs<<", "<<rhs<<")");};
+
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LString rhs)const
+  {
+    // lhs argument is a config resource with data properties:
+    //    - jets:from int value for start position of substring
+    //    - jets:length int value for length of substring.
+    // Note: if jets:from + jets:length > rhs.data.size() then return the available characters of rhs.data
+    // Get from and length from the config object
+    auto * sess = rs->rdf_session();
+    auto rmgr = sess->rmgr();
+    auto config = rmgr->get_resource(lhs.name);
+    auto const* jr = rmgr->jets();
+    auto from_obj  = sess->get_object(config, jr->jets__from);
+    auto length_obj  = sess->get_object(config, jr->jets__length);
+
+    // if obj == null or not int, then raise an error
+    if (from_obj == nullptr || from_obj->which() != rdf::rdf_literal_int32_t) {
+      sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal("error: invalid jets:from property for operator substring_of "+rhs.data));
+      return rdf::Null();
+    }
+    if (length_obj == nullptr || length_obj->which() != rdf::rdf_literal_int32_t) {
+      sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal("error: invalid jets:length property for operator substring_of "+rhs.data));
+      return rdf::Null();
+    }
+    auto from = boost::get<rdf::LInt32>(from_obj)->data;
+    auto length = boost::get<rdf::LInt32>(length_obj)->data;
+    return rdf::LString{ rhs.data.substr(from, length) };
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
+// ReplaceCharOfVisitor
+// --------------------------------------------------------------------------------------
+struct ReplaceCharOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  ReplaceCharOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  ReplaceCharOfVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substring_of: ("<<lhs<<", "<<rhs<<")");};
+
+  RDFTTYPE operator()(rdf::NamedResource lhs, rdf::LString rhs)const
+  {
+    // lhs argument is a config resource with data properties:
+    //    - jets:replace_chars string: list of characters to replace
+    //    - jets:replace_with string: character(s) to replace with
+    // Get replace_chars and replace_with from the config object
+    auto * sess = rs->rdf_session();
+    auto rmgr = sess->rmgr();
+    auto config = rmgr->get_resource(lhs.name);
+    auto const* jr = rmgr->jets();
+    auto replace_chars_obj  = sess->get_object(config, jr->jets__replace_chars);
+    auto replace_with_obj  = sess->get_object(config, jr->jets__replace_with);
+
+    // if obj == null or not int, then raise an error
+    if (replace_chars_obj == nullptr || replace_chars_obj->which() != rdf::rdf_literal_string_t) {
+      sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal("error: invalid jets:replace_chars property for operator replace_char_of "+rhs.data));
+      return rdf::Null();
+    }
+    if (replace_with_obj == nullptr || replace_with_obj->which() != rdf::rdf_literal_string_t) {
+      sess->insert(jr->jets__istate, jr->jets__exception, rmgr->create_literal("error: invalid jets:replace_with property for operator replace_char_of "+rhs.data));
+      return rdf::Null();
+    }
+    auto replace_chars = boost::get<rdf::LString>(replace_chars_obj)->data;
+    auto replace_with = boost::get<rdf::LString>(replace_with_obj)->data;
+    auto str = std::move(rhs.data);
+    for(auto i=0; i<replace_chars.size(); i++) {
+      boost::replace_all(str, std::string(1, replace_chars[i]), replace_with);
+    }
+    return rdf::LString{ str };
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
+// CharAtVisitor
+// --------------------------------------------------------------------------------------
+struct CharAtVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  CharAtVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  CharAtVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for char_at: ("<<lhs<<", "<<rhs<<")");};
+
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LInt32       rhs)const
+  {
+    if(lhs.data.size() <= rhs.data) {
+      return rdf::Null();
+    }
+    return rdf::LString{ std::string(1, lhs.data[rhs.data]) };
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 // CreateNamedMd5UUIDVisitor
 // --------------------------------------------------------------------------------------
 // Operator: uuid_md5
