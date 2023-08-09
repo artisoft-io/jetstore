@@ -168,8 +168,8 @@ struct ApplyFormatVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
   RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LString       rhs)const{boost::format fmt(rhs.data); fmt.exceptions(boost::io::no_error_bits); fmt % lhs.data;	return rdf::LString(fmt.str());};
   RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LString       rhs)const{boost::format fmt(rhs.data); fmt.exceptions(boost::io::no_error_bits); fmt % lhs.data;	return rdf::LString(fmt.str());};
   RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const{boost::format fmt(rhs.data); fmt.exceptions(boost::io::no_error_bits); fmt % lhs.data;	return rdf::LString(fmt.str());};
-  RDFTTYPE operator()(rdf::LDate         lhs, rdf::LString       rhs)const{boost::format fmt(rhs.data); fmt.exceptions(boost::io::no_error_bits); fmt % lhs.data.year() % lhs.data.month() % lhs.data.day(); return rdf::LString(fmt.str());};
-  RDFTTYPE operator()(rdf::LDatetime     lhs, rdf::LString       rhs)const{boost::format fmt(rhs.data); fmt.exceptions(boost::io::no_error_bits); fmt % lhs.data.date().year() % lhs.data.date().month() % lhs.data.date().day() % lhs.data.time_of_day().hours() % lhs.data.time_of_day().minutes() % lhs.data.time_of_day().seconds() % lhs.data.time_of_day().fractional_seconds();	return rdf::LString(fmt.str());};
+  RDFTTYPE operator()(rdf::LDate         lhs, rdf::LString       rhs)const{boost::format fmt(rhs.data); fmt.exceptions(boost::io::no_error_bits); fmt % lhs.data.year() % lhs.data.month().as_number() % lhs.data.day(); return rdf::LString(fmt.str());};
+  RDFTTYPE operator()(rdf::LDatetime     lhs, rdf::LString       rhs)const{boost::format fmt(rhs.data); fmt.exceptions(boost::io::no_error_bits); fmt % lhs.data.date().year() % lhs.data.date().month().as_number() % lhs.data.date().day() % lhs.data.time_of_day().hours() % lhs.data.time_of_day().minutes() % lhs.data.time_of_day().seconds() % lhs.data.time_of_day().fractional_seconds();	return rdf::LString(fmt.str());};
 
   ReteSession * rs;
   BetaRow const* br;

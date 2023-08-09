@@ -129,6 +129,13 @@ TEST_F(ExprOpTest, ApplyFormatVisitor1) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("The answer is: 5")));
 }
+TEST_F(ExprOpTest, ApplyFormatVisitor2) {
+  ApplyFormatVisitor op(this->rete_session.get(), nullptr);
+  rdf::LDate  lhs(rdf::date(2020,3,19));
+  rdf::LString rhs("The answer is: %04d%02d%02d");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("The answer is: 20200319")));
+}
 TEST_F(ExprOpTest, StartsWithVisitor1) {
   StartsWithVisitor op(this->rete_session.get(), nullptr);
   rdf::LString lhs("Hello");
