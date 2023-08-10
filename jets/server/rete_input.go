@@ -241,6 +241,36 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 						obj = inVal[:5]
 					default:
 					}
+				case "to_zipext4_from_zip9":	// from a zip9 input
+					// Remove non digits characters
+					inVal := filterDigits(row[icol].String)
+					sz = len(inVal)
+					switch {
+					case sz > 5 && sz < 9:
+						var v int
+						v, err = strconv.Atoi(inVal)
+						if err == nil {
+							obj = fmt.Sprintf("%09d", v)[5:]
+						}
+					case sz == 9:
+						obj = inVal[5:]
+					default:
+					}
+				case "to_zipext4":	// from a zip ext4 input
+					// Remove non digits characters
+					inVal := filterDigits(row[icol].String)
+					sz = len(inVal)
+					switch {
+					case sz < 4:
+						var v int
+						v, err = strconv.Atoi(inVal)
+						if err == nil {
+							obj = fmt.Sprintf("%04d", v)
+						}
+					case sz == 4:
+						obj = inVal
+					default:
+					}
 				case "reformat0":
 					if inputColumnSpec.argument.Valid {
 						// Remove non digits characters
