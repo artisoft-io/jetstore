@@ -41,7 +41,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		// Get the value from the incoming obj, convert to correct types
 		for k, v := range registerFileKeyAction.Data[irow] {
 			switch k {
-			case "client", "org", "object_type", "file_key":
+			case "client", "vendor", "org", "object_type", "file_key":
 				fileKeyObject[k] = v
 			case "year", "month", "day":
 				switch vv := v.(type) {
@@ -53,6 +53,46 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int: %v", k, vv, err)
 					}
 				}
+			}
+		}
+
+		// Check if vendor is used in place of org
+		if len(fileKeyObject["org"].(string)) == 0 {
+			fileKeyObject["org"] = fileKeyObject["vendor"]
+		}
+
+		// File key components: client, org, object_type are case insensitive
+		// Get proper case from registry tables
+		client := fileKeyObject["client"].(string)
+		org := fileKeyObject["org"].(string)
+		objectType := fileKeyObject["object_type"].(string)
+		if len(client) > 0 {
+			if len(org) == 0 {
+				var clientCase string
+				stmt := "SELECT client FROM jetsapi.client_registry WHERE $1 = lower(client)"
+				err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(client)).Scan(&clientCase)
+				if err == nil {
+					// update client with proper case
+					fileKeyObject["client"] = clientCase
+				}
+			} else {
+				var clientCase, orgCase string
+				stmt := "SELECT client, org FROM jetsapi.client_org_registry WHERE $1 = lower(client) AND $2 = lower(org)"
+				err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(client), strings.ToLower(org)).Scan(&clientCase, &orgCase)
+				if err == nil {
+					// update client, org with proper case
+					fileKeyObject["client"] = clientCase
+					fileKeyObject["org"] = orgCase
+				}
+			}	
+		}
+		if len(objectType) > 0 {
+			var objectCase string
+			stmt := "SELECT object_type FROM jetsapi.object_type_registry WHERE $1 = lower(object_type)"
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(objectType)).Scan(&objectCase)
+			if err == nil {
+				// update object_type with proper case
+				fileKeyObject["object_type"] = objectCase
 			}
 		}
 
@@ -97,9 +137,9 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		if strings.Contains(fileKey.(string), "/test_") {
 			log.Println("File key is test file, skiping the automated load")
 		} else {
-			client := registerFileKeyAction.Data[irow]["client"]
-			org := registerFileKeyAction.Data[irow]["org"]
-			objectType := registerFileKeyAction.Data[irow]["object_type"]
+			client := fileKeyObject["client"]
+			org := fileKeyObject["org"]
+			objectType := fileKeyObject["object_type"]
 			var tableName string
 			var automated int
 			stmt := "SELECT table_name, automated FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
