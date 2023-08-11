@@ -2,6 +2,7 @@
 TRUNCATE jetsapi.mapping_function_registry;
 INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_required) VALUES
   ('apply_regex',            '1'),
+  ('format_phone',           '0'),
   ('overpunch_number',       '1'),
   ('parse_amount',           '1'),
   ('reformat0',              '1'),

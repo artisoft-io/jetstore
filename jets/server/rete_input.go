@@ -4,11 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/google/uuid"
@@ -55,31 +53,6 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 		}
 	}
 	return nil
-}
-
-func filterDigits(str string) string {
-	// Remove non digits characters
-	var buf strings.Builder
-	for _, c := range str {
-		if unicode.IsDigit(c) {
-			buf.WriteRune(c)
-		}
-	}
-	return buf.String()
-}
-
-func filterDouble(str string) string {
-	// clean up the amount
-	var buf strings.Builder
-	var c rune
-	for _, c = range str {
-		if c == '(' || c == '-' {
-			buf.WriteRune('-')
-		} else if unicode.IsDigit(c) || c == '.' {
-			buf.WriteRune(c)
-		}
-	}
-	return buf.String()
 }
 
 func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
@@ -203,185 +176,28 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		// asserting input row with mapping spec
 		inputColumnSpec := &aJetRow.processInput.processInputMapping[icol]
 		// fmt.Println("** assert from table:",inputColumnSpec.tableName,", property:",inputColumnSpec.dataProperty,", value:",row[icol].String,", with rdfTpe",inputColumnSpec.rdfType)
-		var obj string
+		var obj, errMsg string
 		var err error
 		sz := len(row[icol].String)
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
-				switch inputColumnSpec.functionName.String {
-				case "trim":
-					obj = strings.TrimSpace(row[icol].String)
-				case "validate_date":
-					_, err = reteSession.NewDateLiteral(row[icol].String)
-					if err == nil {
-						obj = row[icol].String
-					}
-				case "to_upper":
-					obj = strings.ToUpper(row[icol].String)
-				case "to_zip5":
-					// Remove non digits characters
-					inVal := filterDigits(row[icol].String)
-					sz = len(inVal)
-					switch {
-					case sz < 5:
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf("%05d", v)
-						}
-					case sz == 5:
-						obj = inVal
-					case sz > 5 && sz < 9:
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf("%09d", v)[:5]
-						}
-					case sz == 9:
-						obj = inVal[:5]
-					default:
-					}
-				case "to_zipext4_from_zip9":	// from a zip9 input
-					// Remove non digits characters
-					inVal := filterDigits(row[icol].String)
-					sz = len(inVal)
-					switch {
-					case sz > 5 && sz < 9:
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf("%09d", v)[5:]
-						}
-					case sz == 9:
-						obj = inVal[5:]
-					default:
-					}
-				case "to_zipext4":	// from a zip ext4 input
-					// Remove non digits characters
-					inVal := filterDigits(row[icol].String)
-					sz = len(inVal)
-					switch {
-					case sz < 4:
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf("%04d", v)
-						}
-					case sz == 4:
-						obj = inVal
-					default:
-					}
-				case "reformat0":
-					if inputColumnSpec.argument.Valid {
-						// Remove non digits characters
-						inVal := filterDigits(row[icol].String)
-						arg := inputColumnSpec.argument.String
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf(arg, v)
-						}
-					} else {
-						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn.String)
-					}
-				case "overpunch_number":
-					if inputColumnSpec.argument.Valid {
-						// Get the number of decimal position
-						arg := inputColumnSpec.argument.String
-						var npos int
-						npos, err = strconv.Atoi(arg)
-						if err == nil {
-							obj, err = OverpunchNumber(row[icol].String, npos)
-						}
-					} else {
-						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function overpunch_number for input column: %s", inputColumnSpec.inputColumn.String)
-					}
-				case "apply_regex":
-					if inputColumnSpec.argument.Valid {
-						arg := inputColumnSpec.argument.String
-						re, ok := ri.reMap[arg]
-						if !ok {
-							re, err = regexp.Compile(arg)
-							if err != nil {
-								// configuration error, bailing out
-								return fmt.Errorf("ERROR regex argument does not compile: %s", arg)
-							}
-							ri.reMap[arg] = re
-						}
-						obj = re.FindString(row[icol].String)
-					} else {
-						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn.String)
-					}
-				case "scale_units":
-					if inputColumnSpec.argument.Valid {
-						arg := inputColumnSpec.argument.String
-						if arg == "1" {
-							obj = filterDouble(row[icol].String)
-						} else {
-							divisor, ok := ri.argdMap[arg]
-							if !ok {
-								divisor, err = strconv.ParseFloat(arg, 64)
-								if err != nil {
-									// configuration error, bailing out
-									return fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
-								}
-								ri.argdMap[arg] = divisor
-							}
-							// Remove non digits characters
-							inVal := filterDouble(row[icol].String)
-							var unit float64
-							unit, err = strconv.ParseFloat(inVal, 64)
-							if err == nil {
-								obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))
-							}
-						}
-					} else {
-						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn.String)
-					}
-				case "parse_amount":
-					// clean up the amount
-					inVal := filterDouble(row[icol].String)
-					if len(inVal) > 0 {
-						obj = inVal
-						// argument is optional, assume divisor is 1 if absent
-						if inputColumnSpec.argument.Valid {
-							arg := inputColumnSpec.argument.String
-							if arg != "1" {
-								divisor, ok := ri.argdMap[arg]
-								if !ok {
-									divisor, err = strconv.ParseFloat(arg, 64)
-									if err != nil {
-										// configuration error, bailing out
-										return fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
-									}
-									ri.argdMap[arg] = divisor
-								}
-								var amt float64
-								amt, err = strconv.ParseFloat(obj, 64)
-								if err == nil {
-									obj = fmt.Sprintf("%f", amt/divisor)
-								}
-							}
-						}
-					}
-				default:
-					return fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
+				// Apply cleansing function
+				obj, errMsg, err = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String)
+				if err != nil {
+					log.Println("Error while applying cleasing function:", err)
+					return err
 				}
 			} else {
 				obj = row[icol].String
 			}
 		}
-		if err != nil || len(obj) == 0 {
+		if len(obj) == 0 || len(errMsg) > 0 {
 			// Value from input is null or empty or mapping function returned err or empty for this property,
 			// get the default or report error or ignore the field if no default or error message is avail
 			if inputColumnSpec.defaultValue.Valid {
 				obj = inputColumnSpec.defaultValue.String
 			} else {
-				if inputColumnSpec.errorMessage.Valid {
+				if inputColumnSpec.errorMessage.Valid || len(errMsg) > 0 {
 					// report error
 					br := NewBadRow()
 					br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
@@ -393,8 +209,12 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 					} else {
 						br.InputColumn = sql.NullString{String: "UNNAMED", Valid: true}
 					}
-					if err != nil {
-						br.ErrorMessage = sql.NullString{String: fmt.Sprintf("%v", err), Valid: true}
+					if len(errMsg) > 0 {
+						if inputColumnSpec.errorMessage.Valid {
+							br.ErrorMessage = sql.NullString{String: fmt.Sprintf("%s (%s)", inputColumnSpec.errorMessage.String, errMsg), Valid: true}
+						} else {
+							br.ErrorMessage = sql.NullString{String: errMsg, Valid: true}
+						}
 					} else {
 						br.ErrorMessage = inputColumnSpec.errorMessage
 					}
