@@ -347,6 +347,11 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 				}
 
 			default:
+				// Remove invalid utf-8 sequence from input record
+				for i := range record {
+					record[i] = strings.ToValidUTF8(record[i], "")
+				}
+				
 				copyRec := make([]interface{}, len(headersDKInfo.Headers))
 				for i, ipos := range headerPos {
 					if ipos < len(record) {
