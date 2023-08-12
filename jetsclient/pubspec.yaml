@@ -31,7 +31,7 @@ dependencies:
     sdk: flutter
 
   # Import the dependency to our app
-  http: ^0.13.4
+  http: ^1.1.0
   json_annotation: ^4.5.0
   provider: ^6.0.2
   adaptive_theme: ^3.0.0
