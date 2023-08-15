@@ -79,4 +79,7 @@ require (
 	golang.org/x/text v0.4.0 // indirect
 )
 
-require github.com/xitongsys/parquet-go v1.6.2
+require (
+	github.com/xhit/go-str2duration/v2 v2.1.0
+	github.com/xitongsys/parquet-go v1.6.2
+)

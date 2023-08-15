@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -24,7 +24,7 @@ type PurgeDataAction struct {
 func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) {
 	var results *map[string]interface{}
 	var code int
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return

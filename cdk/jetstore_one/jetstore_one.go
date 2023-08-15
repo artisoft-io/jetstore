@@ -14,6 +14,8 @@ import (
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
 
@@ -790,6 +792,52 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// statusUpdateLambda.Connections().AllowTo(apiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
 	// adminPwdSecret.GrantRead(statusUpdateLambda, nil)
 
+	// Purge Data lambda function
+	// --------------------------------------------------------------------------------------------------------------
+	var purgeDataLambda awslambdago.GoFunction
+	if len(os.Getenv("RETENTION_DAYS")) > 0 {
+		purgeDataLambda = awslambdago.NewGoFunction(stack, jsii.String("PurgeDataLambda"), &awslambdago.GoFunctionProps{
+			Description: jsii.String("Lambda function to purge historical data in jetstore db"),
+			Runtime: awslambda.Runtime_GO_1_X(),
+			Entry:   jsii.String("lambdas/purge_data"),
+			Bundling: &awslambdago.BundlingOptions{
+				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+			},
+			Environment: &map[string]*string{
+				"JETS_DSN_SECRET":                    rdsSecret.SecretName(),
+				"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
+				"RETENTION_DAYS":                     jsii.String(os.Getenv("RETENTION_DAYS")),
+			},
+			MemorySize: jsii.Number(128),
+			Timeout:    awscdk.Duration_Millis(jsii.Number(60000*15)),
+			Vpc: vpc,
+			VpcSubnets: isolatedSubnetSelection,
+		})
+		purgeDataLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
+		rdsSecret.GrantRead(purgeDataLambda, nil)	
+		if phiTagName != nil {
+			awscdk.Tags_Of(purgeDataLambda).Add(phiTagName, jsii.String("false"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(purgeDataLambda).Add(piiTagName, jsii.String("false"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(purgeDataLambda).Add(descriptionTagName, jsii.String("Lambda to purge historical data from JetStore Platform"), nil)
+		}
+		// Run the Lambda daily at 2 am eastern (7 am UTC) Mon thu Fri
+		awsevents.NewRule(stack, jsii.String("RunPurgeDataLambdaDaily"), &awsevents.RuleProps{
+			Description: jsii.String("Cron rule to run PurgeDataLambda daily"),
+			Targets: &[]awsevents.IRuleTarget{
+				awseventstargets.NewLambdaFunction(purgeDataLambda, &awseventstargets.LambdaFunctionProps{}),
+			},
+			Schedule: awsevents.Schedule_Cron(&awsevents.CronOptions{
+				Hour: jsii.String("7"),
+				Minute: jsii.String("0"),
+				WeekDay: jsii.String("MON-FRI"),
+			}),
+		})
+	}
+
 	// Run Reports ECS Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
 	runReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-reports"), &sfntask.EcsRunTaskProps{
@@ -1336,6 +1384,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		p = uiPort + 1
 	}
 	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *s, p)
+	// Status Update Lambda Function
 	statusUpdateLambda.Connections().AllowTo(apiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from StatusUpdateLambda"))
 	adminPwdSecret.GrantRead(statusUpdateLambda, nil)
 	statusUpdateLambda.AddEnvironment(
@@ -1496,6 +1545,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
+// RETENTION_DAYS site global rentention days, delete sessions if > 0
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1537,6 +1587,7 @@ func main() {
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
 	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
+	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
