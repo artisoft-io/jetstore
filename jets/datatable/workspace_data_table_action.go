@@ -267,9 +267,20 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 	switch requestType {
 	case "workspace_file_structure":
+		// Data/test_data (.csv, .txt)
+		// fmt.Println("** Visiting data/test_data:")
+		workspaceNode, err = VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
+		if err != nil {
+			log.Println("while walking workspace structure:", err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while walking workspace folder")
+			return
+		}
+		resultData = append(resultData, workspaceNode)
+
 		// Data Model (.jr)
 		// fmt.Println("** Visiting data_model:")
-		workspaceNode, err = visitDirWrapper(root, "data_model", "Data Model", &[]string{".jr", ".csv"}, workspaceName)
+		workspaceNode, err = VisitDirWrapper(root, "data_model", "Data Model", &[]string{".jr", ".csv"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
@@ -280,7 +291,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 		// Jets Rules (.jr, .jr.sql)
 		// fmt.Println("** Visiting jet_rules:")
-		workspaceNode, err = visitDirWrapper(root, "jet_rules", "Jets Rules", &[]string{".jr", ".jr.sql"}, workspaceName)
+		workspaceNode, err = VisitDirWrapper(root, "jet_rules", "Jets Rules", &[]string{".jr", ".jr.sql"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
@@ -291,7 +302,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 		// Lookups (.jr)
 		// fmt.Println("** Visiting lookups:")
-		workspaceNode, err = visitDirWrapper(root, "lookups", "Lookups", &[]string{".jr", ".csv"}, workspaceName)
+		workspaceNode, err = VisitDirWrapper(root, "lookups", "Lookups", &[]string{".jr", ".csv"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
@@ -302,7 +313,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 		// Process Configurations (workspace_init_db.sql)
 		// fmt.Println("** Visiting process_config:")
-		workspaceNode, err = visitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)
+		workspaceNode, err = VisitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
@@ -313,7 +324,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 		// Process Sequences (.jr)
 		// fmt.Println("** Visiting process_sequence:")
-		workspaceNode, err = visitDirWrapper(root, "process_sequence", "Process Sequences", &[]string{".jr"}, workspaceName)
+		workspaceNode, err = VisitDirWrapper(root, "process_sequence", "Process Sequences", &[]string{".jr"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
@@ -324,7 +335,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 		// Reports (.sql, .json)
 		// fmt.Println("** Visiting reports:")
-		workspaceNode, err = visitDirWrapper(root, "reports", "Reports", &[]string{".sql", ".json"}, workspaceName)
+		workspaceNode, err = VisitDirWrapper(root, "reports", "Reports", &[]string{".sql", ".json"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
@@ -373,7 +384,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 	return
 }
 
-func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceName string) (*WorkspaceNode, error) {
+func VisitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceName string) (*WorkspaceNode, error) {
 	var children *[]*WorkspaceNode
 	var err error
 	children, err = visitDir(root, dir, dir, filters, workspaceName)
@@ -398,7 +409,7 @@ func visitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceNam
 		RoutePath:    "/workspace/:workspace_name/home",
 		RouteParams: map[string]string{
 			"workspace_name": workspaceName,
-			"label": dirLabel,
+			"label":          dirLabel,
 		},
 		Children: children,
 	}
@@ -460,8 +471,8 @@ func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName s
 				Label:        subdir,
 				RouteParams: map[string]string{
 					"workspace_name": workspaceName,
-					"label": subdir,
-		},
+					"label":          subdir,
+				},
 			})
 			return fs.SkipDir
 

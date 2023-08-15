@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -127,9 +128,9 @@ func (server *Server) checkJetStoreDbVersion() error {
 		log.Println("JetStore version table does not exist, initializing the db")
 		// Cleanup any remaining
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
-			Action: "reset_domain_tables",
+			Action:            "reset_domain_tables",
 			RunUiDbInitScript: true,
-			Data: []map[string]interface{}{},
+			Data:              []map[string]interface{}{},
 		})
 		if err != nil {
 			return fmt.Errorf("while calling ResetDomainTables to initialize db: %v", err)
@@ -142,15 +143,15 @@ func (server *Server) checkJetStoreDbVersion() error {
 
 		// Check the release in database vs current release
 		stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
-		
+
 		err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 		switch {
 		case err != nil:
 			log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
 			_, _, err = server.ResetDomainTables(&PurgeDataAction{
-				Action: "reset_domain_tables",
+				Action:            "reset_domain_tables",
 				RunUiDbInitScript: true,
-				Data: []map[string]interface{}{},
+				Data:              []map[string]interface{}{},
 			})
 			if err != nil {
 				return fmt.Errorf("while calling ResetDomainTables to initialize db (no version exist in db): %v", err)
@@ -159,15 +160,15 @@ func (server *Server) checkJetStoreDbVersion() error {
 			if err != nil {
 				return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
 			}
-	
+
 		case jetstoreVersion > version:
 			log.Println("JetStore deployed version (in database) is", version)
 			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
 				log.Println("New JetStore Release deployed, rebuilding all tables")
 				_, _, err = server.ResetDomainTables(&PurgeDataAction{
-					Action: "reset_domain_tables",
+					Action:            "reset_domain_tables",
 					RunUiDbInitScript: false,
-					Data: []map[string]interface{}{},
+					Data:              []map[string]interface{}{},
 				})
 				if err != nil {
 					return fmt.Errorf("while calling ResetDomainTables for new release: %v", err)
@@ -178,7 +179,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 				}
 			} else {
 				log.Println("New JetStore Release deployed, migrating tables to latest schema")
-				serverArgs = []string{ "-migrateDb" }
+				serverArgs = []string{"-migrateDb"}
 			}
 
 		default:
@@ -220,8 +221,37 @@ func (server *Server) checkJetStoreDbVersion() error {
 		if err != nil {
 			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
 		}
-}
+	}
 	return nil
+}
+
+// Get the file_key list of the unit test files
+func (server *Server) getUnitTestFileKeys() ([]string, error) {
+	workspaceName := os.Getenv("WORKSPACE")
+	root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
+	workspaceNode, err := datatable.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
+	if err != nil {
+		log.Println("while walking workspace unit test folder structure:", err)
+		return nil, err
+	}
+	stack := workspaceNode.Children
+	fileKeys := make([]string, 0)
+	for len(*stack) > 0 {
+		item := (*stack)[0]
+		*stack = (*stack)[1:]
+		str, err := url.QueryUnescape(item.RouteParams["file_name"])
+		if err != nil {
+			log.Println("while walking workspace unit test folder structure:", err)
+			return nil, err	
+		}
+		if len(str) > 0 {
+			fileKeys = append(fileKeys, str)
+		}
+		if item.Children != nil {
+			*stack = append(*stack, *item.Children...)
+		}
+	} 
+	return fileKeys, nil
 }
 
 // Download overriten workspace files from jetstore database
@@ -241,8 +271,9 @@ func (server *Server) checkWorkspaceVersion() error {
 	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", devMode)
 	if err != nil {
 		//* TODO Log to a new workspace error table to report in UI
-		log.Println("Error while synching workspace file from database:",err)
+		log.Println("Error while synching workspace file from database:", err)
 	}
+
 	// Check if need to recompile workspace, skip if in dev mode
 	if devMode {
 		// We're in dev mode, the user is responsible to compile workspace when needed
@@ -257,29 +288,56 @@ func (server *Server) checkWorkspaceVersion() error {
 	case err != nil:
 		if err.Error() == "no rows in result set" {
 			log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
-			return nil	
+			return nil
 		}
-		log.Println("Error while reading workspace version from workspace_version table:",err)
+		log.Println("Error while reading workspace version from workspace_version table:", err)
 		return err
 
 	case !version.Valid:
 		log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
-		return nil	
+		return nil
 
 	case jetstoreVersion > version.String:
 		log.Println("Workspace deployed version (in database) is", version.String)
-		// recompile workspace, set the workspace version to be same as jetstore version
+		// Recompile workspace, set the workspace version to be same as jetstore version
+		// Sync unit test files from workspace to s3
 		// Skip this if in DEV MODE
 		if !devMode {
 			err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
 			if err != nil {
-				log.Println("Error while compiling workspace:",err)
+				log.Println("Error while compiling workspace:", err)
 				return err
-			}	
+			}
+
+			// Sync unit test files
+			// Collect files from local workspace
+			log.Println("Copying unit_test files to s3:")
+			fileKeys, err := server.getUnitTestFileKeys()
+			if err != nil {
+				//* TODO Log to a new workspace error table to report in UI
+				log.Println("Error while getting unit test file keys:", err)
+			} else {
+				bucket := os.Getenv("JETS_BUCKET")
+				region := os.Getenv("JETS_REGION")
+				s3Prefix := os.Getenv("JETS_s3_INPUT_PREFIX")
+				workspaceName := os.Getenv("WORKSPACE")
+				root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
+				for i := range fileKeys {
+					fileHd, err := os.Open(fmt.Sprintf("%s/%s", root, fileKeys[i]))
+					if err != nil {
+						log.Println("Error while opening file to copy to s3:", err)
+					} else {
+						if err = awsi.UploadToS3(bucket, region, strings.Replace(fileKeys[i], "data/test_data", s3Prefix, 1), fileHd); err != nil {
+							log.Println("Error while copying to s3:", err)
+						}	
+						fileHd.Close()
+					}
+				}	
+			}
 		}
 
 	default:
-		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion,", no need to recompile workspace")
+		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
 	}
 	return nil
 }
@@ -449,7 +507,7 @@ func listenAndServe() error {
 	server.Router.Handle("/main.dart.js", fs).Methods("GET")
 	server.Router.Handle("/manifest.json", fs).Methods("GET")
 	// server.Router.Handle("", fs).Methods("GET")
-	
+
 	// Login Route
 	loginOptions := OptionConfig{Origin: "",
 		AllowedMethods: "POST, OPTIONS",
@@ -492,7 +550,6 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/users/{id}", jsonh(authh(server.GetUser))).Methods("GET")
 	server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
 	server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
-
 
 	log.Println("Listening to address ", *serverAddr)
 	return http.ListenAndServe(*serverAddr, server.Router)
