@@ -177,7 +177,8 @@ func purgeMatchingRows(dbpool *pgxpool.Pool, sessionIds []string, tableName stri
 	}
 	buf.WriteString(");")
 	sqlstmt := buf.String()
-	fmt.Println(sqlstmt)
+	// fmt.Println(sqlstmt)
+	fmt.Printf("Purging %d sessions from table %s",len(sessionIds), tableName)
 	_, err := dbpool.Exec(context.Background(), sqlstmt)
 	return err
 }
