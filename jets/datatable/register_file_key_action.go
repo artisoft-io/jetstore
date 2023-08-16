@@ -21,6 +21,70 @@ type RegisterFileKeyAction struct {
 	Data   []map[string]interface{} `json:"data"`
 }
 
+// Function to match the case for client, org, and object_type based on jetstore
+func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]interface{}) {
+	fileKeyObject := *fileKeyObjectPtr
+	var err error
+
+	// Make sure we have expected values
+	if fileKeyObject["org"] == nil {
+		fileKeyObject["org"] = ""
+	}
+	if fileKeyObject["client"] == nil {
+		fileKeyObject["client"] = ""
+	}
+	if fileKeyObject["object_type"] == nil {
+		fileKeyObject["object_type"] = ""
+	}
+
+	// Check if vendor is used in place of org
+	if fileKeyObject["vendor"]!= nil && len(fileKeyObject["org"].(string)) == 0 {
+		fileKeyObject["org"] = fileKeyObject["vendor"]
+	}
+
+	// File key components: client, org, object_type are case insensitive
+	// Get proper case from registry tables
+	client := fileKeyObject["client"].(string)
+	org := fileKeyObject["org"].(string)
+	objectType := fileKeyObject["object_type"].(string)
+
+	if len(client) > 0 {
+		if len(org) == 0 {
+			var clientCase string
+			stmt := "SELECT client FROM jetsapi.client_registry WHERE $1 = lower(client)"
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(client)).Scan(&clientCase)
+			if err == nil {
+				// update client with proper case
+				fileKeyObject["client"] = clientCase
+			} else {
+				log.Printf("RegisterFileKeys: client %s not found in client_registry\n", client)
+			}
+		} else {
+			var clientCase, orgCase string
+			stmt := "SELECT client, org FROM jetsapi.client_org_registry WHERE $1 = lower(client) AND $2 = lower(org)"
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(client), strings.ToLower(org)).Scan(&clientCase, &orgCase)
+			if err == nil {
+				// update client, org with proper case
+				fileKeyObject["client"] = clientCase
+				fileKeyObject["org"] = orgCase
+			} else {
+				log.Printf("RegisterFileKeys: client %s, org %s not found in client_org_registry\n", client, org)
+			}
+		}	
+	}
+	if len(objectType) > 0 {
+		var objectCase string
+		stmt := "SELECT object_type FROM jetsapi.object_type_registry WHERE $1 = lower(object_type)"
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(objectType)).Scan(&objectCase)
+		if err == nil {
+			// update object_type with proper case
+			fileKeyObject["object_type"] = objectCase
+		} else {
+			log.Printf("RegisterFileKeys: object_type %s not found in object_type_registry\n", objectType)
+		}
+	}
+}
+
 // Register file_key with file_key_staging table
 func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	var err error
@@ -55,46 +119,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				}
 			}
 		}
-
-		// Check if vendor is used in place of org
-		if len(fileKeyObject["org"].(string)) == 0 {
-			fileKeyObject["org"] = fileKeyObject["vendor"]
-		}
-
-		// File key components: client, org, object_type are case insensitive
-		// Get proper case from registry tables
-		client := fileKeyObject["client"].(string)
-		org := fileKeyObject["org"].(string)
-		objectType := fileKeyObject["object_type"].(string)
-		if len(client) > 0 {
-			if len(org) == 0 {
-				var clientCase string
-				stmt := "SELECT client FROM jetsapi.client_registry WHERE $1 = lower(client)"
-				err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(client)).Scan(&clientCase)
-				if err == nil {
-					// update client with proper case
-					fileKeyObject["client"] = clientCase
-				}
-			} else {
-				var clientCase, orgCase string
-				stmt := "SELECT client, org FROM jetsapi.client_org_registry WHERE $1 = lower(client) AND $2 = lower(org)"
-				err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(client), strings.ToLower(org)).Scan(&clientCase, &orgCase)
-				if err == nil {
-					// update client, org with proper case
-					fileKeyObject["client"] = clientCase
-					fileKeyObject["org"] = orgCase
-				}
-			}	
-		}
-		if len(objectType) > 0 {
-			var objectCase string
-			stmt := "SELECT object_type FROM jetsapi.object_type_registry WHERE $1 = lower(object_type)"
-			err = ctx.Dbpool.QueryRow(context.Background(), stmt, strings.ToLower(objectType)).Scan(&objectCase)
-			if err == nil {
-				// update object_type with proper case
-				fileKeyObject["object_type"] = objectCase
-			}
-		}
+		ctx.updateFileKeyComponentCase(&fileKeyObject)
 
 		// Inserting source_period
 		source_period_key, err := InsertSourcePeriod(
@@ -277,10 +302,6 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 			return nil, httpStatus, fmt.Errorf("while starting loader automatically for %d keys: %v", len(fileKeys), err)
 		}
 	}
-
-
-
-
 
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
@@ -615,6 +636,8 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (*map[string]interface{}, int, error) {
 	// RegisterFileKeyAction.Data is not used in this action
 
+	log.Println("Syncing File Keys with s3")
+
 	// Get all keys from bucket
 	var prefix *string
 	if os.Getenv("JETS_s3_INPUT_PREFIX") != "" {
@@ -633,7 +656,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 			!strings.Contains(fileKey, "/err_") &&
 			strings.Contains(fileKey, "client=") &&
 			strings.Contains(fileKey, "object_type=") {
-			fmt.Println("Got Key from S3:", fileKey)
+			log.Println("Got Key from S3:", fileKey)
 			s3Lookup[fileKey] = true
 		}
 	}
@@ -677,7 +700,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 	for s3Key := range s3Lookup {
 		if !dbLookup[s3Key] {
 			// fileKeyObject with defaults
-			fileKeyObject := map[string]string{
+			fileKeyObject := map[string]interface{}{
 				"org":   "",
 				"year":  "1970",
 				"month": "1",
@@ -691,18 +714,20 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 				}
 			}
 			fileKeyObject["file_key"] = s3Key
+			ctx.updateFileKeyComponentCase(&fileKeyObject)
+
 			// Inserting source_period
-			year, err := strconv.Atoi(fileKeyObject["year"])
+			year, err := strconv.Atoi(fileKeyObject["year"].(string))
 			if err != nil {
 				log.Printf("File Key with invalid year: %s, setting to 1970\n", fileKeyObject["year"])
 				year = 1970
 			}
-			month, err := strconv.Atoi(fileKeyObject["month"])
+			month, err := strconv.Atoi(fileKeyObject["month"].(string))
 			if err != nil {
 				log.Printf("File Key with invalid month: %s, setting to 1\n", fileKeyObject["year"])
 				year = 1
 			}
-			day, err := strconv.Atoi(fileKeyObject["day"])
+			day, err := strconv.Atoi(fileKeyObject["day"].(string))
 			if err != nil {
 				log.Printf("File Key with invalid day: %s, setting to 1\n", fileKeyObject["year"])
 				year = 1
