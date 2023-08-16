@@ -586,6 +586,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -639,6 +640,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -736,6 +738,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"SYSTEM_USER":                        jsii.String("admin"),
 		},
@@ -916,6 +919,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -1102,6 +1106,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"NBR_SHARDS":                         jsii.String(nbrShards),
 		},
@@ -1325,11 +1330,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Timeout:     awscdk.Duration_Seconds(jsii.Number(300)),
 		Runtime:     awslambda.Runtime_PYTHON_3_9(),
 		Environment: &map[string]*string{
-			"JETS_REGION":       jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_API_URL":      jsii.String(jetsApiUrl),
-			"SYSTEM_USER":       jsii.String("admin"),
-			"SYSTEM_PWD_SECRET": adminPwdSecret.SecretName(),
-			"JETS_ELB_MODE":     jsii.String(os.Getenv("JETS_ELB_MODE")),
+			"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_API_URL":                  jsii.String(jetsApiUrl),
+			"SYSTEM_USER":                   jsii.String("admin"),
+			"SYSTEM_PWD_SECRET":             adminPwdSecret.SecretName(),
+			"JETS_ELB_MODE":                 jsii.String(os.Getenv("JETS_ELB_MODE")),
+			"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 		},
 		Vpc:        vpc,
 		VpcSubnets: isolatedSubnetSelection,
@@ -1412,6 +1418,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
+// JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1454,6 +1461,7 @@ func main() {
 	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
+	fmt.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 
 	// Verify that we have all the required env variables
 	hasErr := false

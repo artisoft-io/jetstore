@@ -22,12 +22,14 @@ import (
 var preprocessingFunctions map[string]bool
 var preprocessingFncRe *regexp.Regexp
 var dateParsingRe *regexp.Regexp
+var domainKeySeparator string
 func init() {
 	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
 	dateParsingRe = regexp.MustCompile(`(\d{1,4})-?\/?(\d{1,2})-?\/?(\d{1,4})`)
 	preprocessingFunctions = map[string]bool{
 		"format_date": true,
 	}
+	domainKeySeparator = os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")
 }
 type DomainKeyInfo struct {
 	// list of input column name making the domain key
@@ -339,13 +341,13 @@ func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string
 	var groupingKey string
 	switch dkInfo.HashingAlgo {
 	case "md5":
-		groupingKey = dkInfo.joinUpper(columns, "")
+		groupingKey = dkInfo.joinUpper(columns, domainKeySeparator)
 		groupingKey = uuid.NewMD5(dkInfo.HashingSeed, []byte(groupingKey)).String()
 	case "sha1":
-		groupingKey = dkInfo.joinUpper(columns, "")
+		groupingKey = dkInfo.joinUpper(columns, domainKeySeparator)
 		groupingKey = uuid.NewSHA1(dkInfo.HashingSeed, []byte(groupingKey)).String()
 	default:
-		groupingKey = dkInfo.joinUpper(columns, ":")
+		groupingKey = dkInfo.joinUpper(columns, domainKeySeparator)
 	}
 	return groupingKey
 }
@@ -367,13 +369,13 @@ func applyPreprocessingFunction(fncName, value string) (string, error) {
 	case "format_date":
 		v := dateParsingRe.FindStringSubmatch(value)
 		if len(v) < 4 {
-			return "", fmt.Errorf("Value is not a date: %s",value)
+			return "", fmt.Errorf("value is not a date: %s",value)
 		}
 		l1 :=len(v[1]);
 		l2 :=len(v[2]);
 		l3 :=len(v[3]);
 		if l1 == 0 || l2 == 0 || l3 == 0 {
-			return "", fmt.Errorf("Value is not a date: %s",value)
+			return "", fmt.Errorf("value is not a date: %s",value)
 		}
 		// input format 2/19/1968 : mm/dd/yyyy
 		// input format 2012-07-27 : yyyy-mm-dd (same order as output)

@@ -50,6 +50,7 @@ import (
 // JETS_SERVER_SM_ARN state machine arn
 // JETS_LOADER_CHUNCK_SIZE buffer size for input lines, default 200K
 // JETS_LOG_DEBUG (optional, if > 0 for printing debug statements)
+// JETS_DOMAIN_KEY_SEPARATOR
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
@@ -1081,6 +1082,7 @@ func main() {
 	fmt.Println("ENV JETS_INPUT_ROW_JETS_KEY_ALGO:",os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	fmt.Println("ENV AWS_API_SECRET:",os.Getenv("AWS_API_SECRET"))
 	fmt.Println("ENV JETS_LOG_DEBUG:",os.Getenv("JETS_LOG_DEBUG"))
+	fmt.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	if devMode {
 		fmt.Println("Running in DEV MODE")
 		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
