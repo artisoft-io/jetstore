@@ -76,6 +76,8 @@ var reportDirectives = &ReportDirectives{}
 func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (string, error) {
 
 	name := *outputFileName
+	// Remove ':' from originalFileName
+	cleanOriginalFileName := strings.ReplaceAll(*originalFileName, ":", "_")
 	// Check if name contains patterns for substitutions
 	// {CLIENT} is replaced with client name obtained from command line (-client)
 	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
@@ -83,7 +85,7 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
 	name = strings.ReplaceAll(name, "{CLIENT}", *client)
 	name = strings.ReplaceAll(name, "{SESSIONID}", *sessionId)
-	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", *originalFileName)
+	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", cleanOriginalFileName)
 	name = strings.ReplaceAll(name, "{PROCESSNAME}", *processName)
 	//* May need to loop if {D:YYYY_MM_DD} appears more than once in name
 	head, tail, found := strings.Cut(name, "{D:")
@@ -573,7 +575,7 @@ func main() {
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: awsBucket", *awsBucket)
 	fmt.Println("Got argument: filePath", *filePath)
-	fmt.Println("Got argument: originalFilePath", *originalFileName)
+	fmt.Println("Got argument: originalFileName", *originalFileName)
 	fmt.Println("Is updateLookupTables?", reportDirectives.UpdateLookupTables)
 	fmt.Println("Report outputPath:", outputPath)
 	for i := range reportScriptPaths {
