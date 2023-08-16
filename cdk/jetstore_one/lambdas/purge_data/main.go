@@ -18,7 +18,7 @@ type config struct {
 	IsValid           bool
 }
 
-var logger *zap.Logger
+var logger *zap.SugaredLogger
 var c config
 
 // Env variable:
@@ -29,7 +29,7 @@ var c config
 func main() {
 	// Create logger.
 	var err error
-	logger, err = zap.NewProduction()
+	logger = zap.NewExample().Sugar()
 	if err != nil {
 		panic("failed to create logger: " + err.Error())
 	}
@@ -46,14 +46,15 @@ func main() {
 		logger.Error("env JETS_DSN_SECRET not set")
 		c.IsValid = false
 	}
-	rd := os.Getenv("JETS_DSN_SECRET")
+	rd := os.Getenv("RETENTION_DAYS")
+	logger.Infof("env RETENTION_DAYS: %s", rd)
 	if rd == "" {
 		logger.Error("env RETENTION_DAYS not set")
 		c.IsValid = false
 	}
 	c.RetentionDays, err = strconv.Atoi(rd)
 	if err != nil || c.RetentionDays < 1 {
-		logger.Error("env RETENTION_DAYS is not valid, must be > 0")
+		logger.Errorf("env RETENTION_DAYS '%s' is not valid, must be > 0", rd)
 		c.IsValid = false
 	}
 	if !c.IsValid {
