@@ -49,6 +49,7 @@ var filePath = flag.String("filePath", "", "File path for output files. (require
 var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
 var outputPath string
 var reportScriptPaths []string
+var fileKey string
 
 // NOTE 5/5/2023:
 // This run_reports utility is used by serverSM, loaderSM, and reportsSM to run reports.
@@ -83,6 +84,7 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
 	// {SESSIONID} is replaced with session_id
 	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
+	// {PROCESSNAME} is replaced with the Rule Process name
 	name = strings.ReplaceAll(name, "{CLIENT}", *client)
 	name = strings.ReplaceAll(name, "{SESSIONID}", *sessionId)
 	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", cleanOriginalFileName)
@@ -109,11 +111,19 @@ func doReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (st
 		options = "format CSV, HEADER"
 	}
 
+	// Check for substitutions in the report sql:
+	// $CLIENT is replaced with client name obtained from command line (-client)
+	// $FILE_KEY  is replaced with input file key
+	// $SESSIONID is replaced with session_id
+	// $PROCESSNAME is replaced with the Rule Process name
+
 	// s3 file name w/ path
 	s3FileName := fmt.Sprintf("%s/%s", outputPath, name)
 	stmt := *sqlStmt
 	stmt = strings.ReplaceAll(stmt, "$CLIENT", *client)
 	stmt = strings.ReplaceAll(stmt, "$SESSIONID", *sessionId)
+	stmt = strings.ReplaceAll(stmt, "$PROCESSNAME", *processName)
+	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", fileKey)
 
 	fmt.Println("STMT: name:", name, "output file name:", s3FileName, "stmt:", stmt)
 
@@ -424,6 +434,10 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Env variable WORKSPACE must be set.")
 	}
+
+	// Reconstiture input file_key from filePath
+	fileKey = strings.Replace(*filePath, os.Getenv("JETS_s3_OUTPUT_PREFIX"), os.Getenv("JETS_s3_INPUT_PREFIX"), 1)
+
 	if *originalFileName == "" {
 		idx := strings.LastIndex(*filePath, "/")
 		if idx >= 0 && idx < len(*filePath)-1 {
@@ -582,6 +596,7 @@ func main() {
 		fmt.Println("Report definitions file:", reportScriptPaths[i])
 	}
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
+	fmt.Println("Process Input file_key:", fileKey)
 
 	err = coordinateWork()
 	if err != nil {
