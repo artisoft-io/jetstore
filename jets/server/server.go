@@ -43,6 +43,7 @@ type dbConnections struct {
 // JETS_SERVER_SM_ARN state machine arn
 // GLOG_V log level
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
+// JETS_DOMAIN_KEY_SEPARATOR
 
 // Command Line Arguments
 var awsDsnSecret        = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
@@ -144,6 +145,7 @@ func doJob() error {
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Printf("ENV JETS_INVALID_CODE: %s\n",os.Getenv("JETS_INVALID_CODE"))
 	log.Printf("ENV JETSTORE_DEV_MODE: %s\n",os.Getenv("JETSTORE_DEV_MODE"))
+	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	if *doNotLockSessionId {
 		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
