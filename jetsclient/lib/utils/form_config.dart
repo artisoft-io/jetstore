@@ -226,20 +226,22 @@ class TextFieldConfig extends FormFieldConfig {
 }
 
 class FormInputFieldConfig extends FormFieldConfig {
-  FormInputFieldConfig({
-    required super.key,
-    super.group = 0,
-    super.flex = 1,
-    super.autovalidateMode = AutovalidateMode.disabled,
-    required this.label,
-    required this.hint,
-    required this.autofocus,
-    this.obscureText = false,
-    required this.textRestriction,
-    this.maxLines = 1,
-    required this.maxLength,
-    this.autofillHints,
-  });
+  FormInputFieldConfig(
+      {required super.key,
+      super.group = 0,
+      super.flex = 1,
+      super.autovalidateMode = AutovalidateMode.disabled,
+      required this.label,
+      required this.hint,
+      required this.autofocus,
+      this.obscureText = false,
+      required this.textRestriction,
+      this.maxLines = 1,
+      required this.maxLength,
+      this.autofillHints,
+      this.defaultValue,
+      this.useDefaultFont = false,
+    });
   final String label;
   final String hint;
   final bool autofocus;
@@ -248,7 +250,9 @@ class FormInputFieldConfig extends FormFieldConfig {
   final int maxLines;
   // 0 for unbound
   final int maxLength;
+  final String? defaultValue;
   final List<String>? autofillHints;
+  final bool useDefaultFont;
 
   @override
   Widget makeFormField({
