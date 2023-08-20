@@ -219,7 +219,7 @@ class JetsDataTableSource extends ChangeNotifier {
 
   DataRow getRow(int index) {
     assert(model != null);
-    // print("getRow Called with index $index which has key ${model![index][0]} ");
+    // print("getRow Called with index $index which has key ${model![index][1]} ");
     return DataRow.byIndex(
       index: index,
       color: MaterialStateProperty.resolveWith<Color?>(
@@ -283,15 +283,22 @@ class JetsDataTableSource extends ChangeNotifier {
 
     // Check if value is comming from screen param (navigation param)
     // only for case where there is no formState or it's not a dialog (isDialog = false)
-    if (state.formState == null || !state.formState!.isDialog) {
-      var value =
-          JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
-      if (value != null) {
-        return <String, dynamic>{
-          'table': wc.table ?? '',
-          'column': columnName,
-          'values': [value],
-        };
+    // and there is no value in the formState
+    final configGroup = config != null ? config.group : 0;
+    if (wc.formStateKey != null) {
+      if (state.formState == null ||
+          (!state.formState!.isDialog &&
+              state.formState?.getValue(configGroup, wc.formStateKey!) ==
+                  null)) {
+        var value =
+            JetsRouterDelegate().currentConfiguration?.params[wc.formStateKey];
+        if (value != null) {
+          return <String, dynamic>{
+            'table': wc.table ?? '',
+            'column': columnName,
+            'values': [value],
+          };
+        }
       }
     }
 
@@ -565,6 +572,11 @@ class JetsDataTableSource extends ChangeNotifier {
   }
 
   void getModelData() async {
+    if (!JetsRouterDelegate().user.isAuthenticated) {
+      // print("*** getModelData CANCELLED for ${state.tableConfig.key} not auth");
+      return;
+    }
+    // print("*** getModelData called for ${state.tableConfig.key} AUTH");
     selectedRows = List<bool>.filled(state.rowsPerPage, false);
     // Check if this data table widget is part of a form and depend on
     // row selection of another widget, if so let's make sure that
@@ -579,6 +591,7 @@ class JetsDataTableSource extends ChangeNotifier {
           value ??= JetsRouterDelegate()
               .currentConfiguration
               ?.params[wc.formStateKey!];
+
           if (value == null) {
             hasBlockingFilter = true;
           }
@@ -592,7 +605,8 @@ class JetsDataTableSource extends ChangeNotifier {
         model = null;
         _totalRowCount = 0;
         notifyListeners();
-        // print("*** Table has blocking filter, no refresh");
+        // print(
+        //     "*** Table ${state.tableConfig.key} has blocking filter, no refresh");
         return;
       }
     }
@@ -630,6 +644,7 @@ class JetsDataTableSource extends ChangeNotifier {
       model = rows.map((e) => (e as List).cast<String?>()).toList();
       // model = rows.cast<JetsRow>().toList();
       _totalRowCount = data['totalRowCount'] ?? model!.length;
+
       // Set selectedRows based on form state
       updateTableFromFormState();
       notifyListeners();

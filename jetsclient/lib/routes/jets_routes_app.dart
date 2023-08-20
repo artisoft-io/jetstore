@@ -113,13 +113,11 @@ final Map<String, Widget> jetsRoutesMap = {
   ),
 
   // Pipeline Config
-  pipelineConfigPath: ScreenOne(
+  pipelineConfigPath: ScreenWithForm(
     key: const Key(ScreenKeys.pipelineConfig),
     screenPath: JetsRouteData(pipelineConfigPath),
     screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
-    validatorDelegate: pipelineConfigFormValidator,
-    actionsDelegate: pipelineConfigFormActions,
-    tableConfig: getTableConfig(DTKeys.pipelineConfigTable),
+    formConfig: getFormConfig(FormKeys.pipelineConfigForm),
   ),
 
   // Edit Form for Pipeline Config

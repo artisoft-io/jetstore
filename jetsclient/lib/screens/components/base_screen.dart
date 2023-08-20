@@ -102,6 +102,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
     JetsRouterDelegate().removeListener(navListener);
     tabController.removeListener(syncMenuWithTab);
     tabController.dispose();
+    tabsStateHelper.removeListener(navListener);
     super.dispose();
   }
 

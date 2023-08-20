@@ -26,13 +26,13 @@ class HttpClientSingleton {
         encodedJsonBody: jsonEncode(
             <String, dynamic>{'action': 'refresh_token'},
             toEncodable: (_) => ''));
-      print('*** refreshToken() called');
+    print('*** refreshToken() called');
   }
 
   Future<HttpResponse> sendRequest(
       {required String path, String? token, String? encodedJsonBody}) async {
     try {
-      if(serverAdd == null) {
+      if (serverAdd == null) {
         return HttpResponse(400, "serverAdd not set");
       }
       // print('*** Request: $encodedJsonBody');
@@ -47,6 +47,8 @@ class HttpClientSingleton {
       // print('---');
       if (response.statusCode == 401) {
         // redirect to login page
+        print('Not authorized redirecting to login');
+        JetsRouterDelegate().user.token = null;
         JetsRouterDelegate()(JetsRouteData(loginPath));
       }
       var data = jsonDecode(response.body) as Map<String, dynamic>;

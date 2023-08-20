@@ -149,7 +149,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.inputSourceMapping: ScreenConfig(
       key: ScreenKeys.inputSourceMapping,
       appBarLabel: 'JetStore Workspace',
-      title: 'Input Source Mapping',
+      // title: 'Input Source Mapping',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
@@ -169,7 +169,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.processConfig: ScreenConfig(
       key: ScreenKeys.processConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'Rules Configuration',
+      // title: 'Rules Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
@@ -179,7 +179,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.pipelineConfig: ScreenConfig(
       key: ScreenKeys.pipelineConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'Pipelines Configuration',
+      // title: 'Pipelines Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,

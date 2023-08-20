@@ -38,6 +38,7 @@ class _JetsDropdownButtonFormFieldState
   String? predicatePreviousValue;
   String? selectedValue;
   List<DropdownItemConfig> items = [];
+  bool listenerAdded = false;
 
   @override
   void initState() {
@@ -47,7 +48,7 @@ class _JetsDropdownButtonFormFieldState
     // (case we are editing existing record versus add where there would be no
     //  existing value)
     selectedValue = widget.formState.getValue(_config.group, _config.key);
-    print("*** JetsDropdownButtonFormFieldState.initState() called");
+    // print("*** JetsDropdownButtonFormFieldState.initState() called");
 
     if (_config.dropdownItemsQuery != null) {
       if (_config.stateKeyPredicates.isNotEmpty ||
@@ -55,12 +56,13 @@ class _JetsDropdownButtonFormFieldState
         widget.formState.addListener(stateListener);
       }
       if (JetsRouterDelegate().user.isAuthenticated) {
-        print("*** JetsDropdownButtonFormFieldState: ok user auth, querying dropdown items");
+        // print("*** JetsDropdownButtonFormFieldState: ok user auth, querying dropdown items");
         queryDropdownItems();
       } else {
-        print("*** JetsDropdownButtonFormFieldState: ok user NOT auth, waiting to go to home");
+        // print("*** JetsDropdownButtonFormFieldState: ok user NOT auth, waiting to go to home");
         // Get the first batch of data when navigated to screenPath
         JetsRouterDelegate().addListener(navListener);
+        listenerAdded = true;
       }
     } else {
       items.addAll(_config.items);
@@ -83,12 +85,15 @@ class _JetsDropdownButtonFormFieldState
 
   @override
   void dispose() {
+    // print("*** DropDown dispose called");
     if (_config.dropdownItemsQuery != null) {
       if (_config.stateKeyPredicates.isNotEmpty ||
           _config.whereStateContains.isNotEmpty) {
         widget.formState.removeListener(stateListener);
       }
-      JetsRouterDelegate().removeListener(navListener);
+      if(listenerAdded) {
+        JetsRouterDelegate().removeListener(navListener);
+      }
     }
     super.dispose();
   }
@@ -133,7 +138,7 @@ class _JetsDropdownButtonFormFieldState
     // if so ignore it otherwise we'll overite the user's
     // choice in the formState
     if (widget.formState.isKeyUpdated(_config.group, _config.key)) {
-        print("*** queryDropdownItems: bailing out - self update");
+      // print("*** queryDropdownItems: bailing out - self update");
       return;
     }
 
@@ -194,7 +199,7 @@ class _JetsDropdownButtonFormFieldState
 
     // check if predicate has not changed, if so no need to query again
     if (predicatePreviousValue != null && predicatePreviousValue == valueStr) {
-      print("*** queryDropdownItems: bailing out - nothing changed");
+      // print("*** queryDropdownItems: bailing out - nothing changed");
       return;
     }
     predicatePreviousValue = valueStr;
@@ -208,7 +213,7 @@ class _JetsDropdownButtonFormFieldState
       }
     }
 
-    print("*** queryDropdownItems: preparing raw query");
+    // print("*** queryDropdownItems: preparing raw query");
     var msg = <String, dynamic>{
       'action': 'raw_query',
     };
@@ -234,7 +239,7 @@ class _JetsDropdownButtonFormFieldState
       );
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
     }
-    print("*** queryDropdownItems: DONE!");
+    // print("*** queryDropdownItems: DONE!");
   }
 
   @override

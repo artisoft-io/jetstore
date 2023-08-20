@@ -1,9 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
-import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
@@ -1111,7 +1109,9 @@ String? pipelineConfigFormValidator(
       return "Client must be provided.";
 
     case FSK.mainProcessInputKey:
-      if (v != null && v.isNotEmpty) {
+      // Somehow v still have old value when client drop down is nullified
+      final vv = formState.getValue(group, key);
+      if (vv != null && vv.isNotEmpty) {
         return null;
       }
       return "Main process input must be selected.";
@@ -1123,6 +1123,7 @@ String? pipelineConfigFormValidator(
       return "Pipeline automation status must be selected.";
 
     case FSK.maxReteSessionSaved:
+      // print("maxReteSessionSaved v is $v");
       if (v != null && v.isNotEmpty) {
         return null;
       }
@@ -1157,7 +1158,6 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       if (!valid) {
         return null;
       }
-
       // Get the Pipeline Config key (case update)
       // if no key is present then it's an add
       var updateState = <String, dynamic>{};
@@ -1238,7 +1238,9 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       final res = await postSimpleAction(
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       if (res == 200) {
-        JetsRouterDelegate()(JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
+        Navigator.of(context).pop();
+        // JetsRouterDelegate()(
+        //     JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
       } else {
         // There was an error, just pop back to the page
         // ignore: use_build_context_synchronously
@@ -1247,7 +1249,9 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       return null;
 
     case ActionKeys.dialogCancel:
-      JetsRouterDelegate()(JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
+      Navigator.of(context).pop();
+      // JetsRouterDelegate()(
+      //     JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
       break;
     default:
       print('Oops unknown ActionKey for pipeline config form: $actionKey');

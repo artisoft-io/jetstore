@@ -37,6 +37,7 @@ class JetsFormWidgetState extends State<JetsForm> {
   // build in [queryInputFieldItems]
   InputFieldType alternateInputFields = [];
   bool? get useListView => widget.formConfig.useListView;
+  bool listenerAdded = false;
 
   InputFieldType get inputFields => widget.formConfig.inputFields.isEmpty
       ? alternateInputFields
@@ -54,6 +55,7 @@ class JetsFormWidgetState extends State<JetsForm> {
       } else {
         // Get the first batch of data when navigated to screenPath
         JetsRouterDelegate().addListener(navListener);
+        listenerAdded = true;
       }
     }
   }
@@ -71,7 +73,7 @@ class JetsFormWidgetState extends State<JetsForm> {
 
   @override
   void dispose() {
-    if (widget.formConfig.inputFields.isEmpty) {
+    if(listenerAdded) {
       JetsRouterDelegate().removeListener(navListener);
     }
     super.dispose();
@@ -234,7 +236,8 @@ class JetsFormWidgetState extends State<JetsForm> {
             child: AutofillGroup(
                 // When inputFields.length > 5 or useListView==true then use ListView
                 // otherwise expand the controls to occupy the viewport
-                child: inputFields.length > 5 || (useListView!=null && useListView==true)
+                child: inputFields.length > 5 ||
+                        (useListView != null && useListView == true)
                     ? ListView.builder(
                         itemBuilder: (BuildContext context, int index) {
                           if (index < inputFields.length) {
