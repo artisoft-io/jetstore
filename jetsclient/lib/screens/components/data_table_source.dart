@@ -549,24 +549,28 @@ class JetsDataTableSource extends ChangeNotifier {
       // print("*** Data Table Got Data");
       return result.body;
     } else if (result.statusCode == 401) {
-      const snackBar = SnackBar(
-        content: Text('Session Expired, please login'),
-      );
-      ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
+      // const snackBar = SnackBar(
+      //   content: Text('Session Expired, please login'),
+      // );
+      // ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
       return null;
     } else if (result.statusCode == 422) {
       const snackBar = SnackBar(
         content: Text('Error reading data from table'),
       );
-      ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
-      showAlertDialog(state.context, result.body['error']);
+      if (state.context.mounted) {
+        ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
+        showAlertDialog(state.context, result.body['error']);
+      }
       return null;
     } else {
       const snackBar = SnackBar(
         content: Text('Unknown Error reading data from table'),
       );
-      ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
-      showAlertDialog(state.context, result.body['error']);
+      if (state.context.mounted) {
+        ScaffoldMessenger.of(state.context).showSnackBar(snackBar);
+        showAlertDialog(state.context, result.body['error']);
+      }
       return null;
     }
   }

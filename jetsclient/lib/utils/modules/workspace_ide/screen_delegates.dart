@@ -150,8 +150,11 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       JetsSpinnerOverlay.of(context).show();
       final httpResponse =
           await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      if (httpResponse.statusCode == 401) return null;
       if (httpResponse.statusCode != 200) {
-        showAlertDialog(context, "Something went wrong. Please try again.");
+        if (context.mounted) {
+          showAlertDialog(context, "Something went wrong. Please try again.");
+        }
         return null;
       }
       final resultType = httpResponse.body["result_type"];
@@ -161,7 +164,9 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         final l = httpResponse.body["result_data"] as List;
         JetsRouterDelegate().workspaceMenuState = mapMenuEntry(l);
       } else {
-        showAlertDialog(context, "Oops, nothing here, working on it!");
+        if (context.mounted) {
+          showAlertDialog(context, "Oops, nothing here, working on it!");
+        }
         return null;
       }
 
@@ -173,7 +178,9 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       //     "Action.openWorkspace: NAVIGATING to $workspaceHomePath, with $params");
       JetsRouterDelegate()(JetsRouteData(workspaceHomePath, params: params));
 
-      JetsSpinnerOverlay.of(context).hide();
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
       return null;
 
     case ActionKeys.compileWorkspace:
@@ -193,7 +200,9 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       JetsSpinnerOverlay.of(context).show();
       await postSimpleAction(
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      JetsSpinnerOverlay.of(context).hide();
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
       return null;
 
     // Cancel Dialog / Form
@@ -242,10 +251,15 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       JetsSpinnerOverlay.of(context).show();
       final result =
           await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
-      JetsSpinnerOverlay.of(context).hide();
+
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
       if (result.statusCode != 200 && result.statusCode != 401) {
         print('Something went wrong while saving file: $result');
-        showAlertDialog(context, "Something went wrong. Please try again.");
+        if (context.mounted) {
+          showAlertDialog(context, "Something went wrong. Please try again.");
+        }
       }
       return null;
 
@@ -280,8 +294,9 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       JetsSpinnerOverlay.of(context).show();
       final result =
           await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
-      // ignore: use_build_context_synchronously
-      JetsSpinnerOverlay.of(context).hide();
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
       if (result.statusCode != 200 && result.statusCode != 401) {
         print('Something went wrong while deleting file changes: $result');
         return 'Something went wrong while deleting file changes: $result';
@@ -307,9 +322,11 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       final result =
           await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
-      // ignore: use_build_context_synchronously
-      JetsSpinnerOverlay.of(context).hide();
-      if (result.statusCode != 200 && result.statusCode != 401) {
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      if (result.statusCode == 401) return "Not authorized";
+      if (result.statusCode != 200) {
         print('Something went wrong while deleting all file changes: $result');
         return 'Something went wrong while deleting all file changes: $result';
       }

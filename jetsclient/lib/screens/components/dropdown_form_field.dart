@@ -38,7 +38,6 @@ class _JetsDropdownButtonFormFieldState
   String? predicatePreviousValue;
   String? selectedValue;
   List<DropdownItemConfig> items = [];
-  bool listenerAdded = false;
 
   @override
   void initState() {
@@ -55,15 +54,7 @@ class _JetsDropdownButtonFormFieldState
           _config.whereStateContains.isNotEmpty) {
         widget.formState.addListener(stateListener);
       }
-      if (JetsRouterDelegate().user.isAuthenticated) {
-        // print("*** JetsDropdownButtonFormFieldState: ok user auth, querying dropdown items");
-        queryDropdownItems();
-      } else {
-        // print("*** JetsDropdownButtonFormFieldState: ok user NOT auth, waiting to go to home");
-        // Get the first batch of data when navigated to screenPath
-        JetsRouterDelegate().addListener(navListener);
-        listenerAdded = true;
-      }
+      queryDropdownItems();
     } else {
       items.addAll(_config.items);
       if (items.isNotEmpty) {
@@ -77,12 +68,6 @@ class _JetsDropdownButtonFormFieldState
     queryDropdownItems();
   }
 
-  void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path == homePath) {
-      queryDropdownItems();
-    }
-  }
-
   @override
   void dispose() {
     // print("*** DropDown dispose called");
@@ -90,9 +75,6 @@ class _JetsDropdownButtonFormFieldState
       if (_config.stateKeyPredicates.isNotEmpty ||
           _config.whereStateContains.isNotEmpty) {
         widget.formState.removeListener(stateListener);
-      }
-      if(listenerAdded) {
-        JetsRouterDelegate().removeListener(navListener);
       }
     }
     super.dispose();
@@ -130,6 +112,12 @@ class _JetsDropdownButtonFormFieldState
   }
 
   void queryDropdownItems() async {
+    // Check if user is logged in
+    if (!JetsRouterDelegate().user.isAuthenticated) {
+      // print("*** queryDropdownItems CANCELLED for ${_config.key} not auth");
+      return;
+    }
+
     // Check if we have predicate on formState
     var query = _config.dropdownItemsQuery;
     if (query == null) return;
@@ -229,15 +217,17 @@ class _JetsDropdownButtonFormFieldState
       final rows = result.body['rows'] as List;
       setDropdownItems(rows);
     } else if (result.statusCode == 401) {
-      const snackBar = SnackBar(
-        content: Text('Session Expired, please login'),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      // const snackBar = SnackBar(
+      //   content: Text('Session Expired, please login'),
+      // );
+      // ScaffoldMessenger.of(context).showSnackBar(snackBar);
     } else {
       const snackBar = SnackBar(
         content: Text('Error reading dropdown list items'),
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      }
     }
     // print("*** queryDropdownItems: DONE!");
   }

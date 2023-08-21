@@ -50,7 +50,6 @@ Future<String?> loginFormActions(BuildContext context,
       var result = await client.sendRequest(
           path: ServerEPs.loginEP, encodedJsonBody: formState.encodeState(0));
 
-      // if (!mounted) return; //* don't think we need this since we don't call setState() here
       if (result.statusCode == 200) {
         // update the [UserModel]
         JetsRouterDelegate().user.name = result.body[FSK.userName];
@@ -72,26 +71,34 @@ Future<String?> loginFormActions(BuildContext context,
             path: "/dataTable",
             token: JetsRouterDelegate().user.token,
             encodedJsonBody: encodedMsg);
+        if (result.statusCode == 401) return "Not Authorized";
         if (result.statusCode == 200) {
-          JetsRouterDelegate().clients = (result.body['rows']
-                  as List)
+          JetsRouterDelegate().clients = (result.body['rows'] as List)
               .map((e) => DropdownItemConfig(label: e[0]!, value: e[0]))
               .toList();
         }
 
         // Inform the user and transition
-        const snackBar = SnackBar(
-          content: Text('Login Successful!'),
-        );
-        messenger.showSnackBar(snackBar);
+        // if (context.mounted) {
+        //   const snackBar = SnackBar(
+        //     content: Text('Login Successful!'),
+        //   );
+        //   messenger.showSnackBar(snackBar);
+        // }
         JetsRouterDelegate()(JetsRouteData(
             JetsRouterDelegate().user.isAdmin ? userAdminPath : homePath));
       } else if (result.statusCode == 401) {
-        showAlertDialog(context, 'Invalid email and/or password.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Invalid email and/or password.');
+        }
       } else if (result.statusCode == 422) {
-        showAlertDialog(context, result.body[FSK.error]);
+        if (context.mounted) {
+          showAlertDialog(context, result.body[FSK.error]);
+        }
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     case ActionKeys.register:
@@ -162,7 +169,7 @@ Future<String?> registrationFormActions(BuildContext context,
       var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.registerEP,
           encodedJsonBody: formState.encodeState(0));
-      // if (!mounted) return; needed?
+      if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200 || result.statusCode == 201) {
         // update the [UserModel]
         JetsRouterDelegate().user.name = result.body[FSK.userName];
@@ -171,16 +178,24 @@ Future<String?> registrationFormActions(BuildContext context,
         const snackBar = SnackBar(
           content: Text('Registration Successful'),
         );
-        messenger.showSnackBar(snackBar);
+        if (context.mounted) {
+          messenger.showSnackBar(snackBar);
+        }
         JetsRouterDelegate()(JetsRouteData(loginPath));
       } else if (result.statusCode == 406 || result.statusCode == 422) {
         // http Not Acceptable / Unprocessable
-        showAlertDialog(context, 'Invalid email or password.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Invalid email or password.');
+        }
       } else if (result.statusCode == 409) {
         // http Conflict
-        showAlertDialog(context, 'User already exist please signed in.');
+        if (context.mounted) {
+          showAlertDialog(context, 'User already exist please signed in.');
+        }
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     default:
@@ -223,15 +238,20 @@ Future<String?> userAdminFormActions(BuildContext context,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
       // handling server reply
+      if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200) {
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Update Successful'),
         );
-        messenger.showSnackBar(snackBar);
+        if (context.mounted) {
+          messenger.showSnackBar(snackBar);
+        }
         formState.invokeCallbacks();
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     case ActionKeys.deleteUser:
@@ -259,15 +279,20 @@ Future<String?> userAdminFormActions(BuildContext context,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
       // handling server reply
+      if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200) {
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Delete User(s) Successful'),
         );
-        messenger.showSnackBar(snackBar);
+        if (context.mounted) {
+          messenger.showSnackBar(snackBar);
+        }
         formState.invokeCallbacks();
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     default:

@@ -291,7 +291,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormDataTableFieldConfig(
             key: DTKeys.sourceConfigTable,
-            tableHeight: double.infinity,
+            // tableHeight: double.infinity,
             dataTableConfig: DTKeys.sourceConfigTable)
       ],
       [
