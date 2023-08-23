@@ -435,5 +435,40 @@ struct ToTypeOfOperator
   int type_;
 };
 
+// RangeVisitor
+// --------------------------------------------------------------------------------------
+struct RangeVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  // This operator is used as: (start_value range count)
+  // It returns an iterator, i.e. it returns the subject (a blank node) of a set of triples:
+  //      (subject, jets:range_value, value1)
+  //      (subject, jets:range_value, value2)
+  //                    . . .
+  //      (subject, jets:range_value, valueN)
+  // Where value1..N is: for(i=0; i<count; i++) start_value + i;
+  RangeVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for range: ("<<lhs<<", "<<rhs<<")");};
+  RDFTTYPE operator()(rdf::LInt32 lhs, rdf::LInt32        rhs)const{return this->range(lhs.data, rhs.data);}
+  
+  RDFTTYPE range(int start_value, int count)const
+  {
+    // min of validation
+    if(not rs) return rdf::Null();
+    auto * rdf_session = rs->rdf_session();
+    auto * rmgr = rdf_session->rmgr();
+
+    // The subject resource for the triples to return
+    rdf::r_index subject = rmgr->create_bnode();
+    for(int i=0; i<count; i++) {
+      rdf_session->insert_inferred(subject, rmgr->jets()->jets__range_value, start_value+i);
+    }
+
+    return *subject;
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 } // namespace jets::rete
 #endif // JETS_RETE_EXPR_OP_OTHERS_H
