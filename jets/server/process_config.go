@@ -381,7 +381,7 @@ func (processInput *ProcessInput) setKeyPos() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("ERROR ProcessInput key column: %s is not found among the input columns", processInput.keyColumn)
+	return fmt.Errorf("ERROR ProcessInput key column: %s is not found among the input columns (Have you done the mapping yet?)", processInput.keyColumn)
 }
 
 // Main Pipeline Configuration Read Function
