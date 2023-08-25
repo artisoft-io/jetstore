@@ -2,14 +2,15 @@ package delegate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -40,10 +41,10 @@ func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int, status strin
 		"SELECT count(*) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 AND status=$2 GROUP BY shard_id", 
 		pipelineExecutionKey, status).Scan(&count)
 	if err != nil {
-		msg := fmt.Sprintf("QueryRow on pipeline_execution_details failed: %v", err)
-		if strings.Contains(msg, "no rows in result set") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return 0
 		}
+		msg := fmt.Sprintf("QueryRow on pipeline_execution_details failed: %v", err)
 		log.Fatalf(msg)
 	}
 	return count

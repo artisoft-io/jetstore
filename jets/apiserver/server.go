@@ -20,6 +20,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -286,7 +287,7 @@ func (server *Server) checkWorkspaceVersion() error {
 	err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 	switch {
 	case err != nil:
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
 			return nil
 		}

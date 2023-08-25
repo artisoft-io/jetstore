@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -248,7 +249,7 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 			ORDER BY file_key`
 		rows, err := ctx.Dbpool.Query(context.Background(), stmt, client, org, objectType, sourcePeriodKey)
 		if err != nil {
-			if err.Error() == "no rows in result set" {
+			if errors.Is(err, pgx.ErrNoRows) {
 				return &map[string]interface{}{}, http.StatusOK, nil
 			}
 			return nil, http.StatusInternalServerError,
