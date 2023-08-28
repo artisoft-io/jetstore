@@ -13,6 +13,7 @@
 #include "../rete/expr_op_resources.h"
 #include "../rete/expr_op_others.h"
 #include "../rete/expr.h"
+#include "../rete/rete_meta_store_factory.h"
 
 // This file contains basic operator used in rule expression 
 // see ExprUnaryOp and ExprBinaryOp classes.
@@ -51,6 +52,9 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
   if(op == "substring_of")      return create_expr_binary_operator<SubstringOfVisitor>(key, lhs, rhs);
   if(op == "char_at")           return create_expr_binary_operator<CharAtVisitor>(key, lhs, rhs);
   if(op == "replace_char_of")   return create_expr_binary_operator<ReplaceCharOfVisitor>(key, lhs, rhs);
+
+  // "Iterator" operator
+  if(op == "range")             return create_expr_binary_operator<RangeVisitor>(key, lhs, rhs);
 
   // Resource operators
   if(op == "size_of")           return create_expr_binary_operator<SizeOfVisitor>(key, lhs, rhs);

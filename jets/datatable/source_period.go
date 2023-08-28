@@ -2,9 +2,11 @@ package datatable
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -53,7 +55,7 @@ func InsertSourcePeriod(dbpool *pgxpool.Pool, year, month, day int) (int, error)
 	switch {
 	case err == nil:
 		return int(key), nil
-	case err.Error() == "no rows in result set":
+	case errors.Is(err, pgx.ErrNoRows):
 		// perform the insert
 		month_period, week_period, day_period := CalculatePeriod(year, month, day)
 		stmt := fmt.Sprintf(`INSERT INTO

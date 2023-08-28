@@ -26,16 +26,22 @@ class HttpClientSingleton {
         encodedJsonBody: jsonEncode(
             <String, dynamic>{'action': 'refresh_token'},
             toEncodable: (_) => ''));
-      print('*** refreshToken() called');
+    print('*** refreshToken() called');
   }
 
   Future<HttpResponse> sendRequest(
       {required String path, String? token, String? encodedJsonBody}) async {
     try {
-      if(serverAdd == null) {
+      if (serverAdd == null) {
         return HttpResponse(400, "serverAdd not set");
       }
-      // print('*** Request: $encodedJsonBody');
+      final routeData = JetsRouteData(path);
+      if (routeData.authRequired && !JetsRouterDelegate().isAuthenticated()) {
+        // print("*** User Not Authenticated - not sending request");
+        return HttpResponse(401, '');
+      }
+
+      // print('*** Request $path (auth:${JetsRouterDelegate().isAuthenticated()}): ${encodedJsonBody==null?'':encodedJsonBody.substring(0, encodedJsonBody.length>50?50:encodedJsonBody.length)}');
       var h = <String, String>{'Content-Type': 'application/json'};
       if (token != null) {
         h['Authorization'] = 'token $token';
@@ -46,8 +52,13 @@ class HttpClientSingleton {
       // print('Response headers: ${response.headers}');
       // print('---');
       if (response.statusCode == 401) {
-        // redirect to login page
-        JetsRouterDelegate()(JetsRouteData(loginPath));
+        if (JetsRouterDelegate().isAuthenticated()) {
+          // redirect to login page
+          // print('Not authorized redirecting to login');
+          JetsRouterDelegate().user.token = null;
+          JetsRouterDelegate()(JetsRouteData(loginPath));
+        }
+        return HttpResponse(response.statusCode, '');
       }
       var data = jsonDecode(response.body) as Map<String, dynamic>;
       token = data['token'];

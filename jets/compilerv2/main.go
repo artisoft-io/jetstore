@@ -148,7 +148,7 @@ func doJob() error {
 		err = fmt.Errorf("unknown CompileJetruleAction.Action: %s",action.Action)
 	}
 	if err != nil {
-		return fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
+		return fmt.Errorf("while executing CompileJetruleAction '%s': %v",action.Action, err)
 	}
 
 	return nil

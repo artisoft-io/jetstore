@@ -35,7 +35,7 @@ class ExprOpTest : public ::testing::Test {
     rmgr->set_locked();
     meta_graph->set_locked();
 
-    // Cretae the rdf_session and the rete_session and initialize them
+    // Create the rdf_session and the rete_session and initialize them
     // Initialize the rete_session now that the rule base is ready
     this->rdf_session = rdf::create_rdf_session(meta_graph);
     this->rete_session = create_rete_session(rete_meta_store, this->rdf_session.get());
@@ -543,6 +543,41 @@ TEST_F(ExprOpTest, ReplaceCharOfVisitor2) {
   rdf::LString rhs("something`that");
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("something_that")));
+}
+
+TEST_F(ExprOpTest, RangeVisitor1) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  RangeVisitor op(this->rete_session.get(), nullptr);
+  rdf::LInt32 lhs(1);
+  rdf::LInt32 rhs(3);
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+
+  // std::cout << sess << std::endl;
+  rdf::r_index s = rmgr->get_bnode(get_key(&res));
+  rdf::r_index p = rmgr->create_resource("jets:range_value");
+  EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(0)));
+  EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(1)));
+  EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(2)));
+  EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(3)));
+  EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(4)));
+}
+
+TEST_F(ExprOpTest, RangeVisitor2) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  RangeVisitor op(this->rete_session.get(), nullptr);
+  rdf::LInt32 lhs(0);
+  rdf::LInt32 rhs(3);
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  // std::cout << sess << std::endl;
+  rdf::r_index s = rmgr->get_bnode(get_key(&res));
+  rdf::r_index p = rmgr->create_resource("jets:range_value");
+  EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(0)));
+  EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(1)));
+  EXPECT_TRUE(sess->contains(s, p, rmgr->create_literal(2)));
+  EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(3)));
+  EXPECT_FALSE(sess->contains(s, p, rmgr->create_literal(4)));
 }
 
 }   // namespace

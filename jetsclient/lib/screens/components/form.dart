@@ -49,32 +49,13 @@ class JetsFormWidgetState extends State<JetsForm> {
     widget.formState.isDialog = widget.isDialog;
     widget.formState.formKey = widget.formKey;
     if (inputFields.isEmpty) {
-      if (JetsRouterDelegate().user.isAuthenticated) {
-        queryInputFieldItems();
-      } else {
-        // Get the first batch of data when navigated to screenPath
-        JetsRouterDelegate().addListener(navListener);
-      }
+      queryInputFieldItems();
     }
   }
 
   void markAsDirty() {
     if (!mounted) return;
     setState(() {});
-  }
-
-  void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path == homePath) {
-      queryInputFieldItems();
-    }
-  }
-
-  @override
-  void dispose() {
-    if (widget.formConfig.inputFields.isEmpty) {
-      JetsRouterDelegate().removeListener(navListener);
-    }
-    super.dispose();
   }
 
   void queryInputFieldItems() async {
@@ -85,6 +66,13 @@ class JetsFormWidgetState extends State<JetsForm> {
         "Jets Form with empty inputFields and no inputFieldsQuery!");
     if (widget.formConfig.inputFieldRowBuilder == null ||
         widget.formConfig.inputFieldsQuery == null) {
+      return;
+    }
+
+    // Check if user is logged in
+    if (!JetsRouterDelegate().user.isAuthenticated) {
+      // print(
+      //     "*** Form.queryInputFieldItems CANCELLED for ${widget.formConfig.key} not auth");
       return;
     }
 
@@ -212,15 +200,17 @@ class JetsFormWidgetState extends State<JetsForm> {
       // Notify that we now have inputFields ready
       setState(() {});
     } else if (result.statusCode == 401) {
-      const snackBar = SnackBar(
-        content: Text('Session Expired, please login'),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      // const snackBar = SnackBar(
+      //   content: Text('Session Expired, please login'),
+      // );
+      // ScaffoldMessenger.of(context).showSnackBar(snackBar);
     } else {
       const snackBar = SnackBar(
         content: Text('Error reading dropdown list items'),
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      }
     }
   }
 
@@ -234,7 +224,8 @@ class JetsFormWidgetState extends State<JetsForm> {
             child: AutofillGroup(
                 // When inputFields.length > 5 or useListView==true then use ListView
                 // otherwise expand the controls to occupy the viewport
-                child: inputFields.length > 5 || (useListView!=null && useListView==true)
+                child: inputFields.length > 5 ||
+                        (useListView != null && useListView == true)
                     ? ListView.builder(
                         itemBuilder: (BuildContext context, int index) {
                           if (index < inputFields.length) {

@@ -24,8 +24,9 @@ String? unpack(dynamic elm) {
 /// returns error message (if status code != 200) or null
 /// NOTE: does navigator.pop with DTActionResult enum
 /// NOTE: ignore error status code == 409 (http confict) //* TODO change this?
-Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
-    String encodedJsonBody,{String serverEndPoint=ServerEPs.dataTableEP}) async {
+Future<String?> postInsertRows(
+    BuildContext context, JetsFormState formState, String encodedJsonBody,
+    {String serverEndPoint = ServerEPs.dataTableEP}) async {
   var navigator = Navigator.of(context);
   var messenger = ScaffoldMessenger.of(context);
   var result = await HttpClientSingleton().sendRequest(
@@ -34,6 +35,8 @@ Future<String?> postInsertRows(BuildContext context, JetsFormState formState,
       encodedJsonBody: encodedJsonBody);
 
   // print("Got reply with status code ${result.statusCode}");
+  // 401: Not authorized, will be redirected to login
+  if (result.statusCode == 401) return null; 
   if (result.statusCode == 200) {
     // Inform the user and transition
     const snackBar = SnackBar(content: Text('Record(s) successfully inserted'));
@@ -90,7 +93,8 @@ Future<int> postSimpleAction(BuildContext context, JetsFormState formState,
 
 /// postRawAction - minimalist post action (does no navigation or callback invocation)
 /// returns the HttpResponse, notify user via SnackBar if success or error
-Future<HttpResponse> postRawAction(BuildContext context, String serverEndPoint, String encodedJsonBody) async {
+Future<HttpResponse> postRawAction(
+    BuildContext context, String serverEndPoint, String encodedJsonBody) async {
   var messenger = ScaffoldMessenger.of(context);
   var result = await HttpClientSingleton().sendRequest(
       path: serverEndPoint,
@@ -98,12 +102,15 @@ Future<HttpResponse> postRawAction(BuildContext context, String serverEndPoint, 
       encodedJsonBody: encodedJsonBody);
 
   // print("Got reply $result \nwith status code ${result.statusCode}");
+  // 401: Not authorized, will be redirected to login
+  if (result.statusCode == 401) return result; 
   if (result.statusCode == 200) {
     // Inform the user and transition
     const snackBar = SnackBar(content: Text('Request successfully completed'));
     messenger.showSnackBar(snackBar);
   } else {
-    const snackBar = SnackBar(content: Text('Something went wrong. Please try again.'));
+    const snackBar =
+        SnackBar(content: Text('Something went wrong. Please try again.'));
     messenger.showSnackBar(snackBar);
   }
   return result;

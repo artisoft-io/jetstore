@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/google/uuid"
 )
 
 // Main data entity
@@ -34,6 +36,7 @@ type PipelineConfig struct {
 	mainProcessInput         *ProcessInput
 	mergedProcessInput       []*ProcessInput
 	injectedProcessInput     []*ProcessInput
+	ruleConfigObjs           []*map[string]interface{}
 	ruleConfigs              []RuleConfig
 	mergedProcessInputMap    map[int]*ProcessInput
 	injectedProcessInputMap  map[int]*ProcessInput
@@ -54,6 +57,15 @@ func (pc *PipelineConfig)String() string {
 	}
 	for ipos := range pc.injectedProcessInput {
 		buf.WriteString(fmt.Sprintf("\n  injectedProcessInput[%d]: %s", ipos, pc.injectedProcessInput[ipos].String()))
+	}
+	buf.WriteString("Rule Configuration:")
+	for ipos := range pc.ruleConfigObjs {
+		b, err := json.MarshalIndent(pc.ruleConfigObjs[ipos], "  ", " ")
+		if err != nil {
+			buf.WriteString("** Invalid json")	
+		} else {
+			buf.Write(b)
+		}
 	}
 	buf.WriteString("\n")
 	return buf.String()
@@ -201,7 +213,6 @@ type ProcessMap struct {
 }
 
 type RuleConfig struct {
-	processConfigKey int
 	subject          string
 	predicate        string
 	object           string
@@ -381,7 +392,7 @@ func (processInput *ProcessInput) setKeyPos() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("ERROR ProcessInput key column: %s is not found among the input columns", processInput.keyColumn)
+	return fmt.Errorf("ERROR ProcessInput key column: %s is not found among the input columns (Have you done the mapping yet?)", processInput.keyColumn)
 }
 
 // Main Pipeline Configuration Read Function
@@ -449,8 +460,8 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 		pc.injectedProcessInputMap[key] = pc.injectedProcessInput[i]
 	}
 
-	// read the rule config triples
-	pc.ruleConfigs, err = readRuleConfig(dbpool, pc.processConfigKey, pc.clientName)
+	// read the rule config triples / json
+	err = pc.readRuleConfig(dbpool)
 	if err != nil {
 		return &pc, fmt.Errorf("read jetsapi.rule_config table failed: %v", err)
 	}
@@ -552,16 +563,20 @@ func getLatestSessionId(dbpool *pgxpool.Pool, tableName string) (sessionId strin
 
 func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 	maxReteSessionsSaved := sql.NullInt64{}
+	var ruleConfigJson string
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, source_period_type, max_rete_sessions_saved
+		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, source_period_type, max_rete_sessions_saved, rule_config_json
 		FROM jetsapi.pipeline_config WHERE key = $1`,
 		pc.key).Scan(&pc.clientName, &pc.processConfigKey, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys, &pc.injectedProcessInputKeys,
-		&pc.sourcePeriodType, &maxReteSessionsSaved)
+		&pc.sourcePeriodType, &maxReteSessionsSaved, &ruleConfigJson)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
 	}
 	if maxReteSessionsSaved.Valid {
 		pc.maxReteSessionSaved = int(maxReteSessionsSaved.Int64)
+	}
+	if err := json.Unmarshal([]byte(ruleConfigJson), &pc.ruleConfigObjs); err != nil {
+		return fmt.Errorf("while reading jetsapi.pipeline_config table, invalid rule_config_json: %v", err)
 	}
 
 	return nil
@@ -654,7 +669,7 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 		err = dbpool.QueryRow(context.Background(), 
 		"SELECT code_values_mapping_json FROM jetsapi.source_config WHERE table_name=$1", 
 		pi.tableName).Scan(&code_values_mapping_json)
-		if err != nil && err.Error() != "no rows in result set" {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("loadProcessInput: Could not get the code_values_mapping_json from source_config table:%v", err)
 		}
 		if code_values_mapping_json.Valid {
@@ -715,27 +730,109 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessM
 }
 
 // Read rule config triples, processConfigKey is rule_config.process_config_key
-func readRuleConfig(dbpool *pgxpool.Pool, processConfigKey int, client string) ([]RuleConfig, error) {
-	result := make([]RuleConfig, 0)
+func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
+	pc.ruleConfigs = make([]RuleConfig, 0)
 	rows, err := dbpool.Query(context.Background(),
-		`SELECT process_config_key, subject, predicate, object, rdf_type 
+		`SELECT subject, predicate, object, rdf_type 
 		FROM jetsapi.rule_config WHERE process_config_key = $1 AND client = $2`,
-		processConfigKey, client)
+		pc.processConfigKey, pc.clientName)
 	if err != nil {
-		return result, err
+		return err
 	}
 	defer rows.Close()
 
 	// Loop through rows, using Scan to assign column data to struct fields.
 	for rows.Next() {
 		var rc RuleConfig
-		if err := rows.Scan(&rc.processConfigKey, &rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
-			return result, err
+		if err := rows.Scan(&rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
+			return err
 		}
-		result = append(result, rc)
+		pc.ruleConfigs = append(pc.ruleConfigs, rc)
 	}
 	if err = rows.Err(); err != nil {
-		return result, err
+		return err
 	}
-	return result, nil
+
+	// Read the json config
+	var ruleConfigJson string
+	var configObjs []*map[string]interface{}
+	err = dbpool.QueryRow(context.Background(),
+		`SELECT rule_config_json FROM jetsapi.rule_configv2 WHERE process_config_key = $1 AND client = $2`,
+		pc.processConfigKey, pc.clientName).Scan(&ruleConfigJson)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if err == nil {
+		if err := json.Unmarshal([]byte(ruleConfigJson), &configObjs); err != nil {
+			return fmt.Errorf("while reading jetsapi.rule_configv2 table, invalid rule_config_json: %v", err)
+		}
+		if len(configObjs) > 0 {
+			pc.ruleConfigObjs = append(pc.ruleConfigObjs, configObjs...)
+		}
+	}
+	// Transform the json config into triples and add them to pc.ruleConfig
+	if len(pc.ruleConfigObjs) == 0 {
+		return nil
+	}
+
+	for _, obj := range pc.ruleConfigObjs {
+		// determine the subject of obj (look for jets:key or use a uuid)
+		var subject string
+		s, ok := (*obj)["jets:key"]
+		if ok {
+			subject, _, err = extractValue(s)
+			if err != nil {
+				return err
+			}
+		} else {
+			subject = uuid.New().String()
+		}
+		for k := range *obj {
+			value, rdfType, err := extractValue((*obj)[k])
+			if err != nil {
+				return err
+			}
+			pc.ruleConfigs = append(pc.ruleConfigs, RuleConfig{
+				subject: subject,
+				predicate: k,
+				object: value,
+				rdfType: rdfType,
+			})
+		}
+	}
+
+	return nil
+}
+
+// Function to extract value and type from json struct
+func extractValue(e interface{}) (value, rdfType string, err error) {
+	switch obj := e.(type) {
+	case string:
+		value = obj
+		rdfType = "text"
+		return
+	case map[string]interface{}:
+		// fmt.Println("*** Domain Key is a struct of composite keys", value)
+		for k, v := range obj {
+			switch vv := v.(type) {
+			case string:
+				switch k {
+				case "value":
+					value = vv
+				case "type":
+					rdfType = vv
+				default:
+					err = fmt.Errorf("rule_config_json contains invalid key %s",k)
+					return
+				}
+			default:
+					err = fmt.Errorf("rule_config_json contains %v which is of a type that is not supported", vv)
+					return
+			}
+		}
+		return
+	default:
+		err = fmt.Errorf("rule_config_json contains %v which is of a type that is not supported", obj)
+		return
+	}
 }

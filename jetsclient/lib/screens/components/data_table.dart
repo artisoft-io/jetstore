@@ -40,7 +40,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
               ? formFieldConfig.autovalidateMode
               : AutovalidateMode.disabled,
           builder: (FormFieldState<WidgetField> field) {
-            // print("*** REFRESHING TABLE");
+            // print("*** REBUILDING TABLE (${tableConfig.key})");
             final state = field as JetsDataTableState;
             final context = field.context;
             final ThemeData themeData = Theme.of(context);
@@ -188,8 +188,10 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                                   controller: state._horizontalController,
                                   padding: const EdgeInsets.all(defaultPadding),
                                   child: DataTable(
-                                    dataRowMinHeight: tableConfig.dataRowMinHeight,
-                                    dataRowMaxHeight: tableConfig.dataRowMaxHeight,
+                                    dataRowMinHeight:
+                                        tableConfig.dataRowMinHeight,
+                                    dataRowMaxHeight:
+                                        tableConfig.dataRowMaxHeight,
                                     columns: dataColumns.isNotEmpty
                                         ? dataColumns
                                         : [const DataColumn(label: Text(' '))],
@@ -301,21 +303,16 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     label = tableConfig.label;
 
     dataSource = JetsDataTableSource(state: this);
-    dataSource.addListener(triggetRefreshListner);
+    dataSource.addListener(triggerTableBuildFromDataTableSource);
 
     isTableEditable = tableConfig.isCheckboxVisible;
 
     // register for change notification on the form state
     if (formState != null && formFieldConfig != null) {
-      formState!.addListener(refreshOnFormStateChange);
+      formState!.addListener(checkRebuildTableOnFormStateChange);
     }
-
-    if (JetsRouterDelegate().user.isAuthenticated) {
-      dataSource.getModelData();
-    } else {
-      // Get the first batch of data when navigated to screenPath
-      JetsRouterDelegate().addListener(navListener);
-    }
+    // print("DataTable.initState - calling getModelData for ${tableConfig.key}");
+    dataSource.getModelData();
   }
 
   /// Get the sort column index as seen by the data table,
@@ -368,24 +365,23 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
   DataColumn makeDataColumn(ColumnConfig e) {
     return DataColumn(
-        label: Text(e.label, maxLines: e.maxLines > 0 ? e.maxLines : null,),
+        label: Text(
+          e.label,
+          maxLines: e.maxLines > 0 ? e.maxLines : null,
+        ),
         numeric: e.isNumeric,
         tooltip: e.tooltips,
         onSort: ((columnIndex, ascending) =>
             _sortTable(columnIndex, ascending)));
   }
 
-  void navListener() async {
-    if (JetsRouterDelegate().currentConfiguration?.path == homePath) {
-      dataSource.getModelData();
-    }
-  }
-
-  void triggetRefreshListner() {
+  void triggerTableBuildFromDataTableSource() {
+    // print("*** BUILD Table ${tableConfig.key} requested by DataTableSource");
     setState(() {});
   }
 
   void _refreshTable() {
+    // print("*** _refreshTable called for Table ${tableConfig.key} requesting ModelData");
     currentDataPage = 0;
     rowsPerPage = availableRowsPerPage[0];
     final config = formFieldConfig!;
@@ -399,7 +395,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     dataSource.getModelData();
   }
 
-  void refreshOnFormStateChange() {
+  void checkRebuildTableOnFormStateChange() {
     assert(formState != null);
     assert(formFieldConfig != null);
     var group = formFieldConfig!.group;
@@ -411,24 +407,34 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
           // where clause have changed, refresh the table, make sure to go to
           // first page of data and clear the selected rows & secondary fields
           // in the form state
+          // print(
+          //     "DT checkRebuildTableOnFormStateChange on ${tableConfig.key} calling REFRESH");
           _refreshTable();
-          break;
+          return;
         }
       }
     }
     for (final key in tableConfig.refreshOnKeyUpdateEvent) {
       if (formState!.isKeyUpdated(group, key)) {
+        // print(
+        //     "DT checkRebuildTableOnFormStateChange on ${tableConfig.key} calling REFRESH");
         _refreshTable();
-        break;
+        return;
       }
     }
+    // print(
+    //     "DT checkRebuildTableOnFormStateChange on ${tableConfig.key} NO REFRESH");
   }
 
   @override
   void dispose() {
-    JetsRouterDelegate().removeListener(navListener);
-    dataSource.removeListener(triggetRefreshListner);
+    // print("*** DataTable dispose for ${tableConfig.key} called");
+    dataSource.removeListener(triggerTableBuildFromDataTableSource);
     dataSource.dispose();
+    if (formState != null && formFieldConfig != null) {
+      formState!.removeListener(checkRebuildTableOnFormStateChange);
+    }
+
     super.dispose();
   }
 

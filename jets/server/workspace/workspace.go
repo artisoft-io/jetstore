@@ -375,7 +375,8 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 			colName := existingSchema.Columns[i].ColumnName
 			_, ok := targetCols[colName]
 			if !ok {
-				return fmt.Errorf("error: cannot update existing table with removed columns: %s", colName)
+				//* TODO Report warning to log table
+				log.Printf("WARNING: Table %s has a depricated columns: %s (Make sure it allows NULL or have a DEFAULT)", tableSpec.TableName, colName)
 			}
 		}
 		err = tableDefinition.UpdateTable(dbpool, existingSchema)

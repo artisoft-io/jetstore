@@ -135,12 +135,12 @@ func main() {
 			hasErr = true
 			errMsg = append(errMsg, "Input and output file key prefixes are required as env var (JETS_s3_INPUT_PREFIX, JETS_s3_OUTPUT_PREFIX).")
 	}
-	if *tokenExpiration < 5 {
+	if *tokenExpiration < 1 {
 		var err error
 		*tokenExpiration, err = strconv.Atoi(os.Getenv("API_TOKEN_EXPIRATION_MIN"))
-		if err != nil || *tokenExpiration < 5 {
+		if err != nil || *tokenExpiration < 1 {
 			hasErr = true
-			errMsg = append(errMsg, "Token expiration must be 5 min or more. (-tokenExpiration)")
+			errMsg = append(errMsg, "Token expiration must be 1 min or more. (-tokenExpiration)")
 		}
 	}
 

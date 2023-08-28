@@ -3,6 +3,7 @@ package dbutils
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -121,7 +122,7 @@ func (fo *FileDbObject) WriteObject(dbpool *pgxpool.Pool, fd *os.File) (int64, e
 	stmt := `SELECT oid	FROM jetsapi.workspace_changes WHERE workspace_name = $1 AND file_name = $2`
 	err = txWrite.QueryRow(ctx, stmt, fo.WorkspaceName, fo.FileName).Scan(&fo.Oid)
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			fo.Oid = 0
 		} else {
 			return 0, fmt.Errorf("while reading from workspace_changes table: %v", err)

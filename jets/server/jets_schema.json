@@ -885,6 +885,60 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "rule_configv2",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "process_config_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "process_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "client",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "rule_config_json",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "rule_configv2_process_config_key_client_idx",
+        "indexDef": "INDEX rule_configv2_process_config_key_client_idx ON jetsapi.rule_config (process_config_key, client)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "rule_configv2_unique_cstraint",
+        "definition": "CONSTRAINT rule_configv2_unique_cstraint UNIQUE (process_name, client)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "pipeline_config",
     "columns": [
       {
@@ -952,6 +1006,12 @@
         "columnName": "max_rete_sessions_saved",
         "dataType": "int",
         "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "rule_config_json",
+        "dataType": "text",
+        "default": "'[]'",
         "isNotNull": true
       },
       {

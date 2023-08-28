@@ -1,9 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
-import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
@@ -272,8 +270,10 @@ Future<String?> sourceConfigActions(BuildContext context,
         ],
         'data': [state],
       }, toEncodable: (_) => '');
-      postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      if (context.mounted) {
+        postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      }
       break;
 
     case ActionKeys.exportClientConfig:
@@ -304,8 +304,10 @@ Future<String?> sourceConfigActions(BuildContext context,
         ],
         'data': [state],
       }, toEncodable: (_) => '');
-      postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      if (context.mounted) {
+        postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      }
       break;
 
     // Add/Update Source Config
@@ -734,19 +736,16 @@ Future<String?> processInputFormActions(BuildContext context,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: json.encode(query));
       Map<String, dynamic>? data;
+      if (result.statusCode == 401) return null;
       if (result.statusCode == 200) {
         data = result.body;
-      } else if (result.statusCode == 401) {
-        const snackBar = SnackBar(
-          content: Text('Session Expired, please login'),
-        );
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        return null;
       } else {
         const snackBar = SnackBar(
           content: Text('Unknown Error reading data from table'),
         );
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        }
         return null;
       }
       final rows = data!['rows'] as List;
@@ -851,6 +850,7 @@ Future<String?> processInputFormActions(BuildContext context,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: deleteJsonBody);
 
+      if (deleteResult.statusCode == 401) return "Not Authorized";
       if (deleteResult.statusCode != 200) {
         formState.setValue(
             0, FSK.serverError, "Something went wrong. Please try again.");
@@ -871,6 +871,7 @@ Future<String?> processInputFormActions(BuildContext context,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
 
+      if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200) {
         // trigger a refresh of the process_mapping table
         formState.parentFormState?.setValue(0, FSK.tableName, null);
@@ -879,8 +880,10 @@ Future<String?> processInputFormActions(BuildContext context,
         const snackBar = SnackBar(
           content: Text('Mapping Updated Sucessfully'),
         );
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        navigator.pop(DTActionResult.ok);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+          navigator.pop(DTActionResult.ok);
+        }
       } else if (result.statusCode == 400 ||
           result.statusCode == 406 ||
           result.statusCode == 422) {
@@ -949,7 +952,7 @@ Future<String?> processConfigFormActions(BuildContext context,
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: deleteJsonBody);
-
+      if (deleteResult.statusCode == 401) return "Not Authorized";
       if (deleteResult.statusCode == 200) {
         // now insert the new triples
         var insertJsonBody = jsonEncode(<String, dynamic>{
@@ -959,6 +962,7 @@ Future<String?> processConfigFormActions(BuildContext context,
           ],
           'data': stateList.getRange(0, stateList.length - 1).toList(),
         }, toEncodable: (_) => '');
+        // ignore: use_build_context_synchronously
         String? err = await postInsertRows(context, formState, insertJsonBody);
         // insert successfull
         // trigger a refresh of the rule_config table
@@ -980,7 +984,6 @@ Future<String?> processConfigFormActions(BuildContext context,
         navigator.pop(DTActionResult.statusError);
         return "Something went wrong. Please try again.";
       }
-      break;
 
     // delete rule config triple
     case ActionKeys.ruleConfigDelete:
@@ -1111,7 +1114,9 @@ String? pipelineConfigFormValidator(
       return "Client must be provided.";
 
     case FSK.mainProcessInputKey:
-      if (v != null && v.isNotEmpty) {
+      // Somehow v still have old value when client drop down is nullified
+      final vv = formState.getValue(group, key);
+      if (vv != null && vv.isNotEmpty) {
         return null;
       }
       return "Main process input must be selected.";
@@ -1123,6 +1128,7 @@ String? pipelineConfigFormValidator(
       return "Pipeline automation status must be selected.";
 
     case FSK.maxReteSessionSaved:
+      // print("maxReteSessionSaved v is $v");
       if (v != null && v.isNotEmpty) {
         return null;
       }
@@ -1157,7 +1163,6 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       if (!valid) {
         return null;
       }
-
       // Get the Pipeline Config key (case update)
       // if no key is present then it's an add
       var updateState = <String, dynamic>{};
@@ -1172,6 +1177,8 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       updateState[FSK.client] = formState.getValue(0, FSK.client);
       updateState[FSK.maxReteSessionSaved] =
           formState.getValue(0, FSK.maxReteSessionSaved);
+      updateState[FSK.ruleConfigJson] =
+          formState.getValue(0, FSK.ruleConfigJson);
 
       // add process_config_key based on process_name
       var processConfigCache =
@@ -1237,17 +1244,25 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       // return postInsertRows(context, formState, encodedJsonBody);
       final res = await postSimpleAction(
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      if (res == 401) return "Not Authorized";
       if (res == 200) {
-        JetsRouterDelegate()(JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+        // JetsRouterDelegate()(
+        //     JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
       } else {
         // There was an error, just pop back to the page
-        // ignore: use_build_context_synchronously
-        Navigator.of(context).pop();
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
       }
       return null;
 
     case ActionKeys.dialogCancel:
-      JetsRouterDelegate()(JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
+      Navigator.of(context).pop();
+      // JetsRouterDelegate()(
+      //     JetsRouteData(pipelineConfigPath, params: {'x': 'x'}));
       break;
     default:
       print('Oops unknown ActionKey for pipeline config form: $actionKey');

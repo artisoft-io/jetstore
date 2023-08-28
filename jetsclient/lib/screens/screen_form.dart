@@ -34,7 +34,7 @@ class ScreenWithForm extends BaseScreen {
                   ),
                 ),
                 Flexible(
-                  flex: 8,
+                  flex: 10,
                   fit: FlexFit.tight,
                   child: formConfig.formTabsConfig.isNotEmpty
                       ? JetsFormWithTabs(

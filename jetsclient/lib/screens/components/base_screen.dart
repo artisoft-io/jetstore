@@ -102,6 +102,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
     JetsRouterDelegate().removeListener(navListener);
     tabController.removeListener(syncMenuWithTab);
     tabController.dispose();
+    tabsStateHelper.removeListener(navListener);
     super.dispose();
   }
 
@@ -123,7 +124,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
   void doMenuOnPress(MenuEntry menuEntry) async {
     if (menuEntry.menuAction != null) {
       final statusCode = await menuEntry.menuAction!(context, menuEntry, this);
-      if (statusCode != 200) {
+      if (statusCode != 200 && context.mounted) {
         showAlertDialog(context, 'Something went wrong. Please try again.');
       }
       navListener();

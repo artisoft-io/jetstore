@@ -39,6 +39,7 @@ struct JetsResources {
   r_index jets__loop{nullptr};
   r_index jets__operator{nullptr};
   r_index jets__org{nullptr};
+  r_index jets__range_value{nullptr};
   r_index jets__replace_chars{nullptr};
   r_index jets__replace_with{nullptr};
   r_index jets__source_period_sequence{nullptr};

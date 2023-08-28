@@ -65,7 +65,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofillHints: [AutofillHints.email],
             obscureText: false,
             textRestriction: TextRestriction.allLower,
-            maxLength: 80)
+            maxLength: 80,
+            useDefaultFont: true)
       ],
       [
         FormInputFieldConfig(
@@ -76,7 +77,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofillHints: [AutofillHints.password],
             obscureText: true,
             textRestriction: TextRestriction.none,
-            maxLength: 80)
+            maxLength: 80,
+            useDefaultFont: true)
       ],
     ],
     formValidatorDelegate: loginFormValidator,
@@ -104,7 +106,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: true,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 80),
+            maxLength: 80,
+            useDefaultFont: true),
         FormInputFieldConfig(
             key: FSK.userEmail,
             label: "Email",
@@ -114,7 +117,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofillHints: [AutofillHints.email],
             obscureText: false,
             textRestriction: TextRestriction.allLower,
-            maxLength: 80),
+            maxLength: 80,
+            useDefaultFont: true),
       ],
       [
         FormInputFieldConfig(
@@ -126,7 +130,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofillHints: [AutofillHints.newPassword],
             obscureText: true,
             textRestriction: TextRestriction.none,
-            maxLength: 80),
+            maxLength: 80,
+            useDefaultFont: true),
         FormInputFieldConfig(
             key: FSK.userPasswordConfirm,
             label: "Password Confirmation",
@@ -136,7 +141,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofillHints: [AutofillHints.newPassword],
             obscureText: true,
             textRestriction: TextRestriction.none,
-            maxLength: 80),
+            maxLength: 80,
+            useDefaultFont: true),
       ],
     ],
     formValidatorDelegate: registrationFormValidator,
@@ -207,7 +213,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: true,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 20),
+            maxLength: 20,
+            useDefaultFont: true),
       ],
       [
         FormInputFieldConfig(
@@ -218,7 +225,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 80),
+            maxLength: 80,
+            useDefaultFont: true),
       ],
     ],
     formValidatorDelegate: sourceConfigValidator,
@@ -253,7 +261,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: true,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 20),
+            maxLength: 20,
+            useDefaultFont: true),
       ],
       [
         FormInputFieldConfig(
@@ -264,7 +273,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 80),
+            maxLength: 80,
+            useDefaultFont: true),
       ],
     ],
     formValidatorDelegate: sourceConfigValidator,
@@ -281,13 +291,13 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormDataTableFieldConfig(
             key: DTKeys.sourceConfigTable,
-            tableHeight: 400,
+            // tableHeight: double.infinity,
             dataTableConfig: DTKeys.sourceConfigTable)
       ],
       [
         FormDataTableFieldConfig(
             key: DTKeys.fileKeyStagingTable,
-            tableHeight: 400,
+            tableHeight: double.infinity,
             dataTableConfig: DTKeys.fileKeyStagingTable),
       ],
     ],
@@ -526,7 +536,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.processMappingTable,
             dataTableConfig: DTKeys.processMappingTable,
-            tableHeight: 700)
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: processInputFormValidator,
@@ -608,7 +618,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.digitsOnly,
-            maxLength: 10),
+            maxLength: 10,
+            useDefaultFont: true),
       ],
       [
         FormDropdownFieldConfig(
@@ -930,7 +941,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormDataTableFieldConfig(
             key: DTKeys.ruleConfigTable,
-            tableHeight: 400,
+            tableHeight: double.infinity,
             dataTableConfig: DTKeys.ruleConfigTable)
       ],
     ],
@@ -941,13 +952,14 @@ final Map<String, FormConfig> _formConfigurations = {
   // Add/Edit pipelineConfig - Edit Form to add / edit pipeline config
   FormKeys.pipelineConfigForm: FormConfig(
     key: FormKeys.pipelineConfigForm,
-    title: "Pipeline Configuration",
+    // title: "Pipeline Configuration",
     actions: [],
     inputFields: [
       [
         FormDataTableFieldConfig(
             key: DTKeys.pipelineConfigTable,
-            dataTableConfig: DTKeys.pipelineConfigTable),
+            dataTableConfig: DTKeys.pipelineConfigTable,
+            tableHeight: double.infinity),
       ],
     ],
     formValidatorDelegate: pipelineConfigFormValidator,
@@ -981,6 +993,7 @@ final Map<String, FormConfig> _formConfigurations = {
             items: [
               DropdownItemConfig(label: 'Select a Client'),
             ],
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
       ],
@@ -991,6 +1004,7 @@ final Map<String, FormConfig> _formConfigurations = {
             items: [
               DropdownItemConfig(label: 'Select a process'),
             ],
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             dropdownItemsQuery:
                 "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"),
       ],
@@ -1002,7 +1016,10 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.digitsOnly,
-            maxLength: 4),
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            maxLength: 4,
+            useDefaultFont: true,
+            defaultValue: '0'),
       ],
       [
         PaddingConfig(height: defaultPadding),
@@ -1037,7 +1054,8 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 512),
+            maxLength: 512,
+            useDefaultFont: true),
       ],
       [
         PaddingConfig(height: 2 * defaultPadding),
@@ -1062,6 +1080,22 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: FSK.injectedProcessInputKeys,
             dataTableConfig: FSK.injectedProcessInputKeys),
+      ],
+      [
+        TextFieldConfig(
+            key: 'Rule_Configuration_Json_Header',
+            label: "Rule Configuration Json"),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.ruleConfigJson,
+            label: "Rule Configuration Json",
+            hint: "Enter a valid json array of configuration objects",
+            maxLines: 10,
+            maxLength: 51200,
+            autofocus: false,
+            textRestriction: TextRestriction.none,
+            defaultValue: "[]"),
       ],
     ],
     formValidatorDelegate: pipelineConfigFormValidator,

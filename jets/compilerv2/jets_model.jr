@@ -26,11 +26,16 @@ class jets:State {
   $base_classes = [owl:Thing],
   $data_properties = [
     jets:completed                  as bool,
-    jets:sourcePeriodType           as text, 
     jets:currentSourcePeriod        as int, 
     jets:currentSourcePeriodDate    as date, 
     jets:exception                  as text,
-    jets:loop                       as int
+    jets:from                       as int,
+    jets:length                     as int,
+    jets:loop                       as int,
+    jets:range_value                as resource,
+    jets:replace_chars              as text,
+    jets:replace_with               as text,
+    jets:sourcePeriodType           as text 
   ],
   $as_table = false
 };
