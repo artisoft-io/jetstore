@@ -26,12 +26,13 @@ func readRow(rows *pgx.Rows, processInput *ProcessInput) ([]interface{}, error) 
 
 	nCol := len(processInput.processInputMapping)
 	dataRow := make([]interface{}, nCol)
-	if processInput.sourceType == "file" {
+	switch processInput.sourceType {
+	case "file":
 		nullStringSlice := make([]sql.NullString, nCol)
 		for i := 0; i < nCol; i++ {
 			dataRow[i] = &nullStringSlice[i]
 		}
-	} else {
+	case "domain_table", "alias_domain_table":
 		// input type base on model,
 		for i := 0; i < nCol; i++ {
 			inputColumnSpec := &processInput.processInputMapping[i]
@@ -76,20 +77,23 @@ func readRow(rows *pgx.Rows, processInput *ProcessInput) ([]interface{}, error) 
 				dataRow[i] = &sql.NullString{}
 			}
 		}
+	default:
+		return dataRow, fmt.Errorf("error: unknown source_type in readRow: %s", processInput.sourceType)
 	}
 	err := (*rows).Scan(dataRow...)
 	return dataRow, err
 }
 
 type joinQuery struct {
+	name          string
 	processInput  *ProcessInput
 	rows          pgx.Rows
 	groupingValue string
 	pendingRow    []interface{}
 }
 
-// readInput read the input table and grouping the rows according to the
-// grouping column
+// readInput read the input tables and groups the rows according to the grouping column
+// this is the main read function
 func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *ReteWorkspace) (<-chan groupedJetRows, <-chan readResult) {
 	dataInputc := make(chan groupedJetRows)
 	result := make(chan readResult, 1)
@@ -102,7 +106,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 
 		// Main table statement
 		stmt = reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(reteWorkspace.pipelineConfig.mainProcessInput)
-		fmt.Printf("\nMain SQL:\n%s\n", stmt)
+		log.Printf("\n*Read*Input: Main SQL:\n%s\n", stmt)
 		mainTableRows, err = dbc.mainNode.dbpool.Query(context.Background(), stmt)
 		if err != nil {
 			result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
@@ -114,13 +118,16 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		// setup the join tables: dsn * nbr merged tables
 		// Slice to hold the join queries
 		joinQueries := make([]joinQuery, 0)
+		
+		// Query for Merge Process Input
 		mergedProcessInput := reteWorkspace.pipelineConfig.mergedProcessInput
 		for _, jnode := range dbc.joinNodes {
 			for ipoc := range mergedProcessInput {
 				// prepare the sql stmt
-				jquery := joinQuery{processInput: &mergedProcessInput[ipoc]}
-				stmt := reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(&mergedProcessInput[ipoc])
-				fmt.Printf("\nJOIN SQL:\n%s\n", stmt)
+				qname := fmt.Sprintf("merge %d", ipoc)
+				jquery := joinQuery{name: qname, processInput: mergedProcessInput[ipoc]}
+				stmt = reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(mergedProcessInput[ipoc])
+				log.Printf("\n*Read*Input: MERGE SQL %s:\n%s\n", qname, stmt)
 				jquery.rows, err = jnode.dbpool.Query(context.Background(), stmt)
 				if err != nil {
 					result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
@@ -130,7 +137,37 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 				defer joinQueries[len(joinQueries)-1].rows.Close()
 			}
 		}
+
+		// Query for Injected Data Process Input
+		injectedProcessInput := reteWorkspace.pipelineConfig.injectedProcessInput
+		for _, jnode := range dbc.joinNodes {
+			for ipoc := range injectedProcessInput {
+				// prepare the sql stmt
+				qname := fmt.Sprintf("inject %d", ipoc)
+				jquery := joinQuery{name: qname, processInput: injectedProcessInput[ipoc]}
+				switch injectedProcessInput[ipoc].sourceType {
+				case "alias_domain_table":
+					stmt = reteWorkspace.pipelineConfig.makeProcessInputSqlStmt(injectedProcessInput[ipoc])
+				default:
+					if err != nil {
+						result <- readResult{
+							err: fmt.Errorf("error: unknown source_type in readInput %s", injectedProcessInput[ipoc].sourceType)}
+						return
+					}
+				}
+				log.Printf("\n*Read*Input: INJECT SQL %s:\n%s\n", qname, stmt)
+				jquery.rows, err = jnode.dbpool.Query(context.Background(), stmt)
+				if err != nil {
+					result <- readResult{err: fmt.Errorf("while querying input table: %v", err)}
+					return
+				}
+				joinQueries = append(joinQueries, jquery)
+				defer joinQueries[len(joinQueries)-1].rows.Close()
+			}
+		}
+
 		rowCount := 0
+		log.Println("*Read*Input: Start read and merge records")
 
 		// loop over all mainTableRows of the main input table,
 		// collecting all rows with the same groupingValue into aGroupedJetRows
@@ -155,30 +192,23 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 				// First row of the bundle
 				aGroupedJetRows.groupingValue = mainGroupingValue.String
 			}
-			if glogv > 2 {
-				if mainInput.sourceType == "file" {
-					log.Printf("Got text-based input record with grouping key %s", mainGroupingValue.String)
-				} else {
-					log.Printf("Got input entity with grouping key %s", mainGroupingValue.String)
-				}
-			}
 			if rowCount == 0 || groupingValue != mainGroupingValue.String {
 				if rowCount > 0 {
 					// send previous grouping
 					select {
 					case dataInputc <- aGroupedJetRows:
-						aGroupedJetRows = groupedJetRows{groupingValue: groupingValue, jetRowSlice: make([]jetRow, 0)}
+						aGroupedJetRows = groupedJetRows{groupingValue: mainGroupingValue.String, jetRowSlice: make([]jetRow, 0)}
 					case <-done:
 						result <- readResult{rowCount, errors.New("data load from input table canceled")}
 						return
 					}
 				}
 				// start grouping
-				groupingValue = mainGroupingValue.String
 				if glogv > 0 {
-					fmt.Println("*** START Grouping ", groupingValue)
+					log.Printf("*Read*Input: Start of domain key %s", mainGroupingValue.String)
 				}
-				for iqr := range joinQueries {
+				groupingValue = mainGroupingValue.String
+				joinQueryLoop: for iqr := range joinQueries {
 					// check last pending row
 					if groupingValue == joinQueries[iqr].groupingValue {
 						// consume this row
@@ -186,8 +216,11 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 						aGroupedJetRows.jetRowSlice = append(aGroupedJetRows.jetRowSlice, jetRow{
 							processInput: joinQueries[iqr].processInput,
 							rowData:      joinQueries[iqr].pendingRow})
+						if glogv > 2 {
+							log.Println("*Read*Input: Add row from Query", joinQueries[iqr].name,"for key",groupingValue)
+						}										
 					}
-					// Move to the next row if the joinQuery row is not ahead of the main table row
+					// Move forward while the joinQuery has a domain key <= groupingValue
 					if joinQueries[iqr].groupingValue <= groupingValue {
 						for joinQueries[iqr].rows.Next() {
 							joinQueries[iqr].pendingRow, err = readRow(&joinQueries[iqr].rows, joinQueries[iqr].processInput)
@@ -196,29 +229,36 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 								result <- readResult{rowCount, err}
 								return
 							}
-							// check if grouping change
+							// check domain key of join query
 							joinGroupingValue := joinQueries[iqr].pendingRow[joinQueries[iqr].processInput.groupingPosition].(*sql.NullString)
 							if !joinGroupingValue.Valid {
 								result <- readResult{rowCount, errors.New("error while reading join input table, got row with null in grouping column")}
 								return
 							}
-							if glogv > 2 {
-								log.Printf("Got join input record with grouping key %s", joinGroupingValue.String)
-							}
 							joinQueries[iqr].groupingValue = joinGroupingValue.String
-							if groupingValue != joinGroupingValue.String {
-								break
+							switch {
+							case joinQueries[iqr].groupingValue < groupingValue:
+								if glogv > 2 {
+									log.Println("*Read*Input: Query", joinQueries[iqr].name,"got key",joinQueries[iqr].groupingValue,"(skipping)")
+								}
+
+							case joinQueries[iqr].groupingValue == groupingValue:
+								if glogv > 2 {
+									log.Println("*Read*Input: Add row from Query", joinQueries[iqr].name,"for key",groupingValue)
+								}
+								// consume this row
+								rowCount += 1
+								aGroupedJetRows.jetRowSlice = append(aGroupedJetRows.jetRowSlice, jetRow{
+									processInput: joinQueries[iqr].processInput,
+									rowData:      joinQueries[iqr].pendingRow})
+
+							default:
+								// join query key is ahead, break from this loop
+								if glogv > 2 {
+									log.Println("*Read*Input: Query", joinQueries[iqr].name,"got key",joinQueries[iqr].groupingValue,"(blocking)")
+								}
+								goto joinQueryLoop
 							}
-							// consume this row
-							rowCount += 1
-							aGroupedJetRows.jetRowSlice = append(aGroupedJetRows.jetRowSlice, jetRow{
-								processInput: joinQueries[iqr].processInput,
-								rowData:      joinQueries[iqr].pendingRow})
-							// // For development
-							// log.Println("GOT Join ROW:")
-							// for ipos := range joinQueries[iqr].pendingRow {
-							// 	log.Println("    ",joinQueries[iqr].processInput.processInputMapping[ipos].dataProperty,"  =  ",joinQueries[iqr].pendingRow[ipos])
-							// }
 						}
 					}
 				}
@@ -226,6 +266,9 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 
 			rowCount += 1
 			aGroupedJetRows.jetRowSlice = append(aGroupedJetRows.jetRowSlice, mainJetRow)
+			if glogv > 2 {
+				log.Println("*Read*Input: Add row from Main Query for key",groupingValue)
+			}
 		}
 
 		if rowCount == 0 {

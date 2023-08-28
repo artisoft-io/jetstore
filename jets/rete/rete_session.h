@@ -123,6 +123,40 @@ class ReteSession {
   }
 
   /**
+   * @brief Notification function called when a triple is added to the inferred graph
+   * 
+   * This is called by callback manager created for rule term filter
+   * 
+   * @param vertex key of NodeVertex that registered the call back
+   * @param s triple's subject inserted
+   * @param p triple's predicate inserted
+   * @param o triple's object inserted
+   * @return int 
+   */
+  inline int
+  triple_inserted_for_filters(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o)
+  {
+    return triple_updated_for_filters(vertex, s, p, o, true);
+  }
+
+  /**
+   * @brief Notification function called when a triple is deleted from the inferred graph
+   * 
+   * This is called by callback manager created for rule term filter
+   * 
+   * @param vertex key of NodeVertex that registered the call back
+   * @param s triple's subject deleted
+   * @param p triple's predicate deleted
+   * @param o triple's object deleted
+   * @return int 
+   */
+  inline int
+  triple_deleted_for_filters(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o)
+  {
+    return triple_updated_for_filters(vertex, s, p, o, false);
+  }
+
+  /**
    * @brief Initialize ReteSession using ReteMetaStore
    *
    *  - Initialize BetaRelationVector beta_relations_ such that
@@ -158,11 +192,24 @@ class ReteSession {
    * @param s triple's subject 
    * @param p triple's predicate 
    * @param o triple's object 
-   * @param is_inserted 
+   * @param is_inserted true if inserted, false for deleted triple
    * @return int 
    */
   int
   triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted);
+
+  /**
+   * @brief Notification for triple inserted/deleted for rule filter terms
+   * 
+   * @param vertex key of NodeVertex that registered the call back
+   * @param s triple's subject 
+   * @param p triple's predicate 
+   * @param o triple's object 
+   * @param is_inserted true if inserted, false for deleted triple
+   * @return int 
+   */
+  int
+  triple_updated_for_filters(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted);
 
   /**
    * @brief Execute inferrence on rete graph
@@ -400,6 +447,30 @@ ReteCallBackImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)
     return;
   }
   this->rete_session_->triple_deleted(this->vertex_, s, p, o);
+}
+
+
+// from graph_callback_mgr_impl.h
+inline void
+ReteCallBack4VisitorsImpl::triple_inserted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+{
+  if(this->p_filter_ and this->p_filter_!=p) return;
+  // If beta node is not activated yet, ignore the notification
+  if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    return;
+  }
+  this->rete_session_->triple_inserted_for_filters(this->vertex_, s, p, o);
+}
+// from graph_callback_mgr_impl.h
+inline void
+ReteCallBack4VisitorsImpl::triple_deleted(rdf::r_index s, rdf::r_index p, rdf::r_index o)const
+{
+  if(this->p_filter_!=nullptr and this->p_filter_!=p) return;
+  // If beta node is not activated yet, ignore the notification
+  if(not this->rete_session_->get_beta_relation(this->vertex_)->is_activated()) {
+    return;
+  }
+  this->rete_session_->triple_deleted_for_filters(this->vertex_, s, p, o);
 }
 
 } // namespace jets::rete

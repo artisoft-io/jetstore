@@ -11,7 +11,8 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/artisoft-io/jetstore/jets/server/rdf"
+	"github.com/artisoft-io/jetstore/jets/server/workspace"
 )
 
 type ReteWorkspace struct {
@@ -89,9 +90,14 @@ func (rw *ReteWorkspace) ExecuteRules(
 	// ---------------------------
 	// ReteInputContext: context/cache across all rdf sessions
 	log.Println("Execute Rule Started")
+	nbrReteSessionSaved := 0
 	var ri ReteInputContext
 	var err error
 	// cache pre-defined resources
+	ri.jets__client, err = rw.js.GetResource("jets:client")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 	ri.jets__completed, err = rw.js.GetResource("jets:completed")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
@@ -108,6 +114,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
+	ri.jets__org, err = rw.js.GetResource("jets:org")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
 	ri.jets__source_period_sequence, err = rw.js.GetResource("jets:source_period_sequence")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
@@ -117,6 +127,26 @@ func (rw *ReteWorkspace) ExecuteRules(
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
 	ri.rdf__type, err = rw.js.GetResource("rdf:type")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__input_record, err = rw.js.GetResource("jets:InputRecord")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__sourcePeriodType, err = rw.js.GetResource("jets:sourcePeriodType")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__currentSourcePeriod, err = rw.js.GetResource("jets:currentSourcePeriod")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__currentSourcePeriodDate, err = rw.js.GetResource("jets:currentSourcePeriodDate")
+	if err != nil {
+		return &result, fmt.Errorf("while get resource: %v", err)
+	}
+	ri.jets__exception, err = rw.js.GetResource("jets:exception")
 	if err != nil {
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
@@ -131,6 +161,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 		// setup the rdf session for the grouping
 		session_count += 1
+		reteSessionSaved := false
 		rdfSession, err := rw.js.NewRDFSession()
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
@@ -144,6 +175,24 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if err != nil {
 				return &result, fmt.Errorf("while creating rete session: %v", err)
 			}
+
+			// Set the current source period and period type in the rdf session
+			r, _ := reteSession.NewIntLiteral(rw.pipelineConfig.currentSourcePeriod)
+			_, err = reteSession.Insert(ri.jets__istate, ri.jets__currentSourcePeriod, r)
+			if err != nil {
+				return &result, fmt.Errorf("while inserting jets:currentSourcePeriod to rdf session: %v", err)
+			}
+			r, _ = reteSession.NewDateLiteral(rw.pipelineConfig.currentSourcePeriodDate)
+			_, err = reteSession.Insert(ri.jets__istate, ri.jets__currentSourcePeriodDate, r)
+			if err != nil {
+				return &result, fmt.Errorf("while inserting jets:currentSourcePeriodDate to rdf session: %v", err)
+			}
+			r, _ = reteSession.NewTextLiteral(rw.pipelineConfig.sourcePeriodType)
+			_, err = reteSession.Insert(ri.jets__istate, ri.jets__sourcePeriodType, r)
+			if err != nil {
+				return &result, fmt.Errorf("while inserting jets:sourcePeriodType to rdf session: %v", err)
+			}
+
 			if iset == 0 {
 				err = ri.assertInputBundle(reteSession, &inBundle, &writeOutputc)
 				if err != nil {
@@ -184,21 +233,21 @@ func (rw *ReteWorkspace) ExecuteRules(
 				}
 				msg, err := reteSession.ExecuteRules()
 				if err != nil {
-					var br BadRow
+					br := NewBadRow()
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
-					log.Println("BAD ROW:", br)
+					log.Println("BAD ROW (ExecuteRules returned err):", br,"(",err.Error(),")")
 					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 					break
 				}
-				// CHECK for jets__terminate and jets__exception
+				// CHECK for jets__terminate
 				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err != nil {
 					// log.Println("Rete Session Looping Completed")
 					break
 				}
 			}
 			if nloop > 0 && iloop >= nloop {
-				var br BadRow
+				br := NewBadRow()
 				br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 				br.ErrorMessage = sql.NullString{String: "error: max loop reached", Valid: true}
 				log.Println("MAX LOOP REACHED:", br)
@@ -209,8 +258,39 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 
 		if *ps {
-			log.Println("ExecuteRule() Completed sucessfully, the rdf sesion contains:")
+			log.Println("ExecuteRule() Completed, the rdf sesion contains:")
 			rdfSession.DumpRdfGraph()
+		}
+
+		// Get the jets:exception(s)
+		ctor, err := rdfSession.Find(ri.jets__istate, ri.jets__exception, nil)
+		if err != nil {
+			log.Printf("while finding all jets:exception in rdf graph: %v", err)
+		} else {
+			for !ctor.IsEnd() {
+				hasException := ctor.GetObject()
+				if hasException != nil {
+					txt, _ := hasException.AsText()
+					br := NewBadRow()
+					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
+					br.ErrorMessage = sql.NullString{String: txt, Valid: true}
+					if !reteSessionSaved && nbrReteSessionSaved < rw.pipelineConfig.maxReteSessionSaved {
+						log.Println("Rete Session Has Rule Exception:", txt, "(rete session saved to process_errors table)")
+						reteSessionSaved = true
+						nbrReteSessionSaved += 1
+						br.ReteSessionSaved = "Y"
+						br.ReteSessionTriples = sql.NullString{
+							String: string(rdf.RDFSessionAsTableJson(rdfSession, 20000)),
+							Valid: true,
+						}
+					} else {
+						log.Println("Rete Session Has Rule Exception:", txt)
+					}
+					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
+				}	
+				ctor.Next()
+			}
+			ctor.ReleaseIterator()	
 		}
 
 		// pulling the data out of the rete session
@@ -230,8 +310,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// Check if subject is an entity for the current source period
 				// i.e. is not an historical entity comming from the lookback period
 				// We don't extract historical entities but only one from the current source period
-				// identified with jets:source_period_sequence == 0 or 
+				// identified with jets:source_period_sequence == 0 or
 				// entities created during the rule session, identified with jets:source_period_sequence is null
+				// Additional Measure: entities with jets:source_period_sequence == 0, must have jets:InputRecord
+				// as rdf:type to ensure it's a mapped entity and not an injected entity.
+				// Note: Do not save the jets:InputEntity marker type
 				keepObj := true
 				obj, err := rdfSession.GetObject(subject, ri.jets__source_period_sequence)
 				if err != nil {
@@ -242,7 +325,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 					if err != nil {
 						return &result, fmt.Errorf("range of predicate jets:source_period_sequence is not int for an entity of type %s: %v", tableSpec.ClassName, err)
 					}
-					if v > 0 {
+					if v == 0 {
+						// Check if obj has marker type jets:InputRecord, if not don't extract obj
+						isInputRecord, err := rdfSession.Contains(subject, ri.rdf__type, ri.jets__input_record)
+						if err != nil {
+							return &result, fmt.Errorf("while checking if entity has marker class jets:InputRecord for an entity of type %s: %v", tableSpec.ClassName, err)
+						}
+						if isInputRecord == 0 {
+							keepObj = false	
+						}	
+					} else {
 						keepObj = false
 					}
 				}
@@ -254,7 +346,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					entityRow := make([]interface{}, ncol)
 					for i := 0; i < ncol; i++ {
 						domainColumn := &tableSpec.Columns[i]
-						// log.Println("Found entity with subject:",stxt, "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
+						// log.Println("Found entity with subject:",subject.AsTextSilent(), "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 						switch {
 						case domainColumn.ColumnName == "session_id":
 							entityRow[i] = *outSessionId
@@ -284,7 +376,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 							for !itor.IsEnd() {
 								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
-									var br BadRow
+									br := NewBadRow()
 									rowkey, err := subject.GetName()
 									if err == nil {
 										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
@@ -296,7 +388,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 									log.Println("BAD EXTRACT:", br)
 									br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 								}
-								data = append(data, obj)
+								if !(domainColumn.ColumnName == "rdf:type" && obj.(string) == "jets:InputRecord") {
+									data = append(data, obj)
+								}
 								itor.Next()
 							}
 							if domainColumn.IsArray {
@@ -308,7 +402,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 									entityRow[i] = data[0]
 								case ld > 1:
 									// Invalid row, multiple values for a functional property
-									var br BadRow
+									br := NewBadRow()
 									rowkey, err := subject.GetName()
 									if err == nil {
 										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
@@ -402,8 +496,6 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 	if rw == nil {
 		return fmt.Errorf("ERROR: ReteWorkspace cannot be nil")
 	}
-	//*
-	fmt.Println("****** assertRuleConfig CALLED, using mainRules:",rw.pipelineConfig.processConfig.mainRules)
 	// Load process meta triples
 	rw.js.LoadProcessMetaTriples(rw.pipelineConfig.processConfig.mainRules, rw.pipelineConfig.processConfig.isRuleSet)
 

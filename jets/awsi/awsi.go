@@ -103,8 +103,8 @@ func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (s
 	return dsn, nil
 }
 
-// ListObjects lists the objects in a bucket.
-func ListS3Objects(bucket, region string) (*[]string, error) {
+// ListObjects lists the objects in a bucket with prefix if not nil.
+func ListS3Objects(prefix *string, bucket, region string) (*[]string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
@@ -114,10 +114,6 @@ func ListS3Objects(bucket, region string) (*[]string, error) {
 	s3Client := s3.NewFromConfig(cfg)
 
 	// Download the keys
-	var prefix *string
-	if os.Getenv("JETS_s3_INPUT_PREFIX") != "" {
-		prefix = aws.String(os.Getenv("JETS_s3_INPUT_PREFIX"))
-	}
 	keys := make([]string, 0)
 	var token *string
 	for isTruncated := true; isTruncated; {
@@ -170,13 +166,16 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 
 	// Create an uploader with the client and custom options
 	uploader := manager.NewUploader(s3Client)
-	_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
+	uout, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &objKey,
 		Body:   bufio.NewReader(fileHd),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload file to s3: %v", err)
+	}
+	if uout != nil {
+		log.Println("Uploaded",*uout.Key,"to location",uout.Location)
 	}
 	return nil
 }

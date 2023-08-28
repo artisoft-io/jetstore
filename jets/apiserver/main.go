@@ -35,7 +35,6 @@ import (
 // JETS_DSN_SECRET
 // JETS_DSN_VALUE
 // JETS_VERSION JetStore version
-// JETS_LOADER_SERVER_SM_ARN state machine arn
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_REGION
 // JETS_SERVER_SM_ARN state machine arn
@@ -52,6 +51,7 @@ import (
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (value: yes, will reset the domain table, run workspace db init script, and upgrade system tables if database version is less than build version)
+// JETS_DOMAIN_KEY_SEPARATOR 
 
 var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret       = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -135,13 +135,12 @@ func main() {
 			hasErr = true
 			errMsg = append(errMsg, "Input and output file key prefixes are required as env var (JETS_s3_INPUT_PREFIX, JETS_s3_OUTPUT_PREFIX).")
 	}
-	if *tokenExpiration < 5 {
+	if *tokenExpiration < 1 {
 		var err error
-		*tokenExpiration, err = strconv.Atoi("API_TOKEN_EXPIRATION_MIN")
-		log.Printf("while converting token expiration: %v",err)
-		if *tokenExpiration < 5 {
+		*tokenExpiration, err = strconv.Atoi(os.Getenv("API_TOKEN_EXPIRATION_MIN"))
+		if err != nil || *tokenExpiration < 1 {
 			hasErr = true
-			errMsg = append(errMsg, "Token expiration must be 5 min or more. (-tokenExpiration)")
+			errMsg = append(errMsg, "Token expiration must be 1 min or more. (-tokenExpiration)")
 		}
 	}
 
@@ -156,6 +155,11 @@ func main() {
 		}
 	}
 
+	if os.Getenv("WORKSPACES_HOME")=="" || os.Getenv("WORKSPACE")=="" {
+		hasErr = true
+		errMsg = append(errMsg, "Env var WORKSPACES_HOME, and WORKSPACE are required.")
+	}
+
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if devMode {
 		if strings.HasPrefix(*unitTestDir, ".") {
@@ -168,9 +172,9 @@ func main() {
 				}
 		}
 	} else {
-		if os.Getenv("JETS_LOADER_SERVER_SM_ARN")=="" || os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
+		if os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
 			hasErr = true
-			errMsg = append(errMsg, "Env var JETS_LOADER_SERVER_SM_ARN, JETS_LOADER_SM_ARN, JETS_SERVER_SM_ARN required when not in dev mode.")
+			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARN required when not in dev mode.")
 		}
 	}
 	if hasErr {
@@ -213,5 +217,6 @@ func main() {
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	fmt.Println("ENV JETS_RESET_DOMAIN_TABLE_ON_STARTUP:",os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
+	fmt.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Fatal(listenAndServe())
 }

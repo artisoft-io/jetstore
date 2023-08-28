@@ -53,7 +53,7 @@ class ReteMetaStoreFactory {
 
   ~ReteMetaStoreFactory()
   {
-    this->reset();
+    // this->reset();
   }
 
   ReteMetaStoreFactory();

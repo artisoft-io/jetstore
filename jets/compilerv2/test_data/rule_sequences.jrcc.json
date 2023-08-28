@@ -1,0 +1,31 @@
+{
+    "resources": [],
+    "lookup_tables": [],
+    "jet_rules": [],
+    "imports": {
+        "process_sequence/rule_sequences.jr": []
+    },
+    "rule_sequences": [
+        {
+            "type": "ruleseq",
+            "name": "MyRuleSequenceName",
+            "main_rule_sets": [
+                "jet_rules/resources.jr",
+                "jet_rules/domain_classes.jr"
+            ],
+            "source_file_name": "process_sequence/rule_sequences.jr",
+            "db_key": 6
+        }
+    ],
+    "main_rule_file_name": "process_sequence/rule_sequences.jr",
+    "support_rule_file_names": [],
+    "rete_nodes": [
+        {
+            "vertex": 0,
+            "parent_vertex": 0,
+            "children_vertexes": [],
+            "type": "head_node",
+            "db_key": 10523
+        }
+    ]
+}

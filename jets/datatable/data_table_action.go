@@ -1,6 +1,7 @@
 package datatable
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"database/sql"
@@ -21,6 +22,7 @@ import (
 	// "time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 
@@ -31,55 +33,67 @@ import (
 
 // Environment and settings needed
 type Context struct {
-	dbpool         *pgxpool.Pool
-	devMode        bool
-	usingSshTunnel bool
-	unitTestDir    *string
-	nbrShards      int
-	adminEmail     *string
+	Dbpool         *pgxpool.Pool
+	DevMode        bool
+	UsingSshTunnel bool
+	UnitTestDir    *string
+	NbrShards      int
+	AdminEmail     *string
 }
 
 func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 	unitTestDir *string, nbrShards int,
 	adminEmail *string) *Context {
 	return &Context{
-		dbpool:         dbpool,
-		devMode:        devMode,
-		usingSshTunnel: usingSshTunnel,
-		unitTestDir:    unitTestDir,
-		nbrShards:      nbrShards,
-		adminEmail:     adminEmail,
+		Dbpool:         dbpool,
+		DevMode:        devMode,
+		UsingSshTunnel: usingSshTunnel,
+		UnitTestDir:    unitTestDir,
+		NbrShards:      nbrShards,
+		AdminEmail:     adminEmail,
 	}
 }
 
 // sql access builder
 type DataTableAction struct {
-	Action        string                   `json:"action"`
-	RawQuery      string                   `json:"query"`
-	RawQueryMap   map[string]string        `json:"query_map"`
-	Columns       []Column                 `json:"columns"`
-	FromClauses   []FromClause             `json:"fromClauses"`
-	WhereClauses  []WhereClause            `json:"whereClauses"`
-	SortColumn    string                   `json:"sortColumn"`
-	SortAscending bool                     `json:"sortAscending"`
-	Offset        int                      `json:"offset"`
-	Limit         int                      `json:"limit"`
-	Data          []map[string]interface{} `json:"data"`
+	Action            string                   `json:"action"`
+	WorkspaceName     string                   `json:"workspaceName"`
+	RawQuery          string                   `json:"query"`
+	RawQueryMap       map[string]string        `json:"query_map"`
+	Columns           []Column                 `json:"columns"`
+	FromClauses       []FromClause             `json:"fromClauses"`
+	WhereClauses      []WhereClause            `json:"whereClauses"`
+	WithClauses       []WithClause             `json:"withClauses"`
+	DistinctOnClauses []string                 `json:"distinctOnClauses"`
+	SortColumn        string                   `json:"sortColumn"`
+	SortColumnTable   string                   `json:"sortColumnTable"`
+	SortAscending     bool                     `json:"sortAscending"`
+	Offset            int                      `json:"offset"`
+	Limit             int                      `json:"limit"`
+	// used for raw_query action only
+	RequestColumnDef  bool                     `json:"requestColumnDef"`
+	Data              []map[string]interface{} `json:"data"`
 }
 type Column struct {
-	Table string    `json:"table"`
-	Column string   `json:"column"`
+	Table  string `json:"table"`
+	Column string `json:"column"`
 }
 type FromClause struct {
-	Schema  string `json:"schema"`
-	Table   string `json:"table"`
+	Schema   string `json:"schema"`
+	Table    string `json:"table"`
+	AsTable  string `json:"asTable"`
+}
+type WithClause struct {
+	Name string `json:"name"`
+	Stmt string `json:"stmt"`
 }
 type WhereClause struct {
-	Table string    `json:"table"`
-	Column string   `json:"column"`
-	Values []string `json:"values"`
-	JoinWith string `json:"joinWith"`
+	Table    string   `json:"table"`
+	Column   string   `json:"column"`
+	Values   []string `json:"values"`
+	JoinWith string   `json:"joinWith"`
 }
+
 // DataTableColumnDef used when returning the column definition
 // obtained from db catalog
 type DataTableColumnDef struct {
@@ -90,12 +104,108 @@ type DataTableColumnDef struct {
 	IsNumeric bool   `json:"isnumeric"`
 }
 
+func (dc *DataTableColumnDef) String() string {
+	var buf strings.Builder
+	buf.WriteString("DataTableColumnDef( Index: ")
+	buf.WriteString(strconv.Itoa(dc.Index))
+	buf.WriteString(", Name: ")
+	buf.WriteString(dc.Name)
+	buf.WriteString(", Label: ")
+	buf.WriteString(dc.Label)
+	buf.WriteString(", Tooltip: ")
+	buf.WriteString(dc.Tooltips)
+	buf.WriteString(")")
+	return buf.String()
+
+}
+
+// Return DataTableAction query and stmt to get the number of rows
+func (dtq *DataTableAction) buildQuery() (string, string) {
+	// Build the query
+	// SELECT DISTINCT ON ("table"."key") "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
+	var buf strings.Builder
+
+	// Start with the WITH statements
+	withClause := dtq.makeWithClause()
+	buf.WriteString(withClause)
+	buf.WriteString(" SELECT ")
+	buf.WriteString(dtq.makeDistinctOnClauses())
+	buf.WriteString(dtq.makeSelectColumns())
+
+	buf.WriteString(" FROM ")
+	fromClause := dtq.makeFromClauses()
+	buf.WriteString(fromClause)
+	buf.WriteString(" ")
+
+	whereClause := dtq.makeWhereClause()
+	buf.WriteString(whereClause)
+	if len(dtq.SortColumn) > 0 {
+		buf.WriteString(" ORDER BY ")
+		if len(dtq.SortColumnTable) > 0 {
+			buf.WriteString(pgx.Identifier{dtq.SortColumnTable, dtq.SortColumn}.Sanitize())
+		} else {
+			buf.WriteString(pgx.Identifier{dtq.SortColumn}.Sanitize())
+		}
+		if !dtq.SortAscending {
+			buf.WriteString(" DESC ")
+		}
+	}
+	buf.WriteString(" OFFSET ")
+	buf.WriteString(fmt.Sprintf("%d", dtq.Offset))
+	buf.WriteString(" LIMIT ")
+	buf.WriteString(fmt.Sprintf("%d", dtq.Limit))
+
+	// Query for number of rows 
+	var stmt string
+
+	if len(dtq.DistinctOnClauses) > 0 {
+		//* TODO this works only when a single column in distinct clause
+		stmt = fmt.Sprintf("%s SELECT count(distinct %s) FROM %s %s",
+			withClause, dtq.DistinctOnClauses[0], fromClause, whereClause)
+	} else {
+		stmt = fmt.Sprintf("%s SELECT count(*) FROM %s %s", withClause, fromClause, whereClause)
+	}
+	return buf.String(), stmt
+}
+
+// Get Column definition
+func (dtq *DataTableAction) getColumnsDefinitions(dbpool *pgxpool.Pool) ([]DataTableColumnDef, error) {
+
+	var columnsDef []DataTableColumnDef
+	// Get table column definition
+	//* TODO use cache
+	tableSchema, err := schema.GetTableSchema(dbpool, dtq.FromClauses[0].Schema, dtq.FromClauses[0].Table)
+	if err != nil {
+		return nil, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dtq.FromClauses[0].Schema, dtq.FromClauses[0].Table, err)
+	}
+	columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
+	for _, colDef := range tableSchema.Columns {
+		columnsDef = append(columnsDef, DataTableColumnDef{
+			Name:      colDef.ColumnName,
+			Label:     colDef.ColumnName,
+			Tooltips:  colDef.ColumnName,
+			IsNumeric: dbutils.IsNumeric(colDef.DataType)})
+		dtq.Columns = append(dtq.Columns, Column{Column: colDef.ColumnName})
+	}
+	sort.Slice(columnsDef, func(l, r int) bool { return columnsDef[l].Name < columnsDef[r].Name })
+	// need to reset the column index due to the sort
+	for i := range columnsDef {
+		columnsDef[i].Index = i
+	}
+	dtq.Columns = make([]Column, 0, len(tableSchema.Columns))
+	for i := range columnsDef {
+		dtq.Columns = append(dtq.Columns, Column{Column: columnsDef[i].Name})
+	}
+
+	return columnsDef, nil
+}
+
 func (dtq *DataTableAction) makeSelectColumns() string {
 	if len(dtq.Columns) == 0 {
-		return "SELECT *"
+		return "*"
 	}
 	var buf strings.Builder
-	buf.WriteString("SELECT ")
+	buf.WriteString(" ")
 	isFirst := true
 	for i := range dtq.Columns {
 		if !isFirst {
@@ -124,6 +234,49 @@ func (dtq *DataTableAction) makeFromClauses() string {
 		} else {
 			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].Table}.Sanitize())
 		}
+		if dtq.FromClauses[i].AsTable != "" {
+			buf.WriteString(" AS ")
+			buf.WriteString(pgx.Identifier{dtq.FromClauses[i].AsTable}.Sanitize())
+		}
+	}
+	return buf.String()
+}
+
+func (dtq *DataTableAction) makeDistinctOnClauses() string {
+	if len(dtq.DistinctOnClauses) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	buf.WriteString("DISTINCT ON(")
+	isFirst := true
+	for i := range dtq.DistinctOnClauses {
+		if !isFirst {
+			buf.WriteString(", ")
+		}
+		isFirst = false
+		buf.WriteString(pgx.Identifier(strings.Split(dtq.DistinctOnClauses[i], ".")).Sanitize())
+	}
+	buf.WriteString(")")
+	return buf.String()
+}
+
+func (dtq *DataTableAction) makeWithClause() string {
+	if len(dtq.WithClauses) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	isFirst := true
+	for i := range dtq.WithClauses {
+		wc := &dtq.WithClauses[i]
+		if !isFirst {
+			buf.WriteString(", ")
+		}
+		isFirst = false
+		buf.WriteString("WITH ")
+		buf.WriteString(wc.Name)
+		buf.WriteString(" AS (")
+		buf.WriteString(wc.Stmt)
+		buf.WriteString(")")
 	}
 	return buf.String()
 }
@@ -145,11 +298,24 @@ func (dtq *DataTableAction) makeWhereClause() string {
 		} else {
 			buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Column}.Sanitize())
 		}
+		nvalues := len(dtq.WhereClauses[i].Values)
+		// Check if value contains an pg array encoded into a string
+		if nvalues == 1 {
+			if dtq.WhereClauses[i].Values[0] == "{}" {
+				dtq.WhereClauses[i].Values[0] = "NULL"
+			} else {
+				v := dtq.WhereClauses[i].Values[0]
+				if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") {
+					dtq.WhereClauses[i].Values = strings.Split(v[1:len(v)-1], ",")
+					nvalues = len(dtq.WhereClauses[i].Values)
+				}
+			}
+		}
 		switch {
 		case len(dtq.WhereClauses[i].JoinWith) > 0:
 			buf.WriteString(" = ")
 			buf.WriteString(dtq.WhereClauses[i].JoinWith)
-		case len(dtq.WhereClauses[i].Values) > 1:
+		case nvalues > 1:
 			buf.WriteString(" IN (")
 			isFirstValue := true
 			for j := range dtq.WhereClauses[i].Values {
@@ -188,15 +354,6 @@ type SqlInsertDefinition struct {
 	AdminOnly  bool
 }
 
-func isNumeric(dtype string) bool {
-	switch dtype {
-	case "int", "long", "uint", "ulong", "double":
-		return true
-	default:
-		return false
-	}
-}
-
 // var tableSchemaCache *lru.Cache
 // func init() {
 // 	var err error
@@ -212,15 +369,10 @@ func isNumeric(dtype string) bool {
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
-	// // Check if we're in dev mode and the query is delegated to a proxy implementation
-	// if ctx.devMode && len(*ctx.unitTestDir) > 0 {
-	// 	// We're in dev mode, see if we override the table being queried
-	// 	switch {
-	// 	case strings.Contains(dataTableAction.RawQuery, "file_key_staging"):
-	// 		return ctx.readLocalFiles(dataTableAction)
-	// 	}
-	// }
-	resultRows, err2 := execQuery(ctx.dbpool, dataTableAction, &dataTableAction.RawQuery)
+	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
+
+	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
 		err = fmt.Errorf("while executing raw query: %v", err2)
@@ -229,6 +381,27 @@ func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map
 
 	results = &map[string]interface{}{
 		"rows": resultRows,
+		"columnDef": columnDefs,
+	}
+	httpStatus = http.StatusOK
+	return
+}
+
+func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+	// fmt.Println("*** ExecDataManagementStatement called, query:",dataTableAction.RawQuery)
+
+	// resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	resultRows, columnDefs, err2 := execDDL(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	
+	if err2 != nil {
+		httpStatus = http.StatusInternalServerError
+		err = fmt.Errorf("while executing raw query: %v", err2)
+		return
+	}
+
+	results = &map[string]interface{}{
+		"rows": resultRows,
+		"columnDef": columnDefs,
 	}
 	httpStatus = http.StatusOK
 	return
@@ -241,8 +414,13 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
 		// fmt.Println("Query:",v)
-		resultRows, err2 := execQuery(ctx.dbpool, dataTableAction, &v)
+		resultRows, _, err2 := execQuery(ctx.Dbpool, dataTableAction, &v)
 		if err2 != nil {
+			if strings.Contains(err2.Error(), "SQLSTATE") {
+				httpStatus = http.StatusBadRequest
+				err = err2
+				return	
+			}
 			httpStatus = http.StatusInternalServerError
 			err = fmt.Errorf("while executing raw query: %v", err2)
 			return
@@ -256,8 +434,23 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *
 	return
 }
 
-type chartype rune
-func DetectDelimiter(buf []byte) (sep_flag chartype, err error) {
+type Chartype rune
+
+// Single character type for csv options
+func (s *Chartype) String() string {
+	return fmt.Sprintf("%#U", *s)
+}
+
+func (s *Chartype) Set(value string) error {
+	r := []rune(value)
+	if len(r) > 1 || r[0] == '\n' {
+		return errors.New("sep must be a single char not '\\n'")
+	}
+	*s = Chartype(r[0])
+	return nil
+}
+
+func DetectDelimiter(buf []byte) (sep_flag Chartype, err error) {
 	// auto detect the separator based on the first line
 	nb := len(buf)
 	if nb > 2048 {
@@ -267,19 +460,21 @@ func DetectDelimiter(buf []byte) (sep_flag chartype, err error) {
 	cn := strings.Count(txt, ",")
 	pn := strings.Count(txt, "|")
 	tn := strings.Count(txt, "\t")
+	td := strings.Count(txt, "~")
 	switch {
-	case (cn > pn) && (cn > tn):
+	case (cn > pn) && (cn > tn) && (cn > td):
 		sep_flag = ','
-	case (pn > cn) && (pn > tn):
+	case (pn > cn) && (pn > tn) && (pn > td):
 		sep_flag = '|'
-	case (tn > cn) && (tn > pn):
+	case (tn > cn) && (tn > pn) && (tn > td):
 		sep_flag = '\t'
+	case (td > cn) && (td > pn) && (td > tn):
+		sep_flag = '~'
 	default:
 		return 0, fmt.Errorf("error: cannot determine the csv-delimit used in buf")
 	}
 	return
 }
-
 
 // InsertRawRows ------------------------------------------------------
 // Insert row function using a raw text buffer containing cst/tsv rows
@@ -292,7 +487,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 	for irow := range *inData {
 
 		buf := (*inData)[irow]["raw_rows"]
-		userEmail := (*inData)[irow]["user_email"];
+		userEmail := (*inData)[irow]["user_email"]
 		if buf == nil || userEmail == nil {
 			log.Printf("Error request is missing raw_rows or user_email from request with Table %s", requestTable)
 			httpStatus = http.StatusInternalServerError
@@ -313,10 +508,10 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 			return
 		}
 		// byteBuf as the raw_rows
-		var sepFlag chartype
+		var sepFlag Chartype
 		sepFlag, err = DetectDelimiter(byteBuf)
 		if err != nil {
-			log.Printf("Error while detecting delimiters for raw_rows: %v",err)
+			log.Printf("Error while detecting delimiters for raw_rows: %v", err)
 			httpStatus = http.StatusBadRequest
 			err = errors.New("error while detecting delimiters for raw_rows")
 			return
@@ -339,7 +534,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 				break
 			}
 			if err2 != nil {
-				log.Printf("Error parsing raw_rows: %v",err2)
+				log.Printf("Error parsing raw_rows: %v", err2)
 				httpStatus = http.StatusBadRequest
 				err = fmt.Errorf("error while parsing raw_rows: %v", err2)
 				return
@@ -372,28 +567,28 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 			objectType := dataTableAction.Data[0]["object_type"]
 			if client != nil && objectType != nil {
 				if org == nil || org == "" {
-					tableName = fmt.Sprintf("%s_%s",client, objectType)
+					tableName = fmt.Sprintf("%s_%s", client, objectType)
 				} else {
-					tableName = fmt.Sprintf("%s_%s_%s",client, org, objectType)
+					tableName = fmt.Sprintf("%s_%s_%s", client, org, objectType)
 				}
 				if tableName != "" {
 					for irow := range dataTableAction.Data {
 						dataTableAction.Data[irow]["table_name"] = tableName
 					}
-				}	
+				}
 			}
 			if tableName == "" {
 				tableName = dataTableAction.Data[0]["table_name"].(string)
 			}
 			// Remove existing rows in database
-			stmt :=  `DELETE FROM jetsapi.process_mapping 
+			stmt := `DELETE FROM jetsapi.process_mapping 
 			WHERE table_name = $1`
-			_, err = ctx.dbpool.Exec(context.Background(), stmt, tableName)
+			_, err = ctx.Dbpool.Exec(context.Background(), stmt, tableName)
 			if err != nil {
-				log.Printf("Error while deleting from process_mapping: %v",err)
+				log.Printf("Error while deleting from process_mapping: %v", err)
 				httpStatus = http.StatusBadRequest
 				return
-			}		
+			}
 			dataTableAction.FromClauses[0].Table = "process_mapping"
 		}
 		// send it through InsertRow
@@ -423,23 +618,23 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	// Check if stmt is reserved for admin only
 	if sqlStmt.AdminOnly {
 		userEmail, err2 := user.ExtractTokenID(token)
-		if err2 != nil || userEmail != *ctx.adminEmail {
+		if err2 != nil || userEmail != *ctx.AdminEmail {
 			httpStatus = http.StatusUnauthorized
-			err = errors.New("error: unauthorized, only admin can delete users")
+			err = errors.New("error: unauthorized, only admin can perform statement")
 			return
 		}
 	}
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
-		switch dataTableAction.FromClauses[0].Table {
-		case "pipeline_execution_status", "short/pipeline_execution_status":
+		switch {
+		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
 			if dataTableAction.Data[irow]["input_session_id"] == nil {
 				inSessionId := dataTableAction.Data[irow]["session_id"]
 				inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
 				if inputRegistryKey != nil {
 					stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
-					err = ctx.dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
+					err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
 					if err != nil {
 						log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.FromClauses[0].Table, err)
 						httpStatus = http.StatusInternalServerError
@@ -449,29 +644,34 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				dataTableAction.Data[irow]["input_session_id"] = inSessionId
 			}
+
+		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
+			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
 		}
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
 
-		// fmt.Printf("Insert Row for stmt on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
+		// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
+		// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
+		// Executing the InserRow Stmt
 		if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
-			err = ctx.dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
+			err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
 		} else {
-			_, err = ctx.dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 		}
 		if err != nil {
 			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 			if strings.Contains(err.Error(), "duplicate key value") {
 				httpStatus = http.StatusConflict
 				err = errors.New("duplicate key value")
-				return	
+				return
 			} else {
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while inserting into a table")
 			}
 		}
-}
+	}
 	// Post Processing Hook
 	var name string
 	switch dataTableAction.FromClauses[0].Table {
@@ -490,22 +690,15 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 			}
-			// Add process_name if present in dataTableAction.Data[irow]
-			v := dataTableAction.Data[irow]["process_name"]
-			if v != nil {
-				row["process_name"] = v.(string)
-			}
-			// expected columns in the incoming request that are not columns in the input_loader_status table
-			//*
-			dataTableAction.Data[irow]["load_and_start"] = "false"
-			row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 			// extract the columns we need for the loader
 			objType := row["object_type"]
 			client := row["client"]
+			clientOrg := row["org"]
+			sourcePeriodKey := row["source_period_key"]
 			fileKey := row["file_key"]
 			sessionId := row["session_id"]
 			userEmail := row["user_email"]
-			v = dataTableAction.Data[irow]["loaderFailedMetric"]
+			v := dataTableAction.Data[irow]["loaderFailedMetric"]
 			if v != nil {
 				loaderFailedMetric = v.(string)
 			}
@@ -521,13 +714,19 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				err = errors.New("error while running loader command")
 				return
 			}
+			org := clientOrg.(string)
+			if org == "" {
+				org = "''"
+			}
 			loaderCommand := []string{
 				"-in_file", fileKey.(string),
 				"-client", client.(string),
+				"-org", org,
 				"-objectType", objType.(string),
+				"-sourcePeriodKey", sourcePeriodKey.(string),
 				"-sessionId", sessionId.(string),
 				"-userEmail", userEmail.(string),
-				"-nbrShards", strconv.Itoa(ctx.nbrShards),
+				"-nbrShards", strconv.Itoa(ctx.NbrShards),
 			}
 			if loaderCompletedMetric != "" {
 				loaderCommand = append(loaderCommand, "-loaderCompletedMetric")
@@ -537,19 +736,30 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				loaderCommand = append(loaderCommand, "-loaderFailedMetric")
 				loaderCommand = append(loaderCommand, loaderFailedMetric)
 			}
-			if row["load_and_start"] == "true" {
-				loaderCommand = append(loaderCommand, "-doNotLockSessionId")
+			var reportName string
+			if clientOrg.(string) != "" {
+				reportName = fmt.Sprintf("loader/client=%s/object_type=%s/org=%s", client.(string), objType.(string), clientOrg.(string))
+			} else {
+				reportName = fmt.Sprintf("loader/client=%s/object_type=%s", client.(string), objType.(string))
+			}
+			runReportsCommand := []string{
+				"-client", client.(string),
+				"-sessionId", sessionId.(string),
+				"-reportName", reportName,
+				"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 			}
 			switch {
 			// Call loader synchronously
-			case ctx.devMode:
-				if ctx.usingSshTunnel {
+			case ctx.DevMode:
+				if ctx.UsingSshTunnel {
 					loaderCommand = append(loaderCommand, "-usingSshTunnel")
+					runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
 				}
+				// Call loader synchronously
 				cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
-				var b bytes.Buffer
-				cmd.Stdout = &b
-				cmd.Stderr = &b
+				var b1 bytes.Buffer
+				cmd.Stdout = &b1
+				cmd.Stderr = &b1
 				log.Printf("Executing loader command '%v'", loaderCommand)
 				err = cmd.Run()
 				if err != nil {
@@ -557,7 +767,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					log.Println("LOADER CAPTURED OUTPUT BEGIN")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					b.WriteTo(os.Stdout)
+					b1.WriteTo(os.Stdout)
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					log.Println("LOADER CAPTURED OUTPUT END")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -568,15 +778,47 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				log.Println("============================")
 				log.Println("LOADER CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
-				b.WriteTo(os.Stdout)
+				b1.WriteTo(os.Stdout)
 				log.Println("============================")
 				log.Println("LOADER CAPTURED OUTPUT END")
 				log.Println("============================")
 
-			case row["load_and_start"] != "true":
+				// Call run_report synchronously
+				cmd = exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
+				var b2 bytes.Buffer
+				cmd.Stdout = &b2
+				cmd.Stderr = &b2
+				log.Printf("Executing run_reports command '%v'", runReportsCommand)
+				err = cmd.Run()
+				if err != nil {
+					log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					b2.WriteTo(os.Stdout)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println("REPORTS CAPTURED OUTPUT END")
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while running run_reports command")
+					return
+				}
+				log.Println("============================")
+				log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("============================")
+				b2.WriteTo(os.Stdout)
+				log.Println("============================")
+				log.Println("REPORTS CAPTURED OUTPUT END")
+				log.Println("============================")
+
+			default:
 				// StartExecution load file
-				log.Printf("calling StartExecution loaderSM command: %s", loaderCommand)
-				name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"), map[string]interface{}{"loaderCommand": loaderCommand}, sessionId.(string))
+				log.Printf("calling StartExecution loaderSM loaderCommand: %s", loaderCommand)
+				name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"),
+					map[string]interface{}{
+						"loaderCommand":  loaderCommand,
+						"reportsCommand": runReportsCommand,
+					}, sessionId.(string))
 				if err != nil {
 					log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
 					httpStatus = http.StatusInternalServerError
@@ -584,11 +826,24 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					return
 				}
 				fmt.Println("Loader State Machine", name, "started")
-			default:
-				log.Printf("input_loader_status insert DO NOTHING: load_and_start: %s, devMode: %v\n", row["load_and_start"], ctx.devMode)
 			}
 		}
 	case "pipeline_execution_status", "short/pipeline_execution_status":
+		// Need to get:
+		//	- DevMode: run_report_only, run_server_only, run_server_reports
+		//  - State Machine URI: serverSM, or reportsSM
+		// from process_config table
+		// ----------------------------
+		var devModeCode, stateMachineName string
+		stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, dataTableAction.Data[0]["process_name"]).Scan(&devModeCode, &stateMachineName)
+		if err != nil {
+			log.Printf("While getting devModeCode, stateMachineName from process_config WHERE process_name = '%s': %v", dataTableAction.Data[0]["process_name"], err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while reading from a table")
+			return
+		}
+
 		// Run the server -- prepare the command line arguments
 		row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
 		for irow := range dataTableAction.Data {
@@ -611,11 +866,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 			}
-			// expected load_and_start in the incoming request
-			row["load_and_start"] = dataTableAction.Data[irow]["load_and_start"].(string)
 			peKey := strconv.Itoa(returnedKey[irow])
-			objType := dataTableAction.Data[irow]["object_type"]
-			client := row["client"]
 			processName := row["process_name"]
 			//* TODO We should lookup main_input_file_key rather than file_key here
 			fileKey := dataTableAction.Data[irow]["file_key"]
@@ -629,14 +880,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			if v != nil {
 				serverCompletedMetric = v.(string)
 			}
-			v = dataTableAction.Data[irow]["loaderFailedMetric"]
-			if v != nil {
-				loaderFailedMetric = v.(string)
-			}
-			v = dataTableAction.Data[irow]["loaderCompletedMetric"]
-			if v != nil {
-				loaderCompletedMetric = v.(string)
-			}
 			// At minimum check userEmail and sessionId (although the last one is not strictly required since it's in the peKey records)
 			if userEmail == nil || sessionId == nil {
 				log.Printf(
@@ -645,82 +888,111 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				err = errors.New("error while preparing argo/server command")
 				return
 			}
-			// Check required params for loader/server if load+start
-			if row["load_and_start"] == "true" {
-				if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
-					log.Printf(
-						"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v",
-						objType, client, fileKey, sessionId, userEmail)
-					httpStatus = http.StatusInternalServerError
-					err = errors.New("error while preparing argo command for server/argo(load+start) and run")
-					return
-				}
+			runReportsCommand := []string{
+				"-processName", processName.(string),
+				"-sessionId", sessionId.(string),
+				"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 			}
 			switch {
 			// Call server synchronously
-			case ctx.devMode:
-				// DevMode: Lock session id & register run on last shard (unless error)
-				// loop over every chard to exec in succession
-				for shardId := 0; shardId < ctx.nbrShards; shardId++ {
-					serverArgs := []string{
-						"-peKey", peKey,
-						"-userEmail", userEmail.(string),
-						"-shardId", strconv.Itoa(shardId),
-						"-nbrShards", strconv.Itoa(ctx.nbrShards),
+			case ctx.DevMode:
+				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" {
+					// DevMode: Lock session id & register run on last shard (unless error)
+					// loop over every chard to exec in succession
+					for shardId := 0; shardId < ctx.NbrShards; shardId++ {
+						serverArgs := []string{
+							"-peKey", peKey,
+							"-userEmail", userEmail.(string),
+							"-shardId", strconv.Itoa(shardId),
+							"-nbrShards", strconv.Itoa(ctx.NbrShards),
+						}
+						if serverCompletedMetric != "" {
+							serverArgs = append(serverArgs, "-serverCompletedMetric")
+							serverArgs = append(serverArgs, serverCompletedMetric)
+						}
+						if serverFailedMetric != "" {
+							serverArgs = append(serverArgs, "-serverFailedMetric")
+							serverArgs = append(serverArgs, serverFailedMetric)
+						}
+						if ctx.UsingSshTunnel {
+							serverArgs = append(serverArgs, "-usingSshTunnel")
+						}
+						if shardId < ctx.NbrShards-1 {
+							serverArgs = append(serverArgs, "-doNotLockSessionId")
+						}
+						log.Printf("Run server: %s", serverArgs)
+						cmd := exec.Command("/usr/local/bin/server", serverArgs...)
+						var b bytes.Buffer
+						cmd.Stdout = &b
+						cmd.Stderr = &b
+						log.Printf("Executing server command '%v'", serverArgs)
+						err = cmd.Run()
+						if err != nil {
+							log.Printf("while executing server command '%v': %v", serverArgs, err)
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							log.Println("SERVER CAPTURED OUTPUT BEGIN")
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							b.WriteTo(os.Stdout)
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							log.Println("SERVER CAPTURED OUTPUT END")
+							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+							httpStatus = http.StatusInternalServerError
+							err = errors.New("error while running server command")
+							return
+						}
+						log.Println("============================")
+						log.Println("SERVER CAPTURED OUTPUT BEGIN")
+						log.Println("============================")
+						b.WriteTo(os.Stdout)
+						log.Println("============================")
+						log.Println("SERVER CAPTURED OUTPUT END")
+						log.Println("============================")
 					}
-					if serverCompletedMetric != "" {
-						serverArgs = append(serverArgs, "-serverCompletedMetric")
-						serverArgs = append(serverArgs, serverCompletedMetric)
+				}
+
+				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" {
+					// Call run_report synchronously
+					if ctx.UsingSshTunnel {
+						runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
 					}
-					if serverFailedMetric != "" {
-						serverArgs = append(serverArgs, "-serverFailedMetric")
-						serverArgs = append(serverArgs, serverFailedMetric)
-					}
-					if ctx.usingSshTunnel {
-						serverArgs = append(serverArgs, "-usingSshTunnel")
-					}
-					if shardId < ctx.nbrShards-1 {
-						serverArgs = append(serverArgs, "-doNotLockSessionId")
-					}
-					log.Printf("Run server: %s", serverArgs)
-					cmd := exec.Command("/usr/local/bin/server", serverArgs...)
-					var b bytes.Buffer
-					cmd.Stdout = &b
-					cmd.Stderr = &b
-					log.Printf("Executing server command '%v'", serverArgs)
+					cmd := exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
+					var b2 bytes.Buffer
+					cmd.Stdout = &b2
+					cmd.Stderr = &b2
+					log.Printf("Executing run_reports command '%v'", runReportsCommand)
 					err = cmd.Run()
 					if err != nil {
-						log.Printf("while executing server command '%v': %v", serverArgs, err)
+						log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER CAPTURED OUTPUT BEGIN")
+						log.Println("REPORTS CAPTURED OUTPUT BEGIN")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						b.WriteTo(os.Stdout)
+						b2.WriteTo(os.Stdout)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER CAPTURED OUTPUT END")
+						log.Println("REPORTS CAPTURED OUTPUT END")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						httpStatus = http.StatusInternalServerError
-						err = errors.New("error while running server command")
+						err = errors.New("error while running run_reports command")
 						return
 					}
 					log.Println("============================")
-					log.Println("SERVER CAPTURED OUTPUT BEGIN")
+					log.Println("REPORTS CAPTURED OUTPUT BEGIN")
 					log.Println("============================")
-					b.WriteTo(os.Stdout)
+					b2.WriteTo(os.Stdout)
 					log.Println("============================")
-					log.Println("SERVER CAPTURED OUTPUT END")
+					log.Println("REPORTS CAPTURED OUTPUT END")
 					log.Println("============================")
 				}
 
 			default:
-				// Invoke states to load+execute or execute only a process
+				// Invoke states to execute a process
 				// Rules Server arguments
 				serverCommands := make([][]string, 0)
-				for shardId := 0; shardId < ctx.nbrShards; shardId++ {
+				for shardId := 0; shardId < ctx.NbrShards; shardId++ {
 					serverArgs := []string{
 						"-peKey", peKey,
 						"-userEmail", userEmail.(string),
 						"-shardId", strconv.Itoa(shardId),
-						"-nbrShards", strconv.Itoa(ctx.nbrShards),
+						"-nbrShards", strconv.Itoa(ctx.NbrShards),
 						"-doNotLockSessionId",
 					}
 					if serverCompletedMetric != "" {
@@ -735,11 +1007,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				smInput := map[string]interface{}{
 					"serverCommands": serverCommands,
-					"reportsCommand": []string{
-						"-processName", processName.(string),
-						"-sessionId", sessionId.(string),
-						"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-					},
+					"reportsCommand": runReportsCommand,
 					"successUpdate": []string{
 						"-peKey", peKey,
 						"-status", "completed",
@@ -749,28 +1017,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						"-status", "failed",
 					},
 				}
-				processArn := os.Getenv("JETS_SERVER_SM_ARN")
-				if row["load_and_start"] == "true" {
-					processArn = os.Getenv("JETS_LOADER_SERVER_SM_ARN")
-					loaderCommand := []string{
-						"-in_file", fileKey.(string),
-						"-client", client.(string),
-						"-objectType", objType.(string),
-						"-sessionId", sessionId.(string),
-						"-userEmail", userEmail.(string),
-						"-nbrShards", strconv.Itoa(ctx.nbrShards),
-						"-doNotLockSessionId",
-					}
-					if loaderCompletedMetric != "" {
-						loaderCommand = append(loaderCommand, "-loaderCompletedMetric")
-						loaderCommand = append(loaderCommand, loaderCompletedMetric)
-					}
-					if loaderFailedMetric != "" {
-						loaderCommand = append(loaderCommand, "-loaderFailedMetric")
-						loaderCommand = append(loaderCommand, loaderFailedMetric)
-					}
-					smInput["loaderCommand"] = loaderCommand
-				}
+				processArn := strings.TrimSuffix(os.Getenv("JETS_SERVER_SM_ARN"), "serverSM")
+				processArn += stateMachineName
 
 				// StartExecution execute rule
 				log.Printf("calling StartExecution on processArn: %s", processArn)
@@ -782,30 +1030,52 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					err = errors.New("error while calling StartExecution")
 					return
 				}
-				fmt.Println("Loader State Machine", name, "started")
+				fmt.Println("Server State Machine", name, "started")
 			}
 		} // irow := range dataTableAction.Data
 	} // switch dataTableAction.FromClauses[0].Table
-	//* BACKWARD COMPATIBILITY returning the first returnedKey (should return the array)
-	results = &map[string]interface{}{}
-	if returnedKey[0] >= 0 {
-		(*results)["returned_key"] = returnedKey[0]
+	results = &map[string]interface{}{
+		"returned_keys": &returnedKey,
 	}
 	return
 }
 
 // utility method
-func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
-	// *
-	fmt.Println("*** UI Query:", *query)
+func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
+	// //DEV
+	// fmt.Println("\n*** UI Query:\n", *query)
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
+	var columnDefs []DataTableColumnDef
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
 		log.Printf("While executing dataTable query: %v", err)
-		return &resultRows, err
+		return nil, nil, err
 	}
 	defer rows.Close()
-	nCol := len(rows.FieldDescriptions())
+	fd := rows.FieldDescriptions()
+	nCol := len(fd)
+	if dataTableAction.RequestColumnDef {
+		columnDefs = make([]DataTableColumnDef, nCol)
+		for i := range fd {
+			columnDefs[i].Index = i
+			columnDefs[i].Name = string(fd[i].Name)
+			columnDefs[i].Label = columnDefs[i].Name
+			dataType := dbutils.DataTypeFromOID(fd[i].DataTypeOID) 
+			if dbutils.IsNumeric(dataType) {
+				columnDefs[i].IsNumeric = true
+			}
+
+			isArray := ""
+			if dbutils.IsArrayFromOID(fd[i].DataTypeOID) {
+				isArray = "array of "
+			}
+			columnDefs[i].Tooltips = fmt.Sprintf("DataType oid %d, size %d (%s%s)", 
+				fd[i].DataTypeOID, fd[i].DataTypeSize, 
+				isArray,
+				dataType,
+			)
+		}
+	}
 	for rows.Next() {
 		dataRow := make([]interface{}, nCol)
 		for i := 0; i < nCol; i++ {
@@ -814,7 +1084,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 		// scan the row
 		if err = rows.Scan(dataRow...); err != nil {
 			log.Printf("While scanning the row: %v", err)
-			return &resultRows, err
+			return nil, nil, err
 		}
 		flatRow := make([]interface{}, nCol)
 		for i := 0; i < nCol; i++ {
@@ -827,14 +1097,35 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 		}
 		resultRows = append(resultRows, flatRow)
 	}
-	return &resultRows, nil
+	return &resultRows, &columnDefs, nil
+}
+
+func execDDL(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
+	// //DEV
+	// fmt.Println("\n*** UI Query:\n", *query)
+	results, err := dbpool.Exec(context.Background(), *query)
+	if err != nil {
+		log.Printf("While executing dataTable query: %v", err)
+		return nil, nil, err
+	}
+	columnDefs := []DataTableColumnDef{{
+		Index: 0,
+		Name: "results",
+		Label: "Results",
+		Tooltips: "Exec result",
+		IsNumeric: false,
+	}}
+	resultRows := make([][]interface{}, 1)
+	resultRows[0] = make([]interface{}, 1)
+	resultRows[0][0] = results.String()
+	return &resultRows, &columnDefs, nil
 }
 
 // DoReadAction ------------------------------------------------------
 func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
 
 	// // Check if we're in dev mode and the query is delegated to a proxy implementation
-	// if ctx.devMode && len(*ctx.unitTestDir) > 0 {
+	// if ctx.DevMode && len(*ctx.unitTestDir) > 0 {
 	// 	// We're in dev mode, see if we override the table being queried
 	// 	switch dataTableAction.FromClauses[0].Table {
 	// 	case "file_key_staging":
@@ -846,34 +1137,24 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	results := make(map[string]interface{})
 
 	var columnsDef []DataTableColumnDef
+	var err error
+
 	if len(dataTableAction.Columns) == 0 {
 		// Get table column definition
-		//* TODO use cache
-		tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
+		columnsDef, err = dataTableAction.getColumnsDefinitions(ctx.Dbpool)		
 		if err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table, err)
-		}
-		columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
-		for _, colDef := range tableSchema.Columns {
-			columnsDef = append(columnsDef, DataTableColumnDef{
-				Name:      colDef.ColumnName,
-				Label:     colDef.ColumnName,
-				Tooltips:  colDef.ColumnName,
-				IsNumeric: isNumeric(colDef.DataType)})
-			dataTableAction.Columns = append(dataTableAction.Columns, Column{Column: colDef.ColumnName})
-		}
-		sort.Slice(columnsDef, func(l, r int) bool { return columnsDef[l].Name < columnsDef[r].Name })
-		// need to reset the column index due to the sort
-		for i := range columnsDef {
-			columnsDef[i].Index = i
-		}
-		dataTableAction.Columns = make([]Column, 0, len(tableSchema.Columns))
-		for i := range columnsDef {
-			dataTableAction.Columns = append(dataTableAction.Columns, Column{Column: columnsDef[i].Name})
+			return nil, http.StatusInternalServerError, err
 		}
 
 		dataTableAction.SortColumn = columnsDef[0].Name
 		results["columnDef"] = columnsDef
+
+		// Add table's label
+		if dataTableAction.FromClauses[0].Schema == "public" {
+			results["label"] = fmt.Sprintf("Table %s", dataTableAction.FromClauses[0].Table)
+		} else {
+			results["label"] = fmt.Sprintf("Table %s.%s", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
+		}
 	}
 
 	// Get table schema
@@ -883,7 +1164,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// 	// Not in cache
 	// 	//*
 	// 	log.Println("DataTableSchema key",dataTableAction.getKey(),"is not in the cache")
-	// 	tableSchema, err := schema.GetTableSchema(ctx.dbpool, dataTableAction.Schema, dataTableAction.FromClauses[0].Table)
+	// 	tableSchema, err := schema.GetTableSchema(ctx.Dbpool, dataTableAction.Schema, dataTableAction.FromClauses[0].Table)
 	// 	if err != nil {
 	// 		log.Printf("While schema.GetTableSchema for %s.%s: %v", dataTableAction.Schema, dataTableAction.FromClauses[0].Table, err)
 	// 		ERROR(w, http.StatusInternalServerError, errors.New("error while schema.GetTableSchema"))
@@ -899,48 +1180,122 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 	// //*
 
 	// Build the query
-	// SELECT "key", "user_name", "client", "process", "status", "submitted_at" FROM "jetsapi"."pipelines" ORDER BY "key" ASC OFFSET 5 LIMIT 10;
-	var buf strings.Builder
-	fromClause := dataTableAction.makeFromClauses()
-	buf.WriteString(dataTableAction.makeSelectColumns())
-	buf.WriteString(" FROM ")
-	buf.WriteString(fromClause)
-	buf.WriteString(" ")
-	whereClause := dataTableAction.makeWhereClause()
-	buf.WriteString(whereClause)
-	if len(dataTableAction.SortColumn) > 0 {
-		buf.WriteString(" ORDER BY ")
-		buf.WriteString(pgx.Identifier{dataTableAction.SortColumn}.Sanitize())
-		if !dataTableAction.SortAscending {
-			buf.WriteString(" DESC ")
-		}
-	}
-	buf.WriteString(" OFFSET ")
-	buf.WriteString(fmt.Sprintf("%d", dataTableAction.Offset))
-	buf.WriteString(" LIMIT ")
-	buf.WriteString(fmt.Sprintf("%d", dataTableAction.Limit))
+	query, stmt := dataTableAction.buildQuery()
 
 	// Perform the query
-	query := buf.String()
-	resultRows, err := execQuery(ctx.dbpool, dataTableAction, &query)
+	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("While executing query from tables %s: %v", fromClause, err)
+			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
 	}
 
 	// get the total nbr of row
-	//* TODO add where clause to filter deleted items
-	stmt := fmt.Sprintf("SELECT count(*) FROM %s %s", fromClause, whereClause)
 	var totalRowCount int
-	err = ctx.dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
+	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
 	if err != nil {
 		return nil, http.StatusInternalServerError,
-			fmt.Errorf("While getting total row count from tables %s: %v", fromClause, err)
+			fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
 	}
 
 	results["totalRowCount"] = totalRowCount
 	results["rows"] = resultRows
 	return &results, http.StatusOK, nil
+}
+
+// DoPreviewFileAction ------------------------------------------------------
+func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
+
+	// Validation
+	if len(dataTableAction.WhereClauses) == 0 ||
+		len(dataTableAction.WhereClauses[0].Values) == 0 ||
+		dataTableAction.WhereClauses[0].Column != "file_key" {
+		return nil, http.StatusBadRequest, fmt.Errorf("invalid request, expecting file_key in where clause")
+	}
+	awsBucket := os.Getenv("JETS_BUCKET")
+	awsRegion := os.Getenv("JETS_REGION")
+	if awsBucket == "" || awsRegion == "" {
+		return nil, http.StatusInternalServerError, fmt.Errorf("missing env JETS_BUCKET or JETS_REGION")
+	}
+
+	// to package up the result
+	fileKey := dataTableAction.WhereClauses[0].Values[0]
+	results := map[string]interface{}{
+		"label": fmt.Sprintf("Preview of %s", fileKey),
+	}
+	results["columnDef"] = []DataTableColumnDef{
+		{
+			Name:      "line",
+			Label:     "Line",
+			IsNumeric: false,
+		},
+	}
+
+	// Download object using a download manager to a temp file (fileHd)
+	fileHd, err := os.CreateTemp("", "jetstore")
+	if err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to open temp input file: %v", err)
+	}
+	fmt.Println("Temp input file name:", fileHd.Name())
+	defer os.Remove(fileHd.Name())
+
+	// Download the object
+	nsz, err := awsi.DownloadFromS3(awsBucket, awsRegion, fileKey, fileHd)
+	if err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to download input file: %v", err)
+	}
+	fmt.Println("downloaded", nsz, "bytes from s3")
+
+	// Read the file
+	fileHd.Seek(0, 0)
+	fileScanner := bufio.NewScanner(fileHd)
+	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
+	nbrLines := 0
+
+	fileScanner.Split(bufio.ScanLines)
+
+	done := false
+	for !done && fileScanner.Scan() {
+		row := []interface{}{
+			fileScanner.Text(),
+		}
+		resultRows = append(resultRows, row)
+		nbrLines += 1
+		if nbrLines == dataTableAction.Limit {
+			done = true
+		}
+	}
+	results["totalRowCount"] = nbrLines
+	results["rows"] = resultRows
+	return &results, http.StatusOK, nil
+}
+
+// DropTable ------------------------------------------------------
+// These are queries to load reference data for widget, e.g. dropdown list of items
+func (ctx *Context) DropTable(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+	for ipos := range dataTableAction.Data {
+		tableName := dataTableAction.Data[ipos]["tableName"]
+		schemaName := dataTableAction.Data[ipos]["schemaName"]
+		if tableName == nil {
+			httpStatus = http.StatusBadRequest
+			err = fmt.Errorf("error: tableName argument is not provided")
+			return
+		}
+		var stmt string
+		if schemaName != nil {
+			stmt = fmt.Sprintf(`DROP TABLE "%s"."%s"`, schemaName.(string), tableName.(string))
+		} else {
+			stmt = fmt.Sprintf(`DROP TABLE public."%s"`, tableName.(string))
+		}
+		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
+		if err != nil && !strings.Contains(err.Error(), "does not exist") {
+			httpStatus = http.StatusBadRequest
+			return
+		}
+	}
+
+	results = &map[string]interface{}{}
+	httpStatus = http.StatusOK
+	return
 }
 
 // func (ctx *Context) readLocalFiles(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {

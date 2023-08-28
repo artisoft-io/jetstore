@@ -59,6 +59,7 @@ int create_ulong(HJRDF hdl, ulong v, HJR * handle);
 int create_double(HJRDF hdl, double v, HJR * handle);
 int create_date(HJRDF hdl, char const * v, HJR * handle);
 int create_datetime(HJRDF hdl, char const * v, HJR * handle);
+char const* get_rdf_graph_txt(HJRDF hdl, int*v);
 
 typedef void const* HSTR;
 

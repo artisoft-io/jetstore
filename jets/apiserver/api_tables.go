@@ -38,17 +38,51 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	switch dataTableAction.Action {
 	case "raw_query":
 		results, code, err = context.ExecRawQuery(&dataTableAction)
+	case "exec_ddl":
+		results, code, err = context.ExecDataManagementStatement(&dataTableAction)
 	case "raw_query_map":
 		results, code, err = context.ExecRawQueryMap(&dataTableAction)
 	case "insert_raw_rows":
 		results, code, err = context.InsertRawRows(&dataTableAction, user.ExtractToken(r))
 	case "insert_rows":
 		results, code, err = context.InsertRows(&dataTableAction, user.ExtractToken(r))
+	case "workspace_insert_rows":
+		results, code, err = context.WorkspaceInsertRows(&dataTableAction, user.ExtractToken(r))
+	case "workspace_query_structure":
+		// This function returns encoded json ready to return to client
+		resultsB, code, err := context.WorkspaceQueryStructure(&dataTableAction, user.ExtractToken(r))
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, code, err)
+			return
+		}
+		JSONB(w, http.StatusOK, *resultsB)
+		return
+	case "get_workspace_file_content":
+		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
+	case "save_workspace_file_content":
+		results, code, err = context.SaveWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
+	case "delete_workspace_changes":
+		results, code, err = context.DeleteWorkspaceChanges(&dataTableAction, user.ExtractToken(r))
+	case "delete_all_workspace_changes":
+		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, user.ExtractToken(r))
+	
+	case "workspace_read":
+		results, code, err = context.DoWorkspaceReadAction(&dataTableAction)
+	
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)
+	case "preview_file":
+		results, code, err = context.DoPreviewFileAction(&dataTableAction)
+	case "drop_table":
+		results, code, err = context.DropTable(&dataTableAction)
+	case "refresh_token":
+		results = &map[string]interface{}{}
+		code = http.StatusOK
+		err = nil
 	default:
 		code = http.StatusUnprocessableEntity
-		err = fmt.Errorf("unknown action: %v", dataTableAction.Action)
+		err = fmt.Errorf("DoDataTableAction: unknown action: %v", dataTableAction.Action)
 	}
 	if err != nil {
 		log.Printf("Error: %v", err)

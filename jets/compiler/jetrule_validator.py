@@ -119,9 +119,11 @@ class JetRuleValidator:
     ctx.setEntityType('triple')
 
     # for each triple validate resources used
+    # 6/1/2023: JetStore Rule Compiler: Auto create volatile_resource for 
+    # subject and predicate if not already exist
     for triple in self.ctx.triples:
-      self.validateElm(triple['subject'], ctx)
-      self.validateElm(triple['predicate'], ctx)
+      ctx.validateTripleIdentifier(triple['subject'], triple.get('source_file_name'))
+      ctx.validateTripleIdentifier(triple['predicate'], triple.get('source_file_name'))
       self.validateElm(triple['object'], ctx)
     
     return not ctx.has_errors()

@@ -10,11 +10,14 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/artisoft-io/jetstore/jets/server/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // cmd tool to manage db schema
+
+// ExtTableInfo: multi value arg for extending tables with volatile fields
+type ExtTableInfo map[string][]string
 
 // Env variable:
 // JETS_BUCKET
@@ -36,7 +39,7 @@ var jetsapiDbInitPath = flag.String("jetsapiDbInitPath", "", "jetsapi init db pa
 var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required or env var WORKSPACE_DB_PATH)")
 var migrateDb = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
 var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsapi database, taking db init script path from env JETSAPI_DB_INIT_PATH (default: false)")
-var extTables workspace.ExtTableInfo = make(map[string][]string)
+var extTables ExtTableInfo = make(map[string][]string)
 
 func init() {
 	flag.Func("extTable", "Table to extend with volatile resources, format: 'table_name+resource1,resource2'", func(flagValue string) error {
@@ -165,6 +168,7 @@ func doJob() error {
 }
 
 func main() {
+	fmt.Println("CMD LINE ARGS:",os.Args[1:])
 	flag.Parse()
 
 	// validate command line arguments

@@ -71,6 +71,12 @@ class JetsFormState extends ChangeNotifier {
   /// number of validation groups in the form state
   int groupCount;
 
+  /// Indicates if the form associated with this state is a dialog
+  bool isDialog = false;
+
+  /// The associated formKey (used in screen delegate actions to trigger form validation)
+  GlobalKey<FormState>? formKey;
+
   /// Active [JetsForm] instance associated with this [JetsFormState]
   /// Usefull when need to modify the list of input fields such as for
   /// dialog having a [FormConfig] with [formWithDynamicRows] set to [true]
@@ -82,6 +88,10 @@ class JetsFormState extends ChangeNotifier {
   /// Typically used to mark keys as dirty to refresh table having
   /// a where clause.
   final JetsFormState? parentFormState;
+
+  /// Applicable to form state for ScreenWithMultiForms;
+  /// To have access to all peer form state
+  List<JetsFormState>? peersFormState;
 
   /// The actual state of the form, keyed by validation group (list item)
   ///  and widget key
@@ -162,6 +172,11 @@ class JetsFormState extends ChangeNotifier {
     return _updatedKeys[group].contains(key);
   }
 
+  Set<String> getUpdatedKeys(int group) {
+    assert(group < groupCount, "invalid group");
+    return _updatedKeys[group];
+  }
+
   /// Check for keys marked as invalid, if any are found then the form does not
   /// pass validation
   bool isFormValid() {
@@ -190,7 +205,8 @@ class JetsFormState extends ChangeNotifier {
   void setValue(int group, String key, dynamic value) {
     // print(
     //     "setValue: group $group, key $key, value $value :: groupCount $groupCount");
-    assert(group < groupCount, "invalid group $group key is $key value $value");
+    assert(group < groupCount,
+        "setValue: invalid group: $group, key is $key, value $value");
     var didit = false;
     if (value == null) {
       // remove the binding if any

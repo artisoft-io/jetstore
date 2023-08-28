@@ -15,6 +15,15 @@ func JSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	}
 }
 
+// version with argument already encoded json
+func JSONB(w http.ResponseWriter, statusCode int, data []byte) {
+	w.WriteHeader(statusCode)
+	_, err := w.Write(data)
+	if err != nil {
+		fmt.Fprintf(w, "%s", err.Error())
+	}
+}
+
 func ERROR(w http.ResponseWriter, statusCode int, err error) {
 	if err != nil {
 		JSON(w, statusCode, struct {

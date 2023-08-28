@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
+import 'package:jetsclient/screens/components/form_with_tabs.dart';
 
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/screens/components/form.dart';
 import 'package:jetsclient/screens/components/base_screen.dart';
+import 'package:jetsclient/utils/constants.dart';
 
 class ScreenWithForm extends BaseScreen {
   ScreenWithForm({
@@ -11,22 +14,46 @@ class ScreenWithForm extends BaseScreen {
     required super.screenPath,
     required super.screenConfig,
     required this.formConfig,
-    required this.formValidatorDelegate,
-    required this.formActionsDelegate,
-  }) : super(builder: (State<BaseScreen> baseState) {
+  }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as ScreenWithFormState;
-          return JetsForm(
-              formPath: screenPath,
-              formState: state.formState,
-              formKey: state.formKey,
-              formConfig: formConfig,
-              validatorDelegate: state.validatorDelegate,
-              actionsDelegate: state.actionsDelegate);
+          // print("*** BUILDING ScreenWithForm: ${screenConfig.title}");
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if(screenConfig.title != null)
+                Flexible(
+                  flex: 1,
+                  fit: FlexFit.tight,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        defaultPadding, 2 * defaultPadding, 0, 0),
+                    child: Text(
+                      screenConfig.title!,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  flex: 10,
+                  fit: FlexFit.tight,
+                  child: formConfig.formTabsConfig.isNotEmpty
+                      ? JetsFormWithTabs(
+                          key: GlobalKey(),
+                          formPath: screenPath,
+                          formState: state.formState,
+                          formKey: state.formKey,
+                          formConfig: formConfig)
+                      : JetsForm(
+                          key: GlobalKey(),
+                          formPath: screenPath,
+                          formState: state.formState,
+                          formKey: state.formKey,
+                          formConfig: formConfig),
+                ),
+              ]);
         });
 
   final FormConfig formConfig;
-  final ValidatorDelegate formValidatorDelegate;
-  final FormActionsDelegate formActionsDelegate;
 
   @override
   State<BaseScreen> createState() => ScreenWithFormState();
@@ -35,15 +62,36 @@ class ScreenWithForm extends BaseScreen {
 class ScreenWithFormState extends BaseScreenState {
   late final JetsFormState formState;
   final formKey = GlobalKey<FormState>();
-  late final FormConfig formConfig;
 
   ScreenWithForm get _widget => super.widget as ScreenWithForm;
-  ValidatorDelegate get validatorDelegate => _widget.formValidatorDelegate;
-  FormActionsDelegate get actionsDelegate => _widget.formActionsDelegate;
+  ValidatorDelegate get validatorDelegate =>
+      _widget.formConfig.formValidatorDelegate;
+  FormActionsDelegate get actionsDelegate =>
+      _widget.formConfig.formActionsDelegate;
 
   @override
   void initState() {
     super.initState();
     formState = _widget.formConfig.makeFormState();
+    triggetRefreshListner();
+    JetsRouterDelegate().addListener(triggetRefreshListner);
   }
+
+  void triggetRefreshListner() {
+    JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
+      formState.setValue(0, key, value);
+    });
+    // reset the updated keys since these updates is to put default values
+    // and is not from user interactions
+    //* TODO - Stop using group 0 as a special group with validation keys
+    formState.resetUpdatedKeys(0);
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    JetsRouterDelegate().removeListener(triggetRefreshListner);
+    super.dispose();
+  }
+
 }

@@ -4,26 +4,31 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
 	"github.com/google/uuid"
 )
 
 type ReteInputContext struct {
-	jets__completed                 *bridge.Resource
-	jets__istate                    *bridge.Resource
-	jets__key                       *bridge.Resource
-	jets__loop                      *bridge.Resource
-	jets__source_period_sequence    *bridge.Resource
-	jets__state                     *bridge.Resource
-	rdf__type                       *bridge.Resource
-	reMap                           map[string]*regexp.Regexp
-	argdMap                         map[string]float64
+	jets__client                     *bridge.Resource
+	jets__completed                  *bridge.Resource
+	jets__sourcePeriodType           *bridge.Resource
+	jets__currentSourcePeriod        *bridge.Resource
+	jets__currentSourcePeriodDate    *bridge.Resource
+	jets__exception                  *bridge.Resource
+	jets__input_record               *bridge.Resource
+	jets__istate                     *bridge.Resource
+	jets__key                        *bridge.Resource
+	jets__loop                       *bridge.Resource
+	jets__org                        *bridge.Resource
+	jets__source_period_sequence     *bridge.Resource
+	jets__state                      *bridge.Resource
+	rdf__type                        *bridge.Resource
+	reMap                            map[string]*regexp.Regexp
+	argdMap                          map[string]float64
 }
 
 // main processing function to execute rules
@@ -35,41 +40,19 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 			continue
 		}
 		var err error
-		if aJetRow.processInput.sourceType == "file" {
+		switch aJetRow.processInput.sourceType {
+		case "file":
 			err = ri.assertInputTextRecord(reteSession, &aJetRow, writeOutputc)
-		} else {
+		case "domain_table", "alias_domain_table":
 			err = ri.assertInputEntityRecord(reteSession, &aJetRow, writeOutputc)
+		default:
+			err = fmt.Errorf("error: unknown source_type in assertInputBundle: %s", aJetRow.processInput.sourceType)
 		}
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func filterDigits(str string) string {
-	// Remove non digits characters
-	var buf strings.Builder
-	for _, c := range str {
-		if unicode.IsDigit(c) {
-			buf.WriteRune(c)
-		}
-	}
-	return buf.String()
-}
-
-func filterDouble(str string) string {
-	// clean up the amount
-	var buf strings.Builder
-	var c rune
-	for _, c = range str {
-		if c == '(' || c == '-' {
-			buf.WriteRune('-')
-		} else if unicode.IsDigit(c) || c == '.' {
-			buf.WriteRune(c)
-		}
-	}
-	return buf.String()
 }
 
 func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
@@ -82,7 +65,7 @@ func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
 		object, err = reteSession.NewResource(*objValue)
 	case "int":
 		var v int
-		v, err = strconv.Atoi(*objValue)
+		v, err = strconv.Atoi(strings.TrimSpace(*objValue))
 		if err == nil {
 			object, err = reteSession.NewIntLiteral(v)
 		}
@@ -104,25 +87,25 @@ func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
 		}
 	case "uint":
 		var v uint64
-		v, err = strconv.ParseUint(*objValue, 10, 32)
+		v, err = strconv.ParseUint(strings.TrimSpace(*objValue), 10, 32)
 		if err == nil {
 			object, err = reteSession.NewUIntLiteral(uint(v))
 		}
 	case "long":
 		var v int64
-		v, err = strconv.ParseInt(*objValue, 10, 64)
+		v, err = strconv.ParseInt(strings.TrimSpace(*objValue), 10, 64)
 		if err == nil {
 			object, err = reteSession.NewLongLiteral(v)
 		}
 	case "ulong":
 		var v uint64
-		v, err = strconv.ParseUint(*objValue, 10, 64)
+		v, err = strconv.ParseUint(strings.TrimSpace(*objValue), 10, 64)
 		if err == nil {
 			object, err = reteSession.NewULongLiteral(v)
 		}
 	case "double":
 		var v float64
-		v, err = strconv.ParseFloat(*objValue, 64)
+		v, err = strconv.ParseFloat(strings.TrimSpace(*objValue), 64)
 		if err == nil {
 			object, err = reteSession.NewDoubleLiteral(v)
 		}
@@ -166,11 +149,15 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	if err != nil {
 		return fmt.Errorf("while creating row's jets:key literal (NewTextLiteral): %v", err)
 	}
-	if subject == nil || ri.rdf__type == nil || aJetRow.processInput.entityRdfTypeResource == nil {
+	if subject == nil || ri.rdf__type == nil || ri.jets__input_record == nil || aJetRow.processInput.entityRdfTypeResource == nil {
 		return fmt.Errorf("ERROR while asserting row rdf type")
 	}
 	// Assert the rdf:type of the row
 	_, err = reteSession.Insert(subject, ri.rdf__type, aJetRow.processInput.entityRdfTypeResource)
+	if err != nil {
+		return fmt.Errorf("while asserting row rdf type: %v", err)
+	}
+	_, err = reteSession.Insert(subject, ri.rdf__type, ri.jets__input_record)
 	if err != nil {
 		return fmt.Errorf("while asserting row rdf type: %v", err)
 	}
@@ -179,142 +166,40 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	if err != nil {
 		return fmt.Errorf("while asserting row jets key: %v", err)
 	}
+	// Asserting client and org (assert empty string if empty)
+	v,_ := reteSession.NewTextLiteral(aJetRow.processInput.client)
+	reteSession.Insert(subject, ri.jets__client, v)
+	v,_ = reteSession.NewTextLiteral(aJetRow.processInput.organization)
+	reteSession.Insert(subject, ri.jets__org, v)
 	// Assert domain columns of the row
 	for icol := 0; icol < ncol; icol++ {
 		// asserting input row with mapping spec
 		inputColumnSpec := &aJetRow.processInput.processInputMapping[icol]
 		// fmt.Println("** assert from table:",inputColumnSpec.tableName,", property:",inputColumnSpec.dataProperty,", value:",row[icol].String,", with rdfTpe",inputColumnSpec.rdfType)
-		var obj string
+		var obj, errMsg string
 		var err error
 		sz := len(row[icol].String)
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
-				switch inputColumnSpec.functionName.String {
-				case "to_upper":
-					obj = strings.ToUpper(row[icol].String)
-				case "to_zip5":
-					// Remove non digits characters
-					inVal := filterDigits(row[icol].String)
-					sz = len(inVal)
-					switch {
-					case sz < 5:
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf("%05d", v)
-						}
-					case sz == 5:
-						obj = inVal
-					case sz > 5 && sz < 9:
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf("%09d", v)[:5]
-						}
-					case sz == 9:
-						obj = inVal[:5]
-					default:
-					}
-				case "reformat0":
-					if inputColumnSpec.argument.Valid {
-						// Remove non digits characters
-						inVal := filterDigits(row[icol].String)
-						arg := inputColumnSpec.argument.String
-						var v int
-						v, err = strconv.Atoi(inVal)
-						if err == nil {
-							obj = fmt.Sprintf(arg, v)
-						}
-					} else {
-						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn.String)
-					}
-				case "apply_regex":
-					if inputColumnSpec.argument.Valid {
-						arg := inputColumnSpec.argument.String
-						re, ok := ri.reMap[arg]
-						if !ok {
-							re, err = regexp.Compile(arg)
-							if err != nil {
-								// configuration error, bailing out
-								return fmt.Errorf("ERROR regex argument does not compile: %s", arg)
-							}
-							ri.reMap[arg] = re
-						}
-						obj = re.FindString(row[icol].String)
-					} else {
-						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn.String)
-					}
-				case "scale_units":
-					if inputColumnSpec.argument.Valid {
-						arg := inputColumnSpec.argument.String
-						if arg == "1" {
-							obj = filterDouble(row[icol].String)
-						} else {
-							divisor, ok := ri.argdMap[arg]
-							if !ok {
-								divisor, err = strconv.ParseFloat(arg, 64)
-								if err != nil {
-									// configuration error, bailing out
-									return fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
-								}
-								ri.argdMap[arg] = divisor
-							}
-							// Remove non digits characters
-							inVal := filterDouble(row[icol].String)
-							var unit float64
-							unit, err = strconv.ParseFloat(inVal, 64)
-							if err == nil {
-								obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))
-							}
-						}
-					} else {
-						// configuration error, bailing out
-						return fmt.Errorf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn.String)
-					}
-				case "parse_amount":
-					// clean up the amount
-					inVal := filterDouble(row[icol].String)
-					if len(inVal) > 0 {
-						obj = inVal
-						// argument is optional, assume divisor is 1 if absent
-						if inputColumnSpec.argument.Valid {
-							arg := inputColumnSpec.argument.String
-							if arg != "1" {
-								divisor, ok := ri.argdMap[arg]
-								if !ok {
-									divisor, err = strconv.ParseFloat(arg, 64)
-									if err != nil {
-										// configuration error, bailing out
-										return fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
-									}
-									ri.argdMap[arg] = divisor
-								}
-								var amt float64
-								amt, err = strconv.ParseFloat(obj, 64)
-								if err == nil {
-									obj = fmt.Sprintf("%f", amt/divisor)
-								}
-							}
-						}
-					}
-				default:
-					return fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
+				// Apply cleansing function
+				obj, errMsg, err = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String)
+				if err != nil {
+					log.Println("Error while applying cleasing function:", err)
+					return err
 				}
 			} else {
 				obj = row[icol].String
 			}
 		}
-		if err != nil || len(obj) == 0 {
+		if len(obj) == 0 || len(errMsg) > 0 {
 			// Value from input is null or empty or mapping function returned err or empty for this property,
 			// get the default or report error or ignore the field if no default or error message is avail
 			if inputColumnSpec.defaultValue.Valid {
 				obj = inputColumnSpec.defaultValue.String
 			} else {
-				if inputColumnSpec.errorMessage.Valid {
+				if inputColumnSpec.errorMessage.Valid || len(errMsg) > 0 {
 					// report error
-					var br BadRow
+					br := NewBadRow()
 					br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
 					if row[aJetRow.processInput.groupingPosition].Valid {
 						br.GroupingKey = sql.NullString{String: row[aJetRow.processInput.groupingPosition].String, Valid: true}
@@ -324,8 +209,12 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 					} else {
 						br.InputColumn = sql.NullString{String: "UNNAMED", Valid: true}
 					}
-					if err != nil {
-						br.ErrorMessage = sql.NullString{String: fmt.Sprintf("%v", err), Valid: true}
+					if len(errMsg) > 0 {
+						if inputColumnSpec.errorMessage.Valid {
+							br.ErrorMessage = sql.NullString{String: fmt.Sprintf("%s (%s)", inputColumnSpec.errorMessage.String, errMsg), Valid: true}
+						} else {
+							br.ErrorMessage = sql.NullString{String: errMsg, Valid: true}
+						}
 					} else {
 						br.ErrorMessage = inputColumnSpec.errorMessage
 					}
@@ -347,10 +236,10 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			}
 			// Check if casting the default value failed or default value is not valid
 			if err != nil {
-				var br BadRow
+				br := NewBadRow()
 				br.RowJetsKey = sql.NullString{String: jetsKeyStr, Valid: true}
 				if row[aJetRow.processInput.groupingPosition].Valid {
-					br.GroupingKey = inputColumnSpec.inputColumn
+					br.GroupingKey = sql.NullString{String: row[aJetRow.processInput.groupingPosition].String, Valid: true}
 				}
 				if inputColumnSpec.inputColumn.Valid {
 					br.InputColumn = inputColumnSpec.inputColumn

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,8 +14,9 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 type PurgeDataAction struct {
-	Action         string            			  `json:"action"`
-	Data           []map[string]interface{} `json:"data"`
+	Action               string            			  `json:"action"`
+	RunUiDbInitScript    bool              			  `json:"run_ui_db_init_script"`
+	Data                 []map[string]interface{} `json:"data"`
 }
 
 // DoPurgeDataAction ------------------------------------------------------
@@ -23,7 +24,7 @@ type PurgeDataAction struct {
 func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) {
 	var results *map[string]interface{}
 	var code int
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
@@ -44,7 +45,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = server.ExportClientConfiguration(&action)
 	default:
 		code = http.StatusUnprocessableEntity
-		err = fmt.Errorf("unknown action: %v", action.Action)
+		err = fmt.Errorf("DoPurgeDataAction: unknown action: %v", action.Action)
 	}
 	if err != nil {
 		log.Printf("Error: %v", err)
@@ -57,36 +58,40 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 
 // ResetDomainTables ------------------------------------------------------
 // Clear and rebuild all domain tables defined in workspace -- using update_db command line
-// Delete all table contains the input data, get the table name list from input_loader_status
+// Delete all tables containing the input data, get the table name list from input_loader_status
 // also clear/truncate the input_registry table
-func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
+// Also migrate the system tables to latest schema and conditionally run the workspace db init script
+	func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 
-	// Delete the input staging tables
+	// Delete the input staging tables, ignore error here since input_loader_status does not exist
+	// in initial deployment
 	stmt := "SELECT DISTINCT table_name FROM jetsapi.input_loader_status"
 	rows, err := server.dbpool.Query(context.Background(), stmt)
-	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("while selecting staging tables: %v", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		// scan the row
-		var tableName string
-		if err = rows.Scan(&tableName); err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("while scaning staging tables: %v", err)
-		}
-		// Drop the table
-		stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{"public", tableName}.Sanitize())
-		log.Println(stmt)
-		_, err := server.dbpool.Exec(context.Background(), stmt)
-		if err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("while droping staging tables: %v", err)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			// scan the row
+			var tableName string
+			if err = rows.Scan(&tableName); err != nil {
+				return nil, http.StatusInternalServerError, fmt.Errorf("while scaning staging tables: %v", err)
+			}
+			// Drop the table
+			stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{"public", tableName}.Sanitize())
+			log.Println(stmt)
+			_, err := server.dbpool.Exec(context.Background(), stmt)
+			if err != nil {
+				return nil, http.StatusInternalServerError, fmt.Errorf("while droping staging tables: %v", err)
+			}
 		}
 	}
 
 	// Clear and rebuild the domain table using the update_db command line
-	// Also migrate the system tables to latest schema and run the workspace db init script
+	// Also migrate the system tables to latest schema
 	log.Println("Rebuild Domain Tables")
-	serverArgs := []string{ "-migrateDb" }
+	serverArgs := []string{ "-drop",  "-migrateDb" }
+	if purgeDataAction.RunUiDbInitScript {
+		serverArgs = append(serverArgs, "-initWorkspaceDb")
+	}
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
@@ -120,7 +125,14 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 	log.Println(stmt)
 	_, err = server.dbpool.Exec(context.Background(), stmt)
 	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating input_registry tables: %v", err)
+		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating input_registry table: %v", err)
+	}
+	// Truncate the jetsapi.session_registry
+	stmt = fmt.Sprintf("TRUNCATE %s", pgx.Identifier{"jetsapi", "session_registry"}.Sanitize())
+	log.Println(stmt)
+	_, err = server.dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating session_registry table: %v", err)
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
@@ -129,8 +141,8 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 // Initialize jetstore database with workspace db init script
 func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// using update_db script
-	log.Println("Running DB Initialization Script Only")
-	serverArgs := []string{ "-initWorkspaceDb" }
+	log.Println("Running DB Initialization with jetsapi Schema Update Scripts Only")
+	serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}

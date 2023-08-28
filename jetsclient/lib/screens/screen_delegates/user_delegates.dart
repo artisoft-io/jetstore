@@ -8,7 +8,7 @@ import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
-import 'package:provider/provider.dart';
+import 'package:jetsclient/utils/form_config.dart';
 
 /// Validation and Actions delegates for the user-related forms
 /// Login Form Validator
@@ -45,12 +45,11 @@ Future<String?> loginFormActions(BuildContext context,
         return null;
       }
       // Use a JSON encoded string to send
-      var client = context.read<HttpClient>();
+      var client = HttpClientSingleton();
       var messenger = ScaffoldMessenger.of(context);
       var result = await client.sendRequest(
           path: ServerEPs.loginEP, encodedJsonBody: formState.encodeState(0));
 
-      // if (!mounted) return; //* don't think we need this since we don't call setState() here
       if (result.statusCode == 200) {
         // update the [UserModel]
         JetsRouterDelegate().user.name = result.body[FSK.userName];
@@ -61,19 +60,45 @@ Future<String?> loginFormActions(BuildContext context,
         if (devMode != null) {
           JetsRouterDelegate().devMode = devMode == "true";
         }
+        // Get list of clients
+        var msg = <String, dynamic>{
+          'action': 'raw_query',
+          'query':
+              'SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 200'
+        };
+        var encodedMsg = json.encode(msg);
+        result = await HttpClientSingleton().sendRequest(
+            path: "/dataTable",
+            token: JetsRouterDelegate().user.token,
+            encodedJsonBody: encodedMsg);
+        if (result.statusCode == 401) return "Not Authorized";
+        if (result.statusCode == 200) {
+          JetsRouterDelegate().clients = (result.body['rows'] as List)
+              .map((e) => DropdownItemConfig(label: e[0]!, value: e[0]))
+              .toList();
+        }
+
         // Inform the user and transition
-        const snackBar = SnackBar(
-          content: Text('Login Successful!'),
-        );
-        messenger.showSnackBar(snackBar);
+        // if (context.mounted) {
+        //   const snackBar = SnackBar(
+        //     content: Text('Login Successful!'),
+        //   );
+        //   messenger.showSnackBar(snackBar);
+        // }
         JetsRouterDelegate()(JetsRouteData(
             JetsRouterDelegate().user.isAdmin ? userAdminPath : homePath));
       } else if (result.statusCode == 401) {
-        showAlertDialog(context, 'Invalid email and/or password.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Invalid email and/or password.');
+        }
       } else if (result.statusCode == 422) {
-        showAlertDialog(context, result.body[FSK.error]);
+        if (context.mounted) {
+          showAlertDialog(context, result.body[FSK.error]);
+        }
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     case ActionKeys.register:
@@ -83,6 +108,7 @@ Future<String?> loginFormActions(BuildContext context,
       showAlertDialog(
           context, 'Oops unknown ActionKey for login form: $actionKey');
   }
+  return null;
 }
 
 // Registration Form Validator
@@ -110,7 +136,7 @@ String? registrationFormValidator(
         var hasNum = value.contains(RegExp(r'[0-9]'));
         var hasUpper = value.contains(RegExp(r'[A-Z]'));
         var hasLower = value.contains(RegExp(r'[a-z]'));
-        var hasSpecial = value.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|'']'));
+        var hasSpecial = value.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|' ']'));
         if (hasNum && hasUpper && hasLower && hasSpecial) return null;
       }
       return "At least 14 charaters, one of: upper, lower char, number, and special char.";
@@ -139,11 +165,11 @@ Future<String?> registrationFormActions(BuildContext context,
   switch (actionKey) {
     case ActionKeys.register:
       // Use a JSON encoded string to send
-      var client = context.read<HttpClient>();
       var messenger = ScaffoldMessenger.of(context);
-      var result = await client.sendRequest(
-          path: ServerEPs.registerEP, encodedJsonBody: formState.encodeState(0));
-      // if (!mounted) return; needed?
+      var result = await HttpClientSingleton().sendRequest(
+          path: ServerEPs.registerEP,
+          encodedJsonBody: formState.encodeState(0));
+      if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200 || result.statusCode == 201) {
         // update the [UserModel]
         JetsRouterDelegate().user.name = result.body[FSK.userName];
@@ -152,29 +178,37 @@ Future<String?> registrationFormActions(BuildContext context,
         const snackBar = SnackBar(
           content: Text('Registration Successful'),
         );
-        messenger.showSnackBar(snackBar);
+        if (context.mounted) {
+          messenger.showSnackBar(snackBar);
+        }
         JetsRouterDelegate()(JetsRouteData(loginPath));
       } else if (result.statusCode == 406 || result.statusCode == 422) {
         // http Not Acceptable / Unprocessable
-        showAlertDialog(context, 'Invalid email or password.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Invalid email or password.');
+        }
       } else if (result.statusCode == 409) {
         // http Conflict
-        showAlertDialog(context, 'User already exist please signed in.');
+        if (context.mounted) {
+          showAlertDialog(context, 'User already exist please signed in.');
+        }
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     default:
       showAlertDialog(
           context, 'Oops unknown ActionKey for login form: $actionKey');
   }
+  return null;
 }
 
 /// User Administration Form Actions
 Future<String?> userAdminFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {int group = 0}) async {
-  var client = context.read<HttpClient>();
   var messenger = ScaffoldMessenger.of(context);
   switch (actionKey) {
     case ActionKeys.toggleUserActive:
@@ -194,29 +228,36 @@ Future<String?> userAdminFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'update/users'}],
+        'fromClauses': [
+          <String, String>{'table': 'update/users'}
+        ],
         'data': data,
       }, toEncodable: (_) => '');
-      var result = await client.sendRequest(
+      var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
       // handling server reply
+      if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200) {
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Update Successful'),
         );
-        messenger.showSnackBar(snackBar);
+        if (context.mounted) {
+          messenger.showSnackBar(snackBar);
+        }
         formState.invokeCallbacks();
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     case ActionKeys.deleteUser:
       // Get confirmation to delete user
-      var uc = await showDangerZoneDialog(context,
-          'Are you sure you want to delete the selected user(s)?');
+      var uc = await showDangerZoneDialog(
+          context, 'Are you sure you want to delete the selected user(s)?');
       if (uc != 'OK') return null;
       // Use a JSON encoded string to send
       var data = [];
@@ -228,27 +269,35 @@ Future<String?> userAdminFormActions(BuildContext context,
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
-        'fromClauses': [<String, String>{'table': 'delete/users'}],
+        'fromClauses': [
+          <String, String>{'table': 'delete/users'}
+        ],
         'data': data,
       }, toEncodable: (_) => '');
-      var result = await client.sendRequest(
+      var result = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
           encodedJsonBody: encodedJsonBody);
       // handling server reply
+      if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200) {
         // Inform the user and transition
         const snackBar = SnackBar(
           content: Text('Delete User(s) Successful'),
         );
-        messenger.showSnackBar(snackBar);
+        if (context.mounted) {
+          messenger.showSnackBar(snackBar);
+        }
         formState.invokeCallbacks();
       } else {
-        showAlertDialog(context, 'Something went wrong. Please try again.');
+        if (context.mounted) {
+          showAlertDialog(context, 'Something went wrong. Please try again.');
+        }
       }
       break;
     default:
       showAlertDialog(
           context, 'Oops unknown ActionKey for userAdmin form: $actionKey');
   }
+  return null;
 }

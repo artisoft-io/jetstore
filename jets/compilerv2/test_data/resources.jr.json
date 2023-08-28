@@ -1,0 +1,73 @@
+{
+  "resources": [
+    {
+      "type": "resource",
+      "id": "tag",
+      "value": "tag",
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+      "key": 0
+    },
+    {
+      "type": "volatile_resource",
+      "id": "hasOpportunity",
+      "value": "hasOpportunity",
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr",
+      "key": 3
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": false,
+      "var_pos": 0,
+      "vertex": 1,
+      "key": 86,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "var",
+      "id": "?x1",
+      "is_binded": true,
+      "vertex": 3,
+      "is_antecedent": true,
+      "var_pos": 0,
+      "key": 89,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "keyword",
+      "value": "null",
+      "inline": true,
+      "key": 113,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "keyword",
+      "value": "null",
+      "inline": true,
+      "key": 144,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "int",
+      "value": "0",
+      "inline": true,
+      "key": 168,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "double",
+      "value": "0.001",
+      "inline": true,
+      "key": 172,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    },
+    {
+      "type": "keyword",
+      "value": "true",
+      "inline": true,
+      "key": 303,
+      "source_file_name": "jet_rules/clinical_interchange_sdmc_main.jr"
+    }
+  ],
+  "main_rule_file_name": "jet_rules/resources.jr"
+}

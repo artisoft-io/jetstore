@@ -98,8 +98,8 @@ class JetRuleRete:
       for consequent in rule['consequents']:
         vertex = consequent['vertex']
         consequent_copy = consequent.copy()
-        consequent_copy['consequent_seq'] = consequent_seq
         consequent_seq += 1
+        consequent_copy['consequent_seq'] = consequent_seq
         consequent_copy['consequent_for_rule'] = rule['name']
         consequent_copy['consequent_salience'] = rule['salience']
         self.ctx.rete_nodes[vertex]['consequent_nodes'].append(consequent_copy)
@@ -526,6 +526,7 @@ class JetRuleRete:
       'type': 'triple',
       'subject_key': self._map_elm(state, t3['subject'], 'triple'),
       'predicate_key': self._map_elm(state, t3['predicate'], 'triple'),
-      'object_key': self._map_elm(state, t3['object'], 'triple')
+      'object_key': self._map_elm(state, t3['object'], 'triple'),
+      'source_file_name': t3['source_file_name']
     } for t3 in self.ctx.triples ]
 

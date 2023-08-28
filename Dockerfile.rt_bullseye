@@ -14,8 +14,11 @@ ENV JETS_GIT_SHA=${JETS_GIT_SHA}
 RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
     echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
     echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \
-    echo "----------------*********************-------------" >> /VERSION.txt
-
+    echo "----------------*********************-------------" >> /VERSION.txt && \
+    echo "----------------JetStore-Version------------------" && \
+    echo "JETS_VERSION: ${JETS_VERSION}"                      && \
+    echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      && \
+    echo "----------------*********************-------------" 
 # Copy libraries and apps from builder
 ENV JETS_BUILD_DIR /usr/local/go/build
 ENV JETS_BIN_DIR /usr/local/go/bin
@@ -24,8 +27,6 @@ COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
 COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
-COPY --from=builder ${JETS_BUILD_DIR}/utils/start_ui.sh /usr/local/bin/
-COPY --from=builder ${JETS_BUILD_DIR}/utils/argo_cmd.py /usr/local/bin/
 #* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
@@ -36,7 +37,8 @@ COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
-# Copy the jetsclient source for building in the flutter app in workspace build
+
+# Copy the jetsclient source for building the flutter app
 ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
 COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient /usr/local/jetsclient
 
@@ -97,6 +99,9 @@ RUN \
   && mkdir -p ${WORK_HOME}/sm           \
   && mkdir -p ${WORK_HOME}/errors       \
   && mkdir -p ${WORK_HOME}/output_params 
+
+# Copy the cloud9 scripts
+COPY --chown=jsuser:jsuser utils/cloud9_*.sh /go/cloud9_scripts/
 
 RUN chown -Rc jsuser /go
 USER jsuser

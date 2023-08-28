@@ -1,9 +1,4 @@
-# DEV BUILDER NOTES
-
-```bash
-docker pull golang:1.19-bullseye
-docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t dev:latest -f Dockerfile.dev_go . 
-```
+# Docker Notes (a bit old)
 
 ## Antlr4 image
 
@@ -11,18 +6,7 @@ docker build --build-arg JETS_VERSION=2022.1.0 --build-arg USER_ID=`id -u` --bui
 docker build --build-arg USER_ID=`id -u` --build-arg GROUP_ID=`id -g` -t antlr4:latest -f Dockerfile.antlr4 . 
 ```
 
-## Running the dev image
-
-```bash
-docker run -it --rm -u `id -u`:`id -g` \
-    -v /home/michel/projects/repos/jetstore:/home/michel/projects/repos/jetstore \
-    -v /home/michel/projects/repos/RC-Workspace:/workspaces \
-    -v /home/michel/projects/work:/go/work \
-    --name jets_dev \
-    --entrypoint=/bin/bash dev:latest
-```
-
-### Running antlr4 to generate the parser class
+## Running antlr4 to generate the parser class
 
 ### Run from the compiler source directory (where JetRule.g4 is located)
 

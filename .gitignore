@@ -69,3 +69,9 @@ jets/bridge/bridge.go
 jets/awstest/awstest
 jets/awssfntest/awssfntest
 cdk/jetstore_one/jetstore_one
+jets/compilerv2/compilerv2
+jets/compilerv2/gpi_interchange_main.jrcc.json
+jets/compilerv2/out.jrcc.json
+jets/dbutils/tests/tests
+jets/run_reports/test_data/test_data
+jets/purge_database/purge_database

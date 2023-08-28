@@ -16,7 +16,17 @@ int create_jetstore_hdl( char const * rete_db_path, char const * lookup_data_db_
   if(not rete_db_path) return -1;
   auto * factory = new ReteMetaStoreFactory();
   *handle = factory;
-  int res = factory->load_database(rete_db_path, lookup_data_db_path);
+  int res = 0;
+  try {
+    res = factory->load_database(rete_db_path, lookup_data_db_path);
+  } catch(jets::rete_exception ex) {
+    LOG(ERROR)<<"create_jetstore_hdl: ERROR while loading database '"<< rete_db_path<<"': "<<ex;
+    return -1;
+  } catch(...) {
+    LOG(ERROR)<<"create_jetstore_hdl: Unknown ERROR while loading database" << rete_db_path;
+    return -1;
+  }
+
   if(res) {
     LOG(ERROR) << "create_jetstore_hdl: ERROR while loading database "<<
       rete_db_path<<", code "<<res;
@@ -28,6 +38,7 @@ int delete_jetstore_hdl( HJETS handle )
 {
   if(not handle) return -1;
   auto * factory =  static_cast<ReteMetaStoreFactory*>(handle);
+  factory->reset();
   delete factory;
   return 0;
 }
@@ -607,6 +618,14 @@ char const* execute_rules2(HJRETE rete_hdl, int*v)
   if(not rete_hdl or not v) return nullptr;
   auto * rete_session =  static_cast<ReteSession*>(rete_hdl);
   return rete_session->execute_rules2(v);
+}
+
+// returns the rdf graph as list of triples (text buffer)
+char const* get_rdf_graph_txt(HJRDF hdl, int*v)
+{
+  if(not hdl or not v) return nullptr;
+  auto * rdf_session =  static_cast<RDFSession*>(hdl);
+  return rdf_session->get_graph_buf(v);
 }
 
 int dump_rdf_graph(HJRDF hdl)

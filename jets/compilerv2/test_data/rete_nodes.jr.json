@@ -1,0 +1,76 @@
+{
+  "rete_nodes": [
+    {
+      "type": "antecedent",
+      "isNot": false,
+      "normalizedLabel": "(?x1 wrs:Net_Amount_Due ?x2).[(abs ?x2) > None]",
+      "filter": {
+        "type": "binary",
+        "lhs": {
+          "type": "unary",
+          "op": "abs",
+          "arg": 443,
+          "arg0_key": 42
+        },
+        "op": ">",
+        "rhs": 444,
+        "arg0_key": 43,
+        "arg1_key": 44
+      },
+      "vertex": 108,
+      "parent_vertex": 52,
+      "beta_relation_vars": [
+        "?x1",
+        "?x2"
+      ],
+      "pruned_var": [],
+      "beta_var_nodes": [
+        {
+          "type": "var",
+          "id": "?x1",
+          "is_binded": true,
+          "var_pos": 0,
+          "vertex": 108
+        },
+        {
+          "type": "var",
+          "id": "?x2",
+          "is_binded": false,
+          "var_pos": 2,
+          "vertex": 108,
+          "key": 442,
+          "source_file_name": "jet_rules/gpi_interchange_main.jr",
+          "db_key": 651
+        }
+      ],
+      "children_vertexes": [
+        109
+      ],
+      "subject_key": 441,
+      "predicate_key": 100,
+      "object_key": 442,
+      "filter_expr_key": 45,
+      "db_key": 191
+    },
+    {
+      "type": "consequent",
+      "normalizedLabel": "(?x1 wrs:Patient_Age ?x5 age_in_months_as_of ?x4)",
+      "vertex": 9,
+      "consequent_seq": 0,
+      "consequent_for_rule": "PatientAge01",
+      "consequent_salience": 100,
+      "subject_key": 478,
+      "predicate_key": 101,
+      "obj_expr": {
+        "type": "binary",
+        "lhs": 479,
+        "op": "age_in_months_as_of",
+        "rhs": 480,
+        "arg0_key": 50,
+        "arg1_key": 51
+      },
+      "obj_expr_key": 52,
+      "db_key": 212
+    }
+  ]
+}

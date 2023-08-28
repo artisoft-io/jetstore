@@ -8,19 +8,36 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+// available functions for preprocessing input column values used in domain keys
+var preprocessingFunctions map[string]bool
+var preprocessingFncRe *regexp.Regexp
+var dateParsingRe *regexp.Regexp
+var domainKeySeparator string
+func init() {
+	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
+	dateParsingRe = regexp.MustCompile(`(\d{1,4})-?\/?(\d{1,2})-?\/?(\d{1,4})`)
+	preprocessingFunctions = map[string]bool{
+		"format_date": true,
+	}
+	domainKeySeparator = os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")
+}
 type DomainKeyInfo struct {
 	// list of input column name making the domain key
 	ColumnNames      []string
 	// list of input column position making the domain key
 	ColumnPos        []int
+	// list of pre-processing functions for the input column (one per column)
+	PreprocessFnc    []string
 	// Object type associated with the Domain Key
 	ObjectType       string
 	// Column position of column `objectType`:domain_key in the output table
@@ -41,6 +58,11 @@ type HeadersAndDomainKeysInfo struct {
 	DomainKeysInfoMap map[string]*DomainKeyInfo
 	// Reserved columns removed from RawHeaders and included in Headers 
 	ReservedColumns   map[string]bool
+	FillerColumns     map[string]bool
+	// column prefix used for fixed-width input record
+	// The prefix is the first record type (the one with offset == 0)
+	// This is empty string for non fixed-width records, therefore ignored
+	FixedWidthColumnPrefix string
 }
 func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, error) {
 	headersDKInfo := HeadersAndDomainKeysInfo {
@@ -50,6 +72,7 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 		Headers:           make([]string, 0),
 		HeadersPosMap:     make(map[string]int, 0),
 		ReservedColumns:   make(map[string]bool, 0),
+		FillerColumns:     make(map[string]bool, 0),
 		HashingAlgo:       strings.ToLower(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 	}
 	if headersDKInfo.HashingAlgo == "" {
@@ -70,12 +93,13 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 	}
 	return &headersDKInfo, nil
 }
-func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders []string, mainObjectType string, domainKeysJson *string) error {
+func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders []string, mainObjectType string, domainKeysJson *string, fixedWidthColumnPrefix string) error {
 	dkInfo.RawHeaders = append(dkInfo.RawHeaders, rawHeaders...)
 	dkInfo.ReservedColumns["file_key"] = true
 	dkInfo.ReservedColumns["jets:key"] = true
 	dkInfo.ReservedColumns["last_update"] = true
 	dkInfo.ReservedColumns["session_id"] = true
+	dkInfo.FixedWidthColumnPrefix = fixedWidthColumnPrefix
 	return dkInfo.Initialize(mainObjectType, domainKeysJson)
 }
 func (dkInfo *HeadersAndDomainKeysInfo)InitializeDomainTable(domainHeaders []string, mainObjectType string, domainKeysJson *string) error {
@@ -132,6 +156,20 @@ func (dkInfo *HeadersAndDomainKeysInfo)String() string {
 	}
 	buf.WriteString("\n")
 	return buf.String()
+}
+
+func parseColumn(column *string) []string {
+	v := preprocessingFncRe.FindStringSubmatch(*column)
+	if len(v) < 3 {
+		return nil
+	}
+	if len(v[1]) == 0 || len(v[2]) == 0 {
+		return nil
+	}
+	if !preprocessingFunctions[v[1]] {
+		return nil
+	}
+	return v
 }
 
 // initialize (domainKeysJson string)
@@ -196,17 +234,23 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 				default:
 						fmt.Println("domainKeysJson contains",vv,"which is of a type that is not supported")
 				}
-			}		
+			}
 		default:
 			fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
 		}
-	} else {
-		// No domain key info json provided, use jets:key as domain key
-		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
-			ColumnNames: []string{"jets:key"},
-			ObjectType: mainObjectType,
-		}
 
+		// Extract the preprocessing functions that are decorating the column names (if any)
+		// regex to extract preprocessing function, e.g., format_date(columnName)
+		for _,dk := range dkInfo.DomainKeysInfoMap {
+			dk.PreprocessFnc = make([]string, len(dk.ColumnNames))
+			for i := range dk.ColumnNames {
+				v := parseColumn(&dk.ColumnNames[i])
+				if v != nil {
+					dk.ColumnNames[i] = v[2]
+					dk.PreprocessFnc[i] = v[1]
+				}		
+			}
+		}
 	}
 
 	// Complete the reserved columns by adding the domain keys
@@ -216,12 +260,20 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	}
 
 	// Drop input columns (rawHeaders) matching the reserved column names
+	// Drop input columns (rawHeaders) that appear more than once (e.g. 'filler' columns)
 	// compute headers of output table
 	for ipos := range dkInfo.RawHeaders {
-		if !dkInfo.ReservedColumns[dkInfo.RawHeaders[ipos]] {
-			h := dkInfo.RawHeaders[ipos]
-			dkInfo.Headers = append(dkInfo.Headers, h)
-			dkInfo.HeadersPosMap[h] = ipos
+		h := dkInfo.RawHeaders[ipos]
+		if !dkInfo.ReservedColumns[h] && !dkInfo.FillerColumns[h] {
+			_,ok := dkInfo.HeadersPosMap[h]
+			if ok {
+				// Column is duplicated, mark it as a filler
+				// (there will still be one column named by the value of h)
+				dkInfo.FillerColumns[h] = true
+			} else {
+				dkInfo.Headers = append(dkInfo.Headers, h)
+				dkInfo.HeadersPosMap[h] = ipos	
+			}
 		}
 	}
 	// Add reserved columns (sessionId, shardId, DomainKeys, etc) to the headers,
@@ -237,6 +289,9 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	for objectType,v := range dkInfo.DomainKeysInfoMap {
 		v.ColumnPos = make([]int, len(v.ColumnNames))
 		for jpos, columnName := range v.ColumnNames {
+			if dkInfo.FixedWidthColumnPrefix != "" {
+				columnName = fmt.Sprintf("%s.%s", dkInfo.FixedWidthColumnPrefix, columnName)
+			}
 			v.ColumnPos[jpos], ok = dkInfo.HeadersPosMap[columnName]
 			if !ok {
 				err := fmt.Errorf(
@@ -262,17 +317,37 @@ func (dkInfo *HeadersAndDomainKeysInfo)GetHeaderPos() []int {
 	return ret
 }
 
+func (dkInfo *HeadersAndDomainKeysInfo)joinUpper(columns *[]string, sep string) string {
+	if columns == nil {
+		return ""
+	}
+	doUpper := !(dkInfo.HashingOverriden && dkInfo.HashingAlgo == "none")
+	var buf strings.Builder
+	sz := len(sep)
+	for ipos := range *columns {
+		if ipos > 0 && sz > 0 {
+			buf.WriteString(sep)
+		}
+		if doUpper {
+			buf.WriteString(strings.ToUpper((*columns)[ipos]))
+		} else {
+			buf.WriteString((*columns)[ipos])
+		}
+	}
+	return buf.String()
+}
+
 func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string {
 	var groupingKey string
 	switch dkInfo.HashingAlgo {
 	case "md5":
-		groupingKey = strings.Join(*columns, "")
+		groupingKey = dkInfo.joinUpper(columns, domainKeySeparator)
 		groupingKey = uuid.NewMD5(dkInfo.HashingSeed, []byte(groupingKey)).String()
 	case "sha1":
-		groupingKey = strings.Join(*columns, "")
+		groupingKey = dkInfo.joinUpper(columns, domainKeySeparator)
 		groupingKey = uuid.NewSHA1(dkInfo.HashingSeed, []byte(groupingKey)).String()
 	default:
-		groupingKey = strings.Join(*columns, ":")
+		groupingKey = dkInfo.joinUpper(columns, domainKeySeparator)
 	}
 	return groupingKey
 }
@@ -287,7 +362,85 @@ func (dkInfo *HeadersAndDomainKeysInfo)IsDomainKeyIsJetsKey(objectType *string) 
 	return false
 }
 
-func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, jetsKey *string) (string, int, error) {
+func applyPreprocessingFunction(fncName, value string) (string, error) {
+	switch fncName {
+	case "":
+		return value, nil
+	case "format_date":
+		v := dateParsingRe.FindStringSubmatch(value)
+		if len(v) < 4 {
+			return "", fmt.Errorf("value is not a date: %s",value)
+		}
+		l1 :=len(v[1]);
+		l2 :=len(v[2]);
+		l3 :=len(v[3]);
+		if l1 == 0 || l2 == 0 || l3 == 0 {
+			return "", fmt.Errorf("value is not a date: %s",value)
+		}
+		// input format 2/19/1968 : mm/dd/yyyy
+		// input format 2012-07-27 : yyyy-mm-dd (same order as output)
+		// input format 20120727 : yyyymmdd (same as output) 
+		// input format 2012-7-9 : yyyymmdd
+		var year, month, day int
+		var err error
+		switch {
+		case l1 == 4:
+			// format yyyy mm dd
+			year, err = strconv.Atoi(v[1])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			month, err = strconv.Atoi(v[2])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			day, err = strconv.Atoi(v[3])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+		case l3 == 4:
+			// format mm dd yyyy -> yyyy mm dd
+			year, err = strconv.Atoi(v[3])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			month, err = strconv.Atoi(v[1])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+			day, err = strconv.Atoi(v[2])
+			if err != nil {
+				return "", fmt.Errorf("invalid date format: %s",value)
+			}
+		default:
+			return "", fmt.Errorf("unknown date format: %s",value)
+		}	
+		// validating the date - must validate since corner case of 2003812 will give 2003-81-2 and
+		// not the correct date of 2003-8-12
+		tm := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		if tm.Year() != year || tm.Month() != time.Month(month) || tm.Day() != day {
+			return "", fmt.Errorf("invalid date: %s",value)
+		}
+		formatedDate := fmt.Sprintf("%d%02d%02d",year, month, day)
+		return formatedDate, nil
+
+	case "remove_mi":	// remove last 2 char if last-1 is a space, e.g. "michel f" becomes "michel"
+		l := len(value)
+		if l < 3 {
+			return value, nil
+		}
+		v := value[l-2]
+		s := []byte(" ")
+		if v == s[0] {
+			return value[:l-2], nil
+		} 
+		return value, nil
+
+	default:
+		return "", fmt.Errorf("unknown pre-processing function " + fncName)
+	}
+}
+func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, recordTypeOffset int, jetsKey *string) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {
 		groupingKey := *jetsKey
@@ -299,19 +452,28 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 			groupingKey := dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		}
-		recPos := dk.ColumnPos[0]
+		recPos := dk.ColumnPos[0] + recordTypeOffset
 		if recPos < len(*record) {
-			cols := []string{(*record)[recPos]}
+			// apply the pre-processing function, e.g. format_date for domain key generation
+			value, err := applyPreprocessingFunction(dk.PreprocessFnc[0], (*record)[recPos])
+			if err != nil {
+				return "", 0, err
+			}
+			cols := []string{value}
 			groupingKey := dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		}
 		return "", 0, fmt.Errorf("error: domain key is invalid, make sure it is not a reserved column for ObjectType %s", *objectType)
 	}
 	cols := make([]string, len(dk.ColumnPos))
+	var err error
 	for ipos := range dk.ColumnPos {
-		recPos := dk.ColumnPos[ipos]
+		recPos := dk.ColumnPos[ipos] + recordTypeOffset
 		if recPos < len(*record) {
-			cols[ipos] = (*record)[recPos]
+			cols[ipos], err = applyPreprocessingFunction(dk.PreprocessFnc[ipos], (*record)[recPos])
+			if err != nil {
+				return "", 0, err
+			}
 		} else {
 			return "", 0, fmt.Errorf("error: domain key is invalid, make sure it is not a reserved column for ObjectType %s", *objectType)
 		}
@@ -342,8 +504,8 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 		case string:
 			cols[ipos] = value
 		default:
-			log.Println("Error: Domain Key column is not a string")
-			cols[ipos] = ""
+			log.Println("Error: Domain Key column", dk.ColumnNames[ipos],"is not a string")
+			return "", 0, nil
 		}
 	}
 	groupingKey := dkInfo.makeGroupingKey(&cols)

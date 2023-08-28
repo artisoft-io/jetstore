@@ -5,7 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 
@@ -13,22 +16,59 @@ import (
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/google/uuid"
 )
 
 // Main data entity
 type PipelineConfig struct {
-	key                    int
-	processConfigKey       int
-	clientName             string
-	sourcePeriodType       string
-	sourcePeriodKey        int
-	currentSourcePeriod    int
-	mainProcessInputKey    int
-	mergedProcessInputKeys []int
-	processConfig          *ProcessConfig
-	mainProcessInput       *ProcessInput
-	mergedProcessInput     []ProcessInput
-	ruleConfigs            []RuleConfig
+	key                      int
+	processConfigKey         int
+	clientName               string
+	sourcePeriodType         string
+	sourcePeriodKey          int
+	maxReteSessionSaved      int
+	currentSourcePeriod      int
+	currentSourcePeriodDate  string
+	mainProcessInputKey      int
+	mergedProcessInputKeys   []int
+	injectedProcessInputKeys []int
+	processConfig            *ProcessConfig
+	mainProcessInput         *ProcessInput
+	mergedProcessInput       []*ProcessInput
+	injectedProcessInput     []*ProcessInput
+	ruleConfigObjs           []*map[string]interface{}
+	ruleConfigs              []RuleConfig
+	mergedProcessInputMap    map[int]*ProcessInput
+	injectedProcessInputMap  map[int]*ProcessInput
+}
+
+func (pc *PipelineConfig)String() string {
+	var buf strings.Builder
+	buf.WriteString("PipelineConfig:")
+	buf.WriteString(fmt.Sprintf("  key: %d", pc.key))
+	buf.WriteString(fmt.Sprintf("  clientName: %s", pc.clientName))
+	buf.WriteString(fmt.Sprintf("  sourcePeriodType: %s", pc.sourcePeriodType))
+	buf.WriteString(fmt.Sprintf("  sourcePeriodKey: %d", pc.sourcePeriodKey))
+	buf.WriteString(fmt.Sprintf("  currentSourcePeriod: %d", pc.currentSourcePeriod))
+	buf.WriteString(fmt.Sprintf("  currentSourcePeriodDate: %s", pc.currentSourcePeriodDate))
+	buf.WriteString(fmt.Sprintf("\n  mainProcessInput: %s", pc.mainProcessInput.String()))
+	for ipos := range pc.mergedProcessInput {
+		buf.WriteString(fmt.Sprintf("\n  mergedProcessInput[%d]: %s", ipos, pc.mergedProcessInput[ipos].String()))
+	}
+	for ipos := range pc.injectedProcessInput {
+		buf.WriteString(fmt.Sprintf("\n  injectedProcessInput[%d]: %s", ipos, pc.injectedProcessInput[ipos].String()))
+	}
+	buf.WriteString("Rule Configuration:")
+	for ipos := range pc.ruleConfigObjs {
+		b, err := json.MarshalIndent(pc.ruleConfigObjs[ipos], "  ", " ")
+		if err != nil {
+			buf.WriteString("** Invalid json")	
+		} else {
+			buf.Write(b)
+		}
+	}
+	buf.WriteString("\n")
+	return buf.String()
 }
 
 type ProcessConfig struct {
@@ -40,14 +80,25 @@ type ProcessConfig struct {
 }
 
 type BadRow struct {
-	GroupingKey  sql.NullString
-	RowJetsKey   sql.NullString
-	InputColumn  sql.NullString
-	ErrorMessage sql.NullString
+	PEKey                 sql.NullInt64
+	GroupingKey           sql.NullString
+	RowJetsKey            sql.NullString
+	InputColumn           sql.NullString
+	ErrorMessage          sql.NullString
+	ReteSessionSaved      string
+	ReteSessionTriples    sql.NullString
 }
-
+func NewBadRow() BadRow {
+	br := BadRow{
+		PEKey: sql.NullInt64{Int64: int64(*pipelineExecKey), Valid: true},
+		ReteSessionSaved: "N",
+	}
+	return br
+}
 func (br BadRow) String() string {
 	var buf strings.Builder
+	buf.WriteString(strconv.FormatInt(br.PEKey.Int64, 10))
+	buf.WriteString(" | ")
 	if outSessionId != nil && len(*outSessionId) > 0 {
 		buf.WriteString(*outSessionId)
 	} else {
@@ -77,22 +128,27 @@ func (br BadRow) String() string {
 	} else {
 		buf.WriteString("NULL")
 	}
+	buf.WriteString(" | ")
+	buf.WriteString(br.ReteSessionSaved)
 	return buf.String()
 }
 
 // wrtie BadRow to ch as slice of interfaces
 func (br BadRow) write2Chan(ch chan<- []interface{}) {
 
-	brout := make([]interface{}, 6) // len of BadRow columns			var sid string
+	brout := make([]interface{}, 9) // len of BadRow columns
+	brout[0] = br.PEKey.Int64
 	if outSessionId != nil && len(*outSessionId) > 0 {
-		brout[0] = *outSessionId
+		brout[1] = *outSessionId
 	}
-	brout[1] = br.GroupingKey
-	brout[2] = br.RowJetsKey
-	brout[3] = br.InputColumn
-	brout[4] = br.ErrorMessage
+	brout[2] = br.GroupingKey
+	brout[3] = br.RowJetsKey
+	brout[4] = br.InputColumn
+	brout[5] = br.ErrorMessage
+	brout[6] = br.ReteSessionSaved
+	brout[7] = br.ReteSessionTriples
 	if nodeId != nil {
-		brout[5] = *nodeId
+		brout[8] = *nodeId
 	}
 	ch <- brout
 }
@@ -126,6 +182,22 @@ type ProcessInput struct {
 	codeValueMapping      *map[string]map[string]string
 }
 
+func (pi *ProcessInput)String() string {
+	var buf strings.Builder
+	buf.WriteString("ProcessInput:")
+	buf.WriteString(fmt.Sprintf("  key: %d", pi.key))
+	buf.WriteString(fmt.Sprintf("  tableName: %s", pi.tableName))
+	buf.WriteString(fmt.Sprintf("  lookbackPeriods: %d", pi.lookbackPeriods))
+	buf.WriteString(fmt.Sprintf("  sourceType: %s", pi.sourceType))
+	buf.WriteString(fmt.Sprintf("  entityRdfType: %s", pi.entityRdfType))
+	buf.WriteString(fmt.Sprintf("  groupingColumn: %s", pi.groupingColumn))
+	buf.WriteString(fmt.Sprintf("  groupingPosition: %d", pi.groupingPosition))
+	// todo add processInputMapping here
+	return buf.String()
+}
+
+var invalidCodeValue = os.Getenv("JETS_INVALID_CODE")
+
 type ProcessMap struct {
 	tableName    string
 	isDomainKey  bool
@@ -141,7 +213,6 @@ type ProcessMap struct {
 }
 
 type RuleConfig struct {
-	processConfigKey int
 	subject          string
 	predicate        string
 	object           string
@@ -149,7 +220,15 @@ type RuleConfig struct {
 }
 
 // utility methods
-// prepare the sql statement for reading from staging table or domain table (csv)
+func mapSourceType(st string) string {
+	switch st {
+	case "alias_domain_table":
+		return "domain_table"
+	default:
+		return st
+	}
+}
+// prepare the sql statement for reading from staging table or domain table
 // Query with lookback period = 0:
 // -------------------------------
 // "SELECT  {{column_names}}
@@ -159,6 +238,8 @@ type RuleConfig struct {
 //  ORDER BY {{processInput.groupingColumn}} ASC
 //
 // Query with lookback period > 0:
+// NOTE: case merge-in use operator {{OPER}}: <= (merge in current period)
+// NOTE: case alias domain table use operator {{OPER}}: < (exclude current period when injecting entities)
 // -------------------------------
 // -- with $5 = (current - lookback_periods)
 // -- with $6 = (current)
@@ -166,11 +247,40 @@ type RuleConfig struct {
 // SELECT  e.{{column_names}}, ($6 - sr.month_period) as "jets:source_period_sequence"
 // FROM "Acme_Eligibility" e, jetsapi.session_registry sr
 // WHERE e.session_id = sr.session_id
+//  AND sr.client = {{client}}
+//  AND sr.source_type = '{{processInput.sourceType}}'
 // 	AND sr.month_period >= $5
-// 	AND sr.{{pipeline_config.source_period_type}} <= $6
+// 	AND sr.{{pipeline_config.source_period_type}} {{OPER}} $6
 // 	AND e."Eligibility:shard_id"=0
 // ORDER BY e."Eligibility:domain_key" ASC
 //
+// -- FULL EXAMPLE FOR SERVER MERGE-IN SQL QUERY WITH LOOKBACK PERIOD
+// -- WHERE 636 IS FROM_PERIOD AND 637 IS CURRENT_PERIOD
+//		 SELECT
+//		 	e."Net_Amount_Due",
+//		 	e."Patient_Pay_Amount",
+//		 	e."Total_Paid_Amount",
+//		 	e."Adjudication_Date",
+//		 	e."Admission_Date",
+//		 	e."Admission_Indicator",
+//		 	e."Type_of_Service",
+//		 	e."Eligibility:domain_key",
+//		 	e."jets:key",
+//		 	e."Eligibility:domain_key",
+//		 	e."Eligibility:shard_id",
+//		 	(637 - sr."month_period") as "jets:source_period_sequence"
+//		 FROM
+//		 	"Acme_PAYOR_MedicalClaim" e,
+//		 	jetsapi.session_registry sr
+//		 WHERE
+//		 	e.session_id = sr.session_id
+//		 	AND sr.client = 'Acme'
+//		 	AND sr.source_type = 'file'
+//		 	AND sr."month_period" >= 636
+//		 	AND sr."month_period" {{OPER}} 637
+//		 	AND "Eligibility:shard_id" = 0
+//		 ORDER BY
+//		 	"Eligibility:domain_key" ASC
 func (pipelineConfig *PipelineConfig) makeProcessInputSqlStmt(processInput *ProcessInput) string {
 	sourcePeriodType := pipelineConfig.sourcePeriodType
 	currentSourcePeriod := pipelineConfig.currentSourcePeriod
@@ -202,16 +312,26 @@ func (pipelineConfig *PipelineConfig) makeProcessInputSqlStmt(processInput *Proc
 	buf.WriteString(" FROM ")
 	buf.WriteString(pgx.Identifier{processInput.tableName}.Sanitize())
 	buf.WriteString(" e")
-	if lookbackPeriods > 0 {
+	if lookbackPeriods > 0 || processInput.sessionId == "" {
 		buf.WriteString(", jetsapi.session_registry sr ")
 	}
 	buf.WriteString(" WHERE ")
-	if lookbackPeriods > 0 {
+	if lookbackPeriods > 0 || processInput.sessionId == "" {
 		buf.WriteString(" e.session_id = sr.session_id ")
+		buf.WriteString(" AND ")
+		buf.WriteString(fmt.Sprintf(`sr.client = '%s' AND sr.source_type = '%s'`, 
+			pipelineConfig.mainProcessInput.client, mapSourceType(processInput.sourceType)))
 		buf.WriteString(" AND ")
 		buf.WriteString(fmt.Sprintf(`sr."%s" >= %d`, sourcePeriodType, lowerEndPeriod))
 		buf.WriteString(" AND ")
+		//NOTE Did not implement fix #746
 		buf.WriteString(fmt.Sprintf(`sr."%s" <= %d`, sourcePeriodType, currentSourcePeriod))
+		//NOTE Did not implement fix #746
+		// if processInput.sourceType == "alias_domain_table" {
+		// 	buf.WriteString(fmt.Sprintf(`sr."%s" < %d`, sourcePeriodType, currentSourcePeriod))
+		// } else {
+		// 	buf.WriteString(fmt.Sprintf(`sr."%s" <= %d`, sourcePeriodType, currentSourcePeriod))
+		// }
 	} else {
 		buf.WriteString(fmt.Sprintf(" e.session_id = '%s'",processInput.sessionId))	
 	}
@@ -244,7 +364,11 @@ func (processInput *ProcessInput) mapCodeValue(clientValue *string, inputColumnS
 	}
 	canonicalValue, ok = codeValueMap[*clientValue]
 	if !ok {
-		return clientValue
+		if invalidCodeValue == "" {
+			return clientValue
+		} else {
+			return &invalidCodeValue
+		}
 	}
 	return &canonicalValue
 }
@@ -268,13 +392,15 @@ func (processInput *ProcessInput) setKeyPos() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("ERROR ProcessInput key column: %s is not found among the input columns", processInput.keyColumn)
+	return fmt.Errorf("ERROR ProcessInput key column: %s is not found among the input columns (Have you done the mapping yet?)", processInput.keyColumn)
 }
 
 // Main Pipeline Configuration Read Function
 // -----------------------------------------
 func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineConfig, error) {
-	pc := PipelineConfig{key: pcKey}
+	pc := PipelineConfig{key: pcKey, 
+		mergedProcessInputMap:   make(map[int]*ProcessInput),
+		injectedProcessInputMap: make(map[int]*ProcessInput)}
 	var err error
 	var outSessId sql.NullString
 	mainInputRegistryKey := sql.NullInt64{}
@@ -308,23 +434,34 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 		return &pc, fmt.Errorf("while loading pipeline config: %v", err)
 	}
 
-	// Load the process input table definitions
+	// Load the process input tables definition
 	pc.mainProcessInput = &ProcessInput{key: pc.mainProcessInputKey}
 	err = pc.mainProcessInput.loadProcessInput(dbpool)
 	if err != nil {
 		return &pc, fmt.Errorf("while loading main process input: %v", err)
 	}
-	pc.mergedProcessInput = make([]ProcessInput, len(pc.mergedProcessInputKeys))
-	for i := range pc.mergedProcessInputKeys {
-		pc.mergedProcessInput[i].key = pc.mergedProcessInputKeys[i]
+	pc.mergedProcessInput = make([]*ProcessInput, len(pc.mergedProcessInputKeys))
+	for i, key := range pc.mergedProcessInputKeys {
+		pc.mergedProcessInput[i] = &ProcessInput{key: key}
 		err = pc.mergedProcessInput[i].loadProcessInput(dbpool)
 		if err != nil {
 			return &pc, fmt.Errorf("while loading merged process input %d: %v", i, err)
 		}
+		pc.mergedProcessInputMap[key] = pc.mergedProcessInput[i]
+	}
+	// injected data does not need a session_id, will load based on lookback_periods and pc.sourcePeriodKey
+	pc.injectedProcessInput = make([]*ProcessInput, len(pc.injectedProcessInputKeys))
+	for i, key := range pc.injectedProcessInputKeys {
+		pc.injectedProcessInput[i] = &ProcessInput{key: key}
+		err = pc.injectedProcessInput[i].loadProcessInput(dbpool)
+		if err != nil {
+			return &pc, fmt.Errorf("while loading injected process input %d: %v", i, err)
+		}
+		pc.injectedProcessInputMap[key] = pc.injectedProcessInput[i]
 	}
 
-	// read the rule config triples
-	pc.ruleConfigs, err = readRuleConfig(dbpool, pc.processConfigKey, pc.clientName)
+	// read the rule config triples / json
+	err = pc.readRuleConfig(dbpool)
 	if err != nil {
 		return &pc, fmt.Errorf("read jetsapi.rule_config table failed: %v", err)
 	}
@@ -348,26 +485,39 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 			return &pc, fmt.Errorf("error: nbr of merged table in process exec is %d != nbr in process config %d",
 				len(mergedInputRegistryKeys), len(pc.mergedProcessInput))
 		}
-		pc.mainProcessInput.sessionId, pc.sourcePeriodKey, err = getSessionId(dbpool, int(mainInputRegistryKey.Int64))
+		_, pc.mainProcessInput.sessionId, pc.sourcePeriodKey, err = getProcessInputKeyAndSessionId(dbpool, int(mainInputRegistryKey.Int64))
 		if err != nil {
 			return &pc, fmt.Errorf("while reading session id for main table: %v", err)
 		}
-		for i := range pc.mergedProcessInput {
-			pc.mergedProcessInput[i].sessionId, _, err = getSessionId(dbpool, mergedInputRegistryKeys[i])
+		log.Printf("MainProcessInput key: %d, table: %s, sessionId: %s", pc.mainProcessInput.key, pc.mainProcessInput.tableName, pc.mainProcessInput.sessionId)
+
+		// Get the sessionIds for the merged-in table. Need to get the process_input.key via the input_registry.key
+		for _,key := range mergedInputRegistryKeys {
+			processInputKey, sessionId, _, err := getProcessInputKeyAndSessionId(dbpool, key)
 			if err != nil {
-				return &pc, fmt.Errorf("while reading session id for merged-in table %s: %v",
-					pc.mergedProcessInput[i].tableName, err)
+				return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: %v",	key, err)
 			}
+			p := pc.mergedProcessInputMap[processInputKey]
+			if p == nil {
+				return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: unkown processInputKey %d",	key, processInputKey)
+			}
+			log.Printf("MergedProcessInput key: %d, registry key: %d, table: %s, sessionId: %s", processInputKey, key, p.tableName, sessionId)
+			p.sessionId = sessionId
 		}
-		// Get the currentSourcePeriod
+
+		// Get the currentSourcePeriod & currentSourcePeriodDate
+		var year, month, day int
 		err = dbpool.QueryRow(context.Background(),
-			fmt.Sprintf("SELECT %s FROM jetsapi.source_period WHERE key = %d", pc.sourcePeriodType, pc.sourcePeriodKey)).Scan(&pc.currentSourcePeriod)
+			fmt.Sprintf("SELECT %s, year, month, day FROM jetsapi.source_period WHERE key = %d", pc.sourcePeriodType, pc.sourcePeriodKey)).Scan(
+				&pc.currentSourcePeriod, &year, &month, &day)
 		if err != nil {
 			return &pc, fmt.Errorf("while reading from source_period table: %v", err)
 		}
+		pc.currentSourcePeriodDate = fmt.Sprintf("%d/%d/%d", year, month, day)
+		log.Println("Current Source Period Date for pipeline:", pc.currentSourcePeriodDate)
 
 	} else {
-		// input session id not specified, take the latest from input_registry
+		log.Println("*** Input session id not specified, take the latest from input_registry (uncommon use case)")
 		pc.mainProcessInput.sessionId, err = getLatestSessionId(dbpool, pc.mainProcessInput.tableName)
 		if err != nil {
 			return &pc, fmt.Errorf("while reading latest session id for main table: %v", err)
@@ -384,10 +534,16 @@ func readPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 	return &pc, nil
 }
 
-func getSessionId(dbpool *pgxpool.Pool, inputRegistryKey int) (sessionId string, sourcePeriodKey int, err error) {
+func getProcessInputKeyAndSessionId(dbpool *pgxpool.Pool, inputRegistryKey int) (processInputKey int, sessionId string, sourcePeriodKey int, err error) {
 	err = dbpool.QueryRow(context.Background(),
-		"SELECT session_id, source_period_key FROM jetsapi.input_registry WHERE key = $1",
-		inputRegistryKey).Scan(&sessionId, &sourcePeriodKey)
+		`SELECT pi.key, session_id, source_period_key 
+		 FROM jetsapi.input_registry ir, jetsapi.process_input pi 
+		 WHERE ir.client = pi.client 
+		   AND ir.org = pi.org
+			 AND ir.object_type = pi.object_type
+			 AND ir.table_name = pi.table_name
+			 AND ir.key = $1`,
+		inputRegistryKey).Scan(&processInputKey, &sessionId, &sourcePeriodKey)
 	if err != nil {
 		err = fmt.Errorf("while reading sessionId from input_registry for key %d: %v", inputRegistryKey, err)
 		return
@@ -406,13 +562,21 @@ func getLatestSessionId(dbpool *pgxpool.Pool, tableName string) (sessionId strin
 }
 
 func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
+	maxReteSessionsSaved := sql.NullInt64{}
+	var ruleConfigJson string
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, source_period_type
+		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, source_period_type, max_rete_sessions_saved, rule_config_json
 		FROM jetsapi.pipeline_config WHERE key = $1`,
-		pc.key).Scan(&pc.clientName, &pc.processConfigKey, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys,
-		&pc.sourcePeriodType)
+		pc.key).Scan(&pc.clientName, &pc.processConfigKey, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys, &pc.injectedProcessInputKeys,
+		&pc.sourcePeriodType, &maxReteSessionsSaved, &ruleConfigJson)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
+	}
+	if maxReteSessionsSaved.Valid {
+		pc.maxReteSessionSaved = int(maxReteSessionsSaved.Int64)
+	}
+	if err := json.Unmarshal([]byte(ruleConfigJson), &pc.ruleConfigObjs); err != nil {
+		return fmt.Errorf("while reading jetsapi.pipeline_config table, invalid rule_config_json: %v", err)
 	}
 
 	return nil
@@ -436,23 +600,27 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 		pi.keyColumn = "jets:key"
 	}
 
-	// read the mapping definitions
-	pi.processInputMapping, err = readProcessInputMapping(dbpool, pi.key)
-	if err != nil {
-		return fmt.Errorf("while calling readProcessInputMapping: %v", err)
-	}
-
 	// Get the object_type associated with the input table
-	// The object_type are in the DomainKeysJson from source_config table
+	// The object_type are in the DomainKeysJson from source_config table.
+	// Also, read the mapping definitions
 	var dkJson sql.NullString
-	if pi.sourceType == "file" {
+	var err2 error
+	switch pi.sourceType {
+	case "file":
 		err = dbpool.QueryRow(context.Background(), 
 		"SELECT domain_keys_json FROM jetsapi.source_config WHERE table_name=$1", 
 		pi.tableName).Scan(&dkJson)
-	} else {
+		pi.processInputMapping, err2 = readProcessInputMapping(dbpool, pi.tableName)
+	case "domain_table", "alias_domain_table":
 		err = dbpool.QueryRow(context.Background(), 
 		"SELECT domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type=$1", 
 		pi.entityRdfType).Scan(&dkJson)
+		pi.processInputMapping, err2 = readProcessInputMapping(dbpool, pi.entityRdfType)
+	default:
+		return fmt.Errorf("error: unknown source_type in loadProcessInput: %s", pi.sourceType)
+	}
+	if err2 != nil {
+		return fmt.Errorf("while calling readProcessInputMapping: %v", err)
 	}
 	//* TODO Add case when no domain key info is provided, use jets:key as the domain_key
 	// right now we err out if no domain key info is provided (although the field can be nullable)
@@ -485,7 +653,7 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	}
 
 	// Add processInputMapping for jets:source_period_key
-	// jets:source_period_key is added automatically by the main and merged-in queries
+	// jets:source_period_key is added automatically by the queries
 	// as the last column in the input bundle
 	pi.processInputMapping = append(pi.processInputMapping, ProcessMap{
 		tableName: pi.tableName,
@@ -501,7 +669,7 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 		err = dbpool.QueryRow(context.Background(), 
 		"SELECT code_values_mapping_json FROM jetsapi.source_config WHERE table_name=$1", 
 		pi.tableName).Scan(&code_values_mapping_json)
-		if err != nil && err.Error() != "no rows in result set" {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("loadProcessInput: Could not get the code_values_mapping_json from source_config table:%v", err)
 		}
 		if code_values_mapping_json.Valid {
@@ -529,10 +697,10 @@ func (pc *ProcessConfig) loadProcessConfig(dbpool *pgxpool.Pool) error {
 }
 
 // read mapping definitions
-func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]ProcessMap, error) {
+func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessMap, error) {
 	rows, err := dbpool.Query(context.Background(),
-		`SELECT pm.table_name, input_column, data_property, function_name, argument, default_value, error_message
-		FROM jetsapi.process_mapping pm, jetsapi.process_input pi WHERE pi.key = $1 AND pm.table_name=pi.table_name`, processInputKey)
+		`SELECT table_name, input_column, data_property, function_name, argument, default_value, error_message
+		FROM jetsapi.process_mapping WHERE table_name=$1`, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -562,27 +730,109 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, processInputKey int) ([]Proce
 }
 
 // Read rule config triples, processConfigKey is rule_config.process_config_key
-func readRuleConfig(dbpool *pgxpool.Pool, processConfigKey int, client string) ([]RuleConfig, error) {
-	result := make([]RuleConfig, 0)
+func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
+	pc.ruleConfigs = make([]RuleConfig, 0)
 	rows, err := dbpool.Query(context.Background(),
-		`SELECT process_config_key, subject, predicate, object, rdf_type 
+		`SELECT subject, predicate, object, rdf_type 
 		FROM jetsapi.rule_config WHERE process_config_key = $1 AND client = $2`,
-		processConfigKey, client)
+		pc.processConfigKey, pc.clientName)
 	if err != nil {
-		return result, err
+		return err
 	}
 	defer rows.Close()
 
 	// Loop through rows, using Scan to assign column data to struct fields.
 	for rows.Next() {
 		var rc RuleConfig
-		if err := rows.Scan(&rc.processConfigKey, &rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
-			return result, err
+		if err := rows.Scan(&rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
+			return err
 		}
-		result = append(result, rc)
+		pc.ruleConfigs = append(pc.ruleConfigs, rc)
 	}
 	if err = rows.Err(); err != nil {
-		return result, err
+		return err
 	}
-	return result, nil
+
+	// Read the json config
+	var ruleConfigJson string
+	var configObjs []*map[string]interface{}
+	err = dbpool.QueryRow(context.Background(),
+		`SELECT rule_config_json FROM jetsapi.rule_configv2 WHERE process_config_key = $1 AND client = $2`,
+		pc.processConfigKey, pc.clientName).Scan(&ruleConfigJson)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if err == nil {
+		if err := json.Unmarshal([]byte(ruleConfigJson), &configObjs); err != nil {
+			return fmt.Errorf("while reading jetsapi.rule_configv2 table, invalid rule_config_json: %v", err)
+		}
+		if len(configObjs) > 0 {
+			pc.ruleConfigObjs = append(pc.ruleConfigObjs, configObjs...)
+		}
+	}
+	// Transform the json config into triples and add them to pc.ruleConfig
+	if len(pc.ruleConfigObjs) == 0 {
+		return nil
+	}
+
+	for _, obj := range pc.ruleConfigObjs {
+		// determine the subject of obj (look for jets:key or use a uuid)
+		var subject string
+		s, ok := (*obj)["jets:key"]
+		if ok {
+			subject, _, err = extractValue(s)
+			if err != nil {
+				return err
+			}
+		} else {
+			subject = uuid.New().String()
+		}
+		for k := range *obj {
+			value, rdfType, err := extractValue((*obj)[k])
+			if err != nil {
+				return err
+			}
+			pc.ruleConfigs = append(pc.ruleConfigs, RuleConfig{
+				subject: subject,
+				predicate: k,
+				object: value,
+				rdfType: rdfType,
+			})
+		}
+	}
+
+	return nil
+}
+
+// Function to extract value and type from json struct
+func extractValue(e interface{}) (value, rdfType string, err error) {
+	switch obj := e.(type) {
+	case string:
+		value = obj
+		rdfType = "text"
+		return
+	case map[string]interface{}:
+		// fmt.Println("*** Domain Key is a struct of composite keys", value)
+		for k, v := range obj {
+			switch vv := v.(type) {
+			case string:
+				switch k {
+				case "value":
+					value = vv
+				case "type":
+					rdfType = vv
+				default:
+					err = fmt.Errorf("rule_config_json contains invalid key %s",k)
+					return
+				}
+			default:
+					err = fmt.Errorf("rule_config_json contains %v which is of a type that is not supported", vv)
+					return
+			}
+		}
+		return
+	default:
+		err = fmt.Errorf("rule_config_json contains %v which is of a type that is not supported", obj)
+		return
+	}
 }

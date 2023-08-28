@@ -48,6 +48,7 @@ ExprCst::eval(ReteSession * rete_session, BetaRow const* beta_row)const
 inline ExprBindedVar::ExprDataType
 ExprBindedVar::eval(ReteSession * rete_session, BetaRow const* beta_row)const 
 {
+  if(beta_row == nullptr) return rdf::Null();
   return *beta_row->get(data_);
 }
 

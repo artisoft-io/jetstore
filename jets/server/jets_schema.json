@@ -19,6 +19,71 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "workspace_version",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "version",
+        "dataType": "text",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "workspace_version_unique_cstraint",
+        "definition": "CONSTRAINT workspace_version_unique_cstraint UNIQUE (version)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "workspace_registry",
+    "description": "Registry of all workspaces available to the cluster.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "workspace_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "workspace_uri",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "description",
+        "dataType": "text"
+      },
+      {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "workspace_name_unique_cstraint",
+        "definition": "CONSTRAINT workspace_name_unique_cstraint UNIQUE (workspace_name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "users",
     "columns": [
       {
@@ -274,8 +339,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "file_key_staging_unique_cstraintv2",
-        "definition": "CONSTRAINT file_key_staging_unique_cstraint UNIQUE (file_key)"
+        "name": "file_key_staging_unique_cstraintv3",
+        "definition": "CONSTRAINT file_key_staging_unique_cstraintv3 UNIQUE (file_key)"
       }
     ]
   },
@@ -321,6 +386,14 @@
       },
       {
         "columnName": "code_values_mapping_json",
+        "dataType": "text"
+      },
+      {
+        "columnName": "input_columns_json",
+        "dataType": "text"
+      },
+      {
+        "columnName": "input_columns_positions_csv",
         "dataType": "text"
       },
       {
@@ -532,8 +605,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "input_registry_unique_cstraint",
-        "definition": "CONSTRAINT input_registry_unique_cstraintv2 UNIQUE (client, org, object_type, table_name, session_id)"
+        "name": "input_registry_unique_cstraintv3",
+        "definition": "CONSTRAINT input_registry_unique_cstraintv3 UNIQUE (client, org, object_type, table_name, session_id)"
       }
     ]
   },
@@ -617,8 +690,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "process_input_unique_cstraint",
-        "definition": "CONSTRAINT process_input_unique_cstraintv2 UNIQUE (client, org, object_type, table_name)"
+        "name": "process_input_unique_cstraintv4",
+        "definition": "CONSTRAINT process_input_unique_cstraintv4 UNIQUE (client, object_type, source_type, table_name, entity_rdf_type, lookback_periods)"
       }
     ]
   },
@@ -698,6 +771,18 @@
       {
         "columnName": "process_name",
         "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "devmode_code",
+        "dataType": "text",
+        "default": "'run_server_reports'",
+        "isNotNull": true
+      },
+      {
+        "columnName": "state_machine_name",
+        "dataType": "text",
+        "default": "'serverSM'",
         "isNotNull": true
       },
       {
@@ -800,6 +885,60 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "rule_configv2",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "process_config_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "process_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "client",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "rule_config_json",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "rule_configv2_process_config_key_client_idx",
+        "indexDef": "INDEX rule_configv2_process_config_key_client_idx ON jetsapi.rule_config (process_config_key, client)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "rule_configv2_unique_cstraint",
+        "definition": "CONSTRAINT rule_configv2_unique_cstraint UNIQUE (process_name, client)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "pipeline_config",
     "columns": [
       {
@@ -835,6 +974,13 @@
         "isNotNull": true
       },
       {
+        "columnName": "injected_process_input_keys",
+        "dataType": "int",
+        "isArray": true,
+        "default": "'{}'",
+        "isNotNull": true
+      },
+      {
         "columnName": "main_object_type",
         "dataType": "text",
         "isNotNull": true
@@ -854,6 +1000,18 @@
         "columnName": "automated",
         "dataType": "bool",
         "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "max_rete_sessions_saved",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "rule_config_json",
+        "dataType": "text",
+        "default": "'[]'",
         "isNotNull": true
       },
       {
@@ -1073,6 +1231,10 @@
         "isPK": true
       },
       {
+        "columnName": "pipeline_execution_status_key",
+        "dataType": "int"
+      },
+      {
         "columnName": "session_id",
         "dataType": "text",
         "isNotNull": true
@@ -1093,6 +1255,14 @@
         "columnName": "error_message",
         "dataType": "text",
         "isNotNull": true
+      },
+      {
+        "columnName": "rete_session_saved",
+        "dataType": "text"
+      },
+      {
+        "columnName": "rete_session_triples",
+        "dataType": "text"
       },
       {
         "columnName": "shard_id",
@@ -1125,6 +1295,16 @@
         "isNotNull": true
       },
       {
+        "columnName": "source_type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "client",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
         "columnName": "source_period_key",
         "dataType": "int",
         "isNotNull": true
@@ -1153,6 +1333,10 @@
     ],
     "indexes": [
       {
+        "indexName": "session_registry_source_type_client_idx",
+        "indexDef": "INDEX session_registry_source_type_client_idx ON jetsapi.session_registry (source_type,client)"
+      },
+      {
         "indexName": "session_registry_source_period_key_idx",
         "indexDef": "INDEX session_registry_source_period_key_idx ON jetsapi.session_registry (source_period_key ASC)"
       },
@@ -1167,6 +1351,69 @@
       {
         "indexName": "session_registry_day_period_idx",
         "indexDef": "INDEX session_registry_day_period_idx ON jetsapi.session_registry (day_period ASC)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "workspace_changes",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "workspace_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "oid",
+        "dataType": "uint",
+        "isNotNull": true
+      },
+      {
+        "columnName": "file_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "content_type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "user_email",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "workspace_changes_workspace_name_idx",
+        "indexDef": "INDEX workspace_changes_workspace_name_idx ON jetsapi.workspace_changes (workspace_name)"
+      },
+      {
+        "indexName": "workspace_changes_workspace_name_status_idx",
+        "indexDef": "INDEX workspace_changes_workspace_name_status_idx ON jetsapi.workspace_changes (workspace_name, status)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "workspace_changes_unique_cstraint",
+        "definition": "CONSTRAINT workspace_changes_unique_cstraint UNIQUE (workspace_name, file_name)"
       }
     ]
   }

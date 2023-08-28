@@ -1,0 +1,4541 @@
+{
+  "classes": [
+    {
+      "type": "class",
+      "name": "jets:Entity",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "jets:client",
+          "type": "text",
+          "as_array": false,
+          "db_key": 0
+        },
+        {
+          "name": "jets:key",
+          "type": "text",
+          "as_array": false,
+          "db_key": 1
+        },
+        {
+          "name": "jets:org",
+          "type": "text",
+          "as_array": false,
+          "db_key": 2
+        },
+        {
+          "name": "jets:ruleTag",
+          "type": "text",
+          "as_array": true,
+          "db_key": 3
+        },
+        {
+          "name": "rdf:type",
+          "type": "resource",
+          "as_array": true,
+          "db_key": 4
+        }
+      ],
+      "source_file_name": "data_model/jets_model.jr",
+      "as_table": false,
+      "sub_classes": [
+        "wrs_c:RuleConfig",
+        "wrs:EligibilityTransaction",
+        "wrs:Eligibility",
+        "wrs:PreviousEligibility",
+        "wrs:CorePharmacy",
+        "wrs:MedicalClaim"
+      ],
+      "db_key": 1
+    },
+    {
+      "type": "class",
+      "name": "jets:State",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "jets:completed",
+          "type": "bool",
+          "as_array": false,
+          "db_key": 5
+        },
+        {
+          "name": "jets:currentSourcePeriod",
+          "type": "int",
+          "as_array": false,
+          "db_key": 6
+        },
+        {
+          "name": "jets:exception",
+          "type": "text",
+          "as_array": false,
+          "db_key": 7
+        },
+        {
+          "name": "jets:loop",
+          "type": "int",
+          "as_array": false,
+          "db_key": 8
+        }
+      ],
+      "source_file_name": "data_model/jets_model.jr",
+      "as_table": false,
+      "sub_classes": [],
+      "db_key": 2
+    },
+    {
+      "type": "class",
+      "name": "wrs:WalrusBase",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Client",
+          "type": "text",
+          "as_array": false,
+          "db_key": 9
+        },
+        {
+          "name": "wrs:Generated_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 10
+        }
+      ],
+      "source_file_name": "data_model/walrus_base_model.jr",
+      "as_table": false,
+      "sub_classes": [
+        "wrs:EligibilityTransaction",
+        "wrs:Eligibility",
+        "wrs:PreviousEligibility",
+        "wrs:BaseClaim",
+        "wrs:CorePharmacy",
+        "wrs:MedicalClaim"
+      ],
+      "db_key": 3
+    },
+    {
+      "type": "class",
+      "name": "wrs:OpenFields",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Open_Field_1_Desc",
+          "type": "text",
+          "as_array": false,
+          "db_key": 11
+        },
+        {
+          "name": "wrs:Open_Field_1_Value",
+          "type": "text",
+          "as_array": false,
+          "db_key": 12
+        },
+        {
+          "name": "wrs:Open_Field_2_Desc",
+          "type": "text",
+          "as_array": false,
+          "db_key": 13
+        },
+        {
+          "name": "wrs:Open_Field_2_Value",
+          "type": "text",
+          "as_array": false,
+          "db_key": 14
+        },
+        {
+          "name": "wrs:Open_Field_3_Desc",
+          "type": "text",
+          "as_array": false,
+          "db_key": 15
+        },
+        {
+          "name": "wrs:Open_Field_3_Value",
+          "type": "text",
+          "as_array": false,
+          "db_key": 16
+        },
+        {
+          "name": "wrs:Open_Field_4_Desc",
+          "type": "text",
+          "as_array": false,
+          "db_key": 17
+        },
+        {
+          "name": "wrs:Open_Field_4_Value",
+          "type": "text",
+          "as_array": false,
+          "db_key": 18
+        },
+        {
+          "name": "wrs:Open_Field_5_Desc",
+          "type": "text",
+          "as_array": false,
+          "db_key": 19
+        },
+        {
+          "name": "wrs:Open_Field_5_Value",
+          "type": "text",
+          "as_array": false,
+          "db_key": 20
+        }
+      ],
+      "source_file_name": "data_model/walrus_base_model.jr",
+      "as_table": false,
+      "sub_classes": [
+        "wrs:EligibilityData",
+        "wrs:PharmacyClaim",
+        "wrs:MedicalClaim"
+      ],
+      "db_key": 4
+    },
+    {
+      "type": "class",
+      "name": "wrs_c:RuleConfig",
+      "base_classes": [
+        "jets:Entity"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs_c:client",
+          "type": "text",
+          "as_array": false,
+          "db_key": 21
+        },
+        {
+          "name": "wrs_c:process",
+          "type": "text",
+          "as_array": false,
+          "db_key": 22
+        },
+        {
+          "name": "wrs_c:walrusEligibleRuleCode",
+          "type": "text",
+          "as_array": false,
+          "db_key": 23
+        },
+        {
+          "name": "wrs_c:planName",
+          "type": "text",
+          "as_array": true,
+          "db_key": 24
+        }
+      ],
+      "source_file_name": "data_model/walrus_base_model.jr",
+      "as_table": false,
+      "sub_classes": [],
+      "db_key": 5
+    },
+    {
+      "type": "class",
+      "name": "tmp:MappingVariables",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "tmp:Claim_Type_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 25
+        },
+        {
+          "name": "tmp:Maintenance_Drug_Indicator",
+          "type": "text",
+          "as_array": false,
+          "db_key": 26
+        },
+        {
+          "name": "tmp:Patient_Pay_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 27
+        },
+        {
+          "name": "tmp:Net_Amount_Due",
+          "type": "double",
+          "as_array": false,
+          "db_key": 28
+        },
+        {
+          "name": "tmp:Total_Paid_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 29
+        }
+      ],
+      "source_file_name": "data_model/walrus_base_model.jr",
+      "as_table": false,
+      "sub_classes": [],
+      "db_key": 6
+    },
+    {
+      "type": "class",
+      "name": "wrs:EligibilityData",
+      "base_classes": [
+        "wrs:OpenFields"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Employment_Status",
+          "type": "text",
+          "as_array": false,
+          "db_key": 30
+        },
+        {
+          "name": "wrs:First_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 31
+        },
+        {
+          "name": "wrs:Gender",
+          "type": "text",
+          "as_array": false,
+          "db_key": 32
+        },
+        {
+          "name": "wrs:Last_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 33
+        },
+        {
+          "name": "wrs:Member_Address_Line_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 34
+        },
+        {
+          "name": "wrs:Member_Address_Line_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 35
+        },
+        {
+          "name": "wrs:Member_Alt_Email",
+          "type": "text",
+          "as_array": false,
+          "db_key": 36
+        },
+        {
+          "name": "wrs:Member_Alt_Phone",
+          "type": "text",
+          "as_array": false,
+          "db_key": 37
+        },
+        {
+          "name": "wrs:Member_Alt_Phone_Type",
+          "type": "text",
+          "as_array": false,
+          "db_key": 38
+        },
+        {
+          "name": "wrs:Member_City",
+          "type": "text",
+          "as_array": false,
+          "db_key": 39
+        },
+        {
+          "name": "wrs:Member_DOB",
+          "type": "date",
+          "as_array": false,
+          "db_key": 40
+        },
+        {
+          "name": "wrs:Member_Email",
+          "type": "text",
+          "as_array": false,
+          "db_key": 41
+        },
+        {
+          "name": "wrs:Member_Phone",
+          "type": "text",
+          "as_array": false,
+          "db_key": 42
+        },
+        {
+          "name": "wrs:Member_Phone_Type",
+          "type": "text",
+          "as_array": false,
+          "db_key": 43
+        },
+        {
+          "name": "wrs:Member_Pronoun",
+          "type": "text",
+          "as_array": false,
+          "db_key": 44
+        },
+        {
+          "name": "wrs:Member_Sex",
+          "type": "text",
+          "as_array": false,
+          "db_key": 45
+        },
+        {
+          "name": "wrs:Member_SSN",
+          "type": "text",
+          "as_array": false,
+          "db_key": 46
+        },
+        {
+          "name": "wrs:Member_State",
+          "type": "text",
+          "as_array": false,
+          "db_key": 47
+        },
+        {
+          "name": "wrs:Member_Zip_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 48
+        },
+        {
+          "name": "wrs:Middle_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 49
+        },
+        {
+          "name": "wrs:Person_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 50
+        },
+        {
+          "name": "wrs:Preferred_First_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 51
+        },
+        {
+          "name": "wrs:Preferred_Language",
+          "type": "text",
+          "as_array": false,
+          "db_key": 52
+        },
+        {
+          "name": "wrs:Primary_Dependant",
+          "type": "text",
+          "as_array": false,
+          "db_key": 53
+        },
+        {
+          "name": "wrs:Relation",
+          "type": "text",
+          "as_array": false,
+          "db_key": 54
+        },
+        {
+          "name": "wrs:Subscriber_Address_Line_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 55
+        },
+        {
+          "name": "wrs:Subscriber_Address_Line_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 56
+        },
+        {
+          "name": "wrs:Subscriber_City",
+          "type": "text",
+          "as_array": false,
+          "db_key": 57
+        },
+        {
+          "name": "wrs:Subscriber_Email",
+          "type": "text",
+          "as_array": false,
+          "db_key": 58
+        },
+        {
+          "name": "wrs:Subscriber_Phone",
+          "type": "text",
+          "as_array": false,
+          "db_key": 59
+        },
+        {
+          "name": "wrs:Subscriber_Phone_Type",
+          "type": "text",
+          "as_array": false,
+          "db_key": 60
+        },
+        {
+          "name": "wrs:Subscriber_SSN",
+          "type": "text",
+          "as_array": false,
+          "db_key": 61
+        },
+        {
+          "name": "wrs:Subscriber_State",
+          "type": "text",
+          "as_array": false,
+          "db_key": 62
+        },
+        {
+          "name": "wrs:Subscriber_Zip_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 63
+        }
+      ],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "as_table": false,
+      "sub_classes": [
+        "wrs:EligibilityTransaction",
+        "wrs:Eligibility",
+        "wrs:PreviousEligibility"
+      ],
+      "db_key": 7
+    },
+    {
+      "type": "class",
+      "name": "wrs:EligibilityCoverage",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Client_Member_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 64
+        },
+        {
+          "name": "wrs:Coordination_of_Benefits",
+          "type": "text",
+          "as_array": false,
+          "db_key": 65
+        },
+        {
+          "name": "wrs:Effective_Date",
+          "type": "date",
+          "as_array": false,
+          "db_key": 66
+        },
+        {
+          "name": "wrs:Group_Number",
+          "type": "text",
+          "as_array": false,
+          "db_key": 67
+        },
+        {
+          "name": "wrs:Insurance_Status",
+          "type": "text",
+          "as_array": false,
+          "db_key": 68
+        },
+        {
+          "name": "wrs:Medicare_Indicator",
+          "type": "text",
+          "as_array": false,
+          "db_key": 69
+        },
+        {
+          "name": "wrs:Member_Number",
+          "type": "text",
+          "as_array": false,
+          "db_key": 70
+        },
+        {
+          "name": "wrs:Plan_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 71
+        },
+        {
+          "name": "wrs:Plan_Type_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 72
+        },
+        {
+          "name": "wrs:Plan_Type_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 73
+        },
+        {
+          "name": "wrs:Subscriber_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 74
+        },
+        {
+          "name": "wrs:Termination_Date",
+          "type": "date",
+          "as_array": false,
+          "db_key": 75
+        },
+        {
+          "name": "wrs:Walrus_Eligible",
+          "type": "bool",
+          "as_array": false,
+          "db_key": 76
+        }
+      ],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "as_table": false,
+      "sub_classes": [
+        "wrs:EligibilityTransaction",
+        "wrs:Eligibility",
+        "wrs:PreviousEligibility"
+      ],
+      "db_key": 8
+    },
+    {
+      "type": "class",
+      "name": "wrs:EligibilityTransaction",
+      "base_classes": [
+        "jets:Entity",
+        "wrs:WalrusBase",
+        "wrs:EligibilityData",
+        "wrs:EligibilityCoverage"
+      ],
+      "data_properties": [
+        {
+          "name": "tmp:Benefit_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 77
+        },
+        {
+          "name": "tmp:Flex_Status_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 78
+        },
+        {
+          "name": "tmp:Plan_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 79
+        },
+        {
+          "name": "wrs:Eligibility_Record_Type",
+          "type": "text",
+          "as_array": false,
+          "db_key": 80
+        }
+      ],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "as_table": true,
+      "sub_classes": [],
+      "db_key": 9
+    },
+    {
+      "type": "class",
+      "name": "wrs:Eligibility",
+      "base_classes": [
+        "jets:Entity",
+        "wrs:WalrusBase",
+        "wrs:EligibilityData",
+        "wrs:EligibilityCoverage"
+      ],
+      "data_properties": [],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "as_table": true,
+      "sub_classes": [],
+      "db_key": 10
+    },
+    {
+      "type": "class",
+      "name": "wrs:PreviousEligibility",
+      "base_classes": [
+        "jets:Entity",
+        "wrs:WalrusBase",
+        "wrs:EligibilityData",
+        "wrs:EligibilityCoverage"
+      ],
+      "data_properties": [],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "as_table": true,
+      "sub_classes": [],
+      "db_key": 11
+    },
+    {
+      "type": "class",
+      "name": "wrs:BaseClaim",
+      "base_classes": [
+        "wrs:WalrusBase"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Cardholder_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 81
+        },
+        {
+          "name": "wrs:Claim_Type_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 82
+        },
+        {
+          "name": "wrs:Date_of_Service",
+          "type": "date",
+          "as_array": false,
+          "db_key": 83
+        },
+        {
+          "name": "wrs:Net_Amount_Due",
+          "type": "double",
+          "as_array": false,
+          "db_key": 84
+        },
+        {
+          "name": "wrs:Patient_Age",
+          "type": "int",
+          "as_array": false,
+          "db_key": 85
+        },
+        {
+          "name": "wrs:Patient_Gender",
+          "type": "text",
+          "as_array": false,
+          "db_key": 86
+        },
+        {
+          "name": "wrs:Patient_Pay_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 87
+        },
+        {
+          "name": "wrs:Total_Paid_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 88
+        },
+        {
+          "name": "wrs:Transaction_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 89
+        }
+      ],
+      "source_file_name": "data_model/base_claim_model.jr",
+      "as_table": true,
+      "sub_classes": [
+        "wrs:CorePharmacy",
+        "wrs:MedicalClaim"
+      ],
+      "db_key": 12
+    },
+    {
+      "type": "class",
+      "name": "wrs:CommonClaim",
+      "base_classes": [
+        "owl:Thing"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Adjudication_Date",
+          "type": "date",
+          "as_array": false,
+          "db_key": 90
+        },
+        {
+          "name": "wrs:Claim_Extension",
+          "type": "text",
+          "as_array": false,
+          "db_key": 91
+        },
+        {
+          "name": "wrs:Claim_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 92
+        },
+        {
+          "name": "wrs:Claim_Line_Number",
+          "type": "text",
+          "as_array": false,
+          "db_key": 93
+        },
+        {
+          "name": "wrs:Coinsurance_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 94
+        },
+        {
+          "name": "wrs:Copay_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 95
+        },
+        {
+          "name": "wrs:Deductible_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 96
+        },
+        {
+          "name": "wrs:Dispensing_Fee_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 97
+        },
+        {
+          "name": "wrs:Ingredient_Cost_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 98
+        },
+        {
+          "name": "wrs:Provider",
+          "type": "text",
+          "as_array": false,
+          "db_key": 99
+        },
+        {
+          "name": "wrs:Patient_Status",
+          "type": "text",
+          "as_array": false,
+          "db_key": 100
+        },
+        {
+          "name": "wrs:Record_Status_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 101
+        },
+        {
+          "name": "wrs:Sales_Tax_Amount",
+          "type": "double",
+          "as_array": false,
+          "db_key": 102
+        }
+      ],
+      "source_file_name": "data_model/base_claim_model.jr",
+      "as_table": false,
+      "sub_classes": [
+        "wrs:PharmacyClaim",
+        "wrs:MedicalClaim"
+      ],
+      "db_key": 13
+    },
+    {
+      "type": "class",
+      "name": "wrs:CorePharmacy",
+      "base_classes": [
+        "jets:Entity",
+        "wrs:WalrusBase",
+        "wrs:BaseClaim"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:DAW_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 103
+        },
+        {
+          "name": "wrs:Days_Supply",
+          "type": "double",
+          "as_array": false,
+          "db_key": 104
+        },
+        {
+          "name": "wrs:Drug_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 105
+        },
+        {
+          "name": "wrs:Maintenance_Drug_Indicator",
+          "type": "text",
+          "as_array": false,
+          "db_key": 106
+        },
+        {
+          "name": "wrs:Quantity_Dispensed",
+          "type": "double",
+          "as_array": false,
+          "db_key": 107
+        },
+        {
+          "name": "wrs:Rx_Formulary_Status",
+          "type": "text",
+          "as_array": false,
+          "db_key": 108
+        },
+        {
+          "name": "wrs:RX_GPI",
+          "type": "text",
+          "as_array": false,
+          "db_key": 109
+        },
+        {
+          "name": "wrs:RX_NDC",
+          "type": "text",
+          "as_array": false,
+          "db_key": 110
+        }
+      ],
+      "source_file_name": "data_model/pharmacy_claim_model.jr",
+      "as_table": false,
+      "sub_classes": [
+        "wrs:PharmacyClaim",
+        "wrs:PharmacyClaimAnalysis"
+      ],
+      "db_key": 14
+    },
+    {
+      "type": "class",
+      "name": "wrs:PharmacyClaim",
+      "base_classes": [
+        "wrs:CorePharmacy",
+        "wrs:OpenFields",
+        "wrs:CommonClaim"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:AWP_Unit_Cost",
+          "type": "double",
+          "as_array": false,
+          "db_key": 111
+        },
+        {
+          "name": "wrs:Brand_Generic_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 112
+        },
+        {
+          "name": "wrs:Date_Prescription_Written",
+          "type": "date",
+          "as_array": false,
+          "db_key": 113
+        },
+        {
+          "name": "wrs:Drug_Type_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 114
+        },
+        {
+          "name": "wrs:Fill_Number",
+          "type": "int",
+          "as_array": false,
+          "db_key": 115
+        },
+        {
+          "name": "wrs:Generic_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 116
+        },
+        {
+          "name": "wrs:Pharmacy_Address_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 117
+        },
+        {
+          "name": "wrs:Pharmacy_Address_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 118
+        },
+        {
+          "name": "wrs:Pharmacy_City",
+          "type": "text",
+          "as_array": false,
+          "db_key": 119
+        },
+        {
+          "name": "wrs:Pharmacy_Dispenser_Type",
+          "type": "text",
+          "as_array": false,
+          "db_key": 120
+        },
+        {
+          "name": "wrs:Pharmacy_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 121
+        },
+        {
+          "name": "wrs:Pharmacy_State",
+          "type": "text",
+          "as_array": false,
+          "db_key": 122
+        },
+        {
+          "name": "wrs:Pharmacy_Telephone_Number",
+          "type": "text",
+          "as_array": false,
+          "db_key": 123
+        },
+        {
+          "name": "wrs:Pharmacy_Zip",
+          "type": "text",
+          "as_array": false,
+          "db_key": 124
+        },
+        {
+          "name": "wrs:Prescribing_Physician_First_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 125
+        },
+        {
+          "name": "wrs:Prescribing_Physician_Last_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 126
+        },
+        {
+          "name": "wrs:Prescribing_Physician_NPI",
+          "type": "text",
+          "as_array": false,
+          "db_key": 127
+        },
+        {
+          "name": "wrs:Rx_Chain_Pharmacy_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 128
+        },
+        {
+          "name": "wrs:RX_Compound_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 129
+        },
+        {
+          "name": "wrs:RX_DEA_Number",
+          "type": "text",
+          "as_array": false,
+          "db_key": 130
+        },
+        {
+          "name": "wrs:RX_Drug_Category_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 131
+        },
+        {
+          "name": "wrs:RX_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 132
+        },
+        {
+          "name": "wrs:RX_Origin_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 133
+        },
+        {
+          "name": "wrs:Therapy_Class",
+          "type": "text",
+          "as_array": false,
+          "db_key": 134
+        },
+        {
+          "name": "wrs:Tier_Level_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 135
+        }
+      ],
+      "source_file_name": "data_model/pharmacy_claim_model.jr",
+      "as_table": true,
+      "sub_classes": [],
+      "db_key": 15
+    },
+    {
+      "type": "class",
+      "name": "wrs:PharmacyClaimAnalysis",
+      "base_classes": [
+        "wrs:CorePharmacy"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Attributed_Member_Ratio",
+          "type": "double",
+          "as_array": false,
+          "db_key": 136
+        },
+        {
+          "name": "wrs:Attributed_Member_Year_Savings",
+          "type": "double",
+          "as_array": false,
+          "db_key": 137
+        },
+        {
+          "name": "wrs:Attributed_Sponsor_Year_Savings",
+          "type": "double",
+          "as_array": false,
+          "db_key": 138
+        },
+        {
+          "name": "wrs:Adherence_Ratio",
+          "type": "double",
+          "as_array": false,
+          "db_key": 139
+        },
+        {
+          "name": "wrs:Ease_of_Interchange",
+          "type": "text",
+          "as_array": false,
+          "db_key": 140
+        },
+        {
+          "name": "wrs:Expected_Refill_Date",
+          "type": "date",
+          "as_array": false,
+          "db_key": 141
+        },
+        {
+          "name": "wrs:OTC_Available",
+          "type": "bool",
+          "as_array": false,
+          "db_key": 142
+        },
+        {
+          "name": "wrs:Ratio_1",
+          "type": "double",
+          "as_array": false,
+          "db_key": 143
+        },
+        {
+          "name": "wrs:Ratio_2",
+          "type": "double",
+          "as_array": false,
+          "db_key": 144
+        },
+        {
+          "name": "wrs:Rx_Savings",
+          "type": "double",
+          "as_array": false,
+          "db_key": 145
+        },
+        {
+          "name": "wrs:Target_Awp_1",
+          "type": "double",
+          "as_array": false,
+          "db_key": 146
+        },
+        {
+          "name": "wrs:Target_Awp_2",
+          "type": "double",
+          "as_array": false,
+          "db_key": 147
+        },
+        {
+          "name": "wrs:Target_Gpi_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 148
+        },
+        {
+          "name": "wrs:Target_Gpi_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 149
+        },
+        {
+          "name": "wrs:Target_Ndc_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 150
+        },
+        {
+          "name": "wrs:Target_Ndc_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 151
+        },
+        {
+          "name": "wrs:Sum_Days_of_Supply",
+          "type": "double",
+          "as_array": false,
+          "db_key": 152
+        },
+        {
+          "name": "wrs:Year_Savings",
+          "type": "double",
+          "as_array": false,
+          "db_key": 153
+        }
+      ],
+      "source_file_name": "data_model/pharmacy_claim_model.jr",
+      "as_table": true,
+      "sub_classes": [],
+      "db_key": 16
+    },
+    {
+      "type": "class",
+      "name": "wrs:MedicalClaim",
+      "base_classes": [
+        "jets:Entity",
+        "wrs:WalrusBase",
+        "wrs:OpenFields",
+        "wrs:BaseClaim",
+        "wrs:CommonClaim"
+      ],
+      "data_properties": [
+        {
+          "name": "wrs:Admission_Date",
+          "type": "date",
+          "as_array": false,
+          "db_key": 154
+        },
+        {
+          "name": "wrs:Admission_Indicator",
+          "type": "text",
+          "as_array": false,
+          "db_key": 155
+        },
+        {
+          "name": "wrs:Billing_National_Provider_Identifier",
+          "type": "text",
+          "as_array": false,
+          "db_key": 156
+        },
+        {
+          "name": "wrs:Billing_Provider_Address_Line_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 157
+        },
+        {
+          "name": "wrs:Billing_Provider_Address_Line_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 158
+        },
+        {
+          "name": "wrs:Billing_Provider_City",
+          "type": "text",
+          "as_array": false,
+          "db_key": 159
+        },
+        {
+          "name": "wrs:Billing_Provider_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 160
+        },
+        {
+          "name": "wrs:Billing_Provider_Number",
+          "type": "text",
+          "as_array": false,
+          "db_key": 161
+        },
+        {
+          "name": "wrs:Billing_Provider_State",
+          "type": "text",
+          "as_array": false,
+          "db_key": 162
+        },
+        {
+          "name": "wrs:Billing_Provider_Tax_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 163
+        },
+        {
+          "name": "wrs:Billing_Provider_Zip_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 164
+        },
+        {
+          "name": "wrs:Claim_Reporting_Category",
+          "type": "text",
+          "as_array": false,
+          "db_key": 165
+        },
+        {
+          "name": "wrs:Conditions",
+          "type": "text",
+          "as_array": true,
+          "db_key": 166
+        },
+        {
+          "name": "wrs:Diagnosis_Category_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 167
+        },
+        {
+          "name": "wrs:Diagnosis_Classification_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 168
+        },
+        {
+          "name": "wrs:Diagnosis_Code_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 169
+        },
+        {
+          "name": "wrs:Diagnosis_Code_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 170
+        },
+        {
+          "name": "wrs:Diagnosis_Code_3",
+          "type": "text",
+          "as_array": false,
+          "db_key": 171
+        },
+        {
+          "name": "wrs:Diagnosis_Code_4",
+          "type": "text",
+          "as_array": false,
+          "db_key": 172
+        },
+        {
+          "name": "wrs:Diagnosis_Code_5",
+          "type": "text",
+          "as_array": false,
+          "db_key": 173
+        },
+        {
+          "name": "wrs:Diagnosis_Codes",
+          "type": "text",
+          "as_array": true,
+          "db_key": 174
+        },
+        {
+          "name": "wrs:Discharge_Date",
+          "type": "date",
+          "as_array": false,
+          "db_key": 175
+        },
+        {
+          "name": "wrs:DRG",
+          "type": "text",
+          "as_array": false,
+          "db_key": 176
+        },
+        {
+          "name": "wrs:First_Date_of_Service",
+          "type": "date",
+          "as_array": false,
+          "db_key": 177
+        },
+        {
+          "name": "wrs:HCPCS_CPT_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 178
+        },
+        {
+          "name": "wrs:ICD_Procedure_Code_1",
+          "type": "text",
+          "as_array": false,
+          "db_key": 179
+        },
+        {
+          "name": "wrs:ICD_Procedure_Code_2",
+          "type": "text",
+          "as_array": false,
+          "db_key": 180
+        },
+        {
+          "name": "wrs:ICD_Procedure_Code_3",
+          "type": "text",
+          "as_array": false,
+          "db_key": 181
+        },
+        {
+          "name": "wrs:ICD_Version_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 182
+        },
+        {
+          "name": "wrs:Last_Date_of_Service",
+          "type": "date",
+          "as_array": false,
+          "db_key": 183
+        },
+        {
+          "name": "wrs:MDC",
+          "type": "text",
+          "as_array": false,
+          "db_key": 184
+        },
+        {
+          "name": "wrs:Performing_National_Provider_Identifier",
+          "type": "text",
+          "as_array": false,
+          "db_key": 185
+        },
+        {
+          "name": "wrs:Performing_Provider_City",
+          "type": "text",
+          "as_array": false,
+          "db_key": 186
+        },
+        {
+          "name": "wrs:Performing_Provider_Name",
+          "type": "text",
+          "as_array": false,
+          "db_key": 187
+        },
+        {
+          "name": "wrs:Performing_Provider_Number",
+          "type": "text",
+          "as_array": false,
+          "db_key": 188
+        },
+        {
+          "name": "wrs:Performing_Provider_Participation_Level",
+          "type": "text",
+          "as_array": false,
+          "db_key": 189
+        },
+        {
+          "name": "wrs:Performing_Provider_Specialty",
+          "type": "text",
+          "as_array": false,
+          "db_key": 190
+        },
+        {
+          "name": "wrs:Performing_Provider_State",
+          "type": "text",
+          "as_array": false,
+          "db_key": 191
+        },
+        {
+          "name": "wrs:Performing_Provider_Tax_ID",
+          "type": "text",
+          "as_array": false,
+          "db_key": 192
+        },
+        {
+          "name": "wrs:Performing_Provider_Type_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 193
+        },
+        {
+          "name": "wrs:Performing_Provider_Zip_Code",
+          "type": "text",
+          "as_array": false,
+          "db_key": 194
+        },
+        {
+          "name": "wrs:Place_of_Treatment",
+          "type": "text",
+          "as_array": false,
+          "db_key": 195
+        },
+        {
+          "name": "wrs:Procedure_Codes",
+          "type": "text",
+          "as_array": true,
+          "db_key": 196
+        },
+        {
+          "name": "wrs:Procedure_Code_Modifier",
+          "type": "text",
+          "as_array": false,
+          "db_key": 197
+        },
+        {
+          "name": "wrs:Type_of_Service",
+          "type": "text",
+          "as_array": false,
+          "db_key": 198
+        }
+      ],
+      "source_file_name": "data_model/medical_claim_model.jr",
+      "as_table": true,
+      "sub_classes": [],
+      "db_key": 17
+    }
+  ],
+  "tables": [
+    {
+      "type": "table",
+      "table_name": "wrs:EligibilityTransaction",
+      "class_name": "wrs:EligibilityTransaction",
+      "columns": [
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:client",
+          "column_name": "jets:client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:key",
+          "column_name": "jets:key"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:org",
+          "column_name": "jets:org"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "jets:ruleTag",
+          "column_name": "jets:ruleTag"
+        },
+        {
+          "type": "resource",
+          "as_array": true,
+          "property_name": "rdf:type",
+          "column_name": "rdf:type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "tmp:Benefit_ID",
+          "column_name": "tmp:Benefit_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "tmp:Flex_Status_Code",
+          "column_name": "tmp:Flex_Status_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "tmp:Plan_Code",
+          "column_name": "tmp:Plan_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client",
+          "column_name": "wrs:Client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client_Member_ID",
+          "column_name": "wrs:Client_Member_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Coordination_of_Benefits",
+          "column_name": "wrs:Coordination_of_Benefits"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Effective_Date",
+          "column_name": "wrs:Effective_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Eligibility_Record_Type",
+          "column_name": "wrs:Eligibility_Record_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Employment_Status",
+          "column_name": "wrs:Employment_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:First_Name",
+          "column_name": "wrs:First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Gender",
+          "column_name": "wrs:Gender"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generated_ID",
+          "column_name": "wrs:Generated_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Group_Number",
+          "column_name": "wrs:Group_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Insurance_Status",
+          "column_name": "wrs:Insurance_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Last_Name",
+          "column_name": "wrs:Last_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Medicare_Indicator",
+          "column_name": "wrs:Medicare_Indicator"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Address_Line_1",
+          "column_name": "wrs:Member_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Address_Line_2",
+          "column_name": "wrs:Member_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Email",
+          "column_name": "wrs:Member_Alt_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Phone",
+          "column_name": "wrs:Member_Alt_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Phone_Type",
+          "column_name": "wrs:Member_Alt_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_City",
+          "column_name": "wrs:Member_City"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Member_DOB",
+          "column_name": "wrs:Member_DOB"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Email",
+          "column_name": "wrs:Member_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Number",
+          "column_name": "wrs:Member_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Phone",
+          "column_name": "wrs:Member_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Phone_Type",
+          "column_name": "wrs:Member_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Pronoun",
+          "column_name": "wrs:Member_Pronoun"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_SSN",
+          "column_name": "wrs:Member_SSN"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Sex",
+          "column_name": "wrs:Member_Sex"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_State",
+          "column_name": "wrs:Member_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Zip_Code",
+          "column_name": "wrs:Member_Zip_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Middle_Name",
+          "column_name": "wrs:Middle_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Desc",
+          "column_name": "wrs:Open_Field_1_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Value",
+          "column_name": "wrs:Open_Field_1_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Desc",
+          "column_name": "wrs:Open_Field_2_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Value",
+          "column_name": "wrs:Open_Field_2_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Desc",
+          "column_name": "wrs:Open_Field_3_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Value",
+          "column_name": "wrs:Open_Field_3_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Desc",
+          "column_name": "wrs:Open_Field_4_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Value",
+          "column_name": "wrs:Open_Field_4_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Desc",
+          "column_name": "wrs:Open_Field_5_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Value",
+          "column_name": "wrs:Open_Field_5_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Person_Code",
+          "column_name": "wrs:Person_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Name",
+          "column_name": "wrs:Plan_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Type_1",
+          "column_name": "wrs:Plan_Type_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Type_2",
+          "column_name": "wrs:Plan_Type_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Preferred_First_Name",
+          "column_name": "wrs:Preferred_First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Preferred_Language",
+          "column_name": "wrs:Preferred_Language"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Primary_Dependant",
+          "column_name": "wrs:Primary_Dependant"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Relation",
+          "column_name": "wrs:Relation"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Address_Line_1",
+          "column_name": "wrs:Subscriber_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Address_Line_2",
+          "column_name": "wrs:Subscriber_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_City",
+          "column_name": "wrs:Subscriber_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Email",
+          "column_name": "wrs:Subscriber_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_ID",
+          "column_name": "wrs:Subscriber_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Phone",
+          "column_name": "wrs:Subscriber_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Phone_Type",
+          "column_name": "wrs:Subscriber_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_SSN",
+          "column_name": "wrs:Subscriber_SSN"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_State",
+          "column_name": "wrs:Subscriber_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Zip_Code",
+          "column_name": "wrs:Subscriber_Zip_Code"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Termination_Date",
+          "column_name": "wrs:Termination_Date"
+        },
+        {
+          "type": "bool",
+          "as_array": false,
+          "property_name": "wrs:Walrus_Eligible",
+          "column_name": "wrs:Walrus_Eligible"
+        }
+      ],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "db_key": 0
+    },
+    {
+      "type": "table",
+      "table_name": "wrs:Eligibility",
+      "class_name": "wrs:Eligibility",
+      "columns": [
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:client",
+          "column_name": "jets:client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:key",
+          "column_name": "jets:key"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:org",
+          "column_name": "jets:org"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "jets:ruleTag",
+          "column_name": "jets:ruleTag"
+        },
+        {
+          "type": "resource",
+          "as_array": true,
+          "property_name": "rdf:type",
+          "column_name": "rdf:type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client",
+          "column_name": "wrs:Client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client_Member_ID",
+          "column_name": "wrs:Client_Member_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Coordination_of_Benefits",
+          "column_name": "wrs:Coordination_of_Benefits"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Effective_Date",
+          "column_name": "wrs:Effective_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Employment_Status",
+          "column_name": "wrs:Employment_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:First_Name",
+          "column_name": "wrs:First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Gender",
+          "column_name": "wrs:Gender"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generated_ID",
+          "column_name": "wrs:Generated_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Group_Number",
+          "column_name": "wrs:Group_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Insurance_Status",
+          "column_name": "wrs:Insurance_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Last_Name",
+          "column_name": "wrs:Last_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Medicare_Indicator",
+          "column_name": "wrs:Medicare_Indicator"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Address_Line_1",
+          "column_name": "wrs:Member_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Address_Line_2",
+          "column_name": "wrs:Member_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Email",
+          "column_name": "wrs:Member_Alt_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Phone",
+          "column_name": "wrs:Member_Alt_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Phone_Type",
+          "column_name": "wrs:Member_Alt_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_City",
+          "column_name": "wrs:Member_City"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Member_DOB",
+          "column_name": "wrs:Member_DOB"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Email",
+          "column_name": "wrs:Member_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Number",
+          "column_name": "wrs:Member_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Phone",
+          "column_name": "wrs:Member_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Phone_Type",
+          "column_name": "wrs:Member_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Pronoun",
+          "column_name": "wrs:Member_Pronoun"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_SSN",
+          "column_name": "wrs:Member_SSN"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Sex",
+          "column_name": "wrs:Member_Sex"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_State",
+          "column_name": "wrs:Member_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Zip_Code",
+          "column_name": "wrs:Member_Zip_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Middle_Name",
+          "column_name": "wrs:Middle_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Desc",
+          "column_name": "wrs:Open_Field_1_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Value",
+          "column_name": "wrs:Open_Field_1_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Desc",
+          "column_name": "wrs:Open_Field_2_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Value",
+          "column_name": "wrs:Open_Field_2_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Desc",
+          "column_name": "wrs:Open_Field_3_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Value",
+          "column_name": "wrs:Open_Field_3_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Desc",
+          "column_name": "wrs:Open_Field_4_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Value",
+          "column_name": "wrs:Open_Field_4_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Desc",
+          "column_name": "wrs:Open_Field_5_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Value",
+          "column_name": "wrs:Open_Field_5_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Person_Code",
+          "column_name": "wrs:Person_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Name",
+          "column_name": "wrs:Plan_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Type_1",
+          "column_name": "wrs:Plan_Type_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Type_2",
+          "column_name": "wrs:Plan_Type_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Preferred_First_Name",
+          "column_name": "wrs:Preferred_First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Preferred_Language",
+          "column_name": "wrs:Preferred_Language"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Primary_Dependant",
+          "column_name": "wrs:Primary_Dependant"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Relation",
+          "column_name": "wrs:Relation"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Address_Line_1",
+          "column_name": "wrs:Subscriber_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Address_Line_2",
+          "column_name": "wrs:Subscriber_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_City",
+          "column_name": "wrs:Subscriber_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Email",
+          "column_name": "wrs:Subscriber_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_ID",
+          "column_name": "wrs:Subscriber_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Phone",
+          "column_name": "wrs:Subscriber_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Phone_Type",
+          "column_name": "wrs:Subscriber_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_SSN",
+          "column_name": "wrs:Subscriber_SSN"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_State",
+          "column_name": "wrs:Subscriber_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Zip_Code",
+          "column_name": "wrs:Subscriber_Zip_Code"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Termination_Date",
+          "column_name": "wrs:Termination_Date"
+        },
+        {
+          "type": "bool",
+          "as_array": false,
+          "property_name": "wrs:Walrus_Eligible",
+          "column_name": "wrs:Walrus_Eligible"
+        }
+      ],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "db_key": 1
+    },
+    {
+      "type": "table",
+      "table_name": "wrs:PreviousEligibility",
+      "class_name": "wrs:PreviousEligibility",
+      "columns": [
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:client",
+          "column_name": "jets:client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:key",
+          "column_name": "jets:key"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:org",
+          "column_name": "jets:org"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "jets:ruleTag",
+          "column_name": "jets:ruleTag"
+        },
+        {
+          "type": "resource",
+          "as_array": true,
+          "property_name": "rdf:type",
+          "column_name": "rdf:type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client",
+          "column_name": "wrs:Client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client_Member_ID",
+          "column_name": "wrs:Client_Member_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Coordination_of_Benefits",
+          "column_name": "wrs:Coordination_of_Benefits"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Effective_Date",
+          "column_name": "wrs:Effective_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Employment_Status",
+          "column_name": "wrs:Employment_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:First_Name",
+          "column_name": "wrs:First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Gender",
+          "column_name": "wrs:Gender"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generated_ID",
+          "column_name": "wrs:Generated_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Group_Number",
+          "column_name": "wrs:Group_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Insurance_Status",
+          "column_name": "wrs:Insurance_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Last_Name",
+          "column_name": "wrs:Last_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Medicare_Indicator",
+          "column_name": "wrs:Medicare_Indicator"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Address_Line_1",
+          "column_name": "wrs:Member_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Address_Line_2",
+          "column_name": "wrs:Member_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Email",
+          "column_name": "wrs:Member_Alt_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Phone",
+          "column_name": "wrs:Member_Alt_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Alt_Phone_Type",
+          "column_name": "wrs:Member_Alt_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_City",
+          "column_name": "wrs:Member_City"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Member_DOB",
+          "column_name": "wrs:Member_DOB"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Email",
+          "column_name": "wrs:Member_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Number",
+          "column_name": "wrs:Member_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Phone",
+          "column_name": "wrs:Member_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Phone_Type",
+          "column_name": "wrs:Member_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Pronoun",
+          "column_name": "wrs:Member_Pronoun"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_SSN",
+          "column_name": "wrs:Member_SSN"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Sex",
+          "column_name": "wrs:Member_Sex"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_State",
+          "column_name": "wrs:Member_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Member_Zip_Code",
+          "column_name": "wrs:Member_Zip_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Middle_Name",
+          "column_name": "wrs:Middle_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Desc",
+          "column_name": "wrs:Open_Field_1_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Value",
+          "column_name": "wrs:Open_Field_1_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Desc",
+          "column_name": "wrs:Open_Field_2_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Value",
+          "column_name": "wrs:Open_Field_2_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Desc",
+          "column_name": "wrs:Open_Field_3_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Value",
+          "column_name": "wrs:Open_Field_3_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Desc",
+          "column_name": "wrs:Open_Field_4_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Value",
+          "column_name": "wrs:Open_Field_4_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Desc",
+          "column_name": "wrs:Open_Field_5_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Value",
+          "column_name": "wrs:Open_Field_5_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Person_Code",
+          "column_name": "wrs:Person_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Name",
+          "column_name": "wrs:Plan_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Type_1",
+          "column_name": "wrs:Plan_Type_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Plan_Type_2",
+          "column_name": "wrs:Plan_Type_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Preferred_First_Name",
+          "column_name": "wrs:Preferred_First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Preferred_Language",
+          "column_name": "wrs:Preferred_Language"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Primary_Dependant",
+          "column_name": "wrs:Primary_Dependant"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Relation",
+          "column_name": "wrs:Relation"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Address_Line_1",
+          "column_name": "wrs:Subscriber_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Address_Line_2",
+          "column_name": "wrs:Subscriber_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_City",
+          "column_name": "wrs:Subscriber_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Email",
+          "column_name": "wrs:Subscriber_Email"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_ID",
+          "column_name": "wrs:Subscriber_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Phone",
+          "column_name": "wrs:Subscriber_Phone"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Phone_Type",
+          "column_name": "wrs:Subscriber_Phone_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_SSN",
+          "column_name": "wrs:Subscriber_SSN"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_State",
+          "column_name": "wrs:Subscriber_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Subscriber_Zip_Code",
+          "column_name": "wrs:Subscriber_Zip_Code"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Termination_Date",
+          "column_name": "wrs:Termination_Date"
+        },
+        {
+          "type": "bool",
+          "as_array": false,
+          "property_name": "wrs:Walrus_Eligible",
+          "column_name": "wrs:Walrus_Eligible"
+        }
+      ],
+      "source_file_name": "data_model/eligibility_model.jr",
+      "db_key": 2
+    },
+    {
+      "type": "table",
+      "table_name": "wrs:BaseClaim",
+      "class_name": "wrs:BaseClaim",
+      "columns": [
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:AWP_Unit_Cost",
+          "column_name": "wrs:AWP_Unit_Cost"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Adherence_Ratio",
+          "column_name": "wrs:Adherence_Ratio"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Admission_Date",
+          "column_name": "wrs:Admission_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Admission_Indicator",
+          "column_name": "wrs:Admission_Indicator"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Attributed_Member_Ratio",
+          "column_name": "wrs:Attributed_Member_Ratio"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Attributed_Member_Year_Savings",
+          "column_name": "wrs:Attributed_Member_Year_Savings"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Attributed_Sponsor_Year_Savings",
+          "column_name": "wrs:Attributed_Sponsor_Year_Savings"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_National_Provider_Identifier",
+          "column_name": "wrs:Billing_National_Provider_Identifier"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Address_Line_1",
+          "column_name": "wrs:Billing_Provider_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Address_Line_2",
+          "column_name": "wrs:Billing_Provider_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_City",
+          "column_name": "wrs:Billing_Provider_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Name",
+          "column_name": "wrs:Billing_Provider_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Number",
+          "column_name": "wrs:Billing_Provider_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_State",
+          "column_name": "wrs:Billing_Provider_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Tax_ID",
+          "column_name": "wrs:Billing_Provider_Tax_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Zip_Code",
+          "column_name": "wrs:Billing_Provider_Zip_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Brand_Generic_ID",
+          "column_name": "wrs:Brand_Generic_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Cardholder_ID",
+          "column_name": "wrs:Cardholder_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Reporting_Category",
+          "column_name": "wrs:Claim_Reporting_Category"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Type_Code",
+          "column_name": "wrs:Claim_Type_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client",
+          "column_name": "wrs:Client"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "wrs:Conditions",
+          "column_name": "wrs:Conditions"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:DAW_Code",
+          "column_name": "wrs:DAW_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:DRG",
+          "column_name": "wrs:DRG"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Date_Prescription_Written",
+          "column_name": "wrs:Date_Prescription_Written"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Date_of_Service",
+          "column_name": "wrs:Date_of_Service"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Days_Supply",
+          "column_name": "wrs:Days_Supply"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Category_Code",
+          "column_name": "wrs:Diagnosis_Category_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Classification_Code",
+          "column_name": "wrs:Diagnosis_Classification_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_1",
+          "column_name": "wrs:Diagnosis_Code_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_2",
+          "column_name": "wrs:Diagnosis_Code_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_3",
+          "column_name": "wrs:Diagnosis_Code_3"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_4",
+          "column_name": "wrs:Diagnosis_Code_4"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_5",
+          "column_name": "wrs:Diagnosis_Code_5"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "wrs:Diagnosis_Codes",
+          "column_name": "wrs:Diagnosis_Codes"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Discharge_Date",
+          "column_name": "wrs:Discharge_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Drug_Name",
+          "column_name": "wrs:Drug_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Drug_Type_Code",
+          "column_name": "wrs:Drug_Type_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Ease_of_Interchange",
+          "column_name": "wrs:Ease_of_Interchange"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Expected_Refill_Date",
+          "column_name": "wrs:Expected_Refill_Date"
+        },
+        {
+          "type": "int",
+          "as_array": false,
+          "property_name": "wrs:Fill_Number",
+          "column_name": "wrs:Fill_Number"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:First_Date_of_Service",
+          "column_name": "wrs:First_Date_of_Service"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generated_ID",
+          "column_name": "wrs:Generated_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generic_Name",
+          "column_name": "wrs:Generic_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:HCPCS_CPT_Code",
+          "column_name": "wrs:HCPCS_CPT_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Procedure_Code_1",
+          "column_name": "wrs:ICD_Procedure_Code_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Procedure_Code_2",
+          "column_name": "wrs:ICD_Procedure_Code_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Procedure_Code_3",
+          "column_name": "wrs:ICD_Procedure_Code_3"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Version_Code",
+          "column_name": "wrs:ICD_Version_Code"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Last_Date_of_Service",
+          "column_name": "wrs:Last_Date_of_Service"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:MDC",
+          "column_name": "wrs:MDC"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Maintenance_Drug_Indicator",
+          "column_name": "wrs:Maintenance_Drug_Indicator"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Net_Amount_Due",
+          "column_name": "wrs:Net_Amount_Due"
+        },
+        {
+          "type": "bool",
+          "as_array": false,
+          "property_name": "wrs:OTC_Available",
+          "column_name": "wrs:OTC_Available"
+        },
+        {
+          "type": "int",
+          "as_array": false,
+          "property_name": "wrs:Patient_Age",
+          "column_name": "wrs:Patient_Age"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Patient_Gender",
+          "column_name": "wrs:Patient_Gender"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Patient_Pay_Amount",
+          "column_name": "wrs:Patient_Pay_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_National_Provider_Identifier",
+          "column_name": "wrs:Performing_National_Provider_Identifier"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_City",
+          "column_name": "wrs:Performing_Provider_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Name",
+          "column_name": "wrs:Performing_Provider_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Number",
+          "column_name": "wrs:Performing_Provider_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Participation_Level",
+          "column_name": "wrs:Performing_Provider_Participation_Level"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Specialty",
+          "column_name": "wrs:Performing_Provider_Specialty"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_State",
+          "column_name": "wrs:Performing_Provider_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Tax_ID",
+          "column_name": "wrs:Performing_Provider_Tax_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Type_Code",
+          "column_name": "wrs:Performing_Provider_Type_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Zip_Code",
+          "column_name": "wrs:Performing_Provider_Zip_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Address_1",
+          "column_name": "wrs:Pharmacy_Address_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Address_2",
+          "column_name": "wrs:Pharmacy_Address_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_City",
+          "column_name": "wrs:Pharmacy_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Dispenser_Type",
+          "column_name": "wrs:Pharmacy_Dispenser_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Name",
+          "column_name": "wrs:Pharmacy_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_State",
+          "column_name": "wrs:Pharmacy_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Telephone_Number",
+          "column_name": "wrs:Pharmacy_Telephone_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Zip",
+          "column_name": "wrs:Pharmacy_Zip"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Place_of_Treatment",
+          "column_name": "wrs:Place_of_Treatment"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Prescribing_Physician_First_Name",
+          "column_name": "wrs:Prescribing_Physician_First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Prescribing_Physician_Last_Name",
+          "column_name": "wrs:Prescribing_Physician_Last_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Prescribing_Physician_NPI",
+          "column_name": "wrs:Prescribing_Physician_NPI"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Procedure_Code_Modifier",
+          "column_name": "wrs:Procedure_Code_Modifier"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "wrs:Procedure_Codes",
+          "column_name": "wrs:Procedure_Codes"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Quantity_Dispensed",
+          "column_name": "wrs:Quantity_Dispensed"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_Compound_Code",
+          "column_name": "wrs:RX_Compound_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_DEA_Number",
+          "column_name": "wrs:RX_DEA_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_Drug_Category_Code",
+          "column_name": "wrs:RX_Drug_Category_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_GPI",
+          "column_name": "wrs:RX_GPI"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_ID",
+          "column_name": "wrs:RX_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_NDC",
+          "column_name": "wrs:RX_NDC"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_Origin_Code",
+          "column_name": "wrs:RX_Origin_Code"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Ratio_1",
+          "column_name": "wrs:Ratio_1"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Ratio_2",
+          "column_name": "wrs:Ratio_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Rx_Chain_Pharmacy_ID",
+          "column_name": "wrs:Rx_Chain_Pharmacy_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Rx_Formulary_Status",
+          "column_name": "wrs:Rx_Formulary_Status"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Rx_Savings",
+          "column_name": "wrs:Rx_Savings"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Sum_Days_of_Supply",
+          "column_name": "wrs:Sum_Days_of_Supply"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Target_Awp_1",
+          "column_name": "wrs:Target_Awp_1"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Target_Awp_2",
+          "column_name": "wrs:Target_Awp_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Gpi_1",
+          "column_name": "wrs:Target_Gpi_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Gpi_2",
+          "column_name": "wrs:Target_Gpi_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Ndc_1",
+          "column_name": "wrs:Target_Ndc_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Ndc_2",
+          "column_name": "wrs:Target_Ndc_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Therapy_Class",
+          "column_name": "wrs:Therapy_Class"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Tier_Level_Code",
+          "column_name": "wrs:Tier_Level_Code"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Total_Paid_Amount",
+          "column_name": "wrs:Total_Paid_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Transaction_ID",
+          "column_name": "wrs:Transaction_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Type_of_Service",
+          "column_name": "wrs:Type_of_Service"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Year_Savings",
+          "column_name": "wrs:Year_Savings"
+        }
+      ],
+      "source_file_name": "data_model/base_claim_model.jr",
+      "db_key": 3
+    },
+    {
+      "type": "table",
+      "table_name": "wrs:PharmacyClaim",
+      "class_name": "wrs:PharmacyClaim",
+      "columns": [
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:client",
+          "column_name": "jets:client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:key",
+          "column_name": "jets:key"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:org",
+          "column_name": "jets:org"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "jets:ruleTag",
+          "column_name": "jets:ruleTag"
+        },
+        {
+          "type": "resource",
+          "as_array": true,
+          "property_name": "rdf:type",
+          "column_name": "rdf:type"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:AWP_Unit_Cost",
+          "column_name": "wrs:AWP_Unit_Cost"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Adjudication_Date",
+          "column_name": "wrs:Adjudication_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Brand_Generic_ID",
+          "column_name": "wrs:Brand_Generic_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Cardholder_ID",
+          "column_name": "wrs:Cardholder_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Extension",
+          "column_name": "wrs:Claim_Extension"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_ID",
+          "column_name": "wrs:Claim_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Line_Number",
+          "column_name": "wrs:Claim_Line_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Type_Code",
+          "column_name": "wrs:Claim_Type_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client",
+          "column_name": "wrs:Client"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Coinsurance_Amount",
+          "column_name": "wrs:Coinsurance_Amount"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Copay_Amount",
+          "column_name": "wrs:Copay_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:DAW_Code",
+          "column_name": "wrs:DAW_Code"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Date_Prescription_Written",
+          "column_name": "wrs:Date_Prescription_Written"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Date_of_Service",
+          "column_name": "wrs:Date_of_Service"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Days_Supply",
+          "column_name": "wrs:Days_Supply"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Deductible_Amount",
+          "column_name": "wrs:Deductible_Amount"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Dispensing_Fee_Amount",
+          "column_name": "wrs:Dispensing_Fee_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Drug_Name",
+          "column_name": "wrs:Drug_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Drug_Type_Code",
+          "column_name": "wrs:Drug_Type_Code"
+        },
+        {
+          "type": "int",
+          "as_array": false,
+          "property_name": "wrs:Fill_Number",
+          "column_name": "wrs:Fill_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generated_ID",
+          "column_name": "wrs:Generated_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generic_Name",
+          "column_name": "wrs:Generic_Name"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Ingredient_Cost_Amount",
+          "column_name": "wrs:Ingredient_Cost_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Maintenance_Drug_Indicator",
+          "column_name": "wrs:Maintenance_Drug_Indicator"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Net_Amount_Due",
+          "column_name": "wrs:Net_Amount_Due"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Desc",
+          "column_name": "wrs:Open_Field_1_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Value",
+          "column_name": "wrs:Open_Field_1_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Desc",
+          "column_name": "wrs:Open_Field_2_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Value",
+          "column_name": "wrs:Open_Field_2_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Desc",
+          "column_name": "wrs:Open_Field_3_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Value",
+          "column_name": "wrs:Open_Field_3_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Desc",
+          "column_name": "wrs:Open_Field_4_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Value",
+          "column_name": "wrs:Open_Field_4_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Desc",
+          "column_name": "wrs:Open_Field_5_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Value",
+          "column_name": "wrs:Open_Field_5_Value"
+        },
+        {
+          "type": "int",
+          "as_array": false,
+          "property_name": "wrs:Patient_Age",
+          "column_name": "wrs:Patient_Age"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Patient_Gender",
+          "column_name": "wrs:Patient_Gender"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Patient_Pay_Amount",
+          "column_name": "wrs:Patient_Pay_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Patient_Status",
+          "column_name": "wrs:Patient_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Address_1",
+          "column_name": "wrs:Pharmacy_Address_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Address_2",
+          "column_name": "wrs:Pharmacy_Address_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_City",
+          "column_name": "wrs:Pharmacy_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Dispenser_Type",
+          "column_name": "wrs:Pharmacy_Dispenser_Type"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Name",
+          "column_name": "wrs:Pharmacy_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_State",
+          "column_name": "wrs:Pharmacy_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Telephone_Number",
+          "column_name": "wrs:Pharmacy_Telephone_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Pharmacy_Zip",
+          "column_name": "wrs:Pharmacy_Zip"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Prescribing_Physician_First_Name",
+          "column_name": "wrs:Prescribing_Physician_First_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Prescribing_Physician_Last_Name",
+          "column_name": "wrs:Prescribing_Physician_Last_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Prescribing_Physician_NPI",
+          "column_name": "wrs:Prescribing_Physician_NPI"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Provider",
+          "column_name": "wrs:Provider"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Quantity_Dispensed",
+          "column_name": "wrs:Quantity_Dispensed"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_Compound_Code",
+          "column_name": "wrs:RX_Compound_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_DEA_Number",
+          "column_name": "wrs:RX_DEA_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_Drug_Category_Code",
+          "column_name": "wrs:RX_Drug_Category_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_GPI",
+          "column_name": "wrs:RX_GPI"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_ID",
+          "column_name": "wrs:RX_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_NDC",
+          "column_name": "wrs:RX_NDC"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_Origin_Code",
+          "column_name": "wrs:RX_Origin_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Record_Status_Code",
+          "column_name": "wrs:Record_Status_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Rx_Chain_Pharmacy_ID",
+          "column_name": "wrs:Rx_Chain_Pharmacy_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Rx_Formulary_Status",
+          "column_name": "wrs:Rx_Formulary_Status"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Sales_Tax_Amount",
+          "column_name": "wrs:Sales_Tax_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Therapy_Class",
+          "column_name": "wrs:Therapy_Class"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Tier_Level_Code",
+          "column_name": "wrs:Tier_Level_Code"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Total_Paid_Amount",
+          "column_name": "wrs:Total_Paid_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Transaction_ID",
+          "column_name": "wrs:Transaction_ID"
+        }
+      ],
+      "source_file_name": "data_model/pharmacy_claim_model.jr",
+      "db_key": 4
+    },
+    {
+      "type": "table",
+      "table_name": "wrs:PharmacyClaimAnalysis",
+      "class_name": "wrs:PharmacyClaimAnalysis",
+      "columns": [
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:client",
+          "column_name": "jets:client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:key",
+          "column_name": "jets:key"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:org",
+          "column_name": "jets:org"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "jets:ruleTag",
+          "column_name": "jets:ruleTag"
+        },
+        {
+          "type": "resource",
+          "as_array": true,
+          "property_name": "rdf:type",
+          "column_name": "rdf:type"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Adherence_Ratio",
+          "column_name": "wrs:Adherence_Ratio"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Attributed_Member_Ratio",
+          "column_name": "wrs:Attributed_Member_Ratio"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Attributed_Member_Year_Savings",
+          "column_name": "wrs:Attributed_Member_Year_Savings"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Attributed_Sponsor_Year_Savings",
+          "column_name": "wrs:Attributed_Sponsor_Year_Savings"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Cardholder_ID",
+          "column_name": "wrs:Cardholder_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Type_Code",
+          "column_name": "wrs:Claim_Type_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client",
+          "column_name": "wrs:Client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:DAW_Code",
+          "column_name": "wrs:DAW_Code"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Date_of_Service",
+          "column_name": "wrs:Date_of_Service"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Days_Supply",
+          "column_name": "wrs:Days_Supply"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Drug_Name",
+          "column_name": "wrs:Drug_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Ease_of_Interchange",
+          "column_name": "wrs:Ease_of_Interchange"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Expected_Refill_Date",
+          "column_name": "wrs:Expected_Refill_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generated_ID",
+          "column_name": "wrs:Generated_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Maintenance_Drug_Indicator",
+          "column_name": "wrs:Maintenance_Drug_Indicator"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Net_Amount_Due",
+          "column_name": "wrs:Net_Amount_Due"
+        },
+        {
+          "type": "bool",
+          "as_array": false,
+          "property_name": "wrs:OTC_Available",
+          "column_name": "wrs:OTC_Available"
+        },
+        {
+          "type": "int",
+          "as_array": false,
+          "property_name": "wrs:Patient_Age",
+          "column_name": "wrs:Patient_Age"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Patient_Gender",
+          "column_name": "wrs:Patient_Gender"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Patient_Pay_Amount",
+          "column_name": "wrs:Patient_Pay_Amount"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Quantity_Dispensed",
+          "column_name": "wrs:Quantity_Dispensed"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_GPI",
+          "column_name": "wrs:RX_GPI"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:RX_NDC",
+          "column_name": "wrs:RX_NDC"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Ratio_1",
+          "column_name": "wrs:Ratio_1"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Ratio_2",
+          "column_name": "wrs:Ratio_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Rx_Formulary_Status",
+          "column_name": "wrs:Rx_Formulary_Status"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Rx_Savings",
+          "column_name": "wrs:Rx_Savings"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Sum_Days_of_Supply",
+          "column_name": "wrs:Sum_Days_of_Supply"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Target_Awp_1",
+          "column_name": "wrs:Target_Awp_1"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Target_Awp_2",
+          "column_name": "wrs:Target_Awp_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Gpi_1",
+          "column_name": "wrs:Target_Gpi_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Gpi_2",
+          "column_name": "wrs:Target_Gpi_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Ndc_1",
+          "column_name": "wrs:Target_Ndc_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Target_Ndc_2",
+          "column_name": "wrs:Target_Ndc_2"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Total_Paid_Amount",
+          "column_name": "wrs:Total_Paid_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Transaction_ID",
+          "column_name": "wrs:Transaction_ID"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Year_Savings",
+          "column_name": "wrs:Year_Savings"
+        }
+      ],
+      "source_file_name": "data_model/pharmacy_claim_model.jr",
+      "db_key": 5
+    },
+    {
+      "type": "table",
+      "table_name": "wrs:MedicalClaim",
+      "class_name": "wrs:MedicalClaim",
+      "columns": [
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:client",
+          "column_name": "jets:client"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:key",
+          "column_name": "jets:key"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "jets:org",
+          "column_name": "jets:org"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "jets:ruleTag",
+          "column_name": "jets:ruleTag"
+        },
+        {
+          "type": "resource",
+          "as_array": true,
+          "property_name": "rdf:type",
+          "column_name": "rdf:type"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Adjudication_Date",
+          "column_name": "wrs:Adjudication_Date"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Admission_Date",
+          "column_name": "wrs:Admission_Date"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Admission_Indicator",
+          "column_name": "wrs:Admission_Indicator"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_National_Provider_Identifier",
+          "column_name": "wrs:Billing_National_Provider_Identifier"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Address_Line_1",
+          "column_name": "wrs:Billing_Provider_Address_Line_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Address_Line_2",
+          "column_name": "wrs:Billing_Provider_Address_Line_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_City",
+          "column_name": "wrs:Billing_Provider_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Name",
+          "column_name": "wrs:Billing_Provider_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Number",
+          "column_name": "wrs:Billing_Provider_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_State",
+          "column_name": "wrs:Billing_Provider_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Tax_ID",
+          "column_name": "wrs:Billing_Provider_Tax_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Billing_Provider_Zip_Code",
+          "column_name": "wrs:Billing_Provider_Zip_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Cardholder_ID",
+          "column_name": "wrs:Cardholder_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Extension",
+          "column_name": "wrs:Claim_Extension"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_ID",
+          "column_name": "wrs:Claim_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Line_Number",
+          "column_name": "wrs:Claim_Line_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Reporting_Category",
+          "column_name": "wrs:Claim_Reporting_Category"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Claim_Type_Code",
+          "column_name": "wrs:Claim_Type_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Client",
+          "column_name": "wrs:Client"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Coinsurance_Amount",
+          "column_name": "wrs:Coinsurance_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "wrs:Conditions",
+          "column_name": "wrs:Conditions"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Copay_Amount",
+          "column_name": "wrs:Copay_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:DRG",
+          "column_name": "wrs:DRG"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Date_of_Service",
+          "column_name": "wrs:Date_of_Service"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Deductible_Amount",
+          "column_name": "wrs:Deductible_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Category_Code",
+          "column_name": "wrs:Diagnosis_Category_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Classification_Code",
+          "column_name": "wrs:Diagnosis_Classification_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_1",
+          "column_name": "wrs:Diagnosis_Code_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_2",
+          "column_name": "wrs:Diagnosis_Code_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_3",
+          "column_name": "wrs:Diagnosis_Code_3"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_4",
+          "column_name": "wrs:Diagnosis_Code_4"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Diagnosis_Code_5",
+          "column_name": "wrs:Diagnosis_Code_5"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "wrs:Diagnosis_Codes",
+          "column_name": "wrs:Diagnosis_Codes"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Discharge_Date",
+          "column_name": "wrs:Discharge_Date"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Dispensing_Fee_Amount",
+          "column_name": "wrs:Dispensing_Fee_Amount"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:First_Date_of_Service",
+          "column_name": "wrs:First_Date_of_Service"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Generated_ID",
+          "column_name": "wrs:Generated_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:HCPCS_CPT_Code",
+          "column_name": "wrs:HCPCS_CPT_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Procedure_Code_1",
+          "column_name": "wrs:ICD_Procedure_Code_1"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Procedure_Code_2",
+          "column_name": "wrs:ICD_Procedure_Code_2"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Procedure_Code_3",
+          "column_name": "wrs:ICD_Procedure_Code_3"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:ICD_Version_Code",
+          "column_name": "wrs:ICD_Version_Code"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Ingredient_Cost_Amount",
+          "column_name": "wrs:Ingredient_Cost_Amount"
+        },
+        {
+          "type": "date",
+          "as_array": false,
+          "property_name": "wrs:Last_Date_of_Service",
+          "column_name": "wrs:Last_Date_of_Service"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:MDC",
+          "column_name": "wrs:MDC"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Net_Amount_Due",
+          "column_name": "wrs:Net_Amount_Due"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Desc",
+          "column_name": "wrs:Open_Field_1_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_1_Value",
+          "column_name": "wrs:Open_Field_1_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Desc",
+          "column_name": "wrs:Open_Field_2_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_2_Value",
+          "column_name": "wrs:Open_Field_2_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Desc",
+          "column_name": "wrs:Open_Field_3_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_3_Value",
+          "column_name": "wrs:Open_Field_3_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Desc",
+          "column_name": "wrs:Open_Field_4_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_4_Value",
+          "column_name": "wrs:Open_Field_4_Value"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Desc",
+          "column_name": "wrs:Open_Field_5_Desc"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Open_Field_5_Value",
+          "column_name": "wrs:Open_Field_5_Value"
+        },
+        {
+          "type": "int",
+          "as_array": false,
+          "property_name": "wrs:Patient_Age",
+          "column_name": "wrs:Patient_Age"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Patient_Gender",
+          "column_name": "wrs:Patient_Gender"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Patient_Pay_Amount",
+          "column_name": "wrs:Patient_Pay_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Patient_Status",
+          "column_name": "wrs:Patient_Status"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_National_Provider_Identifier",
+          "column_name": "wrs:Performing_National_Provider_Identifier"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_City",
+          "column_name": "wrs:Performing_Provider_City"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Name",
+          "column_name": "wrs:Performing_Provider_Name"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Number",
+          "column_name": "wrs:Performing_Provider_Number"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Participation_Level",
+          "column_name": "wrs:Performing_Provider_Participation_Level"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Specialty",
+          "column_name": "wrs:Performing_Provider_Specialty"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_State",
+          "column_name": "wrs:Performing_Provider_State"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Tax_ID",
+          "column_name": "wrs:Performing_Provider_Tax_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Type_Code",
+          "column_name": "wrs:Performing_Provider_Type_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Performing_Provider_Zip_Code",
+          "column_name": "wrs:Performing_Provider_Zip_Code"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Place_of_Treatment",
+          "column_name": "wrs:Place_of_Treatment"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Procedure_Code_Modifier",
+          "column_name": "wrs:Procedure_Code_Modifier"
+        },
+        {
+          "type": "text",
+          "as_array": true,
+          "property_name": "wrs:Procedure_Codes",
+          "column_name": "wrs:Procedure_Codes"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Provider",
+          "column_name": "wrs:Provider"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Record_Status_Code",
+          "column_name": "wrs:Record_Status_Code"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Sales_Tax_Amount",
+          "column_name": "wrs:Sales_Tax_Amount"
+        },
+        {
+          "type": "double",
+          "as_array": false,
+          "property_name": "wrs:Total_Paid_Amount",
+          "column_name": "wrs:Total_Paid_Amount"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Transaction_ID",
+          "column_name": "wrs:Transaction_ID"
+        },
+        {
+          "type": "text",
+          "as_array": false,
+          "property_name": "wrs:Type_of_Service",
+          "column_name": "wrs:Type_of_Service"
+        }
+      ],
+      "source_file_name": "data_model/medical_claim_model.jr",
+      "db_key": 6
+    }
+  ],
+  "main_rule_file_name": "jet_rules/domain_classes.jr"
+}

@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -37,10 +39,11 @@ type dbConnections struct {
 // JETS_LOG_DEBUG (optional, if == 1 set glog=3, ps=false, poolSize=1 for debugging)
 // JETS_LOG_DEBUG (optional, if == 2 set glog=3, ps=true, poolSize=1 for debugging)
 // JETS_s3_INPUT_PREFIX (required for registrying the domain table with input_registry)
-// JETS_LOADER_SERVER_SM_ARN state machine arn
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
 // GLOG_V log level
+// JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
+// JETS_DOMAIN_KEY_SEPARATOR
 
 // Command Line Arguments
 var awsDsnSecret        = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
@@ -71,6 +74,7 @@ var extTables map[string][]string
 var glogv int // taken from env GLOG_v
 var dbc dbConnections
 var nbrDbNodes int
+var processName string		// put it as global var since there is always one and only one process per invocation
 
 func init() {
 	extTables = make(map[string][]string)
@@ -136,12 +140,14 @@ func doJob() error {
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_SEED: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	log.Printf("ENV JETS_LOG_DEBUG: %s\n",os.Getenv("JETS_LOG_DEBUG"))
-	log.Printf("ENV JETS_LOADER_SERVER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SERVER_SM_ARN"))
 	log.Printf("ENV JETS_LOADER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SM_ARN"))
 	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n",os.Getenv("JETS_SERVER_SM_ARN"))
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
+	log.Printf("ENV JETS_INVALID_CODE: %s\n",os.Getenv("JETS_INVALID_CODE"))
+	log.Printf("ENV JETSTORE_DEV_MODE: %s\n",os.Getenv("JETSTORE_DEV_MODE"))
+	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
-	if !*doNotLockSessionId {
+	if *doNotLockSessionId {
 		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
 	}
 	dsn := dsnSplit[*nodeId%nbrDbNodes]
@@ -161,6 +167,21 @@ func doJob() error {
 		defer dbc.joinNodes[i].dbpool.Close()
 	}
 	dbpool = dbc.mainNode.dbpool
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	if os.Getenv("JETSTORE_DEV_MODE") == "" {
+		// We're not in dev mode, sync the overriten workspace files
+		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
+		err := workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:",err)
+			return err
+		}
+	} else {
+		log.Println("We are in DEV_MODE, do not sync workspace file from db")
+	}
+
+	// Read pipeline configuration
 	pipelineConfig, err := readPipelineConfig(dbpool, *pipelineConfigKey, *pipelineExecKey)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
@@ -181,6 +202,12 @@ func doJob() error {
 		return fmt.Errorf("while loading workspace: %v", err)
 	}
 	defer reteWorkspace.Release()
+
+	// Set the global processName for convenience for reporting BadRows
+	processName = reteWorkspace.pipelineConfig.processConfig.processName
+	if processName == "" {
+		return fmt.Errorf("processName is not defined")
+	}
 
 	var errMessage string
 	pipelineResult, err := ProcessData(dbpool, reteWorkspace)
@@ -305,9 +332,9 @@ func main() {
 
 	// If not in dev mode, must have state machine arn defined
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
-		if os.Getenv("JETS_LOADER_SERVER_SM_ARN")=="" || os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
+		if os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
 			hasErr = true
-			errMsg = append(errMsg, "Env var JETS_LOADER_SERVER_SM_ARN, JETS_LOADER_SM_ARN, JETS_SERVER_SM_ARN required when not in dev mode.")
+			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARN are required when not in dev mode.")
 		}
 	}
 
@@ -326,9 +353,16 @@ func main() {
 		glogv = 3
 		*ps = true
 		*poolSize = 1
-	default:
+	case "0", "":
 		v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
 		glogv = int(v)	
+	default:
+		str := os.Getenv("JETS_LOG_DEBUG")
+		v, _ := strconv.ParseInt(str, 10, 32)
+		glogv = int(v)	
+		*ps = true
+		*poolSize = 1
+		os.Setenv("GLOG_v", str)
 	}
 
 	err := doJob()

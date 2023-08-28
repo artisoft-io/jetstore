@@ -20,23 +20,35 @@ namespace jets::rete {
   ReteSession::initialize()
   {
     if(not this->rule_ms_) {
-      RETE_EXCEPTION("ReteSession::Initialize requires a valid ReteMetaStore as argument");
+      std::cout << "ReteSession::Initialize requires a valid ReteMetaStore as argument" << std::endl;
+      return -1;
     }
-    beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
-    // Initialize BetaRelationVector beta_relations_
-    VLOG(20) << "Initialize ReteSession";
-    for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
-      auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
-      // VLOG(30) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
-      auto bn = create_beta_node(meta_node);
-      bn->initialize(this);
-      if(meta_node->is_head_vertice()) {
-        // put an empty BetaRow to kick start the propagation in the rete network
-        bn->insert_beta_row(this, create_beta_row(meta_node, 0));
+    int ret = 0;
+    try {
+      beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
+      // Initialize BetaRelationVector beta_relations_
+      VLOG(20) << "Initialize ReteSession";
+      for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
+        auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
+        // VLOG(30) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
+        auto bn = create_beta_node(meta_node);
+        bn->initialize(this);
+        if(meta_node->is_head_vertice()) {
+          // put an empty BetaRow to kick start the propagation in the rete network
+          bn->insert_beta_row(this, create_beta_row(meta_node, 0));
+        }
+        beta_relations_.push_back(bn);
       }
-      beta_relations_.push_back(bn);
+      ret = this->set_graph_callbacks();
+    } catch (std::exception& err) {
+      LOG(ERROR) << "ReteSession::initialize: error:"<<err.what();
+      this->err_msg_ = std::string(err.what());
+      return -1;
+    } catch (...) {
+      LOG(ERROR) << "ReteSession::initialize: unknown error";
+      this->err_msg_ = std::string("unknown error in executing rules");
+      return -1;
     }
-    auto ret = this->set_graph_callbacks();
     return ret;
   }
 
@@ -62,6 +74,13 @@ namespace jets::rete {
       // Taking into consideration that antecedent AlphaNodes have the
       // same index as NodeVertex
       this->rule_ms_->alpha_nodes_[ipos]->register_callback(this);
+
+      // Register GraphCallback4FilterManager using the filter expression three.
+      // As for AlphaNode use ipos as the vertex for the callback registration
+      auto node = this->rule_ms_->get_node_vertex(ipos);
+      if(node->has_expr()) {
+        node->filter_expr->register_callback(this, ipos);
+      }
     }
     return 0;
   }
@@ -339,6 +358,7 @@ namespace jets::rete {
     return 0;
   }
 
+  // This is called by callback manager in response to a triple inserted or deleted from the rdf graph
   int
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
@@ -353,7 +373,7 @@ namespace jets::rete {
       LOG(ERROR) << "ReteSession::triple_updated @ vertex "
         <<vertex<<": error parent_beta_relation or beta_relation is null!";
       RETE_EXCEPTION("ReteSession::triple_updated @ vertex "
-        <<vertex<<": error parent_beta_relation or beta_relation is null!");
+        <<vertex<<": error parent_beta_relation or beta_relation is  null!");
     }
 
     // Get an iterator over all applicable rows from the parent beta node
@@ -433,6 +453,126 @@ namespace jets::rete {
         }
       }
       parent_row_itor->next();
+    }
+    return 0;
+  }
+
+  // This is called by callback manager in response to a triple inserted or deleted from the rdf graph
+  // Case for rule filters
+  // The approach is to replay all the inferrence of this node when a triple is inserted or retracted,
+  // this is done by first retracting all the beta rows of the current node and then infer based on the
+  // beta rows of the parent node
+  int
+  ReteSession::triple_updated_for_filters(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
+  {
+    b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
+
+    // make sure this is not the rete head node
+    if(cmeta_node->is_head_vertice()) return 0;
+
+    auto * parent_beta_relation = this->get_beta_relation(cmeta_node->parent_node_vertex->vertex);
+    auto * current_relation = this->get_beta_relation(vertex);
+    if(not parent_beta_relation or not current_relation) {
+      LOG(ERROR) << "ReteSession::triple_updated_for_filters @ vertex "
+        <<vertex<<": error parent_beta_relation or beta_relation is null!";
+      RETE_EXCEPTION("ReteSession::triple_updated_for_filters @ vertex "
+        <<vertex<<": error parent_beta_relation or beta_relation is  null!");
+    }
+
+    VLOG(35)<<"REPLAY Filter @ Vertex "<<vertex;
+
+    // Start by retracting all beta rows of current node
+    current_relation->clear_pending_rows();    
+    auto current_row_itor = current_relation->get_all_rows_ptr_iterator();
+    beta_row_list l;
+    while(!current_row_itor->is_end()) {
+      l.push_back(current_row_itor->get_row_ptr());
+      current_row_itor->next();
+    }
+    for(const auto & e: l) {
+      VLOG(50)<<"Marking row "<< e << "for removal";
+      current_relation->remove_beta_row(this, e);
+    }
+
+    // Propagate down the network to retract the removed beta rows
+    if(current_relation->has_pending_rows()) {
+      VLOG(35)<<"RETRACT Filter @ Vertex "<<vertex<<" - propagating down the network ...";
+      auto err = this->visit_rete_graph(vertex, false);
+      VLOG(35)<<"RETRACT Filter @ Vertex "<<vertex<<" - propagating down the network ...DONE";
+      if(err) return err;
+    } else {
+      VLOG(35)<<"RETRACT Filter @ Vertex "<<vertex<<" - NO NEED to propagating down the network (no child or rows were cancelled)";
+    }
+
+    // Replay the inference
+    // Get an iterator over all rows from the parent beta node
+    // which is provided by the alpha node adaptor
+    // to replay the inferrence
+    auto const* alpha_node = this->rule_ms_->get_alpha_node(vertex);
+    BetaRowIteratorPtr parent_row_itor = parent_beta_relation->get_all_rows_iterator();
+
+    // for each BetaRow of parent beta node, 
+    // compute the BetaRows by querying the graph
+    auto const* beta_row_initializer = cmeta_node->get_beta_row_initializer();
+    while(!parent_row_itor->is_end()) {
+
+      // for each triple from the rdf graph matching the AlphaNode
+      // compute the BetaRow to infer or retract
+      auto const* parent_row = parent_row_itor->get_row();
+      auto t3_itor = alpha_node->find_matching_triples(this->rdf_session(), parent_row);
+
+      // Process the returned iterator t3_itor accordingly if AlphaNode is a negation
+      if(cmeta_node->is_negation) {
+        if(t3_itor.is_end()) {
+          // create the beta row
+          auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          // initialize the beta row with parent_row and place holder for t3
+          rdf::Triple triple;
+          beta_row->initialize(beta_row_initializer, parent_row, &triple);
+
+          // evaluate the current_relation filter if any
+          bool keepit = true;
+          if(cmeta_node->has_expr()) {
+            keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
+            // VLOG(50)<<"    Applying Filter ... "<<(keepit?"keep row":"reject row");
+          }
+
+          // insert or remove the row from current_relation based on is_inferring
+          if(keepit) {
+            // Add row to current beta relation (current_relation)
+            current_relation->insert_beta_row(this, beta_row);
+          }
+        }
+      } else {
+        while(not t3_itor.is_end()) {
+          // create the beta row
+          auto beta_row = create_beta_row(cmeta_node, static_cast<int>(beta_row_initializer->get_size()));
+          // initialize the beta row with parent_row and t3
+          rdf::Triple triple = t3_itor.as_triple();
+          beta_row->initialize(beta_row_initializer, parent_row, &triple);
+
+          // evaluate the current_relation filter
+          bool keepit = true;
+          if(cmeta_node->has_expr()) {
+            keepit = cmeta_node->filter_expr->eval_filter(this, beta_row.get());
+          }
+          if(keepit) {
+            // Add row to current beta relation (current_relation)
+            current_relation->insert_beta_row(this, beta_row);
+          }
+          t3_itor.next();
+        }
+      }
+      parent_row_itor->next();
+    }            
+    // Propagate down the rete network
+    if(current_relation->has_pending_rows()) {
+      VLOG(35)<<"REPLAY Filter @ Vertex "<<vertex<<" - propagating down the network ...";
+      auto err = this->visit_rete_graph(vertex, true);
+      VLOG(35)<<"REPLAY Filter @ Vertex "<<vertex<<" - propagating down the network ...DONE";
+      if(err) return err;
+    } else {
+      VLOG(35)<<"REPLAY Filter @ Vertex "<<vertex<<" - NO NEED to propagating down the network (no child or rows were cancelled)";
     }
     return 0;
   }

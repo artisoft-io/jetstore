@@ -1,0 +1,47 @@
+{
+  "lookup_tables": [
+    {
+      "type": "lookup",
+      "name": "InterchangeLookup",
+      "key": [
+        "gpi"
+      ],
+      "columns": [
+        {
+          "name": "gpi_1",
+          "type": "text",
+          "as_array": false
+        },
+        {
+          "name": "ratio_1",
+          "type": "double",
+          "as_array": false
+        },
+        {
+          "name": "gpi_2",
+          "type": "text",
+          "as_array": false
+        },
+        {
+          "name": "ratio_2",
+          "type": "double",
+          "as_array": false
+        },
+        {
+          "name": "difficulty",
+          "type": "text",
+          "as_array": false
+        }
+      ],
+      "csv_file": "lookups/interchange_lookup.csv",
+      "source_file_name": "jet_rules/sdmc_lookups.jr",
+      "resources": [
+        "gpi_1",
+        "ratio_1",
+        "gpi_2",
+        "ratio_2",
+        "difficulty"
+      ]
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/google/uuid"
 )
 
 func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj string) (*bridge.Resource, error) {
@@ -38,13 +39,35 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 	// 	log.Println("    ",inBundleRow.processInput.processInputMapping[ipos].dataProperty,"  =  ",inBundleRow.rowData[ipos], ", range ",inBundleRow.processInput.processInputMapping[ipos].rdfType,", array?",inBundleRow.processInput.processInputMapping[ipos].isArray)
 	// }
 	// get the jets:key and create the subject for the row
-	jets__key := inBundleRow.rowData[inBundleRow.processInput.keyPosition].(*sql.NullString)
-	subject, err := reteSession.NewResource(jets__key.String)
-	if !jets__key.Valid || err != nil {
+	// if it's an alias_domain_table, assign a new jets:key unless Class Name is unchanged
+	isAliasTable := false
+	var jetsKey, tagName string
+	
+	if inBundleRow.processInput.sourceType == "alias_domain_table" {
+		tagName = "Alias Domain"	// for printing only
+		if inBundleRow.processInput.entityRdfType != inBundleRow.processInput.tableName {
+		 isAliasTable = true			// apply special processinf: assign new jets:key and rdf:type
+ 		}
+  } else {
+		tagName = "Domain"
+	}
+
+	if isAliasTable {
+		jetsKey = uuid.New().String()
+	} else {
+		jets__key := inBundleRow.rowData[inBundleRow.processInput.keyPosition].(*sql.NullString)
+		if !jets__key.Valid {
+			return fmt.Errorf("error jets:key in input row is not valid")
+		}
+		jetsKey = jets__key.String
+	}
+
+	subject, err := reteSession.NewResource(jetsKey)
+	if err != nil {
 		return fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
 	}
 	if glogv > 2 {
-		log.Printf("Asserting Entity with jets:key %s", jets__key.String)
+		log.Printf("Asserting %s Entity with jets:key %s", tagName, jetsKey)
 	}
 	// For Each Column
 	// Note that default value from mapping is not applied when input value (inBundleRow) is null
@@ -56,6 +79,21 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		var err error
 		if inputColumnSpec.isArray {
 			objectArr = make([]*bridge.Resource, 0)
+		}
+
+		// check for special case, alias input record
+		if isAliasTable {
+			switch inputColumnSpec.inputColumn.String {
+			case "rdf:type":
+				// intercept the rdf:type and put the alias one instread of the one comming from the read
+				object, err = reteSession.NewResource(inBundleRow.processInput.entityRdfType)
+				objectArr = append(objectArr, object)
+				goto ERRCHECK
+			case "jets:key":
+				// intercept the jets:key and put the alias one instread of the one comming from the read
+				object, err = reteSession.NewTextLiteral(jetsKey)
+				goto ERRCHECK
+			}
 		}
 
 		switch inputColumnSpec.rdfType {
@@ -141,10 +179,10 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		default:
 			err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn.String, inputColumnSpec.rdfType)
 		}
-	ERRCHECK:
+		ERRCHECK:
 		if err != nil {
-			var br BadRow
-			br.RowJetsKey = *jets__key
+			br := NewBadRow()
+			br.RowJetsKey = sql.NullString{String: jetsKey, Valid: true}
 			gp := inBundleRow.rowData[inBundleRow.processInput.groupingPosition].(*sql.NullString)
 			if gp.Valid {
 				br.GroupingKey = sql.NullString{String: gp.String, Valid: true}

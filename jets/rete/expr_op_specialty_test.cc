@@ -108,6 +108,60 @@ TEST_F(ExprOpSpecialtyTest, MinOfVisitor1) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(10)));
 }
+TEST_F(ExprOpSpecialtyTest, MinOfVisitorX1) {
+  // test min ?v in (s, p, ?v)
+  auto rmgr = this->rdf_session->rmgr();
+  auto s = rmgr->create_resource(std::string("s"));
+  auto p = rmgr->create_resource(std::string("p"));
+  this->rdf_session->insert(s, p, rmgr->create_literal(int(1)));
+  this->rdf_session->insert(s, p, rmgr->create_literal(int(2)));
+  this->rdf_session->insert(s, p, rmgr->create_literal(int(3)));
+  MinOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("s");
+  rdf::NamedResource rhs("p");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LInt32(1)));
+}
+TEST_F(ExprOpSpecialtyTest, MinOfVisitorX2) {
+  // test min ?v in (s, p, ?v)
+  auto rmgr = this->rdf_session->rmgr();
+  auto s = rmgr->create_resource(std::string("s"));
+  auto p = rmgr->create_resource(std::string("p"));
+  this->rdf_session->insert(s, p, rmgr->create_literal(rdf::boost_date_from_string("2023-06-21")));
+  this->rdf_session->insert(s, p, rmgr->create_literal(rdf::boost_date_from_string("2023-06-22")));
+  this->rdf_session->insert(s, p, rmgr->create_literal(rdf::boost_date_from_string("2023-06-23")));
+  MinOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("s");
+  rdf::NamedResource rhs("p");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::boost_date_from_string("2023-06-21"))));
+}
+TEST_F(ExprOpSpecialtyTest, MinOfVisitorX3) {
+  // test min ?v in (s, p, ?v)
+  auto rmgr = this->rdf_session->rmgr();
+  auto s = rmgr->create_resource(std::string("s"));
+  auto p = rmgr->create_resource(std::string("p"));
+  this->rdf_session->insert(s, p, rmgr->create_literal(rdf::boost_date_from_string("2023-06-01")));
+  this->rdf_session->insert(s, p, rmgr->create_literal(rdf::boost_date_from_string("2023-06-06")));
+  MinOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("s");
+  rdf::NamedResource rhs("p");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::boost_date_from_string("2023-06-01"))));
+}
+TEST_F(ExprOpSpecialtyTest, MaxOfVisitorX3) {
+  // test min ?v in (s, p, ?v)
+  auto rmgr = this->rdf_session->rmgr();
+  auto s = rmgr->create_resource(std::string("s"));
+  auto p = rmgr->create_resource(std::string("p"));
+  this->rdf_session->insert(s, p, rmgr->create_literal(rdf::boost_date_from_string("2023-06-01")));
+  this->rdf_session->insert(s, p, rmgr->create_literal(rdf::boost_date_from_string("2023-06-06")));
+  MaxOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("s");
+  rdf::NamedResource rhs("p");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LDate(rdf::boost_date_from_string("2023-06-06"))));
+}
 TEST_F(ExprOpSpecialtyTest, MinOfVisitor2) {
   // test min ?v in (s, objp, ?o).(?o, datap, ?v)
   MinOfVisitor op(this->rete_session.get(), nullptr);

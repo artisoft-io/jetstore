@@ -4,9 +4,9 @@ const defaultPadding = 16.0;
 const betweenTheButtonsPadding = 8.0;
 
 /// Button action style, used by both JetsDataTable and JetsForm
-enum ActionStyle { primary, secondary, alternate, danger }
+enum ActionStyle { primary, secondary, alternate, menuSelected, menuAlternate, danger }
 
-ButtonStyle buttonStyle(ActionStyle style, ThemeData td) {
+ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
   switch (style) {
     case ActionStyle.danger:
       return ElevatedButton.styleFrom(
@@ -25,6 +25,16 @@ ButtonStyle buttonStyle(ActionStyle style, ThemeData td) {
         foregroundColor: td.colorScheme.onPrimaryContainer,
         backgroundColor: Colors.orange.shade200,
       ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.menuSelected:
+      return TextButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.menuAlternate:
+      return null;
 
     default: // primary
       return ElevatedButton.styleFrom(
@@ -45,14 +55,23 @@ class ScreenKeys {
   static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
   static const pipelineConfig = "pipelineConfigScreen";
+  static const pipelineConfigEdit = "pipelineConfigEditScreen";
+
+  // Query Tool
+  static const queryToolScreen = "queryToolScreen";
 
   static const login = "loginScreen";
   static const register = "registerScreen";
   static const userAdmin = "userAdminScreen";
 
   static const fileRegistryTable = "fileRegistryTableScreen";
+  static const filePreview = "filePreviewScreen";
   static const execStatusDetailsTable = "execStatusDetailsTable";
   static const processErrorsTable = "processErrorsTable";
+
+  // Workspace IDE Screens
+  static const workspaceRegistry = "workspaceRegistryScreen";
+  static const workspaceHome = "workspaceHome";
 }
 
 /// Form ID Keys
@@ -68,7 +87,7 @@ class FormKeys {
   static const sourceConfig = "sourceConfigForm";
   static const addSourceConfig = "addSourceConfigDialog";
   static const loadRawRows = "loadRawRowsDialog";
-  static const loadFile = "loadFileDialog";
+  static const loadAllFiles = "loadAllFilesDialog";
   // Input Source Mapping Forms
   static const inputSourceMapping = "inputSourceMapping";
   static const processMapping = "processMappingDialog";
@@ -79,13 +98,32 @@ class FormKeys {
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
   // Pipeline Config & Exec Forms
-  static const pipelineConfig = "pipelineConfigDialog";
+  static const pipelineConfigForm = "pipelineConfigForm";
+  static const pipelineConfigEditForm = "pipelineConfigEditForm";
   static const startPipeline = "startPipelineDialog";
-  static const loadAndStartPipeline = "loadAndStartPipelineDialog";
+  // Process Errors Dialogs
+  static const viewProcessErrors = "viewProcessErrorsForm";
+  static const viewInputRecords = "viewInputRecordsDialog";
+  static const viewReteTriples = "viewReteTriplesDialog";
+  // Query Tool Forms
+  static const queryToolInputForm = "queryToolInputForm";
+  static const queryToolResultViewForm = "queryToolResultViewForm";
   // User Admin forms
   static const login = "login";
   static const register = "register";
   static const userAdmin = "userAdmin";
+
+  // Workspace IDE forms
+  static const workspaceRegistry = "workspaceRegistry";
+  static const workspaceHome = "workspaceHome";
+  static const addWorkspace = "addWorkspace";
+  // Forms for each section of the workspace, incl file editor
+  // Note: The formConfig key is constructed in initializeWorkspaceFileEditor
+  static const workspaceFileEditor = "workspace.file.form";
+  static const wsDataModelForm = "workspace.data_model.form";
+  static const wsJetRulesForm = "workspace.jet_rules.form";
+  static const wsLookupsForm = "workspace.lookups.form";
+  // ... more to come
 }
 
 /// Form State Keys
@@ -94,6 +132,7 @@ class FormKeys {
 /// to keys expected in message sent to apiserver
 class FSK {
   static const key = "key";
+  static const label = "label";
   static const tableName = "table_name";
   static const fileKey = "file_key";
 
@@ -115,10 +154,24 @@ class FSK {
   static const objectType = "object_type";
   static const sourceType = "source_type";
   static const domainKeysJson = "domain_keys_json";
+  static const inputColumnsJson = "input_columns_json";
+  static const inputColumnsPositionsCsv = "input_columns_positions_csv";
   static const codeValuesMappingJson = "code_values_mapping_json";
   static const entityRdfType = "entity_rdf_type";
   static const status = "status";
   static const rawRows = "raw_rows";
+
+  static const pipelineExectionStatusKey = "pipeline_execution_status_key";
+  static const domainKey = "domain_key";
+  static const domainKeyColumn =
+      "domainKeyColumn"; // e.g. Eligibility:domain_key
+  static const reteSessionTriples = "rete_session_triples";
+
+  // Query Tool
+  static const rawQuery = "raw_query";
+  static const rawQueryReady = "raw_query.ready";
+  static const rawDdlQueryReady = "raw_query.ddl.ready";
+  static const queryReady = "query.ready";
 
   // keys used for mapping
   // key for domain classes data properties
@@ -146,16 +199,36 @@ class FSK {
   // Pipeline Config keys
   static const mainProcessInputKey = "main_process_input_key";
   static const mergedProcessInputKeys = "merged_process_input_keys";
+  static const injectedProcessInputKeys = "injected_process_input_keys";
   static const mainObjectType = "main_object_type";
   static const mainSourceType = "main_source_type";
+  static const mainTableName = "main_process_input.table_name";
   static const sourcePeriodType = "source_period_type";
   static const automated = "automated";
+  static const maxReteSessionSaved = "max_rete_sessions_saved";
+  static const ruleConfigJson = "rule_config_json";
 
   // Pipeline Exec keys
   static const pipelineConfigKey = "pipeline_config_key";
   static const mainInputRegistryKey = "main_input_registry_key";
   static const mainInputFileKey = "main_input_file_key";
   static const mergedInputRegistryKeys = "merged_input_registry_keys";
+
+  // Source Period keys
+  static const year = "year";
+  static const month = "month";
+  static const day = "day";
+  static const dayPeriod = "day_period";
+
+  // Form Keys for Workspace IDE
+  static const wsName = "workspace_name";
+  static const wsURI = "workspace_uri";
+  static const wsFileName = "file_name";
+  static const wsFileEditorContent = "file_content";
+  static const wsOid = "oid";
+  // matching menuItem and current page (virtual page)
+  static const pageMatchKey = "pageMatchKey";
+
 
   // reserved keys for cache
 
@@ -188,6 +261,10 @@ class FSK {
   // provides mapping between object_type and entity_rdf_type
   static const objectTypeRegistryCache = "cache.object_type_registry";
 
+  // entityRdfTypeRegistryCache: cache value is a List<String?>
+  // provides list of entity_rdf_type
+  static const entityRdfTypeRegistryCache = "cache.dropdown_items.entity_rdf_type";
+
   // processConfigCache: cache value is a list<list<String?>> (model)
   // from table process_config provides [key, process_name]
   // The query is in FSK.processName drowpdown initaization query
@@ -216,14 +293,22 @@ class ActionKeys {
   static const deleteOrg = "deleteOrgAction";
   static const exportClientConfig = "exportClientConfig";
 
-// for Source Config dialog
+  // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
+  static const dropTable = "dropTable";
 
   // for load file
   static const loaderOk = "loader.ok";
+  static const loadAllFilesOk = "loadAllFiles.ok";
+  static const loaderMultiOk = "loaderMulti.ok";
 
   // to sync file key with web storage (s3)
   static const syncFileKey = "syncFileKey";
+
+  // Query Tool Actions
+  static const queryToolOk = "queryTool.ok";
+  static const queryToolDdlOk = "queryTool.ddl.ok";
+
 
   // for add process input dialog
   static const addProcessInputOk = "addProcessInputOk";
@@ -231,6 +316,8 @@ class ActionKeys {
   static const mapperOk = "mapper.ok";
   static const mapperDraft = "mapper.draft";
   static const loadRawRowsOk = "loadRawRows.Ok";
+  // to download process mapping rows
+  static const downloadMapping = "downloadMapping";
 
   // for process and rules config dialog
   static const ruleConfigOk = "ruleConfig.ok";
@@ -242,7 +329,18 @@ class ActionKeys {
 
   // for pipeline execution dialogs
   static const startPipelineOk = "startPipeline.ok";
-  static const loadAndStartPipelineOk = "loadAndStartPipeline.ok";
+
+  // for process_error data table
+  static const setupShowInputRecords = "setupShowInputRecords";
+  static const setupShowReteTriples = "setupShowReteTriples";
+
+  // Workspace IDE ActionKeys
+  static const addWorkspaceOk = "addWorkspaceOk";
+  static const compileWorkspace = "compileWorkspace";
+  static const openWorkspace = "openWorkspace";
+  static const wsSaveFileOk = "wsSaveFileOk";
+  static const deleteWorkspaceChanges = "deleteWorkspaceChanges";
+  static const deleteAllWorkspaceChanges = "deleteAllWorkspaceChanges";
 }
 
 /// Form Action Keys
@@ -263,17 +361,28 @@ class DTKeys {
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
+  static const reteSessionTriplesTable = "reteSessionTriplesTable";
+  static const inputRecordsFromProcessErrorTable =
+      "inputRecordsFromProcessErrorTable";
 
   // Client & Organization Admin DT
   static const clientAdminTable = "clientAdminTable";
+  static const clientTable = "clientTable";
   static const orgNameTable = "orgNameTable";
 
   // File Staging Area / Source Config DT
   static const sourceConfigTable = "sourceConfigTable";
   static const fileKeyStagingTable = "fileKeyStagingTable";
+  static const fileKeyStagingMultiLoadTable = "fileKeyStagingMultiLoadTable";
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";
+
+  // QueryTool ResultSetTable
+  static const queryToolResultSetTable = "queryToolResultSetTable";
+
+  // Input File Viewer DT
+  static const inputFileViewerTable = "inputFileViewerTable";
 
   // Input Source Mapping DT
   static const inputSourceMapping = "inputSourceMapping";
@@ -288,12 +397,28 @@ class DTKeys {
 
   // Pipeline Config DT
   static const pipelineConfigTable = "pipelineConfigTable";
-  static const fileKeyStagingForPipelineMainProcessInput =
-      "fileKeyStagingForPipelineMainProcessInput";
-  // static const fileKeyStagingForPipelineMergeProcessInput = "fileKeyStagingForPipelineMergeProcessInput";
+  static const mainProcessInputTable = "mainProcessInputTable";
+  static const mergeProcessInputTable = "mergeProcessInputTable";
+  static const injectedProcessInputTable = "injectedProcessInputTable";
 
-  // User administration
+  // User administration DT
   static const usersTable = "userTable";
+
+  // Workspace IDE DT
+  static const workspaceRegistryTable = "workspaceRegistryTable";
+  static const workspaceChangesTable = "workspaceChangesTable";
+  
+  // Workspace - Data Model Tables
+  static const wsDomainTableTable = "wsDomainTableTable";
+  static const wsDomainClassTable = "wsDomainClassTable";
+  static const wsDataPropertyTable = "wsDataPropertyTable";
+
+  // Workspace - Jet Rules Tables
+  static const wsJetRulesTable = "wsJetRulesTable";
+  static const wsRuleTermsTable = "wsRuleTermsTable";
+  static const wsMainSupportFilesTable = "wsMainSupportFilesTable";
+
+  static const wsLookupsTable = "wsLookupsTable";
 }
 
 /// API Server endpoints

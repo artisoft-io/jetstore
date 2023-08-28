@@ -13,6 +13,7 @@
 #include "../rete/expr_op_resources.h"
 #include "../rete/expr_op_others.h"
 #include "../rete/expr.h"
+#include "../rete/rete_meta_store_factory.h"
 
 // This file contains basic operator used in rule expression 
 // see ExprUnaryOp and ExprBinaryOp classes.
@@ -48,6 +49,12 @@ ReteMetaStoreFactory::create_binary_expr(int key, ExprBasePtr lhs, std::string c
   if(op == "apply_format")      return create_expr_binary_operator<ApplyFormatVisitor>(key, lhs, rhs);
   if(op == "contains")          return create_expr_binary_operator<ContainsVisitor>(key, lhs, rhs);
   if(op == "starts_with")       return create_expr_binary_operator<StartsWithVisitor>(key, lhs, rhs);
+  if(op == "substring_of")      return create_expr_binary_operator<SubstringOfVisitor>(key, lhs, rhs);
+  if(op == "char_at")           return create_expr_binary_operator<CharAtVisitor>(key, lhs, rhs);
+  if(op == "replace_char_of")   return create_expr_binary_operator<ReplaceCharOfVisitor>(key, lhs, rhs);
+
+  // "Iterator" operator
+  if(op == "range")             return create_expr_binary_operator<RangeVisitor>(key, lhs, rhs);
 
   // Resource operators
   if(op == "size_of")           return create_expr_binary_operator<SizeOfVisitor>(key, lhs, rhs);
@@ -83,15 +90,23 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "to_int")            return create_expr_unary_operator<ToIntVisitor>(key, arg);
   if(op == "to_double")         return create_expr_unary_operator<ToDoubleVisitor>(key, arg);
   
+  // Date/Datetime operators
+  if(op == "to_timestamp")      return create_expr_unary_operator<ToTimestampVisitor>(key, arg);
+  if(op == "month_period_of")   return create_expr_unary_operator<MonthPeriodVisitor>(key, arg);
+  if(op == "week_period_of")    return create_expr_unary_operator<WeekPeriodVisitor>(key, arg);
+  if(op == "day_period_of")     return create_expr_unary_operator<DayPeriodVisitor>(key, arg);
+  
   // Logical operators
   if(op == "not")               return create_expr_unary_operator<NotVisitor>(key, arg);
 
   // String operators
-  if(op == "to_upper")          return create_expr_unary_operator<To_upperVisitor>(key, arg);
-  if(op == "to_lower")          return create_expr_unary_operator<To_lowerVisitor>(key, arg);
-  if(op == "trim")              return create_expr_unary_operator<TrimVisitor>(key, arg);
-  if(op == "length_of")         return create_expr_unary_operator<LengthOfVisitor>(key, arg);
+  if(op == "to_upper")           return create_expr_unary_operator<To_upperVisitor>(key, arg);
+  if(op == "to_lower")           return create_expr_unary_operator<To_lowerVisitor>(key, arg);
+  if(op == "trim")               return create_expr_unary_operator<TrimVisitor>(key, arg);
+  if(op == "length_of")          return create_expr_unary_operator<LengthOfVisitor>(key, arg);
   if(op == "parse_usd_currency") return create_expr_unary_operator<ParseUsdCurrencyVisitor>(key, arg);
+  if(op == "uuid_md5")           return create_expr_unary_operator<CreateNamedMd5UUIDVisitor>(key, arg);
+  if(op == "uuid_sha1")          return create_expr_unary_operator<CreateNamedSha1UUIDVisitor>(key, arg);
 
   // Resource operators
   if(op == "create_entity")     return create_expr_unary_operator<CreateEntityVisitor>(key, arg);
@@ -100,6 +115,7 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "create_uuid_resource") return create_expr_unary_operator<CreateUUIDResourceVisitor>(key, arg);
   if(op == "is_literal")        return create_expr_unary_operator<IsLiteralVisitor>(key, arg);
   if(op == "is_resource")       return create_expr_unary_operator<IsResourceVisitor>(key, arg);
+  if(op == "raise_exception")   return create_expr_unary_operator<RaiseExceptionVisitor>(key, arg);
 
   // Lookup operators (in expr_op_others.h)
   if(op == "lookup_rand")       return create_expr_unary_operator<LookupRandVisitor>(key, arg);

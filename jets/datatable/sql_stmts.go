@@ -42,16 +42,16 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// source config
 	"source_config": {
 		Stmt: `INSERT INTO jetsapi.source_config 
-			(object_type, client, org, automated, table_name, domain_keys_json, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			RETURNING key`,
-		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "user_email"},
+		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "user_email"},
 	},
 	"update/source_config": {
 		Stmt: `UPDATE jetsapi.source_config SET
-			(object_type, client, org, automated, table_name, domain_keys_json, user_email, last_update) 
-			= ($1, $2, $3, $4, $5, $6, $7, DEFAULT) WHERE key = $8`,
-		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "user_email", "key"},
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, DEFAULT) WHERE key = $11`,
+		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "user_email", "key"},
 	},
 	// input loader status
 	"input_loader_status": {
@@ -104,19 +104,33 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		ColumnKeys: []string{"process_config_key", "process_name", "client", "subject", "predicate", "object", "rdf_type"},
 	},
+	// Rule Configv2
+	"update/rule_configv2": {
+		Stmt: `UPDATE jetsapi.rule_configv2 SET
+			(process_config_key, process_name, client, rule_config_json, user_email, last_update) 
+			VALUES ($1, $2, $3, $4, $5, DEFAULT)
+			WHERE key = $6`,
+		ColumnKeys: []string{"process_config_key", "process_name", "client", "rule_config_json", "user_email", "key"},
+	},
+	"rule_configv2": {
+		Stmt: `INSERT INTO jetsapi.rule_configv2 
+			(process_config_key, process_name, client, rule_config_json, user_email) 
+			VALUES ($1, $2, $3, $4, $5)`,
+		ColumnKeys: []string{"process_config_key", "process_name", "client", "rule_config_json", "user_email"},
+	},
 	// pipeline config
 	"update/pipeline_config": {
 		Stmt: `UPDATE jetsapi.pipeline_config SET 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, user_email, last_update) = 
-			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, DEFAULT) 
-			WHERE key = $11`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "user_email", "key"},
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, rule_config_json, user_email, last_update) = 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, DEFAULT) 
+			WHERE key = $14`,
+		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "rule_config_json", "user_email", "key"},
 	},
 	"pipeline_config": {
 		Stmt: `INSERT INTO jetsapi.pipeline_config 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, main_object_type, main_source_type, automated, description, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "user_email"},
+			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, rule_config_json, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "rule_config_json", "user_email"},
 	},
 
 	// pipeline_execution_status 
@@ -141,7 +155,8 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		Stmt: `INSERT INTO jetsapi.file_key_staging 
 			(client, org, object_type, file_key, source_period_key) 
 			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT DO NOTHING`,
+			ON CONFLICT ON CONSTRAINT file_key_staging_unique_cstraintv3
+			DO UPDATE SET last_update = DEFAULT`,
 		ColumnKeys: []string{"client", "org", "object_type", "file_key", "source_period_key"},
 	},
 
@@ -156,5 +171,321 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 		Stmt: `DELETE FROM jetsapi.users WHERE user_email = $1`,
 		ColumnKeys: []string{"user_email"},
 		AdminOnly: true,
+	},
+
+	// Statements for Rule Workspace Administration (tables part of jetsapi schema)
+	// ----------------------------------------------------------------------------------------------
+	// source config
+	"workspace_registry": {
+		Stmt: `INSERT INTO jetsapi.workspace_registry 
+			(workspace_name, workspace_uri, description, user_email) 
+			VALUES ($1, $2, $3, $4)
+			RETURNING key`,
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "user_email"},
+	},
+	"update/workspace_registry": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(workspace_name, workspace_uri, description, user_email, last_update) 
+			= ($1, $2, $3, $4, DEFAULT) WHERE key = $5`,
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "user_email", "key"},
+	},
+	// compile workspace (insert into workspace_registry and trigger compile workspace)
+	"compile_workspace": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(user_email, last_update) 
+			= ($2, DEFAULT) WHERE workspace_name = $1`,
+		ColumnKeys: []string{"workspace_name", "user_email"},
+	},
+
+	// Statements for Rule Workspace
+	// ----------------------------------------------------------------------------------------------
+	// Statement key that starts with WORKSPACE/ have a pre-execution hook that replace $SCHEMA by the
+	// current workspace name (taken from DataTableAction.Workspace) by the
+	// InsertRows pre-processing hook.
+	//
+	// Workspace Control
+	"WORKSPACE/workspace_control": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.workspace_control 
+				(source_file_name,is_main) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_workspace_control_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.workspace_control 
+			WHERE source_file_name=$1`,
+			ColumnKeys: []string{"source_file_name","is_main"},
+		AdminOnly: false,
+	},
+	//
+	// Workspace Resources
+	"WORKSPACE/resources": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.resources 
+				(type,id,value,is_binded,inline,vertex,var_pos,source_file_key) 
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_resources_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.resources 
+			WHERE type=$1 AND id=$2 AND value=$3 AND is_binded=$4 AND inline=$5 AND vertex=$6 AND var_pos=$7`,
+		ColumnKeys: []string{"type","id","value","is_binded","inline","vertex","var_pos","source_file_key"},
+		AdminOnly: false,
+	},
+	//
+	// Domain Classes
+	"WORKSPACE/domain_classes": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.domain_classes 
+				(name,as_table,source_file_key) 
+				VALUES ($1,$2,$3)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_classes_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.domain_classes 
+			WHERE name=$1`,
+			ColumnKeys: []string{"name","as_table","source_file_key"},
+		AdminOnly: false,
+	},
+	// Base Classes
+	"WORKSPACE/base_classes": {
+		Stmt: `
+				INSERT INTO $SCHEMA.base_classes 
+				(domain_class_key,base_class_key) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_base_classes_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"domain_class_key","base_class_key"},
+		AdminOnly: false,
+	},
+	// Data Properties
+	"WORKSPACE/data_properties": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.data_properties 
+				(domain_class_key,name,type,as_array) 
+				VALUES ($1,$2,$3,$4)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_data_properties_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.data_properties 
+			WHERE name=$2`,
+			ColumnKeys: []string{"domain_class_key","name","type","as_array"},
+		AdminOnly: false,
+	},
+	// Domain Tables
+	"WORKSPACE/domain_tables": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.domain_tables 
+				(domain_class_key,name) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_tables_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.domain_tables 
+			WHERE name=$2`,
+			ColumnKeys: []string{"domain_class_key","name"},
+		AdminOnly: false,
+	},
+	// Domain Columns
+	"WORKSPACE/domain_columns": {
+		Stmt: `
+				INSERT INTO $SCHEMA.domain_columns 
+				(domain_table_key,data_property_key,name,as_array) 
+				VALUES ($1,$2,$3,$4)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_columns_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"domain_table_key","data_property_key","name","as_array"},
+		AdminOnly: false,
+	},
+	// JetStore Config
+	"WORKSPACE/jetstore_config": {
+		Stmt: `
+				INSERT INTO $SCHEMA.jetstore_config 
+				(config_key,config_value,source_file_key) 
+				VALUES ($1,$2,$3)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_jetstore_config_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"config_key","config_value","source_file_key"},
+		AdminOnly: false,
+	},
+	// Rule Sequences
+	"WORKSPACE/rule_sequences": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.rule_sequences 
+				(name,source_file_key) 
+				VALUES ($1,$2)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_rule_sequences_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.rule_sequences 
+			WHERE name=$1`,
+			ColumnKeys: []string{"name","source_file_key"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/main_rule_sets": {
+		Stmt: `WITH e AS(
+				SELECT key FROM $SCHEMA.workspace_control 
+				WHERE source_file_name = $2
+			)
+			INSERT INTO $SCHEMA.main_rule_sets 
+			(rule_sequence_key,main_ruleset_name,ruleset_file_key,seq) 
+			VALUES ($1,$2,(SELECT e.key FROM e),$3)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_main_rule_sets_unique_cstraint
+			DO NOTHING`,
+			ColumnKeys: []string{"rule_sequence_key","main_ruleset_name","seq"},
+		AdminOnly: false,
+	},
+	// Lookup Tables
+	"WORKSPACE/lookup_tables": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.lookup_tables 
+				(name,table_name,csv_file,lookup_key,lookup_resources,source_file_key) 
+				VALUES ($1,$2,$3,$4,$5,$6)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_lookup_tables_unique_cstraint
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.lookup_tables 
+			WHERE name=$1`,
+			ColumnKeys: []string{"name","table_name","csv_file","lookup_key","lookup_resources","source_file_key"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/lookup_columns": {
+		Stmt: `
+				INSERT INTO $SCHEMA.lookup_columns 
+				(lookup_table_key,name,type,as_array) 
+				VALUES ($1,$2,$3,$4)
+				ON CONFLICT ON CONSTRAINT $SCHEMA_lookup_columns_unique_cstraint
+				DO NOTHING`,
+			ColumnKeys: []string{"lookup_table_key","name","type","as_array"},
+		AdminOnly: false,
+	},
+	// Expressions
+	"WORKSPACE/expressions": {
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.expressions 
+			(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op, source_file_key) 
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_expressions_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.expressions
+		WHERE type=$1 AND arg0_key=$2 AND arg1_key=$3 AND arg2_key=$4 AND arg3_key=$5 AND arg4_key=$6 AND arg5_key=$7 AND op=$8 AND source_file_key=$9`,
+
+			ColumnKeys: []string{"type", "arg0_key", "arg1_key", "arg2_key", "arg3_key", "arg4_key", "arg5_key", "op", "source_file_key"},
+		AdminOnly: false,
+	},
+	// Rete Nodes
+	"WORKSPACE/rete_nodes": {
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.rete_nodes
+			(vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, 
+				parent_vertex, "normalized_label", source_file_key, is_negation, salience, consequent_seq) 
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_rete_nodes_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.rete_nodes
+		WHERE vertex=$1 AND type=$2 AND consequent_seq=$13 AND source_file_key=$10`,
+
+		ColumnKeys: []string{"vertex", "type", "subject_key", "predicate_key", "object_key", 
+			"obj_expr_key", "filter_expr_key", "parent_vertex", "normalized_label", 
+			"source_file_key", "is_negation", "salience", "consequent_seq"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/beta_row_config": {
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.beta_row_config
+			(vertex, seq, source_file_key, row_pos, is_binded, id) 
+			VALUES ($1,$2,$3,$4,$5,$6)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_beta_row_config_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.beta_row_config
+		WHERE vertex=$1 AND seq=$2 AND source_file_key=$3`,
+		
+		ColumnKeys: []string{"vertex", "seq", "source_file_key", "row_pos", "is_binded", "id"},
+		AdminOnly: false,
+	},
+	// Jet Rules
+	"WORKSPACE/jet_rules": {
+		Stmt: `WITH e AS(
+			INSERT INTO $SCHEMA.jet_rules
+			(name, optimization, salience, authored_label, normalized_label, label, source_file_key) 
+			VALUES ($1,$2,$3,$4,$5,$6,$7)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_jet_rules_unique_cstraint
+			DO NOTHING
+			RETURNING key
+		)
+		SELECT * FROM e
+		UNION
+		SELECT key FROM $SCHEMA.jet_rules
+		WHERE name=$1 AND source_file_key=$7`,
+		
+		ColumnKeys: []string{"name", "optimization", "salience", "authored_label", "normalized_label", "label", "source_file_key"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/rule_properties": {
+		Stmt: `
+			INSERT INTO $SCHEMA.rule_properties
+			(rule_key, name, value) 
+			VALUES ($1,$2,$3)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_rule_properties_unique_cstraint
+			DO NOTHING`,
+		
+		ColumnKeys: []string{"rule_key", "name", "value"},
+		AdminOnly: false,
+	},
+	"WORKSPACE/rule_terms": {
+		Stmt: `
+			INSERT INTO $SCHEMA.rule_terms
+			(rule_key, rete_node_key, is_antecedent) 
+			VALUES ($1,$2,$3)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_rule_terms_unique_cstraint
+			DO NOTHING`,
+		
+		ColumnKeys: []string{"rule_key", "rete_node_key", "is_antecedent"},
+		AdminOnly: false,
+	},
+	// Triples
+	"WORKSPACE/triples": {
+		Stmt: `
+			INSERT INTO $SCHEMA.triples
+			(subject_key, predicate_key, object_key, source_file_key) 
+			VALUES ($1,$2,$3,$4)
+			ON CONFLICT ON CONSTRAINT $SCHEMA_triples_unique_cstraint
+			DO NOTHING`,
+		
+		ColumnKeys: []string{"subject_key", "predicate_key", "object_key", "source_file_key"},
+		AdminOnly: false,
 	},
 }
