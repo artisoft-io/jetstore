@@ -1011,7 +1011,7 @@
       {
         "columnName": "rule_config_json",
         "dataType": "text",
-        "default": "[]",
+        "default": "'[]'",
         "isNotNull": true
       },
       {

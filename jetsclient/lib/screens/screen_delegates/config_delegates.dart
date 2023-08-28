@@ -1177,6 +1177,8 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       updateState[FSK.client] = formState.getValue(0, FSK.client);
       updateState[FSK.maxReteSessionSaved] =
           formState.getValue(0, FSK.maxReteSessionSaved);
+      updateState[FSK.ruleConfigJson] =
+          formState.getValue(0, FSK.ruleConfigJson);
 
       // add process_config_key based on process_name
       var processConfigCache =

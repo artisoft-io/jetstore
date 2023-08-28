@@ -1081,6 +1081,22 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.injectedProcessInputKeys,
             dataTableConfig: FSK.injectedProcessInputKeys),
       ],
+      [
+        TextFieldConfig(
+            key: 'Rule_Configuration_Json_Header',
+            label: "Rule Configuration Json"),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.ruleConfigJson,
+            label: "Rule Configuration Json",
+            hint: "Enter a valid json array of configuration objects",
+            maxLines: 10,
+            maxLength: 51200,
+            autofocus: false,
+            textRestriction: TextRestriction.none,
+            defaultValue: "[]"),
+      ],
     ],
     formValidatorDelegate: pipelineConfigFormValidator,
     formActionsDelegate: pipelineConfigFormActions,

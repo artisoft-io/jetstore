@@ -755,24 +755,26 @@ func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
 
 	// Read the json config
 	var ruleConfigJson string
+	var configObjs []*map[string]interface{}
 	err = dbpool.QueryRow(context.Background(),
 		`SELECT rule_config_json FROM jetsapi.rule_configv2 WHERE process_config_key = $1 AND client = $2`,
 		pc.processConfigKey, pc.clientName).Scan(&ruleConfigJson)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	var configObjs []*map[string]interface{}
-	if err := json.Unmarshal([]byte(ruleConfigJson), &configObjs); err != nil {
-		return fmt.Errorf("while reading jetsapi.rule_configv2 table, invalid rule_config_json: %v", err)
+	if err == nil {
+		if err := json.Unmarshal([]byte(ruleConfigJson), &configObjs); err != nil {
+			return fmt.Errorf("while reading jetsapi.rule_configv2 table, invalid rule_config_json: %v", err)
+		}
+		if len(configObjs) > 0 {
+			pc.ruleConfigObjs = append(pc.ruleConfigObjs, configObjs...)
+		}
 	}
-	if len(configObjs) > 0 {
-		pc.ruleConfigObjs = append(pc.ruleConfigObjs, configObjs...)
-	}
-
 	// Transform the json config into triples and add them to pc.ruleConfig
 	if len(pc.ruleConfigObjs) == 0 {
 		return nil
 	}
+
 	for _, obj := range pc.ruleConfigObjs {
 		// determine the subject of obj (look for jets:key or use a uuid)
 		var subject string

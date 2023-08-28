@@ -206,6 +206,7 @@ class FSK {
   static const sourcePeriodType = "source_period_type";
   static const automated = "automated";
   static const maxReteSessionSaved = "max_rete_sessions_saved";
+  static const ruleConfigJson = "rule_config_json";
 
   // Pipeline Exec keys
   static const pipelineConfigKey = "pipeline_config_key";
