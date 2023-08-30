@@ -1140,6 +1140,22 @@ String? pipelineConfigFormValidator(
       }
       return "Execution frequency must be selected.";
 
+    case FSK.ruleConfigJson:
+      String? value = v;
+      if (value == null || value.isEmpty) {
+        return null; // this field is nullable
+      }
+      // Validate that value is valid json
+      try {
+        final jv = jsonDecode(value);
+        if (jv is List) {
+          return null;
+        }
+        return "Rule config must be a list of objects";
+      } catch (e) {
+        return "Rule config is not a valid json: ${e.toString()}";
+      }
+
     case FSK.description:
     case FSK.mergedProcessInputKeys:
     case FSK.injectedProcessInputKeys:

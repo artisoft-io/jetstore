@@ -4,7 +4,6 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/screen_form.dart';
 import 'package:jetsclient/screens/screen_multi_form.dart';
 import 'package:jetsclient/screens/screen_one.dart';
-import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/screens/screen_tab_form.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -27,9 +26,9 @@ const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
 const processErrorsPath = '/processErrors/:session_id';
 
 const processConfigPath = '/processConfig';
-const pipelineConfigPath = '/pipelineConfig/:x';
+const pipelineConfigPath = '/pipelineConfig';
 const pipelineConfigEditFormPath =
-    '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys';
+    '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys/:rule_config_json';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';

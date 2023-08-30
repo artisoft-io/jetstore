@@ -220,7 +220,6 @@ class TextFieldConfig extends FormFieldConfig {
   }) {
     return JetsTextField(
       fieldConfig: this,
-      flex: flex,
     );
   }
 }

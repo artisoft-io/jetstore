@@ -129,13 +129,8 @@ class ScreenWithTabsWithFormState extends BaseScreenState {
   void initState() {
     super.initState();
     formStateWhenNoTabs = _widget.formConfig.makeFormState();
-    // Must trigger refresh to capture param from navigation route and put it in
-    // freashfly created formState
-    triggetRefreshListner();
-    JetsRouterDelegate().addListener(triggetRefreshListner);
-  }
 
-  void triggetRefreshListner() {
+    // Put navigation params into form state
     JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
       formStateWhenNoTabs.setValue(0, key, value);
     });
@@ -143,12 +138,6 @@ class ScreenWithTabsWithFormState extends BaseScreenState {
     // and is not from user interactions
     //* TODO - Stop using group 0 as a special group with validation keys
     formStateWhenNoTabs.resetUpdatedKeys(0);
-    setState(() {});
-  }
 
-  @override
-  void dispose() {
-    JetsRouterDelegate().removeListener(triggetRefreshListner);
-    super.dispose();
   }
 }
