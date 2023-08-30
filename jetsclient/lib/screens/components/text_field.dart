@@ -5,16 +5,14 @@ class JetsTextField extends StatelessWidget {
   const JetsTextField({
     Key? key,
     required this.fieldConfig,
-    this.flex = 1,
   }) : super(key: key);
   final TextFieldConfig fieldConfig;
-  final int flex;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData themeData = Theme.of(context);
     return Expanded(
-        flex: flex,
+        flex: fieldConfig.flex,
         child: Padding(
           padding: EdgeInsets.fromLTRB(
               fieldConfig.leftMargin,

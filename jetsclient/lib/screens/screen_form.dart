@@ -73,11 +73,8 @@ class ScreenWithFormState extends BaseScreenState {
   void initState() {
     super.initState();
     formState = _widget.formConfig.makeFormState();
-    triggetRefreshListner();
-    JetsRouterDelegate().addListener(triggetRefreshListner);
-  }
 
-  void triggetRefreshListner() {
+    // Initialize the Form State with the current navigation params
     JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
       formState.setValue(0, key, value);
     });
@@ -85,13 +82,6 @@ class ScreenWithFormState extends BaseScreenState {
     // and is not from user interactions
     //* TODO - Stop using group 0 as a special group with validation keys
     formState.resetUpdatedKeys(0);
-    setState(() {});
-  }
-
-  @override
-  void dispose() {
-    JetsRouterDelegate().removeListener(triggetRefreshListner);
-    super.dispose();
   }
 
 }

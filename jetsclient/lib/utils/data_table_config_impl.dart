@@ -1837,7 +1837,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.automated: 9,
             FSK.description: 10,
             FSK.maxReteSessionSaved: 11,
-            FSK.injectedProcessInputKeys: 12
+            FSK.injectedProcessInputKeys: 12,
+            FSK.ruleConfigJson: 13
           }),
     ],
     formStateConfig:
@@ -1928,12 +1929,19 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 13,
+          name: "rule_config_json",
+          label: '',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 14,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 14,
+          index: 15,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
