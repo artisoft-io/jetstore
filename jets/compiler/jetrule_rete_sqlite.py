@@ -652,7 +652,7 @@ class JetRuleReteSQLite:
       -- --------------------
       CREATE TABLE IF NOT  EXISTS workspace_control (
         key                INTEGER PRIMARY KEY,
-        source_file_name   STRING,
+        source_file_name   TEXT,
         is_main            BOOL
       );
       CREATE TABLE IF NOT EXISTS main_support_files (
@@ -666,8 +666,8 @@ class JetRuleReteSQLite:
       -- jetstore_config table
       -- --------------------
       CREATE TABLE IF NOT  EXISTS jetstore_config (
-        config_key         STRING NOT NULL,
-        config_value       STRING NOT NULL,
+        config_key         TEXT NOT NULL,
+        config_value       TEXT NOT NULL,
         source_file_key    INTEGER NOT NULL
       );
 
@@ -677,7 +677,7 @@ class JetRuleReteSQLite:
       -- --------------------
       CREATE TABLE IF NOT EXISTS rule_sequences (
         key                INTEGER PRIMARY KEY,
-        name               STRING NOT NULL,
+        name               TEXT NOT NULL,
         source_file_key    INTEGER NOT NULL,
         -- rule seq name must be unique in workspace
         UNIQUE (name)
@@ -696,7 +696,7 @@ class JetRuleReteSQLite:
       -- --------------------
       CREATE TABLE IF NOT EXISTS domain_classes (
         key                INTEGER PRIMARY KEY,
-        name               STRING NOT NULL,
+        name               TEXT NOT NULL,
         as_table           BOOL DEFAULT FALSE,
         source_file_key    INTEGER NOT NULL,
         -- domain class name must be unique in workspace
@@ -710,8 +710,8 @@ class JetRuleReteSQLite:
       CREATE TABLE IF NOT EXISTS data_properties (
         key                INTEGER PRIMARY KEY,
         domain_class_key   INTEGER NOT NULL,
-        name               STRING NOT NULL,
-        type               STRING NOT NULL,
+        name               TEXT NOT NULL,
+        type               TEXT NOT NULL,
         as_array           BOOL DEFAULT FALSE,
         is_grouping        BOOL DEFAULT FALSE,
         -- domain property name must be unique in workspace
@@ -726,15 +726,15 @@ class JetRuleReteSQLite:
       CREATE TABLE IF NOT EXISTS domain_tables (
         key                INTEGER PRIMARY KEY,
         domain_class_key   INTEGER NOT NULL,
-        name               STRING NOT NULL,
+        name               TEXT NOT NULL,
         -- domain table name must be unique since domain_class are unique
         UNIQUE (name)
       );
       CREATE TABLE IF NOT EXISTS domain_columns (
         domain_table_key   INTEGER NOT NULL,
         data_property_key  INTEGER NOT NULL,
-        name               STRING NOT NULL,
-        type               STRING NOT NULL,
+        name               TEXT NOT NULL,
+        type               TEXT NOT NULL,
         as_array           BOOL DEFAULT FALSE,
         is_grouping        BOOL DEFAULT FALSE,
         -- a column must appear only once in a table
@@ -748,10 +748,10 @@ class JetRuleReteSQLite:
       -- --------------------
       CREATE TABLE IF NOT EXISTS resources (
         key                INTEGER PRIMARY KEY,
-        type               STRING NOT NULL,
-        id                 STRING,
-        value              STRING,
-        symbol             STRING,
+        type               TEXT NOT NULL,
+        id                 TEXT,
+        value              TEXT,
+        symbol             TEXT,
         is_binded          BOOL,     -- for var type only
         inline             BOOL,
         source_file_key    INTEGER NOT NULL,
@@ -764,18 +764,18 @@ class JetRuleReteSQLite:
       -- --------------------
       CREATE TABLE IF NOT EXISTS lookup_tables (
         key                INTEGER PRIMARY KEY,
-        name               STRING NOT NULL,
-        table_name         STRING,
-        csv_file           STRING,
-        lookup_key         STRING,
-        lookup_resources   STRING,
+        name               TEXT NOT NULL,
+        table_name         TEXT,
+        csv_file           TEXT,
+        lookup_key         TEXT,
+        lookup_resources   TEXT,
         source_file_key    INTEGER NOT NULL,
         UNIQUE (name, source_file_key)
       );
       CREATE TABLE IF NOT EXISTS lookup_columns (
         lookup_table_key   INTEGER NOT NULL,
-        name               STRING NOT NULL,
-        type               STRING NOT NULL,
+        name               TEXT NOT NULL,
+        type               TEXT NOT NULL,
         as_array           BOOL DEFAULT FALSE,
         -- a column name must be unique for a table
         UNIQUE (lookup_table_key, name)
@@ -786,12 +786,12 @@ class JetRuleReteSQLite:
       -- --------------------
       CREATE TABLE IF NOT EXISTS jet_rules (
         key                INTEGER PRIMARY KEY,
-        name               STRING NOT NULL,
+        name               TEXT NOT NULL,
         optimization       BOOL,
         salience           INTEGER,
-        authored_label     STRING,
-        normalized_label   STRING,
-        label              STRING,
+        authored_label     TEXT,
+        normalized_label   TEXT,
+        label              TEXT,
         source_file_key    INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS rule_terms (
@@ -802,8 +802,8 @@ class JetRuleReteSQLite:
       );
       CREATE TABLE IF NOT EXISTS rule_properties (
         rule_key           INTEGER NOT NULL,
-        name               STRING NOT NULL,
-        value              STRING
+        name               TEXT NOT NULL,
+        value              TEXT
       );
       CREATE INDEX IF NOT EXISTS rule_properties_idx ON rule_properties (rule_key);
 
@@ -814,14 +814,14 @@ class JetRuleReteSQLite:
       -- when type == 'resource', arg0_key is resources.key
       CREATE TABLE IF NOT EXISTS expressions (
         key                INTEGER PRIMARY KEY,
-        type               STRING NOT NULL,
+        type               TEXT NOT NULL,
         arg0_key           INTEGER,
         arg1_key           INTEGER,
         arg2_key           INTEGER,
         arg3_key           INTEGER,
         arg4_key           INTEGER,
         arg5_key           INTEGER,
-        op                 STRING,
+        op                 TEXT,
         source_file_key    INTEGER NOT NULL
       );
 
@@ -831,13 +831,13 @@ class JetRuleReteSQLite:
       CREATE TABLE IF NOT EXISTS rete_nodes (
         key                INTEGER PRIMARY KEY,
         vertex             INTEGER NOT NULL,
-        type               STRING NOT NULL,
+        type               TEXT NOT NULL,
         subject_key        INTEGER,
         predicate_key      INTEGER,
         object_key         INTEGER,
         obj_expr_key       INTEGER,
         filter_expr_key    INTEGER,
-        normalizedLabel    STRING,
+        normalizedLabel    TEXT,
         parent_vertex      INTEGER,
         source_file_key    INTEGER NOT NULL,
         is_negation        INTEGER,
@@ -856,7 +856,7 @@ class JetRuleReteSQLite:
         source_file_key    INTEGER NOT NULL,
         row_pos            INTEGER NOT NULL,
         is_binded          INTEGER,
-        id                 STRING,
+        id                 TEXT,
         UNIQUE (vertex, seq, source_file_key)
       );
 
