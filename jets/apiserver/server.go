@@ -257,6 +257,35 @@ func (server *Server) getUnitTestFileKeys() ([]string, error) {
 
 // Download overriten workspace files from jetstore database
 // Check the workspace version in db, if jetstore image version is more recent, recompile workspace
+func (server *Server) syncUnitTestFiles() {
+	// Collect files from local workspace
+	log.Println("Copying unit_test files to s3:")
+	fileKeys, err := server.getUnitTestFileKeys()
+	if err != nil {
+		//* TODO Log to a new workspace error table to report in UI
+		log.Println("Error while getting unit test file keys:", err)
+	} else {
+		bucket := os.Getenv("JETS_BUCKET")
+		region := os.Getenv("JETS_REGION")
+		s3Prefix := os.Getenv("JETS_s3_INPUT_PREFIX")
+		workspaceName := os.Getenv("WORKSPACE")
+		root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
+		for i := range fileKeys {
+			fileHd, err := os.Open(fmt.Sprintf("%s/%s", root, fileKeys[i]))
+			if err != nil {
+				log.Println("Error while opening file to copy to s3:", err)
+			} else {
+				if err = awsi.UploadToS3(bucket, region, strings.Replace(fileKeys[i], "data/test_data", s3Prefix, 1), fileHd); err != nil {
+					log.Println("Error while copying to s3:", err)
+				}	
+				fileHd.Close()
+			}
+		}	
+	}
+}
+
+// Download overriten workspace files from jetstore database
+// Check the workspace version in db, if jetstore image version is more recent, recompile workspace
 func (server *Server) checkWorkspaceVersion() error {
 	var err error
 	workspaceName := os.Getenv("WORKSPACE")
@@ -289,7 +318,8 @@ func (server *Server) checkWorkspaceVersion() error {
 	case err != nil:
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
-			return nil
+			server.syncUnitTestFiles()
+			return workspace.UpdateWorkspaceVersionDb(server.dbpool, workspaceName, version.String)
 		}
 		log.Println("Error while reading workspace version from workspace_version table:", err)
 		return err
@@ -311,30 +341,8 @@ func (server *Server) checkWorkspaceVersion() error {
 			}
 
 			// Sync unit test files
-			// Collect files from local workspace
-			log.Println("Copying unit_test files to s3:")
-			fileKeys, err := server.getUnitTestFileKeys()
-			if err != nil {
-				//* TODO Log to a new workspace error table to report in UI
-				log.Println("Error while getting unit test file keys:", err)
-			} else {
-				bucket := os.Getenv("JETS_BUCKET")
-				region := os.Getenv("JETS_REGION")
-				s3Prefix := os.Getenv("JETS_s3_INPUT_PREFIX")
-				workspaceName := os.Getenv("WORKSPACE")
-				root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
-				for i := range fileKeys {
-					fileHd, err := os.Open(fmt.Sprintf("%s/%s", root, fileKeys[i]))
-					if err != nil {
-						log.Println("Error while opening file to copy to s3:", err)
-					} else {
-						if err = awsi.UploadToS3(bucket, region, strings.Replace(fileKeys[i], "data/test_data", s3Prefix, 1), fileHd); err != nil {
-							log.Println("Error while copying to s3:", err)
-						}	
-						fileHd.Close()
-					}
-				}	
-			}
+			server.syncUnitTestFiles()
+			return nil
 		}
 
 	default:
