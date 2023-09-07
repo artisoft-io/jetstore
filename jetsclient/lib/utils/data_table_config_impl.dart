@@ -1803,6 +1803,88 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Rule Configv2 Table to Add/Edit Rule Configuration
+  DTKeys.ruleConfigv2Table: TableConfig(
+    key: DTKeys.ruleConfigv2Table,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'rule_configv2')
+    ],
+    label: 'Rules Configuration',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'configureRulesv2',
+          label: 'Add/Update Rule Configuration',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.rulesConfigv2Dialog,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.client: 1,
+            FSK.processName: 2,
+            FSK.processConfigKey: 3,
+            FSK.ruleConfigJson: 4
+          }),
+    ],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "process_name",
+          label: 'Process',
+          tooltips: 'Process Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "process_config_key",
+          label: 'Process Config',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 4,
+          name: "rule_config_json",
+          label: '',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 5,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 50,
+  ),
+
   // Pipeline Config Data Table for Pipeline Config Forms
   DTKeys.pipelineConfigTable: TableConfig(
     key: DTKeys.pipelineConfigTable,
