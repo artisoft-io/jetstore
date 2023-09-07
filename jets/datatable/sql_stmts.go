@@ -107,8 +107,8 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// Rule Configv2
 	"update/rule_configv2": {
 		Stmt: `UPDATE jetsapi.rule_configv2 SET
-			(process_config_key, process_name, client, rule_config_json, user_email, last_update) 
-			VALUES ($1, $2, $3, $4, $5, DEFAULT)
+			(process_config_key, process_name, client, rule_config_json, user_email, last_update) =
+			($1, $2, $3, $4, $5, DEFAULT)
 			WHERE key = $6`,
 		ColumnKeys: []string{"process_config_key", "process_name", "client", "rule_config_json", "user_email", "key"},
 	},

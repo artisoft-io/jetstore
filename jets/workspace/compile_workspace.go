@@ -57,6 +57,18 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 	return nil
 }
 
+func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version string) error {
+		// insert the new workspace version in jetsapi db
+		log.Println("Updating workspace version in database to",version)
+		stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1)"
+		_, err := dbpool.Exec(context.Background(), stmt, version)
+		if err != nil {
+			return fmt.Errorf("while inserting workspace version into workspace_version table: %v", err)
+		}
+
+	return nil
+}
+
 func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error {
 
 		wh := os.Getenv("WORKSPACES_HOME")
@@ -115,15 +127,6 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error
 				return fmt.Errorf("failed to upload file to db: %v", err)
 			}
 		}
-
-		// insert the new workspace version in jetsapi db
-		log.Println("Updating workspace version in database to",version)
-		stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1)"
-		_, err = dbpool.Exec(context.Background(), stmt, version)
-		if err != nil {
-			return fmt.Errorf("while inserting workspace version into workspace_version table: %v", err)
-		}
 	
-
-	return nil
+	return UpdateWorkspaceVersionDb(dbpool, workspaceName, version)
 }

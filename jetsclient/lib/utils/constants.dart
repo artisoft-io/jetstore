@@ -54,6 +54,7 @@ class ScreenKeys {
   static const inputSourceMapping = "inputSourceMappingScreen";
   static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
+  static const ruleConfigv2 = "ruleConfigv2Screen";
   static const pipelineConfig = "pipelineConfigScreen";
   static const pipelineConfigEdit = "pipelineConfigEditScreen";
 
@@ -94,9 +95,11 @@ class FormKeys {
   // Process Input Forms
   static const processInput = "processInputForm";
   static const addProcessInput = "addProcessInputDialog";
-  // Process Config Forms
+  // Rule Process Config Forms
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
+  static const rulesConfigv2 = "rulesConfigv2SelectForm";
+  static const rulesConfigv2Dialog = "rulesConfigv2Dialog";
   // Pipeline Config & Exec Forms
   static const pipelineConfigForm = "pipelineConfigForm";
   static const pipelineConfigEditForm = "pipelineConfigEditForm";
@@ -321,6 +324,7 @@ class ActionKeys {
 
   // for process and rules config dialog
   static const ruleConfigOk = "ruleConfig.ok";
+  static const ruleConfigv2Ok = "ruleConfigv2.ok";
   static const ruleConfigAdd = "ruleConfig.add";
   static const ruleConfigDelete = "ruleConfig.delete";
 
@@ -393,6 +397,7 @@ class DTKeys {
 
   // Rules Config DT
   static const ruleConfigTable = "ruleConfigTable";
+  static const ruleConfigv2Table = "ruleConfigv2Table";
   static const clientsAndProcessesTableView = "clientsAndProcessesTableView";
 
   // Pipeline Config DT
