@@ -1237,13 +1237,13 @@ final Map<String, TableConfig> _tableConfigurations = {
   ),
 
   // Source Period Table for Load ALL Files Dialog
-  FSK.sourcePeriodKey: TableConfig(
-    key: FSK.sourcePeriodKey,
+  FSK.fromSourcePeriodKey: TableConfig(
+    key: FSK.fromSourcePeriodKey,
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'source_period'),
       FromClause(schemaName: 'jetsapi', tableName: 'file_key_staging'),
     ],
-    label: 'Select the date to load the files from',
+    label: 'Select the FROM date to load the files from',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -1267,7 +1267,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.dayPeriod,
+        stateKey: FSK.fromDayPeriod,
         columnIdx: 4,
       ),
     ]),
@@ -1312,7 +1312,84 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'day_period',
     sortAscending: true,
-    rowsPerPage: 15,
+    rowsPerPage: 50,
+  ),
+  FSK.toSourcePeriodKey: TableConfig(
+    key: FSK.toSourcePeriodKey,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'source_period'),
+      FromClause(schemaName: 'jetsapi', tableName: 'file_key_staging'),
+    ],
+    label: 'Select the TO date to load the files from',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(
+          table: "file_key_staging",
+          column: "client",
+          formStateKey: FSK.client),
+      WhereClause(
+          table: "file_key_staging", column: "org", formStateKey: FSK.org),
+      WhereClause(
+          table: "file_key_staging",
+          column: "object_type",
+          formStateKey: FSK.objectType),
+      WhereClause(
+          table: "source_period",
+          column: "key",
+          joinWith: "file_key_staging.source_period_key"),
+    ],
+    distinctOnClauses: ["source_period.day_period"],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.toDayPeriod,
+        columnIdx: 4,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          table: "source_period",
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          table: "source_period",
+          name: "year",
+          label: 'Year',
+          tooltips: 'Year the file was received',
+          isNumeric: true),
+      ColumnConfig(
+          index: 2,
+          table: "source_period",
+          name: "month",
+          label: 'Month',
+          tooltips: 'Month of the year the file was received',
+          isNumeric: true),
+      ColumnConfig(
+          index: 3,
+          table: "source_period",
+          name: "day",
+          label: 'Day',
+          tooltips: 'Day of the month the file was received',
+          isNumeric: true),
+      ColumnConfig(
+          index: 4,
+          table: "source_period",
+          name: "day_period",
+          label: 'Day Period',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+    ],
+    sortColumnName: 'day_period',
+    sortAscending: false,
+    rowsPerPage: 50,
   ),
 
   // Input Source Mapping: use Source Config to select table
@@ -1803,6 +1880,88 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // Rule Configv2 Table to Add/Edit Rule Configuration
+  DTKeys.ruleConfigv2Table: TableConfig(
+    key: DTKeys.ruleConfigv2Table,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'rule_configv2')
+    ],
+    label: 'Rules Configuration',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    whereClauses: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'configureRulesv2',
+          label: 'Add/Update Rule Configuration',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.rulesConfigv2Dialog,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.client: 1,
+            FSK.processName: 2,
+            FSK.processConfigKey: 3,
+            FSK.ruleConfigJson: 4
+          }),
+    ],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "client",
+          label: 'Client',
+          tooltips: 'Client the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "process_name",
+          label: 'Process',
+          tooltips: 'Process Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "process_config_key",
+          label: 'Process Config',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 4,
+          name: "rule_config_json",
+          label: '',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 5,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 6,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ],
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 50,
+  ),
+
   // Pipeline Config Data Table for Pipeline Config Forms
   DTKeys.pipelineConfigTable: TableConfig(
     key: DTKeys.pipelineConfigTable,
@@ -1837,7 +1996,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.automated: 9,
             FSK.description: 10,
             FSK.maxReteSessionSaved: 11,
-            FSK.injectedProcessInputKeys: 12
+            FSK.injectedProcessInputKeys: 12,
+            FSK.ruleConfigJson: 13
           }),
     ],
     formStateConfig:
@@ -1928,12 +2088,19 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 13,
+          name: "rule_config_json",
+          label: '',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 14,
           name: "user_email",
           label: 'User',
           tooltips: 'Who created the record',
           isNumeric: false),
       ColumnConfig(
-          index: 14,
+          index: 15,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',

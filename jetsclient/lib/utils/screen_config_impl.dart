@@ -28,8 +28,8 @@ final defaultMenuEntries = [
   //     routePath: processInputPath),
   MenuEntry(
       key: 'processConfig',
-      label: 'Client Rules Configurations',
-      routePath: processConfigPath),
+      label: 'Rules Configurations',
+      routePath: ruleConfigPath),
   MenuEntry(
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
@@ -38,11 +38,11 @@ final defaultMenuEntries = [
       key: 'workspaceIDEHome',
       label: 'Workspace IDE Home',
       routePath: workspaceRegistryPath),
-  MenuEntry(
-      otherPageStyle: ActionStyle.danger,
-      key: 'dataPurge',
-      label: 'Purge Client Data',
-      menuAction: purgeDataAction),
+  // MenuEntry(
+  //     otherPageStyle: ActionStyle.danger,
+  //     key: 'dataPurge',
+  //     label: 'Purge Client Data',
+  //     menuAction: purgeDataAction),
   MenuEntry(
       otherPageStyle: ActionStyle.danger,
       key: 'runInitDb',
@@ -69,8 +69,8 @@ final adminMenuEntries = [
       routePath: inputSourceMappingPath),
   MenuEntry(
       key: 'processConfig',
-      label: 'Client Rules Configurations',
-      routePath: processConfigPath),
+      label: 'Rules Configurations',
+      routePath: ruleConfigPath),
   MenuEntry(
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
@@ -168,6 +168,16 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   // Rules Config Screen
   ScreenKeys.processConfig: ScreenConfig(
       key: ScreenKeys.processConfig,
+      appBarLabel: 'JetStore Workspace',
+      // title: 'Rules Configuration',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
+
+  // Rule Configv2 Screen
+  ScreenKeys.ruleConfigv2: ScreenConfig(
+      key: ScreenKeys.ruleConfigv2,
       appBarLabel: 'JetStore Workspace',
       // title: 'Rules Configuration',
       showLogout: true,

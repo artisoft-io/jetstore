@@ -17,11 +17,37 @@ String? loadAllFilesValidator(
   assert((v is String?) || (v is List<String>?),
       "Load ALL Files Form has unexpected data type");
   switch (key) {
-    case FSK.sourcePeriodKey:
+    case FSK.fromSourcePeriodKey:
       if (v != null) {
+        final fromDP = formState.getValue(0, FSK.fromDayPeriod);
+        if (fromDP == null || fromDP.isEmpty) {
+          return "Something went wrong, missing from_day_period.";
+        }
+        final toDP = formState.getValue(0, FSK.toDayPeriod);
+        if (toDP != null && toDP.isNotEmpty) {
+          if(int.parse(toDP[0]) <= int.parse(fromDP[0])) {
+            return "From period must be before than To period.";
+          }
+        }
         return null;
       }
-      return "Source period must be selected.";
+      return "From source period must be selected.";
+
+    case FSK.toSourcePeriodKey:
+      if (v != null) {
+        final toDP = formState.getValue(0, FSK.toDayPeriod);
+        if (toDP == null || toDP.isEmpty) {
+          return "Something went wrong, missing to_day_period.";
+        }
+        final fromDP = formState.getValue(0, FSK.fromDayPeriod);
+        if (fromDP != null && fromDP.isNotEmpty) {
+          if(int.parse(fromDP[0]) >= int.parse(toDP[0])) {
+            return "From period must be before than To period.";
+          }
+        }
+        return null;
+      }
+      return "To source period must be selected.";
 
     default:
       print(
@@ -42,8 +68,8 @@ Future<String?> loadAllFilesActions(BuildContext context,
         return null;
       }
       var state = formState.getState(0);
-      state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
-      state[FSK.dayPeriod] = state[FSK.dayPeriod][0];
+      state[FSK.fromSourcePeriodKey] = state[FSK.fromSourcePeriodKey][0];
+      state[FSK.toSourcePeriodKey] = state[FSK.toSourcePeriodKey][0];
       state['user_email'] = JetsRouterDelegate().user.email;
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'load_all_files',
@@ -51,7 +77,8 @@ Future<String?> loadAllFilesActions(BuildContext context,
       }, toEncodable: (_) => '');
 
       JetsSpinnerOverlay.of(context).show();
-      return postInsertRows(context, formState, encodedJsonBody, serverEndPoint: ServerEPs.registerFileKeyEP);
+      return postInsertRows(context, formState, encodedJsonBody,
+          serverEndPoint: ServerEPs.registerFileKeyEP);
 
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();

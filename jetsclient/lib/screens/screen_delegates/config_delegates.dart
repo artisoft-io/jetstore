@@ -1090,6 +1090,138 @@ Future<String?> processConfigFormActions(BuildContext context,
   return null;
 }
 
+/// Rule Configv2 Form / Dialog Validator
+String? ruleConfigv2FormValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
+  // print(
+  //     "ruleConfigv2 Validator Called for $group, $key, $v, state is ${formState.getValue(group, key)}");
+  assert((v is String?) || (v is List<String>?),
+      "Rule Configv2 Form has unexpected data type");
+  switch (key) {
+    // Rule Configv2 Dialog Validation
+    case FSK.processName:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        return null;
+      }
+      return "Process name must be selected.";
+
+    case FSK.client:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        return null;
+      }
+      return "Client must be selected.";
+
+    case FSK.ruleConfigJson:
+      String? value = v;
+      if (value == null || value.isEmpty) {
+        return "Rule config must contain at least an empty array";
+      }
+      // Validate that value is valid json
+      try {
+        final jv = jsonDecode(value);
+        if (jv is List) {
+          return null;
+        }
+        return "Rule config must be a list of objects";
+      } catch (e) {
+        return "Rule config is not a valid json: ${e.toString()}";
+      }
+
+    default:
+      print(
+          'Oops rule configv2 form has no validator configured for form field $key');
+  }
+  return null;
+}
+
+/// Rule Configv2 Form Actions
+Future<String?> ruleConfigv2FormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
+    {group = 0}) async {
+  switch (actionKey) {
+    // Rule Configv2 Dialog
+    case ActionKeys.ruleConfigv2Ok:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      // Get the Rule Configv2 key (case update)
+      // if no key is present then it's an add
+      var updateState = <String, dynamic>{};
+      var updateKey = formState.getValue(0, FSK.key);
+      var query = 'rule_configv2'; // case add
+      if (updateKey != null) {
+        query = 'update/rule_configv2';
+        updateState[FSK.key] = updateKey;
+      }
+      final processKey = formState.getValue(0, FSK.processConfigKey);
+      updateState[FSK.processConfigKey] = processKey;
+
+      final processName = formState.getValue(0, FSK.processName);
+      updateState[FSK.processName] = processName;
+
+      final client = formState.getValue(0, FSK.client);
+      updateState[FSK.client] = client;
+
+      updateState[FSK.ruleConfigJson] =
+          formState.getValue(0, FSK.ruleConfigJson);
+
+      // add process_config_key based on process_name
+      final processConfigCache =
+          formState.getCacheValue(FSK.processConfigCache) as List?;
+      if (processConfigCache == null) {
+        print("ruleConfigv2FormActions error: processConfigCache is null");
+        return "ruleConfigv2FormActions error: processConfigCache is null";
+      }
+      final row = processConfigCache.firstWhere((e) => e[0] == processName);
+      if (row == null) {
+        print(
+            "ruleConfigv2FormActions error: can't find process_name in ruleConfigv2Cache");
+        return "ruleConfigv2FormActions error: can't find process_name in ruleConfigv2Cache";
+      }
+      updateState[FSK.processConfigKey] = row[1];
+      updateState[FSK.userEmail] = JetsRouterDelegate().user.email;
+
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': query}
+        ],
+        'data': [updateState],
+      }, toEncodable: (_) => '');
+
+      final result =
+          await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      if (result.statusCode == 401) return "Not Authorized";
+      if (result.statusCode == 200) {
+        if (context.mounted) {
+          Navigator.of(context).pop(DTActionResult.okDataTableDirty);
+        }
+      } else {
+        // There was an error, just pop back to the page
+        if (result.statusCode == 409) {
+          formState.setValue(group, FSK.serverError,
+              "A record already exist for $client on process $processName, please edit that record.");
+        } else {
+          formState.setValue(group, FSK.serverError, result.body['error']);
+        }
+        if (context.mounted) {
+          Navigator.of(context).pop(DTActionResult.statusError);
+        }
+      }
+      return null;
+
+    case ActionKeys.dialogCancel:
+      Navigator.of(context).pop(DTActionResult.canceled);
+      break;
+    default:
+      print('Oops unknown ActionKey for rule configv2 form: $actionKey');
+  }
+  return null;
+}
+
 /// Pipeline Config Form / Dialog Validator
 String? pipelineConfigFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
@@ -1139,6 +1271,22 @@ String? pipelineConfigFormValidator(
         return null;
       }
       return "Execution frequency must be selected.";
+
+    case FSK.ruleConfigJson:
+      String? value = v;
+      if (value == null || value.isEmpty) {
+        return "Rule config must contain at least an empty array";
+      }
+      // Validate that value is valid json
+      try {
+        final jv = jsonDecode(value);
+        if (jv is List) {
+          return null;
+        }
+        return "Rule config must be a list of objects";
+      } catch (e) {
+        return "Rule config is not a valid json: ${e.toString()}";
+      }
 
     case FSK.description:
     case FSK.mergedProcessInputKeys:

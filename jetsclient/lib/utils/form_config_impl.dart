@@ -444,6 +444,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // Load All Files
   FormKeys.loadAllFiles: FormConfig(
     key: FormKeys.loadAllFiles,
+    title: "Load all files within a time period",
     actions: [
       FormActionConfig(
           key: ActionKeys.loadAllFilesOk,
@@ -461,16 +462,21 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: FSK.sourcePeriodKey,
-            tableHeight: 300,
-            dataTableConfig: FSK.sourcePeriodKey)
-      ],
-      [
+            key: FSK.fromSourcePeriodKey,
+            tableHeight: double.infinity,
+            dataTableConfig: FSK.fromSourcePeriodKey),
+
         FormDataTableFieldConfig(
-            key: DTKeys.fileKeyStagingMultiLoadTable,
-            tableHeight: 600,
-            dataTableConfig: DTKeys.fileKeyStagingMultiLoadTable)
+            key: FSK.toSourcePeriodKey,
+            tableHeight: double.infinity,
+            dataTableConfig: FSK.toSourcePeriodKey),
       ],
+      // [
+      //   FormDataTableFieldConfig(
+      //       key: DTKeys.fileKeyStagingMultiLoadTable,
+      //       tableHeight: 600,
+      //       dataTableConfig: DTKeys.fileKeyStagingMultiLoadTable)
+      // ],
     ],
     formValidatorDelegate: loadAllFilesValidator,
     formActionsDelegate: loadAllFilesActions,
@@ -803,7 +809,84 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: processInputFormValidator,
     formActionsDelegate: processInputFormActions,
   ),
+
+  // Rule Configv2 - Action-less form to select Rule Configv2 to Edit or do Add
+  FormKeys.rulesConfigv2: FormConfig(
+    key: FormKeys.rulesConfigv2,
+    actions: [],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.ruleConfigv2Table,
+            dataTableConfig: DTKeys.ruleConfigv2Table,
+            tableHeight: double.infinity),
+      ],
+    ],
+    formValidatorDelegate: ruleConfigv2FormValidator,
+    formActionsDelegate: ruleConfigv2FormActions,
+  ),
+
+  // Rule Configuration v2 - Dialog to edit rule_configv2.rule_config_json
+  FormKeys.rulesConfigv2Dialog: FormConfig(
+    key: FormKeys.rulesConfigv2Dialog,
+    title: "Rule Configuration",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.ruleConfigv2Ok,
+          label: "Save",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding,
+          bottomMargin: defaultPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+    ],
+    useListView: true,
+    inputFields: [
+      [
+        FormDropdownFieldConfig(
+            key: FSK.client,
+            items: [
+              DropdownItemConfig(label: 'Select a Client'),
+            ],
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+        FormDropdownFieldConfig(
+            key: FSK.processName,
+            returnedModelCacheKey: FSK.processConfigCache,
+            items: [
+              DropdownItemConfig(label: 'Select a process'),
+            ],
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            dropdownItemsQuery:
+                "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.ruleConfigJson,
+            flex: 10,
+            label: "Rule Configuration Json",
+            hint: "Enter a valid json array of configuration objects",
+            maxLines: 25,
+            maxLength: 51200,
+            autofocus: false,
+            textRestriction: TextRestriction.none,
+            defaultValue: "[]"),
+      ],
+    ],
+    formValidatorDelegate: ruleConfigv2FormValidator,
+    formActionsDelegate: ruleConfigv2FormActions,
+  ),
+
   // ruleConfig - Dialog to enter rule config triples
+  // This form is depricated, keeping here as an example of a dynamic form
+  // where a row of controls is added dynamically
   FormKeys.rulesConfig: FormConfig(
     key: FormKeys.rulesConfig,
     title: "Rule Configuration",
@@ -949,7 +1032,7 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: processConfigFormActions,
   ),
 
-  // Add/Edit pipelineConfig - Edit Form to add / edit pipeline config
+  // Add/Edit pipelineConfig - Form to add / edit pipeline config
   FormKeys.pipelineConfigForm: FormConfig(
     key: FormKeys.pipelineConfigForm,
     // title: "Pipeline Configuration",
@@ -966,7 +1049,7 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: pipelineConfigFormActions,
   ),
 
-  // Add/Edit pipelineConfig - Edit Form to add / edit pipeline config
+  // Add/Edit pipelineConfig - Dialog to add / edit pipeline config
   FormKeys.pipelineConfigEditForm: FormConfig(
     key: FormKeys.pipelineConfigEditForm,
     title: "Edit Pipeline Configuration",

@@ -22,6 +22,11 @@ void main() {
   // print("port: $port");
   var serverOrigin = "$protocol//$hostname:$port";
   HttpClientSingleton().serverAdd = Uri.parse(serverOrigin);
+
+  // FlutterError.onError = (details) {
+  //   print("#### GOT ERROR $details");
+  // };
+
   runApp(JetsClient(serverOrigin: serverOrigin));
 }
 

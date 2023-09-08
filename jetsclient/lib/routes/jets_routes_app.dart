@@ -4,7 +4,6 @@ import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/screen_form.dart';
 import 'package:jetsclient/screens/screen_multi_form.dart';
 import 'package:jetsclient/screens/screen_one.dart';
-import 'package:jetsclient/screens/screen_delegates/config_delegates.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/screens/screen_tab_form.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -26,10 +25,14 @@ const filePreviewPath = '/filePreviewPath/:file_key';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
 const processErrorsPath = '/processErrors/:session_id';
 
+// Old Rule Config with triples
 const processConfigPath = '/processConfig';
-const pipelineConfigPath = '/pipelineConfig/:x';
+// Rule Configv2
+const ruleConfigPath = '/ruleConfig';
+
+const pipelineConfigPath = '/pipelineConfig';
 const pipelineConfigEditFormPath =
-    '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys';
+    '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys/:rule_config_json';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
@@ -89,12 +92,20 @@ final Map<String, Widget> jetsRoutesMap = {
     formConfig: getFormConfig(FormKeys.processInput),
   ),
 
-  // Process Config and Client Rule Config
+  // Rule Config
   processConfigPath: ScreenWithForm(
     key: const Key(ScreenKeys.processConfig),
     screenPath: JetsRouteData(processConfigPath),
     screenConfig: getScreenConfig(ScreenKeys.processConfig),
     formConfig: getFormConfig(FormKeys.processConfig),
+  ),
+
+  // Rule Configv2
+  ruleConfigPath: ScreenWithForm(
+    key: const Key(ScreenKeys.ruleConfigv2),
+    screenPath: JetsRouteData(ruleConfigPath),
+    screenConfig: getScreenConfig(ScreenKeys.ruleConfigv2),
+    formConfig: getFormConfig(FormKeys.rulesConfigv2),
   ),
 
   // Workspace IDE - Workspace Registry
