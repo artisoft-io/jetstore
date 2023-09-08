@@ -215,7 +215,8 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 		client := registerFileKeyAction.Data[irow]["client"]
 		org := registerFileKeyAction.Data[irow]["org"]
 		objectType := registerFileKeyAction.Data[irow]["object_type"]
-		sourcePeriodKey := registerFileKeyAction.Data[irow]["source_period_key"]
+		fromSourcePeriodKey := registerFileKeyAction.Data[irow]["from_source_period_key"]
+		toSourcePeriodKey := registerFileKeyAction.Data[irow]["to_source_period_key"]
 		userEmail := registerFileKeyAction.Data[irow]["user_email"]
 		// //DEV
 		// fmt.Println("**** LoadAllFiles called with client",client, org,"objectType",objectType,"userEmail",userEmail)
@@ -236,9 +237,11 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 		stmt = `
 			WITH sp AS(
 				SELECT sp1.* 
-				FROM jetsapi.source_period sp1, jetsapi.source_period sp2 
-				WHERE sp1.day_period >= sp2.day_period
-				  AND sp2.key = $4
+				FROM jetsapi.source_period sp1, jetsapi.source_period spFrom, jetsapi.source_period spTo 
+				WHERE sp1.day_period >= spFrom.day_period
+				  AND spFrom.key = $4
+				  AND sp1.day_period <= spTo.day_period
+				  AND spTo.key = $5
 			)
 			SELECT DISTINCT fk.file_key, fk.source_period_key
 			FROM sp, jetsapi.file_key_staging fk 
@@ -247,7 +250,7 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 				AND fk.object_type=$3
 				AND sp.key = fk.source_period_key
 			ORDER BY file_key`
-		rows, err := ctx.Dbpool.Query(context.Background(), stmt, client, org, objectType, sourcePeriodKey)
+		rows, err := ctx.Dbpool.Query(context.Background(), stmt, client, org, objectType, fromSourcePeriodKey, toSourcePeriodKey)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return &map[string]interface{}{}, http.StatusOK, nil
