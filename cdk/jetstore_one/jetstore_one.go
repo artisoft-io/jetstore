@@ -849,7 +849,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	reportsSM := sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("reportsSM"),
 		Definition:       runReportsTask,
-		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
+		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(reportsSM).Add(phiTagName, jsii.String("true"), nil)
@@ -1028,8 +1028,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
 		Definition:       runServerMap,
-		//* NOTE 4h TIMEOUT of exec rules
-		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
+		//* NOTE 8h TIMEOUT of exec rules
+		Timeout: awscdk.Duration_Hours(jsii.Number(8)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(serverSM).Add(phiTagName, jsii.String("true"), nil)
