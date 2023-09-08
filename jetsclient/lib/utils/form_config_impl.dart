@@ -444,6 +444,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // Load All Files
   FormKeys.loadAllFiles: FormConfig(
     key: FormKeys.loadAllFiles,
+    title: "Load all files within a time period",
     actions: [
       FormActionConfig(
           key: ActionKeys.loadAllFilesOk,
@@ -461,16 +462,21 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: FSK.sourcePeriodKey,
-            tableHeight: 300,
-            dataTableConfig: FSK.sourcePeriodKey)
-      ],
-      [
+            key: FSK.fromSourcePeriodKey,
+            tableHeight: double.infinity,
+            dataTableConfig: FSK.fromSourcePeriodKey),
+
         FormDataTableFieldConfig(
-            key: DTKeys.fileKeyStagingMultiLoadTable,
-            tableHeight: 600,
-            dataTableConfig: DTKeys.fileKeyStagingMultiLoadTable)
+            key: FSK.toSourcePeriodKey,
+            tableHeight: double.infinity,
+            dataTableConfig: FSK.toSourcePeriodKey),
       ],
+      // [
+      //   FormDataTableFieldConfig(
+      //       key: DTKeys.fileKeyStagingMultiLoadTable,
+      //       tableHeight: 600,
+      //       dataTableConfig: DTKeys.fileKeyStagingMultiLoadTable)
+      // ],
     ],
     formValidatorDelegate: loadAllFilesValidator,
     formActionsDelegate: loadAllFilesActions,

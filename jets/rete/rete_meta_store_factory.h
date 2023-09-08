@@ -45,7 +45,7 @@ struct var_info {
 class ReteMetaStoreFactory {
  public:
   using ResourceLookup = std::unordered_map<int, rdf::r_index>;
-  using ReteSessionLookup = std::unordered_map<ReteSession *, ReteSessionPtr>;
+  // using ReteSessionLookup = std::unordered_map<ReteSession *, ReteSessionPtr>;
   // key  ->  <var name, is_binded>
   using VariableLookup = std::unordered_map<int, var_info>;
   using MainRuleUriLookup = std::unordered_map<std::string, int>;
