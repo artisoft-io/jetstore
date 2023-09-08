@@ -153,6 +153,8 @@ class FSK {
   static const sourcePeriodKey = "source_period_key";
   static const fromSourcePeriodKey = "from_source_period_key";
   static const toSourcePeriodKey = "to_source_period_key";
+  static const fromDayPeriod = "from_day_period";
+  static const toDayPeriod = "to_day_period";
   static const lookbackPeriods = "lookback_periods";
   static const details = "details";
 
