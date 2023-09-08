@@ -1265,7 +1265,12 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     distinctOnClauses: ["source_period.day_period"],
     actions: [],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.fromDayPeriod,
+        columnIdx: 4,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -1337,7 +1342,12 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     distinctOnClauses: ["source_period.day_period"],
     actions: [],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.toDayPeriod,
+        columnIdx: 4,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,

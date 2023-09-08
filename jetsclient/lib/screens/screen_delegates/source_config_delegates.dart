@@ -19,9 +19,13 @@ String? loadAllFilesValidator(
   switch (key) {
     case FSK.fromSourcePeriodKey:
       if (v != null) {
-        final toSP = formState.getValue(0, FSK.toSourcePeriodKey);
-        if (toSP != null && toSP.isNotEmpty) {
-          if(int.parse(toSP[0]) <= int.parse(v[0])) {
+        final fromDP = formState.getValue(0, FSK.fromDayPeriod);
+        if (fromDP == null || fromDP.isEmpty) {
+          return "Something went wrong, missing from_day_period.";
+        }
+        final toDP = formState.getValue(0, FSK.toDayPeriod);
+        if (toDP != null && toDP.isNotEmpty) {
+          if(int.parse(toDP[0]) <= int.parse(fromDP[0])) {
             return "From period must be before than To period.";
           }
         }
@@ -31,9 +35,13 @@ String? loadAllFilesValidator(
 
     case FSK.toSourcePeriodKey:
       if (v != null) {
-        final fromSP = formState.getValue(0, FSK.fromSourcePeriodKey);
-        if (fromSP != null && fromSP.isNotEmpty) {
-          if(int.parse(fromSP[0]) >= int.parse(v[0])) {
+        final toDP = formState.getValue(0, FSK.toDayPeriod);
+        if (toDP == null || toDP.isEmpty) {
+          return "Something went wrong, missing to_day_period.";
+        }
+        final fromDP = formState.getValue(0, FSK.fromDayPeriod);
+        if (fromDP != null && fromDP.isNotEmpty) {
+          if(int.parse(fromDP[0]) >= int.parse(toDP[0])) {
             return "From period must be before than To period.";
           }
         }
