@@ -91,6 +91,8 @@ func DoPurgeSessions() error {
 	}
 	tableNames = append(tableNames, "jetsapi.input_registry")
 	tableNames = append(tableNames, "jetsapi.process_errors")
+	tableNames = append(tableNames, "jetsapi.pipeline_execution_details")
+	tableNames = append(tableNames, "jetsapi.report_execution_status")
 	tableNames = append(tableNames, "jetsapi.session_registry")
 
 	for _,s := range tableNames {

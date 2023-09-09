@@ -422,10 +422,15 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 }
 // processFile
 // --------------------------------------------------------------------------------------
-func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.HeadersAndDomainKeysInfo, int64, int, error) {
+func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, copyCount int64, badRowCount int, err error) {
 
 	var csvReader *csv.Reader
 	var fwScanner *bufio.Scanner
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered error: %v", r)
+		}
+	}()
 
 	switch inputFileEncoding {
 	case Csv, HeaderlessCsv:
@@ -474,7 +479,6 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 	// Read the headers, put them in err file and make
 	// ---------------------------------------
 	var rawHeaders []string
-	var err error
 	var fixedWidthColumnPrefix string
 	switch inputFileEncoding {
 	case Csv:
@@ -622,7 +626,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 	
 	// Contruct the domain keys based on domainKeysJson
 	// ---------------------------------------
-	headersDKInfo, err := schema.NewHeadersAndDomainKeysInfo(tableName)
+	headersDKInfo, err = schema.NewHeadersAndDomainKeysInfo(tableName)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
 	}
@@ -719,7 +723,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (*schema.Head
 
 	// Copy the bad rows from input file into the error file
 	// ---------------------------------------
-	badRowCount := len(badRowsPos)
+	badRowCount = len(badRowsPos)
 	if len(badRowsPos) > 0 {
 		log.Println("Got", len(badRowsPos), "bad rows in input file, copying them to the error file.")
 		_, err = fileHd.Seek(0, 0)
@@ -762,7 +766,9 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	status := "completed"
 	if badRowCount > 0 || err != nil  {
 		status = "errors"
+		processingErrors = append(processingErrors, fmt.Sprintf("File contains %d bad rows", badRowCount))
 		if err != nil {
+			status = "failed"
 			processingErrors = append(processingErrors, err.Error())
 			err = nil	
 		}
@@ -780,6 +786,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File
 	var errMessage string
 	if len(processingErrors) > 0 {
 		errMessage = strings.Join(processingErrors, ",")
+		log.Println(errMessage)
 	}
 
 	dimentions := &map[string]string {
