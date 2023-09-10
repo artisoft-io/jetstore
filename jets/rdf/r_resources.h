@@ -37,6 +37,7 @@ struct JetsResources {
   r_index jets__lookup_multi_rows{nullptr};
   r_index jets__lookup_row{nullptr};
   r_index jets__loop{nullptr};
+  r_index jets__max_vertex_visits{nullptr};
   r_index jets__operator{nullptr};
   r_index jets__org{nullptr};
   r_index jets__range_value{nullptr};

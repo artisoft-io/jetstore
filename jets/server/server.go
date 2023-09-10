@@ -41,7 +41,7 @@ type dbConnections struct {
 // JETS_s3_INPUT_PREFIX (required for registrying the domain table with input_registry)
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
-// GLOG_V log level
+// GLOG_v log level
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 // JETS_DOMAIN_KEY_SEPARATOR
 
