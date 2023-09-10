@@ -39,7 +39,7 @@ func (wt *WriteTableSource) Err() error {
 
 // DomainTable methods for writing output entity records to postgres
 func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *workspace.DomainTable) (*WriteTableResult, error) {
-	var result WriteTableResult
+	result := WriteTableResult{tableName: domainTable.TableName}
 	// prepare sql -- get a slice of the columns
 	var columns []string
 	for i := range domainTable.Columns {
@@ -59,7 +59,7 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 			splitTableName[1],
 		}
 	default:
-		return nil, fmt.Errorf("error: invalid domain table name: %s",domainTable.TableName)
+		return &result, fmt.Errorf("error: invalid domain table name: %s",domainTable.TableName)
 	}
 	recCount, err := dbpool.CopyFrom(context.Background(), tableIdentifier, columns, wt)
 	if err != nil {
@@ -83,7 +83,6 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 		return &result, fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)
 	}
 	
-	result.tableName = domainTable.TableName
 	result.recordCount = recCount
 
 	return &result, nil

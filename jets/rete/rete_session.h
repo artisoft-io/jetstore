@@ -31,6 +31,7 @@ class ReteSession;
 using ReteSessionPtr = std::shared_ptr<ReteSession>;
 
 using BetaRelationVector = std::vector<BetaRelationPtr>;
+using VertexVisitsVector = std::vector<std::pair<int, int>>;
 using AlphaNodeVector = std::vector<AlphaNodePtr>;
 
 struct BetaRowPriorityCompare {
@@ -58,8 +59,10 @@ class ReteSession {
     : rule_ms_(rule_ms),
       rdf_session_(rdf_session),
       beta_relations_(),
+      vertex_visits_(),
       pending_compute_consequent_beta_rows_(),
-      err_msg_()
+      err_msg_(),
+      max_vertex_visit_(0)
     {}
 
   inline rdf::RDFSession *
@@ -162,6 +165,7 @@ class ReteSession {
    *  - Initialize BetaRelationVector beta_relations_ such that
    *    `beta_relations_[ipos] = create_beta_node(rule_ms_->node_vertexes_[ipos]);`
    *  - Register GraphCallbackManager using antecedent AlphaNode adaptor
+   *  - Initialize VertexVisitsVector with zero values
    * 
    * @param rule_ms ReteMetaStore to use for the ReteSession
    * 
@@ -266,8 +270,10 @@ class ReteSession {
   ReteMetaStorePtr        rule_ms_;
   rdf::RDFSession *       rdf_session_;
   BetaRelationVector      beta_relations_;
+  VertexVisitsVector      vertex_visits_;
   BetaRowPriorityQueue    pending_compute_consequent_beta_rows_;
   std::string             err_msg_;
+  int                     max_vertex_visit_;
 };
 
 inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms, 
