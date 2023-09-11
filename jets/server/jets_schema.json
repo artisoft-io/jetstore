@@ -1109,6 +1109,10 @@
         "isNotNull": true
       },
       {
+        "columnName": "failure_details",
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true
