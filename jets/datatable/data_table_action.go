@@ -1011,12 +1011,12 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					"successUpdate": map[string]interface{}{
 						"-peKey": peKey,
 						"-status": "completed",
-						"failureDetails": nil,
+						"failureDetails": "",
 					 },
 					"errorUpdate": map[string]interface{}{
 						"-peKey": peKey,
 						"-status": "failed",
-						"failureDetails": nil,
+						"failureDetails": "",
 					},
 				}
 				processArn := strings.TrimSuffix(os.Getenv("JETS_SERVER_SM_ARN"), "serverSM")
