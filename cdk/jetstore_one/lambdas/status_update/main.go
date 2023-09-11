@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -89,7 +90,14 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	case string:
 		ca.FailureDetails = failureDetails
 	case map[string]interface{}:
-		ca.FailureDetails = failureDetails["Cause"].(string)
+		var details map[string]interface{}	
+		if err = json.Unmarshal([]byte(failureDetails["Cause"].(string)), &details); err != nil {
+			ca.FailureDetails = failureDetails["Cause"].(string)
+		} else {
+			b, _ := json.MarshalIndent(details, "", " ")
+			ca.FailureDetails = string(b)
+		}
+		
 	default:
 		fmt.Println("Unknown type for failureDetails")
 	}
