@@ -74,18 +74,25 @@ func main() {
 //  "failureDetails": {...}
 // }
 
-func handler(ctx context.Context, arguments map[string]string) (err error) {
+func handler(ctx context.Context, arguments map[string]interface{}) (err error) {
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
 	ca := delegate.CommandArguments{
-		Status: arguments["-status"],
-		FailureDetails: arguments["failureDetails"],
+		Status: arguments["-status"].(string),
 	}
-	v, err := strconv.Atoi(arguments["-peKey"])
+	v, err := strconv.Atoi(arguments["-peKey"].(string))
 	if err != nil {
 		logger.Error("while parsing peKey:", zap.NamedError("error", err))
 		return err
 	}
 	ca.PeKey = v
+	switch failureDetails := arguments["failureDetails"].(type) {
+	case string:
+		ca.FailureDetails = failureDetails
+	case map[string]interface{}:
+		ca.FailureDetails = failureDetails["Cause"].(string)
+	default:
+		fmt.Println("Unknown type for failureDetails")
+	}
 	fmt.Println("Got peKey",ca.PeKey,"and failureDetails", ca.FailureDetails)
 	
 	errors := ca.ValidateArguments()
