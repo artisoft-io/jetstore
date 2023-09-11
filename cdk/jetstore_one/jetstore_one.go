@@ -218,7 +218,7 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 func mkCatchProps() *sfn.CatchProps {
 	return &sfn.CatchProps{
 		Errors:       jsii.Strings("States.ALL"),
-		ResultPath:   sfn.JsonPath_DISCARD(),
+		ResultPath:   jsii.String("$.errorUpdate.failureDetails"),
 	}
 }
 
@@ -1020,7 +1020,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// updateServerSuccessStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
 	// updateServerErrorStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
 	// Version using Lambda for Status Update
-	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(runServerReportsTask)
+	runServerMap.Iterator(runServerTask).AddRetry(&sfn.RetryProps{
+		BackoffRate: jsii.Number(2),
+		Errors: jsii.Strings(*sfn.Errors_TASKS_FAILED()),
+		Interval: awscdk.Duration_Minutes(jsii.Number(4)),
+		MaxAttempts: jsii.Number(2),
+	}).AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(runServerReportsTask)
 	runServerReportsTask.AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(updateServerSuccessStatusLambdaTask)
 	updateServerSuccessStatusLambdaTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
 	updateServerErrorStatusLambdaTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
@@ -1028,8 +1033,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
 		Definition:       runServerMap,
-		//* NOTE 8h TIMEOUT of exec rules
-		Timeout: awscdk.Duration_Hours(jsii.Number(8)),
+		//* NOTE 4h TIMEOUT of exec rules
+		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(serverSM).Add(phiTagName, jsii.String("true"), nil)

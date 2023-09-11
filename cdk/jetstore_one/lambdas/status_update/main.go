@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/status_update/delegate"
 
@@ -67,41 +68,41 @@ func main() {
 // 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 // }
 // status_update arguments:
-// "successUpdate": []string{
-// 	"-peKey", peKey,
-// 	"-status", "completed",
-// },
-// "errorUpdate": []string{
-// 	"-peKey", peKey,
-// 	"-status", "failed",
-// },
-// ["-peKey", "1269", "-status", "got it!"]
+// map[string]interface{}
+// {
+//  "-peKey": peKey,
+//  "-status": "completed",
+//  "failureDetails": {...}
+// }
 
-func handler(ctx context.Context, arguments []string) (err error) {
+func handler(ctx context.Context, arguments map[string]interface{}) (err error) {
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
-	var ca delegate.CommandArguments
-	var currentKey string
-	for i := range arguments {
-		// logger.Info("Processing File Key", zap.Int("index", i), zap.Int("count", len(s3Event.Records)), zap.String("bucketName", s3.Bucket.Name), zap.String("objectKey", s3.Object.Key))
-		switch {
-		case strings.HasPrefix(arguments[i], "-"):
-			currentKey = arguments[i]
-		default:
-			switch currentKey {
-			case "-peKey":
-				v, err := strconv.Atoi(arguments[i])
-				if err != nil {
-					logger.Error("while parsing peKey:", zap.NamedError("error", err))
-					return err
-				}
-				ca.PeKey = v
-			case "-status":
-				ca.Status = arguments[i]
-			default:
-				logger.Error("unsuported key:", zap.String("key", arguments[i]))
-			}
-		}
+	ca := delegate.CommandArguments{
+		Status: arguments["-status"].(string),
 	}
+	v, err := strconv.Atoi(arguments["-peKey"].(string))
+	if err != nil {
+		logger.Error("while parsing peKey:", zap.NamedError("error", err))
+		return err
+	}
+	ca.PeKey = v
+	switch failureDetails := arguments["failureDetails"].(type) {
+	case string:
+		ca.FailureDetails = failureDetails
+	case map[string]interface{}:
+		var details map[string]interface{}	
+		if err = json.Unmarshal([]byte(failureDetails["Cause"].(string)), &details); err != nil {
+			ca.FailureDetails = failureDetails["Cause"].(string)
+		} else {
+			b, _ := json.MarshalIndent(details, "", " ")
+			ca.FailureDetails = string(b)
+		}
+		
+	default:
+		fmt.Println("Unknown type for failureDetails")
+	}
+	fmt.Println("Got peKey",ca.PeKey,"and failureDetails", ca.FailureDetails)
+	
 	errors := ca.ValidateArguments()
 	for _, m := range errors {
 		logger.Error("Validation Error:", zap.String("errMsg", m))

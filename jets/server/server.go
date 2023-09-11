@@ -41,7 +41,7 @@ type dbConnections struct {
 // JETS_s3_INPUT_PREFIX (required for registrying the domain table with input_registry)
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
-// GLOG_V log level
+// GLOG_v log level
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 // JETS_DOMAIN_KEY_SEPARATOR
 
@@ -96,7 +96,60 @@ func init() {
 
 // doJob main function
 // -------------------------------------
-func doJob() error {
+func doJob() (pipelineResult *PipelineResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered error: %v", r)
+		}
+	}()
+
+	dbpool := dbc.mainNode.dbpool
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	if os.Getenv("JETSTORE_DEV_MODE") == "" {
+		// We're not in dev mode, sync the overriten workspace files
+		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:",err)
+			return
+		}
+	} else {
+		log.Println("We are in DEV_MODE, do not sync workspace file from db")
+	}
+
+	// Read pipeline configuration
+	pipelineConfig, err := readPipelineConfig(dbpool, *pipelineConfigKey, *pipelineExecKey)
+	if err != nil {
+		return nil, fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
+	}
+
+	// check if we are NOT overriding ruleset/ruleseq
+	if len(*ruleset) == 0 && len(*ruleseq) == 0 {
+		if pipelineConfig.processConfig.isRuleSet > 0 {
+			*ruleset = pipelineConfig.processConfig.mainRules
+		} else {
+			*ruleseq = pipelineConfig.processConfig.mainRules
+		}
+	}
+
+	// let's do it!
+	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, *ruleseq, pipelineConfig, outTableSlice, extTables)
+	if err != nil {
+		return nil, fmt.Errorf("while loading workspace: %v", err)
+	}
+	defer reteWorkspace.Release()
+
+	// Set the global processName for convenience for reporting BadRows
+	processName = reteWorkspace.pipelineConfig.processConfig.processName
+	if processName == "" {
+		return nil, fmt.Errorf("processName is not defined")
+	}
+
+	return ProcessData(dbpool, reteWorkspace)
+}
+
+func doJobAndReportStatus() error {
 
 	// open db connections
 	var err error
@@ -166,54 +219,20 @@ func doJob() error {
 		dbc.joinNodes[i] = dbNode{dbpool: dbpool, dsn: dsn}
 		defer dbc.joinNodes[i].dbpool.Close()
 	}
-	dbpool = dbc.mainNode.dbpool
-	// Fetch overriten workspace files if not in dev mode
-	// When in dev mode, the apiserver refreshes the overriten workspace files
-	if os.Getenv("JETSTORE_DEV_MODE") == "" {
-		// We're not in dev mode, sync the overriten workspace files
-		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
-		err := workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false)
-		if err != nil {
-			log.Println("Error while synching workspace file from db:",err)
-			return err
-		}
-	} else {
-		log.Println("We are in DEV_MODE, do not sync workspace file from db")
-	}
 
-	// Read pipeline configuration
-	pipelineConfig, err := readPipelineConfig(dbpool, *pipelineConfigKey, *pipelineExecKey)
-	if err != nil {
-		return fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
-	}
-
-	// check if we are NOT overriding ruleset/ruleseq
-	if len(*ruleset) == 0 && len(*ruleseq) == 0 {
-		if pipelineConfig.processConfig.isRuleSet > 0 {
-			*ruleset = pipelineConfig.processConfig.mainRules
-		} else {
-			*ruleseq = pipelineConfig.processConfig.mainRules
+	// Load configuration and execute pipeline
+	pipelineResult, err := doJob()
+	if pipelineResult == nil {
+		pipelineResult = &PipelineResult{
+			Status: "failed",
 		}
 	}
 
-	// let's do it!
-	reteWorkspace, err := LoadReteWorkspace(*workspaceDb, *lookupDb, *ruleset, *ruleseq, pipelineConfig, outTableSlice, extTables)
-	if err != nil {
-		return fmt.Errorf("while loading workspace: %v", err)
-	}
-	defer reteWorkspace.Release()
-
-	// Set the global processName for convenience for reporting BadRows
-	processName = reteWorkspace.pipelineConfig.processConfig.processName
-	if processName == "" {
-		return fmt.Errorf("processName is not defined")
-	}
-
+	// report status and errors
 	var errMessage string
-	pipelineResult, err := ProcessData(dbpool, reteWorkspace)
 	if err != nil {
 		pipelineResult.Status = "failed"
-		errMessage = fmt.Sprintf("%v", err)
+		errMessage = err.Error()
 		err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId, errMessage)
 		if err2 != nil {
 			log.Printf("error while writing pipeline status: %v", err2)
@@ -223,12 +242,16 @@ func doJob() error {
 
 	log.Println("Input records count is:", pipelineResult.InputRecordsCount)
 	log.Println("Rete sessions count is:", pipelineResult.ExecuteRulesCount)
+	errCount := pipelineResult.OutputRecordsCount["jetsapi.process_errors"]
 	for rdfType, count := range pipelineResult.OutputRecordsCount {
 		log.Printf("Output records count for type '%s' is: %d\n", rdfType, count)
 		pipelineResult.TotalOutputCount += count
 	}
 	// Update the pipeline_execution table with status and counts
 	pipelineResult.Status = "completed"
+	if errCount > 0 {
+		pipelineResult.Status = "errors"
+	}
 	err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId, errMessage)
 	if err2 != nil {
 		log.Printf("error while writing pipeline status: %v", err2)
@@ -365,7 +388,7 @@ func main() {
 		os.Setenv("GLOG_v", str)
 	}
 
-	err := doJob()
+	err := doJobAndReportStatus()
 	if err != nil {
 		fmt.Println(err)
 		panic(err)

@@ -1109,6 +1109,10 @@
         "isNotNull": true
       },
       {
+        "columnName": "failure_details",
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true
@@ -1218,6 +1222,53 @@
       {
         "indexName": "pipeline_execution_details_last_update_idx",
         "indexDef": "INDEX pipeline_execution_details_last_update_idx ON jetsapi.pipeline_execution_details (last_update DESC)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "report_execution_status",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "client",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "report_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "error_message",
+        "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "report_execution_status_session_id_idx",
+        "indexDef": "INDEX report_execution_status_session_id_idx ON jetsapi.report_execution_status (session_id)"
       }
     ]
   },

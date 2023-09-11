@@ -1008,13 +1008,15 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				smInput := map[string]interface{}{
 					"serverCommands": serverCommands,
 					"reportsCommand": runReportsCommand,
-					"successUpdate": []string{
-						"-peKey", peKey,
-						"-status", "completed",
-					},
-					"errorUpdate": []string{
-						"-peKey", peKey,
-						"-status", "failed",
+					"successUpdate": map[string]interface{}{
+						"-peKey": peKey,
+						"-status": "completed",
+						"failureDetails": "",
+					 },
+					"errorUpdate": map[string]interface{}{
+						"-peKey": peKey,
+						"-status": "failed",
+						"failureDetails": "",
 					},
 				}
 				processArn := strings.TrimSuffix(os.Getenv("JETS_SERVER_SM_ARN"), "serverSM")

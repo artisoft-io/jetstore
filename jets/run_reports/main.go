@@ -363,21 +363,12 @@ func runReports(dbpool *pgxpool.Pool, reportScriptPath string, updatedKeys *[]st
 	return nil
 }
 
-func coordinateWork() error {
-	// open db connection
-	var err error
-	if *awsDsnSecret != "" {
-		// Get the dsn from the aws secret
-		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
-		if err != nil {
-			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+func coordinateWork(dbpool *pgxpool.Pool) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered error: %v", r)
 		}
-	}
-	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
-	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
-	}
-	defer dbpool.Close()
+	}()
 
 	// Fetch overriten workspace files (here we want the reports definitions in particular)
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
@@ -415,8 +406,45 @@ func coordinateWork() error {
 			return err
 		}
 	}
+	return
+}
 
-	return nil
+func coordinateWorkAndUpdateStatus() error {
+	// open db connection
+	var err error
+	if *awsDsnSecret != "" {
+		// Get the dsn from the aws secret
+		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		if err != nil {
+			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		}
+	}
+	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	if err != nil {
+		return fmt.Errorf("while opening db connection: %v", err)
+	}
+	defer dbpool.Close()
+
+	// Do the reports
+	err = coordinateWork(dbpool)
+
+	// Update status
+	status := "completed"
+	var errMessage string
+	if err != nil {
+		status = "failed"
+		errMessage = err.Error()
+	}
+	log.Printf("Inserting status '%s' to report_execution_status table for session is '%s'", status, *sessionId)
+	stmt := `INSERT INTO jetsapi.report_execution_status 
+						(client, report_name, session_id, status, error_message) 
+						VALUES ($1, $2, $3, $4, $5)`
+	_, err2 := dbpool.Exec(context.Background(), stmt, *client, *reportName, *sessionId, status, errMessage)
+	if err2 != nil {
+		return fmt.Errorf("error inserting in jetsapi.report_execution_status table: %v", err2)
+	}
+
+	return err
 }
 
 func main() {
@@ -598,7 +626,7 @@ func main() {
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 	fmt.Println("Process Input file_key:", fileKey)
 
-	err = coordinateWork()
+	err = coordinateWorkAndUpdateStatus()
 	if err != nil {
 		panic(err)
 	}

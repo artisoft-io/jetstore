@@ -36,7 +36,6 @@ import (
 //		- writeResult channel capture the result of writeOutput to the database (struct with counts and err flag)
 
 type PipelineResult struct {
-	ReteWorkspace      *ReteWorkspace
 	Status             string
 	InputRecordsCount  int
 	ExecuteRulesCount  int
@@ -65,13 +64,15 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 	if pipelineExecutionKey < 0 {
 		return nil
 	}
-	var sessionId string
+	var mainInputSessionId, sessionId string
 	var userEmail string
 	var client, processName, objectType string
-	var sourcePeriodKey int
+	var sourcePeriodKey, pipelineConfigKey int
 	err := dbpool.QueryRow(context.Background(), 
-		"SELECT client, process_name, main_object_type, session_id, source_period_key, user_email FROM jetsapi.pipeline_execution_status WHERE key=$1", 
-		pipelineExecutionKey).Scan(&client, &processName, &objectType, &sessionId, &sourcePeriodKey, &userEmail)
+		`SELECT pipeline_config_key, client, process_name, main_object_type, input_session_id, session_id, source_period_key, user_email 
+		 FROM jetsapi.pipeline_execution_status WHERE key=$1`, 
+		pipelineExecutionKey).Scan(&pipelineConfigKey, &client, &processName, &objectType, 
+			&mainInputSessionId, &sessionId, &sourcePeriodKey, &userEmail)
 	if err != nil {
 		return fmt.Errorf("QueryRow on pipeline_execution_status failed: %v", err)
 	}
@@ -99,30 +100,28 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		"object_type": objectType,
 		"process_name": processName,
 	}	
-	if pr.Status == "completed" {
+	if pr.Status != "failed" {
 		awsi.LogMetric(*completedMetric, dimentions, 1)
 	} else {
 		awsi.LogMetric(*failedMetric, dimentions, 1)
 	}
 
 	if shardId >= 0 {
-		pipelineConfig := pr.ReteWorkspace.pipelineConfig
 		log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
 		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
 							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, source_period_key,
 							shard_id, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
 							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 		_, err = dbpool.Exec(context.Background(), stmt,
-			pipelineConfig.key, pipelineExecutionKey,
-			pipelineConfig.clientName, pipelineConfig.processConfig.processName,
-			pipelineConfig.mainProcessInput.sessionId, sessionId, sourcePeriodKey, shardId,
+			pipelineConfigKey, pipelineExecutionKey,
+			client, processName, mainInputSessionId, sessionId, sourcePeriodKey, shardId,
 			pr.Status, errMessage, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, userEmail)
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
 		}
 	}
 
-	if pr.Status == "completed" && !doNotLockSessionId {
+	if pr.Status != "failed" && !doNotLockSessionId {
 		// Register the output domain tables to input_registry
 		err = datatable.RegisterDomainTables(dbpool, pipelineExecutionKey)
 		if err != nil {
@@ -168,10 +167,17 @@ func prepareProcessInput(processInput *ProcessInput,
 // Main pipeline processing function
 // Note: ALWAYS return a non nil *PipelineResult (needed to register result)
 func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineResult, error) {
-	result := PipelineResult{ReteWorkspace: reteWorkspace}
+	result := PipelineResult{}
 	var err error
 	done := make(chan struct{})
-	defer close(done)
+	defer func() {
+		select {
+		case <-done:
+			// done chan is already closed due to error
+		default:
+			close(done)
+		}
+	}()
 
 	// Open connection to workspaceDb
 	workspaceMgr, err := workspace.OpenWorkspaceDb(reteWorkspace.workspaceDb)
@@ -410,9 +416,9 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 
 	var wg2 sync.WaitGroup
 	// wtrc: Write Table Result Chanel, worker's result status
-	wtrc := make(chan writeResult)
+	wtrc := make(chan writeResult, len(writeOutputc))
 	for tblName, tblSpec := range outputMapping {
-		for idb := range writeOutputc[tblName] {
+		for itbl := range writeOutputc[tblName] {
 			wg2.Add(1)
 			go func(tableName string, tableSpec *workspace.DomainTable, idb int) {
 				// Start the write table workers
@@ -421,10 +427,14 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 				if err != nil {
 					err = fmt.Errorf("while write table: %v", err)
 					log.Println(err)
+					// stop the process
+					close(done)
+					// empty the channel
+					for range source.source {}
 				}
 				wtrc <- writeResult{result: *result, err: err}
 				wg2.Done()
-			}(tblName, tblSpec, idb)
+			}(tblName, tblSpec, itbl)
 		}
 	}
 	go func() {

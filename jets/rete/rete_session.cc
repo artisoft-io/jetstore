@@ -24,10 +24,10 @@ namespace jets::rete {
       return -1;
     }
     int ret = 0;
+    VLOG(20) << "Initialize ReteSession";
     try {
-      beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
       // Initialize BetaRelationVector beta_relations_
-      VLOG(20) << "Initialize ReteSession";
+      beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
       for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
         auto const* meta_node = this->rule_ms_->node_vertexes_[ipos].get();
         // VLOG(30) << "ReteSession::Initialize: Node Vertex:"<<meta_node;
@@ -39,6 +39,26 @@ namespace jets::rete {
         }
         beta_relations_.push_back(bn);
       }
+      // Initialize VertexVisitsVector
+      vertex_visits_.reserve(this->rule_ms_->node_vertexes_.size());
+      // Initialize BetaRelationVector beta_relations_
+      for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
+        vertex_visits_.push_back({0, 0});
+      }
+      // Get the max_vertex_visit_ from the rdf session (meta graph)
+      auto rmgr = rdf_session_->rmgr();
+      auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, rmgr->jets()->jets__max_vertex_visits);
+      if(v == nullptr) {
+        // no max set
+        max_vertex_visit_ = -1;
+      } else {
+        if(v->which() == rdf::rdf_literal_int32_t) {
+          max_vertex_visit_ = boost::get<rdf::LInt32>(v)->data;
+        } else {
+          max_vertex_visit_ = -1;
+        }
+      }
+
       ret = this->set_graph_callbacks();
     } catch (std::exception& err) {
       LOG(ERROR) << "ReteSession::initialize: error:"<<err.what();
@@ -111,9 +131,14 @@ namespace jets::rete {
     try {
       int ret = this->execute_rules(0, true, true);
       if(ret < 0) {
+        *v = ret;
+        if( ret == -10) {
+          // Case max_vertex_visits reached
+          // error msg is json populated in compute_consequent_triples
+          return this->err_msg_.data();
+        }
         this->err_msg_ = std::string("execute rules returned error code ") +
         std::to_string(ret);
-        *v = ret;
         return this->err_msg_.data();
       }
     } catch (std::exception& err) {
@@ -128,7 +153,7 @@ namespace jets::rete {
       return this->err_msg_.data();
     }
     *v = 0;
-    this->rdf_session()->rmgr()->dump_resources();
+    // this->rdf_session()->rmgr()->dump_resources();
     return nullptr;
   }
 
@@ -288,7 +313,6 @@ namespace jets::rete {
   ReteSession::schedule_consequent_terms(BetaRowPtr beta_row)
   {
     assert(beta_row);
-    //* TODO Check for max visit allowed for a vertex
 
     VLOG(37)<<"    Schedule consequent, Vertex "<<
       beta_row->get_node_vertex()->vertex<<", for "<<(beta_row->is_deleted()? "RETRACT":"INFER")<<" row "<<beta_row;
@@ -323,10 +347,33 @@ namespace jets::rete {
       }
 
       //* TODO Log infer/retract event here to trace inferrence process (aka explain why)
-      //* TODO Track how many times a rule infer/retract triples here (aka rule stat collector)
+
+      // Track how many times a rule infer/retract triples here (aka rule stat collector)
+      // Check for max visit allowed for a vertex
+      auto current_visits = vertex_visits_[meta_node->vertex];
+      if(max_vertex_visit_ > 0 && current_visits.first >= max_vertex_visit_) {
+        // Max vertex visit reached, return error
+        // make json for err msg text
+        std::ostringstream streamOut;
+        streamOut << "{\"error\":\"Maximum vertex visits reached\",\"data\":{";
+        bool isFirst = true;
+        for(int i=0; i<vertex_visits_.size(); i++) {
+          if(vertex_visits_[i].first*1.1 >= max_vertex_visit_) {
+            if(!isFirst) {
+              streamOut << ",";  
+            }
+            isFirst = false;
+            streamOut << "\""<<i<<"\": ["<<vertex_visits_[i].first<<","<<vertex_visits_[i].second<<"]";
+          }
+        }
+        streamOut << "}}";
+        this->err_msg_ = streamOut.str();
+        return -10;
+      }
 
       if(beta_row->is_inserted()) {
         // Infer consequent triples
+        vertex_visits_[meta_node->vertex] = {current_visits.first+1, current_visits.second};
         for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
           auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
           auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
@@ -344,6 +391,7 @@ namespace jets::rete {
                 <<meta_node->vertex<<": error expecting status deleted, got "<<beta_row->get_status());
         }
         // Retract consequent triples
+        vertex_visits_[meta_node->vertex] = {current_visits.first, current_visits.second+1};
         for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
           auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
           auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());

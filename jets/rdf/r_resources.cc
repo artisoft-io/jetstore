@@ -22,6 +22,7 @@ JetsResources::initialize(RManager * rmgr)
   this->jets__lookup_multi_rows        = rmgr->create_resource("jets:lookup_multi_rows");
   this->jets__lookup_row               = rmgr->create_resource("jets:lookup_row");
   this->jets__loop                     = rmgr->create_resource("jets:loop");
+  this->jets__max_vertex_visits        = rmgr->create_resource("jets:max_vertex_visits");
   this->jets__operator                 = rmgr->create_resource("jets:operator");
   this->jets__org                      = rmgr->create_resource("jets:org");
   this->jets__range_value              = rmgr->create_resource("jets:range_value");

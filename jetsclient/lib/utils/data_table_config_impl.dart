@@ -417,6 +417,15 @@ final Map<String, TableConfig> _tableConfigurations = {
           configScreenPath: processErrorsPath,
           navigationParams: {'session_id': 13}),
       ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'viewFailureDetails',
+          label: 'View Failure Details',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.showFailureDetails,
+          navigationParams: {'session_id': 13, 'failure_details': 14}),
+      ActionConfig(
           actionType: DataTableActionType.refreshTable,
           key: 'refreshTable',
           label: 'Refresh',
@@ -425,7 +434,12 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: null),
     ],
     formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+          DataTableFormStateOtherColumnConfig(
+            stateKey: FSK.failureDetails,
+            columnIdx: 14,
+          ),
+        ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -520,12 +534,19 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 14,
+          name: "failure_details",
+          label: 'Failure Details',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 15,
           name: "user_email",
           label: 'User',
           tooltips: 'Who submitted the pipeline',
           isNumeric: false),
       ColumnConfig(
-          index: 15,
+          index: 16,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the pipeline was submitted',
