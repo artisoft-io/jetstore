@@ -242,12 +242,17 @@ func doJobAndReportStatus() error {
 
 	log.Println("Input records count is:", pipelineResult.InputRecordsCount)
 	log.Println("Rete sessions count is:", pipelineResult.ExecuteRulesCount)
+	var errCount int64
 	for rdfType, count := range pipelineResult.OutputRecordsCount {
 		log.Printf("Output records count for type '%s' is: %d\n", rdfType, count)
 		pipelineResult.TotalOutputCount += count
+		errCount += count
 	}
 	// Update the pipeline_execution table with status and counts
 	pipelineResult.Status = "completed"
+	if errCount > 0 {
+		pipelineResult.Status = "errors"
+	}
 	err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId, errMessage)
 	if err2 != nil {
 		log.Printf("error while writing pipeline status: %v", err2)
