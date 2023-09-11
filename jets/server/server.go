@@ -242,11 +242,10 @@ func doJobAndReportStatus() error {
 
 	log.Println("Input records count is:", pipelineResult.InputRecordsCount)
 	log.Println("Rete sessions count is:", pipelineResult.ExecuteRulesCount)
-	var errCount int64
+	errCount := pipelineResult.OutputRecordsCount["jetsapi.process_errors"]
 	for rdfType, count := range pipelineResult.OutputRecordsCount {
 		log.Printf("Output records count for type '%s' is: %d\n", rdfType, count)
 		pipelineResult.TotalOutputCount += count
-		errCount += count
 	}
 	// Update the pipeline_execution table with status and counts
 	pipelineResult.Status = "completed"
