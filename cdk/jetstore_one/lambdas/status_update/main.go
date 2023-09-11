@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/status_update/delegate"
 
@@ -73,18 +74,19 @@ func main() {
 //  "failureDetails": {...}
 // }
 
-func handler(ctx context.Context, arguments map[string]interface{}) (err error) {
+func handler(ctx context.Context, arguments map[string]string) (err error) {
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
 	ca := delegate.CommandArguments{
-		PeKey: arguments["-peKey"].(int),
-		Status: arguments["-status"].(string),
+		Status: arguments["-status"],
+		FailureDetails: arguments["failureDetails"],
 	}
-	if arguments["failureDetails"] != nil {
-		ca.FailureDetails = arguments["failureDetails"].(string)
-		fmt.Println("Got failureDetails", ca.FailureDetails)
-	} else {
-		fmt.Println("failureDetails is nil")
+	v, err := strconv.Atoi(arguments["-peKey"])
+	if err != nil {
+		logger.Error("while parsing peKey:", zap.NamedError("error", err))
+		return err
 	}
+	ca.PeKey = v
+	fmt.Println("Got peKey",ca.PeKey,"and failureDetails", ca.FailureDetails)
 	
 	errors := ca.ValidateArguments()
 	for _, m := range errors {
