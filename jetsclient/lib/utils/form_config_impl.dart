@@ -1271,6 +1271,36 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: homeFormActions,
   ),
 
+  // Show Pipeline Failure Details - Dialog
+  FormKeys.showFailureDetails: FormConfig(
+    key: FormKeys.showFailureDetails,
+    title: "Pipeline Failure Details",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Close",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.failureDetails,
+            label: "Failure Details",
+            hint: "This is read only",
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 20,
+            maxLength: 4000000),
+      ],
+    ],
+    formValidatorDelegate: homeFormValidator,
+    formActionsDelegate: homeFormActions,
+  ),
+
   // View Process Errors (table as actionless form)
   FormKeys.viewProcessErrors: FormConfig(
     key: FormKeys.viewProcessErrors,

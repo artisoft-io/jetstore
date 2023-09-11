@@ -104,6 +104,7 @@ class FormKeys {
   static const pipelineConfigForm = "pipelineConfigForm";
   static const pipelineConfigEditForm = "pipelineConfigEditForm";
   static const startPipeline = "startPipelineDialog";
+  static const showFailureDetails = "showFailureDetailsDialog";
   // Process Errors Dialogs
   static const viewProcessErrors = "viewProcessErrorsForm";
   static const viewInputRecords = "viewInputRecordsDialog";
@@ -220,6 +221,7 @@ class FSK {
   static const mainInputRegistryKey = "main_input_registry_key";
   static const mainInputFileKey = "main_input_file_key";
   static const mergedInputRegistryKeys = "merged_input_registry_keys";
+  static const failureDetails = "failure_details";
 
   // Source Period keys
   static const year = "year";
