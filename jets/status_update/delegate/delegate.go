@@ -31,6 +31,7 @@ type CommandArguments struct {
 	Dsn string
 	PeKey int
 	Status	string
+	FailureDetails string
 }
 
 // Support Functions
@@ -61,11 +62,11 @@ func getPeInfo(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, string, 
 	}
 	return client, sessionId, sourcePeriodKey
 }
-func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string) error {
+func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failureDetails *string) error {
 		// Record the status of the pipeline execution
 		log.Printf("Inserting status '%s' to pipeline_execution_status table", status)
-		stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, last_update) = ($1, DEFAULT) WHERE key = $2"
-		_, err := dbpool.Exec(context.Background(), stmt, status, pipelineExecutionKey)
+		stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, failure_details, last_update) = ($1, $2, DEFAULT) WHERE key = $3"
+		_, err := dbpool.Exec(context.Background(), stmt, status, failureDetails, pipelineExecutionKey)
 		if err != nil {
 			return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
 		}
@@ -141,16 +142,16 @@ func (ca *CommandArguments) CoordinateWork() error {
 	// Update the pipeline_execution_status based on worst case status
 	switch {
 	case ca.Status == "failed":
-		err = updateStatus(dbpool, ca.PeKey, "failed")
+		err = updateStatus(dbpool, ca.PeKey, "failed", &ca.FailureDetails)
 
 	case getStatusCount(dbpool, ca.PeKey, "failed") > 0:
-		err = updateStatus(dbpool, ca.PeKey, "failed")
+		err = updateStatus(dbpool, ca.PeKey, "failed", &ca.FailureDetails)
 
 	case getStatusCount(dbpool, ca.PeKey, "errors") > 0:
-		err = updateStatus(dbpool, ca.PeKey, "errors")
+		err = updateStatus(dbpool, ca.PeKey, "errors", nil)
 
 	default:
-		err = updateStatus(dbpool, ca.PeKey, "completed")
+		err = updateStatus(dbpool, ca.PeKey, "completed", nil)
 	}
 	if err != nil {
 		return fmt.Errorf("while updating process execution status: %v", err)

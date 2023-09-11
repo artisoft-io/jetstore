@@ -218,7 +218,7 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 func mkCatchProps() *sfn.CatchProps {
 	return &sfn.CatchProps{
 		Errors:       jsii.Strings("States.ALL"),
-		ResultPath:   sfn.JsonPath_DISCARD(),
+		ResultPath:   jsii.String("$.failureDetails"),
 	}
 }
 
