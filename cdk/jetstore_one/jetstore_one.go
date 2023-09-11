@@ -1020,7 +1020,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// updateServerSuccessStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
 	// updateServerErrorStatusTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
 	// Version using Lambda for Status Update
-	runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(runServerReportsTask)
+	runServerMap.Iterator(runServerTask).AddRetry(&sfn.RetryProps{
+		BackoffRate: jsii.Number(2),
+		Errors: jsii.Strings(*sfn.Errors_TASKS_FAILED()),
+		Interval: awscdk.Duration_Minutes(jsii.Number(4)),
+		MaxAttempts: jsii.Number(2),
+	}).AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(runServerReportsTask)
 	runServerReportsTask.AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(updateServerSuccessStatusLambdaTask)
 	updateServerSuccessStatusLambdaTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifySuccess)
 	updateServerErrorStatusLambdaTask.AddCatch(notifyFailure, mkCatchProps()).Next(notifyFailure)
