@@ -100,7 +100,7 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		"object_type": objectType,
 		"process_name": processName,
 	}	
-	if pr.Status == "completed" {
+	if pr.Status != "failed" {
 		awsi.LogMetric(*completedMetric, dimentions, 1)
 	} else {
 		awsi.LogMetric(*failedMetric, dimentions, 1)
@@ -121,7 +121,7 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		}
 	}
 
-	if pr.Status == "completed" && !doNotLockSessionId {
+	if pr.Status != "failed" && !doNotLockSessionId {
 		// Register the output domain tables to input_registry
 		err = datatable.RegisterDomainTables(dbpool, pipelineExecutionKey)
 		if err != nil {
