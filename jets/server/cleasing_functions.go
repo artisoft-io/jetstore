@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"regexp"
 	"strconv"
@@ -36,7 +37,9 @@ func filterDouble(str string) string {
 	return buf.String()
 }
 
-func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSession, inputColumnSpec *ProcessMap, inputValue *string) (obj, errMsg string, err error) {
+func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSession, inputColumnSpec *ProcessMap, inputValue *string) (string, string) {
+	var obj, errMsg string
+	var err error
 	var sz int
 	switch inputColumnSpec.functionName.String {
 	case "trim":
@@ -120,7 +123,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 		inVal := filterDigits(*inputValue)
 		if len(inVal) < 10 {
 			errMsg = "too few digits"
-			return
+			return obj, errMsg
 		}
 		if inVal[0] == '0' {
 			inVal = inVal[1:]
@@ -130,18 +133,18 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 		}
 		if len(inVal) < 10 {
 			errMsg = "invalid sequence of digits"
-			return
+			return obj, errMsg
 		}
 		areaCode := inVal[0:3]
 		exchangeCode := inVal[3:6]
 		subscriberNbr := inVal[6:10]
 		if areaCode[0] == '0' || areaCode[0] == '1' {
 			errMsg = "invalid area code"
-			return
+			return obj, errMsg
 		}
 		if exchangeCode[0] == '0' || exchangeCode[0] == '1' {
 			errMsg = "invalid exchange code"
-			return
+			return obj, errMsg
 		}
 		arg := inputColumnSpec.argument.String
 		if len(arg) == 0 {
@@ -163,7 +166,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			}
 		} else {
 			// configuration error, bailing out
-			return "", "", fmt.Errorf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn.String)
+			log.Panicf("ERROR missing argument for function reformat0 for input column: %s", inputColumnSpec.inputColumn.String)
 		}
 	case "overpunch_number":
 		if inputColumnSpec.argument.Valid {
@@ -181,7 +184,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			}
 		} else {
 			// configuration error, bailing out
-			return "", "", fmt.Errorf("ERROR missing argument for function overpunch_number for input column: %s", inputColumnSpec.inputColumn.String)
+			log.Panicf("ERROR missing argument for function overpunch_number for input column: %s", inputColumnSpec.inputColumn.String)
 		}
 	case "apply_regex":
 		if inputColumnSpec.argument.Valid {
@@ -191,14 +194,14 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 				re, err = regexp.Compile(arg)
 				if err != nil {
 					// configuration error, bailing out
-					return "", "", fmt.Errorf("ERROR regex argument does not compile: %s", arg)
+					log.Panicf("ERROR regex argument does not compile: %s", arg)
 				}
 				ri.reMap[arg] = re
 			}
 			obj = re.FindString(*inputValue)
 		} else {
 			// configuration error, bailing out
-			return "", "", fmt.Errorf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn.String)
+			log.Panicf("ERROR missing argument for function apply_regex for input column: %s", inputColumnSpec.inputColumn.String)
 		}
 	case "scale_units":
 		if inputColumnSpec.argument.Valid {
@@ -211,7 +214,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 					divisor, err = strconv.ParseFloat(arg, 64)
 					if err != nil {
 						// configuration error, bailing out
-						return "", "", fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
+						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", arg)
 					}
 					ri.argdMap[arg] = divisor
 				}
@@ -227,7 +230,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			}
 		} else {
 			// configuration error, bailing out
-			return "", "", fmt.Errorf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn.String)
+			log.Panicf("ERROR missing argument for function scale_units for input column: %s", inputColumnSpec.inputColumn.String)
 		}
 	case "parse_amount":
 		// clean up the amount
@@ -243,7 +246,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 						divisor, err = strconv.ParseFloat(arg, 64)
 						if err != nil {
 							// configuration error, bailing out
-							return "", "", fmt.Errorf("ERROR divisor argument to function scale_units is not a double: %s", arg)
+							log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", arg)
 						}
 						ri.argdMap[arg] = divisor
 					}
@@ -258,8 +261,8 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			}
 		}
 	default:
-		return "", "", fmt.Errorf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
+		log.Panicf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
 	}
 
-	return
+	return obj, errMsg
 }
