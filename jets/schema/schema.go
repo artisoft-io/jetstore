@@ -167,7 +167,7 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 	}
 	// make sure the table schema exists
 	stmt := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", pgx.Identifier{tableDefinition.SchemaName}.Sanitize())
-	fmt.Println(stmt)
+	// fmt.Println(stmt)
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating schema: %v", err)
@@ -199,12 +199,13 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 }
 
 func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error {
+	log.Println("Creating Table",tableDefinition.TableName)
 	if dbpool == nil {
 		return errors.New("error: dbpool required")
 	}
 	// drop stmt
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
-	fmt.Println(stmt)
+	// fmt.Println(stmt)
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while droping table: %v", err)
@@ -257,7 +258,7 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 	}
 	// Execute the statements
 	stmt = buf.String()
-	fmt.Println(stmt)
+	// fmt.Println(stmt)
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while creating table schema: %v", err)
@@ -266,6 +267,7 @@ func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error 
 }
 
 func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existingSchema *TableDefinition) error {
+	log.Println("Updating Table",tableDefinition.TableName)
 	// alter stmt
 	var buf strings.Builder
 	buf.WriteString("ALTER TABLE IF EXISTS ")
@@ -370,7 +372,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 
 	// Execute the statements
 	stmt := buf.String()
-	fmt.Println(stmt)
+	// fmt.Println(stmt)
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while updating table schema: %v", err)
