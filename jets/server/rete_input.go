@@ -122,7 +122,7 @@ func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
 		} else {
 			cn = "UNNAMED"
 		}
-		err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", cn, inputColumnSpec.rdfType)
+		log.Panicf("ERROR unknown or invalid type for column %s: %s", cn, inputColumnSpec.rdfType)
 	}
 	return
 }
@@ -143,28 +143,28 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	}
 	subject, err := reteSession.NewResource(jetsKeyStr)
 	if err != nil {
-		return fmt.Errorf("while creating row's subject resource (NewResource): %v", err)
+		log.Panicf("while creating row's subject resource (NewResource): %v", err)
 	}
 	jetsKey, err := reteSession.NewTextLiteral(jetsKeyStr)
 	if err != nil {
-		return fmt.Errorf("while creating row's jets:key literal (NewTextLiteral): %v", err)
+		log.Panicf("while creating row's jets:key literal (NewTextLiteral): %v", err)
 	}
 	if subject == nil || ri.rdf__type == nil || ri.jets__input_record == nil || aJetRow.processInput.entityRdfTypeResource == nil {
-		return fmt.Errorf("ERROR while asserting row rdf type")
+		log.Panicf("ERROR while asserting row rdf type")
 	}
 	// Assert the rdf:type of the row
 	_, err = reteSession.Insert(subject, ri.rdf__type, aJetRow.processInput.entityRdfTypeResource)
 	if err != nil {
-		return fmt.Errorf("while asserting row rdf type: %v", err)
+		log.Panicf("while asserting row rdf type: %v", err)
 	}
 	_, err = reteSession.Insert(subject, ri.rdf__type, ri.jets__input_record)
 	if err != nil {
-		return fmt.Errorf("while asserting row rdf type: %v", err)
+		log.Panicf("while asserting row rdf type: %v", err)
 	}
 	// Assert jets:key of the row
 	_, err = reteSession.Insert(subject, ri.jets__key, jetsKey)
 	if err != nil {
-		return fmt.Errorf("while asserting row jets key: %v", err)
+		log.Panicf("while asserting row jets key: %v", err)
 	}
 	// Asserting client and org (assert empty string if empty)
 	v,_ := reteSession.NewTextLiteral(aJetRow.processInput.client)
@@ -182,11 +182,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
 				// Apply cleansing function
-				obj, errMsg, err = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String)
-				if err != nil {
-					log.Println("Error while applying cleasing function:", err)
-					return err
-				}
+				obj, errMsg = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String)
 			} else {
 				obj = row[icol].String
 			}
@@ -253,14 +249,14 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 			}
 		}
 		if inputColumnSpec.predicate == nil {
-			return fmt.Errorf("ERROR predicate is null")
+			log.Panicf("ERROR predicate is null")
 		}
 		if object == nil {
 			continue
 		}
 		_, err = reteSession.Insert(subject, inputColumnSpec.predicate, object)
 		if err != nil {
-			return fmt.Errorf("while asserting triple to rete session: %v", err)
+			log.Panicf("while asserting triple to rete session: %v", err)
 		}
 	}
 	return nil
