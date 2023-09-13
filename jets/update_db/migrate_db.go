@@ -48,7 +48,7 @@ func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
 	// initialize jetsapi database
 	// jetsapiInitPath use to be the path of workspace_init_db.sql
 	// if jetsapiInitPath ends with workspace_init_db.sql, remove the suffix
-	// and use all files ending with workspace_init_db.sql
+	// and use all files in directory
 	workspaceInitDbPath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
 	fileSystem := os.DirFS(workspaceInitDbPath)
 	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
@@ -83,7 +83,7 @@ func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
 				return fmt.Errorf("error while reading db init, stmt is empty")
 			}
 			stmt = strings.TrimSpace(stmt)
-			fmt.Println(stmt)
+			// fmt.Println(stmt)
 			_, err = dbpool.Exec(context.Background(), stmt)
 			if err != nil {
 				return fmt.Errorf("error while executing: %v", err)

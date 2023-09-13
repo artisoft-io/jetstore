@@ -1062,6 +1062,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			columnDefs[i].Index = i
 			columnDefs[i].Name = string(fd[i].Name)
 			columnDefs[i].Label = columnDefs[i].Name
+			fmt.Println("*** ColumnName",columnDefs[i].Name,"oid",fd[i].DataTypeOID)
 			dataType := dbutils.DataTypeFromOID(fd[i].DataTypeOID) 
 			if dbutils.IsNumeric(dataType) {
 				columnDefs[i].IsNumeric = true

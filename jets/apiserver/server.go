@@ -317,7 +317,7 @@ func (server *Server) checkWorkspaceVersion() error {
 	switch {
 	case err != nil:
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
+			log.Println("Workspace version is not defined (no rows returned) in workspace_version table, no need to recompile workspace")
 			server.syncUnitTestFiles()
 			return workspace.UpdateWorkspaceVersionDb(server.dbpool, workspaceName, version.String)
 		}
@@ -325,8 +325,9 @@ func (server *Server) checkWorkspaceVersion() error {
 		return err
 
 	case !version.Valid:
-		log.Println("Workspace version is not defined in workspace_version table, no need to recompile workspace")
-		return nil
+		log.Println("Workspace version is not defined (null version) in workspace_version table, no need to recompile workspace")
+		server.syncUnitTestFiles()
+		return workspace.UpdateWorkspaceVersionDb(server.dbpool, workspaceName, version.String)
 
 	case jetstoreVersion > version.String:
 		log.Println("Workspace deployed version (in database) is", version.String)
