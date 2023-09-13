@@ -238,6 +238,7 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 		for inPos := range fd {
 			oid := fd[inPos].DataTypeOID
 			columName := string(fd[inPos].Name)
+			fmt.Println("*** ColumnName",columName,"oid",oid)
 			// skipping arrays and unknown data type
 			if !dbutils.IsArrayFromOID(oid) {
 				switch datatype := dbutils.DataTypeFromOID(oid); datatype {
