@@ -288,13 +288,14 @@ func main() {
 		WorkspaceName: ws,
 		SessionId: *sessionId,
 		ProcessName: *processName,
+		ReportName: *reportName,
 		FileKey: fileKey,
 		OutputPath: outputPath,
 		OriginalFileName: *originalFileName,
 		ReportScriptPaths: reportScriptPaths,
 		ReportConfiguration: reportConfig,
 		BucketName: *awsBucket,
-		ReportName: *awsRegion,
+		RegionName: *awsRegion,
 	}
 	err = coordinateWorkAndUpdateStatus(ca)
 	if err != nil {
