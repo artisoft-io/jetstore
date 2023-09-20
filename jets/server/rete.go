@@ -387,34 +387,63 @@ func (rw *ReteWorkspace) ExecuteRules(
 										Valid:  true}
 									log.Println("BAD EXTRACT:", br)
 									br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
-								}
-								if !(domainColumn.ColumnName == "rdf:type" && obj.(string) == "jets:InputRecord") {
-									data = append(data, obj)
+								} else {
+									if !(domainColumn.ColumnName == "rdf:type" && obj.(string) == "jets:InputRecord") {
+										data = append(data, obj)
+									}	
 								}
 								itor.Next()
 							}
-							if domainColumn.IsArray {
+							switch {
+							// Use array as value
+							case domainColumn.IsArray:
 								entityRow[i] = data
-							} else {
-								ld := len(data)
-								switch {
-								case ld == 1:
-									entityRow[i] = data[0]
-								case ld > 1:
-									// Invalid row, multiple values for a functional property
-									br := NewBadRow()
-									rowkey, err := subject.GetName()
-									if err == nil {
-										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
+
+							// Functional property, got single element
+							case len(data) == 1:
+								entityRow[i] = data[0]
+	
+							// There is no value, this is null
+							case len(data) == 0:
+								entityRow[i] = nil
+
+							// Coalesce text array into functional text property
+							case domainColumn.DataType == "text" || domainColumn.DataType == "resource" || domainColumn.DataType == "volatile_resource":
+								var buf strings.Builder
+								buf.WriteString("{")
+								isFirst := true
+								for idata := range data {
+									v := data[idata].(string)
+									if v != "" {
+										if !isFirst {
+											buf.WriteString(",")
+										}
+										buf.WriteString(v)
+										isFirst = false	
 									}
-									br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
-									br.ErrorMessage = sql.NullString{
-										String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName),
-										Valid:  true}
-									log.Println("BAD EXTRACT:", br)
-									br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
-								default:
 								}
+								buf.WriteString("}")
+								v := buf.String()
+								if v != "{}" {
+									entityRow[i] = v
+								} else {
+									entityRow[i] = nil
+								}
+
+							// Got multiple values for non text functional property
+							default:
+								// Invalid row, multiple values for a functional property
+								br := NewBadRow()
+								rowkey, err := subject.GetName()
+								if err == nil {
+									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
+								}
+								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
+								br.ErrorMessage = sql.NullString{
+									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName),
+									Valid:  true}
+								log.Println("BAD EXTRACT:", br)
+								br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 							}
 							itor.ReleaseIterator()
 						}

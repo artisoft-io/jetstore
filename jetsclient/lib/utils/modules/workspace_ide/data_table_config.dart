@@ -544,7 +544,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: true),
       ColumnConfig(
           index: 3,
-          name: "normalized_label",
+          // name: "normalized_label",
+          name: "normalizedLabel",  //* TODO Rename sqlite column to normalized_label
           table: "rete_nodes",
           label: 'Jet Rule Term',
           tooltips: 'Jet Rule Term using normalized label',

@@ -3,6 +3,7 @@ package datatable
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
+	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
 // WorkspaceInsertRows ------------------------------------------------------
@@ -111,49 +113,56 @@ func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*ma
 	// Replace table schema with value $SCHEMA with the workspace_name
 	for i := range dataTableAction.FromClauses {
 		if dataTableAction.FromClauses[i].Schema == "$SCHEMA" {
-			dataTableAction.FromClauses[i].Schema = dataTableAction.WorkspaceName
+			dataTableAction.FromClauses[i].Schema = ""
 		}
 	}
 
 	// to package up the result
 	results := make(map[string]interface{})
-	var columnsDef []DataTableColumnDef
 	var err error
 
 	if len(dataTableAction.Columns) == 0 {
-		// Get table column definition
-		columnsDef, err = dataTableAction.getColumnsDefinitions(ctx.Dbpool)
-		if err != nil {
-			return nil, http.StatusInternalServerError, err
-		}
-
-		dataTableAction.SortColumn = columnsDef[0].Name
-		results["columnDef"] = columnsDef
-
-		// Add table's label
-		if dataTableAction.FromClauses[0].Schema == "public" {
-			results["label"] = fmt.Sprintf("Table %s", dataTableAction.FromClauses[0].Table)
-		} else {
-			results["label"] = fmt.Sprintf("Table %s.%s", dataTableAction.FromClauses[0].Schema, dataTableAction.FromClauses[0].Table)
-		}
+		return nil, http.StatusNotImplemented, fmt.Errorf("Column names must be provided")
 	}
 
 	// Build the query
 	query, nbrRowsQuery := dataTableAction.buildQuery()
 
 	// Perform the query
-	resultRows, _, err := execQuery(ctx.Dbpool, dataTableAction, &query)
-	if err != nil {
-		return nil, http.StatusInternalServerError,
-			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
-	}
-
-	// get the total nbr of row
+	var resultRows *[][]interface{}
 	var totalRowCount int
-	err = ctx.Dbpool.QueryRow(context.Background(), nbrRowsQuery).Scan(&totalRowCount)
-	if err != nil {
-		return nil, http.StatusInternalServerError,
-			fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+	if dataTableAction.FromClauses[0].Schema == "jetsapi" {
+		resultRows, _, err = execQuery(ctx.Dbpool, dataTableAction, &query)
+		if err != nil {
+			return nil, http.StatusInternalServerError,
+				fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+		}
+
+		// get the total nbr of row
+		err = ctx.Dbpool.QueryRow(context.Background(), nbrRowsQuery).Scan(&totalRowCount)
+		if err != nil {
+			return nil, http.StatusInternalServerError,
+				fmt.Errorf("while getting total row count from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+		}
+	} else {
+		// Query the workspace sqlite db
+		workspaceDsn := fmt.Sprintf("%s/%s/workspace.db", os.Getenv("WORKSPACES_HOME"), dataTableAction.WorkspaceName)
+		db, err := sql.Open("sqlite3", workspaceDsn) // Open the created SQLite File
+		if err != nil {
+			return nil, http.StatusInternalServerError, fmt.Errorf("while opening workspace db: %v", err)
+		}
+		resultRows, err = execWorkspaceQuery(db, dataTableAction, &query)
+		if err != nil {
+			return nil, http.StatusInternalServerError,
+				fmt.Errorf("while executing workspace query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+		}
+
+		// get the total nbr of row
+		err = db.QueryRow(nbrRowsQuery).Scan(&totalRowCount)
+		if err != nil {
+			return nil, http.StatusInternalServerError,
+				fmt.Errorf("while getting total row count from workspace tables %s: %v", dataTableAction.FromClauses[0].Table, err)
+		}
 	}
 
 	results["totalRowCount"] = totalRowCount
