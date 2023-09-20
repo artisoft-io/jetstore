@@ -150,10 +150,10 @@ func (dtq *DataTableAction) buildQuery() (string, string) {
 			buf.WriteString(" DESC ")
 		}
 	}
-	buf.WriteString(" OFFSET ")
-	buf.WriteString(fmt.Sprintf("%d", dtq.Offset))
 	buf.WriteString(" LIMIT ")
 	buf.WriteString(fmt.Sprintf("%d", dtq.Limit))
+	buf.WriteString(" OFFSET ")
+	buf.WriteString(fmt.Sprintf("%d", dtq.Offset))
 
 	// Query for number of rows 
 	var stmt string
@@ -1042,7 +1042,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	return
 }
 
-// utility method
+// utility methods
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Println("\n*** UI Query:\n", *query)
@@ -1101,6 +1101,46 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 		resultRows = append(resultRows, flatRow)
 	}
 	return &resultRows, &columnDefs, nil
+}
+
+func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
+	// //DEV
+	// fmt.Println("\n*** UI Query:\n", *query)
+	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
+	rows, err := db.Query(*query)
+	if err != nil {
+		log.Printf("While executing dataTable query: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+	columns, err := rows.Columns()
+	if err != nil {
+		log.Printf("While getting the columns of the resultset: %v", err)
+		return nil, err
+	}
+	nCol := len(columns)
+	for rows.Next() {
+		dataRow := make([]interface{}, nCol)
+		for i := 0; i < nCol; i++ {
+			dataRow[i] = &sql.NullString{}
+		}
+		// scan the row
+		if err = rows.Scan(dataRow...); err != nil {
+			log.Printf("While scanning the row: %v", err)
+			return nil, err
+		}
+		flatRow := make([]interface{}, nCol)
+		for i := 0; i < nCol; i++ {
+			ns := dataRow[i].(*sql.NullString)
+			if ns.Valid {
+				flatRow[i] = ns.String
+			} else {
+				flatRow[i] = nil
+			}
+		}
+		resultRows = append(resultRows, flatRow)
+	}
+	return &resultRows, nil
 }
 
 func execDDL(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
