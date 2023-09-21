@@ -113,7 +113,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) error
 			UserEmail: "system",
 		}
 		for i := range sourcesPath {
-			// aws integration: Copy the file to awsBucket
+			// Copy the file to db as large objects
 			file, err := os.Open(sourcesPath[i])
 			if err != nil {
 				log.Printf("While opening local output file: %v", err)

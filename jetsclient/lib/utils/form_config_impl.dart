@@ -172,11 +172,11 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormDataTableFieldConfig(
             key: DTKeys.clientAdminTable,
-            tableHeight: 600,
+            tableHeight: double.infinity,
             dataTableConfig: DTKeys.clientAdminTable),
         FormDataTableFieldConfig(
             key: DTKeys.orgNameTable,
-            tableHeight: 600,
+            tableHeight: double.infinity,
             dataTableConfig: DTKeys.orgNameTable),
       ],
     ],
@@ -1312,7 +1312,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.processErrorsTable,
             dataTableConfig: DTKeys.processErrorsTable,
-            tableHeight: 600)
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: (formState, p2, p3, p4) => null,
@@ -1511,7 +1511,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.queryToolResultSetTable,
             dataTableConfig: DTKeys.queryToolResultSetTable,
-            tableHeight: 600)
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: queryToolFormValidator,

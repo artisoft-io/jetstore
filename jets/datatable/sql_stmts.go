@@ -202,6 +202,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// Statement key that starts with WORKSPACE/ have a pre-execution hook that replace $SCHEMA by the
 	// current workspace name (taken from DataTableAction.Workspace) by the
 	// InsertRows pre-processing hook.
+	//* NOTE *** This is currently not used, using sqlite db directly as read-only from apiserver
 	//
 	// Workspace Control
 	"WORKSPACE/workspace_control": {
