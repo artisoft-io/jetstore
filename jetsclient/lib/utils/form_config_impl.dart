@@ -1511,7 +1511,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.queryToolResultSetTable,
             dataTableConfig: DTKeys.queryToolResultSetTable,
-            tableHeight: 600)
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: queryToolFormValidator,
