@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
@@ -230,7 +230,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 func (server *Server) getUnitTestFileKeys() ([]string, error) {
 	workspaceName := os.Getenv("WORKSPACE")
 	root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
-	workspaceNode, err := datatable.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
+	workspaceNode, err := wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
 	if err != nil {
 		log.Println("while walking workspace unit test folder structure:", err)
 		return nil, err
@@ -291,7 +291,7 @@ func (server *Server) checkWorkspaceVersion() error {
 	workspaceName := os.Getenv("WORKSPACE")
 
 	// Copy the workspace files to a stash location (needed when we delete/revert file changes)
-	err = datatable.StashWorkspaceFiles(workspaceName)
+	err = wsfile.StashFiles(workspaceName)
 	if err != nil {
 		//* TODO Log to a new workspace error table to report in UI
 		log.Printf("Error while stashing workspace file: %v", err)
