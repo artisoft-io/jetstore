@@ -644,9 +644,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				dataTableAction.Data[irow]["input_session_id"] = inSessionId
 			}
-
-		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
-			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
 		}
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]

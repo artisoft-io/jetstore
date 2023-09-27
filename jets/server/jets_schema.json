@@ -64,6 +64,16 @@
         "dataType": "text"
       },
       {
+        "columnName": "last_git_log",
+        "dataType": "text"
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true

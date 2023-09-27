@@ -43,11 +43,12 @@ final Map<String, FormConfig> _formConfigurations = {
   // Add Workspace Dialog
   FormKeys.addWorkspace: FormConfig(
     key: FormKeys.addWorkspace,
-    title: "Add Workspace",
+    title: "Add / Update Workspace",
+    useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.addWorkspaceOk,
-          label: "Insert",
+          label: "Add / Update",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
@@ -69,8 +70,6 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLength: 20),
-      ],
-      [
         FormInputFieldConfig(
             key: FSK.wsURI,
             label: "Worksapce URI",
@@ -91,6 +90,234 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitUserName,
+            label: "Git User Name",
+            hint: "User name used for git push command",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.gitUserEmail,
+            label: "Git User Email",
+            hint: "User email used for git push, this might be a no-reply email based on github email settings",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitUser,
+            label: "Git User (handle)",
+            hint: "Git User used for git push command, this will not be saved",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.gitToken,
+            label: "Git Token",
+            hint: "Git User password used for git push, this will not be saved",
+            flex: 1,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
+  // Commit Workspace Dialog
+  FormKeys.commitWorkspace: FormConfig(
+    key: FormKeys.commitWorkspace,
+    title: "Commit and Push Workspace Changes to Repository",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.commitWorkspaceOk,
+          label: "Commit & Push",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitUser,
+            label: "Git User (handle)",
+            hint: "Git User used for git push command, this will not be saved",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.gitToken,
+            label: "Git Token",
+            hint: "Git User password used for git push, this will not be saved",
+            flex: 1,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
+  // Pull Workspace Changes Dialog
+  FormKeys.pullWorkspace: FormConfig(
+    key: FormKeys.pullWorkspace,
+    title: "Pull Workspace Changes from Repository",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.pullWorkspaceOk,
+          label: "Pull Changes",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitUser,
+            label: "Git User (handle)",
+            hint: "Git User used for git push command, this will not be saved",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.gitToken,
+            label: "Git Token",
+            hint: "Git User password used for git push, this will not be saved",
+            flex: 1,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
+  // View Last Git Log Workspace Dialog
+  FormKeys.viewGitLogWorkspace: FormConfig(
+    key: FormKeys.viewGitLogWorkspace,
+    title: "Last Git Log of Workspace Changes",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Close",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.lastGitLog,
+            label: "Last Git Log",
+            hint: "Git log of last successful git operation",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLines: 15,
+            maxLength: 1000000),
       ],
     ],
     formValidatorDelegate: workspaceIDEFormValidator,

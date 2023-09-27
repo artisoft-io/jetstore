@@ -432,7 +432,7 @@ func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.Context, da
 		}
 	}
 	dataTableAction := &datatable.DataTableAction{
-		Action:      "insert_rows",
+		Action:      "workspace_insert_rows",
 		FromClauses: []datatable.FromClause{{Schema: workspace, Table: fmt.Sprintf("WORKSPACE/%s", table)}},
 		Data:        *data,
 	}
