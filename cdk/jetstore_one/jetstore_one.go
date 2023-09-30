@@ -302,7 +302,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	}
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
-		NatGateways:        jsii.Number(0),
+		NatGateways:        jsii.Number(2),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
 		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
@@ -310,6 +310,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			{
 				Name:       jsii.String("public"),
 				SubnetType: awsec2.SubnetType_PUBLIC,
+			},
+			{
+				Name:       jsii.String("private"),
+				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
 			},
 			{
 				Name:       jsii.String("isolated"),
@@ -334,6 +338,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	publicSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
 	}
+	privateSubnetSelection := &awsec2.SubnetSelection{
+		SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
+	}
 	isolatedSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
@@ -345,7 +352,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add Endpoint for S3
 	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
 		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
-		Subnets: &[]*awsec2.SubnetSelection{isolatedSubnetSelection},
+		Subnets: &[]*awsec2.SubnetSelection{privateSubnetSelection, isolatedSubnetSelection},
 	})
 	s3Endpoint.AddToPolicy(
 		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
@@ -360,35 +367,51 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add Endpoint for ecr
 	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
-		Subnets: isolatedSubnetSelection,
-		// Open: jsii.Bool(true),
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 	vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
-		Subnets: isolatedSubnetSelection,
-		// Open: jsii.Bool(true),
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 
 	// Add secret manager endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("secretmanagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
 		Subnets: isolatedSubnetSelection,
 	})
+	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
+		Subnets: privateSubnetSelection,
+	})
 
 	// Add Step Functions endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("statesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
 		Subnets: isolatedSubnetSelection,
 	})
-	vpc.AddInterfaceEndpoint(jsii.String("statesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
+		Subnets: privateSubnetSelection,
+	})
+	vpc.AddInterfaceEndpoint(jsii.String("StatesInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
 		Subnets: isolatedSubnetSelection,
 	})
+	vpc.AddInterfaceEndpoint(jsii.String("StatesPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
+		Subnets: privateSubnetSelection,
+	})
 
 	// Add Cloudwatch endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("cloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
 		Subnets: isolatedSubnetSelection,
+	})
+	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
+		Subnets: privateSubnetSelection,
 	})
 
 	// Database Cluster
@@ -1128,7 +1151,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Cluster:        ecsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
 		TaskDefinition: uiTaskDefinition,
-		VpcSubnets:     isolatedSubnetSelection,
+		VpcSubnets:     privateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 	})
