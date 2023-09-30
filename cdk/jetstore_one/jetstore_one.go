@@ -310,12 +310,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			{
 				Name:       jsii.String("public"),
 				SubnetType: awsec2.SubnetType_PUBLIC,
-				CidrMask: jsii.Number(28),
+				CidrMask: jsii.Number(24),
 			},
 			{
 				Name:       jsii.String("private"),
 				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
-				CidrMask: jsii.Number(28),
+				CidrMask: jsii.Number(24),
 			},
 			{
 				Name:       jsii.String("isolated"),
