@@ -496,7 +496,11 @@ class JetsDataTableSource extends ChangeNotifier {
     workspaceName ??=
         JetsRouterDelegate().currentConfiguration?.params[FSK.wsName];
     if (workspaceName != null) {
-      msg['workspaceName'] = workspaceName;
+      if (workspaceName is List<String>) {
+        msg['workspaceName'] = workspaceName[0];
+      } else {
+        msg['workspaceName'] = workspaceName;
+      }
     }
 
     // print("*** Query object $msg");

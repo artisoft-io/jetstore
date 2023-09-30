@@ -454,6 +454,14 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
           showAlertDialog(context, msg);
         }
         break;
+      case DTActionResult.statusErrorRefreshTable:
+        var msg = dialogFormState.getValue(0, FSK.serverError);
+        if (msg != null) {
+          showAlertDialog(context, msg);
+        }
+        // refresh the data table
+        dataSource.getModelData();
+        break;
       default:
       // case null
     }

@@ -1,4 +1,5 @@
 import 'package:jetsclient/screens/components/data_table.dart';
+import 'package:jetsclient/screens/components/data_table_model.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Data Table Configuration class
@@ -72,6 +73,45 @@ enum DataTableActionType {
   doActionShowDialog
 }
 
+/// enum describing the condition when an action button is enabled based on
+/// the value of a column of the selected row
+enum DataTableActionEnableCriteria {
+  equals,
+  notEquals,
+  contains,
+  doesNotContain,
+}
+
+class ActionEnableCriteria {
+  ActionEnableCriteria({
+    required this.columnPos,
+    required this.criteriaType,
+    required this.value,
+  });
+  final int columnPos;
+  final DataTableActionEnableCriteria criteriaType;
+  final String? value;
+
+  bool isCriteriaMet(JetsRow row) {
+    if (columnPos < row.length) {
+      final String? rowValue = row[columnPos];
+      switch (criteriaType) {
+        case DataTableActionEnableCriteria.equals:
+          return value == rowValue;
+        case DataTableActionEnableCriteria.notEquals:
+          return value != rowValue;
+        case DataTableActionEnableCriteria.contains:
+          if (value == null || rowValue == null) return false;
+          return rowValue.contains(value!);
+        case DataTableActionEnableCriteria.doesNotContain:
+          if (value == null || rowValue == null) return false;
+          return !rowValue.contains(value!);
+      }
+    }
+    return false;
+  }
+}
+
 /// Table Action Configuration
 /// case isVisibleWhenCheckboxVisible is null, action always visible
 /// case isVisibleWhenCheckboxVisible == false, action visible when table check boxes are NOT visible
@@ -119,7 +159,8 @@ class ActionConfig {
       this.configForm,
       this.configScreenPath,
       this.actionName,
-      this.stateGroup = 0});
+      this.stateGroup = 0,
+      this.actionEnableCriterias});
   final DataTableActionType actionType;
   final String key;
   final String label;
@@ -134,6 +175,7 @@ class ActionConfig {
   final String? configScreenPath;
   final String? actionName;
   final int stateGroup;
+  final List<ActionEnableCriteria>? actionEnableCriterias;
 
   /// returns true if action button is visible
   bool isVisible(JetsDataTableState widgetState) {
@@ -146,8 +188,21 @@ class ActionConfig {
   /// returns true if action button is enabled
   bool isEnabled(JetsDataTableState widgetState) {
     if (isEnabledWhenHavingSelectedRows != null) {
-      return isEnabledWhenHavingSelectedRows ==
-          widgetState.dataSource.hasSelectedRows();
+      if (isEnabledWhenHavingSelectedRows ==
+          widgetState.dataSource.hasSelectedRows()) {
+        if (actionEnableCriterias != null) {
+          JetsRow? row = widgetState.dataSource.getFirstSelectedRow();
+          if (row == null) return false;
+          // The list of ActionEnableCriteria are 'or'
+          // meaning if any criteria is met then the button is active
+          for (var c in actionEnableCriterias!) {
+            if (c.isCriteriaMet(row)) return true;
+          }
+          return false; // No criteria is met
+        }
+        return true;
+      }
+      return false;
     }
     if (isEnabledWhenWhereClauseSatisfied != null) {
       return isEnabledWhenWhereClauseSatisfied ==

@@ -4,7 +4,14 @@ const defaultPadding = 16.0;
 const betweenTheButtonsPadding = 8.0;
 
 /// Button action style, used by both JetsDataTable and JetsForm
-enum ActionStyle { primary, secondary, alternate, menuSelected, menuAlternate, danger }
+enum ActionStyle {
+  primary,
+  secondary,
+  alternate,
+  menuSelected,
+  menuAlternate,
+  danger
+}
 
 ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
   switch (style) {
@@ -121,6 +128,9 @@ class FormKeys {
   static const workspaceRegistry = "workspaceRegistry";
   static const workspaceHome = "workspaceHome";
   static const addWorkspace = "addWorkspace";
+  static const commitWorkspace = "commitWorkspaceDialog";
+  static const pullWorkspace = "pullWorkspaceDialog";
+  static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
   // Forms for each section of the workspace, incl file editor
   // Note: The formConfig key is constructed in initializeWorkspaceFileEditor
   static const workspaceFileEditor = "workspace.file.form";
@@ -231,13 +241,19 @@ class FSK {
 
   // Form Keys for Workspace IDE
   static const wsName = "workspace_name";
+  static const wsPreviousName = "previous.workspace_name";
   static const wsURI = "workspace_uri";
   static const wsFileName = "file_name";
   static const wsFileEditorContent = "file_content";
   static const wsOid = "oid";
+  static const lastGitLog = "last_git_log";
+  static const gitUser = "git.user";
+  static const gitToken = "git.token";
+  static const gitCommitMessage = "git.commit.message";
+  static const gitUserEmail = "git.user.email";
+  static const gitUserName = "git.user.name";
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
-
 
   // reserved keys for cache
 
@@ -272,7 +288,8 @@ class FSK {
 
   // entityRdfTypeRegistryCache: cache value is a List<String?>
   // provides list of entity_rdf_type
-  static const entityRdfTypeRegistryCache = "cache.dropdown_items.entity_rdf_type";
+  static const entityRdfTypeRegistryCache =
+      "cache.dropdown_items.entity_rdf_type";
 
   // processConfigCache: cache value is a list<list<String?>> (model)
   // from table process_config provides [key, process_name]
@@ -318,7 +335,6 @@ class ActionKeys {
   static const queryToolOk = "queryTool.ok";
   static const queryToolDdlOk = "queryTool.ddl.ok";
 
-
   // for add process input dialog
   static const addProcessInputOk = "addProcessInputOk";
   // for process mapping dialog
@@ -346,9 +362,12 @@ class ActionKeys {
 
   // Workspace IDE ActionKeys
   static const addWorkspaceOk = "addWorkspaceOk";
-  static const compileWorkspace = "compileWorkspace";
   static const openWorkspace = "openWorkspace";
+  static const compileWorkspace = "compileWorkspace";
+  static const commitWorkspaceOk = "commitWorkspaceOk";
+  static const pullWorkspaceOk = "pullWorkspaceOk";
   static const wsSaveFileOk = "wsSaveFileOk";
+  static const deleteWorkspace = "deleteWorkspace";
   static const deleteWorkspaceChanges = "deleteWorkspaceChanges";
   static const deleteAllWorkspaceChanges = "deleteAllWorkspaceChanges";
 }
@@ -418,7 +437,7 @@ class DTKeys {
   // Workspace IDE DT
   static const workspaceRegistryTable = "workspaceRegistryTable";
   static const workspaceChangesTable = "workspaceChangesTable";
-  
+
   // Workspace - Data Model Tables
   static const wsDomainTableTable = "wsDomainTableTable";
   static const wsDomainClassTable = "wsDomainClassTable";

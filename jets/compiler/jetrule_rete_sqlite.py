@@ -11,10 +11,10 @@ import os
 import sys
 import json
 
-print ("      Using APSW file",apsw.__file__)                # from the extension module
-print ("         APSW version",apsw.apswversion())           # from the extension module
-print ("   SQLite lib version",apsw.sqlitelibversion())      # from the sqlite library code
-print ("SQLite header version",apsw.SQLITE_VERSION_NUMBER)   # from the sqlite header file at compile time
+# print ("      Using APSW file",apsw.__file__)                # from the extension module
+# print ("         APSW version",apsw.apswversion())           # from the extension module
+# print ("   SQLite lib version",apsw.sqlitelibversion())      # from the sqlite library code
+# print ("SQLite header version",apsw.SQLITE_VERSION_NUMBER)   # from the sqlite header file at compile time
 print()
 
 flags.DEFINE_string("rete_db", 'jetrule_rete.db', "JetRule rete config")
@@ -48,6 +48,7 @@ class JetRuleReteSQLite:
   def saveReteConfig(self, workspace_db: str=None) -> str:
     assert self.ctx, 'Must have a valid JetRuleContext'
     assert self.ctx.jetReteNodes, 'Must have a valid JetRuleContext.jetReteNodes'
+    print('Saving compiled',self.ctx.main_rule_fname)
     self.workspace_connection = None
 
     # Opening/creating database
@@ -533,9 +534,9 @@ class JetRuleReteSQLite:
         salience = salience[0]
 
       # Check if multiple rules have same antecedents
-      rules = rete_node.get('rules')
-      if rules and len(rules)>1:
-        print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
+      # rules = rete_node.get('rules')
+      # if rules and len(rules)>1:
+      #   print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
 
       # Assign key to rete node
       key = self.rete_nodes_last_key

@@ -42,6 +42,41 @@ String? workspaceIDEFormValidator(
       }
       return "Workspace URI must be provided.";
 
+    case FSK.gitUser:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Git user must be provided.";
+
+    case FSK.gitToken:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Git token must be provided.";
+
+    case FSK.gitUserEmail:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Git user email must be provided.";
+
+    case FSK.gitUserName:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Git user name must be provided.";
+
+    case FSK.gitCommitMessage:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Commit message must be provided.";
+
     case FSK.description:
     case FSK.wsFileEditorContent:
       return null;
@@ -119,14 +154,31 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }
 
       state['user_email'] = JetsRouterDelegate().user.email;
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [
           <String, String>{'table': table}
         ],
+        'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
 
     case ActionKeys.openWorkspace:
       var state = formState.getState(0);
@@ -137,6 +189,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       if (state[FSK.wsName] is List<String>) {
         state[FSK.wsName] = state[FSK.wsName][0];
       }
+      final wsName = state[FSK.wsName];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -145,6 +198,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'fromClauses': [
           <String, String>{'table': 'workspace_file_structure'}
         ],
+        'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -172,7 +226,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
 
       // Navigate to workspace home page
       Map<String, dynamic> params = {
-        "workspace_name": state[FSK.wsName],
+        "workspace_name": wsName,
       };
       // print(
       //     "Action.openWorkspace: NAVIGATING to $workspaceHomePath, with $params");
@@ -186,15 +240,23 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
     case ActionKeys.compileWorkspace:
       final state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
-      state[FSK.key] = state[FSK.key][0];
-      state[FSK.wsName] = state[FSK.wsName][0];
-      state[FSK.wsURI] = state[FSK.wsURI][0];
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
       // print('Compiling Workspace state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [
           <String, String>{'table': 'compile_workspace'}
         ],
+        'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -204,6 +266,107 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         JetsSpinnerOverlay.of(context).hide();
       }
       return null;
+
+    // Commit & Push Workspace Changes to Repository
+    case ActionKeys.commitWorkspaceOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      var state = formState.getState(0);
+      // print('Add/Update Workspace state: $state');
+      state['user_email'] = JetsRouterDelegate().user.email;
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'workspace_insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'commit_workspace'}
+        ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody, 
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
+
+    // Pull Workspace Changes from Repository
+    case ActionKeys.pullWorkspaceOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      var state = formState.getState(0);
+      // print('Add/Update Workspace state: $state');
+      state['user_email'] = JetsRouterDelegate().user.email;
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'workspace_insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'pull_workspace'}
+        ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
+
+    case ActionKeys.deleteWorkspace:
+      // Get confirmation
+      var uc = await showConfirmationDialog(context,
+          'Are you sure you want to delete the selected local workspace?');
+      if (uc != 'OK') return null;
+      var state = formState.getState(0);
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'workspace_insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'delete_workspace'}
+        ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      if (context.mounted) {
+        postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      }
+      break;
 
     // Cancel Dialog / Form
     case ActionKeys.dialogCancel:
@@ -223,6 +386,9 @@ String? workspaceHomeFormValidator(
   assert((v is String?) || (v is List<String>?),
       "Workspace Home Form has unexpected data type");
   switch (key) {
+    case FSK.wsFileEditorContent:
+      return null;
+
     default:
       print(
           'Oops Workspace Home Form Validator has no validator configured for form field $key');
@@ -242,10 +408,12 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         return null;
       }
       final state = formState.getState(0);
+      final wsName = state[FSK.wsName];
       state['user_email'] = JetsRouterDelegate().user.email;
       // print('File Editor::Save File state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'save_workspace_file_content',
+        'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -260,6 +428,8 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         if (context.mounted) {
           showAlertDialog(context, "Something went wrong. Please try again.");
         }
+      } else {
+        //* Would be nice to close the active file tab
       }
       return null;
 
@@ -289,6 +459,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       // print('WorkspaceHome::Delete Changes requestData: $requestData');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_workspace_changes',
+        'workspaceName': wsName,
         'data': requestData,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -318,6 +489,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       JetsSpinnerOverlay.of(context).show();
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_all_workspace_changes',
+        'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
       final result =
@@ -370,7 +542,8 @@ Future<int> initializeWorkspaceFileEditor(
   if (formConfig == null) return 200;
 
   final formState = JetsFormState(initialGroupCount: 1);
-  formState.setValue(0, FSK.wsName, menuEntry.routeParams![FSK.wsName]);
+  final wsName = menuEntry.routeParams![FSK.wsName];
+  formState.setValue(0, FSK.wsName, wsName);
   formState.setValue(0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
 
   // based on MenuEntry.formConfigKey fetch info from server (if file editor)
@@ -380,6 +553,7 @@ Future<int> initializeWorkspaceFileEditor(
     // JetsSpinnerOverlay.of(context).show();
     final encodedJsonBody = jsonEncode(<String, dynamic>{
       'action': 'get_workspace_file_content',
+      'workspaceName': wsName,
       'data': [menuEntry.routeParams],
     }, toEncodable: (_) => '');
 

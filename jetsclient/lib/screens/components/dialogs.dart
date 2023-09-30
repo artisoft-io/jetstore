@@ -81,7 +81,7 @@ Future<String?> showConfirmationDialog(
 /// with data table actions
 /// statusError is to indicate an error was return, formState.serverError
 /// have a message to show the user
-enum DTActionResult { canceled, ok, okDataTableDirty, statusError }
+enum DTActionResult { canceled, ok, okDataTableDirty, statusError, statusErrorRefreshTable }
 
 typedef DialogResultHandler<T> = void Function(
     BuildContext context, JetsFormState dialogFormState, T? t);
