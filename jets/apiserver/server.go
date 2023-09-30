@@ -335,7 +335,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		// Sync unit test files from workspace to s3
 		// Skip this if in DEV MODE
 		if !devMode {
-			err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
+			_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
 			if err != nil {
 				log.Println("Error while compiling workspace:", err)
 				return err

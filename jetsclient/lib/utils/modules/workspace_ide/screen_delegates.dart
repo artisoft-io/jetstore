@@ -70,6 +70,13 @@ String? workspaceIDEFormValidator(
       }
       return "Git user name must be provided.";
 
+    case FSK.gitCommitMessage:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      return "Commit message must be provided.";
+
     case FSK.description:
     case FSK.wsFileEditorContent:
       return null;
@@ -165,7 +172,13 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
 
     case ActionKeys.openWorkspace:
       var state = formState.getState(0);
@@ -281,7 +294,13 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody, 
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
 
     // Pull Workspace Changes from Repository
     case ActionKeys.pullWorkspaceOk:
@@ -310,7 +329,13 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
 
     case ActionKeys.deleteWorkspace:
       // Get confirmation
@@ -332,7 +357,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [
-          <String, String>{'table': 'delete/workspace_registry'}
+          <String, String>{'table': 'delete_workspace'}
         ],
         'workspaceName': wsName,
         'data': [state],
@@ -361,6 +386,9 @@ String? workspaceHomeFormValidator(
   assert((v is String?) || (v is List<String>?),
       "Workspace Home Form has unexpected data type");
   switch (key) {
+    case FSK.wsFileEditorContent:
+      return null;
+
     default:
       print(
           'Oops Workspace Home Form Validator has no validator configured for form field $key');
@@ -400,6 +428,8 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         if (context.mounted) {
           showAlertDialog(context, "Something went wrong. Please try again.");
         }
+      } else {
+        //* Would be nice to close the active file tab
       }
       return null;
 

@@ -204,12 +204,12 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// compile workspace (insert into workspace_registry and trigger compile workspace)
 	"compile_workspace": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(user_email, last_update) 
-			= ($2, DEFAULT) WHERE workspace_name = $1`,
-		ColumnKeys: []string{"workspace_name", "user_email"},
+			(last_git_log, user_email, last_update) 
+			= ($1, $2, DEFAULT) WHERE key = $3`,
+		ColumnKeys: []string{"last_git_log", "user_email", "key"},
 	},
 	// delete workspace in workspace_registry
-	"delete/workspace_registry": {
+	"delete_workspace": {
 		Stmt: `DELETE FROM jetsapi.workspace_registry WHERE key = $1`,
 		ColumnKeys: []string{"key"},
 	},

@@ -16,7 +16,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.workspaceRegistryTable,
             dataTableConfig: DTKeys.workspaceRegistryTable,
-            tableHeight: 600)
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: workspaceIDEFormValidator,
@@ -34,7 +34,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.workspaceChangesTable,
             dataTableConfig: DTKeys.workspaceChangesTable,
-            tableHeight: 600)
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: workspaceHomeFormValidator,
@@ -175,6 +175,18 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitCommitMessage,
+            label: "Commit Message",
+            hint: "Git commit message, keep it short",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            defaultValue: 'Commit from JetStore UI',
             textRestriction: TextRestriction.none,
             maxLength: 120),
       ],

@@ -249,6 +249,7 @@ class FSK {
   static const lastGitLog = "last_git_log";
   static const gitUser = "git.user";
   static const gitToken = "git.token";
+  static const gitCommitMessage = "git.commit.message";
   static const gitUserEmail = "git.user.email";
   static const gitUserName = "git.user.name";
   // matching menuItem and current page (virtual page)

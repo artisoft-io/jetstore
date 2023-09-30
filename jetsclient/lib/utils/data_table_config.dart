@@ -202,6 +202,7 @@ class ActionConfig {
         }
         return true;
       }
+      return false;
     }
     if (isEnabledWhenWhereClauseSatisfied != null) {
       return isEnabledWhenWhereClauseSatisfied ==

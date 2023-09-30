@@ -39,11 +39,29 @@ func DeleteFileChange(dbpool *pgxpool.Pool, workspaceChangesKey, workspaceName, 
 	return nil
 }
 
-func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string) error {
-	fmt.Println("DeleteAllWorkspaceChanges: woarkspace_name", workspaceName)
-	stmt := fmt.Sprintf(
-		"SELECT lo_unlink(oid) FROM jetsapi.workspace_changes WHERE workspace_name = '%s'; DELETE FROM jetsapi.workspace_changes WHERE workspace_name = '%s'",
-		workspaceName, workspaceName)
+func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFromStash, keepWorkspaceAndLookupDb bool) error {
+	fmt.Println("DeleteAllWorkspaceChanges: workspace_name", workspaceName)
+	var stmt string
+	switch {
+	case keepWorkspaceAndLookupDb:
+		stmt = fmt.Sprintf(
+			`SELECT lo_unlink(oid) 
+			 FROM jetsapi.workspace_changes 
+			 WHERE workspace_name = '%s' 
+			   AND file_name NOT IN ('workspace.db', 'lookup.db'); 
+			 DELETE FROM jetsapi.workspace_changes 
+			 WHERE workspace_name = '%s'
+			   AND file_name NOT IN ('workspace.db', 'lookup.db');`,
+			workspaceName, workspaceName)
+	default:	
+		stmt = fmt.Sprintf(
+			`SELECT lo_unlink(oid) 
+			 FROM jetsapi.workspace_changes 
+			 WHERE workspace_name = '%s'; 
+			 DELETE FROM jetsapi.workspace_changes 
+			 WHERE workspace_name = '%s'`,
+			workspaceName, workspaceName)
+	}
 	fmt.Println("DELETE stmt:", stmt)
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
@@ -51,6 +69,9 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string) error {
 		return fmt.Errorf("while deleting row in workspace_changes table: %v", err)
 	}
 
+	if !restaureFromStash {
+		return nil
+	}
 	// restauring file from stash (if exists, do not report error if fails)
 	stashPath := StashDir()
 	source := fmt.Sprintf("%s/%s", stashPath, workspaceName)

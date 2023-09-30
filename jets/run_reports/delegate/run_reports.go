@@ -89,7 +89,7 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 		}
 
 		version := strconv.FormatInt(time.Now().Unix(), 10)
-		err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version)
+		_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version)
 		if err != nil {
 			return err
 		}

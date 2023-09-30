@@ -19,6 +19,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
@@ -27,47 +28,44 @@ import (
 // Main insert row function with post processing hooks for starting pipelines
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
 func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
-	returnedKey := make([]int, len(dataTableAction.Data))
 	httpStatus = http.StatusOK
+	returnedKey := make([]int, len(dataTableAction.Data))
 	sqlStmt, ok := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
 	if !ok {
-		httpStatus = http.StatusBadRequest
-		err = errors.New("error: unknown table")
-		return
+		return nil, http.StatusBadRequest, errors.New("error: unknown table")
 	}
 	// Check if stmt is reserved for admin only
 	if sqlStmt.AdminOnly {
-		userEmail, err2 := user.ExtractTokenID(token)
-		if err2 != nil || userEmail != *ctx.AdminEmail {
-			httpStatus = http.StatusUnauthorized
-			err = errors.New("error: unauthorized, only admin can delete users")
-			return
+		userEmail, err := user.ExtractTokenID(token)
+		if err != nil || userEmail != *ctx.AdminEmail {
+			return nil, http.StatusUnauthorized, errors.New("error: unauthorized, only admin can delete users")
 		}
 	}
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
 		// -----------------------------------------------------------------------
+		var gitLog string
 		switch {
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
 			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
 
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "workspace_registry"):
-			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing workspace_name")
-			}
 			// Insert or update workspace entry in workspace_registry table:
 			//	- If folder workspace_name in workspaces root does not exists, chechout workspace_uri in workspace_name
 			//  - If user is renaming workspace_name, delete the old workspace folder under workspaces root
 			//    Note: UI must provide old workspace name as 'previous.workspace_name' virtual column
-			wsName := dataTableAction.Data[irow]["workspace_name"]
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing workspace_name")
+			}
+			workspaceName := dataTableAction.WorkspaceName
 			wsUri := dataTableAction.Data[irow]["workspace_uri"]
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
 			gitUserName := dataTableAction.Data[irow]["git.user.name"]
 			gitUserEmail := dataTableAction.Data[irow]["git.user.email"]
 			wsPN := dataTableAction.Data[irow]["previous.workspace_name"]
-			if(wsName == nil || wsUri == nil || gitUser == nil || gitToken == nil || 
+			if(wsUri == nil || gitUser == nil || gitToken == nil || 
 				gitUserName == nil || gitUserEmail == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing git information")
 			}
@@ -76,8 +74,8 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				wsPreviousName = wsPN.(string)
 			}
 
-			workspaceGit := git.NewWorkspaceGit(wsName.(string), wsUri.(string))
-			gitLog, err := workspaceGit.UpdateLocalWorkspace(
+			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+			gitLog, err = workspaceGit.UpdateLocalWorkspace(
 				gitUserName.(string),
 				gitUserEmail.(string),
 				gitUser.(string),
@@ -85,84 +83,153 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				wsPreviousName,
 			)
 			if err != nil {
-				return nil, http.StatusBadRequest, err
+				httpStatus = http.StatusBadRequest
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 
 		case dataTableAction.FromClauses[0].Table == "commit_workspace":
+			// Commit changes in local workspace and push to repository:
+			//	- Compile workspace
+			//	- Commit and Push to repository
+			//	- Delete changes in db (except for workspace.db and lookup.db)
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
 			}
-			// Commit and push workspace changes and update workspace_registry table
-			wsName := dataTableAction.Data[irow]["workspace_name"]
+			workspaceName := dataTableAction.WorkspaceName
 			wsUri := dataTableAction.Data[irow]["workspace_uri"]
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsName == nil || wsUri == nil || gitUser == nil || gitToken == nil) {
+			wsCM := dataTableAction.Data[irow]["git.commit.message"]
+			if(wsUri == nil || gitUser == nil || gitToken == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
 			}
+			var wsCommitMessage string
+			if(wsCM != nil) {
+				wsCommitMessage = wsCM.(string)
+			}
+			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+			var buf strings.Builder
 
-			workspaceGit := git.NewWorkspaceGit(wsName.(string), wsUri.(string))
-			gitLog, err := workspaceGit.CommitLocalWorkspace(
+			// Compile workspace
+			gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+			buf.WriteString(gitLog)
+			buf.WriteString("\n")
+			if err != nil {
+				httpStatus = http.StatusInternalServerError
+				goto setCommitGitLog
+			}
+			
+			// Commit and push workspace changes and update workspace_registry table
+			gitLog, err = workspaceGit.CommitLocalWorkspace(
 				gitUser.(string),
 				gitToken.(string),
+				wsCommitMessage,
 			)
+			buf.WriteString(gitLog)
+			buf.WriteString("\n")
 			if err != nil {
-				return nil, http.StatusBadRequest, err
+				httpStatus = http.StatusInternalServerError
+				goto setCommitGitLog
 			}
-			dataTableAction.Data[irow]["last_git_log"] = gitLog
+
+			// Delete workspace overrides (except for workspace.db and lookup.db)
+			// Note, do not restaure files from stash
+			err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, false, true)
+			if err != nil {
+				buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
+				httpStatus = http.StatusInternalServerError
+				goto setCommitGitLog
+			}
+
+			setCommitGitLog:
+			dataTableAction.Data[irow]["last_git_log"] = buf.String()
 
 		case dataTableAction.FromClauses[0].Table == "pull_workspace":
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing workspace_name")
 			}
 			// Pull workspace changes, update workspace_registry table and delete overrides in workspace_changes
-			wsName := dataTableAction.Data[irow]["workspace_name"]
+			workspaceName := dataTableAction.WorkspaceName
 			wsUri := dataTableAction.Data[irow]["workspace_uri"]
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsName == nil || wsUri == nil || gitUser == nil || gitToken == nil) {
+			if(wsUri == nil || gitUser == nil || gitToken == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
 
-			workspaceGit := git.NewWorkspaceGit(wsName.(string), wsUri.(string))
-			gitLog, err := workspaceGit.PullRemoteWorkspace(
+			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+			var buf strings.Builder
+			// Pull changes from repository
+			gitLog, err = workspaceGit.PullRemoteWorkspace(
 				gitUser.(string),
 				gitToken.(string),
 			)
+			buf.WriteString(gitLog)
+			buf.WriteString("\n")
 			if err != nil {
-				return nil, http.StatusBadRequest, err
+				httpStatus = http.StatusInternalServerError
+				goto setPullGitLog
 			}
-			dataTableAction.Data[irow]["last_git_log"] = gitLog
 
-			//* TODO: Delete workspace overrides (except for workspace.db and lookup.db)
-			// Note, do not restaure files from stash
+			// Clear existing stash
+			err = wsfile.ClearStash(workspaceName)
+			if err != nil {
+				buf.WriteString(fmt.Sprintf("Error while clearing stash for workspace %s, ignored\n", workspaceName))
+				log.Printf("Error while clearing stash for workspace %s, ignored", workspaceName)
+				err = nil
+			}
 			// Create new stash corresponding to this pulled workspace
+			err = wsfile.StashFiles(workspaceName)
+			if err != nil {
+				buf.WriteString(fmt.Sprintf("Error while stashing workspace %s, ignored\n", workspaceName))
+				log.Printf("Error while stashing workspace %s, ignored", workspaceName)
+				err = nil
+			}
+			// Delete all workspace overrides
+			// Note, do not restaure files from stash
+			err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, false, false)
+			if err != nil {
+				buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
+				httpStatus = http.StatusInternalServerError
+				goto setPullGitLog
+			}
+			
+			// Compile workspace
+			gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+			buf.WriteString(gitLog)
+			buf.WriteString("\n")
+
+			setPullGitLog:
+			dataTableAction.Data[irow]["last_git_log"] = buf.String()
 
 
 		case dataTableAction.FromClauses[0].Table == "compile_workspace":
 			workspaceName := dataTableAction.WorkspaceName
-			if dataTableAction.WorkspaceName == "" {
+			if workspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for compile_workspace, missing workspace_name")
 			}
 		
+			// Compile workspace
 			fmt.Println("Compiling workspace", workspaceName)
-			err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+			gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
 			if err != nil {
-				log.Printf("While compiling workspace %s: %v", workspaceName, err)
-				httpStatus = http.StatusBadRequest
-				err = errors.New("error compiling workspace")
-				return
+				httpStatus = http.StatusInternalServerError
 			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
 
-		case dataTableAction.FromClauses[0].Table == "delete/workspace_registry":
+		case dataTableAction.FromClauses[0].Table == "delete_workspace":
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for delete/workspace_registry, missing workspace_name")
 			}
-			//* TODO: Delete entry in workspace_registry table:
-			//	- Delete in workspace_registry table by key
+			// Delete entry in workspace_registry table:
+			//	- It is an error to delete the active workspace
 			//	- Delete folder with workspace_name under workspaces root
-
+			//	- Delete in workspace_registry table by key (done below by the main sqlStmt)
+			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, "")
+			err = workspaceGit.DeleteWorkspace()
+			if err != nil {
+				return nil, http.StatusBadRequest, err
+			}
 		}
 
 		// Perform the Insert Rows
@@ -173,21 +240,28 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
 		// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
 		// Executing the InserRow Stmt
+		var dbErr error
 		if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
-			err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
+			dbErr = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
 		} else {
-			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+			_, dbErr = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+		}
+		if dbErr != nil {
+			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, dbErr)
+			if err == nil {
+				err = dbErr
+				if strings.Contains(err.Error(), "duplicate key value") {
+					httpStatus = http.StatusConflict
+					err = errors.New("duplicate key value")
+				} else {
+					httpStatus = http.StatusInternalServerError
+					err = fmt.Errorf("while inserting in table %s: %v", dataTableAction.FromClauses[0].Table, dbErr)
+				}	
+			}
 		}
 		if err != nil {
-			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-			if strings.Contains(err.Error(), "duplicate key value") {
-				httpStatus = http.StatusConflict
-				err = errors.New("duplicate key value")
-				return
-			} else {
-				httpStatus = http.StatusInternalServerError
-				err = errors.New("error while inserting into a table")
-			}
+			// Break from the data loop
+			goto returnResults
 		}
 	}
 
@@ -196,6 +270,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	switch {
 
 	}
+	returnResults:
 	results = &map[string]interface{}{
 		"returned_keys": &returnedKey,
 	}
@@ -536,15 +611,14 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
-	wsName := request["workspace_name"]
+	workspaceName := dataTableAction.WorkspaceName
 	wsFileName := request["file_name"]
-	if wsName == nil || wsFileName == nil {
+	if workspaceName == "" || wsFileName == nil {
 		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name or file_name")
 		fmt.Println(err)
 		httpStatus = http.StatusBadRequest
 		return
 	}
-	workspaceName := wsName.(string)
 	fileName, err := url.QueryUnescape(wsFileName.(string))
 	if err != nil {
 		fmt.Println(err)
@@ -566,16 +640,15 @@ func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, to
 func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
-	wsName := request["workspace_name"]
+	workspaceName := dataTableAction.WorkspaceName
 	wsFileName := request["file_name"]
 	wsFileContent := request["file_content"]
-	if wsName == nil || wsFileName == nil || wsFileContent == nil {
+	if workspaceName == "" || wsFileName == nil || wsFileContent == nil {
 		err = fmt.Errorf("SaveWorkspaceFileContent: missing workspace_name, file_content, or file_name")
 		fmt.Println(err)
 		httpStatus = http.StatusBadRequest
 		return
 	}
-	workspaceName := wsName.(string)
 	fileName, err := url.QueryUnescape(wsFileName.(string))
 	if err != nil {
 		fmt.Println(err)
@@ -591,29 +664,70 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 	return
 }
 
+func compileWorkspace(dbpool *pgxpool.Pool, workspaceName string) (httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	var gitLog string
+	gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+	if err != nil {
+		httpStatus = http.StatusInternalServerError
+	}
+	// Save gitLog into workspace_registry, even if had error during compilation to have error details
+	stmt := fmt.Sprintf(
+		"UPDATE jetsapi.workspace_registry SET (last_git_log, user_email, last_update) = ('%s', 'system', DEFAULT) WHERE workspace_name = '%s'",
+		gitLog, workspaceName)
+	_, dbErr := dbpool.Exec(context.Background(), stmt)
+	if dbErr != nil {
+		log.Printf("While inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
+		if err == nil {
+			httpStatus = http.StatusInternalServerError
+			err = fmt.Errorf("while inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
+		}
+	}
+	return
+}
+
 // DeleteWorkspaceChanges --------------------------------------------------------------------------
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
+// If local workspace has no changes in db after the file revert, recompile workspace
 func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
+	workspaceName := dataTableAction.WorkspaceName
 	for ipos := range dataTableAction.Data {
 		request := dataTableAction.Data[ipos]
-		wsName := request["workspace_name"]
 		wsOid := request["oid"]
 		wsFileName := request["file_name"]
 		wsKey := request["key"]
-		if wsName == nil || wsOid == nil || wsFileName == nil || wsKey == nil {
+		if workspaceName == "" || wsOid == nil || wsFileName == nil || wsKey == nil {
 			err = fmt.Errorf("DeleteWorkspaceChanges: missing workspace_name, oid, key, or file_name")
 			fmt.Println(err)
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), wsName.(string), wsFileName.(string), wsOid.(string), true)
+		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, wsFileName.(string), wsOid.(string), true)
 		if err != nil {
 			httpStatus = http.StatusBadRequest
 			return
 		}
 	}
+
+	// If local workspace has no changes in db after the file revert, recompile workspace
+	var nbrChanges int64
+	stmt := fmt.Sprintf(
+		"SELECT count(*) FROM jetsapi.workspace_changes WHERE workspace_name = '%s' AND file_name NOT IN ('workspace.db', 'lookup.db')",
+		workspaceName)
+	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&nbrChanges)
+	if err != nil {
+		log.Printf("Unexpected error while reading number of changes on table workspace_changes: %v", err)
+		httpStatus = http.StatusInternalServerError
+		return
+	}
+	if nbrChanges == 0 {
+		// Compile the workspace
+		log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
+		httpStatus, err = compileWorkspace(ctx.Dbpool, workspaceName)
+	}
+
 	results = &map[string]interface{}{}
 	return
 }
@@ -623,20 +737,23 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 // Delete the workspace_changes row and the associated large object
 func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
-	request := dataTableAction.Data[0]
-	wsName := request["workspace_name"]
-	if wsName == nil {
+	workspaceName := dataTableAction.WorkspaceName
+	if workspaceName == "" {
 		err = fmt.Errorf("DeleteAllWorkspaceChanges: missing workspace_name")
 		fmt.Println(err)
 		httpStatus = http.StatusBadRequest
 		return
 	}
-
-	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, wsName.(string))
+	// Delete all workspace changes and restaure from stash
+	err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, true, false)
 	if err != nil {
 		httpStatus = http.StatusBadRequest
 		return
 	}
+
+	// Compile the workspace
+	log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
+	httpStatus, err = compileWorkspace(ctx.Dbpool, workspaceName)
 	results = &map[string]interface{}{}
 	return
 }

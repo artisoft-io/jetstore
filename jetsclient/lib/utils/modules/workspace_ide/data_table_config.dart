@@ -60,7 +60,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'commitWorkspace',
-          label: 'Commit',
+          label: 'Commit & Push',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,

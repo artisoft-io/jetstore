@@ -22,7 +22,7 @@ func StashFiles(workspaceName string) error {
 	// make sure the stash directory exists
 	var err error
 	if err2 := os.Mkdir(stashPath, 0755); os.IsExist(err2) {
-		log.Println("Workspace stash", stashPath, "exists")
+		log.Println("Workspace stash", stashPath, "exists")		
 	} else {
 		log.Println("Workspace stash directory ", stashPath, "created")
 	}
@@ -56,6 +56,12 @@ func StashFiles(workspaceName string) error {
 	}
 
 	return err
+}
+
+// Function to remove the stash
+func ClearStash(workspaceName string) error {
+	log.Printf("Clearing workspace '%s' stash", workspaceName)
+	return exec.Command("rm", "--recursive", "--force", fmt.Sprintf("%s/%s", StashDir(), workspaceName)).Run()
 }
 
 func StashDir() string {

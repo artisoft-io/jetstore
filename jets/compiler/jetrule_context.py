@@ -142,8 +142,8 @@ class JetRuleContext:
       if source_fname and source_fname != r.get('source_file_name'):
         if r['value'] != value or type != r.get('type'):
           self.err('Error: Creating {0} with id {1} in file {2} but it already exist in file {3} with a different definition.'.format(tag, name, source_fname, r.get('source_file_name')))
-        else:
-          print('Warning: Creating {0} with id {1} in file {2} but it already exist in file {3}'.format(tag, name, source_fname, r.get('source_file_name')))
+        # else:
+        #   print('Warning: Creating {0} with id {1} in file {2} but it already exist in file {3}'.format(tag, name, source_fname, r.get('source_file_name')))
       if r['value'] != value or type != r.get('type'):
         self.err('Error: Creating {0} with id {1} that already exist with a different definition.'.format(tag, name))
 
