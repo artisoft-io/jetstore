@@ -301,8 +301,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		cidr = "10.10.0.0/16"
 	}
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
-		MaxAzs:             jsii.Number(2),
-		NatGateways:        jsii.Number(2),
+		MaxAzs:             jsii.Number(1),
+		NatGateways:        jsii.Number(1),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
 		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
@@ -310,17 +310,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			{
 				Name:       jsii.String("public"),
 				SubnetType: awsec2.SubnetType_PUBLIC,
-				CidrMask: jsii.Number(24),
+				CidrMask: jsii.Number(18),
 			},
 			{
 				Name:       jsii.String("private"),
 				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
-				CidrMask: jsii.Number(24),
+				CidrMask: jsii.Number(18),
 			},
 			{
 				Name:       jsii.String("isolated"),
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
-				CidrMask: jsii.Number(24),
+				CidrMask: jsii.Number(18),
 			},
 		},
 		FlowLogs: &map[string]*awsec2.FlowLogOptions{
