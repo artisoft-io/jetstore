@@ -1166,6 +1166,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(internetFacing),
 			VpcSubnets:      elbSubnetSelection,
+			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -1180,6 +1181,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     isolatedSubnetSelection,
+			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(10)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(serviceLoadBalancer).Add(phiTagName, jsii.String("false"), nil)
@@ -1196,6 +1198,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     isolatedSubnetSelection,
+			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)

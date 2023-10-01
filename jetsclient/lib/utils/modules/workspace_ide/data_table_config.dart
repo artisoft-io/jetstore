@@ -41,10 +41,10 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.notEquals,
                 value: 'removed'),
-            ActionEnableCriteria(
-                columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.notEquals,
-                value: 'error'),
+            // ActionEnableCriteria(
+            //     columnPos: 4,
+            //     criteriaType: DataTableActionEnableCriteria.notEquals,
+            //     value: 'error'),
           ]],
           actionName: ActionKeys.openWorkspace),
       ActionConfig(
@@ -59,10 +59,10 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.contains,
                 value: 'modified'),
-            ActionEnableCriteria(
-                columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.notEquals,
-                value: 'error'),
+            // ActionEnableCriteria(
+            //     columnPos: 4,
+            //     criteriaType: DataTableActionEnableCriteria.notEquals,
+            //     value: 'error'),
           ]],
           actionName: ActionKeys.compileWorkspace),
       ActionConfig(
@@ -77,10 +77,10 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.contains,
                 value: 'modified'),
-            ActionEnableCriteria(
-                columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.notEquals,
-                value: 'error'),
+            // ActionEnableCriteria(
+            //     columnPos: 4,
+            //     criteriaType: DataTableActionEnableCriteria.notEquals,
+            //     value: 'error'),
           ]],
           configForm: FormKeys.commitWorkspace,
           navigationParams: {
@@ -100,10 +100,10 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.notEquals,
                 value: 'removed'),
-            ActionEnableCriteria(
-                columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.notEquals,
-                value: 'error'),
+            // ActionEnableCriteria(
+            //     columnPos: 4,
+            //     criteriaType: DataTableActionEnableCriteria.notEquals,
+            //     value: 'error'),
           ]],
           configForm: FormKeys.pullWorkspace,
           navigationParams: {

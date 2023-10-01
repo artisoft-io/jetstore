@@ -250,7 +250,7 @@ func (wg *WorkspaceGit) PullRemoteWorkspace(gitUser, gitToken string) (string, e
 
 	gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
 	command := fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceName)
-	buf.WriteString(fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", "gitUser", "gitToken", gitRepo, wg.WorkspaceName))
+	buf.WriteString(fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s\n", "gitUser", "gitToken", gitRepo, wg.WorkspaceName))
 	result, err := runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
