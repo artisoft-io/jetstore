@@ -102,12 +102,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionEnableCriterias: [
-            ActionEnableCriteria(
-                columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.notEquals,
-                value: 'removed')
-          ],
           configForm: FormKeys.viewGitLogWorkspace,
           navigationParams: {
             FSK.key: 0,

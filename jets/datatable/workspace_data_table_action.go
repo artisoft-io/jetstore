@@ -83,6 +83,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				wsPreviousName,
 			)
 			if err != nil {
+				log.Printf("Error while updating local workspace: %s\n", gitLog)
 				httpStatus = http.StatusBadRequest
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
