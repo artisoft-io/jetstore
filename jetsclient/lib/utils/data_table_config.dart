@@ -175,7 +175,7 @@ class ActionConfig {
   final String? configScreenPath;
   final String? actionName;
   final int stateGroup;
-  final List<ActionEnableCriteria>? actionEnableCriterias;
+  final List<List<ActionEnableCriteria>>? actionEnableCriterias;
 
   /// returns true if action button is visible
   bool isVisible(JetsDataTableState widgetState) {
@@ -193,10 +193,19 @@ class ActionConfig {
         if (actionEnableCriterias != null) {
           JetsRow? row = widgetState.dataSource.getFirstSelectedRow();
           if (row == null) return false;
-          // The list of ActionEnableCriteria are 'or'
-          // meaning if any criteria is met then the button is active
-          for (var c in actionEnableCriterias!) {
-            if (c.isCriteriaMet(row)) return true;
+          // The list of list of ActionEnableCriteria is
+          // a disjunction of conjunctions (just like jetrules are)
+          // meaning the other list is 'or' and the inner list is 'and' of criteria
+          for (var conjunction in actionEnableCriterias!) {
+            // The first conjuction to meet the criteria, then button isEnabled
+            var isCriteriaMet = true;
+            for (var c in conjunction) {
+              if (!c.isCriteriaMet(row)) {
+                isCriteriaMet = false;
+                break;
+              }
+            }
+            if (isCriteriaMet) return true;
           }
           return false; // No criteria is met
         }

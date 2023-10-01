@@ -46,6 +46,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		// Pre-Processing hook
 		// -----------------------------------------------------------------------
 		var gitLog string
+		status := ""
 		switch {
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
 			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
@@ -87,6 +88,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				httpStatus = http.StatusBadRequest
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "commit_workspace":
 			// Commit changes in local workspace and push to repository:
@@ -116,6 +118,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			buf.WriteString(gitLog)
 			buf.WriteString("\n")
 			if err != nil {
+				status = "error"
 				httpStatus = http.StatusInternalServerError
 				goto setCommitGitLog
 			}
@@ -129,6 +132,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			buf.WriteString(gitLog)
 			buf.WriteString("\n")
 			if err != nil {
+				status = "error"
 				httpStatus = http.StatusInternalServerError
 				goto setCommitGitLog
 			}
@@ -138,12 +142,14 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, false, true)
 			if err != nil {
 				buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
+				status = "error"
 				httpStatus = http.StatusInternalServerError
 				goto setCommitGitLog
 			}
 
 			setCommitGitLog:
 			dataTableAction.Data[irow]["last_git_log"] = buf.String()
+			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "pull_workspace":
 			if dataTableAction.WorkspaceName == "" {
@@ -168,6 +174,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			buf.WriteString(gitLog)
 			buf.WriteString("\n")
 			if err != nil {
+				status = "error"
 				httpStatus = http.StatusInternalServerError
 				goto setPullGitLog
 			}
@@ -191,17 +198,22 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			err = wsfile.DeleteAllFileChanges(ctx.Dbpool, workspaceName, false, false)
 			if err != nil {
 				buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
+				status = "error"
 				httpStatus = http.StatusInternalServerError
 				goto setPullGitLog
 			}
 			
 			// Compile workspace
 			gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+			if err != nil {
+				status = "error"
+			}
 			buf.WriteString(gitLog)
 			buf.WriteString("\n")
 
 			setPullGitLog:
 			dataTableAction.Data[irow]["last_git_log"] = buf.String()
+			dataTableAction.Data[irow]["status"] = status
 
 
 		case dataTableAction.FromClauses[0].Table == "compile_workspace":
@@ -214,9 +226,11 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			fmt.Println("Compiling workspace", workspaceName)
 			gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
 			if err != nil {
+				status = "error"
 				httpStatus = http.StatusInternalServerError
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "delete_workspace":
 			if dataTableAction.WorkspaceName == "" {
@@ -325,6 +339,7 @@ func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*ma
 		switch {
 		case dataTableAction.FromClauses[0].Table == "workspace_registry":
 			// Post processing for workspace_registry table to get status from file system:
+			//	- If workspace_registry.status == 'error', then status = 'error'
 			//  - If workspace_name folder does not exist: status = removed
 			//  - If workspace_name == os.Getenv("WORKSPACE"): status = active
 			//  - If git status in workspace_name folder contains 'nothing to commit, working tree clean': status = no changes
@@ -358,14 +373,16 @@ func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*ma
 			} else {
 				// Get the status from git command
 				for irow := range *resultRows {
-					workspaceGit := git.NewWorkspaceGit(
-						(*resultRows)[irow][workspaceNamePos].(string),
-						(*resultRows)[irow][workspaceUriPos].(string))
-					status, err := workspaceGit.GetStatus()
-					if err != nil {
-						return nil, http.StatusBadRequest, err
+					if (*resultRows)[irow][statusPos] == "" {
+						workspaceGit := git.NewWorkspaceGit(
+							(*resultRows)[irow][workspaceNamePos].(string),
+							(*resultRows)[irow][workspaceUriPos].(string))
+						status, err := workspaceGit.GetStatus()
+						if err != nil {
+							return nil, http.StatusBadRequest, err
+						}
+						(*resultRows)[irow][statusPos] = status	
 					}
-					(*resultRows)[irow][statusPos] = status
 				}
 			}
 		}

@@ -36,12 +36,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionEnableCriterias: [
+          actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.notEquals,
-                value: 'removed')
-          ],
+                value: 'removed'),
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.notEquals,
+                value: 'error'),
+          ]],
           actionName: ActionKeys.openWorkspace),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -50,12 +54,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionEnableCriterias: [
+          actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.contains,
-                value: 'modified')
-          ],
+                value: 'modified'),
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.notEquals,
+                value: 'error'),
+          ]],
           actionName: ActionKeys.compileWorkspace),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -64,12 +72,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionEnableCriterias: [
+          actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.contains,
-                value: 'modified')
-          ],
+                value: 'modified'),
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.notEquals,
+                value: 'error'),
+          ]],
           configForm: FormKeys.commitWorkspace,
           navigationParams: {
             FSK.key: 0,
@@ -83,12 +95,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionEnableCriterias: [
+          actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.notEquals,
-                value: 'removed')
-          ],
+                value: 'removed'),
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.notEquals,
+                value: 'error'),
+          ]],
           configForm: FormKeys.pullWorkspace,
           navigationParams: {
             FSK.key: 0,

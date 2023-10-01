@@ -6,7 +6,7 @@ package datatable
 // Note column keys are keys provided from the UI and may not
 // correspond to column name.
 // Important: columnKeys order MUST match order in stmt
-var sqlInsertStmts = map[string]SqlInsertDefinition {
+var sqlInsertStmts = map[string]*SqlInsertDefinition {
 	// Client & Org Admin: add client
 	"client_registry": {
 		Stmt: `INSERT INTO jetsapi.client_registry (client, details)
@@ -178,35 +178,35 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// source config
 	"workspace_registry": {
 		Stmt: `INSERT INTO jetsapi.workspace_registry 
-			(workspace_name, workspace_uri, description, last_git_log, user_email) 
-			VALUES ($1, $2, $3, $4, $5)
+			(workspace_name, workspace_uri, description, last_git_log, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING key`,
-		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "user_email"},
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "status", "user_email"},
 	},
 	"update/workspace_registry": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(workspace_name, workspace_uri, description, last_git_log, user_email, last_update) 
-			= ($1, $2, $3, $4, $5, DEFAULT) WHERE key = $6`,
-		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "user_email", "key"},
+			(workspace_name, workspace_uri, description, last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, DEFAULT) WHERE key = $7`,
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "status", "user_email", "key"},
 	},
 	"commit_workspace": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(last_git_log, user_email, last_update) 
-			= ($1, $2, DEFAULT) WHERE key = $3`,
-		ColumnKeys: []string{"last_git_log", "user_email", "key"},
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
 	},
 	"pull_workspace": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(last_git_log, user_email, last_update) 
-			= ($1, $2, DEFAULT) WHERE key = $3`,
-		ColumnKeys: []string{"last_git_log", "user_email", "key"},
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
 	},
 	// compile workspace (insert into workspace_registry and trigger compile workspace)
 	"compile_workspace": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(last_git_log, user_email, last_update) 
-			= ($1, $2, DEFAULT) WHERE key = $3`,
-		ColumnKeys: []string{"last_git_log", "user_email", "key"},
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
 	},
 	// delete workspace in workspace_registry
 	"delete_workspace": {
