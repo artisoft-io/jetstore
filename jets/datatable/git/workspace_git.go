@@ -141,11 +141,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 	// Check if user info exist in local repo
 	result, err := runShellCommand(workspacePath, "git config --get user.email")
 	buf.WriteString(result)
-	if err != nil {
-		// This is not expected
-		return buf.String(), fmt.Errorf("error while trying to get local user info")
-	}
-	if len(result) == 0 {
+	if err != nil || len(result) == 0 {
 		// Local user info does not exist, must be a newly deployed container
 		buf.WriteString(fmt.Sprintf("Local repo '%s' does not have user info, configuring it.\n", workspacePath))
 		command := fmt.Sprintf("git config user.email \"%s\"", userEmail)
