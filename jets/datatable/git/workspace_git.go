@@ -129,6 +129,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		buf.WriteString("== Workspace directory does not exist, checking out workspace from git ==\n")
 		gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
 		command := fmt.Sprintf("git clone --quiet 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceName)
+		buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
 		result, err := runShellCommand(wg.WorkspacesHome, command)
 		buf.WriteString(result)
 		if err != nil {
