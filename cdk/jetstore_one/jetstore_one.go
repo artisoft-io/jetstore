@@ -320,7 +320,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			{
 				Name:       jsii.String("isolated"),
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
-				CidrMask: jsii.Number(18),
+				CidrMask: jsii.Number(20),
 			},
 		},
 		FlowLogs: &map[string]*awsec2.FlowLogOptions{
