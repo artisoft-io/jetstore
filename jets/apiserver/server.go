@@ -425,16 +425,16 @@ func listenAndServe() error {
 	}
 	defer server.dbpool.Close()
 
-	// Check jetstore version, run update_db if needed
-	err = server.checkJetStoreDbVersion()
-	if err != nil {
-		return fmt.Errorf("while calling checkJetStoreDbVersion: %v", err)
-	}
-
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
 		return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
+	}
+
+	// Check jetstore version, run update_db if needed
+	err = server.checkJetStoreDbVersion()
+	if err != nil {
+		return fmt.Errorf("while calling checkJetStoreDbVersion: %v", err)
 	}
 
 	// Check that the users table and admin user exists
