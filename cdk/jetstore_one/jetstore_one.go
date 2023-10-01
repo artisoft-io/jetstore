@@ -1075,7 +1075,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// ---------------------------------------
 	uiTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("uiTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(1024*4),
-		Cpu:            jsii.Number(512),
+		Cpu:            jsii.Number(1024),
 		ExecutionRole:  ecsTaskExecutionRole,
 		TaskRole:       ecsTaskRole,
 		RuntimePlatform: &awsecs.RuntimePlatform{
