@@ -167,7 +167,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		// Local branch does not exist, must be a newly deployed container
 		buf.WriteString(fmt.Sprintf("Branch '%s' does not exist in local repo %s\nCreating it...\n", wg.WorkspaceName, workspacePath))
 		// git checkout -b <WorkspaceName>
-		// git push -u origin HEAD
+		// git push 'https://<user>:<token>@<repo>' 
 		command := fmt.Sprintf("git checkout -b %s", wg.WorkspaceName)
 		result, err := runShellCommand(workspacePath, command)
 		buf.WriteString(result)
@@ -175,8 +175,10 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 			return buf.String(), err
 		}
 		buf.WriteString("\n")
-		result, err = runShellCommand(workspacePath, "git push -u origin HEAD")
-		buf.WriteString(result)
+		gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
+		command = fmt.Sprintf("git push 'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
+		result, err = runShellCommand(workspacePath, command)
+			buf.WriteString(result)
 		if err != nil {
 			return buf.String(), err
 		}
