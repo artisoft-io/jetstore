@@ -380,41 +380,25 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 
 	// Add secret manager endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
 		Subnets: isolatedSubnetSelection,
-	})
-	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
-		Subnets: privateSubnetSelection,
 	})
 
 	// Add Step Functions endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
 		Subnets: isolatedSubnetSelection,
 	})
-	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
-		Subnets: privateSubnetSelection,
-	})
-	vpc.AddInterfaceEndpoint(jsii.String("StatesInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
 		Subnets: isolatedSubnetSelection,
-	})
-	vpc.AddInterfaceEndpoint(jsii.String("StatesPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
-		Subnets: privateSubnetSelection,
 	})
 
 	// Add Cloudwatch endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchInsulatedEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
 		Subnets: isolatedSubnetSelection,
-	})
-	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchPrivateEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
-		Subnets: privateSubnetSelection,
 	})
 
 	// Database Cluster
