@@ -39,7 +39,7 @@ type CommandArguments struct {
 func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string) int {
 	var count int
 	err := dbpool.QueryRow(context.Background(), 
-		"SELECT count(*) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 AND status=$2 GROUP BY shard_id", 
+		"SELECT count(*) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 AND status=$2", 
 		pipelineExecutionKey, status).Scan(&count)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -57,7 +57,8 @@ type writeResult struct {
 
 // PipelineResult Method to update status
 // Register the status details to pipeline_execution_details
-// Lock the sessionId and register output tables only if doNotLockSessionId is false
+// Lock the sessionId (register sessionId with session_registry) if not failed and doNotLockSessionId is false
+// Register output tables only if doNotLockSessionId is false
 // Do nothing if pipelineExecutionKey < 0
 func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, 
 	shardId int, doNotLockSessionId bool, errMessage string) error {
@@ -79,10 +80,12 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 
 	// Register the sessionId && Update execution status to pipeline_execution_status table
 	if !doNotLockSessionId {
-		// Lock the session	
-		err = schema.RegisterSession(dbpool, "domain_table", client, sessionId, sourcePeriodKey)
-		if err != nil {
-			return fmt.Errorf("while recording out session id: %v", err)
+		// Lock the session	if not failed in session_registry
+		if pr.Status != "failed" {
+			err = schema.RegisterSession(dbpool, "domain_table", client, sessionId, sourcePeriodKey)
+			if err != nil {
+				return fmt.Errorf("while recording out session id: %v", err)
+			}
 		}
 	
 		// Record the status of the pipeline execution
