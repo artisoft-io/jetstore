@@ -486,6 +486,7 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.loadRawRows: FormConfig(
     key: FormKeys.loadRawRows,
     title: "Load Raw Source Mapping",
+    useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.loadRawRowsOk,
@@ -518,7 +519,7 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLines: 15,
+            maxLines: 20,
             maxLength: 51200),
       ],
     ],
