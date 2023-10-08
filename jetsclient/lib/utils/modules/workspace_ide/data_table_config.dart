@@ -41,16 +41,45 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.notEquals,
                 value: 'removed'),
-            // ActionEnableCriteria(
-            //     columnPos: 4,
-            //     criteriaType: DataTableActionEnableCriteria.notEquals,
-            //     value: 'error'),
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'in progress'),
           ]],
           actionName: ActionKeys.openWorkspace),
       ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'exportWorkspaceClientConfig',
+          label: 'Export Client Config',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.exportWorkspaceClientConfig,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.wsName: 1,
+            FSK.wsURI: 2,
+          }),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteWorkspace',
+          label: 'Delete',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionEnableCriterias: [[
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'active'),
+          ]],
+          actionName: ActionKeys.deleteWorkspace),
+    ],
+    secondRowActions: [
+      ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'compileWorkspace',
-          label: 'Compile',
+          label: 'Compile Workspace',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
@@ -59,16 +88,12 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.contains,
                 value: 'modified'),
-            // ActionEnableCriteria(
-            //     columnPos: 4,
-            //     criteriaType: DataTableActionEnableCriteria.notEquals,
-            //     value: 'error'),
           ]],
           actionName: ActionKeys.compileWorkspace),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'commitWorkspace',
-          label: 'Commit & Push',
+          label: 'Commit & Push Workspace',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
@@ -77,10 +102,6 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.contains,
                 value: 'modified'),
-            // ActionEnableCriteria(
-            //     columnPos: 4,
-            //     criteriaType: DataTableActionEnableCriteria.notEquals,
-            //     value: 'error'),
           ]],
           configForm: FormKeys.commitWorkspace,
           navigationParams: {
@@ -91,7 +112,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'pullWorkspace',
-          label: 'Pull',
+          label: 'Pull Workspace',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
@@ -100,10 +121,10 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.notEquals,
                 value: 'removed'),
-            // ActionEnableCriteria(
-            //     columnPos: 4,
-            //     criteriaType: DataTableActionEnableCriteria.notEquals,
-            //     value: 'error'),
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'in progress'),
           ]],
           configForm: FormKeys.pullWorkspace,
           navigationParams: {
@@ -126,13 +147,12 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.lastGitLog: 5,
           }),
       ActionConfig(
-          actionType: DataTableActionType.doAction,
-          key: 'deleteWorkspace',
-          label: 'Delete',
-          style: ActionStyle.danger,
-          isVisibleWhenCheckboxVisible: true,
-          isEnabledWhenHavingSelectedRows: true,
-          actionName: ActionKeys.deleteWorkspace),
+          actionType: DataTableActionType.refreshTable,
+          key: 'refreshTable',
+          label: 'Refresh',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(

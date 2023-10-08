@@ -397,7 +397,8 @@ func IsSessionExists(dbpool *pgxpool.Pool, sessionId string) (bool, error) {
 	return false, nil
 }
 
-// Register the session, sourceType is the source_type of the entity saved on that session_id, which is "file" for loader and "domain_table" for server
+// Register the session in session_registry, 
+// sourceType is the source_type of the entity saved on that session_id, which is "file" for loader and "domain_table" for server
 func RegisterSession(dbpool *pgxpool.Pool, sourceType, client string, sessionId string, sourcePeriodKey int) error {
 	if sessionId == "" {
 		return fmt.Errorf("error: cannot have empty session")
@@ -417,6 +418,7 @@ func RegisterSession(dbpool *pgxpool.Pool, sourceType, client string, sessionId 
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.session_registry table: %v", err)
 	}
-	log.Printf("Registered session '%s' with source_period_key %d for client '%s' from '%s' in jetsapi.session_registry table", sessionId, sourcePeriodKey, client, sourceType)
+	log.Printf("Registered session '%s' with source_period_key %d for client '%s' from '%s' in jetsapi.session_registry table", 
+		sessionId, sourcePeriodKey, client, sourceType)
 	return nil
 }

@@ -69,6 +69,9 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	
 	case "workspace_read":
 		results, code, err = context.DoWorkspaceReadAction(&dataTableAction)
+
+	case "save_workspace_client_config":
+		results, code, err = context.SaveWorkspaceClientConfig(&dataTableAction, user.ExtractToken(r))
 	
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)

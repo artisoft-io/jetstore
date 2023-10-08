@@ -148,6 +148,20 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                         child: Text(ac.label),
                       )
                     ]));
+            // Second row of buttons
+            final secondRow = <Widget>[];
+            secondRow.addAll(tableConfig.secondRowActions
+                .where((ac) => ac.isVisible(state))
+                .expand((ac) => [
+                      const SizedBox(width: defaultPadding),
+                      ElevatedButton(
+                        style: buttonStyle(ac.style, themeData),
+                        onPressed: ac.isEnabled(state)
+                            ? () => state.actionDispatcher(context, ac)
+                            : null,
+                        child: Text(ac.label),
+                      )
+                    ]));
 
             // build the data table
             return Column(
@@ -168,6 +182,8 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                       children: [
                         // HEADER ROW
                         if (headerRow.isNotEmpty) Row(children: headerRow),
+                        if (secondRow.isNotEmpty) const SizedBox(height: defaultPadding),
+                        if (secondRow.isNotEmpty) Row(children: secondRow),
                         // MAIN TABLE SECTION
                         const SizedBox(height: defaultPadding),
                         Expanded(

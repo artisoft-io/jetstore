@@ -15,6 +15,7 @@ class TableConfig {
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
       required this.actions,
+      this.secondRowActions = const [],
       required this.columns,
       this.defaultToAllRows = false,
       required this.fromClauses,
@@ -40,6 +41,7 @@ class TableConfig {
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
+  final List<ActionConfig> secondRowActions;
   final List<ColumnConfig> columns;
   final bool defaultToAllRows;
   final RawQuery? sqlQuery;
