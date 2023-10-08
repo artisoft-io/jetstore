@@ -131,6 +131,7 @@ class FormKeys {
   static const commitWorkspace = "commitWorkspaceDialog";
   static const pullWorkspace = "pullWorkspaceDialog";
   static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
+  static const exportWorkspaceClientConfig = "exportWorkspaceClientConfig";
   // Forms for each section of the workspace, incl file editor
   // Note: The formConfig key is constructed in initializeWorkspaceFileEditor
   static const workspaceFileEditor = "workspace.file.form";
@@ -370,6 +371,7 @@ class ActionKeys {
   static const deleteWorkspace = "deleteWorkspace";
   static const deleteWorkspaceChanges = "deleteWorkspaceChanges";
   static const deleteAllWorkspaceChanges = "deleteAllWorkspaceChanges";
+  static const exportClientConfigOk = "exportClientConfigOk";
 }
 
 /// Form Action Keys

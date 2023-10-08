@@ -585,6 +585,26 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 	return
 }
 
+// SaveWorkspaceClientConfig --------------------------------------------------------------------------
+// Function to save the workspace file content in local workspace file system and in database
+func (ctx *Context) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	request := dataTableAction.Data[0]
+	workspaceName := dataTableAction.WorkspaceName
+	clientName := request["client"]
+	if workspaceName == "" || clientName == nil {
+		err = fmt.Errorf("SaveWorkspaceClientConfig: missing workspace_name, or client")
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+
+	// Save client config to local workspace
+	err = wsfile.SaveClientConfig(ctx.Dbpool, workspaceName, clientName.(string))
+	results = &map[string]interface{}{}
+	return
+}
+
 func compileWorkspace(dbpool *pgxpool.Pool, workspaceName string) (httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	var gitLog string

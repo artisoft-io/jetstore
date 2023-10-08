@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -12,10 +13,11 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
 
@@ -300,9 +302,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	if cidr == "" {
 		cidr = "10.10.0.0/16"
 	}
+	nbrNatGateway := 0
+	if os.Getenv("JETS_NBR_NAT_GATEWAY") != "" {
+		var err error
+		nbrNatGateway, err = strconv.Atoi(os.Getenv("JETS_NBR_NAT_GATEWAY"))
+		if err != nil {
+			log.Printf("Invalid value for JETS_NBR_NAT_GATEWAY, setting to 0")
+			nbrNatGateway = 0
+		}
+	}
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
-		NatGateways:        jsii.Number(1),
+		NatGateways:        jsii.Number(float64(nbrNatGateway)),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
 		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
@@ -1437,6 +1448,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
+// JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
 func main() {
 	defer jsii.Close()
 	var err error

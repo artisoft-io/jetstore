@@ -49,17 +49,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionName: ActionKeys.openWorkspace),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
-          key: 'viewGitLogWorkspace',
-          label: 'View Log',
+          key: 'exportWorkspaceClientConfig',
+          label: 'Export Client Config',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          configForm: FormKeys.viewGitLogWorkspace,
+          configForm: FormKeys.exportWorkspaceClientConfig,
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
             FSK.wsURI: 2,
-            FSK.lastGitLog: 5,
           }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -132,6 +131,20 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.key: 0,
             FSK.wsName: 1,
             FSK.wsURI: 2,
+          }),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'viewGitLogWorkspace',
+          label: 'View Log',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.viewGitLogWorkspace,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.wsName: 1,
+            FSK.wsURI: 2,
+            FSK.lastGitLog: 5,
           }),
       ActionConfig(
           actionType: DataTableActionType.refreshTable,

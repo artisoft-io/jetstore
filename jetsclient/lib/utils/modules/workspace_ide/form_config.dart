@@ -336,6 +336,62 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceIDEFormActions,
   ),
 
+  // Export Client Config Dialog
+  FormKeys.exportWorkspaceClientConfig: FormConfig(
+    key: FormKeys.exportWorkspaceClientConfig,
+    title: "Export Client Configuration from DB to Workspace",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.exportClientConfigOk,
+          label: "Export Client Config",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace where to export the client configuration",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormDropdownFieldConfig(
+            key: FSK.client,
+            items: [
+              DropdownItemConfig(label: 'Select a Client'),
+            ],
+            dropdownItemsQuery:
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"),
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
   // Workspace File Editor
   FormKeys.workspaceFileEditor: FormConfig(
     key: FormKeys.workspaceFileEditor,

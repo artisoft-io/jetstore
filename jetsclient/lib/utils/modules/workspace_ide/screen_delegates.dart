@@ -77,6 +77,13 @@ String? workspaceIDEFormValidator(
       }
       return "Commit message must be provided.";
 
+    case FSK.client:
+      String? value = v;
+      if (value != null && value.isNotEmpty) {
+        return null;
+      }
+      return "Client must be selected.";
+
     case FSK.description:
     case FSK.wsFileEditorContent:
       return null;
@@ -326,6 +333,37 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'fromClauses': [
           <String, String>{'table': 'pull_workspace'}
         ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
+
+    // Export client config from db to workspace
+    case ActionKeys.exportClientConfigOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      var state = formState.getState(0);
+      state['user_email'] = JetsRouterDelegate().user.email;
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'save_workspace_client_config',
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');

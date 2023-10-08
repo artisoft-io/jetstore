@@ -593,7 +593,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Select a Client'),
             ],
             dropdownItemsQuery:
-                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"),
       ],
       [
         FormDropdownFieldConfig(
@@ -857,7 +857,7 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             autovalidateMode: AutovalidateMode.onUserInteraction,
             dropdownItemsQuery:
-                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"),
         FormDropdownFieldConfig(
             key: FSK.processName,
             returnedModelCacheKey: FSK.processConfigCache,
@@ -1079,7 +1079,7 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             autovalidateMode: AutovalidateMode.onUserInteraction,
             dropdownItemsQuery:
-                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 50"),
+                "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"),
       ],
       [
         FormDropdownFieldConfig(
