@@ -65,9 +65,15 @@ func (wg *WorkspaceGit) GetStatus() (string, error) {
 	}
 	workspacePath := fmt.Sprintf("%s/%s", wg.WorkspacesHome, wg.WorkspaceName)
 	
+	// Check if workspace is the active workspace
+	isActiveWorkspace := false
+	if wg.WorkspaceName == wg.ActiveWorkspace {
+		isActiveWorkspace = true
+	}
+
 	// First, check if workspace directory exists or not
 	if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
-		return "removed", nil
+		return "local workspace removed", nil
  	}
 
 	// Check if the local branch exists
@@ -75,7 +81,11 @@ func (wg *WorkspaceGit) GetStatus() (string, error) {
 	if err != nil {
 		// Local branch does not exist, must be a newly deployed container
 		log.Printf("Branch '%s' does not exist in local repo %s", wg.WorkspaceName, workspacePath)
-		return "removed", nil
+		if isActiveWorkspace {
+			return "active, local branch removed", nil
+		} else {
+			return "local branch removed", nil
+		}
 	}
 
 	// Check if user info exist in local repo
@@ -87,13 +97,7 @@ func (wg *WorkspaceGit) GetStatus() (string, error) {
 	if len(result) == 0 {
 		// Local user info does not exist, must be a newly deployed container
 		log.Printf("Branch '%s' does not have user info in local repo %s", wg.WorkspaceName, workspacePath)
-		return "removed", nil
-	}
-
-	// Check if workspace is the active workspace
-	isActiveWorkspace := false
-	if wg.WorkspaceName == wg.ActiveWorkspace {
-		isActiveWorkspace = true
+		return "local user removed", nil
 	}
 	
 	// Issue the git status command to see if workspace has modifications
@@ -101,16 +105,26 @@ func (wg *WorkspaceGit) GetStatus() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error while executing 'git status' command: %v", err)
 	}
-	if strings.Contains(result, "nothing to commit, working tree clean") {
-		if isActiveWorkspace {
-			return "active", nil
+	switch {
+	case strings.Contains(result, "nothing to commit, working tree clean"):
+		switch {
+		case !strings.Contains(result, "Your branch is ahead of"):
+			if isActiveWorkspace {
+				return "active", nil
+			}
+			return "no changes", nil
+		default:
+			if isActiveWorkspace {
+				return "active, modified: commit(s) need to be pushed", nil
+			}
+			return "modified: commit(s) need to be pushed", nil
 		}
-		return "no changes", nil
+	default:
+		if isActiveWorkspace {
+			return "active, local file(s) modified", nil
+		}
+		return "local file(s) modified", nil
 	}
-	if isActiveWorkspace {
-		return "active modified", nil
-	}
-	return "modified", nil
 }
 
 func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitToken, wsPreviousName string) (string, error) {
@@ -165,13 +179,15 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 	buf.WriteString("\n")
 
 	// Check if the local branch exists
-	_, err = runShellCommand(workspacePath, fmt.Sprintf("git show-ref --verify --quiet refs/heads/%s", wg.WorkspaceName))
+	command = fmt.Sprintf("git show-ref --verify --quiet refs/heads/%s", wg.WorkspaceName)
+	buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
+	result, err = runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
 		// Local branch does not exist, must be a newly deployed container
 		buf.WriteString(fmt.Sprintf("Branch '%s' does not exist in local repo %s\nCreating it...\n", wg.WorkspaceName, workspacePath))
 		// git checkout -b <WorkspaceName>
-		// git push 'https://<user>:<token>@<repo>' 
+		// git push -u origin HEAD 'https://<user>:<token>@<repo>' 
 		command := fmt.Sprintf("git checkout -b %s", wg.WorkspaceName)
 		buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
 		result, err := runShellCommand(workspacePath, command)
@@ -181,10 +197,10 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		}
 		buf.WriteString("\n")
 		gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
-		command = fmt.Sprintf("git push 'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
-		buf.WriteString(fmt.Sprintf("Executing command: %s\n", fmt.Sprintf("git push 'https://%s:%s@%s'", "gitUser", "gitToken", gitRepo)))
+		command = fmt.Sprintf("git push -u origin HEAD 'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
+		buf.WriteString(fmt.Sprintf("Executing command: %s\n", fmt.Sprintf("git push -u origin HEAD 'https://%s:%s@%s'", "gitUser", "gitToken", gitRepo)))
 		result, err = runShellCommand(workspacePath, command)
-			buf.WriteString(result)
+		buf.WriteString(result)
 		if err != nil {
 			return buf.String(), err
 		}
@@ -230,6 +246,27 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitUser, gitToken, wsCommitMessage 
 	command = fmt.Sprintf("git push 'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
 	buf.WriteString(fmt.Sprintf("Executing command: %s\n", fmt.Sprintf("git push 'https://%s:%s@%s'", "<user>", "<token>", gitRepo)))
 	result, err = runShellCommand(workspacePath, command)
+	buf.WriteString(result)
+	if err != nil {
+		return buf.String(), err
+	}
+	buf.WriteString("\nChanges pushed to repository\n")
+
+	return buf.String(), nil
+}
+
+func (wg *WorkspaceGit) PushOnlyWorkspace(gitUser, gitToken string) (string, error) {
+	// git push 'https://<user>:<token>@<repo>' 
+		if wg.WorkspaceName == "" {
+		return "", fmt.Errorf("error, must provide workspace_name")
+	}
+	workspacePath := fmt.Sprintf("%s/%s", wg.WorkspacesHome, wg.WorkspaceName)
+	var buf strings.Builder
+
+	gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
+	command := fmt.Sprintf("git push 'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
+	buf.WriteString(fmt.Sprintf("Executing command: %s\n", fmt.Sprintf("git push 'https://%s:%s@%s'", "<user>", "<token>", gitRepo)))
+	result, err := runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
 		return buf.String(), err

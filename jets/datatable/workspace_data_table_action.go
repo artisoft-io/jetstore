@@ -46,7 +46,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		// Pre-Processing hook
 		// -----------------------------------------------------------------------
 		var gitLog string
-		status := ""
 		switch {
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
 			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
@@ -88,7 +87,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				httpStatus = http.StatusBadRequest
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = status
+			dataTableAction.Data[irow]["status"] = ""
 
 		case dataTableAction.FromClauses[0].Table == "commit_workspace":
 			// Validating request only, actual task performed async in post-processing section below
@@ -102,6 +101,26 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
 			}
 			dataTableAction.Data[irow]["status"] = "Commit & Compile in progress"
+
+		case dataTableAction.FromClauses[0].Table == "push_only_workspace":
+			// Push only workspace
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
+			}
+			wsUri := dataTableAction.Data[irow]["workspace_uri"]
+			gitUser := dataTableAction.Data[irow]["git.user"]
+			gitToken := dataTableAction.Data[irow]["git.token"]
+			if(wsUri == nil || gitUser == nil || gitToken == nil) {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
+			}
+			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri.(string))
+			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser.(string), gitToken.(string))
+			if err != nil {
+				log.Printf("Error while push (only) workspace: %s\n", gitLog)
+				httpStatus = http.StatusBadRequest
+			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = ""
 
 		case dataTableAction.FromClauses[0].Table == "pull_workspace":
 			// Validating request only, actual task performed async in post-processing section below
@@ -244,7 +263,9 @@ func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*ma
 			// Post processing for workspace_registry table to get status from file system:
 			//	- If workspace_registry.status == 'error', then status = 'error'
 			//  - If workspace_name folder does not exist: status = removed
-			//  - If workspace_name == os.Getenv("WORKSPACE"): status = active
+			//  - If workspace_name == os.Getenv("WORKSPACE"): 
+			//			- status = 'active' if branch named workspace_name exist
+			//			- status = 'active, local branch removed' if branch named workspace_name does not exist
 			//  - If git status in workspace_name folder contains 'nothing to commit, working tree clean': status = no changes
 			//  - else: status = modified
 			// Get the column position for workspace_name and status

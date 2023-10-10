@@ -111,6 +111,25 @@ final Map<String, TableConfig> _tableConfigurations = {
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
+          key: 'pushOnlyWorkspace',
+          label: 'Push Only',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionEnableCriterias: [[
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.contains,
+                value: 'modified'),
+          ]],
+          configForm: FormKeys.pushOnlyWorkspace,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.wsName: 1,
+            FSK.wsURI: 2,
+          }),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
           key: 'pullWorkspace',
           label: 'Pull Workspace',
           style: ActionStyle.secondary,
