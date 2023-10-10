@@ -39,7 +39,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.notEquals,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'removed'),
             ActionEnableCriteria(
                 columnPos: 4,
@@ -119,8 +119,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.contains,
-                value: 'modified'),
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'removed'),
           ]],
           configForm: FormKeys.pushOnlyWorkspace,
           navigationParams: {
@@ -138,7 +138,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.notEquals,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'removed'),
             ActionEnableCriteria(
                 columnPos: 4,

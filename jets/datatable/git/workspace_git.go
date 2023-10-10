@@ -107,18 +107,10 @@ func (wg *WorkspaceGit) GetStatus() (string, error) {
 	}
 	switch {
 	case strings.Contains(result, "nothing to commit, working tree clean"):
-		switch {
-		case !strings.Contains(result, "Your branch is ahead of"):
-			if isActiveWorkspace {
-				return "active", nil
-			}
-			return "no changes", nil
-		default:
-			if isActiveWorkspace {
-				return "active, modified: commit(s) need to be pushed", nil
-			}
-			return "modified: commit(s) need to be pushed", nil
+		if isActiveWorkspace {
+			return "active", nil
 		}
+		return "no changes", nil
 	default:
 		if isActiveWorkspace {
 			return "active, local file(s) modified", nil
@@ -187,7 +179,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		// Local branch does not exist, must be a newly deployed container
 		buf.WriteString(fmt.Sprintf("Branch '%s' does not exist in local repo %s\nCreating it...\n", wg.WorkspaceName, workspacePath))
 		// git checkout -b <WorkspaceName>
-		// git push -u origin HEAD 'https://<user>:<token>@<repo>' 
+		// git push  'https://<user>:<token>@<repo>' 
 		command := fmt.Sprintf("git checkout -b %s", wg.WorkspaceName)
 		buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
 		result, err := runShellCommand(workspacePath, command)
@@ -197,8 +189,8 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		}
 		buf.WriteString("\n")
 		gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
-		command = fmt.Sprintf("git push -u origin HEAD 'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
-		buf.WriteString(fmt.Sprintf("Executing command: %s\n", fmt.Sprintf("git push -u origin HEAD 'https://%s:%s@%s'", "gitUser", "gitToken", gitRepo)))
+		command = fmt.Sprintf("git push  'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
+		buf.WriteString(fmt.Sprintf("Executing command: %s\n", fmt.Sprintf("git push  'https://%s:%s@%s'", "gitUser", "gitToken", gitRepo)))
 		result, err = runShellCommand(workspacePath, command)
 		buf.WriteString(result)
 		if err != nil {
