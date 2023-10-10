@@ -335,11 +335,15 @@ class JetRuleReteSQLite:
 
         # save domain properties
         for property in cls['data_properties']:
-          pkey = self.data_properties_last_key
-          self.data_properties_last_key += 1
-          property['db_key'] = pkey                  # keep the globaly unique key for insertion in other tables
-          row = [pkey, key, property['name'], property['type'], property.get('as_array', False), property.get('is_grouping', False)]
-          self.write_cursor.execute("INSERT INTO data_properties (key, domain_class_key, name, type, as_array, is_grouping) VALUES (?, ?, ?, ?, ?, ?)", row)
+          try:
+            pkey = self.data_properties_last_key
+            self.data_properties_last_key += 1
+            property['db_key'] = pkey                  # keep the globaly unique key for insertion in other tables
+            row = [pkey, key, property['name'], property['type'], property.get('as_array', False), property.get('is_grouping', False)]
+            self.write_cursor.execute("INSERT INTO data_properties (key, domain_class_key, name, type, as_array, is_grouping) VALUES (?, ?, ?, ?, ?, ?)", row)
+          except (Exception) as error:
+            print('* Error inserting into data_property table, property',property['name'],'error:', error)
+            raise error
 
       else:
         # file with skey already in db, get the resource 'db_key' from the db;
