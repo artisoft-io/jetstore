@@ -309,6 +309,41 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }
       return result;
 
+    // Push Only Workspace Changes to Repository
+    case ActionKeys.pushOnlyWorkspaceOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      var state = formState.getState(0);
+      // print('Add/Update Workspace state: $state');
+      state['user_email'] = JetsRouterDelegate().user.email;
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'workspace_insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'push_only_workspace'}
+        ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
+
     // Pull Workspace Changes from Repository
     case ActionKeys.pullWorkspaceOk:
       var valid = formKey.currentState!.validate();

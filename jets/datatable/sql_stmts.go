@@ -208,6 +208,13 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition {
 			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
 		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
 	},
+	// push only workspace (insert into workspace_registry and push to repository - w/o compiling)
+	"push_only_workspace": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
+	},
 	// delete workspace in workspace_registry
 	"delete_workspace": {
 		Stmt: `DELETE FROM jetsapi.workspace_registry WHERE key = $1`,
