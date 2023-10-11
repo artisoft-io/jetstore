@@ -139,36 +139,30 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		result, err := runShellCommand(wg.WorkspacesHome, command)
 		buf.WriteString(result)
 		if err != nil {
+			buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 			return buf.String(), err
 		}
 		buf.WriteString("\n")
  	}
 
-	// Check if user info exist in local repo
-	command := "git config --get user.email"
+	// Set user info
+	command := fmt.Sprintf("git config user.email \"%s\"", userEmail)
 	buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
 	result, err := runShellCommand(workspacePath, command)
 	buf.WriteString(result)
-	if err != nil || len(result) == 0 {
-		// Local user info does not exist, must be a newly deployed container
-		buf.WriteString(fmt.Sprintf("Local repo '%s' does not have user info, configuring it.\n", workspacePath))
-		command := fmt.Sprintf("git config user.email \"%s\"", userEmail)
-		buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
-		result, err = runShellCommand(workspacePath, command)
-  	buf.WriteString(result)
-		if err != nil {
-			return buf.String(), err
-		}
-		buf.WriteString("\n")
-		command = fmt.Sprintf("git config user.name \"%s\"", userName)
-		buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
-		result, err = runShellCommand(workspacePath, command)
-  	buf.WriteString(result)
-		if err != nil {
-			return buf.String(), err
-		}
+	if err != nil {
+		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
+		return buf.String(), err
 	}
 	buf.WriteString("\n")
+	command = fmt.Sprintf("git config user.name \"%s\"", userName)
+	buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
+	result, err = runShellCommand(workspacePath, command)
+	buf.WriteString(result)
+	if err != nil {
+		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
+		return buf.String(), err
+	}
 
 	// Check if the local branch exists
 	command = fmt.Sprintf("git show-ref --verify --quiet refs/heads/%s", wg.WorkspaceName)
@@ -185,6 +179,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		result, err := runShellCommand(workspacePath, command)
 		buf.WriteString(result)
 		if err != nil {
+			buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 			return buf.String(), err
 		}
 		buf.WriteString("\n")
@@ -194,6 +189,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		result, err = runShellCommand(workspacePath, command)
 		buf.WriteString(result)
 		if err != nil {
+			buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 			return buf.String(), err
 		}
 	}
@@ -217,6 +213,7 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitUser, gitToken, wsCommitMessage 
 	result, err := runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
+		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 		return buf.String(), fmt.Errorf("error while trying to (git) add file contents to the index")
 	}
 	buf.WriteString("\n")
@@ -230,6 +227,7 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitUser, gitToken, wsCommitMessage 
 	result, err = runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
+		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 		return buf.String(), fmt.Errorf("error while trying to (commit) record changes to the repository")
 	}
 	buf.WriteString("\n")
@@ -240,6 +238,7 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitUser, gitToken, wsCommitMessage 
 	result, err = runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
+		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 		return buf.String(), err
 	}
 	buf.WriteString("\nChanges pushed to repository\n")
@@ -261,10 +260,35 @@ func (wg *WorkspaceGit) PushOnlyWorkspace(gitUser, gitToken string) (string, err
 	result, err := runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
+		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 		return buf.String(), err
 	}
-	buf.WriteString("\nChanges pushed to repository\n")
 
+	return buf.String(), nil
+}
+
+func (wg *WorkspaceGit) GitCommandWorkspace(gitCommand string) (string, error) {
+	// execute git command
+		if wg.WorkspaceName == "" {
+		return "", fmt.Errorf("error, must provide workspace_name")
+	}
+	workspacePath := fmt.Sprintf("%s/%s", wg.WorkspacesHome, wg.WorkspaceName)
+	var buf strings.Builder
+
+	commands := strings.Split(gitCommand,"\n")
+	for i := range commands {
+		if len(commands[i]) > 1 {
+			buf.WriteString(fmt.Sprintf("Executing command: %s\n", commands[i]))
+			result, err := runShellCommand(workspacePath, commands[i])
+			buf.WriteString(result)
+			buf.WriteString("\n")
+			if err != nil {
+				buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
+				return buf.String(), err
+			}		
+		}
+	}
+	buf.WriteString("\nDone Executing Command(s)\n")
 	return buf.String(), nil
 }
 

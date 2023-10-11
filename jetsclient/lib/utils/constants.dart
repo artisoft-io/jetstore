@@ -131,6 +131,7 @@ class FormKeys {
   static const commitWorkspace = "commitWorkspaceDialog";
   static const pullWorkspace = "pullWorkspaceDialog";
   static const pushOnlyWorkspace = "pushOnlyWorkspaceDialog";
+  static const doGitCommandWorkspace = "doGitCommandWorkspaceDialog";
   static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
   static const exportWorkspaceClientConfig = "exportWorkspaceClientConfig";
   // Forms for each section of the workspace, incl file editor
@@ -254,6 +255,7 @@ class FSK {
   static const gitCommitMessage = "git.commit.message";
   static const gitUserEmail = "git.user.email";
   static const gitUserName = "git.user.name";
+  static const gitCommand = "git.command";
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
 
@@ -369,6 +371,7 @@ class ActionKeys {
   static const commitWorkspaceOk = "commitWorkspaceOk";
   static const pushOnlyWorkspaceOk = "pushOnlyWorkspaceOk";
   static const pullWorkspaceOk = "pullWorkspaceOk";
+  static const doGitCommandWorkspaceOk = "doGitCommandWorkspaceOk";
   static const wsSaveFileOk = "wsSaveFileOk";
   static const deleteWorkspace = "deleteWorkspace";
   static const deleteWorkspaceChanges = "deleteWorkspaceChanges";
