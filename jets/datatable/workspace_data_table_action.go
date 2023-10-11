@@ -102,16 +102,35 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			}
 			dataTableAction.Data[irow]["status"] = "Commit & Compile in progress"
 
+		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
+			// Execute git commands in workspace
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing workspace_name")
+			}
+			wsUri := dataTableAction.Data[irow]["workspace_uri"]
+			gitCommand := dataTableAction.Data[irow]["git.command"]
+			if(wsUri == nil || gitCommand == nil) {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing git information")
+			}
+			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri.(string))
+			gitLog, err = workspaceGit.GitCommandWorkspace(gitCommand.(string))
+			if err != nil {
+				log.Printf("Error while git status workspace: %s\n", gitLog)
+				httpStatus = http.StatusBadRequest
+			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = ""
+
 		case dataTableAction.FromClauses[0].Table == "push_only_workspace":
 			// Push only workspace
 			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing workspace_name")
 			}
 			wsUri := dataTableAction.Data[irow]["workspace_uri"]
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
 			if(wsUri == nil || gitUser == nil || gitToken == nil) {
-					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
 			}
 			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri.(string))
 			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser.(string), gitToken.(string))

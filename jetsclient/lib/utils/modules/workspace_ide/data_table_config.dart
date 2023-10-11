@@ -153,8 +153,21 @@ final Map<String, TableConfig> _tableConfigurations = {
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
+          key: 'doGitCommand',
+          label: 'Git Command',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.doGitCommandWorkspace,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.wsName: 1,
+            FSK.wsURI: 2,
+          }),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
           key: 'viewGitLogWorkspace',
-          label: 'View Log',
+          label: 'View Last Log',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
