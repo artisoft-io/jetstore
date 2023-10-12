@@ -444,15 +444,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{
 			IsFromLegacyInstanceProps: jsii.Bool(true),
 		}),
+		Readers: &[]awsrds.IClusterInstance{},
+		ServerlessV2MinCapacity: props.DbMinCapacity,
+    ServerlessV2MaxCapacity: props.DbMaxCapacity,
 		Vpc:          vpc,
 		VpcSubnets:   isolatedSubnetSelection,
-
-		// Instances:           jsii.Number(1),
-		// InstanceProps: &awsrds.InstanceProps{
-		// 	Vpc:          vpc,
-		// 	VpcSubnets:   isolatedSubnetSelection,
-		// 	InstanceType: awsec2.NewInstanceType(jsii.String("serverless")),
-		// },
 		S3ExportBuckets: &[]awss3.IBucket{
 			sourceBucket,
 		},
@@ -460,10 +456,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			sourceBucket,
 		},
 		StorageEncrypted: jsii.Bool(true),
-	})
-	awscdk.Aspects_Of(rdsCluster).Add(&DbClusterVisitor{
-		DbMinCapacity: props.DbMinCapacity,
-		DbMaxCapacity: props.DbMaxCapacity,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(rdsCluster).Add(phiTagName, jsii.String("true"), nil)
