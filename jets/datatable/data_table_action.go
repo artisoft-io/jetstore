@@ -70,7 +70,7 @@ type DataTableAction struct {
 	SortAscending     bool                     `json:"sortAscending"`
 	Offset            int                      `json:"offset"`
 	Limit             int                      `json:"limit"`
-	// used for raw_query action only
+	// used for raw_query & raw_query_tool action only
 	RequestColumnDef  bool                     `json:"requestColumnDef"`
 	Data              []map[string]interface{} `json:"data"`
 }

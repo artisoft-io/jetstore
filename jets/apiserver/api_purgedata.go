@@ -10,8 +10,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"time"
 
+	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v4"
+	"go.uber.org/zap"
 )
 type PurgeDataAction struct {
 	Action               string            			  `json:"action"`
@@ -29,6 +32,9 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	token := user.ExtractToken(r)
+	user,_ := user.ExtractTokenID(token)
+	server.AuditLogger.Info(string(body), zap.String("user", user),zap.String("time", time.Now().Format(time.RFC3339)))
 	action := PurgeDataAction{}
 	err = json.Unmarshal(body, &action)
 	if err != nil {

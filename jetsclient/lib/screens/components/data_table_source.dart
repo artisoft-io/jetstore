@@ -510,9 +510,9 @@ class JetsDataTableSource extends ChangeNotifier {
   Future<Map<String, dynamic>?> fetchData() async {
     // Check if we have a raw query / query tool
     dynamic query;
-    if (state.tableConfig.apiAction == 'raw_query') {
+    if (state.tableConfig.apiAction.startsWith('raw_query')) {
       final group = state.formFieldConfig?.group ?? 0;
-      var action = 'raw_query';
+      var action = state.tableConfig.apiAction;
       query = state.formState?.getValue(group, FSK.rawQueryReady);
       if (query == null) {
         query = state.formState?.getValue(group, FSK.rawDdlQueryReady);

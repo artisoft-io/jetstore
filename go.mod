@@ -12,7 +12,7 @@ require (
 	github.com/aws/constructs-go/constructs/v10 v10.1.168
 	github.com/aws/jsii-runtime-go v1.71.0
 	github.com/golang-jwt/jwt/v4 v4.4.2
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.26.0
 )
 
 require (

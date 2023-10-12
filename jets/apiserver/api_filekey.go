@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"go.uber.org/zap"
 )
 
 // DoRegisterFileKeyAction ------------------------------------------------------
@@ -16,11 +18,15 @@ import (
 func (server *Server) DoRegisterFileKeyAction(w http.ResponseWriter, r *http.Request) {
 	var results *map[string]interface{}
 	var code int
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	token := user.ExtractToken(r)
+	user,_ := user.ExtractTokenID(token)
+	server.AuditLogger.Info(string(body), zap.String("user", user), zap.String("time", time.Now().Format(time.RFC3339)))
+
 	registerFileKeyAction := datatable.RegisterFileKeyAction{}
 	err = json.Unmarshal(body, &registerFileKeyAction)
 	if err != nil {
@@ -32,9 +38,9 @@ func (server *Server) DoRegisterFileKeyAction(w http.ResponseWriter, r *http.Req
 	// Intercept specific dataTable action
 	switch registerFileKeyAction.Action {
 	case "register_keys":
-		results, code, err = context.RegisterFileKeys(&registerFileKeyAction, user.ExtractToken(r))
+		results, code, err = context.RegisterFileKeys(&registerFileKeyAction, token)
 	case "load_all_files":
-		results, code, err = context.LoadAllFiles(&registerFileKeyAction, user.ExtractToken(r))
+		results, code, err = context.LoadAllFiles(&registerFileKeyAction, token)
 	case "sync_file_keys":
 		results, code, err = context.SyncFileKeys(&registerFileKeyAction)
 	default:

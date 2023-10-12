@@ -3,19 +3,21 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // Login ------------------------------------------------------------
 func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
@@ -26,6 +28,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
+	server.AuditLogger.Info("user login", zap.String("user", jetsUser.Email),zap.String("time", time.Now().Format(time.RFC3339)))
 
 	jetsUser.Prepare()
 	err = jetsUser.Validate("login")
@@ -88,7 +91,7 @@ func FormatError(err string) error {
 // CreateUser ------------------------------------------------------
 func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 	}
@@ -178,7 +181,7 @@ func (server *Server) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
@@ -189,6 +192,7 @@ func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	server.AuditLogger.Info("update user", zap.String("user", jetsUser.Email),zap.String("time", time.Now().Format(time.RFC3339)))
 	tokenID, err := user.ExtractTokenID(user.ExtractToken(r))
 	if err != nil {
 		ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -22,11 +23,13 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"go.uber.org/zap"
 )
 
 type Server struct {
 	dbpool *pgxpool.Pool
 	Router *mux.Router
+	AuditLogger *zap.Logger
 }
 
 var server = Server{}
@@ -443,13 +446,37 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling initUsers: %v", err)
 	}
 
+	// Create and configure the auditLogger
+	// See the documentation for Config and zapcore.EncoderConfig for all the
+	// available options.
+	rawJSON := []byte(`{
+	  "level": "info",
+	  "encoding": "json",
+	  "outputPaths": ["stdout", "/tmp/logs"],
+	  "errorOutputPaths": ["stderr"],
+	  "initialFields": {"logger_type": "audit_log"},
+	  "encoderConfig": {
+	    "messageKey": "message",
+	    "levelKey": "level",
+	    "levelEncoder": "lowercase"
+	  }
+	}`)
+
+	var cfg zap.Config
+	if err = json.Unmarshal(rawJSON, &cfg); err != nil {
+		panic(err)
+	}
+	server.AuditLogger = zap.Must(cfg.Build())
+	defer server.AuditLogger.Sync()
+
+
 	// setup the http routes
 	server.Router = mux.NewRouter()
 	// server.Initialize(os.Getenv("DB_DRIVER"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_PORT"), os.Getenv("DB_HOST"), os.Getenv("DB_NAME"))
 
 	// Set Routes
 	// Home Route
-	// server.Router.HandleFunc("/", jsonh(server.Home)).Methods("GET")
+	// server.Router.HandleFunc("/", audit(jsonh(server.Home))).Methods("GET")
 
 	// Serve the jetsclient app
 	fs := http.FileServer(http.Dir(*uiWebDir))
