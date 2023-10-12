@@ -98,9 +98,9 @@ RUN wget -q "https://www.sqlite.org/2023/sqlite-autoconf-${SQLITE3_VERSION}.tar.
 RUN sqlite3 --version
 
 # Abseil
-RUN wget -q "https://github.com/abseil/abseil-cpp/archive/5a7fca7de1a0285a0887030a346d886b8978a03c.zip"  \
-    && unzip "5a7fca7de1a0285a0887030a346d886b8978a03c.zip"  \
-    && cd "abseil-cpp-5a7fca7de1a0285a0887030a346d886b8978a03c"  \
+RUN wget -q "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.1.tar.gz"  \
+    && tar xf "20230802.1.tar.gz"  \
+    && cd "abseil-cpp-20230802.1"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -108,10 +108,10 @@ RUN wget -q "https://github.com/abseil/abseil-cpp/archive/5a7fca7de1a0285a088703
     && ldconfig
 
 # Google Test
-ARG GOOGLETEST_PATH="${EXTERNALS}/googletest-2dd1c131950043a8ad5ab0d2dda0e0970596586a"
-RUN wget -q "https://github.com/google/googletest/archive/2dd1c131950043a8ad5ab0d2dda0e0970596586a.zip"  \
-    && unzip "2dd1c131950043a8ad5ab0d2dda0e0970596586a.zip"  \
-    && cd "googletest-2dd1c131950043a8ad5ab0d2dda0e0970596586a"  \
+ARG GOOGLETEST_PATH="${EXTERNALS}/googletest-1.14.0"
+RUN wget -q "https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz"  \
+    && tar xf "v1.14.0.tar.gz"  \
+    && cd "googletest-1.14.0"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -119,9 +119,9 @@ RUN wget -q "https://github.com/google/googletest/archive/2dd1c131950043a8ad5ab0
     && ldconfig
 
 # Google Flags
-RUN wget -q "https://github.com/gflags/gflags/archive/a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd.zip"  \
-    && unzip "a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd.zip"  \
-    && cd "gflags-a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd"  \
+RUN wget -q "https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz"  \
+    && tar xf "v2.2.2.tar.gz"  \
+    && cd "gflags-2.2.2"  \
     && mkdir build && cd build \
     && cmake cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -129,9 +129,9 @@ RUN wget -q "https://github.com/gflags/gflags/archive/a738fdf9338412f83ab3f26f31
     && ldconfig
 
 # Google Log
-RUN wget -q "https://github.com/google/glog/archive/d153e294b8c44a1806fdfb523c4fe556ed537581.zip"  \
-    && unzip "d153e294b8c44a1806fdfb523c4fe556ed537581.zip"  \
-    && cd "glog-d153e294b8c44a1806fdfb523c4fe556ed537581"  \
+RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
+    && tar xf "v0.6.0.tar.gz"  \
+    && cd "glog-0.6.0/"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -139,9 +139,9 @@ RUN wget -q "https://github.com/google/glog/archive/d153e294b8c44a1806fdfb523c4f
     && ldconfig
 
 # Google Benchmark
-RUN wget -q "https://github.com/google/benchmark/archive/ca8d0f7b613ac915cd6b161ab01b7be449d1e1cd.zip"  \
-    && unzip "ca8d0f7b613ac915cd6b161ab01b7be449d1e1cd.zip"  \
-    && cd "benchmark-ca8d0f7b613ac915cd6b161ab01b7be449d1e1cd"  \
+RUN wget -q "https://github.com/google/benchmark/archive/refs/tags/v1.8.3.tar.gz"  \
+    && tar xf "v1.8.3.tar.gz"  \
+    && cd "benchmark-1.8.3"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 -DGOOGLETEST_PATH=${GOOGLETEST_PATH} .. \
     && make -j6  \
