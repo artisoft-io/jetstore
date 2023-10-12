@@ -15,6 +15,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"go.uber.org/zap"
 )
 
 // DoDataTableAction ------------------------------------------------------
@@ -27,6 +28,9 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	token := user.ExtractToken(r)
+	user,_ := user.ExtractTokenID(token)
+	server.AuditLogger.Info(string(body), zap.String("user", user), zap.String("time", time.Now().Format(time.RFC3339)))
 	dataTableAction := datatable.DataTableAction{Limit: 200}
 	err = json.Unmarshal(body, &dataTableAction)
 	if err != nil {
@@ -36,21 +40,21 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	context := datatable.NewContext(server.dbpool, devMode, *usingSshTunnel, unitTestDir,nbrShards, adminEmail)
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
-	case "raw_query":
+	case "raw_query", "raw_query_tool":
 		results, code, err = context.ExecRawQuery(&dataTableAction)
 	case "exec_ddl":
 		results, code, err = context.ExecDataManagementStatement(&dataTableAction)
 	case "raw_query_map":
 		results, code, err = context.ExecRawQueryMap(&dataTableAction)
 	case "insert_raw_rows":
-		results, code, err = context.InsertRawRows(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.InsertRawRows(&dataTableAction, token)
 	case "insert_rows":
-		results, code, err = context.InsertRows(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.InsertRows(&dataTableAction, token)
 	case "workspace_insert_rows":
-		results, code, err = context.WorkspaceInsertRows(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.WorkspaceInsertRows(&dataTableAction, token)
 	case "workspace_query_structure":
 		// This function returns encoded json ready to return to client
-		resultsB, code, err := context.WorkspaceQueryStructure(&dataTableAction, user.ExtractToken(r))
+		resultsB, code, err := context.WorkspaceQueryStructure(&dataTableAction, token)
 		if err != nil {
 			log.Printf("Error: %v", err)
 			ERROR(w, code, err)
@@ -59,19 +63,19 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		JSONB(w, http.StatusOK, *resultsB)
 		return
 	case "get_workspace_file_content":
-		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, token)
 	case "save_workspace_file_content":
-		results, code, err = context.SaveWorkspaceFileContent(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.SaveWorkspaceFileContent(&dataTableAction, token)
 	case "delete_workspace_changes":
-		results, code, err = context.DeleteWorkspaceChanges(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.DeleteWorkspaceChanges(&dataTableAction, token)
 	case "delete_all_workspace_changes":
-		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, token)
 	
 	case "workspace_read":
 		results, code, err = context.DoWorkspaceReadAction(&dataTableAction)
 
 	case "save_workspace_client_config":
-		results, code, err = context.SaveWorkspaceClientConfig(&dataTableAction, user.ExtractToken(r))
+		results, code, err = context.SaveWorkspaceClientConfig(&dataTableAction, token)
 	
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction)

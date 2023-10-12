@@ -2634,7 +2634,7 @@ final Map<String, TableConfig> _tableConfigurations = {
   DTKeys.queryToolResultSetTable: TableConfig(
       key: DTKeys.queryToolResultSetTable,
       fromClauses: [FromClause(schemaName: 'public', tableName: '')],
-      apiAction: 'raw_query', // will be overriden for data management stmt
+      apiAction: 'raw_query_tool', // will be overriden for data management stmt
       requestColumnDef: true,
       label: 'Query Result',
       apiPath: '/dataTable',
