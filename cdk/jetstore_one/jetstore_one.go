@@ -441,10 +441,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Credentials:         awsrds.Credentials_FromSecret(rdsSecret, username),
 		ClusterIdentifier:   jsii.String("jetstoreDb"),
 		DefaultDatabaseName: jsii.String("postgres"),
-		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{
-			IsFromLegacyInstanceProps: jsii.Bool(true),
-		}),
-		Readers: &[]awsrds.IClusterInstance{},
+		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
 		ServerlessV2MinCapacity: props.DbMinCapacity,
     ServerlessV2MaxCapacity: props.DbMaxCapacity,
 		Vpc:          vpc,
