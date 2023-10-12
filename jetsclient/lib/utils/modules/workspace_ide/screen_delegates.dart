@@ -566,19 +566,13 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         'data': requestData,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
-      final result =
-          await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      if (context.mounted) {
+        await postInsertRows(context, formState, encodedJsonBody,
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      }
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
-      if (result.statusCode != 200 && result.statusCode != 401) {
-        print('Something went wrong while deleting file changes: $result');
-        return 'Something went wrong while deleting file changes: $result';
-      }
-      // Mark the formState as modified to trigger a table refresh
-      // Note, the key 'state_modified' is not used
-      formState.setValueAndNotify(
-          0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
       return null;
 
     // Delete ALL Workspace Changes
@@ -595,20 +589,13 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
-      final result =
-          await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      if (context.mounted) {
+        await postInsertRows(context, formState, encodedJsonBody,
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      }
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
-      if (result.statusCode == 401) return "Not authorized";
-      if (result.statusCode != 200) {
-        print('Something went wrong while deleting all file changes: $result');
-        return 'Something went wrong while deleting all file changes: $result';
-      }
-      // Mark the formState as modified to trigger a table refresh
-      // Note, the key 'state_modified' is registered in tableConfig
-      formState.setValueAndNotify(
-          0, 'state_modified', "${DateTime.now().millisecondsSinceEpoch}");
       return null;
 
     // Cancel Dialog / Form

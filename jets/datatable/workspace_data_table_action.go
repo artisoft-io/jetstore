@@ -154,7 +154,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			}
 			dataTableAction.Data[irow]["status"] = "Pull & Compile in progress"
 
-		case dataTableAction.FromClauses[0].Table == "compile_workspace":
+		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for compile_workspace, missing workspace_name")
 			}
@@ -222,7 +222,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		// Pull workspace changes, update workspace_registry table and delete overrides in workspace_changes
 		go pullWorkspaceAction(ctx.Dbpool, dataTableAction)
 
-	case dataTableAction.FromClauses[0].Table == "compile_workspace":
+	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 		go compileWorkspaceAction(ctx.Dbpool, dataTableAction)
 
 	}
@@ -706,7 +706,10 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 	if nbrChanges == 0 {
 		// Compile the workspace
 		log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-		httpStatus, err = compileWorkspace(ctx.Dbpool, workspaceName)
+		dataTableAction.Action = "workspace_insert_rows"
+		dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
+		dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
+		_, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
 	}
 
 	results = &map[string]interface{}{}
@@ -734,7 +737,11 @@ func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, 
 
 	// Compile the workspace
 	log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-	httpStatus, err = compileWorkspace(ctx.Dbpool, workspaceName)
+	dataTableAction.Action = "workspace_insert_rows"
+	dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
+	dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
+	dataTableAction.Data[0]["user_email"] = ctx.AdminEmail
+	_, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
 	results = &map[string]interface{}{}
 	return
 }
