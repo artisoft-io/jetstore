@@ -110,7 +110,7 @@ func AddElbAlarms(stack awscdk.Stack, prefix string,
 		AlarmDescription:   jsii.String("TargetResponseTime > 10000 for 1 datapoints within 1 minute"),
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
 		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.MetricTargetResponseTime(&awscloudwatch.MetricOptions{
+		Metric: elb.Metrics().TargetResponseTime(&awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(1)),
 		}),
 	})
@@ -125,7 +125,7 @@ func AddElbAlarms(stack awscdk.Stack, prefix string,
 		AlarmDescription:   jsii.String("HTTPCode_Target_5XX_Count > 100 for 1 datapoints within 5 minutes"),
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
 		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.MetricHttpCodeTarget(awselb.HttpCodeTarget_TARGET_5XX_COUNT, &awscloudwatch.MetricOptions{
+		Metric: elb.Metrics().HttpCodeTarget(awselb.HttpCodeTarget_TARGET_5XX_COUNT, &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
 		}),
 	})
@@ -140,7 +140,7 @@ func AddElbAlarms(stack awscdk.Stack, prefix string,
 		AlarmDescription:   jsii.String("UnHealthyHostCount >= 1 for 1 datapoints within 5 minutes"),
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metric(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
+		Metric: elb.Metrics().Custom(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
 		}),
 	})
@@ -441,12 +441,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Credentials:         awsrds.Credentials_FromSecret(rdsSecret, username),
 		ClusterIdentifier:   jsii.String("jetstoreDb"),
 		DefaultDatabaseName: jsii.String("postgres"),
-		Instances:           jsii.Number(1),
-		InstanceProps: &awsrds.InstanceProps{
-			Vpc:          vpc,
-			VpcSubnets:   isolatedSubnetSelection,
-			InstanceType: awsec2.NewInstanceType(jsii.String("serverless")),
-		},
+		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{
+			IsFromLegacyInstanceProps: jsii.Bool(true),
+		}),
+		Vpc:          vpc,
+		VpcSubnets:   isolatedSubnetSelection,
+
+		// Instances:           jsii.Number(1),
+		// InstanceProps: &awsrds.InstanceProps{
+		// 	Vpc:          vpc,
+		// 	VpcSubnets:   isolatedSubnetSelection,
+		// 	InstanceType: awsec2.NewInstanceType(jsii.String("serverless")),
+		// },
 		S3ExportBuckets: &[]awss3.IBucket{
 			sourceBucket,
 		},
@@ -722,7 +728,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// --------------------------------------------------------------------------------------------------------------
 	loaderSM := sfn.NewStateMachine(stack, jsii.String("loaderSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("loaderSM"),
-		Definition:       runLoaderTask,
+		DefinitionBody: sfn.DefinitionBody_FromChainable(runLoaderTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
 	})
 	if phiTagName != nil {
@@ -869,7 +875,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// --------------------------------------------------------------------------------------------------------------
 	reportsSM := sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("reportsSM"),
-		Definition:       runReportsTask,
+		DefinitionBody: sfn.DefinitionBody_FromChainable(runReportsTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
 	})
 	if phiTagName != nil {
@@ -1053,7 +1059,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
-		Definition:       runServerMap,
+		DefinitionBody: sfn.DefinitionBody_FromChainable(runServerMap),
 		//* NOTE 4h TIMEOUT of exec rules
 		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
 	})
