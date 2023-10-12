@@ -129,9 +129,9 @@ RUN wget -q "https://github.com/gflags/gflags/archive/a738fdf9338412f83ab3f26f31
     && ldconfig
 
 # Google Log
-RUN wget -q "https://github.com/google/glog/archive/da9753409b790325889afc8cb9be28c1ea309391.zip"  \
-    && unzip "da9753409b790325889afc8cb9be28c1ea309391.zip"  \
-    && cd "glog-da9753409b790325889afc8cb9be28c1ea309391"  \
+RUN wget -q "https://github.com/google/glog/archive/d153e294b8c44a1806fdfb523c4fe556ed537581.zip"  \
+    && unzip "d153e294b8c44a1806fdfb523c4fe556ed537581.zip"  \
+    && cd "glog-d153e294b8c44a1806fdfb523c4fe556ed537581"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
