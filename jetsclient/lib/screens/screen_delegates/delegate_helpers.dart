@@ -26,7 +26,8 @@ String? unpack(dynamic elm) {
 /// NOTE: ignore error status code == 409 (http confict) //* TODO change this?
 Future<String?> postInsertRows(
     BuildContext context, JetsFormState formState, String encodedJsonBody,
-    {String serverEndPoint = ServerEPs.dataTableEP}) async {
+    {String serverEndPoint = ServerEPs.dataTableEP,
+     DTActionResult errorReturnStatus = DTActionResult.statusError}) async {
   var navigator = Navigator.of(context);
   var messenger = ScaffoldMessenger.of(context);
   var result = await HttpClientSingleton().sendRequest(
@@ -44,13 +45,12 @@ Future<String?> postInsertRows(
     // All good, let's the table know to refresh
     navigator.pop(DTActionResult.okDataTableDirty);
     return null;
-  } else if (result.statusCode == 400 ||
-      result.statusCode == 406 ||
-      result.statusCode == 422) {
-    // http Bad Request / Not Acceptable / Unprocessable
+  } else if (result.statusCode == 400 || result.statusCode == 500 || 
+      result.statusCode == 406 || result.statusCode == 422) {
+    // http Bad Request / Not Acceptable / Unprocessable / ServerError
     formState.setValue(
         0, FSK.serverError, "Something went wrong. Please try again.");
-    navigator.pop(DTActionResult.statusError);
+    navigator.pop(errorReturnStatus);
     return "Something went wrong. Please try again.";
   } else if (result.statusCode == 409) {
     // http Conflict
@@ -59,12 +59,12 @@ Future<String?> postInsertRows(
     );
     messenger.showSnackBar(snackBar);
     formState.setValue(0, FSK.serverError, "Duplicate record. Please verify.");
-    navigator.pop();
+    navigator.pop(errorReturnStatus);
     return "Duplicate record. Please verify.";
   } else {
     formState.setValue(
         0, FSK.serverError, "Got a server error. Please try again.");
-    navigator.pop(DTActionResult.statusError);
+    navigator.pop(errorReturnStatus);
     return "Got a server error. Please try again.";
   }
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -12,10 +13,11 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
 
@@ -108,7 +110,7 @@ func AddElbAlarms(stack awscdk.Stack, prefix string,
 		AlarmDescription:   jsii.String("TargetResponseTime > 10000 for 1 datapoints within 1 minute"),
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
 		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.MetricTargetResponseTime(&awscloudwatch.MetricOptions{
+		Metric: elb.Metrics().TargetResponseTime(&awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(1)),
 		}),
 	})
@@ -123,7 +125,7 @@ func AddElbAlarms(stack awscdk.Stack, prefix string,
 		AlarmDescription:   jsii.String("HTTPCode_Target_5XX_Count > 100 for 1 datapoints within 5 minutes"),
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
 		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.MetricHttpCodeTarget(awselb.HttpCodeTarget_TARGET_5XX_COUNT, &awscloudwatch.MetricOptions{
+		Metric: elb.Metrics().HttpCodeTarget(awselb.HttpCodeTarget_TARGET_5XX_COUNT, &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
 		}),
 	})
@@ -138,7 +140,7 @@ func AddElbAlarms(stack awscdk.Stack, prefix string,
 		AlarmDescription:   jsii.String("UnHealthyHostCount >= 1 for 1 datapoints within 5 minutes"),
 		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metric(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
+		Metric: elb.Metrics().Custom(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
 			Period: awscdk.Duration_Minutes(jsii.Number(5)),
 		}),
 	})
@@ -300,9 +302,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	if cidr == "" {
 		cidr = "10.10.0.0/16"
 	}
+	nbrNatGateway := 0
+	if os.Getenv("JETS_NBR_NAT_GATEWAY") != "" {
+		var err error
+		nbrNatGateway, err = strconv.Atoi(os.Getenv("JETS_NBR_NAT_GATEWAY"))
+		if err != nil {
+			log.Printf("Invalid value for JETS_NBR_NAT_GATEWAY, setting to 0")
+			nbrNatGateway = 0
+		}
+	}
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
-		NatGateways:        jsii.Number(0),
+		NatGateways:        jsii.Number(float64(nbrNatGateway)),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
 		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
@@ -310,10 +321,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			{
 				Name:       jsii.String("public"),
 				SubnetType: awsec2.SubnetType_PUBLIC,
+				CidrMask: jsii.Number(20),
+			},
+			{
+				Name:       jsii.String("private"),
+				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
+				CidrMask: jsii.Number(20),
 			},
 			{
 				Name:       jsii.String("isolated"),
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
+				CidrMask: jsii.Number(20),
 			},
 		},
 		FlowLogs: &map[string]*awsec2.FlowLogOptions{
@@ -334,6 +352,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	publicSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
 	}
+	privateSubnetSelection := &awsec2.SubnetSelection{
+		SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
+	}
 	isolatedSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
@@ -345,7 +366,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add Endpoint for S3
 	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
 		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
-		Subnets: &[]*awsec2.SubnetSelection{isolatedSubnetSelection},
+		Subnets: &[]*awsec2.SubnetSelection{privateSubnetSelection, isolatedSubnetSelection},
 	})
 	s3Endpoint.AddToPolicy(
 		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
@@ -360,33 +381,33 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add Endpoint for ecr
 	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
-		Subnets: isolatedSubnetSelection,
-		// Open: jsii.Bool(true),
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 	vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
-		Subnets: isolatedSubnetSelection,
-		// Open: jsii.Bool(true),
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 
 	// Add secret manager endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("secretmanagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
 		Subnets: isolatedSubnetSelection,
 	})
 
 	// Add Step Functions endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("statesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
 		Subnets: isolatedSubnetSelection,
 	})
-	vpc.AddInterfaceEndpoint(jsii.String("statesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
 		Subnets: isolatedSubnetSelection,
 	})
 
 	// Add Cloudwatch endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("cloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
 		Subnets: isolatedSubnetSelection,
 	})
@@ -420,12 +441,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Credentials:         awsrds.Credentials_FromSecret(rdsSecret, username),
 		ClusterIdentifier:   jsii.String("jetstoreDb"),
 		DefaultDatabaseName: jsii.String("postgres"),
-		Instances:           jsii.Number(1),
-		InstanceProps: &awsrds.InstanceProps{
-			Vpc:          vpc,
-			VpcSubnets:   isolatedSubnetSelection,
-			InstanceType: awsec2.NewInstanceType(jsii.String("serverless")),
-		},
+		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
+		ServerlessV2MinCapacity: props.DbMinCapacity,
+    ServerlessV2MaxCapacity: props.DbMaxCapacity,
+		Vpc:          vpc,
+		VpcSubnets:   isolatedSubnetSelection,
 		S3ExportBuckets: &[]awss3.IBucket{
 			sourceBucket,
 		},
@@ -433,10 +453,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			sourceBucket,
 		},
 		StorageEncrypted: jsii.Bool(true),
-	})
-	awscdk.Aspects_Of(rdsCluster).Add(&DbClusterVisitor{
-		DbMinCapacity: props.DbMinCapacity,
-		DbMaxCapacity: props.DbMaxCapacity,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(rdsCluster).Add(phiTagName, jsii.String("true"), nil)
@@ -701,7 +717,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// --------------------------------------------------------------------------------------------------------------
 	loaderSM := sfn.NewStateMachine(stack, jsii.String("loaderSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("loaderSM"),
-		Definition:       runLoaderTask,
+		DefinitionBody: sfn.DefinitionBody_FromChainable(runLoaderTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
 	})
 	if phiTagName != nil {
@@ -848,7 +864,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// --------------------------------------------------------------------------------------------------------------
 	reportsSM := sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("reportsSM"),
-		Definition:       runReportsTask,
+		DefinitionBody: sfn.DefinitionBody_FromChainable(runReportsTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
 	})
 	if phiTagName != nil {
@@ -1032,7 +1048,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
-		Definition:       runServerMap,
+		DefinitionBody: sfn.DefinitionBody_FromChainable(runServerMap),
 		//* NOTE 4h TIMEOUT of exec rules
 		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
 	})
@@ -1064,8 +1080,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Define the JetStore UI Service
 	// ---------------------------------------
 	uiTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("uiTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(1024),
-		Cpu:            jsii.Number(256),
+		MemoryLimitMiB: jsii.Number(1024*4),
+		Cpu:            jsii.Number(1024),
 		ExecutionRole:  ecsTaskExecutionRole,
 		TaskRole:       ecsTaskRole,
 		RuntimePlatform: &awsecs.RuntimePlatform{
@@ -1128,7 +1144,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Cluster:        ecsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
 		TaskDefinition: uiTaskDefinition,
-		VpcSubnets:     isolatedSubnetSelection,
+		VpcSubnets:     privateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 	})
@@ -1156,6 +1172,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(internetFacing),
 			VpcSubnets:      elbSubnetSelection,
+			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -1170,6 +1187,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     isolatedSubnetSelection,
+			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(10)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(serviceLoadBalancer).Add(phiTagName, jsii.String("false"), nil)
@@ -1186,6 +1204,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     isolatedSubnetSelection,
+			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -1424,6 +1443,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
+// JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1437,6 +1457,8 @@ func main() {
 	fmt.Println("env JETS_ELB_MODE:", os.Getenv("JETS_ELB_MODE"))
 	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
 	fmt.Println("env JETS_ELB_INTERNET_FACING:", os.Getenv("JETS_ELB_INTERNET_FACING"))
+	fmt.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
+	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
 	fmt.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
 	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
@@ -1463,7 +1485,6 @@ func main() {
 	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
 	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
-	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 	fmt.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))

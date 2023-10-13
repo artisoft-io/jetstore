@@ -496,7 +496,11 @@ class JetsDataTableSource extends ChangeNotifier {
     workspaceName ??=
         JetsRouterDelegate().currentConfiguration?.params[FSK.wsName];
     if (workspaceName != null) {
-      msg['workspaceName'] = workspaceName;
+      if (workspaceName is List<String>) {
+        msg['workspaceName'] = workspaceName[0];
+      } else {
+        msg['workspaceName'] = workspaceName;
+      }
     }
 
     // print("*** Query object $msg");
@@ -506,9 +510,9 @@ class JetsDataTableSource extends ChangeNotifier {
   Future<Map<String, dynamic>?> fetchData() async {
     // Check if we have a raw query / query tool
     dynamic query;
-    if (state.tableConfig.apiAction == 'raw_query') {
+    if (state.tableConfig.apiAction.startsWith('raw_query')) {
       final group = state.formFieldConfig?.group ?? 0;
-      var action = 'raw_query';
+      var action = state.tableConfig.apiAction;
       query = state.formState?.getValue(group, FSK.rawQueryReady);
       if (query == null) {
         query = state.formState?.getValue(group, FSK.rawDdlQueryReady);

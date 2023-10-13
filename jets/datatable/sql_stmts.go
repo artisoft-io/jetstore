@@ -6,7 +6,7 @@ package datatable
 // Note column keys are keys provided from the UI and may not
 // correspond to column name.
 // Important: columnKeys order MUST match order in stmt
-var sqlInsertStmts = map[string]SqlInsertDefinition {
+var sqlInsertStmts = map[string]*SqlInsertDefinition {
 	// Client & Org Admin: add client
 	"client_registry": {
 		Stmt: `INSERT INTO jetsapi.client_registry (client, details)
@@ -178,23 +178,61 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// source config
 	"workspace_registry": {
 		Stmt: `INSERT INTO jetsapi.workspace_registry 
-			(workspace_name, workspace_uri, description, user_email) 
-			VALUES ($1, $2, $3, $4)
+			(workspace_name, workspace_uri, description, last_git_log, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING key`,
-		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "user_email"},
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "status", "user_email"},
 	},
 	"update/workspace_registry": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(workspace_name, workspace_uri, description, user_email, last_update) 
-			= ($1, $2, $3, $4, DEFAULT) WHERE key = $5`,
-		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "user_email", "key"},
+			(workspace_name, workspace_uri, description, last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, DEFAULT) WHERE key = $7`,
+		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "status", "user_email", "key"},
+	},
+	"commit_workspace": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
+	},
+	"pull_workspace": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
 	},
 	// compile workspace (insert into workspace_registry and trigger compile workspace)
 	"compile_workspace": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(user_email, last_update) 
-			= ($2, DEFAULT) WHERE workspace_name = $1`,
-		ColumnKeys: []string{"workspace_name", "user_email"},
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
+	},
+	// compile workspace (insert into workspace_registry and trigger compile workspace)
+	"compile_workspace_by_name": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE workspace_name = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "workspace_name"},
+	},
+	// execute git commands workspace (insert into workspace_registry and push to repository - w/o compiling)
+	"git_command_workspace": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
+	},
+	// push only workspace (insert into workspace_registry and push to repository - w/o compiling)
+	"push_only_workspace": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE key = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "key"},
+	},
+	// delete workspace in workspace_registry
+	"delete_workspace": {
+		Stmt: `DELETE FROM jetsapi.workspace_registry WHERE key = $1`,
+		ColumnKeys: []string{"key"},
 	},
 
 	// Statements for Rule Workspace
@@ -202,6 +240,7 @@ var sqlInsertStmts = map[string]SqlInsertDefinition {
 	// Statement key that starts with WORKSPACE/ have a pre-execution hook that replace $SCHEMA by the
 	// current workspace name (taken from DataTableAction.Workspace) by the
 	// InsertRows pre-processing hook.
+	//* NOTE *** This is currently not used, using sqlite db directly as read-only from apiserver
 	//
 	// Workspace Control
 	"WORKSPACE/workspace_control": {

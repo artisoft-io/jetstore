@@ -64,6 +64,16 @@
         "dataType": "text"
       },
       {
+        "columnName": "last_git_log",
+        "dataType": "text"
+      },
+      {
+        "columnName": "status",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true
@@ -710,13 +720,13 @@
         "isNotNull": true
       },
       {
-        "columnName": "input_column",
-        "dataType": "text"
-      },
-      {
         "columnName": "data_property",
         "dataType": "text",
         "isNotNull": true
+      },
+      {
+        "columnName": "input_column",
+        "dataType": "text"
       },
       {
         "columnName": "function_name",

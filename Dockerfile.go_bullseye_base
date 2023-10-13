@@ -1,4 +1,4 @@
-ARG BASE_CONTAINER=golang:1.19-bullseye
+ARG BASE_CONTAINER=golang:1.21-bullseye
 FROM ${BASE_CONTAINER} as builder
 ARG BASE_CONTAINER
 
@@ -84,10 +84,10 @@ ENV EXTERNALS /externals
 RUN mkdir -p ${EXTERNALS}
 WORKDIR ${EXTERNALS}
 
-ARG SQLITE3_VERSION="3380000"
+ARG SQLITE3_VERSION="3430200"
 ENV SQLITE3_VERSION=${SQLITE3_VERSION}
 
-RUN wget -q "https://www.sqlite.org/2022/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz"  \
+RUN wget -q "https://www.sqlite.org/2023/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz"  \
     && tar xf "sqlite-autoconf-${SQLITE3_VERSION}.tar.gz"  \
     && cd "sqlite-autoconf-${SQLITE3_VERSION}"  \
     && ./configure   \
@@ -98,9 +98,9 @@ RUN wget -q "https://www.sqlite.org/2022/sqlite-autoconf-${SQLITE3_VERSION}.tar.
 RUN sqlite3 --version
 
 # Abseil
-RUN wget -q "https://github.com/abseil/abseil-cpp/archive/ec33f404bb16564a9aea3044cd8504d6885165b0.zip"  \
-    && unzip "ec33f404bb16564a9aea3044cd8504d6885165b0.zip"  \
-    && cd "abseil-cpp-ec33f404bb16564a9aea3044cd8504d6885165b0"  \
+RUN wget -q "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.1.tar.gz"  \
+    && tar xf "20230802.1.tar.gz"  \
+    && cd "abseil-cpp-20230802.1"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -108,10 +108,10 @@ RUN wget -q "https://github.com/abseil/abseil-cpp/archive/ec33f404bb16564a9aea30
     && ldconfig
 
 # Google Test
-ARG GOOGLETEST_PATH="${EXTERNALS}/googletest-c9461a9b55ba954df0489bab6420eb297bed846b"
-RUN wget -q "https://github.com/google/googletest/archive/c9461a9b55ba954df0489bab6420eb297bed846b.zip"  \
-    && unzip "c9461a9b55ba954df0489bab6420eb297bed846b.zip"  \
-    && cd "googletest-c9461a9b55ba954df0489bab6420eb297bed846b"  \
+ARG GOOGLETEST_PATH="${EXTERNALS}/googletest-1.14.0"
+RUN wget -q "https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz"  \
+    && tar xf "v1.14.0.tar.gz"  \
+    && cd "googletest-1.14.0"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -119,9 +119,9 @@ RUN wget -q "https://github.com/google/googletest/archive/c9461a9b55ba954df0489b
     && ldconfig
 
 # Google Flags
-RUN wget -q "https://github.com/gflags/gflags/archive/986e8eed00ded8168ef4eaa6f925dc6be50b40fa.zip"  \
-    && unzip "986e8eed00ded8168ef4eaa6f925dc6be50b40fa.zip"  \
-    && cd "gflags-986e8eed00ded8168ef4eaa6f925dc6be50b40fa"  \
+RUN wget -q "https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz"  \
+    && tar xf "v2.2.2.tar.gz"  \
+    && cd "gflags-2.2.2"  \
     && mkdir build && cd build \
     && cmake cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -129,9 +129,9 @@ RUN wget -q "https://github.com/gflags/gflags/archive/986e8eed00ded8168ef4eaa6f9
     && ldconfig
 
 # Google Log
-RUN wget -q "https://github.com/google/glog/archive/d153e294b8c44a1806fdfb523c4fe556ed537581.zip"  \
-    && unzip "d153e294b8c44a1806fdfb523c4fe556ed537581.zip"  \
-    && cd "glog-d153e294b8c44a1806fdfb523c4fe556ed537581"  \
+RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
+    && tar xf "v0.6.0.tar.gz"  \
+    && cd "glog-0.6.0/"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
@@ -139,9 +139,9 @@ RUN wget -q "https://github.com/google/glog/archive/d153e294b8c44a1806fdfb523c4f
     && ldconfig
 
 # Google Benchmark
-RUN wget -q "https://github.com/google/benchmark/archive/e33986a000987387c92ad29590a88fefe12e746b.zip"  \
-    && unzip "e33986a000987387c92ad29590a88fefe12e746b.zip"  \
-    && cd "benchmark-e33986a000987387c92ad29590a88fefe12e746b"  \
+RUN wget -q "https://github.com/google/benchmark/archive/refs/tags/v1.8.3.tar.gz"  \
+    && tar xf "v1.8.3.tar.gz"  \
+    && cd "benchmark-1.8.3"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 -DGOOGLETEST_PATH=${GOOGLETEST_PATH} .. \
     && make -j6  \

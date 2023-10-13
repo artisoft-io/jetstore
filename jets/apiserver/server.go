@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -14,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
@@ -22,11 +23,13 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"go.uber.org/zap"
 )
 
 type Server struct {
 	dbpool *pgxpool.Pool
 	Router *mux.Router
+	AuditLogger *zap.Logger
 }
 
 var server = Server{}
@@ -114,38 +117,74 @@ func (server *Server) addVersionToDb(jetstoreVersion string) (err error) {
 	return nil
 }
 
-// Validate the user table exists and create admin if not already created
-func (server *Server) checkJetStoreDbVersion() error {
+// Run update_db
+func (server *Server) runUpdateDb(serverArgs *[]string) error {
+	if *usingSshTunnel {
+		*serverArgs = append(*serverArgs, "-usingSshTunnel")
+	}
+	log.Printf("Run update_db: %s", *serverArgs)
+	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		b.WriteTo(os.Stdout)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT END")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return err
+	}
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+	log.Println("============================")
+	b.WriteTo(os.Stdout)
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT END")
+	log.Println("============================")
+	return nil
+}
+
+// Check JetStore DB schema exist, create if not
+func (server *Server) checkJetStoreSchema() error {
 	tableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "jetstore_release")
 	if err != nil {
 		return fmt.Errorf("while verifying that the jetstore_release table exists: %v", err)
 	}
-	var serverArgs []string
-	var version string
 	jetstoreVersion := os.Getenv("JETS_VERSION")
 	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
 	if !tableExists {
 		// run update db with workspace init script
-		log.Println("JetStore version table does not exist, initializing the db")
+		log.Println("JetStore version table does not exist, initializing the db schema")
 		// Cleanup any remaining
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
-			RunUiDbInitScript: true,
+			RunUiDbInitScript: false,
 			Data:              []map[string]interface{}{},
 		})
 		if err != nil {
-			return fmt.Errorf("while calling ResetDomainTables to initialize db: %v", err)
+			return fmt.Errorf("while calling ResetDomainTables to initialize db schema: %v", err)
 		}
-		err = server.addVersionToDb(jetstoreVersion)
-		if err != nil {
-			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
-		}
-	} else {
+	}
+	return nil
+}
+
+// Update JetStore Db
+// Precondition: db schema exist
+func (server *Server) checkJetStoreDbVersion() error {
+	var serverArgs []string
+	var version string
+	jetstoreVersion := os.Getenv("JETS_VERSION")
+	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
 
 		// Check the release in database vs current release
 		stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
 
-		err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+		err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 		switch {
 		case err != nil:
 			log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
@@ -187,40 +226,14 @@ func (server *Server) checkJetStoreDbVersion() error {
 			log.Println("JetStore deployed version (in database) is", version)
 			log.Println("JetStore version in database", version, ">=", "JetStore image version", jetstoreVersion)
 		}
-	}
 
 	if len(serverArgs) > 0 {
 		if *usingSshTunnel {
 			serverArgs = append(serverArgs, "-usingSshTunnel")
 		}
-		log.Printf("Run update_db: %s", serverArgs)
-		cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
-		var b bytes.Buffer
-		cmd.Stdout = &b
-		cmd.Stderr = &b
-		err := cmd.Run()
+		err = server.runUpdateDb(&serverArgs)
 		if err != nil {
-			log.Printf("while executing update_db command '%v': %v", serverArgs, err)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			b.WriteTo(os.Stdout)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("UPDATE_DB CAPTURED OUTPUT END")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			return err
-		}
-		log.Println("============================")
-		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-		log.Println("============================")
-		b.WriteTo(os.Stdout)
-		log.Println("============================")
-		log.Println("UPDATE_DB CAPTURED OUTPUT END")
-		log.Println("============================")
-
-		err = server.addVersionToDb(jetstoreVersion)
-		if err != nil {
-			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
+			return fmt.Errorf("while calling runUpdateDb: %v", err)
 		}
 	}
 	return nil
@@ -230,7 +243,7 @@ func (server *Server) checkJetStoreDbVersion() error {
 func (server *Server) getUnitTestFileKeys() ([]string, error) {
 	workspaceName := os.Getenv("WORKSPACE")
 	root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
-	workspaceNode, err := datatable.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
+	workspaceNode, err := wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
 	if err != nil {
 		log.Println("while walking workspace unit test folder structure:", err)
 		return nil, err
@@ -291,7 +304,7 @@ func (server *Server) checkWorkspaceVersion() error {
 	workspaceName := os.Getenv("WORKSPACE")
 
 	// Copy the workspace files to a stash location (needed when we delete/revert file changes)
-	err = datatable.StashWorkspaceFiles(workspaceName)
+	err = wsfile.StashFiles(workspaceName)
 	if err != nil {
 		//* TODO Log to a new workspace error table to report in UI
 		log.Printf("Error while stashing workspace file: %v", err)
@@ -335,7 +348,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		// Sync unit test files from workspace to s3
 		// Skip this if in DEV MODE
 		if !devMode {
-			err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
+			_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
 			if err != nil {
 				log.Println("Error while compiling workspace:", err)
 				return err
@@ -425,10 +438,10 @@ func listenAndServe() error {
 	}
 	defer server.dbpool.Close()
 
-	// Check jetstore version, run update_db if needed
-	err = server.checkJetStoreDbVersion()
+	// Check that JetStore schema exist
+	err = server.checkJetStoreSchema()
 	if err != nil {
-		return fmt.Errorf("while calling checkJetStoreDbVersion: %v", err)
+		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
 	}
 
 	// Check workspace version, compile workspace if needed
@@ -437,11 +450,41 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
 	}
 
+	// Check jetstore version, run update_db if needed
+	err = server.checkJetStoreDbVersion()
+	if err != nil {
+		return fmt.Errorf("while calling checkJetStoreDbVersion: %v", err)
+	}
+
 	// Check that the users table and admin user exists
 	err = server.initUsers()
 	if err != nil {
 		return fmt.Errorf("while calling initUsers: %v", err)
 	}
+
+	// Create and configure the auditLogger
+	// See the documentation for Config and zapcore.EncoderConfig for all the
+	// available options.
+	rawJSON := []byte(`{
+	  "level": "info",
+	  "encoding": "json",
+	  "outputPaths": ["stdout", "/tmp/logs"],
+	  "errorOutputPaths": ["stderr"],
+	  "initialFields": {"logger_type": "audit_log"},
+	  "encoderConfig": {
+	    "messageKey": "message",
+	    "levelKey": "level",
+	    "levelEncoder": "lowercase"
+	  }
+	}`)
+
+	var cfg zap.Config
+	if err = json.Unmarshal(rawJSON, &cfg); err != nil {
+		panic(err)
+	}
+	server.AuditLogger = zap.Must(cfg.Build())
+	defer server.AuditLogger.Sync()
+
 
 	// setup the http routes
 	server.Router = mux.NewRouter()
@@ -449,7 +492,7 @@ func listenAndServe() error {
 
 	// Set Routes
 	// Home Route
-	// server.Router.HandleFunc("/", jsonh(server.Home)).Methods("GET")
+	// server.Router.HandleFunc("/", audit(jsonh(server.Home))).Methods("GET")
 
 	// Serve the jetsclient app
 	fs := http.FileServer(http.Dir(*uiWebDir))
@@ -468,6 +511,7 @@ func listenAndServe() error {
 	server.Router.Handle("/assets/fonts/MaterialIcons-Regular.otf", fs).Methods("GET")
 	server.Router.Handle("/assets/AssetManifest.json", fs).Methods("GET")
 	server.Router.Handle("/assets/AssetManifest.bin", fs).Methods("GET")
+	server.Router.Handle("/assets/AssetManifest.bin.json", fs).Methods("GET")
 	server.Router.Handle("/assets/AssetManifest.smcbin", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Bold.ttf", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/RobotoCondensed-Italic.ttf", fs).Methods("GET")

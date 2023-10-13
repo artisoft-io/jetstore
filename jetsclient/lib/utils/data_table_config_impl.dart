@@ -58,30 +58,30 @@ final inputRegistryColumns = [
   ColumnConfig(
       index: 7,
       table: "input_registry",
-      name: "file_key",
-      label: 'File Key',
-      tooltips: 'File Key of the loaded file',
+      name: "table_name",
+      label: 'Table Name',
+      tooltips: 'Table where the data reside',
       isNumeric: false),
   ColumnConfig(
       index: 8,
+      table: "input_registry",
+      name: "session_id",
+      label: 'Session ID',
+      tooltips: 'Session ID of the file load job',
+      isNumeric: false),
+  ColumnConfig(
+      index: 9,
       table: "input_registry",
       name: "source_type",
       label: 'Source Type',
       tooltips: 'Source of the input data, either File or Domain Table',
       isNumeric: false),
   ColumnConfig(
-      index: 9,
-      table: "input_registry",
-      name: "table_name",
-      label: 'Table Name',
-      tooltips: 'Table where the data reside',
-      isNumeric: false),
-  ColumnConfig(
       index: 10,
       table: "input_registry",
-      name: "session_id",
-      label: 'Session ID',
-      tooltips: 'Session ID of the file load job',
+      name: "file_key",
+      label: 'File Key',
+      tooltips: 'File Key of the loaded file',
       isNumeric: false),
   ColumnConfig(
       index: 11,
@@ -321,42 +321,42 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 8,
-          name: "file_key",
-          label: 'File Key',
-          tooltips: 'File key',
-          isNumeric: false),
-      ColumnConfig(
-          index: 9,
           name: "load_count",
           label: 'Records Count',
           tooltips: 'Number of records loaded',
           isNumeric: true),
       ColumnConfig(
-          index: 10,
-          name: "bad_row_count",
-          label: 'Bad Records',
-          tooltips: 'Number of Bad Records',
-          isNumeric: true),
-      ColumnConfig(
-          index: 11,
+          index: 9,
           name: "status",
           label: 'Status',
           tooltips: 'Status of the load',
           isNumeric: false),
       ColumnConfig(
+          index: 10,
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 11,
+          name: "session_id",
+          label: 'Session ID',
+          tooltips: 'Data Pipeline Job Key',
+          isNumeric: false),
+      ColumnConfig(
           index: 12,
+          name: "bad_row_count",
+          label: 'Bad Records',
+          tooltips: 'Number of Bad Records',
+          isNumeric: true),
+      ColumnConfig(
+          index: 13,
           name: "error_message",
           label: 'Error Message',
           tooltips: 'Error that occured during execution',
           isNumeric: false,
           maxLines: 3,
           columnWidth: 600),
-      ColumnConfig(
-          index: 13,
-          name: "session_id",
-          label: 'Session ID',
-          tooltips: 'Data Pipeline Job Key',
-          isNumeric: false),
       ColumnConfig(
           index: 14,
           name: "user_email",
@@ -406,7 +406,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configScreenPath: executionStatusDetailsPath,
-          navigationParams: {'session_id': 13}),
+          navigationParams: {'session_id': 10}),
       ActionConfig(
           actionType: DataTableActionType.showScreen,
           key: 'viewProcessErrors',
@@ -415,7 +415,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configScreenPath: processErrorsPath,
-          navigationParams: {'session_id': 13}),
+          navigationParams: {'session_id': 10}),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'viewFailureDetails',
@@ -424,7 +424,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.showFailureDetails,
-          navigationParams: {'session_id': 13, 'failure_details': 14}),
+          navigationParams: {'session_id': 10, 'failure_details': 12}),
       ActionConfig(
           actionType: DataTableActionType.refreshTable,
           key: 'refreshTable',
@@ -437,7 +437,7 @@ final Map<String, TableConfig> _tableConfigurations = {
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
           DataTableFormStateOtherColumnConfig(
             stateKey: FSK.failureDetails,
-            columnIdx: 14,
+            columnIdx: 12,
           ),
         ]),
     columns: [
@@ -474,7 +474,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           name: "main_object_type",
           label: 'Domain Key',
           tooltips: 'Domain Key of the pipeline',
-          isNumeric: false),
+          isNumeric: false,
+          isHidden: true),
       ColumnConfig(
           index: 5,
           name: "year",
@@ -495,11 +496,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: true),
       ColumnConfig(
           index: 8,
-          name: "main_input_registry_key",
-          label: 'Main Input Registry',
-          tooltips:
-              'Main input from previously loaded file, this specify the input session id',
-          isNumeric: true),
+          name: "status",
+          label: 'Status',
+          tooltips: 'Status of the pipeline execution',
+          isNumeric: false),
       ColumnConfig(
           index: 9,
           name: "main_input_file_key",
@@ -509,36 +509,37 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 10,
-          name: "merged_input_registry_keys",
-          label: 'Merge-In Input Registry',
-          tooltips:
-              'Indicate the session id of the input sources to be merged with the main input source',
-          isNumeric: false),
-      ColumnConfig(
-          index: 11,
-          name: "status",
-          label: 'Status',
-          tooltips: 'Status of the pipeline execution',
-          isNumeric: false),
-      ColumnConfig(
-          index: 12,
-          name: "input_session_id",
-          label: 'Input Session',
-          tooltips: 'Input session used (overriding input registry)',
-          isNumeric: false),
-      ColumnConfig(
-          index: 13,
           name: "session_id",
           label: 'Session ID',
           tooltips: 'Data Pipeline session identifier',
           isNumeric: false),
       ColumnConfig(
-          index: 14,
+          index: 11,
+          name: "input_session_id",
+          label: 'Input Session',
+          tooltips: 'Input session used (overriding input registry)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 12,
           name: "failure_details",
           label: 'Failure Details',
           tooltips: '',
           isNumeric: false,
           isHidden: true),
+      ColumnConfig(
+          index: 13,
+          name: "main_input_registry_key",
+          label: 'Main Input Registry',
+          tooltips:
+              'Main input from previously loaded file, this specify the input session id',
+          isNumeric: true),
+      ColumnConfig(
+          index: 14,
+          name: "merged_input_registry_keys",
+          label: 'Merge-In Input Registry',
+          tooltips:
+              'Indicate the session id of the input sources to be merged with the main input source',
+          isNumeric: false),
       ColumnConfig(
           index: 15,
           name: "user_email",
@@ -988,7 +989,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'client',
     sortAscending: true,
-    rowsPerPage: 10,
+    rowsPerPage: 50,
   ),
 
   // Client Table for Client single selection list
@@ -1083,7 +1084,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'org',
     sortAscending: true,
-    rowsPerPage: 10,
+    rowsPerPage: 50,
   ),
 
   // Client Name Table used for Process & Rules Config form
@@ -2440,7 +2441,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configScreenPath: domainTableViewerPath,
-          navigationParams: {'table_name': 9, 'session_id': 10}),
+          navigationParams: {'table_name': 7, 'session_id': 8}),
       ActionConfig(
           actionType: DataTableActionType.refreshTable,
           key: 'refreshTable',
@@ -2527,7 +2528,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.mainInputFileKey, columnIdx: 7),
+          stateKey: FSK.mainInputFileKey, columnIdx: 10),
       DataTableFormStateOtherColumnConfig(stateKey: FSK.year, columnIdx: 4),
       DataTableFormStateOtherColumnConfig(stateKey: FSK.month, columnIdx: 5),
       DataTableFormStateOtherColumnConfig(
@@ -2633,7 +2634,7 @@ final Map<String, TableConfig> _tableConfigurations = {
   DTKeys.queryToolResultSetTable: TableConfig(
       key: DTKeys.queryToolResultSetTable,
       fromClauses: [FromClause(schemaName: 'public', tableName: '')],
-      apiAction: 'raw_query', // will be overriden for data management stmt
+      apiAction: 'raw_query_tool', // will be overriden for data management stmt
       requestColumnDef: true,
       label: 'Query Result',
       apiPath: '/dataTable',

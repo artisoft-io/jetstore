@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	// "github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
@@ -260,6 +261,7 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	}
 
 	// Persist the Resources
+	start := time.Now()
 	if len(writeWorkspaceCtx.model.Resources) > 0 {
 		log.Println("Writing Resources")
 		err = writeWorkspaceCtx.WriteResources(datatableCtx, compileJetruleAction.Workspace, &token)
@@ -267,10 +269,12 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 			log.Printf("while WriteResources:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Resources in",time.Since(start).Seconds())
 	}
 
 	// Persist the Classes & Tables
 	if len(writeWorkspaceCtx.model.Classes) > 0 {
+		start = time.Now()
 		// init the map of domain class
 		for i := range writeWorkspaceCtx.model.Classes {
 			cls := &writeWorkspaceCtx.model.Classes[i]
@@ -282,84 +286,101 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 			log.Printf("while WriteDomainClasses:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Domain Classes in",time.Since(start).Seconds())
 	}
 	if len(writeWorkspaceCtx.model.Tables) > 0 {
+		start = time.Now()
 		log.Println("Writing Domain Tables")
 		err = writeWorkspaceCtx.WriteDomainTables(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteDomainTables:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Domain Tables in",time.Since(start).Seconds())
 	}
 
 	// Persist the JetStore Config
 	if writeWorkspaceCtx.model.JetstoreConfig != nil {
+		start = time.Now()
 		log.Println("Writing JetStore Config")
 		err = writeWorkspaceCtx.WriteJetStoreConfig(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteJetStoreConfig:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote JetStore Config in",time.Since(start).Seconds())
 	}
 
 	// Persist Rule Sequences
 	if writeWorkspaceCtx.model.RuleSequences != nil {
+		start = time.Now()
 		log.Println("Writing Rule Sequences")
 		err = writeWorkspaceCtx.WriteRuleSequences(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteRuleSequences:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Rule Sequence in",time.Since(start).Seconds())
 	}
 
 	// Persist Lookup Tables
 	if writeWorkspaceCtx.model.LookupTables != nil {
+		start = time.Now()
 		log.Println("Writing Lookup Tables")
 		err = writeWorkspaceCtx.WriteLookupTables(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteLookupTables:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Lookup Tables in",time.Since(start).Seconds())
 	}
 
 	// Persist Expressions
 	if writeWorkspaceCtx.model.ReteNodes != nil {
+		start = time.Now()
 		log.Println("Writing Expressions")
 		err = writeWorkspaceCtx.WriteExpr(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteExpr:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Expressions in",time.Since(start).Seconds())
 	}
 
 	// Persist Rete Nodes
 	if writeWorkspaceCtx.model.ReteNodes != nil {
+		start = time.Now()
 		log.Println("Writing Rete Nodes")
 		err = writeWorkspaceCtx.WriteReteNodes(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteReteNodes:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Rete Nodes in",time.Since(start).Seconds())
 	}
 
 	// Persist Jet Rules
 	if writeWorkspaceCtx.model.Jetrules != nil {
+		start = time.Now()
 		log.Println("Writing Jet Rules")
 		err = writeWorkspaceCtx.WriteJetRules(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteJetRules:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Jet Rules in",time.Since(start).Seconds())
 	}
 
 	// Persist Triples
 	if writeWorkspaceCtx.model.Triples != nil {
+		start = time.Now()
 		log.Println("Writing Triples")
 		err = writeWorkspaceCtx.WriteTriples(datatableCtx, compileJetruleAction.Workspace, &token)
 		if err != nil {
 			log.Printf("while WriteTriples:%v\n", err)
 			return &map[string]interface{}{}, http.StatusBadRequest, err
 		}
+		log.Println("Wrote Triples in",time.Since(start).Seconds())
 	}
 
 	//* DEV
@@ -411,7 +432,7 @@ func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.Context, da
 		}
 	}
 	dataTableAction := &datatable.DataTableAction{
-		Action:      "insert_rows",
+		Action:      "workspace_insert_rows",
 		FromClauses: []datatable.FromClause{{Schema: workspace, Table: fmt.Sprintf("WORKSPACE/%s", table)}},
 		Data:        *data,
 	}
@@ -428,7 +449,7 @@ func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.Context, da
 // JetruleModel Methods
 // --------------------
 // WriteResources
-func (ctx *writeWorkspaceContext) WriteResources(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteResources(datatableCtx *datatable.Context, workspace string, token *string) error {	
 
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Resources {

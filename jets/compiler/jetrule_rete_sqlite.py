@@ -11,10 +11,10 @@ import os
 import sys
 import json
 
-print ("      Using APSW file",apsw.__file__)                # from the extension module
-print ("         APSW version",apsw.apswversion())           # from the extension module
-print ("   SQLite lib version",apsw.sqlitelibversion())      # from the sqlite library code
-print ("SQLite header version",apsw.SQLITE_VERSION_NUMBER)   # from the sqlite header file at compile time
+# print ("      Using APSW file",apsw.__file__)                # from the extension module
+# print ("         APSW version",apsw.apswversion())           # from the extension module
+# print ("   SQLite lib version",apsw.sqlitelibversion())      # from the sqlite library code
+# print ("SQLite header version",apsw.SQLITE_VERSION_NUMBER)   # from the sqlite header file at compile time
 print()
 
 flags.DEFINE_string("rete_db", 'jetrule_rete.db', "JetRule rete config")
@@ -48,6 +48,7 @@ class JetRuleReteSQLite:
   def saveReteConfig(self, workspace_db: str=None) -> str:
     assert self.ctx, 'Must have a valid JetRuleContext'
     assert self.ctx.jetReteNodes, 'Must have a valid JetRuleContext.jetReteNodes'
+    print('Saving compiled',self.ctx.main_rule_fname)
     self.workspace_connection = None
 
     # Opening/creating database
@@ -334,11 +335,15 @@ class JetRuleReteSQLite:
 
         # save domain properties
         for property in cls['data_properties']:
-          pkey = self.data_properties_last_key
-          self.data_properties_last_key += 1
-          property['db_key'] = pkey                  # keep the globaly unique key for insertion in other tables
-          row = [pkey, key, property['name'], property['type'], property.get('as_array', False), property.get('is_grouping', False)]
-          self.write_cursor.execute("INSERT INTO data_properties (key, domain_class_key, name, type, as_array, is_grouping) VALUES (?, ?, ?, ?, ?, ?)", row)
+          try:
+            pkey = self.data_properties_last_key
+            self.data_properties_last_key += 1
+            property['db_key'] = pkey                  # keep the globaly unique key for insertion in other tables
+            row = [pkey, key, property['name'], property['type'], property.get('as_array', False), property.get('is_grouping', False)]
+            self.write_cursor.execute("INSERT INTO data_properties (key, domain_class_key, name, type, as_array, is_grouping) VALUES (?, ?, ?, ?, ?, ?)", row)
+          except (Exception) as error:
+            print('* Error inserting into data_property table, property',property['name'],'error:', error)
+            raise error
 
       else:
         # file with skey already in db, get the resource 'db_key' from the db;
@@ -533,9 +538,9 @@ class JetRuleReteSQLite:
         salience = salience[0]
 
       # Check if multiple rules have same antecedents
-      rules = rete_node.get('rules')
-      if rules and len(rules)>1:
-        print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
+      # rules = rete_node.get('rules')
+      # if rules and len(rules)>1:
+      #   print('WARNING: Multiple rules have the same antecedents, they will be merges in the rete graph:',rules)
 
       # Assign key to rete node
       key = self.rete_nodes_last_key

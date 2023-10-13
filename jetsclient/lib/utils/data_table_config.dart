@@ -1,4 +1,5 @@
 import 'package:jetsclient/screens/components/data_table.dart';
+import 'package:jetsclient/screens/components/data_table_model.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Data Table Configuration class
@@ -14,6 +15,7 @@ class TableConfig {
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
       required this.actions,
+      this.secondRowActions = const [],
       required this.columns,
       this.defaultToAllRows = false,
       required this.fromClauses,
@@ -39,6 +41,7 @@ class TableConfig {
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
+  final List<ActionConfig> secondRowActions;
   final List<ColumnConfig> columns;
   final bool defaultToAllRows;
   final RawQuery? sqlQuery;
@@ -70,6 +73,45 @@ enum DataTableActionType {
   refreshTable,
   doAction,
   doActionShowDialog
+}
+
+/// enum describing the condition when an action button is enabled based on
+/// the value of a column of the selected row
+enum DataTableActionEnableCriteria {
+  equals,
+  notEquals,
+  contains,
+  doesNotContain,
+}
+
+class ActionEnableCriteria {
+  ActionEnableCriteria({
+    required this.columnPos,
+    required this.criteriaType,
+    required this.value,
+  });
+  final int columnPos;
+  final DataTableActionEnableCriteria criteriaType;
+  final String? value;
+
+  bool isCriteriaMet(JetsRow row) {
+    if (columnPos < row.length) {
+      final String? rowValue = row[columnPos];
+      switch (criteriaType) {
+        case DataTableActionEnableCriteria.equals:
+          return value == rowValue;
+        case DataTableActionEnableCriteria.notEquals:
+          return value != rowValue;
+        case DataTableActionEnableCriteria.contains:
+          if (value == null || rowValue == null) return false;
+          return rowValue.contains(value!);
+        case DataTableActionEnableCriteria.doesNotContain:
+          if (value == null || rowValue == null) return false;
+          return !rowValue.contains(value!);
+      }
+    }
+    return false;
+  }
 }
 
 /// Table Action Configuration
@@ -119,7 +161,8 @@ class ActionConfig {
       this.configForm,
       this.configScreenPath,
       this.actionName,
-      this.stateGroup = 0});
+      this.stateGroup = 0,
+      this.actionEnableCriterias});
   final DataTableActionType actionType;
   final String key;
   final String label;
@@ -134,6 +177,7 @@ class ActionConfig {
   final String? configScreenPath;
   final String? actionName;
   final int stateGroup;
+  final List<List<ActionEnableCriteria>>? actionEnableCriterias;
 
   /// returns true if action button is visible
   bool isVisible(JetsDataTableState widgetState) {
@@ -146,8 +190,30 @@ class ActionConfig {
   /// returns true if action button is enabled
   bool isEnabled(JetsDataTableState widgetState) {
     if (isEnabledWhenHavingSelectedRows != null) {
-      return isEnabledWhenHavingSelectedRows ==
-          widgetState.dataSource.hasSelectedRows();
+      if (isEnabledWhenHavingSelectedRows ==
+          widgetState.dataSource.hasSelectedRows()) {
+        if (actionEnableCriterias != null) {
+          JetsRow? row = widgetState.dataSource.getFirstSelectedRow();
+          if (row == null) return false;
+          // The list of list of ActionEnableCriteria is
+          // a disjunction of conjunctions (just like jetrules are)
+          // meaning the other list is 'or' and the inner list is 'and' of criteria
+          for (var conjunction in actionEnableCriterias!) {
+            // The first conjuction to meet the criteria, then button isEnabled
+            var isCriteriaMet = true;
+            for (var c in conjunction) {
+              if (!c.isCriteriaMet(row)) {
+                isCriteriaMet = false;
+                break;
+              }
+            }
+            if (isCriteriaMet) return true;
+          }
+          return false; // No criteria is met
+        }
+        return true;
+      }
+      return false;
     }
     if (isEnabledWhenWhereClauseSatisfied != null) {
       return isEnabledWhenWhereClauseSatisfied ==

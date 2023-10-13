@@ -225,26 +225,28 @@ class TextFieldConfig extends FormFieldConfig {
 }
 
 class FormInputFieldConfig extends FormFieldConfig {
-  FormInputFieldConfig(
-      {required super.key,
-      super.group = 0,
-      super.flex = 1,
-      super.autovalidateMode = AutovalidateMode.disabled,
-      required this.label,
-      required this.hint,
-      required this.autofocus,
-      this.obscureText = false,
-      required this.textRestriction,
-      this.maxLines = 1,
-      required this.maxLength,
-      this.autofillHints,
-      this.defaultValue,
-      this.useDefaultFont = false,
-    });
+  FormInputFieldConfig({
+    required super.key,
+    super.group = 0,
+    super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    required this.label,
+    required this.hint,
+    required this.autofocus,
+    this.obscureText = false,
+    this.isReadOnly = false,
+    required this.textRestriction,
+    this.maxLines = 1,
+    required this.maxLength,
+    this.autofillHints,
+    this.defaultValue,
+    this.useDefaultFont = false,
+  });
   final String label;
   final String hint;
   final bool autofocus;
   final bool obscureText;
+  final bool isReadOnly;
   final TextRestriction textRestriction;
   final int maxLines;
   // 0 for unbound

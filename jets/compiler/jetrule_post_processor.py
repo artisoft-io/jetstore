@@ -278,7 +278,7 @@ class JetRulesPostProcessor:
       o = properties.get("o", "true")
       optimization = True
       if o[0] == 'f':
-        print('Rule',rule['name'],'has optimization turned off')
+        # print('Rule',rule['name'],'has optimization turned off')
         optimization = False
       rule['optimization'] = optimization
 
