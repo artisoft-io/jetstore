@@ -117,38 +117,74 @@ func (server *Server) addVersionToDb(jetstoreVersion string) (err error) {
 	return nil
 }
 
-// Validate the user table exists and create admin if not already created
-func (server *Server) checkJetStoreDbVersion() error {
+// Run update_db
+func (server *Server) runUpdateDb(serverArgs *[]string) error {
+	if *usingSshTunnel {
+		*serverArgs = append(*serverArgs, "-usingSshTunnel")
+	}
+	log.Printf("Run update_db: %s", *serverArgs)
+	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		b.WriteTo(os.Stdout)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT END")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return err
+	}
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+	log.Println("============================")
+	b.WriteTo(os.Stdout)
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT END")
+	log.Println("============================")
+	return nil
+}
+
+// Check JetStore DB schema exist, create if not
+func (server *Server) checkJetStoreSchema() error {
 	tableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "jetstore_release")
 	if err != nil {
 		return fmt.Errorf("while verifying that the jetstore_release table exists: %v", err)
 	}
-	var serverArgs []string
-	var version string
 	jetstoreVersion := os.Getenv("JETS_VERSION")
 	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
 	if !tableExists {
 		// run update db with workspace init script
-		log.Println("JetStore version table does not exist, initializing the db")
+		log.Println("JetStore version table does not exist, initializing the db schema")
 		// Cleanup any remaining
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
-			RunUiDbInitScript: true,
+			RunUiDbInitScript: false,
 			Data:              []map[string]interface{}{},
 		})
 		if err != nil {
-			return fmt.Errorf("while calling ResetDomainTables to initialize db: %v", err)
+			return fmt.Errorf("while calling ResetDomainTables to initialize db schema: %v", err)
 		}
-		err = server.addVersionToDb(jetstoreVersion)
-		if err != nil {
-			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
-		}
-	} else {
+	}
+	return nil
+}
+
+// Update JetStore Db
+// Precondition: db schema exist
+func (server *Server) checkJetStoreDbVersion() error {
+	var serverArgs []string
+	var version string
+	jetstoreVersion := os.Getenv("JETS_VERSION")
+	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
 
 		// Check the release in database vs current release
 		stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
 
-		err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+		err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 		switch {
 		case err != nil:
 			log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
@@ -190,40 +226,14 @@ func (server *Server) checkJetStoreDbVersion() error {
 			log.Println("JetStore deployed version (in database) is", version)
 			log.Println("JetStore version in database", version, ">=", "JetStore image version", jetstoreVersion)
 		}
-	}
 
 	if len(serverArgs) > 0 {
 		if *usingSshTunnel {
 			serverArgs = append(serverArgs, "-usingSshTunnel")
 		}
-		log.Printf("Run update_db: %s", serverArgs)
-		cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
-		var b bytes.Buffer
-		cmd.Stdout = &b
-		cmd.Stderr = &b
-		err := cmd.Run()
+		err = server.runUpdateDb(&serverArgs)
 		if err != nil {
-			log.Printf("while executing update_db command '%v': %v", serverArgs, err)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			b.WriteTo(os.Stdout)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("UPDATE_DB CAPTURED OUTPUT END")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			return err
-		}
-		log.Println("============================")
-		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-		log.Println("============================")
-		b.WriteTo(os.Stdout)
-		log.Println("============================")
-		log.Println("UPDATE_DB CAPTURED OUTPUT END")
-		log.Println("============================")
-
-		err = server.addVersionToDb(jetstoreVersion)
-		if err != nil {
-			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
+			return fmt.Errorf("while calling runUpdateDb: %v", err)
 		}
 	}
 	return nil
@@ -427,6 +437,12 @@ func listenAndServe() error {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}
 	defer server.dbpool.Close()
+
+	// Check that JetStore schema exist
+	err = server.checkJetStoreSchema()
+	if err != nil {
+		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
+	}
 
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()

@@ -101,31 +101,10 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
-	log.Printf("Run update_db: %s", serverArgs)
-	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
-	var b bytes.Buffer
-	cmd.Stdout = &b
-	cmd.Stderr = &b
-	err = cmd.Run()
+	err = server.runUpdateDb(&serverArgs)
 	if err != nil {
-		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		b.WriteTo(os.Stdout)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT END")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		return nil, http.StatusInternalServerError, fmt.Errorf("while running update_db command: %v", err)
+		return nil, http.StatusInternalServerError, fmt.Errorf("while running updateDb: %v", err)
 	}
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-	log.Println("============================")
-	b.WriteTo(os.Stdout)
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT END")
-	log.Println("============================")
-
 	// Truncate the jetsapi.input_registry
 	stmt = fmt.Sprintf("TRUNCATE %s", pgx.Identifier{"jetsapi", "input_registry"}.Sanitize())
 	log.Println(stmt)
@@ -152,30 +131,9 @@ func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
-	log.Printf("Run update_db: %s", serverArgs)
-	cmd := exec.Command("/usr/local/bin/update_db", serverArgs...)
-	var b bytes.Buffer
-	cmd.Stdout = &b
-	cmd.Stderr = &b
-	err := cmd.Run()
-	if err != nil {
-		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		b.WriteTo(os.Stdout)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT END")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		return nil, http.StatusInternalServerError, fmt.Errorf("while running server command: %v", err)
+	if err := server.runUpdateDb(&serverArgs); err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("while running updateDb command: %v", err)
 	}
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-	log.Println("============================")
-	b.WriteTo(os.Stdout)
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT END")
-	log.Println("============================")
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
 
