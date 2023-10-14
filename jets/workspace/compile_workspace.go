@@ -14,8 +14,8 @@ import (
 
 // This file contains functions to compile and sync the workspace
 // between jetstore database and the local container
-// WORKSPACE_DB_PATH location of workspace db (sqlite db)
-// WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
+// WORKSPACE Workspace default currently in use
+// WORKSPACES_HOME Home dir of workspaces
 
 // Function to pull override workspace files from databse to the
 // container workspace (local copy).
@@ -57,13 +57,18 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 }
 
 func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version string) error {
-		// insert the new workspace version in jetsapi db
-		log.Println("Updating workspace version in database to",version)
-		stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1)"
-		_, err := dbpool.Exec(context.Background(), stmt, version)
-		if err != nil {
-			return fmt.Errorf("while inserting workspace version into workspace_version table: %v", err)
-		}
+
+	if version == "" {
+		log.Println("Error: attempting to write empty version to table workspace_version, skipping")
+		return nil
+	}
+	// insert the new workspace version in jetsapi db
+	log.Println("Updating workspace version in database to",version)
+	stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1)"
+	_, err := dbpool.Exec(context.Background(), stmt, version)
+	if err != nil {
+		return fmt.Errorf("while inserting workspace version into workspace_version table: %v", err)
+	}
 
 	return nil
 }

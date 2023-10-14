@@ -154,6 +154,9 @@ class FSK {
   static const tableName = "table_name";
   static const fileKey = "file_key";
 
+  static const dataTableAction = "datatable.action";
+  static const dataTableFromTable = "datatable.from.table";
+
   static const userEmail = "user_email";
   static const userName = "name";
   static const userPassword = "password";

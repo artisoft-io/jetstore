@@ -32,8 +32,8 @@ type dbConnections struct {
 // JETS_BUCKET
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
-// WORKSPACE_DB_PATH location of workspace db (sqlite db)
-// WORKSPACE_LOOKUPS_DB_PATH location of lookup db (sqlite db)
+// WORKSPACE Workspace currently in use
+// WORKSPACES_HOME Home dir of workspaces
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_LOG_DEBUG (optional, if == 1 set glog=3, ps=false, poolSize=1 for debugging)
@@ -46,35 +46,36 @@ type dbConnections struct {
 // JETS_DOMAIN_KEY_SEPARATOR
 
 // Command Line Arguments
-var awsDsnSecret        = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
-var dbPoolSize          = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -awsDnsSecret (default 10)")
-var usingSshTunnel      = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
-var awsRegion           = flag.String("awsRegion", "", "aws region to connect to for aws secret (aws integration) (required if -awsDsnSecret is provided)")
-var dsnList             = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required unless -awsDsnSecret is provided)")
-var workspaceDb         = flag.String("workspaceDb", "", "workspace db path, if not proveded will use env WORKSPACE_DB_PATH if defined (required)")
-var lookupDb            = flag.String("lookupDb", "", "lookup data path (if not provided will use env WORKSPACE_LOOKUPS_DB_PATH if defined")
-var ruleset             = flag.String("ruleset", "", "main rule set name (override process config)")
-var ruleseq             = flag.String("ruleseq", "", "rule set sequence (override process config)")
-var pipelineConfigKey   = flag.Int("pcKey", -1, "Pipeline config key (required or -peKey)")
-var pipelineExecKey     = flag.Int("peKey", -1, "Pipeline execution key (required or -pcKey)")
-var poolSize            = flag.Int("poolSize", 10, "Coroutines pool size constraint")
-var outSessionId        = flag.String("sessionId", "", "Process session ID for the output Domain Tables. Use 'autogen' to generate a new sessionId (required)")
+var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
+var dbPoolSize = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -awsDnsSecret (default 10)")
+var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret (aws integration) (required if -awsDsnSecret is provided)")
+var dsnList = flag.String("dsn", "", "comma-separated list of database connection string, order matters and should always be the same (required unless -awsDsnSecret is provided)")
+var workspaceDb = flag.String("workspaceDb", "", "workspace db path, if not proveded will use env WORKSPACES_HOME/WORKSPACE if defined (required)")
+var lookupDb = flag.String("lookupDb", "", "lookup data path (if not provided will use env WORKSPACES_HOME/WORKSPACE if defined")
+var ruleset = flag.String("ruleset", "", "main rule set name (override process config)")
+var ruleseq = flag.String("ruleseq", "", "rule set sequence (override process config)")
+var pipelineConfigKey = flag.Int("pcKey", -1, "Pipeline config key (required or -peKey)")
+var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required or -pcKey)")
+var poolSize = flag.Int("poolSize", 10, "Coroutines pool size constraint")
+var outSessionId = flag.String("sessionId", "", "Process session ID for the output Domain Tables. Use 'autogen' to generate a new sessionId (required)")
 var inSessionIdOverride = flag.String("inSessionId", "", "Session ID for input domain tables, defaults to latest in input_registry table.")
-var limit               = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
-var nodeId              = flag.Int("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
-var nbrShards           = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
-var outTables           = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
-var shardId             = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
-var doNotLockSessionId  = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId and register Domain Table output on successful completion")
-var userEmail           = flag.String("userEmail", "", "User identifier to register the execution results (required)")
-var completedMetric     = flag.String("serverCompletedMetric", "serverCompleted", "Metric name to register the server execution successfull completion (default: serverCompleted)")
-var failedMetric        = flag.String("serverFailedMetric", "serverFailed", "Metric name to register the server execution failure (default: serverFailed)")
+var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
+var nodeId = flag.Int("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
+var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
+var outTables = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
+var shardId = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
+var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId and register Domain Table output on successful completion")
+var userEmail = flag.String("userEmail", "", "User identifier to register the execution results (required)")
+var completedMetric = flag.String("serverCompletedMetric", "serverCompleted", "Metric name to register the server execution successfull completion (default: serverCompleted)")
+var failedMetric = flag.String("serverFailedMetric", "serverFailed", "Metric name to register the server execution failure (default: serverFailed)")
 var outTableSlice []string
 var extTables map[string][]string
 var glogv int // taken from env GLOG_v
 var dbc dbConnections
 var nbrDbNodes int
-var processName string		// put it as global var since there is always one and only one process per invocation
+var processName string // put it as global var since there is always one and only one process per invocation
+var devMode bool
 
 func init() {
 	extTables = make(map[string][]string)
@@ -106,12 +107,13 @@ func doJob() (pipelineResult *PipelineResult, err error) {
 	dbpool := dbc.mainNode.dbpool
 	// Fetch overriten workspace files if not in dev mode
 	// When in dev mode, the apiserver refreshes the overriten workspace files
-	if os.Getenv("JETSTORE_DEV_MODE") == "" {
+	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
+	if !devMode {
 		// We're not in dev mode, sync the overriten workspace files
 		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
 		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false)
 		if err != nil {
-			log.Println("Error while synching workspace file from db:",err)
+			log.Println("Error while synching workspace file from db:", err)
 			return
 		}
 	} else {
@@ -168,10 +170,10 @@ func doJobAndReportStatus() error {
 	if *nodeId >= nbrDbNodes {
 		return fmt.Errorf("error: nodeId is %d (-nodeId), we have %d nodes (-dsn): nodeId must be one of the db nodes", *nodeId, nbrDbNodes)
 	}
-	log.Println("Command Line Argument: awsDsnSecret",*awsDsnSecret)
-	log.Println("Command Line Argument: dbPoolSize",*dbPoolSize)
-	log.Println("Command Line Argument: usingSshTunnel",*usingSshTunnel)
-	log.Println("Command Line Argument: awsRegion",*awsRegion)
+	log.Println("Command Line Argument: awsDsnSecret", *awsDsnSecret)
+	log.Println("Command Line Argument: dbPoolSize", *dbPoolSize)
+	log.Println("Command Line Argument: usingSshTunnel", *usingSshTunnel)
+	log.Println("Command Line Argument: awsRegion", *awsRegion)
 	log.Printf("Command Line Argument: inSessionId: %s\n", *inSessionIdOverride)
 	log.Printf("Command Line Argument: limit: %d\n", *limit)
 	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
@@ -190,15 +192,15 @@ func doJobAndReportStatus() error {
 	log.Printf("Command Line Argument: userEmail: %s\n", *userEmail)
 	log.Printf("Command Line Argument: serverCompletedMetric %s\n", *completedMetric)
 	log.Printf("Command Line Argument: serverFailedMetric %s\n", *failedMetric)
-	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
-	log.Printf("ENV JETS_DOMAIN_KEY_HASH_SEED: %s\n",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
-	log.Printf("ENV JETS_LOG_DEBUG: %s\n",os.Getenv("JETS_LOG_DEBUG"))
-	log.Printf("ENV JETS_LOADER_SM_ARN: %s\n",os.Getenv("JETS_LOADER_SM_ARN"))
-	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n",os.Getenv("JETS_SERVER_SM_ARN"))
-	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
-	log.Printf("ENV JETS_INVALID_CODE: %s\n",os.Getenv("JETS_INVALID_CODE"))
-	log.Printf("ENV JETSTORE_DEV_MODE: %s\n",os.Getenv("JETSTORE_DEV_MODE"))
-	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
+	log.Printf("ENV JETS_DOMAIN_KEY_HASH_SEED: %s\n", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
+	log.Printf("ENV JETS_LOG_DEBUG: %s\n", os.Getenv("JETS_LOG_DEBUG"))
+	log.Printf("ENV JETS_LOADER_SM_ARN: %s\n", os.Getenv("JETS_LOADER_SM_ARN"))
+	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
+	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n", os.Getenv("JETS_s3_INPUT_PREFIX"))
+	log.Printf("ENV JETS_INVALID_CODE: %s\n", os.Getenv("JETS_INVALID_CODE"))
+	log.Printf("ENV JETSTORE_DEV_MODE: %s\n", os.Getenv("JETSTORE_DEV_MODE"))
+	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	if *doNotLockSessionId {
 		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
@@ -261,7 +263,7 @@ func doJobAndReportStatus() error {
 }
 
 func main() {
-	fmt.Println("CMD LINE ARGS:",os.Args[1:])
+	fmt.Println("CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 
 	// validate command line arguments
@@ -290,7 +292,7 @@ func main() {
 		*awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 		if *dsnList == "" && *awsDsnSecret == "" {
 			hasErr = true
-			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsnList.")	
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsnList.")
 		}
 	}
 	if *awsRegion == "" {
@@ -310,19 +312,18 @@ func main() {
 		errMsg = append(errMsg, "user email (-userEmail) must be provided.")
 	}
 	if *workspaceDb == "" {
-		v := os.Getenv("WORKSPACE_DB_PATH")
-		if v == "" {
+		if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
 			hasErr = true
-			errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided.")	
-		} else {
-			workspaceDb = &v
+			errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided or env WORKSPACES_HOME & WORKSPACE.")
 		}
+		*workspaceDb = fmt.Sprintf("%s/%s/workspace.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
 	}
 	if *lookupDb == "" {
-		v := os.Getenv("WORKSPACE_LOOKUPS_DB_PATH")
-		if v != "" {
-			lookupDb = &v
+		if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided or env WORKSPACES_HOME & WORKSPACE.")
 		}
+		*lookupDb = fmt.Sprintf("%s/%s/lookup.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
 	}
 	if *ruleset != "" && *ruleseq != "" {
 		hasErr = true
@@ -355,7 +356,7 @@ func main() {
 
 	// If not in dev mode, must have state machine arn defined
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
-		if os.Getenv("JETS_LOADER_SM_ARN")=="" || os.Getenv("JETS_SERVER_SM_ARN")=="" {
+		if os.Getenv("JETS_LOADER_SM_ARN") == "" || os.Getenv("JETS_SERVER_SM_ARN") == "" {
 			hasErr = true
 			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARN are required when not in dev mode.")
 		}
@@ -378,11 +379,11 @@ func main() {
 		*poolSize = 1
 	case "0", "":
 		v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
-		glogv = int(v)	
+		glogv = int(v)
 	default:
 		str := os.Getenv("JETS_LOG_DEBUG")
 		v, _ := strconv.ParseInt(str, 10, 32)
-		glogv = int(v)	
+		glogv = int(v)
 		*ps = true
 		*poolSize = 1
 		os.Setenv("GLOG_v", str)

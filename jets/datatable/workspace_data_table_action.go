@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
-	"time"
+	// "strconv"
+	// "time"
 
 	"log"
 	"net/http"
@@ -18,8 +18,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/user"
-	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	// "github.com/artisoft-io/jetstore/jets/workspace"
+	// "github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
@@ -167,13 +167,22 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "" || gitUser == nil || gitToken == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = "Pull & Compile in progress"
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for compile_workspace, missing workspace_name")
 			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = "Compile in progress"
+
+		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for unit_test, missing workspace_name")
+			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = "Unit Test in progress"
 
 		case dataTableAction.FromClauses[0].Table == "delete_workspace":
 			if dataTableAction.WorkspaceName == "" {
@@ -239,6 +248,9 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 		go compileWorkspaceAction(ctx.Dbpool, dataTableAction)
+
+	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
+		go unitTestWorkspaceAction(ctx, dataTableAction, token)
 
 	}
 	returnResults:
@@ -658,32 +670,31 @@ func (ctx *Context) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, 
 	return
 }
 
-func compileWorkspace(dbpool *pgxpool.Pool, workspaceName string) (httpStatus int, err error) {
-	httpStatus = http.StatusOK
-	var gitLog string
-	gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
-	if err != nil {
-		httpStatus = http.StatusInternalServerError
-	}
-	// Save gitLog into workspace_registry, even if had error during compilation to have error details
-	stmt := fmt.Sprintf(
-		"UPDATE jetsapi.workspace_registry SET (last_git_log, user_email, last_update) = ('%s', 'system', DEFAULT) WHERE workspace_name = '%s'",
-		gitLog, workspaceName)
-	_, dbErr := dbpool.Exec(context.Background(), stmt)
-	if dbErr != nil {
-		log.Printf("While inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
-		if err == nil {
-			httpStatus = http.StatusInternalServerError
-			err = fmt.Errorf("while inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
-		}
-	}
-	return
-}
+// func compileWorkspace(dbpool *pgxpool.Pool, workspaceName string) (httpStatus int, err error) {
+// 	httpStatus = http.StatusOK
+// 	var gitLog string
+// 	gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+// 	if err != nil {
+// 		httpStatus = http.StatusInternalServerError
+// 	}
+// 	// Save gitLog into workspace_registry, even if had error during compilation to have error details
+// 	stmt := fmt.Sprintf(
+// 		"UPDATE jetsapi.workspace_registry SET (last_git_log, user_email, last_update) = ('%s', 'system', DEFAULT) WHERE workspace_name = '%s'",
+// 		gitLog, workspaceName)
+// 	_, dbErr := dbpool.Exec(context.Background(), stmt)
+// 	if dbErr != nil {
+// 		log.Printf("While inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
+// 		if err == nil {
+// 			httpStatus = http.StatusInternalServerError
+// 			err = fmt.Errorf("while inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
+// 		}
+// 	}
+// 	return
+// }
 
 // DeleteWorkspaceChanges --------------------------------------------------------------------------
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
-// If local workspace has no changes in db after the file revert, recompile workspace
 func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
@@ -705,25 +716,25 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 		}
 	}
 
-	// If local workspace has no changes in db after the file revert, recompile workspace
-	var nbrChanges int64
-	stmt := fmt.Sprintf(
-		"SELECT count(*) FROM jetsapi.workspace_changes WHERE workspace_name = '%s' AND file_name NOT IN ('workspace.db', 'lookup.db')",
-		workspaceName)
-	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&nbrChanges)
-	if err != nil {
-		log.Printf("Unexpected error while reading number of changes on table workspace_changes: %v", err)
-		httpStatus = http.StatusInternalServerError
-		return
-	}
-	if nbrChanges == 0 {
-		// Compile the workspace
-		log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-		dataTableAction.Action = "workspace_insert_rows"
-		dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
-		dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
-		_, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
-	}
+	// // If local workspace has no changes in db after the file revert, recompile workspace
+	// var nbrChanges int64
+	// stmt := fmt.Sprintf(
+	// 	"SELECT count(*) FROM jetsapi.workspace_changes WHERE workspace_name = '%s' AND file_name NOT IN ('workspace.db', 'lookup.db')",
+	// 	workspaceName)
+	// err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&nbrChanges)
+	// if err != nil {
+	// 	log.Printf("Unexpected error while reading number of changes on table workspace_changes: %v", err)
+	// 	httpStatus = http.StatusInternalServerError
+	// 	return
+	// }
+	// if nbrChanges == 0 {
+	// 	// Compile the workspace
+	// 	log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
+	// 	dataTableAction.Action = "workspace_insert_rows"
+	// 	dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
+	// 	dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
+	// 	_, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
+	// }
 
 	results = &map[string]interface{}{}
 	return
@@ -748,13 +759,14 @@ func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, 
 		return
 	}
 
-	// Compile the workspace
-	log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-	dataTableAction.Action = "workspace_insert_rows"
-	dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
-	dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
-	dataTableAction.Data[0]["user_email"] = ctx.AdminEmail
-	_, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
+	// // Compile the workspace
+	// log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
+	// dataTableAction.Action = "workspace_insert_rows"
+	// dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
+	// dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
+	// dataTableAction.Data[0]["user_email"] = ctx.AdminEmail
+	// _, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
+
 	results = &map[string]interface{}{}
 	return
 }

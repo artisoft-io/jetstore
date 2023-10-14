@@ -181,7 +181,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -302,8 +302,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
-      var result = await postInsertRows(context, formState, encodedJsonBody, 
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -333,7 +333,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -368,7 +368,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -403,7 +403,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -434,7 +434,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -538,6 +538,10 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
 
     // Delete Workspace Changes (multi select)
     case ActionKeys.deleteWorkspaceChanges:
+      // Get confirmation
+      var uc = await showConfirmationDialog(
+          context, 'Are you sure you want to revert the selected change(s)?');
+      if (uc != 'OK') return null;
       final state = formState.getState(0);
       // This is a multi select table, convert the multi-select
       // that is column-oriented into a request that is row-oriented
@@ -559,43 +563,75 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
           FSK.userEmail: JetsRouterDelegate().user.email,
         });
       }
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).show();
+      }
       // print('WorkspaceHome::Delete Changes requestData: $requestData');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_workspace_changes',
         'workspaceName': wsName,
         'data': requestData,
       }, toEncodable: (_) => '');
-      JetsSpinnerOverlay.of(context).show();
+      // await postInsertRows(context, formState, encodedJsonBody,
+      //   errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
-        await postInsertRows(context, formState, encodedJsonBody,
-          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+        final result = await postRawAction(
+            context, ServerEPs.dataTableEP, encodedJsonBody);
+        if (context.mounted) {
+          JetsSpinnerOverlay.of(context).hide();
+        }
+        if (result.statusCode != 200 && result.statusCode != 401) {
+          print('Something went wrong while reverting changes: $result');
+          if (context.mounted) {
+            showAlertDialog(context, "Something went wrong. Please try again.");
+          }
+        }
       }
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
+      formState.invokeCallbacks();
       return null;
 
     // Delete ALL Workspace Changes
     case ActionKeys.deleteAllWorkspaceChanges:
+      // Get confirmation
+      var uc = await showConfirmationDialog(
+          context, 'Are you sure you want to revert the all changes?');
+      if (uc != 'OK') return null;
       final state = formState.getState(0);
       final wsName = state[FSK.wsName] as String?;
       if (wsName == null) {
         print('Delete All Workspace Changes: unexpected null workspace_name');
         return 'Delete All Workspace Changes: unexpected null workspace_name';
       }
-      JetsSpinnerOverlay.of(context).show();
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).show();
+      }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_all_workspace_changes',
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
+      // await postInsertRows(context, formState, encodedJsonBody,
+      //   errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
-        await postInsertRows(context, formState, encodedJsonBody,
-          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+        final result = await postRawAction(
+            context, ServerEPs.dataTableEP, encodedJsonBody);
+        if (context.mounted) {
+          JetsSpinnerOverlay.of(context).hide();
+        }
+        if (result.statusCode != 200 && result.statusCode != 401) {
+          print('Something went wrong while reverting all changes: $result');
+          if (context.mounted) {
+            showAlertDialog(context, "Something went wrong. Please try again.");
+          }
+        }
       }
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
+      formState.invokeCallbacks();
       return null;
 
     // Cancel Dialog / Form

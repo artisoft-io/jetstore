@@ -61,6 +61,19 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.wsURI: 2,
           }),
       ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'unitTest',
+          label: 'Unit Test',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          navigationParams: {
+            FSK.dataTableAction: "workspace_insert_rows",
+            FSK.dataTableFromTable: "unit_test",
+            FSK.wsName: 1,
+          },
+          configForm: FormKeys.startPipeline),
+      ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'deleteWorkspace',
           label: 'Delete',
@@ -72,6 +85,10 @@ final Map<String, TableConfig> _tableConfigurations = {
                 columnPos: 4,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'active'),
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'in progress'),
           ]],
           actionName: ActionKeys.deleteWorkspace),
     ],
@@ -86,8 +103,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionEnableCriterias: [[
             ActionEnableCriteria(
                 columnPos: 4,
-                criteriaType: DataTableActionEnableCriteria.contains,
-                value: 'modified'),
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'in progress'),
           ]],
           actionName: ActionKeys.compileWorkspace),
       ActionConfig(
