@@ -28,7 +28,7 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 		var gitLog string
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
-		wsUri := dataTableAction.Data[irow]["workspace_uri"]
+		wsUri := getWorkspaceUri(dataTableAction, irow)
 		gitUser := dataTableAction.Data[irow]["git.user"]
 		gitToken := dataTableAction.Data[irow]["git.token"]
 		wsCM := dataTableAction.Data[irow]["git.commit.message"]
@@ -36,7 +36,7 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 		if(wsCM != nil) {
 			wsCommitMessage = wsCM.(string)
 		}
-		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 		var buf strings.Builder
 
 		// Compile workspace
@@ -99,11 +99,11 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)
 		var gitLog string
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
-		wsUri := dataTableAction.Data[irow]["workspace_uri"]
+		wsUri := getWorkspaceUri(dataTableAction, irow)
 		gitUser := dataTableAction.Data[irow]["git.user"]
 		gitToken := dataTableAction.Data[irow]["git.token"]
 
-		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 		var buf strings.Builder
 
 		// Pull changes from repository

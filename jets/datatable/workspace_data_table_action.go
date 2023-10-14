@@ -23,6 +23,17 @@ import (
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
+func getWorkspaceUri(dataTableAction *DataTableAction, irow int) string {
+	result := os.Getenv("WORKSPACE_URI")
+	if result == "" {
+		v := dataTableAction.Data[irow]["workspace_uri"]
+		if v != nil {
+			result = v.(string)
+		}
+	}
+	return result
+}
+
 // WorkspaceInsertRows ------------------------------------------------------
 // Main insert row function with pre processing hooks for validating/authorizing the request
 // Main insert row function with post processing hooks for starting pipelines
@@ -59,13 +70,13 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing workspace_name")
 			}
 			workspaceName := dataTableAction.WorkspaceName
-			wsUri := dataTableAction.Data[irow]["workspace_uri"]
+			wsUri := getWorkspaceUri(dataTableAction, irow)
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
 			gitUserName := dataTableAction.Data[irow]["git.user.name"]
 			gitUserEmail := dataTableAction.Data[irow]["git.user.email"]
 			wsPN := dataTableAction.Data[irow]["previous.workspace_name"]
-			if(wsUri == nil || gitUser == nil || gitToken == nil || 
+			if(wsUri == "" || gitUser == nil || gitToken == nil || 
 				gitUserName == nil || gitUserEmail == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing git information")
 			}
@@ -74,7 +85,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				wsPreviousName = wsPN.(string)
 			}
 
-			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 			gitLog, err = workspaceGit.UpdateLocalWorkspace(
 				gitUserName.(string),
 				gitUserEmail.(string),
@@ -82,22 +93,24 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				gitToken.(string),
 				wsPreviousName,
 			)
+			var status string
 			if err != nil {
 				log.Printf("Error while updating local workspace: %s\n", gitLog)
 				httpStatus = http.StatusBadRequest
+				status = "error"
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = ""
+			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "commit_workspace":
 			// Validating request only, actual task performed async in post-processing section below
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
 			}
-			wsUri := dataTableAction.Data[irow]["workspace_uri"]
+			wsUri := getWorkspaceUri(dataTableAction, irow)
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == nil || gitUser == nil || gitToken == nil) {
+			if(wsUri == "" || gitUser == nil || gitToken == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
 			}
 			dataTableAction.Data[irow]["status"] = "Commit & Compile in progress"
@@ -107,12 +120,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing workspace_name")
 			}
-			wsUri := dataTableAction.Data[irow]["workspace_uri"]
+			wsUri := getWorkspaceUri(dataTableAction, irow)
 			gitCommand := dataTableAction.Data[irow]["git.command"]
-			if(wsUri == nil || gitCommand == nil) {
+			if(wsUri == "" || gitCommand == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing git information")
 			}
-			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri.(string))
+			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
 			gitLog, err = workspaceGit.GitCommandWorkspace(gitCommand.(string))
 			if err != nil {
 				log.Printf("Error while git status workspace: %s\n", gitLog)
@@ -126,30 +139,32 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing workspace_name")
 			}
-			wsUri := dataTableAction.Data[irow]["workspace_uri"]
+			wsUri := getWorkspaceUri(dataTableAction, irow)
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == nil || gitUser == nil || gitToken == nil) {
+			if(wsUri == "" || gitUser == nil || gitToken == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
 			}
-			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri.(string))
+			var status string
+			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
 			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser.(string), gitToken.(string))
 			if err != nil {
 				log.Printf("Error while push (only) workspace: %s\n", gitLog)
 				httpStatus = http.StatusBadRequest
+				status = "error"
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = ""
+			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "pull_workspace":
 			// Validating request only, actual task performed async in post-processing section below
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing workspace_name")
 			}
-			wsUri := dataTableAction.Data[irow]["workspace_uri"]
+			wsUri := getWorkspaceUri(dataTableAction, irow)
 			gitUser := dataTableAction.Data[irow]["git.user"]
 			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == nil || gitUser == nil || gitToken == nil) {
+			if(wsUri == "" || gitUser == nil || gitToken == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
 			dataTableAction.Data[irow]["status"] = "Pull & Compile in progress"
@@ -380,7 +395,6 @@ func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*ma
 //		{
 //			"key": "123",
 //			"workspace_name": "jets_ws",
-//			"workspace_uri": "uri here",
 //			"user_email": "email here"
 //		}
 //	]
@@ -431,8 +445,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 	}
 	wskey := dataTableAction.Data[0]["key"]
 	workspaceName := dataTableAction.WorkspaceName
-	wsuri := dataTableAction.Data[0]["workspace_uri"]
-	if wskey == nil || workspaceName == "" || wsuri == nil {
+	if wskey == nil || workspaceName == "" {
 		httpStatus = http.StatusBadRequest
 		err = errors.New("incomplete request")
 		return
@@ -449,16 +462,16 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 	switch requestType {
 	case "workspace_file_structure":
-		// Data/test_data (.csv, .txt)
-		// fmt.Println("** Visiting data/test_data:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
+		// // Data/test_data (.csv, .txt)
+		// // fmt.Println("** Visiting data/test_data:")
+		// workspaceNode, err = wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
+		// if err != nil {
+		// 	log.Println("while walking workspace structure:", err)
+		// 	httpStatus = http.StatusInternalServerError
+		// 	err = errors.New("error while walking workspace folder")
+		// 	return
+		// }
+		// resultData = append(resultData, workspaceNode)
 
 		// Data Model (.jr)
 		// fmt.Println("** Visiting data_model:")

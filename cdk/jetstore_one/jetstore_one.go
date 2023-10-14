@@ -1128,6 +1128,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"WORKSPACE_URI":                      jsii.String(os.Getenv("WORKSPACE_URI")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"NBR_SHARDS":                         jsii.String(nbrShards),
 		},
@@ -1435,6 +1436,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
 // WORKSPACES_HOME (required, to copy test files from workspace data folder)
 // WORKSPACE (required, to copy test files from workspace data folder)
+// WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_LOADER_CHUNCK_SIZE loader file partition size
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
@@ -1482,6 +1484,7 @@ func main() {
 	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:", os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
+	fmt.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
 	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
 	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
