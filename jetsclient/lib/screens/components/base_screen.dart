@@ -171,32 +171,25 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final ThemeData themeData = Theme.of(context);
-    var dropdownItems = [DropdownItemConfig(label: 'Select client')];
+    final dropdownItems = [DropdownItemConfig(label: 'Select client')];
+    dropdownItems.addAll(JetsRouterDelegate().clients);
     List<MenuEntry> menuEntries = [];
 
     switch (widget.screenConfig.type) {
       case ScreenType.home:
         // Home screen and all (pipeline) config & operational pages
-        // All screen with client filter
-        dropdownItems.addAll(JetsRouterDelegate().clients);
-        // JetsRouterDelegate().workspaceMenuState = [];
         menuEntries = JetsRouterDelegate().user.isAdmin
             ? widget.screenConfig.adminMenuEntries
             : widget.screenConfig.menuEntries;
         break;
       case ScreenType.other:
-        // All screens w/o client filter
-        // Screens w/o workspace content as left menu tree
-        JetsRouterDelegate().selectedClient = null;
-        // JetsRouterDelegate().workspaceMenuState = [];
         menuEntries = JetsRouterDelegate().user.isAdmin
             ? widget.screenConfig.adminMenuEntries
             : widget.screenConfig.menuEntries;
         break;
       case ScreenType.workspace:
-        // All workspace IDE screens w/o client filter
+        // All workspace IDE screens
         // All screens with workspace content in left menu tree
-        JetsRouterDelegate().selectedClient = null;
         menuEntries = JetsRouterDelegate().workspaceMenuState;
         break;
       default:
@@ -237,25 +230,24 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                           padding: const EdgeInsets.all(0.0),
                           icon: Image.asset(widget.screenConfig.leftBarLogo)))),
               const SizedBox(height: defaultPadding),
-              if (widget.screenConfig.type == ScreenType.home)
-                // Client filter drop down in left menu
-                Expanded(
-                  flex: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(40.0, 0.0, 0.0, 0.0),
-                    child: DropdownButtonFormField<String>(
-                        value: JetsRouterDelegate().selectedClient,
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            JetsRouterDelegate().selectedClient = newValue;
-                          });
-                        },
-                        items: dropdownItems
-                            .map((e) => DropdownMenuItem<String>(
-                                value: e.value, child: Text(e.label)))
-                            .toList()),
-                  ),
+              // Client filter drop down in left menu
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(40.0, 0.0, 0.0, 0.0),
+                  child: DropdownButtonFormField<String>(
+                      value: JetsRouterDelegate().selectedClient,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          JetsRouterDelegate().selectedClient = newValue;
+                        });
+                      },
+                      items: dropdownItems
+                          .map((e) => DropdownMenuItem<String>(
+                              value: e.value, child: Text(e.label)))
+                          .toList()),
                 ),
+              ),
               // Left menu as TreeView
               Expanded(
                 flex: 24,

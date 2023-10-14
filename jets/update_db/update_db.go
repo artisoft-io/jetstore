@@ -27,7 +27,8 @@ type ExtTableInfo map[string][]string
 // JETS_REGION
 // JETS_SCHEMA_FILE (default: jets_schema.json)
 // JETSAPI_DB_INIT_PATH path to workspace_init_db.sql files (workspace specific)
-// WORKSPACE_DB_PATH location of workspace db (sqlite db)
+// WORKSPACE Workspace currently in use
+// WORKSPACES_HOME Home dir of workspaces
 var lvr = flag.Bool("lvr", false, "list available volatile resource in workspace and exit")
 var dropExisting = flag.Bool("drop", false, "drop existing domain table (ALL DOMAIN TABLE CONTENT WILL BE LOST)")
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
@@ -36,7 +37,7 @@ var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ss
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
 var dsn = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
 var jetsapiDbInitPath = flag.String("jetsapiDbInitPath", "", "jetsapi init db path (required, default from JETSAPI_DB_INIT_PATH)")
-var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required or env var WORKSPACE_DB_PATH)")
+var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required or env var WORKSPACES_HOME/WORKSPACE)")
 var migrateDb = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
 var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsapi database, taking db init script path from env JETSAPI_DB_INIT_PATH (default: false)")
 var extTables ExtTableInfo = make(map[string][]string)
@@ -168,7 +169,7 @@ func doJob() error {
 }
 
 func main() {
-	fmt.Println("CMD LINE ARGS:",os.Args[1:])
+	fmt.Println("CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 
 	// validate command line arguments
@@ -209,7 +210,11 @@ func main() {
 		errMsg = append(errMsg, "jetsapi dn init path (-jetsapiDbInitPath or env JETSAPI_DB_INIT_PATH) must be provided when -initWorkspaceDb is provided.")
 	}
 	if *workspaceDb == "" {
-		*workspaceDb = os.Getenv("WORKSPACE_DB_PATH")
+		if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided or env WORKSPACES_HOME & WORKSPACE.")
+		}
+		*workspaceDb = fmt.Sprintf("%s/%s/workspace.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
 	}
 	// if *migrateDb is true, then *workspaceDb can be empty (meaning only migrate the jetsapi table)
 	if (*workspaceDb == "" || *jetsapiDbInitPath == "") && !*migrateDb {
@@ -235,9 +240,10 @@ func main() {
 	log.Println("   -drop:", *dropExisting)
 	log.Println("   -initWorkspaceDb:", *initWorkspaceDb)
 	log.Println("ENV JETSAPI_DB_INIT_PATH:", os.Getenv("JETSAPI_DB_INIT_PATH"))
-	log.Println("ENV WORKSPACE_DB_PATH:", os.Getenv("WORKSPACE_DB_PATH"))
+	log.Println("ENV WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
+	log.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))
 	if *dropExisting {
-		log.Println("WARNING Domain Tables will be dropped and recreated.")		
+		log.Println("WARNING Domain Tables will be dropped and recreated.")
 	}
 	for tableName, extColumns := range extTables {
 		log.Println("Table:", tableName, "Extended Columns:", strings.Join(extColumns, ","))

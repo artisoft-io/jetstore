@@ -45,6 +45,7 @@ var originalFileName = flag.String("originalFileName", "", "Original file name s
 var outputPath string
 var reportScriptPaths []string
 var fileKey string
+var devMode bool
 
 // NOTE 5/5/2023:
 // This run_reports utility is used by serverSM, loaderSM, and reportsSM to run reports.
@@ -76,11 +77,14 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 
 	// Fetch overriten workspace files (here we want the reports definitions in particular)
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
-	workspaceName := os.Getenv("WORKSPACE")
-	err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports", true)
-	if err != nil {
-		log.Println("Error while synching workspace file from db:",err)
-		return err
+	_,devMode = os.LookupEnv("JETSTORE_DEV_MODE")
+	if !devMode {
+		workspaceName := os.Getenv("WORKSPACE")
+		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports", true)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:",err)
+			return err
+		}	
 	}
 
 	// Do the reports

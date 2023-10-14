@@ -397,6 +397,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
+          navigationParams: {
+            FSK.dataTableAction: "insert_rows",
+            FSK.dataTableFromTable: "pipeline_execution_status",
+          },
           configForm: FormKeys.startPipeline),
       ActionConfig(
           actionType: DataTableActionType.showScreen,

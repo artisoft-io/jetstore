@@ -108,6 +108,10 @@ func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request)
 }
 
 func (server *Server) addVersionToDb(jetstoreVersion string) (err error) {
+	if jetstoreVersion == "" {
+		log.Println("Error, attempting to save empty jetstoreVersion in table jetstore_release, skipping")
+		return nil
+	}
 	// Add version to db
 	stmt := "INSERT INTO jetsapi.jetstore_release (version) VALUES ($1)"
 	_, err = server.dbpool.Exec(context.Background(), stmt, jetstoreVersion)
@@ -311,14 +315,14 @@ func (server *Server) checkWorkspaceVersion() error {
 	}
 
 	// Download overriten workspace files from s3 if any
-	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", devMode)
+	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", globalDevMode)
 	if err != nil {
 		//* TODO Log to a new workspace error table to report in UI
 		log.Println("Error while synching workspace file from database:", err)
 	}
 
 	// Check if need to recompile workspace, skip if in dev mode
-	if devMode {
+	if globalDevMode {
 		// We're in dev mode, the user is responsible to compile workspace when needed
 		return nil
 	}
@@ -347,7 +351,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		// Recompile workspace, set the workspace version to be same as jetstore version
 		// Sync unit test files from workspace to s3
 		// Skip this if in DEV MODE
-		if !devMode {
+		if !globalDevMode {
 			_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
 			if err != nil {
 				log.Println("Error while compiling workspace:", err)
