@@ -87,6 +87,12 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results = &map[string]interface{}{}
 		code = http.StatusOK
 		err = nil
+	case "get_workspace_uri":
+		results = &map[string]interface{}{
+			"workspace_uri": os.Getenv("WORKSPACE_URI"),
+		}
+		code = http.StatusOK
+		err = nil
 	default:
 		code = http.StatusUnprocessableEntity
 		err = fmt.Errorf("DoDataTableAction: unknown action: %v", dataTableAction.Action)

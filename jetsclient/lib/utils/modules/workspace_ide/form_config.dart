@@ -77,6 +77,8 @@ final Map<String, FormConfig> _formConfigurations = {
             flex: 1,
             autofocus: false,
             obscureText: false,
+            defaultValue: globalWorkspaceUri,
+            isReadOnly: globalWorkspaceUri.isNotEmpty,
             textRestriction: TextRestriction.none,
             maxLength: 120),
       ],

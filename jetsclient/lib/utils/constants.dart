@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 const defaultPadding = 16.0;
 const betweenTheButtonsPadding = 8.0;
+var globalWorkspaceUri = '';
 
 /// Button action style, used by both JetsDataTable and JetsForm
 enum ActionStyle {

@@ -78,13 +78,20 @@ Future<String?> loginFormActions(BuildContext context,
               .toList();
         }
 
-        // Inform the user and transition
-        // if (context.mounted) {
-        //   const snackBar = SnackBar(
-        //     content: Text('Login Successful!'),
-        //   );
-        //   messenger.showSnackBar(snackBar);
-        // }
+        // Get the workspace_uri from the server WORKSPACE_URI env variable
+        msg = <String, dynamic>{
+          'action': 'get_workspace_uri',
+        };
+        encodedMsg = json.encode(msg);
+        result = await HttpClientSingleton().sendRequest(
+            path: "/dataTable",
+            token: JetsRouterDelegate().user.token,
+            encodedJsonBody: encodedMsg);
+        if (result.statusCode == 401) return "Not Authorized";
+        if (result.statusCode == 200) {
+          globalWorkspaceUri = result.body['workspace_uri'] as String;
+        }
+
         JetsRouterDelegate()(JetsRouteData(
             JetsRouterDelegate().user.isAdmin ? userAdminPath : homePath));
       } else if (result.statusCode == 401) {
