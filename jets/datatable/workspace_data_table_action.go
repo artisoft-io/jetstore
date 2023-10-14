@@ -462,16 +462,16 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 	switch requestType {
 	case "workspace_file_structure":
-		// Data/test_data (.csv, .txt)
-		// fmt.Println("** Visiting data/test_data:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
+		// // Data/test_data (.csv, .txt)
+		// // fmt.Println("** Visiting data/test_data:")
+		// workspaceNode, err = wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
+		// if err != nil {
+		// 	log.Println("while walking workspace structure:", err)
+		// 	httpStatus = http.StatusInternalServerError
+		// 	err = errors.New("error while walking workspace folder")
+		// 	return
+		// }
+		// resultData = append(resultData, workspaceNode)
 
 		// Data Model (.jr)
 		// fmt.Println("** Visiting data_model:")
