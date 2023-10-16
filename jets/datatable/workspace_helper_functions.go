@@ -3,6 +3,8 @@ package datatable
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"strconv"
 	"time"
 
@@ -223,4 +225,67 @@ func unitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, tok
 	if err != nil {
 		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 	}
+}
+
+// Load workspace config
+func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction)  {
+
+	// using update_db script
+	log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+	serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
+	if ctx.UsingSshTunnel {
+		serverArgs = append(serverArgs, "-usingSshTunnel")
+	}
+	results, err := RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+
+	dataTableAction.Data[0]["last_git_log"] = results
+	dataTableAction.Data[0]["status"] = ""
+	if err != nil {
+		dataTableAction.Data[0]["status"] = "error"
+	}
+
+	// Perform the Insert Rows
+	sqlStmt := sqlInsertStmts["unit_test"]
+	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	for jcol, colKey := range sqlStmt.ColumnKeys {
+		row[jcol] = dataTableAction.Data[0][colKey]
+	}
+
+	_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+	if err != nil {
+		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+	}
+}
+
+// Run update_db
+func RunUpdateDb(workspaceName string, serverArgs *[]string) (string, error) {
+	log.Printf("Run update_db: %s", *serverArgs)
+	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
+	cmd.Env = append(os.Environ(),
+	fmt.Sprintf("WORKSPACE=%s", workspaceName),
+	)
+	var buf strings.Builder
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	result := buf.String()
+	if err != nil {
+		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println(result)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT END")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return result, err
+	}
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+	log.Println("============================")
+	log.Println(result)
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT END")
+	log.Println("============================")
+	return result, nil
 }

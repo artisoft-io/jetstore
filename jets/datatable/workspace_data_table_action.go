@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
 	// "strconv"
 	// "time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/user"
+
 	// "github.com/artisoft-io/jetstore/jets/workspace"
 	// "github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
@@ -177,6 +179,13 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = "Compile in progress"
 
+		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "load_workspace_config"):
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
+			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = "Load config in progress"
+
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for unit_test, missing workspace_name")
@@ -251,6 +260,10 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 		go unitTestWorkspaceAction(ctx, dataTableAction, token)
+
+	case dataTableAction.FromClauses[0].Table == "load_workspace_config":
+		// Load workspace config
+		go loadWorkspaceConfigAction(ctx, dataTableAction)
 
 	}
 	returnResults:
@@ -588,6 +601,50 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 	// fmt.Println(string(v))
 	// fmt.Println("*** Workspace Structure ***")
 	results = &v
+	return
+}
+
+// AddWorkspaceFile --------------------------------------------------------------------------
+// Function to add a workspace file
+func (ctx *Context) AddWorkspaceFile(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	workspaceName := dataTableAction.WorkspaceName
+	if workspaceName == "" {
+		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name")
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	for ipos := range dataTableAction.Data {
+		request := dataTableAction.Data[ipos]
+		wsFileName := request["source_file_name"]
+		if wsFileName == nil {
+			err = fmt.Errorf("GetWorkspaceFileContent: missing file_name")
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
+		var fileName string
+		fileName, err = url.QueryUnescape(wsFileName.(string))
+		if err != nil {
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
+	
+		// Creatae an empty file to local workspace
+		var myfile *os.File
+		myfile, err = os.Create(fileName) 
+    if err != nil { 
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+    } 
+    myfile.Close() 		
+		results = &map[string]interface{}{
+			"file_name":    wsFileName,
+		}	
+	}
 	return
 }
 

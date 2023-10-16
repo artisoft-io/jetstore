@@ -42,14 +42,14 @@ const userAdminPath = '/userAdmin';
 const workspaceRegistryPath = '/workspaces';
 const workspaceHomePath = '/workspaces/:workspace_name/home';
 
-const wsDomainClassesPath = '/workspaces/:workspace_name/domainClasses';
-const wsDomainClasseDetailsPath =
-    '/workspaces/:workspace_name/domainClasses/:class_name';
-const wsDomainTablesPath = '/workspaces/:workspace_name/domainTables';
-const wsDomainTableDetailsPath =
-    '/workspaces/:workspace_name/domainTables/:table_name';
-const wsJetRulesPath = '/workspaces/:workspace_name/jetRules';
-const wsJetRuleDetailsPath = '/workspaces/:workspace_name/jetRules/:rule_name';
+// const wsDomainClassesPath = '/workspaces/:workspace_name/domainClasses';
+// const wsDomainClasseDetailsPath =
+//     '/workspaces/:workspace_name/domainClasses/:class_name';
+// const wsDomainTablesPath = '/workspaces/:workspace_name/domainTables';
+// const wsDomainTableDetailsPath =
+//     '/workspaces/:workspace_name/domainTables/:table_name';
+// const wsJetRulesPath = '/workspaces/:workspace_name/jetRules';
+// const wsJetRuleDetailsPath = '/workspaces/:workspace_name/jetRules/:rule_name';
 
 final Map<String, Widget> jetsRoutesMap = {
   // Home Screen

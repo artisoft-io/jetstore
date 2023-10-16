@@ -135,6 +135,7 @@ class FormKeys {
   static const doGitCommandWorkspace = "doGitCommandWorkspaceDialog";
   static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
   static const exportWorkspaceClientConfig = "exportWorkspaceClientConfig";
+  static const addWorkspaceFile = "addWorkspaceFileDialog";
   // Forms for each section of the workspace, incl file editor
   // Note: The formConfig key is constructed in initializeWorkspaceFileEditor
   static const workspaceFileEditor = "workspace.file.form";
@@ -262,6 +263,11 @@ class FSK {
   static const gitCommand = "git.command";
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
+  // Virtual workspace key
+  static const wsSection = "workspce.section";  //data_model, jet_rules, etc.
+
+  // workspace.db columns
+  static const wsDbSourceFileName = "source_file_name";
 
   // reserved keys for cache
 
@@ -377,10 +383,13 @@ class ActionKeys {
   static const pullWorkspaceOk = "pullWorkspaceOk";
   static const doGitCommandWorkspaceOk = "doGitCommandWorkspaceOk";
   static const wsSaveFileOk = "wsSaveFileOk";
+  static const loadWorkspaceConfig = "loadWorkspaceConfig";
   static const deleteWorkspace = "deleteWorkspace";
   static const deleteWorkspaceChanges = "deleteWorkspaceChanges";
   static const deleteAllWorkspaceChanges = "deleteAllWorkspaceChanges";
   static const exportClientConfigOk = "exportClientConfigOk";
+  static const addWorkspaceFilesOk = "addWorkspaceFilesOk";
+  static const deleteWorkspaceFiles = "deleteWorkspaceFiles";
 }
 
 /// Form Action Keys
@@ -453,6 +462,7 @@ class DTKeys {
   static const wsDomainTableTable = "wsDomainTableTable";
   static const wsDomainClassTable = "wsDomainClassTable";
   static const wsDataPropertyTable = "wsDataPropertyTable";
+  static const wsDataModelFilesTable = "wsDataModelFilesTable";
 
   // Workspace - Jet Rules Tables
   static const wsJetRulesTable = "wsJetRulesTable";

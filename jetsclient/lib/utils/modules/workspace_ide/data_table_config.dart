@@ -75,6 +75,20 @@ final Map<String, TableConfig> _tableConfigurations = {
           configForm: FormKeys.startPipeline),
       ActionConfig(
           actionType: DataTableActionType.doAction,
+          key: 'loadWorkspaceConfig',
+          label: 'Load Config',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionEnableCriterias: [[
+            ActionEnableCriteria(
+                columnPos: 4,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'in progress'),
+          ]],
+          actionName: ActionKeys.loadWorkspaceConfig),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
           key: 'deleteWorkspace',
           label: 'Delete',
           style: ActionStyle.danger,
@@ -605,6 +619,90 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortColumnTableName: 'domain_tables',
     sortAscending: true,
     rowsPerPage: 20,
+  ),
+
+  // Workspace - Data Model Tables
+  // data model files table
+  DTKeys.wsDataModelFilesTable: TableConfig(
+    key: DTKeys.wsDataModelFilesTable,
+    fromClauses: [
+      FromClause(schemaName: "\$SCHEMA", tableName: 'workspace_control'),
+    ],
+    label: 'Data Model Files',
+    apiPath: '/dataTable',
+    apiAction: 'workspace_read',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(
+          table: "workspace_control",
+          column: "source_file_name",
+          like: "data_model/%"),
+    ],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addWorkspaceFile',
+          label: 'Add File',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          navigationParams: {
+            FSK.wsSection: "data_model/",
+            FSK.wsDbSourceFileName: "data_model/",
+          },
+          stateFormNavigationParams: {
+            FSK.wsName: FSK.wsName,
+          },
+          configForm: FormKeys.addWorkspaceFile),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteWorkspaceFiles',
+          label: 'Delete',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteWorkspaceFiles),
+
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.wsDbSourceFileName,
+        columnIdx: 1,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          table: "workspace_control",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "source_file_name",
+          table: "workspace_control",
+          label: 'File Name',
+          tooltips: 'Workspace File Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "is_main",
+          table: "workspace_control",
+          label: 'Main Rule File?',
+          tooltips: 'Indicate if file is a main rule file',
+          isNumeric: false),
+    ],
+    sortColumnName: 'source_file_name',
+    sortColumnTableName: 'workspace_control',
+    sortAscending: true,
+    rowsPerPage: 50,
   ),
 
   // Workspace - Jet Rules Tables
