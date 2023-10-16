@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+
 	// "strconv"
 	// "time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/user"
+
 	// "github.com/artisoft-io/jetstore/jets/workspace"
 	// "github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
@@ -177,6 +180,13 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = "Compile in progress"
 
+		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "load_workspace_config"):
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
+			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = "Load config in progress"
+
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for unit_test, missing workspace_name")
@@ -251,6 +261,10 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 		go unitTestWorkspaceAction(ctx, dataTableAction, token)
+
+	case dataTableAction.FromClauses[0].Table == "load_workspace_config":
+		// Load workspace config
+		go loadWorkspaceConfigAction(ctx, dataTableAction)
 
 	}
 	returnResults:
@@ -455,9 +469,8 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		err = errors.New("incomplete request")
 		return
 	}
-	wskey := dataTableAction.Data[0]["key"]
 	workspaceName := dataTableAction.WorkspaceName
-	if wskey == nil || workspaceName == "" {
+	if workspaceName == "" {
 		httpStatus = http.StatusBadRequest
 		err = errors.New("incomplete request")
 		return
@@ -572,13 +585,11 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 	var v []byte
 	v, err = json.Marshal(wsfile.WorkspaceStructure{
-		Key:           wskey.(string),
 		WorkspaceName: workspaceName,
 		ResultType:    requestType,
 		ResultData:    &resultData,
 	})
 	// v, err = json.MarshalIndent(WorkspaceStructure{
-	// 	Key: wskey.(string),
 	// 	WorkspaceName: workspaceName,
 	// 	ResultType: requestType,
 	// 	ResultData: &resultData,
@@ -590,6 +601,112 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 	results = &v
 	return
 }
+
+// AddWorkspaceFile --------------------------------------------------------------------------
+// Function to add a workspace file
+func (ctx *Context) addWorkspaceFile(dataTableAction *DataTableAction, token string) (err error) {
+	workspaceName := dataTableAction.WorkspaceName
+	if workspaceName == "" {
+		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name")
+		fmt.Println(err)
+		return
+	}
+	for ipos := range dataTableAction.Data {
+		request := dataTableAction.Data[ipos]
+		wsFileName := request["source_file_name"]
+		if wsFileName == nil {
+			err = fmt.Errorf("GetWorkspaceFileContent: missing file_name")
+			fmt.Println(err)
+			return
+		}
+		var fileName string
+		fileName, err = url.QueryUnescape(wsFileName.(string))
+		fullFileName := fmt.Sprintf("%s/%s/%s",os.Getenv("WORKSPACES_HOME"),workspaceName, fileName)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	
+		// Create an empty file to local workspace
+		var myfile *os.File
+		fileDir :=filepath.Dir(fullFileName)
+    if err = os.MkdirAll(fileDir, 0770); err != nil {
+			err = fmt.Errorf("while creating file directory structure: %v", err)
+			fmt.Println(err)
+			return
+		}
+
+		myfile, err = os.Create(fullFileName) 
+    if err != nil { 
+			err = fmt.Errorf("while creating workspace file: %v", err)
+			fmt.Println(err)
+			return
+    } 
+    myfile.Close() 		
+	}
+	return
+}
+
+// AddWorkspaceFile
+func (ctx *Context) AddWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	err = ctx.addWorkspaceFile(dataTableAction, token)
+	if err != nil {
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	dataTableAction.Action = "workspace_query_structure"
+	dataTableAction.FromClauses = []FromClause{{Table: "workspace_file_structure"}}
+	return ctx.WorkspaceQueryStructure(dataTableAction, token)
+}
+
+// DeleteWorkspaceFile
+func (ctx *Context) DeleteWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
+	httpStatus = http.StatusOK
+	workspaceName := dataTableAction.WorkspaceName
+	if workspaceName == "" {
+		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name")
+		fmt.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
+	}
+	for ipos := range dataTableAction.Data {
+		request := dataTableAction.Data[ipos]
+		wsFileName := request["source_file_name"]
+		if wsFileName == nil {
+			err = fmt.Errorf("GetWorkspaceFileContent: missing file_name")
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
+		var fileName string
+		if fileName, err = url.QueryUnescape(wsFileName.(string)); err != nil {
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
+		fullFileName := fmt.Sprintf("%s/%s/%s",os.Getenv("WORKSPACES_HOME"),workspaceName, fileName)
+		// Write empty file to local workspace & db
+		if err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, ""); err != nil {
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
+
+		// Delete the local file
+		err = os.Remove(fullFileName) 
+    if err != nil { 
+			err = fmt.Errorf("while removing workspace file: %v", err)
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+    } 		
+	}
+	dataTableAction.Action = "workspace_query_structure"
+	dataTableAction.FromClauses = []FromClause{{Table: "workspace_file_structure"}}
+	return ctx.WorkspaceQueryStructure(dataTableAction, token)
+}
+
 
 // GetWorkspaceFileContent --------------------------------------------------------------------------
 // Function to get the workspace file content based on relative file name

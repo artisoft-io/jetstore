@@ -549,6 +549,43 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceHomeFormActions,
   ),
 
+  // Add Workspace File Dialog
+  FormKeys.addWorkspaceFile: FormConfig(
+    key: FormKeys.addWorkspaceFile,
+    title: "Add Workspace File",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.addWorkspaceFilesOk,
+          label: "Add File",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsDbSourceFileName,
+            label: "File Name",
+            hint: "Enter file name, keeping the directory prefix",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 200),
+      ],
+    ],
+    // constraint to be from FormKeys.wsDataModelForm since it's a tab
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate:   workspaceIDEFormActions,
+  ),
+
   // Workspace Domain Class Table
   FormKeys.wsDataModelForm: FormConfig(
     key: FormKeys.wsDataModelForm,
@@ -571,9 +608,14 @@ final Map<String, FormConfig> _formConfigurations = {
           inputField: FormDataTableFieldConfig(
               key: DTKeys.wsDomainTableTable,
               dataTableConfig: DTKeys.wsDomainTableTable)),
+      FormTabConfig(
+          label: 'Data Model Files',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsDataModelFilesTable,
+              dataTableConfig: DTKeys.wsDataModelFilesTable)),
     ],
     formValidatorDelegate: workspaceIDEFormValidator,
-    formActionsDelegate: workspaceIDEFormActions,
+    formActionsDelegate:   workspaceIDEFormActions,
   ),
 
   // Workspace Jet Rules Table
@@ -598,6 +640,11 @@ final Map<String, FormConfig> _formConfigurations = {
           inputField: FormDataTableFieldConfig(
               key: DTKeys.wsMainSupportFilesTable,
               dataTableConfig: DTKeys.wsMainSupportFilesTable)),
+      FormTabConfig(
+          label: 'Jet Rules Files',
+          inputField: FormDataTableFieldConfig(
+              key: DTKeys.wsJetRulesFilesTable,
+              dataTableConfig: DTKeys.wsJetRulesFilesTable)),
     ],
     formValidatorDelegate: workspaceIDEFormValidator,
     formActionsDelegate: workspaceIDEFormActions,

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -11,10 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -121,38 +120,6 @@ func (server *Server) addVersionToDb(jetstoreVersion string) (err error) {
 	return nil
 }
 
-// Run update_db
-func (server *Server) runUpdateDb(serverArgs *[]string) error {
-	if *usingSshTunnel {
-		*serverArgs = append(*serverArgs, "-usingSshTunnel")
-	}
-	log.Printf("Run update_db: %s", *serverArgs)
-	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
-	var b bytes.Buffer
-	cmd.Stdout = &b
-	cmd.Stderr = &b
-	err := cmd.Run()
-	if err != nil {
-		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		b.WriteTo(os.Stdout)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT END")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		return err
-	}
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-	log.Println("============================")
-	b.WriteTo(os.Stdout)
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT END")
-	log.Println("============================")
-	return nil
-}
-
 // Check JetStore DB schema exist, create if not
 func (server *Server) checkJetStoreSchema() error {
 	tableExists, err := schema.DoesTableExists(server.dbpool, "jetsapi", "jetstore_release")
@@ -235,9 +202,9 @@ func (server *Server) checkJetStoreDbVersion() error {
 		if *usingSshTunnel {
 			serverArgs = append(serverArgs, "-usingSshTunnel")
 		}
-		err = server.runUpdateDb(&serverArgs)
+		_,err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
 		if err != nil {
-			return fmt.Errorf("while calling runUpdateDb: %v", err)
+			return fmt.Errorf("while calling RunUpdateDb: %v", err)
 		}
 	}
 	return nil

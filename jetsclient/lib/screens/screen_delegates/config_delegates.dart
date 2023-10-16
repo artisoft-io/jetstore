@@ -446,7 +446,7 @@ String? processInputFormValidator(
       entityRdfType != null) {
     switch (sourceType) {
       case 'file':
-        var org = formState.getValue(group, FSK.org);
+        final org = formState.getValue(group, FSK.org);
         if (org != null) {
           var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType);
           if (row == null) {
@@ -553,7 +553,7 @@ String? processInputFormValidator(
         formState.markFormKeyAsValid(group, key);
         return null;
       }
-      var defaultValue =
+      final defaultValue =
           formState.getValue(group, FSK.mappingDefaultValue) as String?;
       if (defaultValue != null && defaultValue.isNotEmpty) {
         formState.markFormKeyAsValid(group, key);
