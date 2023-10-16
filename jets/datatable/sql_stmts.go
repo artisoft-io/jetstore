@@ -215,6 +215,13 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition {
 			= ($1, $2, $3, DEFAULT) WHERE workspace_name = $4`,
 		ColumnKeys: []string{"last_git_log", "status", "user_email", "workspace_name"},
 	},
+	// load_workspace_config (insert into workspace_registry and trigger server local execution via datatable.InsertRow)
+	"load_workspace_config": {
+		Stmt: `UPDATE jetsapi.workspace_registry SET
+			(last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, DEFAULT) WHERE workspace_name = $4`,
+		ColumnKeys: []string{"last_git_log", "status", "user_email", "workspace_name"},
+	},
 	// unit test workspace (insert into workspace_registry and trigger server local execution via datatable.InsertRow)
 	"unit_test": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
