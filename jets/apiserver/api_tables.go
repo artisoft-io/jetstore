@@ -62,6 +62,27 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		}
 		JSONB(w, http.StatusOK, *resultsB)
 		return
+
+	case "add_workspace_file":
+		resultsB, code, err := context.AddWorkspaceFile(&dataTableAction, token)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, code, err)
+			return
+		}
+		JSONB(w, http.StatusOK, *resultsB)
+		return
+
+	case "delete_workspace_files":
+		resultsB, code, err := context.DeleteWorkspaceFile(&dataTableAction, token)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, code, err)
+			return
+		}
+		JSONB(w, http.StatusOK, *resultsB)
+		return
+
 	case "get_workspace_file_content":
 		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, token)
 	case "save_workspace_file_content":

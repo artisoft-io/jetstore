@@ -705,6 +705,90 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 50,
   ),
 
+  // Workspace - Jet Rules Table
+  // jet rules files table
+  DTKeys.wsJetRulesFilesTable: TableConfig(
+    key: DTKeys.wsJetRulesFilesTable,
+    fromClauses: [
+      FromClause(schemaName: "\$SCHEMA", tableName: 'workspace_control'),
+    ],
+    label: 'Jet Rules Files',
+    apiPath: '/dataTable',
+    apiAction: 'workspace_read',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [
+      WhereClause(
+          table: "workspace_control",
+          column: "source_file_name",
+          like: "jet_rules/%"),
+    ],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addWorkspaceFile',
+          label: 'Add File',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          navigationParams: {
+            FSK.wsSection: "jet_rules/",
+            FSK.wsDbSourceFileName: "jet_rules/",
+          },
+          stateFormNavigationParams: {
+            FSK.wsName: FSK.wsName,
+          },
+          configForm: FormKeys.addWorkspaceFile),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteWorkspaceFiles',
+          label: 'Delete',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteWorkspaceFiles),
+
+    ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.wsDbSourceFileName,
+        columnIdx: 1,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          table: "workspace_control",
+          label: 'Key',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "source_file_name",
+          table: "workspace_control",
+          label: 'File Name',
+          tooltips: 'Workspace File Name',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "is_main",
+          table: "workspace_control",
+          label: 'Main Rule File?',
+          tooltips: 'Indicate if file is a main rule file',
+          isNumeric: false),
+    ],
+    sortColumnName: 'source_file_name',
+    sortColumnTableName: 'workspace_control',
+    sortAscending: true,
+    rowsPerPage: 50,
+  ),
+
   // Workspace - Jet Rules Tables
   // jet_rules table
   DTKeys.wsJetRulesTable: TableConfig(

@@ -264,7 +264,7 @@ class FSK {
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
   // Virtual workspace key
-  static const wsSection = "workspce.section";  //data_model, jet_rules, etc.
+  static const wsSection = "workspace.section";  //data_model, jet_rules, etc.
 
   // workspace.db columns
   static const wsDbSourceFileName = "source_file_name";
@@ -468,6 +468,7 @@ class DTKeys {
   static const wsJetRulesTable = "wsJetRulesTable";
   static const wsRuleTermsTable = "wsRuleTermsTable";
   static const wsMainSupportFilesTable = "wsMainSupportFilesTable";
+  static const wsJetRulesFilesTable = "wsJetRulesFilesTable";
 
   static const wsLookupsTable = "wsLookupsTable";
 }
