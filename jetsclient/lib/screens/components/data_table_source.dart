@@ -317,6 +317,15 @@ class JetsDataTableSource extends ChangeNotifier {
     if (!predicateSatisfied) {
       return null;
     }
+    
+    // Check if whereclause contain a like operator
+    if (wc.like != null) {
+      return <String, dynamic>{
+        'table': wc.table ?? '',
+        'column': columnName,
+        'like': wc.like,
+      };
+    }
 
     if (config == null || wc.formStateKey == null) {
       if (wc.defaultValue.isNotEmpty) {

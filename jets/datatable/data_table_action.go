@@ -92,6 +92,7 @@ type WhereClause struct {
 	Column   string   `json:"column"`
 	Values   []string `json:"values"`
 	JoinWith string   `json:"joinWith"`
+	Like     string   `json:"like"`
 }
 
 // DataTableColumnDef used when returning the column definition
@@ -312,6 +313,11 @@ func (dtq *DataTableAction) makeWhereClause() string {
 			}
 		}
 		switch {
+		case len(dtq.WhereClauses[i].Like) > 0:
+			buf.WriteString(" like ")
+			buf.WriteString("'")
+			buf.WriteString(dtq.WhereClauses[i].Like)
+			buf.WriteString("' ")
 		case len(dtq.WhereClauses[i].JoinWith) > 0:
 			buf.WriteString(" = ")
 			buf.WriteString(dtq.WhereClauses[i].JoinWith)
