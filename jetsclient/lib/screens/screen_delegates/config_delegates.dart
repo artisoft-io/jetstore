@@ -361,21 +361,27 @@ Future<String?> sourceConfigActions(BuildContext context,
       // }
       var state = formState.getState(0);
       // Fields comming from table selected row will be in array, unpack the value
-      state[FSK.client] = state[FSK.client][0];
-      state[FSK.org] = state[FSK.org][0];
-      state[FSK.objectType] = state[FSK.objectType][0];
-      state[FSK.tableName] = state[FSK.tableName][0];
-      state[FSK.fileKey] = state[FSK.fileKey][0];
-      state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
-      state['status'] = StatusKeys.submitted;
-      state['user_email'] = JetsRouterDelegate().user.email;
-      state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
+      // Updated: This is now multi select table, convert column array to multiple rows
+      List<dynamic> requestData = [];
+      for (var i = 0; i < state[FSK.fileKey].length; i++) {
+        requestData.add(<String, dynamic>{
+          FSK.client: state[FSK.client][0],
+          FSK.org: state[FSK.org][0],
+          FSK.objectType: state[FSK.objectType][0],
+          FSK.tableName: state[FSK.tableName][0],
+          FSK.fileKey: state[FSK.fileKey][i],
+          FSK.sourcePeriodKey: state[FSK.sourcePeriodKey][i],
+          FSK.status: StatusKeys.submitted,
+          FSK.userEmail: JetsRouterDelegate().user.email,
+          FSK.sessionId: "${DateTime.now().millisecondsSinceEpoch + i}",
+        });
+      }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [
           <String, String>{'table': 'input_loader_status'}
         ],
-        'data': [state],
+        'data': requestData,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       return postInsertRows(context, formState, encodedJsonBody);
