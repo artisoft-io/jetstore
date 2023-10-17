@@ -225,12 +225,19 @@ final fileKeyStagingColumns = [
       isNumeric: true),
   ColumnConfig(
       index: 8,
+      name: "day_period",
+      table: "source_period",
+      label: 'Day Period',
+      tooltips: 'Day Period since begin of epoch',
+      isNumeric: false),
+  ColumnConfig(
+      index: 9,
       name: "last_update",
       label: 'Last Update',
       tooltips: 'When the file was received',
       isNumeric: false),
   ColumnConfig(
-      index: 9,
+      index: 10,
       name: "source_period_key",
       label: 'Source Period Key',
       tooltips: '',
@@ -1162,7 +1169,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     label: 'File Key Staging',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
+    isCheckboxSingleSelect: false,
     defaultToAllRows: true, // when where clause fails
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
@@ -1200,13 +1207,13 @@ final Map<String, TableConfig> _tableConfigurations = {
       ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.sourcePeriodKey,
-        columnIdx: 9,
+        columnIdx: 10,
       ),
     ]),
     columns: fileKeyStagingColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
-    rowsPerPage: 10,
+    rowsPerPage: 20,
   ),
 
   // File Key Staging Data Table used to multi-load files

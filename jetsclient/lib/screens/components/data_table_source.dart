@@ -68,8 +68,8 @@ class JetsDataTableSource extends ChangeNotifier {
     // but should not update it since they are reset here regardless
     // of the other widgets.
     final config = state.formFieldConfig!;
-    List<Set<String>> secondaryValues =
-        List.generate(formStateConfig.otherColumns.length, (_) => <String>{});
+    List<List<String>> secondaryValues =
+        List.generate(formStateConfig.otherColumns.length, (_) => <String>[]);
     Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
     if (itor != null) {
       for (final JetsRow selRow in itor) {
@@ -94,7 +94,7 @@ class JetsDataTableSource extends ChangeNotifier {
         // print(
         //     "${config.key}: Secondary Value ${otherColConfig.stateKey} Set to ${secondaryValues[i].toList().join(",")}");
         formState.setValue(
-            config.group, otherColConfig.stateKey, secondaryValues[i].toList());
+            config.group, otherColConfig.stateKey, secondaryValues[i]);
       }
     }
   }
