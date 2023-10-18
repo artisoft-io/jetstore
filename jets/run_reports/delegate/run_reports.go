@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,7 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("recovered error: %v", r)
+			debug.PrintStack()
 		}
 	}()
 

@@ -179,77 +179,79 @@ func parseColumn(column *string) []string {
 //* TODO Add case when no domain key info is provided, use jets:key as the domain_key
 func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainKeysJson *string) error {
 	var ok bool
-	if *domainKeysJson != "" {
-		var f interface{}
-		err := json.Unmarshal([]byte(*domainKeysJson), &f)
-		if err != nil {
-			fmt.Println("while parsing domainKeysJson using json parser:", err)
-			return err
-		}
-		// Extract the domain keys structure from the json
-		switch value := f.(type) {
-		case string:
-				// fmt.Println("*** Domain Key is single column", value)
-				dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
-					ColumnNames: []string{value},
-					ObjectType: mainObjectType,
-				}
-		case []interface{}:
-			// fmt.Println("*** Domain Key is a composite key", value)
-			ck := make([]string, 0)
-			for i := range value {
-				if reflect.TypeOf(value[i]).Kind() == reflect.String {
-					ck = append(ck, value[i].(string))
-				}
-			}
+	if *domainKeysJson == "" {
+		log.Println("No domain key defined (domainKeysJson is empty), using jets:key as default")
+		*domainKeysJson = "\"jets:key\""
+	}
+	var f interface{}
+	err := json.Unmarshal([]byte(*domainKeysJson), &f)
+	if err != nil {
+		fmt.Println("while parsing domainKeysJson using json parser:", err)
+		return err
+	}
+	// Extract the domain keys structure from the json
+	switch value := f.(type) {
+	case string:
+			// fmt.Println("*** Domain Key is single column", value)
 			dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
-				ColumnNames: ck,
+				ColumnNames: []string{value},
 				ObjectType: mainObjectType,
 			}
-		case map[string]interface{}:
-			// fmt.Println("*** Domain Key is a struct of composite keys", value)
-			for k, v := range value {
-				switch vv := v.(type) {
-				case string:
-					if k == "jets:hashing_override" {
-						dkInfo.HashingAlgo = vv
-						dkInfo.HashingOverriden = true
-					} else {
-						dkInfo.DomainKeysInfoMap[k] = &DomainKeyInfo{
-							ColumnNames: []string{vv},
-							ObjectType: k,
-						}
-					}
-				case []interface{}:
-					ck := make([]string, 0)
-					for i := range vv {
-						if reflect.TypeOf(vv[i]).Kind() == reflect.String {
-							ck = append(ck, vv[i].(string))
-						}
-					}
+	case []interface{}:
+		// fmt.Println("*** Domain Key is a composite key", value)
+		ck := make([]string, 0)
+		for i := range value {
+			if reflect.TypeOf(value[i]).Kind() == reflect.String {
+				ck = append(ck, value[i].(string))
+			}
+		}
+		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
+			ColumnNames: ck,
+			ObjectType: mainObjectType,
+		}
+	case map[string]interface{}:
+		// fmt.Println("*** Domain Key is a struct of composite keys", value)
+		for k, v := range value {
+			switch vv := v.(type) {
+			case string:
+				if k == "jets:hashing_override" {
+					dkInfo.HashingAlgo = vv
+					dkInfo.HashingOverriden = true
+				} else {
 					dkInfo.DomainKeysInfoMap[k] = &DomainKeyInfo{
-						ColumnNames: ck,
+						ColumnNames: []string{vv},
 						ObjectType: k,
 					}
-				default:
-						fmt.Println("domainKeysJson contains",vv,"which is of a type that is not supported")
 				}
+			case []interface{}:
+				ck := make([]string, 0)
+				for i := range vv {
+					if reflect.TypeOf(vv[i]).Kind() == reflect.String {
+						ck = append(ck, vv[i].(string))
+					}
+				}
+				dkInfo.DomainKeysInfoMap[k] = &DomainKeyInfo{
+					ColumnNames: ck,
+					ObjectType: k,
+				}
+			default:
+					fmt.Println("domainKeysJson contains",vv,"which is of a type that is not supported")
 			}
-		default:
-			fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
 		}
+	default:
+		fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
+	}
 
-		// Extract the preprocessing functions that are decorating the column names (if any)
-		// regex to extract preprocessing function, e.g., format_date(columnName)
-		for _,dk := range dkInfo.DomainKeysInfoMap {
-			dk.PreprocessFnc = make([]string, len(dk.ColumnNames))
-			for i := range dk.ColumnNames {
-				v := parseColumn(&dk.ColumnNames[i])
-				if v != nil {
-					dk.ColumnNames[i] = v[2]
-					dk.PreprocessFnc[i] = v[1]
-				}		
-			}
+	// Extract the preprocessing functions that are decorating the column names (if any)
+	// regex to extract preprocessing function, e.g., format_date(columnName)
+	for _,dk := range dkInfo.DomainKeysInfoMap {
+		dk.PreprocessFnc = make([]string, len(dk.ColumnNames))
+		for i := range dk.ColumnNames {
+			v := parseColumn(&dk.ColumnNames[i])
+			if v != nil {
+				dk.ColumnNames[i] = v[2]
+				dk.PreprocessFnc[i] = v[1]
+			}		
 		}
 	}
 
