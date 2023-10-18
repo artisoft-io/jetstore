@@ -151,6 +151,9 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 	// Package entityKeyByType
 	entityKeyByTypeResult := make(map[string][]byte)
 	for rdfType, keys := range entityKeyByType {
+		sort.Slice(*keys, func(i, j int) bool { 
+			return (*keys)[i][0] < (*keys)[j][0]
+		})
 		r, err := json.Marshal(*keys)
 		if err != nil {
 			return nil, err
@@ -161,7 +164,16 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 
 	// Package entityDetailsByKey
 	entityDetailsByKeyResult := make(map[string][]byte)
-	for key, details := range entityKeyByType {
+	for key, details := range entityDetailsByKey {
+		sort.Slice(*details, func(i, j int) bool { 
+			if (*details)[i][0] == (*details)[j][0] {
+				if (*details)[i][1] == (*details)[j][1] {
+					return (*details)[i][2] < (*details)[j][2]
+				}
+				return (*details)[i][1] < (*details)[j][1]	
+			}
+			return (*details)[i][0] < (*details)[j][0]
+		})
 		r, err := json.Marshal(*details)
 		if err != nil {
 			return nil, err
