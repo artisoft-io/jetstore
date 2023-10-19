@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -24,10 +25,10 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"github.com/dimchansky/utfbom"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/dimchansky/utfbom"
 )
 
 // Command Line Arguments
@@ -429,6 +430,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInf
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("recovered error: %v", r)
+			debug.PrintStack()
 		}
 	}()
 

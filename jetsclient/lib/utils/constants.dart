@@ -117,6 +117,7 @@ class FormKeys {
   static const viewProcessErrors = "viewProcessErrorsForm";
   static const viewInputRecords = "viewInputRecordsDialog";
   static const viewReteTriples = "viewReteTriplesDialog";
+  static const viewReteTriplesV2 = "viewReteTriplesDialogV2";
   // Query Tool Forms
   static const queryToolInputForm = "queryToolInputForm";
   static const queryToolResultViewForm = "queryToolResultViewForm";
@@ -184,6 +185,10 @@ class FSK {
   static const inputColumnsPositionsCsv = "input_columns_positions_csv";
   static const codeValuesMappingJson = "code_values_mapping_json";
   static const entityRdfType = "entity_rdf_type";
+  static const entityKey = "entity_key";
+  static const entityProperty = "entity_property";
+  static const entityPropertyValue = "entity_property_value";
+  static const entityPropertyValueType = "entity_property_value_type";
   static const status = "status";
   static const rawRows = "raw_rows";
 
@@ -191,7 +196,10 @@ class FSK {
   static const domainKey = "domain_key";
   static const domainKeyColumn =
       "domainKeyColumn"; // e.g. Eligibility:domain_key
-  static const reteSessionTriples = "rete_session_triples";
+  static const reteSessionTriples = "rete_session.triples";
+  static const reteSessionRdfTypes = "rete_session.rdf_types";
+  static const reteSessionEntityKeyByType = "rete_session.entity_key_by_type";
+  static const reteSessionEntityDetailsByKey = "rete_session.entity_details_by_key";
 
   // Query Tool
   static const rawQuery = "raw_query";
@@ -264,7 +272,7 @@ class FSK {
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
   // Virtual workspace key
-  static const wsSection = "workspace.section";  //data_model, jet_rules, etc.
+  static const wsSection = "workspace.section"; //data_model, jet_rules, etc.
 
   // workspace.db columns
   static const wsDbSourceFileName = "source_file_name";
@@ -372,7 +380,9 @@ class ActionKeys {
 
   // for process_error data table
   static const setupShowInputRecords = "setupShowInputRecords";
-  static const setupShowReteTriples = "setupShowReteTriples";
+  static const setupShowReteTriples = "reteSession.setupTriples";
+  static const setupShowReteTriplesV2 = "reteSession.setupModelV2";
+  static const reteSessionVisitEntity = "reteSession.VisitEntity";
 
   // Workspace IDE ActionKeys
   static const addWorkspaceOk = "addWorkspaceOk";
@@ -410,7 +420,12 @@ class DTKeys {
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
+  // View rete session triples v1
   static const reteSessionTriplesTable = "reteSessionTriplesTable";
+  // View rete session v2 - rete session explorer
+  static const reteSessionRdfTypeTable = "reteSessionRdfTypeTable";
+  static const reteSessionEntityKeyTable = "reteSessionEntityKeyTable";
+  static const reteSessionEntityDetailsTable = "reteSessionEntityDetailsTable";
   static const inputRecordsFromProcessErrorTable =
       "inputRecordsFromProcessErrorTable";
 
