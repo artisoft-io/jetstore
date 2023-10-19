@@ -73,6 +73,24 @@ Future<String?> processErrorsActions(BuildContext context,
       }
       break;
 
+    // View Rete Session V2 -- Navigate to related entity
+    case ActionKeys.reteSessionVisitEntity:
+      // Get the object value and type
+      var state = formState.getState(0);
+      final propertyValue = state[FSK.entityPropertyValue];
+      final propertyValueType = state[FSK.entityPropertyValueType];
+      if (propertyValue == null || propertyValueType == null) {
+        print(
+            "Error: unexpected null value for propertyValue or propertyValueType in formState");
+        return "Error: unexpected null value for propertyValue or propertyValueType in formState";
+      }
+      if (propertyValueType[0] != "named_resource") {
+        print("Navigating to resources only");
+        return null;
+      }
+      formState.setValueAndNotify(0, FSK.entityKey, propertyValue);
+      return null;
+
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
       break;
