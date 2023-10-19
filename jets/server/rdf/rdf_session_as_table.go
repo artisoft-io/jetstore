@@ -76,17 +76,18 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 	if rdfSession == nil {
 		return nil, fmt.Errorf("RDFSessionAsTableV2: error rdfSession cannot be nil")
 	}
+
 	// Set of rdf:type
-	rdfTypes := make(map[string]bool)
+	rdfTypeSet := make(map[string]bool)
 
 	// Set of entity
-	entities := make(map[*bridge.Resource]bool)
+	entitySet := make(map[string]*bridge.Resource)
 
 	// Map of rdf:key by rdf:type: map[rdf:type][]rdf:key
 	entityKeyByType := make(map[string]*[][]string)
 
 	ri := NewRdfResources(js)
-	// Create the rdf_type (rdfTypes) and entity_key_by_type (entityKeyByType) data structures
+	// Create the rdf_type (rdfTypeSet) and entity_key_by_type (entityKeyByType) data structures
 	ctor, err := rdfSession.Find(nil, ri.rdf__type, nil)
 	if err != nil {
 		return nil, fmt.Errorf("while calling Find(nil, ri.rdf__type, nil) on rdfSession: %v", err)
@@ -95,9 +96,9 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 		entity := ctor.GetSubject()
 		entityName,_ := entity.AsText()
 
-		rdfType,_ := ctor.GetObject().GetText()
-		rdfTypes[rdfType] = true
-		entities[entity] = true
+		rdfType,_ := ctor.GetObject().AsText()
+		rdfTypeSet[rdfType] = true
+		entitySet[entityName] = entity
 		entities := entityKeyByType[rdfType]
 		if entities == nil {
 			entities = &[][]string{}
@@ -110,7 +111,7 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 
 	// Now create the entity_details_by_key: Map[jets:key]*[][]string
 	entityDetailsByKey := make(map[string]*[][]string)
-	for entity := range entities {
+	for entityKey, entity := range entitySet {
 		ctor, err := rdfSession.Find_s(entity)
 		if err != nil {
 			return nil, fmt.Errorf("while calling Find_s(entity) on rdfSession: %v", err)
@@ -119,7 +120,6 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 			propertyName,_ := ctor.GetPredicate().AsText()
 			value := ctor.GetObject()
 			valueType := value.GetTypeName()
-			entityKey := entity.AsTextSilent()
 			model := entityDetailsByKey[entityKey]
 			if model == nil {
 				model = &[][]string{}
@@ -134,9 +134,9 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 	// Put all the results in the output map
 	results := make(map[string]interface{})
 	
-	// Package rdfTypes
+	// Package rdfTypeSet
 	rdfTypesResult := make([][]string, 0)
-	for rdfType := range rdfTypes {
+	for rdfType := range rdfTypeSet {
 		rdfTypesResult = append(rdfTypesResult, []string{rdfType})
 	}
 	sort.Slice(rdfTypesResult, func(i, j int) bool { 
@@ -146,10 +146,10 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 	if err != nil {
 		return nil, err
 	}
-	results["rdf_types"] = r
+	results["rdf_types"] = string(r)
 
 	// Package entityKeyByType
-	entityKeyByTypeResult := make(map[string][]byte)
+	entityKeyByTypeResult := make(map[string]string)
 	for rdfType, keys := range entityKeyByType {
 		sort.Slice(*keys, func(i, j int) bool { 
 			return (*keys)[i][0] < (*keys)[j][0]
@@ -158,12 +158,12 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 		if err != nil {
 			return nil, err
 		}
-		entityKeyByTypeResult[rdfType] = r
+		entityKeyByTypeResult[rdfType] = string(r)
 	} 
 	results["entity_key_by_type"] = entityKeyByTypeResult
 
 	// Package entityDetailsByKey
-	entityDetailsByKeyResult := make(map[string][]byte)
+	entityDetailsByKeyResult := make(map[string]string)
 	for key, details := range entityDetailsByKey {
 		sort.Slice(*details, func(i, j int) bool { 
 			if (*details)[i][0] == (*details)[j][0] {
@@ -178,7 +178,7 @@ func RDFSessionAsTableV2(rdfSession *bridge.RDFSession, js *bridge.JetStore) (*m
 		if err != nil {
 			return nil, err
 		}
-		entityDetailsByKeyResult[key] = r
+		entityDetailsByKeyResult[key] = string(r)
 	} 
 	results["entity_details_by_key"] = entityDetailsByKeyResult
 

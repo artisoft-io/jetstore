@@ -1,6 +1,9 @@
 import 'package:jetsclient/screens/components/data_table.dart';
 import 'package:jetsclient/screens/components/data_table_model.dart';
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
+
+typedef ModelHandler = Map<String, dynamic>? Function(JetsFormState formState);
 
 /// Data Table Configuration class
 /// [refreshOnKeyUpdateEvent] contains list of key that will trigger a table
@@ -12,6 +15,7 @@ class TableConfig {
       required this.apiPath,
       this.apiAction = "read",
       this.modelStateFormKey,
+      this.modelStateHandler,
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
       required this.actions,
@@ -38,6 +42,7 @@ class TableConfig {
   final String apiPath;
   final String apiAction;
   final String? modelStateFormKey;
+  final ModelHandler? modelStateHandler;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;
@@ -313,7 +318,7 @@ class WhereClause {
   final String? joinWith;
   final FormStatePredicate? predicate;
   final bool lookupColumnInFormState;
-  final String? like;                 // where with like stmt
+  final String? like; // where with like stmt
 }
 
 class DataTableFormStateConfig {

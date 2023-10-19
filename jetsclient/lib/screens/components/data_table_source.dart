@@ -317,7 +317,7 @@ class JetsDataTableSource extends ChangeNotifier {
     if (!predicateSatisfied) {
       return null;
     }
-    
+
     // Check if whereclause contain a like operator
     if (wc.like != null) {
       return <String, dynamic>{
@@ -629,7 +629,12 @@ class JetsDataTableSource extends ChangeNotifier {
     }
     Map<String, dynamic>? data;
     if (state.tableConfig.modelStateFormKey != null) {
-      data = state.formState?.getValue(0, state.tableConfig.modelStateFormKey!);
+      data = <String, dynamic>{
+        'rows':
+            state.formState?.getValue(0, state.tableConfig.modelStateFormKey!)
+      };
+    } else if (state.tableConfig.modelStateHandler != null) {
+      data = state.tableConfig.modelStateHandler!(state.formState!);
     } else {
       data = await fetchData();
     }

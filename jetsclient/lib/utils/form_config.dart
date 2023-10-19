@@ -29,10 +29,10 @@ typedef JetsFormFieldValidator = String? Function(
 typedef JetsFormFieldRowBuilder1 = List<FormFieldConfig> Function(
     int index, List<String?> labels, JetsFormState formState);
 
-typedef JetsFormFieldRowBuilder = List<List<FormFieldConfig>> Function(
-    int index, List<String?>? inputFieldRow, JetsFormState formState);
-
 typedef InputFieldType = List<List<FormFieldConfig>>;
+
+typedef JetsFormFieldRowBuilder = InputFieldType Function(
+    int index, List<String?>? inputFieldRow, JetsFormState formState);
 
 // a do nothing function
 Future<String?> pass(BuildContext context, GlobalKey<FormState> formKey,
