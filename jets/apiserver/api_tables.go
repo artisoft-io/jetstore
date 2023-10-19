@@ -37,7 +37,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	context := datatable.NewContext(server.dbpool, devMode, *usingSshTunnel, unitTestDir,nbrShards, adminEmail)
+	context := datatable.NewContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir,nbrShards, adminEmail)
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
 	case "raw_query", "raw_query_tool":
@@ -62,6 +62,27 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		}
 		JSONB(w, http.StatusOK, *resultsB)
 		return
+
+	case "add_workspace_file":
+		resultsB, code, err := context.AddWorkspaceFile(&dataTableAction, token)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, code, err)
+			return
+		}
+		JSONB(w, http.StatusOK, *resultsB)
+		return
+
+	case "delete_workspace_files":
+		resultsB, code, err := context.DeleteWorkspaceFile(&dataTableAction, token)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, code, err)
+			return
+		}
+		JSONB(w, http.StatusOK, *resultsB)
+		return
+
 	case "get_workspace_file_content":
 		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, token)
 	case "save_workspace_file_content":
@@ -85,6 +106,12 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.DropTable(&dataTableAction)
 	case "refresh_token":
 		results = &map[string]interface{}{}
+		code = http.StatusOK
+		err = nil
+	case "get_workspace_uri":
+		results = &map[string]interface{}{
+			"workspace_uri": os.Getenv("WORKSPACE_URI"),
+		}
 		code = http.StatusOK
 		err = nil
 	default:

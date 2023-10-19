@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
+import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 
 class JetsTextFormField extends StatefulWidget {
@@ -89,7 +90,11 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
     _config = widget.formFieldConfig;
     var value = widget.formState.getValue(_config.group, _config.key);
     if (value == null) {
-      value = _config.defaultValue;
+      if (_config.key == FSK.wsURI) {
+        value = globalWorkspaceUri;
+      } else {
+        value = _config.defaultValue;
+      }
       widget.formState.setValue(_config.group, _config.key, value);
     }
     _controller = TextEditingController(text: value);
@@ -118,7 +123,9 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
         focusNode: _node,
         showCursor: _focused,
         obscureText: _config.obscureText,
-        readOnly: _config.isReadOnly,
+        readOnly: _config.key == FSK.wsURI && globalWorkspaceUri.isNotEmpty
+            ? true
+            : _config.isReadOnly,
         maxLines: _config.maxLines,
         maxLength: _config.maxLength,
         maxLengthEnforcement: MaxLengthEnforcement.enforced,

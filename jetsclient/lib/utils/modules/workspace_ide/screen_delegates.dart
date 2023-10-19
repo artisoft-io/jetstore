@@ -1,20 +1,15 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
-import 'package:jetsclient/screens/components/base_screen.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
-import 'package:jetsclient/screens/components/jets_tab_controller.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
-import 'package:jetsclient/utils/form_config_impl.dart';
-import 'package:jetsclient/utils/screen_config.dart';
-import 'package:jetsclient/utils/form_config.dart';
+import 'package:jetsclient/utils/modules/workspace_ide/screen_delegates_helpers.dart';
 
 /// Validation and Actions delegates for the workspaceIDE forms
 String? workspaceIDEFormValidator(
@@ -84,6 +79,21 @@ String? workspaceIDEFormValidator(
       }
       return "Client must be selected.";
 
+    case FSK.wsDbSourceFileName:
+      String? value = v;
+      final wsSection = formState.getValue(group, FSK.wsSection) as String?;
+      if (wsSection == null || wsSection.isEmpty) {
+        return "Invalid configuration -- wsSection is null";
+      }
+      if (value != null &&
+          value.characters.length > wsSection.characters.length) {
+        if (value.startsWith(wsSection)) {
+          return null;
+        }
+        return "File name must preserve the given directory prefix";
+      }
+      return "File name must be entered, preserving the directory prefix.";
+
     case FSK.description:
     case FSK.wsFileEditorContent:
       return null;
@@ -93,53 +103,6 @@ String? workspaceIDEFormValidator(
           'Oops workspaceIDE Form has no validator configured for form field $key');
   }
   return null;
-}
-
-// Utility function to create MenuEntry recursively
-// Note: Cap file size to 120K (120000), larger than that we don't bring them in ui
-// Note: MenuEntry.formConfigKey is constructed from e['type'] and e['key']
-// (file, data_model, jet_rules, lookups)
-// It is used in initializeWorkspaceFileEditor to get the formConfig to use.
-List<MenuEntry> mapMenuEntry(List<dynamic> data) {
-  final v = data.map((e) {
-    final etype = e!['type'] as String;
-    final pageMatchKey = e![FSK.pageMatchKey] ?? '';
-    final routePath = e!['route_path'] as String;
-    final size = e!['size'] as double;
-    String? formConfigKey;
-    var onPageStyle = ActionStyle.primary;
-    var otherPageStyle = ActionStyle.secondary;
-    switch (etype) {
-      case 'dir':
-        break;
-      case 'file':
-        formConfigKey = FormKeys.workspaceFileEditor;
-        onPageStyle = ActionStyle.menuSelected;
-        otherPageStyle = ActionStyle.menuAlternate;
-        break;
-      case 'section':
-        formConfigKey = "workspace.$pageMatchKey.form";
-        onPageStyle = ActionStyle.menuSelected;
-        otherPageStyle = ActionStyle.menuAlternate;
-        break;
-      default:
-        print("ERROR in mapMenuEntry: unknown menuEntry type: $etype");
-    }
-    return MenuEntry(
-      key: pageMatchKey ?? '',
-      label: e!["label"] ?? '',
-      routePath:
-          size < 120000 ? (routePath.isNotEmpty ? routePath : null) : null,
-      pageMatchKey: pageMatchKey,
-      routeParams: e!["route_params"],
-      menuAction: size < 120000 ? initializeWorkspaceFileEditor : null,
-      formConfigKey: formConfigKey,
-      onPageStyle: onPageStyle,
-      otherPageStyle: otherPageStyle,
-      children: e!["children"] != null ? mapMenuEntry(e!["children"]) : [],
-    );
-  });
-  return v.toList();
 }
 
 /// workspaceIDE Form Actions
@@ -181,14 +144,17 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
       return result;
 
     case ActionKeys.openWorkspace:
-      var state = formState.getState(0);
+      return openWorkspaceActions(context, formState);
+
+    case ActionKeys.compileWorkspace:
+      final state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
       if (state[FSK.key] is List<String>) {
         state[FSK.key] = state[FSK.key][0];
@@ -200,11 +166,70 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
-      final encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'workspace_query_structure',
+      // print('Compiling Workspace state: $state');
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'workspace_insert_rows',
         'fromClauses': [
-          <String, String>{'table': 'workspace_file_structure'}
+          <String, String>{'table': 'compile_workspace'}
         ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      await postSimpleAction(
+          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return null;
+
+    case ActionKeys.loadWorkspaceConfig:
+      // Get confirmation
+      var uc = await showConfirmationDialog(context,
+          'Are you sure you want to load workspace configuration, some client configuration may be overriten?');
+      if (uc != 'OK') return null;
+      final state = formState.getState(0);
+      state['user_email'] = JetsRouterDelegate().user.email;
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'workspace_insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'load_workspace_config'}
+        ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).show();
+        await postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      }
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return null;
+
+    // Add workspace file
+    case ActionKeys.addWorkspaceFilesOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      final state = formState.getState(0);
+      final wsName = state[FSK.wsName];
+      state['user_email'] = JetsRouterDelegate().user.email;
+      // print('File Editor::Save File state: $state');
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'add_workspace_file',
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
@@ -241,37 +266,78 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
 
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
+        // All good, let's the table know to refresh
+        Navigator.of(context).pop(DTActionResult.okDataTableDirty);
       }
       return null;
 
-    case ActionKeys.compileWorkspace:
+    // delete workspace files
+    case ActionKeys.deleteWorkspaceFiles:
+      // Get confirmation
+      var uc = await showConfirmationDialog(
+          context, 'Are you sure you want to delete the selected file(s)?');
+      if (uc != 'OK') return null;
       final state = formState.getState(0);
-      state['user_email'] = JetsRouterDelegate().user.email;
-      if (state[FSK.key] is List<String>) {
-        state[FSK.key] = state[FSK.key][0];
+      // This is a multi select table, convert the multi-select
+      // that is column-oriented into a request that is row-oriented
+      final wsName = state[FSK.wsName] as String?;
+      final fnames = state[FSK.wsDbSourceFileName] as List<String>?;
+      if (wsName == null || fnames == null) {
+        print('Delete Workspace Files: unexpected null, state is $state');
+        return 'Delete Workspace Files: unexpected null';
       }
-      if (state[FSK.wsName] is List<String>) {
-        state[FSK.wsName] = state[FSK.wsName][0];
+      List<dynamic> requestData = [];
+      for (var i = 0; i < fnames.length; i++) {
+        requestData.add(<String, dynamic>{
+          FSK.wsName: wsName,
+          FSK.wsDbSourceFileName: fnames[i],
+          FSK.userEmail: JetsRouterDelegate().user.email,
+        });
       }
-      final wsName = state[FSK.wsName];
-      if (state[FSK.wsURI] is List<String>) {
-        state[FSK.wsURI] = state[FSK.wsURI][0];
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).show();
       }
-      // print('Compiling Workspace state: $state');
+      // print('WorkspaceHome::Delete Changes requestData: $requestData');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'workspace_insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'compile_workspace'}
-        ],
+        'action': 'delete_workspace_files',
         'workspaceName': wsName,
-        'data': [state],
+        'data': requestData,
       }, toEncodable: (_) => '');
-      JetsSpinnerOverlay.of(context).show();
-      await postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      if (context.mounted) {
+        final httpResponse = await postRawAction(
+            context, ServerEPs.dataTableEP, encodedJsonBody);
+        if (httpResponse.statusCode == 401) return null;
+        if (httpResponse.statusCode != 200) {
+          if (context.mounted) {
+            showAlertDialog(context, "Something went wrong. Please try again.");
+          }
+          return null;
+        }
+        final resultType = httpResponse.body["result_type"];
+        if (resultType != null && resultType == "workspace_file_structure") {
+          // Setup MenuEntry as the workspace file structure
+          // Correspond to List<MenuEntry>
+          final l = httpResponse.body["result_data"] as List;
+          JetsRouterDelegate().workspaceMenuState = mapMenuEntry(l);
+        } else {
+          if (context.mounted) {
+            showAlertDialog(context, "Oops, nothing here, working on it!");
+          }
+          return null;
+        }
+
+        // Navigate to workspace home page
+        Map<String, dynamic> params = {
+          "workspace_name": wsName,
+        };
+        // print(
+        //     "Action.openWorkspace: NAVIGATING to $workspaceHomePath, with $params");
+        JetsRouterDelegate()(JetsRouteData(workspaceHomePath, params: params));
+      }
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
+      formState.invokeCallbacks();
       return null;
 
     // Commit & Push Workspace Changes to Repository
@@ -302,8 +368,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
-      var result = await postInsertRows(context, formState, encodedJsonBody, 
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -333,7 +399,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -368,7 +434,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -403,7 +469,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -434,7 +500,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       var result = await postInsertRows(context, formState, encodedJsonBody,
-        errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
@@ -538,6 +604,10 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
 
     // Delete Workspace Changes (multi select)
     case ActionKeys.deleteWorkspaceChanges:
+      // Get confirmation
+      var uc = await showConfirmationDialog(
+          context, 'Are you sure you want to revert the selected change(s)?');
+      if (uc != 'OK') return null;
       final state = formState.getState(0);
       // This is a multi select table, convert the multi-select
       // that is column-oriented into a request that is row-oriented
@@ -559,43 +629,75 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
           FSK.userEmail: JetsRouterDelegate().user.email,
         });
       }
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).show();
+      }
       // print('WorkspaceHome::Delete Changes requestData: $requestData');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_workspace_changes',
         'workspaceName': wsName,
         'data': requestData,
       }, toEncodable: (_) => '');
-      JetsSpinnerOverlay.of(context).show();
+      // await postInsertRows(context, formState, encodedJsonBody,
+      //   errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
-        await postInsertRows(context, formState, encodedJsonBody,
-          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+        final result = await postRawAction(
+            context, ServerEPs.dataTableEP, encodedJsonBody);
+        if (context.mounted) {
+          JetsSpinnerOverlay.of(context).hide();
+        }
+        if (result.statusCode != 200 && result.statusCode != 401) {
+          print('Something went wrong while reverting changes: $result');
+          if (context.mounted) {
+            showAlertDialog(context, "Something went wrong. Please try again.");
+          }
+        }
       }
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
+      formState.invokeCallbacks();
       return null;
 
     // Delete ALL Workspace Changes
     case ActionKeys.deleteAllWorkspaceChanges:
+      // Get confirmation
+      var uc = await showConfirmationDialog(
+          context, 'Are you sure you want to revert the all changes?');
+      if (uc != 'OK') return null;
       final state = formState.getState(0);
       final wsName = state[FSK.wsName] as String?;
       if (wsName == null) {
         print('Delete All Workspace Changes: unexpected null workspace_name');
         return 'Delete All Workspace Changes: unexpected null workspace_name';
       }
-      JetsSpinnerOverlay.of(context).show();
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).show();
+      }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'delete_all_workspace_changes',
         'workspaceName': wsName,
         'data': [state],
       }, toEncodable: (_) => '');
+      // await postInsertRows(context, formState, encodedJsonBody,
+      //   errorReturnStatus: DTActionResult.statusErrorRefreshTable);
       if (context.mounted) {
-        await postInsertRows(context, formState, encodedJsonBody,
-          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+        final result = await postRawAction(
+            context, ServerEPs.dataTableEP, encodedJsonBody);
+        if (context.mounted) {
+          JetsSpinnerOverlay.of(context).hide();
+        }
+        if (result.statusCode != 200 && result.statusCode != 401) {
+          print('Something went wrong while reverting all changes: $result');
+          if (context.mounted) {
+            showAlertDialog(context, "Something went wrong. Please try again.");
+          }
+        }
       }
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
+      formState.invokeCallbacks();
       return null;
 
     // Cancel Dialog / Form
@@ -606,77 +708,4 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       print('Oops unknown ActionKey for Workspace Home Form: $actionKey');
   }
   return null;
-}
-
-/// Initialization Delegate for File Editor Screen
-Future<int> initializeWorkspaceFileEditor(
-    BuildContext context, MenuEntry menuEntry, State<StatefulWidget> s) async {
-  assert(menuEntry.pageMatchKey != null,
-      'menuEntry ${menuEntry.label} as null pageMatchKey');
-  if (menuEntry.routeParams == null) return 200;
-  final state = s as BaseScreenState;
-  final tabIndex = menuEntry.routeParams!['tab.index'] as int?;
-
-  // Put the pageMatchKey in current route config so the menu gets highlighted
-  JetsRouterDelegate().currentConfiguration!.params[FSK.pageMatchKey] =
-      menuEntry.pageMatchKey;
-
-  if (tabIndex != null) {
-    state.tabController.animateTo(tabIndex);
-    return 200;
-  }
-  FormConfig? formConfig;
-  if (menuEntry.formConfigKey != null) {
-    formConfig = getFormConfig(menuEntry.formConfigKey!);
-  }
-  if (formConfig == null) return 200;
-
-  final formState = JetsFormState(initialGroupCount: 1);
-  final wsName = menuEntry.routeParams![FSK.wsName];
-  formState.setValue(0, FSK.wsName, wsName);
-  formState.setValue(0, FSK.wsFileName, menuEntry.routeParams![FSK.wsFileName]);
-
-  // based on MenuEntry.formConfigKey fetch info from server (if file editor)
-  // and get the formConfig
-  if (menuEntry.formConfigKey == FormKeys.workspaceFileEditor) {
-    // Need to get file_content from apiserver
-    // JetsSpinnerOverlay.of(context).show();
-    final encodedJsonBody = jsonEncode(<String, dynamic>{
-      'action': 'get_workspace_file_content',
-      'workspaceName': wsName,
-      'data': [menuEntry.routeParams],
-    }, toEncodable: (_) => '');
-
-    final result = await HttpClientSingleton().sendRequest(
-        path: ServerEPs.dataTableEP,
-        token: JetsRouterDelegate().user.token,
-        encodedJsonBody: encodedJsonBody);
-
-    // JetsSpinnerOverlay.of(context).hide();
-
-    if (result.statusCode == 200) {
-      formState.setValue(
-          0, FSK.wsFileEditorContent, result.body[FSK.wsFileEditorContent]);
-    } else {
-      print("Oops, Something went wrong. Could not get the file content");
-      return result.statusCode;
-    }
-  }
-
-  // Create the tab info for the tab manager
-  state.tabsStateHelper.addTab(
-      tabParams: JetsTabParams(
-          workspaceName: menuEntry.routeParams![FSK.wsName] ?? '',
-          label: menuEntry.label,
-          pageMatchKey: menuEntry.pageMatchKey!,
-          formConfig: getFormConfig(
-              menuEntry.formConfigKey ?? FormKeys.workspaceFileEditor),
-          formState: formState));
-
-  // PUT TAB INDEX in menuEntry.routeParams for when clicking on menu again
-  final l = state.tabsStateHelper.tabsParams.length;
-  menuEntry.routeParams!['tab.index'] = l - 1;
-  state.resetTabController(l - 1, l);
-
-  return 200;
 }

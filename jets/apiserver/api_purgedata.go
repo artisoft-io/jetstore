@@ -12,14 +12,23 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
 )
 type PurgeDataAction struct {
 	Action               string            			  `json:"action"`
+	WorkspaceName        string                   `json:"workspaceName"`
 	RunUiDbInitScript    bool              			  `json:"run_ui_db_init_script"`
 	Data                 []map[string]interface{} `json:"data"`
+}
+
+func (pd *PurgeDataAction)getWorkspaceName() string {
+	if pd.WorkspaceName == "" {
+		return os.Getenv("WORKSPACE")
+	}
+	return pd.WorkspaceName
 }
 
 // DoPurgeDataAction ------------------------------------------------------
@@ -101,7 +110,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
-	err = server.runUpdateDb(&serverArgs)
+	_, err = datatable.RunUpdateDb(purgeDataAction.getWorkspaceName(), &serverArgs)
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while running updateDb: %v", err)
 	}
@@ -131,7 +140,7 @@ func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
-	if err := server.runUpdateDb(&serverArgs); err != nil {
+	if _, err := datatable.RunUpdateDb(purgeDataAction.WorkspaceName, &serverArgs); err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while running updateDb command: %v", err)
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil

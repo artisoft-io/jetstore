@@ -92,6 +92,7 @@ type WhereClause struct {
 	Column   string   `json:"column"`
 	Values   []string `json:"values"`
 	JoinWith string   `json:"joinWith"`
+	Like     string   `json:"like"`
 }
 
 // DataTableColumnDef used when returning the column definition
@@ -312,6 +313,11 @@ func (dtq *DataTableAction) makeWhereClause() string {
 			}
 		}
 		switch {
+		case len(dtq.WhereClauses[i].Like) > 0:
+			buf.WriteString(" like ")
+			buf.WriteString("'")
+			buf.WriteString(dtq.WhereClauses[i].Like)
+			buf.WriteString("' ")
 		case len(dtq.WhereClauses[i].JoinWith) > 0:
 			buf.WriteString(" = ")
 			buf.WriteString(dtq.WhereClauses[i].JoinWith)
@@ -607,6 +613,9 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
 func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	returnedKey := make([]int, len(dataTableAction.Data))
+	results = &map[string]interface{}{
+		"returned_keys": &returnedKey,
+	}
 	var loaderCompletedMetric, loaderFailedMetric, serverCompletedMetric, serverFailedMetric string
 	httpStatus = http.StatusOK
 	sqlStmt, ok := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -671,6 +680,10 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	}
 	// Post Processing Hook
 	var name string
+	workspaceName := os.Getenv("WORKSPACE")
+	if ctx.DevMode && dataTableAction.WorkspaceName != "" {
+		workspaceName = dataTableAction.WorkspaceName
+	}
 	switch dataTableAction.FromClauses[0].Table {
 	case "input_loader_status":
 		// Run the loader
@@ -754,9 +767,13 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				// Call loader synchronously
 				cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
-				var b1 bytes.Buffer
-				cmd.Stdout = &b1
-				cmd.Stderr = &b1
+				cmd.Env = append(os.Environ(),
+					fmt.Sprintf("WORKSPACE=%s", workspaceName),
+					"JETSTORE_DEV_MODE=1",
+				)
+				var buf strings.Builder
+				cmd.Stdout = &buf
+				cmd.Stderr = &buf
 				log.Printf("Executing loader command '%v'", loaderCommand)
 				err = cmd.Run()
 				if err != nil {
@@ -764,7 +781,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					log.Println("LOADER CAPTURED OUTPUT BEGIN")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					b1.WriteTo(os.Stdout)
+					(*results)["log"] = buf.String()
+					log.Println((*results)["log"])
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					log.Println("LOADER CAPTURED OUTPUT END")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -772,40 +790,37 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					err = errors.New("error while running loader command")
 					return
 				}
-				log.Println("============================")
-				log.Println("LOADER CAPTURED OUTPUT BEGIN")
-				log.Println("============================")
-				b1.WriteTo(os.Stdout)
-				log.Println("============================")
-				log.Println("LOADER CAPTURED OUTPUT END")
-				log.Println("============================")
 
 				// Call run_report synchronously
 				cmd = exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
-				var b2 bytes.Buffer
-				cmd.Stdout = &b2
-				cmd.Stderr = &b2
+				cmd.Env = append(os.Environ(),
+					fmt.Sprintf("WORKSPACE=%s", workspaceName),
+					"JETSTORE_DEV_MODE=1",
+				)
+				cmd.Stdout = &buf
+				cmd.Stderr = &buf
 				log.Printf("Executing run_reports command '%v'", runReportsCommand)
 				err = cmd.Run()
+				(*results)["log"] = buf.String()
 				if err != nil {
 					log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+					log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					b2.WriteTo(os.Stdout)
+					log.Println((*results)["log"])
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					log.Println("REPORTS CAPTURED OUTPUT END")
+					log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
 					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					httpStatus = http.StatusInternalServerError
 					err = errors.New("error while running run_reports command")
 					return
 				}
 				log.Println("============================")
-				log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
-				b2.WriteTo(os.Stdout)
+				log.Println((*results)["log"])
 				log.Println("============================")
-				log.Println("REPORTS CAPTURED OUTPUT END")
+				log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
 				log.Println("============================")
 
 			default:
@@ -832,12 +847,18 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		// from process_config table
 		// ----------------------------
 		var devModeCode, stateMachineName string
+		processName := dataTableAction.Data[0]["process_name"]
+		if processName == nil {
+			httpStatus = http.StatusBadRequest
+			err = errors.New("missing column process_name in request")
+			return
+		}
+		// devModeCode, stateMachineName, err = getDevModeCode(ctx.Dbpool, processName.(string))
 		stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, dataTableAction.Data[0]["process_name"]).Scan(&devModeCode, &stateMachineName)
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, processName).Scan(&devModeCode, &stateMachineName)
 		if err != nil {
-			log.Printf("While getting devModeCode, stateMachineName from process_config WHERE process_name = '%s': %v", dataTableAction.Data[0]["process_name"], err)
 			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while reading from a table")
+			err = fmt.Errorf("while getting devModeCode, stateMachineName from process_config WHERE process_name = '%v': %v", processName, err)
 			return
 		}
 
@@ -864,7 +885,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 			}
 			peKey := strconv.Itoa(returnedKey[irow])
-			processName := row["process_name"]
 			//* TODO We should lookup main_input_file_key rather than file_key here
 			fileKey := dataTableAction.Data[irow]["file_key"]
 			sessionId := row["session_id"]
@@ -893,6 +913,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			switch {
 			// Call server synchronously
 			case ctx.DevMode:
+				var buf strings.Builder
 				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
@@ -919,9 +940,12 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						}
 						log.Printf("Run server: %s", serverArgs)
 						cmd := exec.Command("/usr/local/bin/server", serverArgs...)
-						var b bytes.Buffer
-						cmd.Stdout = &b
-						cmd.Stderr = &b
+						cmd.Env = append(os.Environ(),
+							fmt.Sprintf("WORKSPACE=%s", workspaceName),
+							"JETSTORE_DEV_MODE=1",
+						)
+						cmd.Stdout = &buf
+						cmd.Stderr = &buf
 						log.Printf("Executing server command '%v'", serverArgs)
 						err = cmd.Run()
 						if err != nil {
@@ -929,7 +953,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 							log.Println("SERVER CAPTURED OUTPUT BEGIN")
 							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-							b.WriteTo(os.Stdout)
+							(*results)["log"] = buf.String()
+							log.Println((*results)["log"])
 							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 							log.Println("SERVER CAPTURED OUTPUT END")
 							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -937,13 +962,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							err = errors.New("error while running server command")
 							return
 						}
-						log.Println("============================")
-						log.Println("SERVER CAPTURED OUTPUT BEGIN")
-						log.Println("============================")
-						b.WriteTo(os.Stdout)
-						log.Println("============================")
-						log.Println("SERVER CAPTURED OUTPUT END")
-						log.Println("============================")
 					}
 				}
 
@@ -953,32 +971,36 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
 					}
 					cmd := exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
-					var b2 bytes.Buffer
-					cmd.Stdout = &b2
-					cmd.Stderr = &b2
+					cmd.Env = append(os.Environ(),
+						fmt.Sprintf("WORKSPACE=%s", workspaceName),
+						"JETSTORE_DEV_MODE=1",
+					)
+					cmd.Stdout = &buf
+					cmd.Stderr = &buf
 					log.Printf("Executing run_reports command '%v'", runReportsCommand)
 					err = cmd.Run()
+					(*results)["log"] = buf.String()
 					if err != nil {
 						log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("REPORTS CAPTURED OUTPUT BEGIN")
+						log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						b2.WriteTo(os.Stdout)
+						log.Println((*results)["log"])
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("REPORTS CAPTURED OUTPUT END")
+						log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while running run_reports command")
 						return
 					}
-					log.Println("============================")
-					log.Println("REPORTS CAPTURED OUTPUT BEGIN")
-					log.Println("============================")
-					b2.WriteTo(os.Stdout)
-					log.Println("============================")
-					log.Println("REPORTS CAPTURED OUTPUT END")
-					log.Println("============================")
 				}
+				log.Println("============================")
+				log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("============================")
+				log.Println((*results)["log"])
+				log.Println("============================")
+				log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
+				log.Println("============================")
 
 			default:
 				// Invoke states to execute a process
@@ -1033,9 +1055,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 		} // irow := range dataTableAction.Data
 	} // switch dataTableAction.FromClauses[0].Table
-	results = &map[string]interface{}{
-		"returned_keys": &returnedKey,
-	}
 	return
 }
 
@@ -1059,7 +1078,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			columnDefs[i].Index = i
 			columnDefs[i].Name = string(fd[i].Name)
 			columnDefs[i].Label = columnDefs[i].Name
-			fmt.Println("*** ColumnName",columnDefs[i].Name,"oid",fd[i].DataTypeOID)
+			// fmt.Println("*** ColumnName",columnDefs[i].Name,"oid",fd[i].DataTypeOID)
 			dataType := dbutils.DataTypeFromOID(fd[i].DataTypeOID) 
 			if dbutils.IsNumeric(dataType) {
 				columnDefs[i].IsNumeric = true

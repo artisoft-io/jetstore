@@ -68,8 +68,8 @@ class JetsDataTableSource extends ChangeNotifier {
     // but should not update it since they are reset here regardless
     // of the other widgets.
     final config = state.formFieldConfig!;
-    List<Set<String>> secondaryValues =
-        List.generate(formStateConfig.otherColumns.length, (_) => <String>{});
+    List<List<String>> secondaryValues =
+        List.generate(formStateConfig.otherColumns.length, (_) => <String>[]);
     Iterable<JetsRow>? itor = formState.selectedRows(config.group, config.key);
     if (itor != null) {
       for (final JetsRow selRow in itor) {
@@ -94,7 +94,7 @@ class JetsDataTableSource extends ChangeNotifier {
         // print(
         //     "${config.key}: Secondary Value ${otherColConfig.stateKey} Set to ${secondaryValues[i].toList().join(",")}");
         formState.setValue(
-            config.group, otherColConfig.stateKey, secondaryValues[i].toList());
+            config.group, otherColConfig.stateKey, secondaryValues[i]);
       }
     }
   }
@@ -316,6 +316,15 @@ class JetsDataTableSource extends ChangeNotifier {
     }
     if (!predicateSatisfied) {
       return null;
+    }
+
+    // Check if whereclause contain a like operator
+    if (wc.like != null) {
+      return <String, dynamic>{
+        'table': wc.table ?? '',
+        'column': columnName,
+        'like': wc.like,
+      };
     }
 
     if (config == null || wc.formStateKey == null) {
@@ -620,7 +629,12 @@ class JetsDataTableSource extends ChangeNotifier {
     }
     Map<String, dynamic>? data;
     if (state.tableConfig.modelStateFormKey != null) {
-      data = state.formState?.getValue(0, state.tableConfig.modelStateFormKey!);
+      data = <String, dynamic>{
+        'rows':
+            state.formState?.getValue(0, state.tableConfig.modelStateFormKey!)
+      };
+    } else if (state.tableConfig.modelStateHandler != null) {
+      data = state.tableConfig.modelStateHandler!(state.formState!);
     } else {
       data = await fetchData();
     }

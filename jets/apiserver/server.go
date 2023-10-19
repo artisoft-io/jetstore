@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -11,10 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -108,44 +107,16 @@ func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request)
 }
 
 func (server *Server) addVersionToDb(jetstoreVersion string) (err error) {
+	if jetstoreVersion == "" {
+		log.Println("Error, attempting to save empty jetstoreVersion in table jetstore_release, skipping")
+		return nil
+	}
 	// Add version to db
 	stmt := "INSERT INTO jetsapi.jetstore_release (version) VALUES ($1)"
 	_, err = server.dbpool.Exec(context.Background(), stmt, jetstoreVersion)
 	if err != nil {
 		return fmt.Errorf("while inserting jetstore version into jetstore_release table: %v", err)
 	}
-	return nil
-}
-
-// Run update_db
-func (server *Server) runUpdateDb(serverArgs *[]string) error {
-	if *usingSshTunnel {
-		*serverArgs = append(*serverArgs, "-usingSshTunnel")
-	}
-	log.Printf("Run update_db: %s", *serverArgs)
-	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
-	var b bytes.Buffer
-	cmd.Stdout = &b
-	cmd.Stderr = &b
-	err := cmd.Run()
-	if err != nil {
-		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		b.WriteTo(os.Stdout)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("UPDATE_DB CAPTURED OUTPUT END")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		return err
-	}
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
-	log.Println("============================")
-	b.WriteTo(os.Stdout)
-	log.Println("============================")
-	log.Println("UPDATE_DB CAPTURED OUTPUT END")
-	log.Println("============================")
 	return nil
 }
 
@@ -231,9 +202,9 @@ func (server *Server) checkJetStoreDbVersion() error {
 		if *usingSshTunnel {
 			serverArgs = append(serverArgs, "-usingSshTunnel")
 		}
-		err = server.runUpdateDb(&serverArgs)
+		_,err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
 		if err != nil {
-			return fmt.Errorf("while calling runUpdateDb: %v", err)
+			return fmt.Errorf("while calling RunUpdateDb: %v", err)
 		}
 	}
 	return nil
@@ -311,14 +282,14 @@ func (server *Server) checkWorkspaceVersion() error {
 	}
 
 	// Download overriten workspace files from s3 if any
-	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", devMode)
+	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", globalDevMode)
 	if err != nil {
 		//* TODO Log to a new workspace error table to report in UI
 		log.Println("Error while synching workspace file from database:", err)
 	}
 
 	// Check if need to recompile workspace, skip if in dev mode
-	if devMode {
+	if globalDevMode {
 		// We're in dev mode, the user is responsible to compile workspace when needed
 		return nil
 	}
@@ -347,7 +318,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		// Recompile workspace, set the workspace version to be same as jetstore version
 		// Sync unit test files from workspace to s3
 		// Skip this if in DEV MODE
-		if !devMode {
+		if !globalDevMode {
 			_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
 			if err != nil {
 				log.Println("Error while compiling workspace:", err)

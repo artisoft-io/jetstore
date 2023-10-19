@@ -79,27 +79,45 @@ Future<String?> homeFormActions(BuildContext context,
         state[FSK.mergedInputRegistryKeys] =
             '{${(state[FSK.mergedInputRegistryKeys] as List<String>).join(',')}}';
       }
-      state[FSK.pipelineConfigKey] = state[FSK.pipelineConfigKey][0];
-      var w = state[FSK.mainInputRegistryKey];
-      if (w != null) state[FSK.mainInputRegistryKey] = w[0];
-      w = state[FSK.mainInputFileKey];
-      if (w != null) state[FSK.mainInputFileKey] = w[0];
-      state[FSK.client] = state[FSK.client][0];
-      state[FSK.processName] = state[FSK.processName][0];
-      state[FSK.mainObjectType] = state[FSK.mainObjectType][0];
+      if (state[FSK.pipelineConfigKey] is List<String>) {
+        state[FSK.pipelineConfigKey] = state[FSK.pipelineConfigKey][0];
+      }
+      if (state[FSK.mainInputRegistryKey] is List<String>) {
+        state[FSK.mainInputRegistryKey] = state[FSK.mainInputRegistryKey][0];
+      }
+      if (state[FSK.mainInputFileKey] is List<String>) {
+        state[FSK.mainInputFileKey] = state[FSK.mainInputFileKey][0];
+      }
+      if (state[FSK.client] is List<String>) {
+        state[FSK.client] = state[FSK.client][0];
+      }
+      if (state[FSK.processName] is List<String>) {
+        state[FSK.processName] = state[FSK.processName][0];
+      }
+      if (state[FSK.mainObjectType] is List<String>) {
+        state[FSK.mainObjectType] = state[FSK.mainObjectType][0];
+      }
+      if (state[FSK.sourcePeriodKey] is List<String>) {
+        state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
       state['status'] = StatusKeys.submitted;
       state['user_email'] = JetsRouterDelegate().user.email;
       state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
       state[FSK.objectType] = state[FSK.mainObjectType];
       state[FSK.fileKey] = state[FSK.mainInputFileKey];
-      state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
+      final action = state[FSK.dataTableAction];
+      final table = state[FSK.dataTableFromTable];
 
       // Send the pipeline start insert
       var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
+        'action': action,
         'fromClauses': [
-          <String, String>{'table': 'pipeline_execution_status'}
+          <String, String>{'table': table}
         ],
+        'workspaceName': state[FSK.wsName] ?? '',
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -343,21 +361,27 @@ Future<String?> sourceConfigActions(BuildContext context,
       // }
       var state = formState.getState(0);
       // Fields comming from table selected row will be in array, unpack the value
-      state[FSK.client] = state[FSK.client][0];
-      state[FSK.org] = state[FSK.org][0];
-      state[FSK.objectType] = state[FSK.objectType][0];
-      state[FSK.tableName] = state[FSK.tableName][0];
-      state[FSK.fileKey] = state[FSK.fileKey][0];
-      state[FSK.sourcePeriodKey] = state[FSK.sourcePeriodKey][0];
-      state['status'] = StatusKeys.submitted;
-      state['user_email'] = JetsRouterDelegate().user.email;
-      state['session_id'] = "${DateTime.now().millisecondsSinceEpoch}";
+      // Updated: This is now multi select table, convert column array to multiple rows
+      List<dynamic> requestData = [];
+      for (var i = 0; i < state[FSK.fileKey].length; i++) {
+        requestData.add(<String, dynamic>{
+          FSK.client: state[FSK.client][0],
+          FSK.org: state[FSK.org][0],
+          FSK.objectType: state[FSK.objectType][0],
+          FSK.tableName: state[FSK.tableName][0],
+          FSK.fileKey: state[FSK.fileKey][i],
+          FSK.sourcePeriodKey: state[FSK.sourcePeriodKey][i],
+          FSK.status: StatusKeys.submitted,
+          FSK.userEmail: JetsRouterDelegate().user.email,
+          FSK.sessionId: "${DateTime.now().millisecondsSinceEpoch + i}",
+        });
+      }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [
           <String, String>{'table': 'input_loader_status'}
         ],
-        'data': [state],
+        'data': requestData,
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       return postInsertRows(context, formState, encodedJsonBody);
@@ -428,7 +452,7 @@ String? processInputFormValidator(
       entityRdfType != null) {
     switch (sourceType) {
       case 'file':
-        var org = formState.getValue(group, FSK.org);
+        final org = formState.getValue(group, FSK.org);
         if (org != null) {
           var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType);
           if (row == null) {
@@ -535,7 +559,7 @@ String? processInputFormValidator(
         formState.markFormKeyAsValid(group, key);
         return null;
       }
-      var defaultValue =
+      final defaultValue =
           formState.getValue(group, FSK.mappingDefaultValue) as String?;
       if (defaultValue != null && defaultValue.isNotEmpty) {
         formState.markFormKeyAsValid(group, key);

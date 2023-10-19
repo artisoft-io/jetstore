@@ -1,6 +1,7 @@
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/data_table_config.dart';
+import 'package:jetsclient/utils/modules/rete_session/model_handlers.dart';
 import 'package:jetsclient/utils/modules/workspace_ide/data_table_config.dart';
 
 // To avoid duplication
@@ -225,12 +226,19 @@ final fileKeyStagingColumns = [
       isNumeric: true),
   ColumnConfig(
       index: 8,
+      name: "day_period",
+      table: "source_period",
+      label: 'Day Period',
+      tooltips: 'Day Period since begin of epoch',
+      isNumeric: false),
+  ColumnConfig(
+      index: 9,
       name: "last_update",
       label: 'Last Update',
       tooltips: 'When the file was received',
       isNumeric: false),
   ColumnConfig(
-      index: 9,
+      index: 10,
       name: "source_period_key",
       label: 'Source Period Key',
       tooltips: '',
@@ -397,6 +405,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
+          navigationParams: {
+            FSK.dataTableAction: "insert_rows",
+            FSK.dataTableFromTable: "pipeline_execution_status",
+          },
           configForm: FormKeys.startPipeline),
       ActionConfig(
           actionType: DataTableActionType.showScreen,
@@ -720,15 +732,32 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.processName: FSK.processName,
             FSK.domainKey: FSK.domainKey,
           }),
+      // Rete Session as Triples V1
+      // ActionConfig(
+      //     actionType: DataTableActionType.doActionShowDialog,
+      //     key: 'showReteTriples',
+      //     label: 'View Rete Triples',
+      //     style: ActionStyle.secondary,
+      //     isVisibleWhenCheckboxVisible: true,
+      //     isEnabledWhenHavingSelectedRows: true,
+      //     actionName: ActionKeys.setupShowReteTriples,
+      //     configForm: FormKeys.viewReteTriples,
+      //     // Copy state data from formState to dialogFormState
+      //     stateFormNavigationParams: {
+      //       // keys that will be set by the Action:
+      //       // FSK.reteSessionTriples
+      //       FSK.key: DTKeys.processErrorsTable,
+      //     }),
+      // Rete Session as Triples V2 - Rete Session Explorer
       ActionConfig(
           actionType: DataTableActionType.doActionShowDialog,
-          key: 'showReteTriples',
-          label: 'View Rete Triples',
+          key: 'showReteTriplesV2',
+          label: 'View Rule Session',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionName: ActionKeys.setupShowReteTriples,
-          configForm: FormKeys.viewReteTriples,
+          actionName: ActionKeys.setupShowReteTriplesV2,
+          configForm: FormKeys.viewReteTriplesV2,
           // Copy state data from formState to dialogFormState
           stateFormNavigationParams: {
             // keys that will be set by the Action:
@@ -889,7 +918,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortAscending: false,
       rowsPerPage: 50),
 
-  // View RDFSession Triples as Table
+  // View RDFSession Triples as Table V1
   DTKeys.reteSessionTriplesTable: TableConfig(
       key: DTKeys.reteSessionTriplesTable,
       fromClauses: [FromClause(schemaName: 'public', tableName: 'triples')],
@@ -928,6 +957,131 @@ final Map<String, TableConfig> _tableConfigurations = {
       ],
       sortColumnName: 'subject',
       sortAscending: false,
+      rowsPerPage: 1000000),
+
+  // View RDFSession as Table V2 - 1. rdf:type in current session
+  DTKeys.reteSessionRdfTypeTable: TableConfig(
+      key: DTKeys.reteSessionRdfTypeTable,
+      fromClauses: [],
+      label: 'Class Name',
+      apiPath: '/dataTable',
+      modelStateFormKey: FSK.reteSessionRdfTypes,
+      isCheckboxVisible: true,
+      isCheckboxSingleSelect: true,
+      whereClauses: [],
+      actions: [],
+      formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+        DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.entityRdfType,
+          columnIdx: 0,
+        ),
+      ]),
+      columns: [
+        ColumnConfig(
+            index: 0,
+            name: "entity_rdf_type",
+            label: 'Class Name',
+            tooltips: 'Entity Class Name Filter',
+            isNumeric: false),
+      ],
+      sortColumnName: 'entity_rdf_type',
+      sortAscending: true,
+      noFooter: true,
+      rowsPerPage: 1000000),
+
+  // View RDFSession as Table V2 - 2. entity_key_by_type
+  DTKeys.reteSessionEntityKeyTable: TableConfig(
+      key: DTKeys.reteSessionEntityKeyTable,
+      fromClauses: [],
+      label: 'Entity Key',
+      apiPath: '/dataTable',
+      modelStateHandler: reteSessionEntityKeyStateHandler,
+      isCheckboxVisible: true,
+      isCheckboxSingleSelect: true,
+      whereClauses: [
+        WhereClause(
+            column: FSK.entityRdfType, formStateKey: FSK.entityRdfType),
+      ],
+      actions: [],
+      formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+        DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.entityKey,
+          columnIdx: 0,
+        ),
+      ]),
+      columns: [
+        ColumnConfig(
+            index: 0,
+            name: "entity_key",
+            label: 'Entity Key',
+            tooltips: 'Entity Key Filter',
+            isNumeric: false),
+      ],
+      sortColumnName: 'entity_key',
+      sortAscending: true,
+      noFooter: true,
+      rowsPerPage: 1000000),
+
+  // View RDFSession as Table V2 - 3. entity_details_by_key
+  DTKeys.reteSessionEntityDetailsTable: TableConfig(
+      key: DTKeys.reteSessionEntityDetailsTable,
+      fromClauses: [],
+      label: 'Entity Details',
+      apiPath: '/dataTable',
+      modelStateHandler: reteSessionEntityDetailsStateHandler,
+      isCheckboxVisible: true,
+      isCheckboxSingleSelect: true,
+      whereClauses: [
+        WhereClause(
+            column: FSK.entityKey, formStateKey: FSK.entityKey),
+      ],
+      actions: [
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'visitEntity',
+          label: 'Visit Object Entity',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.reteSessionVisitEntity),
+      ],
+      formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+        DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.entityProperty,
+          columnIdx: 0,
+        ),
+        DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.entityPropertyValue,
+          columnIdx: 1,
+        ),
+        DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.entityPropertyValueType,
+          columnIdx: 2,
+        ),
+      ]),
+      columns: [
+        ColumnConfig(
+            index: 0,
+            name: "entity_property",
+            label: 'Property',
+            tooltips: 'Property name',
+            isNumeric: false),
+        ColumnConfig(
+            index: 1,
+            name: "entity_value",
+            label: 'Value',
+            tooltips: 'Property value',
+            isNumeric: false),
+        ColumnConfig(
+            index: 2,
+            name: "entity_value_type",
+            label: 'Type',
+            tooltips: 'Value type',
+            isNumeric: false),
+      ],
+      sortColumnName: 'entity_property',
+      sortAscending: true,
+      noFooter: true,
       rowsPerPage: 1000000),
 
   // Client Admin Table used for Client & Organization Admin form
@@ -1158,7 +1312,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     label: 'File Key Staging',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
+    isCheckboxSingleSelect: false,
     defaultToAllRows: true, // when where clause fails
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
@@ -1196,13 +1350,13 @@ final Map<String, TableConfig> _tableConfigurations = {
       ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.sourcePeriodKey,
-        columnIdx: 9,
+        columnIdx: 10,
       ),
     ]),
     columns: fileKeyStagingColumns,
     sortColumnName: 'last_update',
     sortAscending: false,
-    rowsPerPage: 10,
+    rowsPerPage: 20,
   ),
 
   // File Key Staging Data Table used to multi-load files

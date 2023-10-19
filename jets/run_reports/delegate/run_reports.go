@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,7 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("recovered error: %v", r)
+			debug.PrintStack()
 		}
 	}()
 
@@ -238,7 +240,7 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 		for inPos := range fd {
 			oid := fd[inPos].DataTypeOID
 			columName := string(fd[inPos].Name)
-			fmt.Println("*** ColumnName",columName,"oid",oid)
+			// fmt.Println("*** ColumnName",columName,"oid",oid)
 			// skipping arrays and unknown data type
 			if !dbutils.IsArrayFromOID(oid) {
 				switch datatype := dbutils.DataTypeFromOID(oid); datatype {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 const defaultPadding = 16.0;
 const betweenTheButtonsPadding = 8.0;
+var globalWorkspaceUri = '';
 
 /// Button action style, used by both JetsDataTable and JetsForm
 enum ActionStyle {
@@ -116,6 +117,7 @@ class FormKeys {
   static const viewProcessErrors = "viewProcessErrorsForm";
   static const viewInputRecords = "viewInputRecordsDialog";
   static const viewReteTriples = "viewReteTriplesDialog";
+  static const viewReteTriplesV2 = "viewReteTriplesDialogV2";
   // Query Tool Forms
   static const queryToolInputForm = "queryToolInputForm";
   static const queryToolResultViewForm = "queryToolResultViewForm";
@@ -134,6 +136,7 @@ class FormKeys {
   static const doGitCommandWorkspace = "doGitCommandWorkspaceDialog";
   static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
   static const exportWorkspaceClientConfig = "exportWorkspaceClientConfig";
+  static const addWorkspaceFile = "addWorkspaceFileDialog";
   // Forms for each section of the workspace, incl file editor
   // Note: The formConfig key is constructed in initializeWorkspaceFileEditor
   static const workspaceFileEditor = "workspace.file.form";
@@ -152,6 +155,9 @@ class FSK {
   static const label = "label";
   static const tableName = "table_name";
   static const fileKey = "file_key";
+
+  static const dataTableAction = "datatable.action";
+  static const dataTableFromTable = "datatable.from.table";
 
   static const userEmail = "user_email";
   static const userName = "name";
@@ -179,6 +185,10 @@ class FSK {
   static const inputColumnsPositionsCsv = "input_columns_positions_csv";
   static const codeValuesMappingJson = "code_values_mapping_json";
   static const entityRdfType = "entity_rdf_type";
+  static const entityKey = "entity_key";
+  static const entityProperty = "entity_property";
+  static const entityPropertyValue = "entity_property_value";
+  static const entityPropertyValueType = "entity_property_value_type";
   static const status = "status";
   static const rawRows = "raw_rows";
 
@@ -186,7 +196,10 @@ class FSK {
   static const domainKey = "domain_key";
   static const domainKeyColumn =
       "domainKeyColumn"; // e.g. Eligibility:domain_key
-  static const reteSessionTriples = "rete_session_triples";
+  static const reteSessionTriples = "rete_session.triples";
+  static const reteSessionRdfTypes = "rete_session.rdf_types";
+  static const reteSessionEntityKeyByType = "rete_session.entity_key_by_type";
+  static const reteSessionEntityDetailsByKey = "rete_session.entity_details_by_key";
 
   // Query Tool
   static const rawQuery = "raw_query";
@@ -258,6 +271,11 @@ class FSK {
   static const gitCommand = "git.command";
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
+  // Virtual workspace key
+  static const wsSection = "workspace.section"; //data_model, jet_rules, etc.
+
+  // workspace.db columns
+  static const wsDbSourceFileName = "source_file_name";
 
   // reserved keys for cache
 
@@ -362,7 +380,9 @@ class ActionKeys {
 
   // for process_error data table
   static const setupShowInputRecords = "setupShowInputRecords";
-  static const setupShowReteTriples = "setupShowReteTriples";
+  static const setupShowReteTriples = "reteSession.setupTriples";
+  static const setupShowReteTriplesV2 = "reteSession.setupModelV2";
+  static const reteSessionVisitEntity = "reteSession.VisitEntity";
 
   // Workspace IDE ActionKeys
   static const addWorkspaceOk = "addWorkspaceOk";
@@ -373,10 +393,13 @@ class ActionKeys {
   static const pullWorkspaceOk = "pullWorkspaceOk";
   static const doGitCommandWorkspaceOk = "doGitCommandWorkspaceOk";
   static const wsSaveFileOk = "wsSaveFileOk";
+  static const loadWorkspaceConfig = "loadWorkspaceConfig";
   static const deleteWorkspace = "deleteWorkspace";
   static const deleteWorkspaceChanges = "deleteWorkspaceChanges";
   static const deleteAllWorkspaceChanges = "deleteAllWorkspaceChanges";
   static const exportClientConfigOk = "exportClientConfigOk";
+  static const addWorkspaceFilesOk = "addWorkspaceFilesOk";
+  static const deleteWorkspaceFiles = "deleteWorkspaceFiles";
 }
 
 /// Form Action Keys
@@ -397,7 +420,12 @@ class DTKeys {
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
+  // View rete session triples v1
   static const reteSessionTriplesTable = "reteSessionTriplesTable";
+  // View rete session v2 - rete session explorer
+  static const reteSessionRdfTypeTable = "reteSessionRdfTypeTable";
+  static const reteSessionEntityKeyTable = "reteSessionEntityKeyTable";
+  static const reteSessionEntityDetailsTable = "reteSessionEntityDetailsTable";
   static const inputRecordsFromProcessErrorTable =
       "inputRecordsFromProcessErrorTable";
 
@@ -449,11 +477,13 @@ class DTKeys {
   static const wsDomainTableTable = "wsDomainTableTable";
   static const wsDomainClassTable = "wsDomainClassTable";
   static const wsDataPropertyTable = "wsDataPropertyTable";
+  static const wsDataModelFilesTable = "wsDataModelFilesTable";
 
   // Workspace - Jet Rules Tables
   static const wsJetRulesTable = "wsJetRulesTable";
   static const wsRuleTermsTable = "wsRuleTermsTable";
   static const wsMainSupportFilesTable = "wsMainSupportFilesTable";
+  static const wsJetRulesFilesTable = "wsJetRulesFilesTable";
 
   static const wsLookupsTable = "wsLookupsTable";
 }

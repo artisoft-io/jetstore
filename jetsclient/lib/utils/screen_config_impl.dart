@@ -43,11 +43,11 @@ final defaultMenuEntries = [
   //     key: 'dataPurge',
   //     label: 'Purge Client Data',
   //     menuAction: purgeDataAction),
-  MenuEntry(
-      otherPageStyle: ActionStyle.danger,
-      key: 'runInitDb',
-      label: 'Run Workspace Database Initialization',
-      menuAction: rerunDbInitAction),
+  // MenuEntry(
+  //     otherPageStyle: ActionStyle.danger,
+  //     key: 'runInitDb',
+  //     label: 'Run Workspace Database Initialization',
+  //     menuAction: rerunDbInitAction),
 ];
 
 final adminMenuEntries = [

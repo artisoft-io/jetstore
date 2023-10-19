@@ -1449,17 +1449,41 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.reteSessionTriplesTable,
             dataTableConfig: DTKeys.reteSessionTriplesTable,
             tableHeight: 1000)
+      ],
+    ],
+    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formActionsDelegate: processErrorsActions,
+  ),
 
-        // FormInputFieldConfig(
-        //     key: FSK.reteSessionTriples,
-        //     label: "Rete Triples",
-        //     hint: "Rete session saved as triples",
-        //     flex: 1,
-        //     autofocus: false,
-        //     obscureText: false,
-        //     textRestriction: TextRestriction.none,
-        //     maxLines: 50,
-        //     maxLength: 2097152),
+  FormKeys.viewReteTriplesV2: FormConfig(
+    key: FormKeys.viewReteTriplesV2,
+    title: "Rete Session Explorer",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Close",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding,
+          bottomMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.reteSessionRdfTypeTable,
+            flex: 1,
+            dataTableConfig: DTKeys.reteSessionRdfTypeTable,
+            tableHeight: double.infinity),
+        FormDataTableFieldConfig(
+            key: DTKeys.reteSessionEntityKeyTable,
+            flex: 1,
+            dataTableConfig: DTKeys.reteSessionEntityKeyTable,
+            tableHeight: double.infinity),
+        FormDataTableFieldConfig(
+            key: DTKeys.reteSessionEntityDetailsTable,
+            flex: 2,
+            dataTableConfig: DTKeys.reteSessionEntityDetailsTable,
+            tableHeight: double.infinity),
       ],
     ],
     formValidatorDelegate: (formState, p2, p3, p4) => null,

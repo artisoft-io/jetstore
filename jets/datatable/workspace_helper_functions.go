@@ -3,6 +3,8 @@ package datatable
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"strconv"
 	"time"
 
@@ -28,7 +30,7 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 		var gitLog string
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
-		wsUri := dataTableAction.Data[irow]["workspace_uri"]
+		wsUri := getWorkspaceUri(dataTableAction, irow)
 		gitUser := dataTableAction.Data[irow]["git.user"]
 		gitToken := dataTableAction.Data[irow]["git.token"]
 		wsCM := dataTableAction.Data[irow]["git.commit.message"]
@@ -36,7 +38,7 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 		if(wsCM != nil) {
 			wsCommitMessage = wsCM.(string)
 		}
-		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 		var buf strings.Builder
 
 		// Compile workspace
@@ -99,11 +101,11 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)
 		var gitLog string
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
-		wsUri := dataTableAction.Data[irow]["workspace_uri"]
+		wsUri := getWorkspaceUri(dataTableAction, irow)
 		gitUser := dataTableAction.Data[irow]["git.user"]
 		gitToken := dataTableAction.Data[irow]["git.token"]
 
-		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri.(string))
+		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 		var buf strings.Builder
 
 		// Pull changes from repository
@@ -196,4 +198,94 @@ func compileWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActi
 			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 		}
 	}
+}
+
+// Execute pipeline in unit test mode
+func unitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, token string)  {
+
+	dataTableAction.Action = "insert_rows"
+	dataTableAction.FromClauses[0].Table = "pipeline_execution_status"
+	ctx.DevMode = true
+	results, _, err := ctx.InsertRows(dataTableAction, token)
+
+	dataTableAction.Data[0]["last_git_log"] = (*results)["log"]
+	dataTableAction.Data[0]["status"] = ""
+	if err != nil {
+		dataTableAction.Data[0]["status"] = "error"
+	}
+
+	// Perform the Insert Rows
+	sqlStmt := sqlInsertStmts["unit_test"]
+	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	for jcol, colKey := range sqlStmt.ColumnKeys {
+		row[jcol] = dataTableAction.Data[0][colKey]
+	}
+
+	_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+	if err != nil {
+		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+	}
+}
+
+// Load workspace config
+func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction)  {
+
+	// using update_db script
+	log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+	serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
+	if ctx.UsingSshTunnel {
+		serverArgs = append(serverArgs, "-usingSshTunnel")
+	}
+	results, err := RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+
+	dataTableAction.Data[0]["last_git_log"] = results
+	dataTableAction.Data[0]["status"] = ""
+	if err != nil {
+		dataTableAction.Data[0]["status"] = "error"
+	}
+
+	// Perform the Insert Rows
+	sqlStmt := sqlInsertStmts["unit_test"]
+	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	for jcol, colKey := range sqlStmt.ColumnKeys {
+		row[jcol] = dataTableAction.Data[0][colKey]
+	}
+
+	_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+	if err != nil {
+		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+	}
+}
+
+// Run update_db
+func RunUpdateDb(workspaceName string, serverArgs *[]string) (string, error) {
+	log.Printf("Run update_db: %s", *serverArgs)
+	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
+	cmd.Env = append(os.Environ(),
+	fmt.Sprintf("WORKSPACE=%s", workspaceName),
+	)
+	var buf strings.Builder
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	result := buf.String()
+	if err != nil {
+		log.Printf("while executing update_db command '%v': %v", serverArgs, err)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println(result)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println("UPDATE_DB CAPTURED OUTPUT END")
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return result, err
+	}
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT BEGIN")
+	log.Println("============================")
+	log.Println(result)
+	log.Println("============================")
+	log.Println("UPDATE_DB CAPTURED OUTPUT END")
+	log.Println("============================")
+	return result, nil
 }

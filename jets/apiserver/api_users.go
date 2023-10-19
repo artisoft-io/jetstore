@@ -60,7 +60,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
-	if devMode {
+	if globalDevMode {
 		jetsUser.DevMode = "true"
 	}
 	JSON(w, http.StatusOK, jetsUser)
