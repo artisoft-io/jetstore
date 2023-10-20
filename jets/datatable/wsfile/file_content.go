@@ -13,10 +13,11 @@ import (
 
 // This file contains function to get and save file content & execute command in local workspace
 
-
+// Run command in workspace
 func RunCommand(buf *strings.Builder, command, workspaceName string) error {
 	cmd := exec.Command(command)
 	if workspaceName != "" {
+		cmd.Dir = fmt.Sprintf("%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName)
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("WORKSPACE=%s", workspaceName),
 		)
@@ -26,7 +27,9 @@ func RunCommand(buf *strings.Builder, command, workspaceName string) error {
 	buf.WriteString(fmt.Sprintf("Executing command %s in workspace %s\n", command, workspaceName))
 	err := cmd.Run()
 	if err != nil {
-		log.Printf("while executing command '%v': %v", command, err)
+		msg := fmt.Sprintf("while executing command '%v': %v\n", command, err)
+		log.Print(msg)
+		buf.WriteString(msg)
 	}
 	buf.WriteString("Done executing command\n")
 	return err
