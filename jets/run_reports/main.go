@@ -75,12 +75,12 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	}
 	defer dbpool.Close()
 
-	// Fetch overriten workspace files (here we want the reports definitions in particular)
+	// Fetch reports.tgz from overriten workspace files (here we want the reports definitions in particular)
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
 	_,devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
 		workspaceName := os.Getenv("WORKSPACE")
-		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports", true)
+		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports.tgz", true)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:",err)
 			return err

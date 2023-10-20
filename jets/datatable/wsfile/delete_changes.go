@@ -48,10 +48,10 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 			`SELECT lo_unlink(oid) 
 			 FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = '%s' 
-			   AND file_name NOT IN ('workspace.db', 'lookup.db'); 
+			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'reports.tgz'); 
 			 DELETE FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = '%s'
-			   AND file_name NOT IN ('workspace.db', 'lookup.db');`,
+			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'reports.tgz');`,
 			workspaceName, workspaceName)
 	default:	
 		stmt = fmt.Sprintf(

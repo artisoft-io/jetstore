@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -48,6 +48,20 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 				return fmt.Errorf("failed to read file object %s from database for write: %v", fo.FileName, err)
 			}
 			log.Println("Updated file", fo.FileName,"size",n)
+			fileHd.Close()
+
+			// If FileName ends with .tgz, extract files from archive
+			if strings.HasSuffix(fo.FileName, ".tgz") {
+				command := "tar xfvz reports.tgz"
+				var buf strings.Builder
+				err = wsfile.RunCommand(&buf, command, workspaceName)
+				defer os.Remove(fo.FileName)
+				if err != nil {
+					return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
+				}
+				log.Println(buf.String())	
+			}
+
 		} else {
 			log.Println("Skipping file", fo.FileName)
 		}
@@ -79,49 +93,48 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	compilerPath := fmt.Sprintf("%s/%s/compile_workspace.sh", wh, workspaceName)
 
 	// Compile the workspace locally
-	cmd := exec.Command(compilerPath)
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("WORKSPACE=%s", workspaceName),
-	)
 	var buf strings.Builder
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-	log.Printf("Executing compile_workspace command '%v'", compilerPath)
 	buf.WriteString(fmt.Sprintf("Compiling workspace %s at version %s\n",workspaceName, version))
-	err := cmd.Run()
-	cmdLog := buf.String()
+	err := wsfile.RunCommand(&buf, compilerPath, workspaceName)
+
 	if err != nil {
-		log.Printf("while executing compile_workspace command '%v': %v", compilerPath, err)
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("COMPILE WORKSPACE CAPTURED OUTPUT BEGIN")
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		cmdLog := buf.String()
 		log.Println(cmdLog)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println("COMPILE WORKSPACE CAPTURED OUTPUT END")
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 		return cmdLog, fmt.Errorf("while executing compile_workspace command '%v': %v", compilerPath, err)
 	}
-	log.Println("============================")
-	log.Println("COMPILE WORKSPACE CAPTURED OUTPUT BEGIN")
+
+	// Archive reports
+	command := "tar cfvz reports.tgz reports/"
+	buf.WriteString("\nArchiving the reports\n")
+	err = wsfile.RunCommand(&buf, command, workspaceName)
+	defer os.Remove("reports.tgz")
+	cmdLog := buf.String()
+	if err != nil {
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println(cmdLog)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return cmdLog, fmt.Errorf("while archiving the reports folder : %v", err)
+	}
+
+	log.Println("COMPILE WORKSPACE CAPTURED OUTPUT:")
 	log.Println("============================")
 	log.Println(cmdLog)
 	log.Println("============================")
-	log.Println("COMPILE WORKSPACE CAPTURED OUTPUT END")
-	log.Println("============================")
 
-	// Copy the sqlite file to db
+	// Copy the sqlite files & the tar file to db
 	buf.WriteString("\nCopy the sqlite file to db\n")
 	sourcesPath := []string{
 		fmt.Sprintf("%s/%s/lookup.db", wh, workspaceName),
 		fmt.Sprintf("%s/%s/workspace.db", wh, workspaceName),
+		fmt.Sprintf("%s/%s/reports.tgz", wh, workspaceName),
 	}
-	fileNames := []string{ "lookup.db", "workspace.db" }
-	fo := dbutils.FileDbObject{
-		WorkspaceName: workspaceName,
-		ContentType: "sqlite",
-		Status: dbutils.FO_Open,
-		UserEmail: "system",
-	}
+	fileNames := []string{ "lookup.db", "workspace.db", "reports.tgz" }
+	fo := []dbutils.FileDbObject{
+		{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
+		{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
+		{WorkspaceName: workspaceName, ContentType: "reports.tgz",	Status: dbutils.FO_Open, UserEmail: "system"}}
 	for i := range sourcesPath {
 		// Copy the file to db as large objects
 		file, err := os.Open(sourcesPath[i])
@@ -132,9 +145,9 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 			log.Printf("While opening local output file: %v", err)
 			return buf.String(), err
 		}
-		fo.FileName = fileNames[i]
-		fo.Oid = 0
-		_,err = fo.WriteObject(dbpool, file)
+		fo[i].FileName = fileNames[i]
+		fo[i].Oid = 0
+		_,err = fo[i].WriteObject(dbpool, file)
 		file.Close()
 		if err != nil {
 			buf.WriteString("Failed to upload file to db:")

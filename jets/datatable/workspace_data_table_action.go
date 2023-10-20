@@ -39,7 +39,7 @@ func getWorkspaceUri(dataTableAction *DataTableAction, irow int) string {
 
 // WorkspaceInsertRows ------------------------------------------------------
 // Main insert row function with pre processing hooks for validating/authorizing the request
-// Main insert row function with post processing hooks for starting pipelines
+// Main insert row function with post processing hooks to perform work async
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
 func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
@@ -249,14 +249,22 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		// Commit changes in local workspace and push to repository:
 		//	- Compile workspace
 		//	- Commit and Push to repository
-		//	- Delete changes in db (except for workspace.db and lookup.db)
+		//  NOTE:
+		//	  Delete workspace overrides
+		//	  (except for workspace.db, lookup.db, and reports.tgz)
+		//	  must be done manually 
 		go commitWorkspaceAction(ctx.Dbpool, dataTableAction)
 
 	case dataTableAction.FromClauses[0].Table == "pull_workspace":
-		// Pull workspace changes, update workspace_registry table and delete overrides in workspace_changes
+		// Pull workspace changes in local repository:
+		//	- Pull changes from origin repo
+		//	- Update the file stash with pulled version
+		//  - Sync workspace overrides on top of the pull
+		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
 		go pullWorkspaceAction(ctx.Dbpool, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
+		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
 		go compileWorkspaceAction(ctx.Dbpool, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
@@ -787,28 +795,6 @@ func (ctx *Context) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, 
 	return
 }
 
-// func compileWorkspace(dbpool *pgxpool.Pool, workspaceName string) (httpStatus int, err error) {
-// 	httpStatus = http.StatusOK
-// 	var gitLog string
-// 	gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
-// 	if err != nil {
-// 		httpStatus = http.StatusInternalServerError
-// 	}
-// 	// Save gitLog into workspace_registry, even if had error during compilation to have error details
-// 	stmt := fmt.Sprintf(
-// 		"UPDATE jetsapi.workspace_registry SET (last_git_log, user_email, last_update) = ('%s', 'system', DEFAULT) WHERE workspace_name = '%s'",
-// 		gitLog, workspaceName)
-// 	_, dbErr := dbpool.Exec(context.Background(), stmt)
-// 	if dbErr != nil {
-// 		log.Printf("While inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
-// 		if err == nil {
-// 			httpStatus = http.StatusInternalServerError
-// 			err = fmt.Errorf("while inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
-// 		}
-// 	}
-// 	return
-// }
-
 // DeleteWorkspaceChanges --------------------------------------------------------------------------
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
@@ -833,26 +819,6 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 		}
 	}
 
-	// // If local workspace has no changes in db after the file revert, recompile workspace
-	// var nbrChanges int64
-	// stmt := fmt.Sprintf(
-	// 	"SELECT count(*) FROM jetsapi.workspace_changes WHERE workspace_name = '%s' AND file_name NOT IN ('workspace.db', 'lookup.db')",
-	// 	workspaceName)
-	// err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&nbrChanges)
-	// if err != nil {
-	// 	log.Printf("Unexpected error while reading number of changes on table workspace_changes: %v", err)
-	// 	httpStatus = http.StatusInternalServerError
-	// 	return
-	// }
-	// if nbrChanges == 0 {
-	// 	// Compile the workspace
-	// 	log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-	// 	dataTableAction.Action = "workspace_insert_rows"
-	// 	dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
-	// 	dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
-	// 	_, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
-	// }
-
 	results = &map[string]interface{}{}
 	return
 }
@@ -875,14 +841,6 @@ func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, 
 		httpStatus = http.StatusBadRequest
 		return
 	}
-
-	// // Compile the workspace
-	// log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-	// dataTableAction.Action = "workspace_insert_rows"
-	// dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
-	// dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
-	// dataTableAction.Data[0]["user_email"] = ctx.AdminEmail
-	// _, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
 
 	results = &map[string]interface{}{}
 	return
