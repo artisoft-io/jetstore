@@ -13,6 +13,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -20,7 +21,10 @@ import (
 // Commit changes in local workspace and push to repository:
 //	- Compile workspace
 //	- Commit and Push to repository
-//	- Delete changes in db (except for workspace.db and lookup.db)
+//  NOTE:
+//	  Delete workspace overrides
+//	  (except for workspace.db, lookup.db, and reports.tgz)
+//	  must be done manually
 func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)  {
 
 	var err error
@@ -63,14 +67,15 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 			goto setCommitGitLog
 		}
 
-		// Delete workspace overrides (except for workspace.db and lookup.db)
-		// Note, do not restaure files from stash
-		err = wsfile.DeleteAllFileChanges(dbpool, workspaceName, false, true)
-		if err != nil {
-			buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
-			status = "error"
-			goto setCommitGitLog
-		}
+		// Must be done manually for now
+		// // Delete workspace overrides (except for workspace.db, lookup.db, and reports.tgz)
+		// // Note, do not restaure files from stash
+		// err = wsfile.DeleteAllFileChanges(dbpool, workspaceName, false, true)
+		// if err != nil {
+		// 	buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
+		// 	status = "error"
+		// 	goto setCommitGitLog
+		// }
 
 		setCommitGitLog:
 		dataTableAction.Data[irow]["last_git_log"] = buf.String()
@@ -91,7 +96,11 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 	}
 }
 
-// Pull workspace changes, update workspace_registry table and delete overrides in workspace_changes
+// Pull workspace changes in local repository:
+//	- Pull changes from orign repo
+//	- Update the file stash with pulled version
+//  - Apply workspace overrides
+//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
 func pullWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)  {
 
 	var err error
@@ -134,15 +143,15 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)
 			log.Printf("Error while stashing workspace %s, ignored", workspaceName)
 			err = nil
 		}
-		// Delete all workspace overrides
-		// Note, do not restaure files from stash
-		err = wsfile.DeleteAllFileChanges(dbpool, workspaceName, false, false)
+
+		// Apply workspace overrides from database
+		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "", true)
 		if err != nil {
-			buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
-			status = "error"
-			goto setPullGitLog
+			//* TODO Log to a new workspace error table to report in UI
+			log.Println("Error while synching workspace file from database:", err, "(ignored)")
+			err = nil
 		}
-		
+			
 		// Compile workspace
 		gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
 		if err != nil {

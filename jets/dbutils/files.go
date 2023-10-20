@@ -44,7 +44,7 @@ func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, status, contentType st
 		stmt = `SELECT key, oid, file_name, content_type, user_email	FROM jetsapi.workspace_changes 
 		WHERE workspace_name = $1 AND status = $2 AND content_type = $3`
 		rows, err = dbpool.Query(context.Background(), stmt, workspaceName, status, contentType)
-		} else {
+	} else {
 		stmt = `SELECT key, oid, file_name, content_type, user_email	FROM jetsapi.workspace_changes 
 		WHERE workspace_name = $1 AND status = $2`
 		rows, err = dbpool.Query(context.Background(), stmt, workspaceName, status)

@@ -239,8 +239,6 @@ func (server *Server) getUnitTestFileKeys() ([]string, error) {
 	return fileKeys, nil
 }
 
-// Download overriten workspace files from jetstore database
-// Check the workspace version in db, if jetstore image version is more recent, recompile workspace
 func (server *Server) syncUnitTestFiles() {
 	// Collect files from local workspace
 	log.Println("Copying unit_test files to s3:")
@@ -281,17 +279,18 @@ func (server *Server) checkWorkspaceVersion() error {
 		log.Printf("Error while stashing workspace file: %v", err)
 	}
 
-	// Download overriten workspace files from s3 if any
-	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", globalDevMode)
+	// Check if need to Download overriten workspace files from database & recompile workspace, 
+	// skip if in dev mode
+	if globalDevMode {
+		// Local development, do not sync and compile workspace
+		return nil
+	}
+
+	// Download overriten workspace files from database if any
+	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", false)
 	if err != nil {
 		//* TODO Log to a new workspace error table to report in UI
 		log.Println("Error while synching workspace file from database:", err)
-	}
-
-	// Check if need to recompile workspace, skip if in dev mode
-	if globalDevMode {
-		// We're in dev mode, the user is responsible to compile workspace when needed
-		return nil
 	}
 	var version sql.NullString
 	jetstoreVersion := os.Getenv("JETS_VERSION")
@@ -317,18 +316,14 @@ func (server *Server) checkWorkspaceVersion() error {
 		log.Println("Workspace deployed version (in database) is", version.String)
 		// Recompile workspace, set the workspace version to be same as jetstore version
 		// Sync unit test files from workspace to s3
-		// Skip this if in DEV MODE
-		if !globalDevMode {
-			_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
-			if err != nil {
-				log.Println("Error while compiling workspace:", err)
-				return err
-			}
-
-			// Sync unit test files
-			server.syncUnitTestFiles()
-			return nil
+		_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
+		if err != nil {
+			log.Println("Error while compiling workspace:", err)
+			return err
 		}
+		// Sync unit test files
+		server.syncUnitTestFiles()
+		return nil
 
 	default:
 		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
