@@ -352,7 +352,7 @@ func (server *Server) initUsers() error {
 		var adminPassword string = *adminPwd
 		var err error
 		if *awsAdminPwdSecret != "" {
-			adminPassword, err = awsi.GetSecretValue(*awsAdminPwdSecret, *awsRegion)
+			adminPassword, err = awsi.GetSecretValue(*awsAdminPwdSecret)
 			if err != nil {
 				return fmt.Errorf("while getting apiSecret from aws secret: %v", err)
 			}
@@ -384,7 +384,7 @@ func listenAndServe() error {
 	var err error
 	// Get secret to sign jwt tokens
 	if *awsApiSecret != "" {
-		*apiSecret, err = awsi.GetSecretValue(*awsApiSecret, *awsRegion)
+		*apiSecret, err = awsi.GetSecretValue(*awsApiSecret)
 		if err != nil {
 			return fmt.Errorf("while getting apiSecret from aws secret: %v", err)
 		}
@@ -393,7 +393,7 @@ func listenAndServe() error {
 	// Open db connection
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		*dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, *dbPoolSize)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}

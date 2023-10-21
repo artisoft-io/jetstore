@@ -22,6 +22,14 @@ type GitProfile struct {
 	GitToken  string
 }
 
+var jetsEncriptionKey string
+func init() {
+	jetsEncriptionKey = os.Getenv("JETS_ENCRYPTION_KEY")
+	if jetsEncriptionKey == "" {
+		log.Println("Could not load value for JETS_ENCRYPTION_KEY:")
+	}
+}
+
 func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
 	var gitProfile GitProfile
 	stmt := fmt.Sprintf(
@@ -108,11 +116,9 @@ func decrypt(encryptedString string, keyString string) (decryptedString string) 
 }
 
 func EncryptGitToken(gitToken string) string {
-	keyString := os.Getenv("JETS_ENCRYPT_KEY")
-	return encrypt(gitToken, keyString)
+	return encrypt(gitToken, jetsEncriptionKey)
 }
 
 func DecryptGitToken(encryptedGitToken string) string {
-	keyString := os.Getenv("JETS_ENCRYPT_KEY")
-	return decrypt(encryptedGitToken, keyString)
+	return decrypt(encryptedGitToken, jetsEncriptionKey)
 }

@@ -133,6 +133,9 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
 			// Execute git commands in workspace
+			if os.Getenv("WORKSPACE_URI") != "" {
+				return nil, http.StatusUnauthorized, fmt.Errorf("not authorized to execute git_command_workspace")
+			}
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing workspace_name")
 			}
@@ -145,6 +148,24 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			gitLog, err = workspaceGit.GitCommandWorkspace(gitCommand.(string))
 			if err != nil {
 				log.Printf("Error while git status workspace: %s\n", gitLog)
+				httpStatus = http.StatusBadRequest
+			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = ""
+
+		case dataTableAction.FromClauses[0].Table == "git_status_workspace":
+			// Execute git status commands in workspace
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing workspace_name")
+			}
+			wsUri := getWorkspaceUri(dataTableAction, irow)
+			if(wsUri == "") {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing git information")
+			}
+			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
+			gitLog, err = workspaceGit.GitCommandWorkspace("git status")
+			if err != nil {
+				log.Printf("Error while git status in workspace: %s\n", gitLog)
 				httpStatus = http.StatusBadRequest
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog

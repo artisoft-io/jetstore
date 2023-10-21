@@ -215,6 +215,66 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceIDEFormActions,
   ),
 
+  // Do Git Status Workspace Dialog
+  FormKeys.doGitStatusWorkspace: FormConfig(
+    key: FormKeys.doGitStatusWorkspace,
+    title: "Do Git Status in Local Workspace",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.doGitStatusWorkspaceOk,
+          label: "Git Status",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitCommand,
+            flex: 10,
+            label: "Git Status Commands",
+            hint: "Enter git commands to execute",
+            maxLines: 1,
+            maxLength: 100,
+            autofocus: false,
+            isReadOnly: true,
+            defaultValue: "git status",
+            textRestriction: TextRestriction.none),
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
   // Push Only Workspace Changes Dialog
   FormKeys.pushOnlyWorkspace: FormConfig(
     key: FormKeys.pushOnlyWorkspace,
