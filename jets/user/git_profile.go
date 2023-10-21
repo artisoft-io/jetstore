@@ -5,7 +5,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +27,7 @@ func init() {
 	if jetsEncriptionKey == "" {
 		log.Println("Could not load value for JETS_ENCRYPTION_KEY:")
 	}
+	fmt.Println("*** init jetsEncriptionKey:",jetsEncriptionKey)
 }
 
 func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
@@ -55,7 +55,7 @@ func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
 func encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
 
 	//Since the key is in string, we need to convert decode it to bytes
-	key, _ := hex.DecodeString(keyString)
+	key := []byte(keyString)
 	plaintext := []byte(stringToEncrypt)
 
 	//Create a new Cipher Block from the key
@@ -80,13 +80,13 @@ func encrypt(stringToEncrypt string, keyString string) (encryptedString string) 
 	//Encrypt the data using aesGCM.Seal
 	//Since we don't want to save the nonce somewhere else in this case, we add it as a prefix to the encrypted data. The first nonce argument in Seal is the prefix.
 	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return fmt.Sprintf("%x", ciphertext)
+	return string(ciphertext)
 }
 
 func decrypt(encryptedString string, keyString string) (decryptedString string) {
 
-	key, _ := hex.DecodeString(keyString)
-	enc, _ := hex.DecodeString(encryptedString)
+	key := []byte(keyString)
+	enc := []byte(encryptedString)
 
 	//Create a new Cipher Block from the key
 	block, err := aes.NewCipher(key)
@@ -116,9 +116,11 @@ func decrypt(encryptedString string, keyString string) (decryptedString string) 
 }
 
 func EncryptGitToken(gitToken string) string {
+	fmt.Println("*** EncryptGitToken jetsEncriptionKey:",jetsEncriptionKey)
 	return encrypt(gitToken, jetsEncriptionKey)
 }
 
 func DecryptGitToken(encryptedGitToken string) string {
+	fmt.Println("*** DecryptGitToken jetsEncriptionKey:",jetsEncriptionKey)
 	return decrypt(encryptedGitToken, jetsEncriptionKey)
 }
