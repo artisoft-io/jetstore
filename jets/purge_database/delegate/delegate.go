@@ -51,7 +51,6 @@ func DoPurgeSessions() error {
 	// Get the dsn from the aws secret
 	dsn, err := awsi.GetDsnFromSecret(
 		os.Getenv("JETS_DSN_SECRET"), 
-		os.Getenv("JETS_REGION"), 
 		len(os.Getenv("USING_SSH_TUNNEL")) > 0, 
 		5)
 	if err != nil {
