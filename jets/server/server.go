@@ -159,7 +159,7 @@ func doJobAndReportStatus() error {
 	var err error
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, *dbPoolSize)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}
