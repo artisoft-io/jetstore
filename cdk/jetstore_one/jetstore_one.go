@@ -1097,6 +1097,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			RequireEachIncludedType: jsii.Bool(true),
 		},
 	})
+	encryptionKeySecret := awssm.NewSecret(stack, jsii.String("encryptionKeySecret"), &awssm.SecretProps{
+		Description: jsii.String("JetStore Encryption Key"),
+		GenerateSecretString: &awssm.SecretStringGenerator{
+			PasswordLength:          jsii.Number(32),
+			IncludeSpace:            jsii.Bool(false),
+			ExcludePunctuation:      jsii.Bool(true),
+			RequireEachIncludedType: jsii.Bool(true),
+		},
+	})
 	nbrShards := os.Getenv("NBR_SHARDS")
 	if nbrShards == "" {
 		nbrShards = "1"
@@ -1133,9 +1142,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			"NBR_SHARDS":                         jsii.String(nbrShards),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(apiSecret, nil),
-			"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(adminPwdSecret, nil),
+			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
+			"JETS_ADMIN_PWD":               awsecs.Secret_FromSecretsManager(adminPwdSecret, nil),
+			"JETS_ENCRYPTION_KEY":          awsecs.Secret_FromSecretsManager(encryptionKeySecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
