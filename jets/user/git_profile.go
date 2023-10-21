@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -80,13 +81,13 @@ func encrypt(stringToEncrypt string, keyString string) (encryptedString string) 
 	//Encrypt the data using aesGCM.Seal
 	//Since we don't want to save the nonce somewhere else in this case, we add it as a prefix to the encrypted data. The first nonce argument in Seal is the prefix.
 	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return string(ciphertext)
+	return fmt.Sprintf("%x", ciphertext)
 }
 
 func decrypt(encryptedString string, keyString string) (decryptedString string) {
 
 	key := []byte(keyString)
-	enc := []byte(encryptedString)
+	enc, _ := hex.DecodeString(encryptedString)
 
 	//Create a new Cipher Block from the key
 	block, err := aes.NewCipher(key)
