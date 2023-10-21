@@ -227,6 +227,16 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       menuEntries: [],
       adminMenuEntries: []),
 
+  // Git User Profile Screen
+  ScreenKeys.userGitProfile: ScreenConfig(
+      key: ScreenKeys.userGitProfile,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Edit Git Profile',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
+
   // UserAdmin Screen
   ScreenKeys.userAdmin: ScreenConfig(
       key: ScreenKeys.userAdmin,

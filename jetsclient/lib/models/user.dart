@@ -1,32 +1,41 @@
 /// The [UserModel] represent the logged-in user
 class UserModel {
   /// The user name obtained from the token
-  String? name;
+  String name;
 
   /// The login email
-  String? email;
+  String email;
 
   /// The jwt token (obtained by login form)
-  String? token;
+  String token;
 
   /// Last time the token was refreshed
   DateTime? lastTokenRefresh;
 
   /// The user's password (used in login form)
-  String? password;
+  String password;
 
   /// The user's password (used in login form)
   bool isAdmin;
 
-  UserModel(
-      {this.name,
-      this.email,
-      this.token,
-      this.lastTokenRefresh,
-      this.password,
-      this.isAdmin = false});
+  // Git info, needed for userGitProfile screen
+  String gitName;
+  String gitEmail;
+  String gitHandle;
 
-  bool get isAuthenticated => token != null && token!.isNotEmpty;
+  UserModel({
+    this.name = '',
+    this.email = '',
+    this.token = '',
+    this.lastTokenRefresh,
+    this.password = '',
+    this.isAdmin = false,
+    this.gitName = '',
+    this.gitEmail = '',
+    this.gitHandle = '',
+  });
+
+  bool get isAuthenticated => token.isNotEmpty;
   bool get isTokenAged =>
       isAuthenticated &&
       lastTokenRefresh != null &&

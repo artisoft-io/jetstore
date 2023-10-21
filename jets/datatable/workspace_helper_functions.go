@@ -14,6 +14,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -25,7 +26,7 @@ import (
 //	  Delete workspace overrides
 //	  (except for workspace.db, lookup.db, and reports.tgz)
 //	  must be done manually
-func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)  {
+func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dataTableAction *DataTableAction)  {
 
 	var err error
 	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -35,8 +36,6 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
 		wsUri := getWorkspaceUri(dataTableAction, irow)
-		gitUser := dataTableAction.Data[irow]["git.user"]
-		gitToken := dataTableAction.Data[irow]["git.token"]
 		wsCM := dataTableAction.Data[irow]["git.commit.message"]
 		var wsCommitMessage string
 		if(wsCM != nil) {
@@ -56,8 +55,8 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 		
 		// Commit and push workspace changes and update workspace_registry table
 		gitLog, err = workspaceGit.CommitLocalWorkspace(
-			gitUser.(string),
-			gitToken.(string),
+			gitProfile.GitHandle,
+			gitProfile.GitToken,
 			wsCommitMessage,
 		)
 		buf.WriteString(gitLog)
@@ -101,7 +100,7 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActio
 //	- Update the file stash with pulled version
 //  - Apply workspace overrides
 //	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
-func pullWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)  {
+func pullWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dataTableAction *DataTableAction)  {
 
 	var err error
 	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -111,16 +110,14 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
 		wsUri := getWorkspaceUri(dataTableAction, irow)
-		gitUser := dataTableAction.Data[irow]["git.user"]
-		gitToken := dataTableAction.Data[irow]["git.token"]
 
 		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 		var buf strings.Builder
 
 		// Pull changes from repository
 		gitLog, err = workspaceGit.PullRemoteWorkspace(
-			gitUser.(string),
-			gitToken.(string),
+			gitProfile.GitHandle,
+			gitProfile.GitToken,
 		)
 		buf.WriteString(gitLog)
 		buf.WriteString("\n")

@@ -37,6 +37,7 @@ const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
 const userAdminPath = '/userAdmin';
+const userGitProfilePath = '/userGitProfile/:user_email/:git_name/:git_email/:git_handle';
 
 // Workspace IDE paths
 const workspaceRegistryPath = '/workspaces';
@@ -163,6 +164,14 @@ final Map<String, Widget> jetsRoutesMap = {
     formConfig: getFormConfig(FormKeys.userAdmin),
   ),
 
+  // User Git Profile Screen
+  userGitProfilePath: ScreenWithForm(
+    key: const Key(ScreenKeys.userGitProfile),
+    screenPath: JetsRouteData(userGitProfilePath),
+    screenConfig: getScreenConfig(ScreenKeys.userGitProfile),
+    formConfig: getFormConfig(FormKeys.userGitProfile),
+  ),
+
   // Domain Table Viewer
   domainTableViewerPath: ScreenOne(
       key: const Key(ScreenKeys.fileRegistryTable),
@@ -245,12 +254,7 @@ class MessageScreen extends StatelessWidget {
             icon: const Icon(Icons.logout_sharp),
             tooltip: 'Log Out',
             onPressed: () {
-              var user = UserModel();
-              user.name = "";
-              user.email = "";
-              user.password = "";
-              user.token = "";
-              JetsRouterDelegate().user = user;
+              JetsRouterDelegate().user = UserModel();
               JetsRouterDelegate()(JetsRouteData(loginPath));
             },
           ),

@@ -24,14 +24,25 @@ AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
           style: JetsRouterDelegate().isDarkMode(context)
               ? buttonStyle(ActionStyle.primary, themeData)
               : null,
-          onPressed: () {},
-          child: Center(child: Text(JetsRouterDelegate().user.name ?? ''))),
+          onPressed: () {
+            final user = JetsRouterDelegate().user;
+            if (user.isAuthenticated) {
+              JetsRouterDelegate()(
+                  JetsRouteData(userGitProfilePath, 
+                    params: <String, dynamic>{
+                      'git_name': user.gitName,
+                      'git_email': user.gitEmail,
+                      'git_handle': user.gitHandle,
+                    }));
+            }
+          },
+          child: Center(child: Text(JetsRouterDelegate().user.name))),
       IconButton(
         icon: const Icon(Icons.dark_mode_sharp),
         tooltip: 'Toggle Theme',
         onPressed: () {
           AdaptiveTheme.of(context).toggleThemeMode();
-          if(AdaptiveTheme.of(context).mode == AdaptiveThemeMode.system) {
+          if (AdaptiveTheme.of(context).mode == AdaptiveThemeMode.system) {
             AdaptiveTheme.of(context).toggleThemeMode();
           }
         },
@@ -41,13 +52,7 @@ AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
           icon: const Icon(Icons.logout_sharp),
           tooltip: 'Log Out',
           onPressed: () {
-            var user = UserModel();
-            user.name = "";
-            user.email = "";
-            user.password = "";
-            user.token = "";
-            user.isAdmin = false;
-            JetsRouterDelegate().user = user;
+            JetsRouterDelegate().user = UserModel();
             JetsRouterDelegate()(JetsRouteData(loginPath));
           },
         ),

@@ -72,6 +72,7 @@ class ScreenKeys {
   static const login = "loginScreen";
   static const register = "registerScreen";
   static const userAdmin = "userAdminScreen";
+  static const userGitProfile = "userGitProfileScreen";
 
   static const fileRegistryTable = "fileRegistryTableScreen";
   static const filePreview = "filePreviewScreen";
@@ -125,6 +126,7 @@ class FormKeys {
   static const login = "login";
   static const register = "register";
   static const userAdmin = "userAdmin";
+  static const userGitProfile = "userGitProfile";
 
   // Workspace IDE forms
   static const workspaceRegistry = "workspaceRegistry";
@@ -168,6 +170,12 @@ class FSK {
   static const isAdmin = "is_admin";
   static const isActive = "is_active";
 
+  static const gitName = "git_name";
+  static const gitEmail = "git_email";
+  static const gitHandle = "git_handle";
+  static const gitToken = "git_token";
+  static const gitTokenConfirm = "git_token.confirm";
+
   static const client = "client";
   static const org = "org";
   static const sourcePeriodKey = "source_period_key";
@@ -199,7 +207,8 @@ class FSK {
   static const reteSessionTriples = "rete_session.triples";
   static const reteSessionRdfTypes = "rete_session.rdf_types";
   static const reteSessionEntityKeyByType = "rete_session.entity_key_by_type";
-  static const reteSessionEntityDetailsByKey = "rete_session.entity_details_by_key";
+  static const reteSessionEntityDetailsByKey =
+      "rete_session.entity_details_by_key";
 
   // Query Tool
   static const rawQuery = "raw_query";
@@ -263,11 +272,7 @@ class FSK {
   static const wsFileEditorContent = "file_content";
   static const wsOid = "oid";
   static const lastGitLog = "last_git_log";
-  static const gitUser = "git.user";
-  static const gitToken = "git.token";
   static const gitCommitMessage = "git.commit.message";
-  static const gitUserEmail = "git.user.email";
-  static const gitUserName = "git.user.name";
   static const gitCommand = "git.command";
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
@@ -333,6 +338,7 @@ class ActionKeys {
   static const dialogCancel = "dialog.cancelAction";
   static const toggleUserActive = "toggleUserActive";
   static const deleteUser = "deleteUser";
+  static const submitGitProfileOk = "submitGitProfileOk";
 
   // for Client & Org Admin dialog
   static const clientOk = "client.ok";

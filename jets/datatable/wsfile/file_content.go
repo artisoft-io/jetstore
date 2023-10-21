@@ -14,8 +14,13 @@ import (
 // This file contains function to get and save file content & execute command in local workspace
 
 // Run command in workspace
-func RunCommand(buf *strings.Builder, command, workspaceName string) error {
-	cmd := exec.Command(command)
+func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceName string) error {
+	var cmd *exec.Cmd
+	if args != nil {
+		cmd = exec.Command(command, (*args)...)
+	} else {
+		cmd = exec.Command(command)
+	}
 	if workspaceName != "" {
 		cmd.Dir = fmt.Sprintf("%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName)
 		cmd.Env = append(os.Environ(),
@@ -83,12 +88,14 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 	}
 	// Check if file is part of a dir that is archived
 	if archiveContentType[contentType] {
+		path = fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "reports.tgz")
 		// Archive dir contentType
 		var buf strings.Builder
-		command := "tar cfvz reports.tgz reports/"
+		command := "tar"
+		args := []string{"cfvz", "reports.tgz", "reports/"} 
 		buf.WriteString("\nArchiving the reports\n")
-		err = RunCommand(&buf, command, workspaceName)
-		defer os.Remove("reports.tgz")
+		err = RunCommand(&buf, command, &args, workspaceName)
+		defer os.Remove(path)
 		cmdLog := buf.String()
 		if err != nil {
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -97,7 +104,6 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 			return fmt.Errorf("while archiving the reports folder : %v", err)
 		}
 		log.Println(cmdLog)
-		path = fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "reports.tgz")
 	}
 
 	fileHd, err = os.Open(path)

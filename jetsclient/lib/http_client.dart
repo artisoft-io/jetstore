@@ -55,7 +55,7 @@ class HttpClientSingleton {
         if (JetsRouterDelegate().isAuthenticated()) {
           // redirect to login page
           // print('Not authorized redirecting to login');
-          JetsRouterDelegate().user.token = null;
+          JetsRouterDelegate().user.token = '';
           JetsRouterDelegate()(JetsRouteData(loginPath));
         }
         return HttpResponse(response.statusCode, '');

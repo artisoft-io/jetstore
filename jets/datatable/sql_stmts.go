@@ -173,6 +173,14 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition {
 		AdminOnly: true,
 	},
 
+	// User Git Profile
+	"update/user_git_profile": {
+		Stmt: `UPDATE jetsapi.users SET
+			(git_name, git_email, git_handle, git_token, last_update) 
+			= ($1, $2, $3, $4, DEFAULT) WHERE user_email = $5`,
+		ColumnKeys: []string{"git_name", "git_email", "git_handle", "git_token", "user_email"},
+	},
+
 	// Statements for Rule Workspace Administration (tables part of jetsapi schema)
 	// ----------------------------------------------------------------------------------------------
 	// source config
