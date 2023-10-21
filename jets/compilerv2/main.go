@@ -102,7 +102,7 @@ func doJob() error {
 	log.Printf("ENV JETS_LOG_DEBUG: %s\n",os.Getenv("JETS_LOG_DEBUG"))
 	log.Printf("ENV JETS_RULES_SCHEMA_FILE: %s\n",os.Getenv("JETS_RULES_SCHEMA_FILE"))
 
-	dsn, err = awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), os.Getenv("JETS_REGION"), *usingSshTunnel, 10)
+	dsn, err = awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), *usingSshTunnel, 10)
 	if err != nil {
 		log.Panicf("Cannot get dsn from secret %s: %v",os.Getenv("JETS_DSN_SECRET"), err)
 	}
