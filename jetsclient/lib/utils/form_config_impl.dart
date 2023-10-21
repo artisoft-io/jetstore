@@ -148,6 +148,82 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: registrationFormValidator,
     formActionsDelegate: registrationFormActions,
   ),
+  // User Git Profile Form
+  FormKeys.userGitProfile: FormConfig(
+    key: FormKeys.userGitProfile,
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.submitGitProfileOk,
+          label: "Submit",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.gitName,
+            label: "Name",
+            hint: "Enter your name for git commits",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80,
+            useDefaultFont: true),
+        FormInputFieldConfig(
+            key: FSK.gitHandle,
+            label: "Git Handle",
+            hint: "Your git handle (user name) for git commit",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.allLower,
+            maxLength: 60,
+            useDefaultFont: true),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitEmail,
+            label: "Email",
+            hint: "Your email address for git commit",
+            flex: 1,
+            autofocus: false,
+            autofillHints: [AutofillHints.email],
+            obscureText: false,
+            textRestriction: TextRestriction.allLower,
+            maxLength: 80,
+            useDefaultFont: true),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitToken,
+            label: "Github Token",
+            hint: "Github token to use as password",
+            flex: 1,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120,
+            useDefaultFont: true),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitTokenConfirm,
+            label: "Github Token Confirmation",
+            hint: "Re-enter your github token",
+            flex: 1,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120,
+            useDefaultFont: true),
+      ],
+    ],
+    formValidatorDelegate: gitProfileFormValidator,
+    formActionsDelegate: gitProfileFormActions,
+  ),
   // User Administration Form (actionless -- user table has the actions)
   FormKeys.userAdmin: FormConfig(
     key: FormKeys.userAdmin,

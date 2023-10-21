@@ -48,13 +48,20 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	if !ok {
 		return nil, http.StatusBadRequest, errors.New("error: unknown table")
 	}
+	userEmail, err := user.ExtractTokenID(token)
+	if err != nil {
+		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, invalid user token")
+	}
+
 	// Check if stmt is reserved for admin only
 	if sqlStmt.AdminOnly {
-		userEmail, err := user.ExtractTokenID(token)
-		if err != nil || userEmail != *ctx.AdminEmail {
+		if userEmail != *ctx.AdminEmail {
 			return nil, http.StatusUnauthorized, errors.New("error: unauthorized, only admin can delete users")
 		}
 	}
+	var gitProfile user.GitProfile
+	gitProfile, gitProfileErr := user.GetGitProfile(ctx.Dbpool, userEmail)
+
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
@@ -74,13 +81,16 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			}
 			workspaceName := dataTableAction.WorkspaceName
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			gitUserName := dataTableAction.Data[irow]["git.user.name"]
-			gitUserEmail := dataTableAction.Data[irow]["git.user.email"]
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser :=      gitProfile.Name
+			gitToken :=     gitProfile.GitToken
+			gitUserName :=  gitProfile.GitHandle
+			gitUserEmail := gitProfile.Email
 			wsPN := dataTableAction.Data[irow]["previous.workspace_name"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil || 
-				gitUserName == nil || gitUserEmail == nil) {
+			if(wsUri == "" || gitUser == "" || gitToken == "" || 
+				gitUserName == "" || gitUserEmail == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing git information")
 			}
 			var wsPreviousName string
@@ -90,10 +100,10 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 			gitLog, err = workspaceGit.UpdateLocalWorkspace(
-				gitUserName.(string),
-				gitUserEmail.(string),
-				gitUser.(string),
-				gitToken.(string),
+				gitProfile.Name,
+				gitProfile.Email,
+				gitProfile.GitHandle,
+				gitProfile.GitToken,
 				wsPreviousName,
 			)
 			var status string
@@ -111,9 +121,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
 			}
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil) {
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser := gitProfile.Name
+			gitToken := gitProfile.GitToken
+			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
 			}
 			dataTableAction.Data[irow]["status"] = "Commit & Compile in progress"
@@ -143,14 +156,17 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing workspace_name")
 			}
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil) {
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser := gitProfile.Name
+			gitToken := gitProfile.GitToken
+			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
 			}
 			var status string
 			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
-			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser.(string), gitToken.(string))
+			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser, gitToken)
 			if err != nil {
 				log.Printf("Error while push (only) workspace: %s\n", gitLog)
 				httpStatus = http.StatusBadRequest
@@ -165,9 +181,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing workspace_name")
 			}
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil) {
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser := gitProfile.Name
+			gitToken := gitProfile.GitToken
+			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
@@ -253,7 +272,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		//	  Delete workspace overrides
 		//	  (except for workspace.db, lookup.db, and reports.tgz)
 		//	  must be done manually 
-		go commitWorkspaceAction(ctx.Dbpool, dataTableAction)
+		go commitWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
 
 	case dataTableAction.FromClauses[0].Table == "pull_workspace":
 		// Pull workspace changes in local repository:
@@ -261,7 +280,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		//	- Update the file stash with pulled version
 		//  - Sync workspace overrides on top of the pull
 		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
-		go pullWorkspaceAction(ctx.Dbpool, dataTableAction)
+		go pullWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)

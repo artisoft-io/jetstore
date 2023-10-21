@@ -653,6 +653,12 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				dataTableAction.Data[irow]["input_session_id"] = inSessionId
 			}
+		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "user_git_profile"):
+			gitToken := dataTableAction.Data[irow]["git_token"]
+			if gitToken != nil && gitToken != "" {
+				// Update with encrypted token
+				dataTableAction.Data[irow]["git_token"] = user.EncryptGitToken(gitToken.(string))
+			}
 		}
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]

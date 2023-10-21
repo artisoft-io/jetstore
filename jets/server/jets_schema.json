@@ -118,6 +118,30 @@
         "isNotNull": true
       },
       {
+        "columnName": "git_name",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "git_email",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "git_handle",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "git_token",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
         "dataType": "datetime",
         "default": "now()",

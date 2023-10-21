@@ -52,9 +52,10 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 
 			// If FileName ends with .tgz, extract files from archive
 			if strings.HasSuffix(fo.FileName, ".tgz") {
-				command := "tar xfvz reports.tgz"
+				command := "tar"
+				args := []string{"xfvz", "reports.tgz"} 
 				var buf strings.Builder
-				err = wsfile.RunCommand(&buf, command, workspaceName)
+				err = wsfile.RunCommand(&buf, command, &args, workspaceName)
 				defer os.Remove(fo.FileName)
 				if err != nil {
 					return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
@@ -95,7 +96,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	// Compile the workspace locally
 	var buf strings.Builder
 	buf.WriteString(fmt.Sprintf("Compiling workspace %s at version %s\n",workspaceName, version))
-	err := wsfile.RunCommand(&buf, compilerPath, workspaceName)
+	err := wsfile.RunCommand(&buf, compilerPath, nil, workspaceName)
 
 	if err != nil {
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -106,10 +107,12 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	}
 
 	// Archive reports
-	command := "tar cfvz reports.tgz reports/"
+	command := "tar"
+	args := []string{"cfvz", "reports.tgz", "reports/"} 
 	buf.WriteString("\nArchiving the reports\n")
-	err = wsfile.RunCommand(&buf, command, workspaceName)
-	defer os.Remove("reports.tgz")
+	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
+	path := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "reports.tgz")
+	defer os.Remove(path)
 	cmdLog := buf.String()
 	if err != nil {
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
