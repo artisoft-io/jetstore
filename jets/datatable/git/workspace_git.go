@@ -239,7 +239,8 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitUser, gitToken, wsCommitMessage 
 	buf.WriteString(result)
 	if err != nil {
 		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
-		return buf.String(), err
+		b2 := strings.ReplaceAll(buf.String(), gitUser, "***")
+		return strings.ReplaceAll(b2, gitToken, "***"), err
 	}
 	buf.WriteString("\nChanges pushed to repository\n")
 
@@ -261,7 +262,8 @@ func (wg *WorkspaceGit) PushOnlyWorkspace(gitUser, gitToken string) (string, err
 	buf.WriteString(result)
 	if err != nil {
 		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
-		return buf.String(), err
+		b2 := strings.ReplaceAll(buf.String(), gitUser, "***")
+		return strings.ReplaceAll(b2, gitToken, "***"), err
 	}
 
 	return buf.String(), nil
@@ -303,11 +305,12 @@ func (wg *WorkspaceGit) PullRemoteWorkspace(gitUser, gitToken string) (string, e
 
 	gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
 	command := fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceName)
-	buf.WriteString(fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s\n", "gitUser", "gitToken", gitRepo, wg.WorkspaceName))
+	buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
 	result, err := runShellCommand(workspacePath, command)
 	buf.WriteString(result)
 	if err != nil {
-		return buf.String(), err
+		b2 := strings.ReplaceAll(buf.String(), gitUser, "***")
+		return strings.ReplaceAll(b2, gitToken, "***"), err
 	}
 	buf.WriteString("\nChanges pulled from repository\n")
 

@@ -136,6 +136,7 @@ class FormKeys {
   static const pullWorkspace = "pullWorkspaceDialog";
   static const pushOnlyWorkspace = "pushOnlyWorkspaceDialog";
   static const doGitCommandWorkspace = "doGitCommandWorkspaceDialog";
+  static const doGitStatusWorkspace = "doGitStatusWorkspaceDialog";
   static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
   static const exportWorkspaceClientConfig = "exportWorkspaceClientConfig";
   static const addWorkspaceFile = "addWorkspaceFileDialog";
@@ -397,6 +398,7 @@ class ActionKeys {
   static const commitWorkspaceOk = "commitWorkspaceOk";
   static const pushOnlyWorkspaceOk = "pushOnlyWorkspaceOk";
   static const pullWorkspaceOk = "pullWorkspaceOk";
+  static const doGitStatusWorkspaceOk = "doGitStatusWorkspaceOk";
   static const doGitCommandWorkspaceOk = "doGitCommandWorkspaceOk";
   static const wsSaveFileOk = "wsSaveFileOk";
   static const loadWorkspaceConfig = "loadWorkspaceConfig";
