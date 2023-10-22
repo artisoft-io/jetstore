@@ -16,10 +16,10 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 type GitProfile struct {
-	Name      string
-	Email     string
-	GitHandle string
-	GitToken  string
+	Name      string `json:"git_name"`
+	Email     string `json:"git_email"`
+	GitHandle string `json:"git_handle"`
+	GitToken  string `json:"git_token"`
 }
 
 var jetsEncriptionKey string
@@ -28,7 +28,6 @@ func init() {
 	if jetsEncriptionKey == "" {
 		log.Println("Could not load value for JETS_ENCRYPTION_KEY:")
 	}
-	fmt.Println("*** init jetsEncriptionKey:",jetsEncriptionKey)
 }
 
 func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
@@ -117,11 +116,9 @@ func decrypt(encryptedString string, keyString string) (decryptedString string) 
 }
 
 func EncryptGitToken(gitToken string) string {
-	fmt.Println("*** EncryptGitToken jetsEncriptionKey:",jetsEncriptionKey)
 	return encrypt(gitToken, jetsEncriptionKey)
 }
 
 func DecryptGitToken(encryptedGitToken string) string {
-	fmt.Println("*** DecryptGitToken jetsEncriptionKey:",jetsEncriptionKey)
 	return decrypt(encryptedGitToken, jetsEncriptionKey)
 }

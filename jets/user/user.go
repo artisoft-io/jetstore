@@ -26,6 +26,7 @@ type User struct {
 	DevMode   string 		`json:"dev_mode"`
 	IsAdmin   bool   		`json:"is_admin"`
 	IsActive  int   		`json:"is_active"`
+	UserGitProfile GitProfile `json:"gitProfile"`
 }
 
 func Hash(password string) ([]byte, error) {
@@ -118,11 +119,17 @@ func (u *User) InsertUser(dbpool *pgxpool.Pool) error {
 
 func (u *User) GetUserByEmail(dbpool *pgxpool.Pool) error {
 	// select from db
-	stmt := `SELECT name, password, is_active FROM jetsapi.users WHERE user_email = $1`
-	err := dbpool.QueryRow(context.Background(), stmt, u.Email).Scan(&u.Name, &u.Password, &u.IsActive)
+	stmt := `SELECT name, password, is_active, git_name, git_email, git_handle 
+					 FROM jetsapi.users 
+					 WHERE user_email = $1`
+	err := dbpool.QueryRow(context.Background(), stmt, u.Email).
+		Scan(&u.Name, &u.Password, &u.IsActive, 
+			&u.UserGitProfile.Name, 
+			&u.UserGitProfile.Email,
+			&u.UserGitProfile.GitHandle)
 	if err != nil {
 		log.Println("while select user by user_email from db:", err)
-		return errors.New("Invalid User or Password")
+		return errors.New("invalid user or password")
 	}
 	return nil
 }
