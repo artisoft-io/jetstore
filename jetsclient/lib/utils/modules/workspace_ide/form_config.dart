@@ -266,7 +266,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLines: 1,
             maxLength: 100,
             autofocus: false,
-            isReadOnly: true,
+            isReadOnly: globalWorkspaceUri.isNotEmpty,
             defaultValue: "git status",
             textRestriction: TextRestriction.none),
       ],
