@@ -55,6 +55,12 @@ Future<String?> loginFormActions(BuildContext context,
         JetsRouterDelegate().user.name = result.body[FSK.userName];
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
         JetsRouterDelegate().user.isAdmin = result.body[FSK.isAdmin];
+        final gitProfile = result.body['gitProfile'];
+        if(gitProfile != null) {
+          JetsRouterDelegate().user.gitName = gitProfile[FSK.gitName];
+          JetsRouterDelegate().user.gitHandle = gitProfile[FSK.gitHandle];
+          JetsRouterDelegate().user.gitEmail = gitProfile[FSK.gitEmail];
+        }
         final devMode = result.body[FSK.devMode];
         JetsRouterDelegate().devMode = false;
         if (devMode != null) {
