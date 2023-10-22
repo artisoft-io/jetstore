@@ -853,12 +853,7 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		fileName := wsFileName.(string)
-		restaureFromStash := true
-		if strings.HasSuffix(fileName, ".db") || strings.HasSuffix(fileName, ".tgz") {
-			restaureFromStash = false
-		}
-		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, fileName, wsOid.(string), restaureFromStash)
+		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, wsFileName.(string), wsOid.(string))
 		if err != nil {
 			httpStatus = http.StatusBadRequest
 			return
