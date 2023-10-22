@@ -838,6 +838,7 @@ func (ctx *Context) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, 
 // DeleteWorkspaceChanges --------------------------------------------------------------------------
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
+// Restaure files from stash, except for .db and .tgz files
 func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
@@ -852,7 +853,12 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, wsFileName.(string), wsOid.(string), true)
+		fileName := wsFileName.(string)
+		restaureFromStash := true
+		if strings.HasSuffix(fileName, ".db") || strings.HasSuffix(fileName, ".tgz") {
+			restaureFromStash = false
+		}
+		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, fileName, wsOid.(string), restaureFromStash)
 		if err != nil {
 			httpStatus = http.StatusBadRequest
 			return
