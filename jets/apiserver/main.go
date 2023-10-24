@@ -216,6 +216,6 @@ func main() {
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	fmt.Println("ENV JETS_RESET_DOMAIN_TABLE_ON_STARTUP:",os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 	fmt.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
-	fmt.Println("ENV JETS_ENCRYPTION_KEY:",os.Getenv("JETS_ENCRYPTION_KEY"))
+	fmt.Println("ENV len JETS_ENCRYPTION_KEY:",len(os.Getenv("JETS_ENCRYPTION_KEY")))
 	log.Fatal(listenAndServe())
 }

@@ -240,12 +240,14 @@ class _JetsDropdownButtonFormFieldState
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
         child: DropdownButtonFormField<String>(
             value: selectedValue,
-            onChanged: (String? newValue) {
-              setState(() {
-                selectedValue = newValue;
-              });
-              widget.onChanged(newValue);
-            },
+            onChanged: _config.isReadOnly
+                ? null
+                : (String? newValue) {
+                    setState(() {
+                      selectedValue = newValue;
+                    });
+                    widget.onChanged(newValue);
+                  },
             autovalidateMode: _config.autovalidateMode,
             validator: (p0) =>
                 widget.formValidator(_config.group, _config.key, p0),

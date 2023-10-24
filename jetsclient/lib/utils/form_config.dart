@@ -299,6 +299,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     this.stateKeyPredicates = const [],
     this.whereStateContains = const {},
     required this.items,
+    this.isReadOnly = false,
   });
   final String? dropdownItemsQuery;
   final List<String> stateKeyPredicates;
@@ -307,6 +308,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
   final String? returnedModelCacheKey;
   final int defaultItemPos;
   final List<DropdownItemConfig> items;
+  final bool isReadOnly;
   bool dropdownItemLoaded = false;
 
   @override
