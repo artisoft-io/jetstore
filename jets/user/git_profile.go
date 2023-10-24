@@ -26,7 +26,7 @@ var jetsEncriptionKey string
 func init() {
 	jetsEncriptionKey = os.Getenv("JETS_ENCRYPTION_KEY")
 	if jetsEncriptionKey == "" {
-		log.Println("Could not load value for JETS_ENCRYPTION_KEY:")
+		log.Println("Could not load value for JETS_ENCRYPTION_KEY")
 	}
 }
 
