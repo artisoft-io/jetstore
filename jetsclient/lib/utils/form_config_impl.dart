@@ -934,7 +934,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Select a Client'),
             ],
             autovalidateMode: AutovalidateMode.onUserInteraction,
-            isReadOnly: true,
+            makeReadOnlyWhenHasSelectedValue: true,
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"),
         FormDropdownFieldConfig(
@@ -944,7 +944,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Select a process'),
             ],
             autovalidateMode: AutovalidateMode.onUserInteraction,
-            isReadOnly: true,
+            makeReadOnlyWhenHasSelectedValue: true,
             dropdownItemsQuery:
                 "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"),
       ],

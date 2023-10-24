@@ -129,7 +129,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
 			}
-			dataTableAction.Data[irow]["status"] = "Commit & Compile in progress"
+			dataTableAction.Data[irow]["status"] = "Commit & Push in progress"
 
 		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
 			// Execute git commands in workspace
@@ -211,7 +211,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = "Pull & Compile in progress"
+			dataTableAction.Data[irow]["status"] = "Pull workspace in progress"
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 			if dataTableAction.WorkspaceName == "" {
@@ -287,12 +287,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	switch {
 	case dataTableAction.FromClauses[0].Table == "commit_workspace":
 		// Commit changes in local workspace and push to repository:
-		//	- Compile workspace
 		//	- Commit and Push to repository
 		//  NOTE:
-		//	  Delete workspace overrides
+		//	- Delete workspace overrides
 		//	  (except for workspace.db, lookup.db, and reports.tgz)
 		//	  must be done manually 
+		//	- Compile workspace must be done manually
 		go commitWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
 
 	case dataTableAction.FromClauses[0].Table == "pull_workspace":
@@ -300,7 +300,8 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		//	- Pull changes from origin repo
 		//	- Update the file stash with pulled version
 		//  - Sync workspace overrides on top of the pull
-		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
+		//  NOTE:
+		//	- Compile workspace must be done manually
 		go pullWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):

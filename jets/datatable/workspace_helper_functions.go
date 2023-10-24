@@ -20,12 +20,12 @@ import (
 )
 
 // Commit changes in local workspace and push to repository:
-//	- Compile workspace
 //	- Commit and Push to repository
 //  NOTE:
-//	  Delete workspace overrides
+//	- Delete workspace overrides
 //	  (except for workspace.db, lookup.db, and reports.tgz)
 //	  must be done manually
+//	- Compile workspace must be done manually
 func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dataTableAction *DataTableAction)  {
 
 	var err error
@@ -39,19 +39,11 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, d
 		wsCM := dataTableAction.Data[irow]["git.commit.message"]
 		var wsCommitMessage string
 		if(wsCM != nil) {
-			wsCommitMessage = wsCM.(string)
+			// escape singe ' with ''
+			wsCommitMessage = strings.ReplaceAll(wsCM.(string), "'", "''")
 		}
 		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 		var buf strings.Builder
-
-		// Compile workspace
-		gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
-		buf.WriteString(gitLog)
-		buf.WriteString("\n")
-		if err != nil {
-			status = "error"
-			goto setCommitGitLog
-		}
 		
 		// Commit and push workspace changes and update workspace_registry table
 		gitLog, err = workspaceGit.CommitLocalWorkspace(
@@ -66,16 +58,6 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, d
 			goto setCommitGitLog
 		}
 
-		// Must be done manually for now
-		// // Delete workspace overrides (except for workspace.db, lookup.db, and reports.tgz)
-		// // Note, do not restaure files from stash
-		// err = wsfile.DeleteAllFileChanges(dbpool, workspaceName, false, true)
-		// if err != nil {
-		// 	buf.WriteString(fmt.Sprintf("Error while deleting all file changes from db: %v\n", err))
-		// 	status = "error"
-		// 	goto setCommitGitLog
-		// }
-
 		setCommitGitLog:
 		dataTableAction.Data[irow]["last_git_log"] = buf.String()
 		dataTableAction.Data[irow]["status"] = status
@@ -85,8 +67,6 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, d
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
 
-		// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
-		// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
 		// Executing the InserRow Stmt
 		_, err = dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 		if err != nil {
@@ -99,7 +79,8 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, d
 //	- Pull changes from orign repo
 //	- Update the file stash with pulled version
 //  - Apply workspace overrides
-//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
+//  NOTE:
+//	- Compile workspace must be done manually
 func pullWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dataTableAction *DataTableAction)  {
 
 	var err error
@@ -148,14 +129,6 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dat
 			log.Println("Error while synching workspace file from database:", err, "(ignored)")
 			err = nil
 		}
-			
-		// Compile workspace
-		gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
-		if err != nil {
-			status = "error"
-		}
-		buf.WriteString(gitLog)
-		buf.WriteString("\n")
 
 		setPullGitLog:
 		dataTableAction.Data[irow]["last_git_log"] = buf.String()
