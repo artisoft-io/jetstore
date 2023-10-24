@@ -240,7 +240,9 @@ class _JetsDropdownButtonFormFieldState
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
         child: DropdownButtonFormField<String>(
             value: selectedValue,
-            onChanged: _config.isReadOnly
+            onChanged: _config.isReadOnly ||
+                    (_config.makeReadOnlyWhenHasSelectedValue &&
+                        selectedValue != null)
                 ? null
                 : (String? newValue) {
                     setState(() {

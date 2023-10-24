@@ -346,7 +346,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Delete/Revert ALL Changes',
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: true,
+          isEnabledWhenHavingSelectedRows: null,
           actionName: ActionKeys.deleteAllWorkspaceChanges),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
