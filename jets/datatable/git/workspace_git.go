@@ -87,17 +87,9 @@ func (wg *WorkspaceGit) GetStatus() (string, error) {
 			return "local branch removed", nil
 		}
 	}
-
-	// Check if user info exist in local repo
-	result, err := runShellCommand(workspacePath, "git config --get user.email")
-	if err != nil || len(result) == 0 {
-		// Local user info does not exist, must be a newly deployed container
-		log.Printf("Branch '%s' does not have user info in local repo %s", wg.WorkspaceName, workspacePath)
-		return "local user removed", nil
-	}
 	
 	// Issue the git status command to see if workspace has modifications
-	result, err = runShellCommand(workspacePath, "git status")
+	result, err := runShellCommand(workspacePath, "git status")
 	if err != nil {
 		return "", fmt.Errorf("error while executing 'git status' command: %v", err)
 	}
