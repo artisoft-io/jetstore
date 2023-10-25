@@ -54,6 +54,11 @@ func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
 // From: https://www.melvinvivas.com/how-to-encrypt-and-decrypt-data-using-aes
 func encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
 
+	if stringToEncrypt == "" || len(keyString) != 32 {
+		log.Println("ERROR: decrypt called with empty stringToEncrypt or len(key) != 32")
+		return ""
+	}
+
 	//Since the key is in string, we need to convert decode it to bytes
 	key := []byte(keyString)
 	plaintext := []byte(stringToEncrypt)
@@ -85,6 +90,11 @@ func encrypt(stringToEncrypt string, keyString string) (encryptedString string) 
 
 func decrypt(encryptedString string, keyString string) (decryptedString string) {
 
+	if encryptedString == "" || len(keyString) != 32 {
+		log.Println("ERROR: decrypt called with empty encryptedString or len(key) != 32")
+		return ""
+	}
+	
 	key := []byte(keyString)
 	enc, _ := hex.DecodeString(encryptedString)
 

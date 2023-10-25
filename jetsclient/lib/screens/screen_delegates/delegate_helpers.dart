@@ -48,8 +48,13 @@ Future<String?> postInsertRows(
   } else if (result.statusCode == 400 || result.statusCode == 500 || 
       result.statusCode == 406 || result.statusCode == 422) {
     // http Bad Request / Not Acceptable / Unprocessable / ServerError
-    formState.setValue(
-        0, FSK.serverError, "Something went wrong. Please try again.");
+    // Check if we have an error message from server, if not put a generic one
+    if (result.body['error'] != null) {
+      formState.setValue(0, FSK.serverError, result.body['error']);
+    } else {
+      formState.setValue(
+          0, FSK.serverError, "Something went wrong. Please try again.");
+    }
     navigator.pop(errorReturnStatus);
     return "Something went wrong. Please try again.";
   } else if (result.statusCode == 409) {
