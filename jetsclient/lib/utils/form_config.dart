@@ -224,6 +224,8 @@ class TextFieldConfig extends FormFieldConfig {
   }
 }
 
+typedef ReadOnlyEvaluator = bool Function();
+
 class FormInputFieldConfig extends FormFieldConfig {
   FormInputFieldConfig({
     required super.key,
@@ -235,6 +237,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     required this.autofocus,
     this.obscureText = false,
     this.isReadOnly = false,
+    this.isReadOnlyEval,
     required this.textRestriction,
     this.maxLines = 1,
     required this.maxLength,
@@ -247,6 +250,7 @@ class FormInputFieldConfig extends FormFieldConfig {
   final bool autofocus;
   final bool obscureText;
   final bool isReadOnly;
+  final ReadOnlyEvaluator? isReadOnlyEval;
   final TextRestriction textRestriction;
   final int maxLines;
   // 0 for unbound
