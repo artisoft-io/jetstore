@@ -116,7 +116,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "commit_workspace":
-			// Validating request only, actual task performed async in post-processing section below
+			// Validating request
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
 			}
@@ -129,8 +129,34 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
 			}
-			dataTableAction.Data[irow]["status"] = "Commit & Push in progress"
-
+			// Commit changes in local workspace and push to repository:
+			//	- Commit and Push to repository
+			//  NOTE:
+			//	- Delete workspace overrides
+			//	  (except for workspace.db, lookup.db, and reports.tgz)
+			//	  must be done manually 
+			//	- Compile workspace must be done manually
+			var gitLog string
+			status := ""
+			workspaceName := dataTableAction.WorkspaceName
+			wsCM := dataTableAction.Data[irow]["git.commit.message"]
+			var wsCommitMessage string
+			if(wsCM != nil) {
+				// escape singe ' with ''
+				wsCommitMessage = strings.ReplaceAll(wsCM.(string), "'", "''")
+			}
+			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
+			var buf strings.Builder
+			// Commit and push workspace changes and update workspace_registry table
+			gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile,	wsCommitMessage)
+			buf.WriteString(gitLog)
+			buf.WriteString("\n")
+			if err != nil {
+				status = "error"
+			}
+			dataTableAction.Data[irow]["last_git_log"] = buf.String()
+			dataTableAction.Data[irow]["status"] = status
+	
 		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
 			// Execute git commands in workspace
 			if os.Getenv("WORKSPACE_URI") != "" {
@@ -224,8 +250,18 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
 			}
-			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = "Load config in progress"
+			// using update_db script
+			log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+			serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
+			if ctx.UsingSshTunnel {
+				serverArgs = append(serverArgs, "-usingSshTunnel")
+			}
+			results, err := RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+			dataTableAction.Data[0]["last_git_log"] = results
+			dataTableAction.Data[0]["status"] = ""
+			if err != nil {
+				dataTableAction.Data[0]["status"] = "error"
+			}
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 			if dataTableAction.WorkspaceName == "" {
@@ -285,15 +321,15 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	// Post Processing Hook
 	// -----------------------------------------------------------------------
 	switch {
-	case dataTableAction.FromClauses[0].Table == "commit_workspace":
-		// Commit changes in local workspace and push to repository:
-		//	- Commit and Push to repository
-		//  NOTE:
-		//	- Delete workspace overrides
-		//	  (except for workspace.db, lookup.db, and reports.tgz)
-		//	  must be done manually 
-		//	- Compile workspace must be done manually
-		go commitWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
+	// case dataTableAction.FromClauses[0].Table == "commit_workspace":
+	// 	// Commit changes in local workspace and push to repository:
+	// 	//	- Commit and Push to repository
+	// 	//  NOTE:
+	// 	//	- Delete workspace overrides
+	// 	//	  (except for workspace.db, lookup.db, and reports.tgz)
+	// 	//	  must be done manually 
+	// 	//	- Compile workspace must be done manually
+	// 	go commitWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
 
 	case dataTableAction.FromClauses[0].Table == "pull_workspace":
 		// Pull workspace changes in local repository:
@@ -311,9 +347,9 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 		go unitTestWorkspaceAction(ctx, dataTableAction, token)
 
-	case dataTableAction.FromClauses[0].Table == "load_workspace_config":
-		// Load workspace config
-		go loadWorkspaceConfigAction(ctx, dataTableAction)
+	// case dataTableAction.FromClauses[0].Table == "load_workspace_config":
+	// 	// Load workspace config
+	// 	go loadWorkspaceConfigAction(ctx, dataTableAction)
 
 	}
 	returnResults:
