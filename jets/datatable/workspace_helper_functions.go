@@ -46,11 +46,7 @@ func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, d
 		var buf strings.Builder
 		
 		// Commit and push workspace changes and update workspace_registry table
-		gitLog, err = workspaceGit.CommitLocalWorkspace(
-			gitProfile.GitHandle,
-			gitProfile.GitToken,
-			wsCommitMessage,
-		)
+		gitLog, err = workspaceGit.CommitLocalWorkspace(gitProfile,	wsCommitMessage)
 		buf.WriteString(gitLog)
 		buf.WriteString("\n")
 		if err != nil {
