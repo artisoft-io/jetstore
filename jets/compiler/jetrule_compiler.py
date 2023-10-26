@@ -236,6 +236,8 @@ class JetRuleCompiler:
           if fname:
             errors.append("Error in file '{0}' line {1}:{2} {3}".format(fname, line_nbr-file_info['start_pos']+file_info['file_offset']+1, col_nbr+1, err_msg))
           else:
+            print('** got err:',err)
+            print('** Cannot determine from which file the error came from!')
             raise Exception('Oops something is wrong with the import file in JetRuleCompiler')
       else:
         errors.append(err)
