@@ -51,6 +51,15 @@ func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
 	return gitProfile, nil
 }
 
+func EncryptGitToken(gitToken string) string {
+	return encrypt(gitToken, jetsEncriptionKey)
+}
+
+func DecryptGitToken(encryptedGitToken string) string {
+	return decrypt(encryptedGitToken, jetsEncriptionKey)
+}
+
+
 // From: https://www.melvinvivas.com/how-to-encrypt-and-decrypt-data-using-aes
 func encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
 
@@ -123,12 +132,4 @@ func decrypt(encryptedString string, keyString string) (decryptedString string) 
 	}
 
 	return string(plaintext)
-}
-
-func EncryptGitToken(gitToken string) string {
-	return encrypt(gitToken, jetsEncriptionKey)
-}
-
-func DecryptGitToken(encryptedGitToken string) string {
-	return decrypt(encryptedGitToken, jetsEncriptionKey)
 }

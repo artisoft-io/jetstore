@@ -358,6 +358,30 @@ type SqlInsertDefinition struct {
 	Stmt       string
 	ColumnKeys []string
 	AdminOnly  bool
+	Capability string
+}
+
+// Check that the user has the required permission to execute the action
+func (ctx *Context) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token string) (*user.User, error) {
+	// RBAC check
+	if sqlStmt.Capability == "" {
+		return nil,  errors.New("error: unauthorized, configuration error: missing capability on sql statement")
+	}
+	// Get user info
+	user, err := user.GetUserByToken(ctx.Dbpool, token)
+	if err != nil {
+		return nil, errors.New("error: unauthorized, cannot get user info")
+	}
+	switch {
+	// Check if stmt is reserved for admin only
+	case sqlStmt.AdminOnly && !user.IsAdmin():
+		return nil, errors.New("error: unauthorized, only admin can perform statement")
+	// user missing capability
+	case !user.HasCapability(sqlStmt.Capability):
+		return nil, errors.New("error: unauthorized, user do not have required capability")
+	}
+	// All clear, perform action
+	return user, nil
 }
 
 // var tableSchemaCache *lru.Cache
@@ -374,7 +398,7 @@ type SqlInsertDefinition struct {
 
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
 
 	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
@@ -393,10 +417,14 @@ func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction) (results *map
 	return
 }
 
-func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	// fmt.Println("*** ExecDataManagementStatement called, query:",dataTableAction.RawQuery)
-
-	// resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		httpStatus = http.StatusUnauthorized
+		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		return
+	}
 	resultRows, columnDefs, err2 := execDDL(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
 	
 	if err2 != nil {
@@ -415,7 +443,7 @@ func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction
 
 // ExecRawQueryMap ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	// fmt.Println("ExecRawQueryMap:")
 	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
@@ -624,14 +652,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		err = errors.New("error: unknown table")
 		return
 	}
-	// Check if stmt is reserved for admin only
-	if sqlStmt.AdminOnly {
-		userEmail, err2 := user.ExtractTokenID(token)
-		if err2 != nil || userEmail != *ctx.AdminEmail {
-			httpStatus = http.StatusUnauthorized
-			err = errors.New("error: unauthorized, only admin can perform statement")
-			return
-		}
+	_, err2 := ctx.VerifyUserPermission(sqlStmt, token)
+	if err2 != nil {
+		httpStatus = http.StatusUnauthorized
+		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		return
 	}
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
@@ -1337,6 +1362,7 @@ func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[
 // DropTable ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (ctx *Context) DropTable(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+	//* TODO NEED TO APPLY FILTER ON TABLE NAME
 	for ipos := range dataTableAction.Data {
 		tableName := dataTableAction.Data[ipos]["tableName"]
 		schemaName := dataTableAction.Data[ipos]["schemaName"]
