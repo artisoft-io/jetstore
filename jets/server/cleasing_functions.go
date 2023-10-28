@@ -63,21 +63,33 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			v, err = strconv.Atoi(inVal)
 			if err == nil {
 				obj = fmt.Sprintf("%05d", v)
+				if obj == "00000" {
+					obj = ""
+				}
 			} else {
 				errMsg = err.Error()
 			}
 		case sz == 5:
 			obj = inVal
+			if obj == "00000" {
+				obj = ""
+			}
 		case sz > 5 && sz < 9:
 			var v int
 			v, err = strconv.Atoi(inVal)
 			if err == nil {
 				obj = fmt.Sprintf("%09d", v)[:5]
+				if obj == "00000" {
+					obj = ""
+				}
 			} else {
 				errMsg = err.Error()
 			}
 		case sz == 9:
 			obj = inVal[:5]
+			if obj == "00000" {
+				obj = ""
+			}
 		default:
 		}
 	case "to_zipext4_from_zip9":	// from a zip9 input
@@ -90,11 +102,17 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			v, err = strconv.Atoi(inVal)
 			if err == nil {
 				obj = fmt.Sprintf("%09d", v)[5:]
+				if obj == "0000" {
+					obj = ""
+				}
 			} else {
 				errMsg = err.Error()
 			}
 		case sz == 9:
 			obj = inVal[5:]
+			if obj == "0000" {
+				obj = ""
+			}
 		default:
 		}
 	case "to_zipext4":	// from a zip ext4 input
@@ -107,11 +125,17 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			v, err = strconv.Atoi(inVal)
 			if err == nil {
 				obj = fmt.Sprintf("%04d", v)
+				if obj == "0000" {
+					obj = ""
+				}
 			} else {
 				errMsg = err.Error()
 			}
 		case sz == 4:
 			obj = inVal
+			if obj == "0000" {
+				obj = ""
+			}
 		default:
 		}
 	case "format_phone": // Validate & format phone according to E.164
