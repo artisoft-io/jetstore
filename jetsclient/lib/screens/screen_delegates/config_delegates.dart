@@ -352,6 +352,27 @@ Future<String?> sourceConfigActions(BuildContext context,
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
 
+    case ActionKeys.deleteSourceConfig:
+      // Get confirmation
+      var uc = await showConfirmationDialog(context,
+          'Are you sure you want to delete the selected Source Configuration?');
+      if (uc != 'OK') return null;
+      var state = formState.getState(0);
+      state[FSK.key] = state[FSK.key][0];
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'delete/source_config'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      if (context.mounted) {
+        postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      }
+      break;
+
     // Start loader
     case ActionKeys.loaderOk:
       // No form validation since does not use widgets
@@ -935,7 +956,7 @@ Future<String?> processConfigFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {required int group}) async {
   switch (actionKey) {
-    // Rule Config Dialog
+    // Rule Config Dialog v1
     case ActionKeys.ruleConfigOk:
       if (!formState.isFormValid()) {
         return null;
@@ -1009,7 +1030,7 @@ Future<String?> processConfigFormActions(BuildContext context,
         return "Something went wrong. Please try again.";
       }
 
-    // delete rule config triple
+    // delete rule config triple (Rule Config v1)
     case ActionKeys.ruleConfigDelete:
       var style = formState.getValue(group, ActionKeys.ruleConfigDelete);
       assert(style is ActionStyle?,
@@ -1237,6 +1258,27 @@ Future<String?> ruleConfigv2FormActions(BuildContext context,
       }
       return null;
 
+    case ActionKeys.deleteRuleConfigv2:
+      // Get confirmation
+      var uc = await showConfirmationDialog(context,
+          'Are you sure you want to delete the selected Rule Configuration?');
+      if (uc != 'OK') return null;
+      var state = formState.getState(0);
+      state[FSK.key] = state[FSK.key][0];
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'delete/rule_configv2'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      if (context.mounted) {
+        postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      }
+      break;
+
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop(DTActionResult.canceled);
       break;
@@ -1351,6 +1393,8 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
           formState.getValue(0, FSK.maxReteSessionSaved);
       updateState[FSK.ruleConfigJson] =
           formState.getValue(0, FSK.ruleConfigJson);
+      updateState[FSK.sourcePeriodType] =
+          formState.getValue(0, FSK.sourcePeriodType);
 
       // add process_config_key based on process_name
       var processConfigCache =
@@ -1430,6 +1474,27 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
         }
       }
       return null;
+
+    case ActionKeys.deletePipelineConfig:
+      // Get confirmation
+      var uc = await showConfirmationDialog(context,
+          'Are you sure you want to delete the selected Pipeline Configuration?');
+      if (uc != 'OK') return null;
+      var state = formState.getState(0);
+      state[FSK.key] = state[FSK.key][0];
+      state['user_email'] = JetsRouterDelegate().user.email;
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'delete/pipeline_config'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      if (context.mounted) {
+        postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      }
+      break;
 
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();

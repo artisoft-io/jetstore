@@ -1370,9 +1370,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label: "To start a pipeline using input data from a source that was"
-                " previously loaded, first select a Pipeline Configuration followed"
-                " by the source period the file was received ,and"
+            label: "To start a pipeline using data previously loaded, select a Pipeline Configuration followed"
+                " by the source period the file was received, and"
                 " then select the Main Input Source (required) and optionally"
                 " the Merge-In Input Sources.",
             maxLines: 5,
