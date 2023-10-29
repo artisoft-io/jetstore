@@ -58,9 +58,20 @@ func (u *User) IsAdmin() bool {
 	return u.Email == AdminEmail
 }
 
+func (u *User) GetCapabilities() []string {
+	keys := make([]string, 0, len(u.capabilities))
+	for k := range u.capabilities {
+			keys = append(keys, k)
+	}
+	return keys
+}
+
 func (u *User) HasCapability(capability string) bool {
 	if capability == "" {
 		return false
+	}
+	if u.IsAdmin() {
+		return true
 	}
 	return u.capabilities[capability]
 }
@@ -165,11 +176,15 @@ func GetUserByEmail(dbpool *pgxpool.Pool, email string) (*User, error) {
 		return u, nil
 	}
 	// Decrypt user's role and map it to capabilities
-	fmt.Println("*** User's roles", encryptedRoles)
+	// @**@ profile read Decrypt user's role and map it to capabilities
+	
 	for _, role := range encryptedRoles {
 		u.roles[role] = true
 	}
 	if len(u.roles) > 0 {
+		for i := range encryptedRoles {
+			encryptedRoles[i] = fmt.Sprintf("'%s'", encryptedRoles[i])
+		}
 		stmt = fmt.Sprintf("SELECT capability	FROM jetsapi.role_capability WHERE role IN (%s)",
 			strings.Join(encryptedRoles, ","))
 		rows, err := dbpool.Query(context.Background(), stmt)

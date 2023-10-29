@@ -18,6 +18,9 @@ class UserModel {
   /// The user's password (used in login form)
   bool isAdmin;
 
+  /// The user's capabilities
+  Set<String> capabilities;
+
   // Git info, needed for userGitProfile screen
   String gitName;
   String gitEmail;
@@ -33,6 +36,7 @@ class UserModel {
     this.gitName = '',
     this.gitEmail = '',
     this.gitHandle = '',
+    this.capabilities = const <String>{},
   });
 
   bool get isAuthenticated => token.isNotEmpty;
@@ -40,4 +44,5 @@ class UserModel {
       isAuthenticated &&
       lastTokenRefresh != null &&
       DateTime.now().difference(lastTokenRefresh!).inMinutes > 10;
+  bool hasCapability(String capability) => capabilities.contains(capability);
 }

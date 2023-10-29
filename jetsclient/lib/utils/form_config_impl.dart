@@ -155,6 +155,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.submitGitProfileOk,
+          capability: "user_profile",
           label: "Submit",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -231,10 +232,78 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: DTKeys.usersTable, dataTableConfig: DTKeys.usersTable)
+            key: DTKeys.usersTable,
+            dataTableConfig: DTKeys.usersTable,
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formActionsDelegate: userAdminFormActions,
+  ),
+  // User Administration Form - Edit User Profile Dialog
+  FormKeys.editUserProfile: FormConfig(
+    key: FormKeys.editUserProfile,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.editUserProfileOk,
+          capability: "user_profile",
+          label: "Submit",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    useListView: true,
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.userName,
+            label: "Name",
+            hint: "User name",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            isReadOnly: true,
+            useDefaultFont: true,
+            maxLength: 80),
+        FormInputFieldConfig(
+            key: FSK.userEmail,
+            label: "Email",
+            hint: "User email",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            isReadOnly: true,
+            useDefaultFont: true,
+            maxLength: 80),
+      ],
+      [
+        FormDropdownFieldConfig(
+            key: FSK.isActive,
+            items: [
+              DropdownItemConfig(label: 'Select User Status...'),
+              DropdownItemConfig(label: 'Active', value: '1'),
+              DropdownItemConfig(label: 'Inactive', value: '0'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
+      ],
+      [
+        PaddingConfig(height: defaultPadding*4),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.userRolesTable, dataTableConfig: DTKeys.userRolesTable)
+      ],
+    ],
+    formValidatorDelegate: userAdminValidator,
     formActionsDelegate: userAdminFormActions,
   ),
 
@@ -269,6 +338,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.clientOk,
+          capability: "client_config",
           label: "Insert",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -318,6 +388,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.orgOk,
+          capability: "client_config",
           label: "Insert",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -390,6 +461,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addSourceConfigOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -526,6 +598,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.loadAllFilesOk,
+          capability: "run_pipelines",
           label: "Load All Files",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -543,7 +616,6 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.fromSourcePeriodKey,
             tableHeight: double.infinity,
             dataTableConfig: FSK.fromSourcePeriodKey),
-
         FormDataTableFieldConfig(
             key: FSK.toSourcePeriodKey,
             tableHeight: double.infinity,
@@ -568,6 +640,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.loadRawRowsOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -652,6 +725,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addProcessInputOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -749,6 +823,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.mapperOk,
+          capability: "client_config",
           label: "Save",
           enableOnlyWhenFormValid: true,
           buttonStyle: ActionStyle.primary,
@@ -757,6 +832,7 @@ final Map<String, FormConfig> _formConfigurations = {
           bottomMargin: defaultPadding),
       FormActionConfig(
           key: ActionKeys.mapperDraft,
+          capability: "client_config",
           label: "Save as Draft",
           enableOnlyWhenFormNotValid: true,
           buttonStyle: ActionStyle.primary,
@@ -912,6 +988,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.ruleConfigv2Ok,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -974,6 +1051,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.ruleConfigOk,
+          capability: "client_config",
           label: "Save",
           enableOnlyWhenFormValid: true,
           buttonStyle: ActionStyle.primary,
@@ -1137,6 +1215,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.pipelineConfigOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -1273,6 +1352,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.startPipelineOk,
+          capability: "run_pipelines",
           label: "Start",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -1577,6 +1657,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.queryToolOk,
+          capability: "workspace_ide",
           label: "Submit Query",
           buttonStyle: ActionStyle.primary,
           leftMargin: betweenTheButtonsPadding,

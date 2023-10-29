@@ -143,19 +143,22 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
         : null;
     // Note: The menuAction may do the routing, hence doing menuAction first.
     //       If no menuAction, do routing only if defined, otherwise do nothing
+    final doIt = JetsRouterDelegate().user.isAdmin ||
+        (menuEntry.capability == null ||
+            JetsRouterDelegate().user.hasCapability(menuEntry.capability!));
     return TreeNode(
         content: (level == 0)
             ? Expanded(
                 child: ElevatedButton(
                   style: buttonStyle(getActionStyle(menuEntry), themeData),
-                  onPressed: () => doMenuOnPress(menuEntry),
+                  onPressed: doIt ? () => doMenuOnPress(menuEntry) : null,
                   child: Center(child: Text(menuEntry.label)),
                 ),
               )
             : Expanded(
                 child: TextButton(
                   style: buttonStyle(getActionStyle(menuEntry), themeData),
-                  onPressed: () => doMenuOnPress(menuEntry),
+                  onPressed: doIt ? () => doMenuOnPress(menuEntry) : null,
                   child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(

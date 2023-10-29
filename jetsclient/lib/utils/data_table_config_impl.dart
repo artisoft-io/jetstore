@@ -2821,24 +2821,31 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortAscending: false,
       rowsPerPage: 50),
 
-  // Users Administration Data Table
+  // Users Administration Data Table - list of users
   DTKeys.usersTable: TableConfig(
     key: DTKeys.usersTable,
     fromClauses: [FromClause(schemaName: 'jetsapi', tableName: 'users')],
-    label: 'User Administration',
+    label: 'Registered Users',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
     whereClauses: [],
     actions: [
       ActionConfig(
-          actionType: DataTableActionType.doAction,
-          key: 'toggleUserActive',
-          label: 'Toggle Active',
+          actionType: DataTableActionType.showDialog,
+          key: 'editUserProfile',
+          label: 'Update User Profile',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionName: ActionKeys.toggleUserActive),
+          configForm: FormKeys.editUserProfile,
+          navigationParams: {
+            FSK.userName: 0,
+            FSK.userEmail: 1,
+            FSK.isActive: 2,
+            FSK.userRoles: 3,
+            DTKeys.userRolesTable: 3,
+          }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'deleteUser',
@@ -2872,6 +2879,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 3,
+          name: "roles",
+          label: 'Roles',
+          tooltips: 'User Roles',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 4,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Last Updated',
@@ -2880,6 +2894,44 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortColumnName: 'name',
     sortAscending: true,
     rowsPerPage: 10,
+  ),
+
+  // Users Administration Data Table - list of roles
+  DTKeys.userRolesTable: TableConfig(
+    key: DTKeys.userRolesTable,
+    fromClauses: [FromClause(schemaName: 'jetsapi', tableName: 'roles')],
+    label: 'Select Roles',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(stateKey: FSK.userRoles, columnIdx: 0),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "role",
+          label: 'Role Name',
+          tooltips: 'Role to assign to user',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "details",
+          label: 'Details',
+          tooltips: 'Role details',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "last_update",
+          label: 'Last Updated',
+          tooltips: 'Last Updated',
+          isNumeric: false),
+    ],
+    sortColumnName: 'role',
+    sortAscending: true,
+    rowsPerPage: 20,
   ),
 };
 

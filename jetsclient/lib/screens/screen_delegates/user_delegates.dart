@@ -7,6 +7,7 @@ import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/components/dialogs.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/screens/components/spinner_overlay.dart';
+import 'package:jetsclient/screens/screen_delegates/delegate_helpers.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -55,8 +56,10 @@ Future<String?> loginFormActions(BuildContext context,
         JetsRouterDelegate().user.name = result.body[FSK.userName];
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
         JetsRouterDelegate().user.isAdmin = result.body[FSK.isAdmin];
+        JetsRouterDelegate().user.capabilities =
+            (result.body[FSK.userCapabilities] as List).cast<String>().toSet();
         final gitProfile = result.body['gitProfile'];
-        if(gitProfile != null) {
+        if (gitProfile != null) {
           JetsRouterDelegate().user.gitName = gitProfile[FSK.gitName];
           JetsRouterDelegate().user.gitHandle = gitProfile[FSK.gitHandle];
           JetsRouterDelegate().user.gitEmail = gitProfile[FSK.gitEmail];
@@ -327,55 +330,54 @@ Future<String?> gitProfileFormActions(BuildContext context,
   return null;
 }
 
+/// Validation for userAdmin -- update User Profile dialog
+String? userAdminValidator(
+    JetsFormState formState, int group, String key, dynamic v) {
+  assert((v is String?) || (v is List<String>?),
+      "Source Config Form has unexpected data type");
+  switch (key) {
+    case FSK.isActive:
+      if (v != null) {
+        return null;
+      }
+      return "User state Active / Inactive must be selected.";
+    case FSK.userRoles:
+      if (v != null) {
+        return null;
+      }
+      return "Roles must be selected.";
+    default:
+      print(
+          'Oops Source Config Form has no validator configured for form field $key');
+  }
+  return null;
+}
+
 /// User Administration Form Actions
 Future<String?> userAdminFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {int group = 0}) async {
   var messenger = ScaffoldMessenger.of(context);
   switch (actionKey) {
-    case ActionKeys.toggleUserActive:
-      // Use a JSON encoded string to send
-      var data = [];
-      var emails = formState.getValue(0, DTKeys.usersTable) as List<dynamic>;
-      var areActive = formState.getValue(0, FSK.isActive) as List<dynamic>;
-      var isActive = '1';
-      if (areActive[0] == '1') {
-        isActive = '0';
+    case ActionKeys.editUserProfileOk:
+      if (!formKey.currentState!.validate()) {
+        return null;
       }
-      for (int i = 0; i < emails.length; i++) {
-        data.add(<String, dynamic>{
-          FSK.userEmail: emails[i],
-          FSK.isActive: isActive,
-        });
-      }
+      var state = formState.getState(0);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [
           <String, String>{'table': 'update/users'}
         ],
-        'data': data,
+        'data': [state],
       }, toEncodable: (_) => '');
-      var result = await HttpClientSingleton().sendRequest(
-          path: ServerEPs.dataTableEP,
-          token: JetsRouterDelegate().user.token,
-          encodedJsonBody: encodedJsonBody);
-      // handling server reply
-      if (result.statusCode == 401) return "Not Authorized";
-      if (result.statusCode == 200) {
-        // Inform the user and transition
-        const snackBar = SnackBar(
-          content: Text('Update Successful'),
-        );
-        if (context.mounted) {
-          messenger.showSnackBar(snackBar);
-        }
-        formState.invokeCallbacks();
-      } else {
-        if (context.mounted) {
-          showAlertDialog(context, 'Something went wrong. Please try again.');
-        }
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
       }
-      break;
+      return result;
     case ActionKeys.deleteUser:
       // Get confirmation to delete user
       var uc = await showDangerZoneDialog(
@@ -416,6 +418,9 @@ Future<String?> userAdminFormActions(BuildContext context,
           showAlertDialog(context, 'Something went wrong. Please try again.');
         }
       }
+      break;
+    case ActionKeys.dialogCancel:
+      Navigator.of(context).pop();
       break;
     default:
       showAlertDialog(

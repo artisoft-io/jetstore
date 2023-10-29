@@ -444,6 +444,7 @@ class FormActionConfig extends FormFieldConfig {
     this.topMargin = 0.0,
     this.rightMargin = 0.0,
     this.bottomMargin = 0.0,
+    this.capability,
   });
   final String label;
   final Map<ActionStyle, String> labelByStyle;
@@ -454,6 +455,7 @@ class FormActionConfig extends FormFieldConfig {
   final double topMargin;
   final double rightMargin;
   final double bottomMargin;
+  final String? capability;
 
   @override
   Widget makeFormField({

@@ -63,7 +63,16 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	if globalDevMode {
 		jetsUser.DevMode = "true"
 	}
-	JSON(w, http.StatusOK, jetsUser)
+	data := map[string]interface{}{
+		"name": jetsUser.Name,
+		"user_email": jetsUser.Email,
+		"is_admin": jetsUser.IsAdmin(),
+		"is_active": jetsUser.IsActive,
+		"dev_mode": jetsUser.DevMode,
+		"capabilities": jetsUser.GetCapabilities(),
+		"token": jetsUser.Token,
+	}
+	JSON(w, http.StatusOK, data)
 }
 
 func IsDuplicateUserError(err string) bool {

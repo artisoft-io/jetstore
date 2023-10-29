@@ -184,8 +184,9 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 
 	// User Admin: update users.is_active
 	"update/users": {
-		Stmt:       `UPDATE jetsapi.users SET is_active = $1	WHERE user_email = $2`,
-		ColumnKeys: []string{"is_active", "user_email"},
+		Stmt:       `UPDATE jetsapi.users SET	(is_active, encrypted_roles, last_update) 
+		= ($1, $2, DEFAULT) WHERE user_email = $3`,
+		ColumnKeys: []string{"is_active", "encrypted_roles", "user_email"},
 		AdminOnly:  true,
 		Capability: "none",
 	},

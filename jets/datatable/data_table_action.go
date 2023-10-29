@@ -213,10 +213,15 @@ func (dtq *DataTableAction) makeSelectColumns() string {
 			buf.WriteString(", ")
 		}
 		isFirst = false
+		// Check if we need to make column substitution roles -> encrypted_roles
+		column := dtq.Columns[i].Column
+		if column == "roles" {
+			column = "encrypted_roles"
+		}
 		if dtq.Columns[i].Table != "" {
-			buf.WriteString(pgx.Identifier{dtq.Columns[i].Table, dtq.Columns[i].Column}.Sanitize())
+			buf.WriteString(pgx.Identifier{dtq.Columns[i].Table, column}.Sanitize())
 		} else {
-			buf.WriteString(pgx.Identifier{dtq.Columns[i].Column}.Sanitize())
+			buf.WriteString(pgx.Identifier{column}.Sanitize())
 		}
 	}
 	return buf.String()
@@ -370,6 +375,7 @@ func (ctx *Context) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token str
 	// Get user info
 	user, err := user.GetUserByToken(ctx.Dbpool, token)
 	if err != nil {
+		log.Printf("while GetUserByToken: %v", err)
 		return nil, errors.New("error: unauthorized, cannot get user info")
 	}
 	switch {
@@ -655,6 +661,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 	_, err2 := ctx.VerifyUserPermission(sqlStmt, token)
 	if err2 != nil {
 		httpStatus = http.StatusUnauthorized
+		log.Printf("while VerifyUserPermission: %v", err2)
 		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
 		return
 	}
@@ -684,6 +691,23 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				// Update with encrypted token
 				dataTableAction.Data[irow]["git_token"] = user.EncryptGitToken(gitToken.(string))
 			}
+		case dataTableAction.FromClauses[0].Table == "update/users":
+			// encrypt roles and put them in column encrypted_roles
+			// @**@ encrypt roles and put them in column encrypted_roles
+			rolesi := dataTableAction.Data[irow]["roles"]
+			if rolesi != nil {
+				roles := rolesi.([]interface{})
+				encryptedRoles := make([]string, len(roles)) 
+				for i := range roles {
+					role := roles[i].(string)
+					// encrypt role
+					// encryptedRole := user.EncryptWithEmail(role, userProfile.Email)
+					encryptedRole := role
+					encryptedRoles[i] = encryptedRole
+				}
+				dataTableAction.Data[irow]["encrypted_roles"] = encryptedRoles
+			}
+
 		}
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
@@ -1212,16 +1236,7 @@ func execDDL(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *stri
 }
 
 // DoReadAction ------------------------------------------------------
-func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
-
-	// // Check if we're in dev mode and the query is delegated to a proxy implementation
-	// if ctx.DevMode && len(*ctx.unitTestDir) > 0 {
-	// 	// We're in dev mode, see if we override the table being queried
-	// 	switch dataTableAction.FromClauses[0].Table {
-	// 	case "file_key_staging":
-	// 		return ctx.readLocalFiles(dataTableAction)
-	// 	}
-	// }
+func (ctx *Context) DoReadAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
 
 	// to package up the result
 	results := make(map[string]interface{})
@@ -1279,6 +1294,29 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 			fmt.Errorf("while executing query from tables %s: %v", dataTableAction.FromClauses[0].Table, err)
 	}
 
+	// Check if need to decrypt output colum: encrypted_role -> role
+	rolesPos := -1
+	for i := range dataTableAction.Columns {
+		if dataTableAction.Columns[i].Column == "roles" {
+			rolesPos = i
+			goto gotRolesPos
+		}
+	}
+	gotRolesPos:
+	if rolesPos >= 0 {
+		// email, _ := user.ExtractTokenID(token)
+		for i := range (*resultRows) {
+			if (*resultRows)[i][rolesPos] != nil {
+				encryptedRole := (*resultRows)[i][rolesPos].(string)
+				// decrypt encryptedRole
+				// @**@ on read: decrypt encryptedRole
+				// role := user.DecryptWithEmail(encryptedRole, email)
+				role := encryptedRole
+				(*resultRows)[i][rolesPos] = role	
+			}
+		}
+	}
+
 	// get the total nbr of row
 	var totalRowCount int
 	err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&totalRowCount)
@@ -1293,7 +1331,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction) (*map[string]
 }
 
 // DoPreviewFileAction ------------------------------------------------------
-func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
+func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
 
 	// Validation
 	if len(dataTableAction.WhereClauses) == 0 ||
@@ -1361,7 +1399,7 @@ func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction) (*map[
 
 // DropTable ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *Context) DropTable(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *Context) DropTable(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	//* TODO NEED TO APPLY FILTER ON TABLE NAME
 	for ipos := range dataTableAction.Data {
 		tableName := dataTableAction.Data[ipos]["tableName"]

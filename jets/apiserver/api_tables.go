@@ -99,11 +99,11 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.SaveWorkspaceClientConfig(&dataTableAction, token)
 	
 	case "read":
-		results, code, err = context.DoReadAction(&dataTableAction)
+		results, code, err = context.DoReadAction(&dataTableAction, token)
 	case "preview_file":
-		results, code, err = context.DoPreviewFileAction(&dataTableAction)
+		results, code, err = context.DoPreviewFileAction(&dataTableAction, token)
 	case "drop_table":
-		results, code, err = context.DropTable(&dataTableAction)
+		results, code, err = context.DropTable(&dataTableAction, token)
 	case "refresh_token":
 		results = &map[string]interface{}{}
 		code = http.StatusOK

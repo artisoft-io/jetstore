@@ -6,10 +6,7 @@ import 'package:jetsclient/utils/modules/workspace_ide/screen_config.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 
 final defaultMenuEntries = [
-  MenuEntry(
-      key: 'jetstoreHome',
-      label: 'JetStore Home',
-      routePath: homePath),
+  MenuEntry(key: 'jetstoreHome', label: 'JetStore Home', routePath: homePath),
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
@@ -34,10 +31,11 @@ final defaultMenuEntries = [
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
       routePath: pipelineConfigPath),
-  MenuEntry(
-      key: 'workspaceIDEHome',
-      label: 'Workspace IDE Home',
-      routePath: workspaceRegistryPath),
+    MenuEntry(
+        key: 'workspaceIDEHome',
+        capability: 'workspace_ide',
+        label: 'Workspace IDE Home',
+        routePath: workspaceRegistryPath),
   // MenuEntry(
   //     otherPageStyle: ActionStyle.danger,
   //     key: 'dataPurge',
@@ -51,10 +49,7 @@ final defaultMenuEntries = [
 ];
 
 final adminMenuEntries = [
-  MenuEntry(
-      key: 'jetstoreHome',
-      label: 'JetStore Home',
-      routePath: homePath),
+  MenuEntry(key: 'jetstoreHome', label: 'JetStore Home', routePath: homePath),
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
