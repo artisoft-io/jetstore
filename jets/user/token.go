@@ -19,7 +19,6 @@ func CreateToken(email string) (string, error) {
 	claims := jwt.MapClaims{}
 	claims["authorized"] = true
 	claims["email"] = email
-	// claims["exp"] = time.Now().Add(time.Hour * 1).Unix() //Token expires after 1 hour
 	claims["exp"] = time.Now().Add(time.Minute * time.Duration(TokenExpiration)).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(ApiSecret))

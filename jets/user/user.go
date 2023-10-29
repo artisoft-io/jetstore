@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 	"html"
 	"log"
 	"regexp"
@@ -17,16 +18,32 @@ import (
 var AdminEmail string
 
 type User struct {
-	Name      string    `json:"name"`
-	Email     string    `json:"user_email"`
-	Password  string    `json:"password"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Token     string    `json:"token"`
-	DevMode   string 		`json:"dev_mode"`
-	IsAdmin   bool   		`json:"is_admin"`
-	IsActive  int   		`json:"is_active"`
+	Name           string    `json:"name"`
+	Email          string    `json:"user_email"`
+	Password       string    `json:"password"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Token          string    `json:"token"`
+	DevMode        string    `json:"dev_mode"`
+	roles          map[string]bool
+	capabilities   map[string]bool
+	IsActive       int        `json:"is_active"`
 	UserGitProfile GitProfile `json:"gitProfile"`
+}
+
+// JetStore Capabilities:
+//  - jetstore_read: Read access from ui
+// 	- client_config: Add, modify client configuration
+//	- workspace_ide: Access workspace IDE screens and functions, including query tool and git functions
+//	- run_pipelines: Load files and run pipelines
+//  - user_profile:  Update user profile
+// NOTE: role_capability table is initialized in base_workspace_init_db.sql
+
+func NewUser(email string) *User {
+	u := User{Email: email}
+	u.roles = make(map[string]bool)
+	u.capabilities = make(map[string]bool)
+	return &u
 }
 
 func Hash(password string) ([]byte, error) {
@@ -35,6 +52,28 @@ func Hash(password string) ([]byte, error) {
 
 func VerifyPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+}
+
+func (u *User) IsAdmin() bool {
+	return u.Email == AdminEmail
+}
+
+func (u *User) GetCapabilities() []string {
+	keys := make([]string, 0, len(u.capabilities))
+	for k := range u.capabilities {
+			keys = append(keys, k)
+	}
+	return keys
+}
+
+func (u *User) HasCapability(capability string) bool {
+	if capability == "" {
+		return false
+	}
+	if u.IsAdmin() {
+		return true
+	}
+	return u.capabilities[capability]
 }
 
 func (u *User) BeforeSave() error {
@@ -54,9 +93,6 @@ func (u *User) Prepare() {
 }
 
 func (u *User) Validate(action string) error {
-	if AdminEmail == u.Email {
-		u.IsAdmin = true
-	}
 	switch strings.ToLower(action) {
 	case "login":
 		if u.Password == "" {
@@ -65,15 +101,15 @@ func (u *User) Validate(action string) error {
 		if u.Email == "" {
 			return errors.New("Required Email")
 		}
-		if !u.IsAdmin {
+		if !u.IsAdmin() {
 			if err := checkmail.ValidateFormat(u.Email); err != nil {
 				return errors.New("Invalid Email")
-			}	
+			}
 		}
 		return nil
 
 	default:
-		if u.IsAdmin {
+		if u.IsAdmin() {
 			return errors.New("Login Reserved for Administrator")
 		}
 		if u.Name == "" {
@@ -87,7 +123,7 @@ func (u *User) Validate(action string) error {
 		hasUpper, _ := regexp.MatchString("[A-Z]", u.Password)
 		hasLower, _ := regexp.MatchString("[a-z]", u.Password)
 		hasSpecial, _ := regexp.MatchString(`[!@#$%^&*()_+-=\[\]{}|']`, u.Password)
-		if !hasDigit || !hasUpper || !hasLower || !hasSpecial || len(u.Password)<14 {
+		if !hasDigit || !hasUpper || !hasLower || !hasSpecial || len(u.Password) < 14 {
 			return errors.New("Invalid Password")
 		}
 		if u.Email == "" {
@@ -117,19 +153,72 @@ func (u *User) InsertUser(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
-func (u *User) GetUserByEmail(dbpool *pgxpool.Pool) error {
+func GetUserByEmail(dbpool *pgxpool.Pool, email string) (*User, error) {
 	// select from db
-	stmt := `SELECT name, password, is_active, git_name, git_email, git_handle 
+	u := NewUser(email)
+	encryptedRoles := make([]string, 0)
+	stmt := `SELECT name, password, encrypted_roles, is_active, git_name, git_email, git_handle 
 					 FROM jetsapi.users 
 					 WHERE user_email = $1`
 	err := dbpool.QueryRow(context.Background(), stmt, u.Email).
-		Scan(&u.Name, &u.Password, &u.IsActive, 
-			&u.UserGitProfile.Name, 
+		Scan(&u.Name, &u.Password, &encryptedRoles, &u.IsActive,
+			&u.UserGitProfile.Name,
 			&u.UserGitProfile.Email,
 			&u.UserGitProfile.GitHandle)
 	if err != nil {
 		log.Println("while select user by user_email from db:", err)
-		return errors.New("invalid user or password")
+		return nil, errors.New("invalid user or password")
 	}
-	return nil
+	if u.IsAdmin() {
+		u.capabilities["client_config"] = true
+		u.capabilities["workspace_ide"] = true
+		u.capabilities["run_pipelines"] = true
+		return u, nil
+	}
+	// Decrypt user's role and map it to capabilities
+	// @**@ profile read Decrypt user's role and map it to capabilities
+	
+	for _, role := range encryptedRoles {
+		u.roles[role] = true
+	}
+	if len(u.roles) > 0 {
+		for i := range encryptedRoles {
+			encryptedRoles[i] = fmt.Sprintf("'%s'", encryptedRoles[i])
+		}
+		stmt = fmt.Sprintf("SELECT capability	FROM jetsapi.role_capability WHERE role IN (%s)",
+			strings.Join(encryptedRoles, ","))
+		rows, err := dbpool.Query(context.Background(), stmt)
+		if err != nil {
+			log.Println("while select user by user_email from db:", err)
+			return nil, errors.New("error retreiving roles")
+		}
+		defer rows.Close()
+		var capability string
+		for rows.Next() {
+			if err := rows.Scan(&capability); err != nil {
+				log.Println("while scanning capability from db:", err)
+				return nil, errors.New("error retreiving capabilities")
+			}
+			u.capabilities[capability] = true
+		}
+	}
+
+	return u, nil
+}
+
+func GetUserByToken(dbpool *pgxpool.Pool, token string) (*User, error) {
+	// Get user info
+	userEmail, err := ExtractTokenID(token)
+	if err != nil {
+		log.Println("while ExtractTokenID", err.Error())
+		err = errors.New("error: unauthorized, cannot extract user email from token")
+		return nil, err
+	}
+	user, err := GetUserByEmail(dbpool, userEmail)
+	if err != nil {
+		log.Println("while GetUserByEmail", err.Error())
+		err = errors.New("error: unauthorized, cannot get user info")
+		return nil, err
+	}
+	return user, nil
 }

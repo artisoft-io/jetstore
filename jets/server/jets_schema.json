@@ -112,6 +112,13 @@
         "isNotNull": true
       },
       {
+        "columnName": "encrypted_roles",
+        "dataType": "text",
+        "isArray": true,
+        "default": "'{}'",
+        "isNotNull": true
+      },
+      {
         "columnName": "is_active",
         "dataType": "int",
         "default": "0",
@@ -151,6 +158,55 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "roles",
+    "columns": [
+      {
+        "columnName": "role",
+        "dataType": "text",
+        "isPK": true
+      },
+      {
+        "columnName": "details",
+        "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "role_capability",
+    "columns": [
+      {
+        "columnName": "role",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "capability",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "role_capability_unique_cstraint",
+        "definition": "CONSTRAINT role_capability_unique_cstraint UNIQUE (role, capability)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "client_registry",
     "columns": [
       {
@@ -161,6 +217,12 @@
       {
         "columnName": "details",
         "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ]
   },
@@ -181,6 +243,12 @@
       {
         "columnName": "details",
         "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
       }
     ],
     "tableConstraints": [

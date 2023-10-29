@@ -48,6 +48,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addWorkspaceOk,
+          capability: "workspace_ide",
           label: "Add / Update",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -106,6 +107,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.commitWorkspaceOk,
+          capability: "workspace_ide",
           label: "Commit & Push",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -165,6 +167,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.doGitCommandWorkspaceOk,
+          capability: "workspace_ide",
           label: "Execute",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -223,6 +226,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.doGitStatusWorkspaceOk,
+          capability: "workspace_ide",
           label: "Git Status",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -283,6 +287,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.pushOnlyWorkspaceOk,
+          capability: "workspace_ide",
           label: "Push Changes",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -330,6 +335,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.pullWorkspaceOk,
+          capability: "workspace_ide",
           label: "Pull Changes",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -431,6 +437,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.exportClientConfigOk,
+          capability: "workspace_ide",
           label: "Export Client Config",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -486,6 +493,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.wsSaveFileOk,
+          capability: "workspace_ide",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -517,6 +525,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addWorkspaceFilesOk,
+          capability: "workspace_ide",
           label: "Add File",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,

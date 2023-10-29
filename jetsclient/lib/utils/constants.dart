@@ -127,6 +127,7 @@ class FormKeys {
   static const register = "register";
   static const userAdmin = "userAdmin";
   static const userGitProfile = "userGitProfile";
+  static const editUserProfile = "editUserProfile";
 
   // Workspace IDE forms
   static const workspaceRegistry = "workspaceRegistry";
@@ -164,6 +165,8 @@ class FSK {
 
   static const userEmail = "user_email";
   static const userName = "name";
+  static const userRoles = "roles";
+  static const userCapabilities = "capabilities";
   static const userPassword = "password";
   static const userPasswordConfirm = "passwordConfirm";
   static const sessionId = "session_id";
@@ -337,7 +340,7 @@ class ActionKeys {
   static const login = "loginAction";
   static const register = "registerAction";
   static const dialogCancel = "dialog.cancelAction";
-  static const toggleUserActive = "toggleUserActive";
+  static const editUserProfileOk = "editUserProfile.ok";
   static const deleteUser = "deleteUser";
   static const submitGitProfileOk = "submitGitProfileOk";
 
@@ -476,6 +479,7 @@ class DTKeys {
 
   // User administration DT
   static const usersTable = "userTable";
+  static const userRolesTable = "userRolesTable";
 
   // Workspace IDE DT
   static const workspaceRegistryTable = "workspaceRegistryTable";

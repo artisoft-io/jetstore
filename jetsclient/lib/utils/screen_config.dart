@@ -49,6 +49,7 @@ class MenuEntry {
     this.menuAction,
     this.formConfigKey,
     this.children = const [],
+    this.capability,
   });
   final ActionStyle onPageStyle;
   final ActionStyle otherPageStyle;
@@ -63,4 +64,5 @@ class MenuEntry {
   final MenuActionDelegate? menuAction;
   final String? formConfigKey;
   List<MenuEntry> children;
+  final String? capability;
 }

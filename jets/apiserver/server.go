@@ -563,13 +563,14 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/purgeData", purgeDataOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/purgeData", jsonh(corsh(authh(server.DoPurgeDataAction)))).Methods("POST")
 
-	//* TODO add options and corrs check - Users routes
-	// server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
-	server.Router.HandleFunc("/users", jsonh(authh(server.GetUsers))).Methods("GET")
-	server.Router.HandleFunc("/users/info", jsonh(authh(server.GetUserDetails))).Methods("GET")
-	server.Router.HandleFunc("/users/{id}", jsonh(authh(server.GetUser))).Methods("GET")
-	server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
-	server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
+	// //* Currently not used
+	// //* TODO add options and corrs check - Users routes
+	// // server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")
+	// server.Router.HandleFunc("/users", jsonh(authh(server.GetUsers))).Methods("GET")
+	// server.Router.HandleFunc("/users/info", jsonh(authh(server.GetUserDetails))).Methods("GET")
+	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.GetUser))).Methods("GET")
+	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
+	// server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
 
 	log.Println("Listening to address ", *serverAddr)
 	return http.ListenAndServe(*serverAddr, server.Router)

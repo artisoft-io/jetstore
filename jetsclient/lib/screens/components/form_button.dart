@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
@@ -61,13 +62,18 @@ class _JetsFormButtonState extends State<JetsFormButton> {
   Widget build(BuildContext context) {
     final themeData = Theme.of(context);
     var isOn = false;
-    if (widget.formActionConfig.enableOnlyWhenFormValid) {
-      isOn = widget.formState.isFormValid();
-    } else if(widget.formActionConfig.enableOnlyWhenFormNotValid) {
-      isOn = !widget.formState.isFormValid();
-    } else {
-      isOn = !widget.formActionConfig.enableOnlyWhenFormValid ||
-                    widget.formState.isFormValid();
+    final capability = widget.formActionConfig.capability;
+    if (JetsRouterDelegate().user.isAdmin ||
+        capability == null ||
+        JetsRouterDelegate().user.hasCapability(capability)) {
+      if (widget.formActionConfig.enableOnlyWhenFormValid) {
+        isOn = widget.formState.isFormValid();
+      } else if (widget.formActionConfig.enableOnlyWhenFormNotValid) {
+        isOn = !widget.formState.isFormValid();
+      } else {
+        isOn = !widget.formActionConfig.enableOnlyWhenFormValid ||
+            widget.formState.isFormValid();
+      }
     }
     return Expanded(
       flex: widget.formActionConfig.flex,
@@ -79,7 +85,8 @@ class _JetsFormButtonState extends State<JetsFormButton> {
             widget.formActionConfig.bottomMargin),
         child: ElevatedButton(
             style: buttonStyle(_buttonStyle, themeData),
-            onPressed: isOn ? () => widget.actionsDelegate(
+            onPressed: isOn
+                ? () => widget.actionsDelegate(
                     context, widget.formKey, formState, config.key,
                     group: config.group)
                 : null,
