@@ -409,6 +409,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.dataTableAction: "insert_rows",
             FSK.dataTableFromTable: "pipeline_execution_status",
           },
+          capability: 'run_pipelines',
           configForm: FormKeys.startPipeline),
       ActionConfig(
           actionType: DataTableActionType.showScreen,
@@ -1103,6 +1104,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
+          capability: 'client_config',
           configForm: FormKeys.addClient),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -1119,6 +1121,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
           actionName: ActionKeys.deleteClient),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1200,6 +1203,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenWhereClauseSatisfied: true,
           configForm: FormKeys.addOrg,
+          capability: 'client_config',
           stateFormNavigationParams: {FSK.client: FSK.client}),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -1208,6 +1212,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
           actionName: ActionKeys.deleteOrg),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1327,6 +1332,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'loadFile',
           label: 'Load File',
           style: ActionStyle.primary,
+          capability: 'run_pipelines',
           isEnabledWhenHavingSelectedRows: true),
       ActionConfig(
           actionType: DataTableActionType.showScreen,
@@ -1341,6 +1347,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionName: ActionKeys.syncFileKey,
           key: 'syncFileKey',
           label: 'Sync File Keys',
+          capability: 'run_pipelines',
           style: ActionStyle.secondary),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1394,6 +1401,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'loadMultiFile',
           label: 'Load Selected Files',
           style: ActionStyle.primary,
+          capability: 'run_pipelines',
           isEnabledWhenHavingSelectedRows: true),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1736,6 +1744,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.loadAllFiles,
+          capability: 'run_pipelines',
           navigationParams: {
             FSK.client: 1,
             FSK.org: 2,
@@ -1748,6 +1757,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Drop Staging Table',
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'run_pipelines',
           style: ActionStyle.secondary),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -1756,6 +1766,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
           actionName: ActionKeys.deleteSourceConfig),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1906,13 +1917,14 @@ final Map<String, TableConfig> _tableConfigurations = {
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'loadRawRows',
-          label: 'Load Raw Rows',
+          label: 'Paste File Mapping',
           style: ActionStyle.secondary,
+          capability: 'client_config',
           configForm: FormKeys.loadRawRows),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'downloadMappingRows',
-          label: 'Download Mapping',
+          label: 'Download File Mapping',
           style: ActionStyle.secondary,
           isEnabledWhenWhereClauseSatisfied: true,
           actionName: ActionKeys.downloadMapping),
@@ -2102,6 +2114,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
           actionName: ActionKeys.deleteRuleConfigv2),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -2206,6 +2219,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
           actionName: ActionKeys.deletePipelineConfig),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -2889,6 +2903,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'user_profile',
           actionName: ActionKeys.deleteUser),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: [

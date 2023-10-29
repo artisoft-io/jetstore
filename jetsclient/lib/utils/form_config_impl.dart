@@ -635,7 +635,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // loadRawRows - Dialog to load / replace process mapping
   FormKeys.loadRawRows: FormConfig(
     key: FormKeys.loadRawRows,
-    title: "Load Raw Source Mapping",
+    title: "File Mapping Intake",
     useListView: true,
     actions: [
       FormActionConfig(
@@ -656,7 +656,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label: "Enter the Mapping Definition as csv/tsv-encoded text.",
+            label: "Enter the File Mapping Definition as csv/tsv-encoded text.",
             maxLines: 3,
             topMargin: defaultPadding,
             bottomMargin: defaultPadding)
@@ -664,8 +664,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormInputFieldConfig(
             key: FSK.rawRows,
-            label: "Raw Source Mapping (csv/tsv)",
-            hint: "Pastefrom spreadsheet using JetStore template",
+            label: "File Mapping (csv/tsv)",
+            hint: "Paste from spreadsheet using JetStore template",
             flex: 1,
             autofocus: false,
             obscureText: false,
@@ -819,7 +819,7 @@ final Map<String, FormConfig> _formConfigurations = {
   // processMapping - Dialog to mapping intake file structure to canonical model
   FormKeys.processMapping: FormConfig(
     key: FormKeys.processMapping,
-    title: "Process Mapping",
+    title: "File Mapping Worksheet",
     actions: [
       FormActionConfig(
           key: ActionKeys.mapperOk,

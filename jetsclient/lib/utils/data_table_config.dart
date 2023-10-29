@@ -167,7 +167,8 @@ class ActionConfig {
       this.configScreenPath,
       this.actionName,
       this.stateGroup = 0,
-      this.actionEnableCriterias});
+      this.actionEnableCriterias,
+      this.capability});
   final DataTableActionType actionType;
   final String key;
   final String label;
@@ -183,6 +184,7 @@ class ActionConfig {
   final String? actionName;
   final int stateGroup;
   final List<List<ActionEnableCriteria>>? actionEnableCriterias;
+  final String? capability;
 
   /// returns true if action button is visible
   bool isVisible(JetsDataTableState widgetState) {
