@@ -354,6 +354,7 @@ class ActionKeys {
   // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
   static const dropTable = "dropTable";
+  static const deleteSourceConfig = "deleteSourceConfig";
 
   // for load file
   static const loaderOk = "loader.ok";
@@ -380,10 +381,12 @@ class ActionKeys {
   static const ruleConfigOk = "ruleConfig.ok";
   static const ruleConfigv2Ok = "ruleConfigv2.ok";
   static const ruleConfigAdd = "ruleConfig.add";
-  static const ruleConfigDelete = "ruleConfig.delete";
+  static const ruleConfigDelete = "ruleConfig.delete"; // Used in Edit Rule Config Dialog v1 - delete a triple
+  static const deleteRuleConfigv2 = "deleteRuleConfigv2";  // Action to Delete a Rule Config in DB
 
   // for add / edit pipeline config dialog
   static const pipelineConfigOk = "pipelineConfig.ok";
+  static const deletePipelineConfig = "deletePipelineConfig";
 
   // for pipeline execution dialogs
   static const startPipelineOk = "startPipeline.ok";

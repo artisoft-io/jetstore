@@ -60,6 +60,11 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "user_email", "key"},
 		Capability: "client_config",
 	},
+	"delete/source_config": {
+		Stmt: `DELETE FROM jetsapi.source_config WHERE key = $1`,
+		ColumnKeys: []string{"key"},
+		Capability: "client_config",
+	},
 	// input loader status
 	"input_loader_status": {
 		Stmt: `INSERT INTO jetsapi.input_loader_status 
@@ -128,6 +133,11 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		ColumnKeys: []string{"process_config_key", "process_name", "client", "rule_config_json", "user_email", "key"},
 		Capability: "client_config",
 	},
+	"delete/rule_configv2": {
+		Stmt: `DELETE FROM jetsapi.rule_configv2 WHERE key = $1`,
+		ColumnKeys: []string{"key"},
+		Capability: "client_config",
+	},
 	"rule_configv2": {
 		Stmt: `INSERT INTO jetsapi.rule_configv2 
 			(process_config_key, process_name, client, rule_config_json, user_email) 
@@ -138,17 +148,34 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// pipeline config
 	"update/pipeline_config": {
 		Stmt: `UPDATE jetsapi.pipeline_config SET 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, rule_config_json, user_email, last_update) = 
-			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, DEFAULT) 
-			WHERE key = $14`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "rule_config_json", "user_email", "key"},
+			(process_name, client, process_config_key, 
+				main_process_input_key, merged_process_input_keys, injected_process_input_keys, 
+				main_object_type, main_source_type, automated, description, 
+				max_rete_sessions_saved, rule_config_json, source_period_type, user_email, last_update) = 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, DEFAULT) 
+			WHERE key = $15`,
+		ColumnKeys: []string{"process_name", "client", "process_config_key", 
+			"main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", 
+			"main_object_type", "main_source_type", "automated", "description", 
+			"max_rete_sessions_saved", "rule_config_json", "source_period_type", "user_email", "key"},
+		Capability: "client_config",
+	},
+	"delete/pipeline_config": {
+		Stmt: `DELETE FROM jetsapi.pipeline_config WHERE key = $1`,
+		ColumnKeys: []string{"key"},
 		Capability: "client_config",
 	},
 	"pipeline_config": {
 		Stmt: `INSERT INTO jetsapi.pipeline_config 
-			(process_name, client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, main_object_type, main_source_type, automated, description, max_rete_sessions_saved, rule_config_json, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-		ColumnKeys: []string{"process_name", "client", "process_config_key", "main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", "main_object_type", "main_source_type", "automated", "description", "max_rete_sessions_saved", "rule_config_json", "user_email"},
+			(process_name, client, process_config_key, 
+				main_process_input_key, merged_process_input_keys, injected_process_input_keys, 
+				main_object_type, main_source_type, automated, description, 
+				max_rete_sessions_saved, rule_config_json, source_period_type, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+		ColumnKeys: []string{"process_name", "client", "process_config_key", 
+			"main_process_input_key", "merged_process_input_keys", "injected_process_input_keys", 
+			"main_object_type", "main_source_type", "automated", "description", 
+			"max_rete_sessions_saved", "rule_config_json", "source_period_type", "user_email"},
 		Capability: "client_config",
 	},
 

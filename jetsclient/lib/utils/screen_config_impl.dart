@@ -13,11 +13,11 @@ final defaultMenuEntries = [
       routePath: clientAdminPath),
   MenuEntry(
       key: 'sourceConfig',
-      label: 'File Staging Area',
+      label: 'Client Files',
       routePath: sourceConfigPath),
   MenuEntry(
       key: 'inputSourceMapping',
-      label: 'Input Source Mapping',
+      label: 'File Mapping',
       routePath: inputSourceMappingPath),
   // MenuEntry(
   //     key: 'processInput',
@@ -56,11 +56,11 @@ final adminMenuEntries = [
       routePath: clientAdminPath),
   MenuEntry(
       key: 'sourceConfig',
-      label: 'File Staging Area',
+      label: 'Client Files',
       routePath: sourceConfigPath),
   MenuEntry(
       key: 'inputSourceMapping',
-      label: 'Input Source Mapping',
+      label: 'File Mapping',
       routePath: inputSourceMappingPath),
   MenuEntry(
       key: 'processConfig',
@@ -113,7 +113,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.sourceConfig: ScreenConfig(
       key: ScreenKeys.sourceConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'File Staging Area',
+      title: 'Client Files',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,

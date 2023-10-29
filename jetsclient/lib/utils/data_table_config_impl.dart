@@ -1309,7 +1309,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       FromClause(schemaName: 'jetsapi', tableName: 'file_key_staging'),
       FromClause(schemaName: 'jetsapi', tableName: 'source_period'),
     ],
-    label: 'File Key Staging',
+    label: 'File Staging Area',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
@@ -1575,7 +1575,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       FromClause(schemaName: 'jetsapi', tableName: 'source_config'),
       FromClause(schemaName: 'jetsapi', tableName: 'object_type_registry'),
     ],
-    label: 'Select an Input Source',
+    label: 'Client File Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -1703,7 +1703,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'source_config')
     ],
-    label: 'Source Config',
+    label: 'Incoming Files',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -1749,8 +1749,20 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           style: ActionStyle.secondary),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteSourceConfig',
+          label: 'Delete',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteSourceConfig),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.client,
         columnIdx: 1,
@@ -1869,7 +1881,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_mapping')
     ],
-    label: 'Input Source Mapping',
+    label: 'File Mapping',
     apiPath: '/dataTable',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
@@ -2005,7 +2017,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.processName: FSK.processName
           }),
     ],
-    // No formStateConfig since rows are not selectable
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
@@ -2083,9 +2095,21 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.processConfigKey: 3,
             FSK.ruleConfigJson: 4
           }),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteRuleConfig',
+          label: 'Delete',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deleteRuleConfigv2),
     ],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -2175,9 +2199,21 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.injectedProcessInputKeys: 12,
             FSK.ruleConfigJson: 13
           }),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deletePipelineConfig',
+          label: 'Delete',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          actionName: ActionKeys.deletePipelineConfig),
     ],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,

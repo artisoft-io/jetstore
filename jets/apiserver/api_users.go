@@ -71,6 +71,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		"dev_mode": jetsUser.DevMode,
 		"capabilities": jetsUser.GetCapabilities(),
 		"token": jetsUser.Token,
+		"gitProfile": jetsUser.UserGitProfile,
 	}
 	JSON(w, http.StatusOK, data)
 }
