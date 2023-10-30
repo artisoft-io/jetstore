@@ -286,12 +286,6 @@ func (server *Server) checkWorkspaceVersion() error {
 		return nil
 	}
 
-	// Download overriten workspace files from database if any
-	err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", false)
-	if err != nil {
-		//* TODO Log to a new workspace error table to report in UI
-		log.Println("Error while synching workspace file from database:", err)
-	}
 	var version sql.NullString
 	jetstoreVersion := os.Getenv("JETS_VERSION")
 	// Check the release in database vs current release
@@ -313,7 +307,11 @@ func (server *Server) checkWorkspaceVersion() error {
 		return workspace.UpdateWorkspaceVersionDb(server.dbpool, workspaceName, version.String)
 
 	case jetstoreVersion > version.String:
-		log.Println("Workspace deployed version (in database) is", version.String)
+		// Download overriten workspace files from database if any, skipping sqlite and tgz files since we will recompile workspace
+		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", true, true); err != nil {
+			log.Println("Error while synching workspace file from database:", err)
+		}
+		log.Println("Workspace deployed version (in database) is", version.String, "recompiling workspace")
 		// Recompile workspace, set the workspace version to be same as jetstore version
 		// Sync unit test files from workspace to s3
 		_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
@@ -327,6 +325,11 @@ func (server *Server) checkWorkspaceVersion() error {
 
 	default:
 		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
+		// Download overriten workspace files from database if any, not skipping sqlite files to get latest in case it was recompiled, no need to pull tgz files
+		// Note: We're always skipping tgz files in apiserver since these files are for run_report
+		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", false, true); err != nil {
+			log.Println("Error while synching workspace file from database:", err)
+		}
 	}
 	return nil
 }

@@ -118,8 +118,8 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dat
 			err = nil
 		}
 
-		// Apply workspace overrides from database
-		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "", true)
+		// Apply workspace overrides from database, skipping compiled files
+		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "", true, true)
 		if err != nil {
 			//* TODO Log to a new workspace error table to report in UI
 			log.Println("Error while synching workspace file from database:", err, "(ignored)")
