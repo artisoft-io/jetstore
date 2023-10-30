@@ -80,7 +80,7 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	_,devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
 		workspaceName := os.Getenv("WORKSPACE")
-		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports.tgz", true)
+		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports.tgz", true, false)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:",err)
 			return err
