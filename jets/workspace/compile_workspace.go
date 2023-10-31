@@ -59,10 +59,14 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 				var buf strings.Builder
 				err = wsfile.RunCommand(&buf, command, &args, workspaceName)
 				defer os.Remove(fo.FileName)
+				cmdLog := buf.String()
 				if err != nil {
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+					log.Println(cmdLog)
+					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 					return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
 				}
-				log.Println(buf.String())	
+				log.Println(cmdLog)
 			}
 
 		} else {

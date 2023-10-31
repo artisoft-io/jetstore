@@ -286,6 +286,7 @@ func main() {
 		fmt.Println("Report definitions file:", reportScriptPaths[i])
 	}
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
+	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("Process Input file_key:", fileKey)
 
 	ca := &delegate.CommandArguments{
