@@ -131,7 +131,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 			result, err := runShellCommand(wg.WorkspacesHome, command)
 		buf.WriteString(result)
 		if err != nil {
-			buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
+			buf.WriteString(fmt.Sprintf("\nGot error: %v", strings.ReplaceAll(err.Error(), gitToken, "***")))
 			return buf.String(), err
 		}
 		buf.WriteString("\n")
@@ -166,7 +166,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 			result, err = runShellCommand(workspacePath, command)
 		buf.WriteString(result)
 		if err != nil {
-			buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
+			buf.WriteString(fmt.Sprintf("\nGot error: %v", strings.ReplaceAll(err.Error(), gitToken, "***")))
 			return buf.String(), err
 		}
 	}
