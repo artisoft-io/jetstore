@@ -55,16 +55,18 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 			// If FileName ends with .tgz, extract files from archive
 			if strings.HasSuffix(fo.FileName, ".tgz") {
 				command := "tar"
-				args := []string{"xfvz", "reports.tgz"} 
+				args := []string{"xfvz", fo.FileName} 
 				var buf strings.Builder
 				err = wsfile.RunCommand(&buf, command, &args, workspaceName)
 				defer os.Remove(fo.FileName)
 				cmdLog := buf.String()
 				if err != nil {
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					log.Println(cmdLog)
-					log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-					return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
+					if err.Error() != "exit status 2" { // tar exit 2 is no issue
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println(cmdLog)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
+					}
 				}
 				log.Println(cmdLog)
 			}

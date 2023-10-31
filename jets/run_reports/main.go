@@ -42,8 +42,6 @@ var reportName = flag.String("reportName", "", "Report name to run, defaults to 
 var sessionId = flag.String("sessionId", "", "Process session ID. (required if -processName is provided)")
 var filePath = flag.String("filePath", "", "File path for output files. (required)")
 var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
-var outputPath string
-var reportScriptPaths []string
 var fileKey string
 var devMode bool
 
@@ -54,12 +52,14 @@ var devMode bool
 // changed using the config.json file located at root of workspace reports folder.
 // This allows the loader to process the data loaded on the staging table to be re-injected in the platform
 // by writing back into the platform input folders, although using a different object_type in the output path
-// The output path is specified by var outputPath, which start to be the same as filePath but can be modified based on
+// The output path is specified by var ca.OutputPath, which start to be the same as filePath but can be modified based on
 // the directives of config.json
 
 var reportDirectives = &delegate.ReportDirectives{}
 
 func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
+	wh := os.Getenv("WORKSPACES_HOME")
+	ws := os.Getenv("WORKSPACE")
 	// open db connection
 	var err error
 	if *awsDsnSecret != "" {
@@ -79,12 +79,84 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
 	_,devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
-		workspaceName := os.Getenv("WORKSPACE")
-		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "reports.tgz", true, false)
+		log.Println("Synching reports.tgz from db")
+		err = workspace.SyncWorkspaceFiles(dbpool, ws, dbutils.FO_Open, "reports.tgz", true, false)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:",err)
 			return err
 		}	
+	}
+
+	// Read the report config file
+	ca.ReportConfiguration = &map[string]delegate.ReportDirectives{}
+	configFile := fmt.Sprintf("%s/%s/reports/config.json", wh, ws)
+	file, err := os.ReadFile(configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("Warning report config.json does not exist, using defaults")
+		} else {
+			return fmt.Errorf("while reading report config.json: %v", err)
+		}
+	} else {
+		// Un-marshal the reportDirectives
+		fmt.Println("Un-marshal the reportDirectives")
+		err = json.Unmarshal(file, ca.ReportConfiguration)
+		if err != nil {
+			return fmt.Errorf("Error while parsing report config.json: %v", err)
+		}
+		//*
+		fmt.Println("REPORT DIRECTIVES:",*ca.ReportConfiguration)
+		// The report directives for the current reportName
+		rd, ok := (*ca.ReportConfiguration)[*reportName]
+		if ok {
+			reportDirectives = &rd
+		}
+	}
+	// Apply / update the reportDirectives
+	ca.OutputPath = *filePath
+	switch {
+	case reportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
+		// Write the output file in the jetstore input folder of s3
+		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
+			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
+			os.Getenv("JETS_s3_INPUT_PREFIX"))
+	case reportDirectives.OutputS3Prefix != "":
+		// Write output file to a location based on a custom s3 prefix
+		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
+			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
+			reportDirectives.OutputS3Prefix)
+	case reportDirectives.OutputPath != "":
+		// Write output file to a specified s3 location
+		ca.OutputPath = reportDirectives.OutputPath
+	}
+	for i := range reportDirectives.FilePathSubstitution {
+		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
+			reportDirectives.FilePathSubstitution[i].Replace,
+			reportDirectives.FilePathSubstitution[i].With)
+	}
+	if ca.OutputPath == "" {
+		return fmt.Errorf("Can't determine ca.OutputPath, is file path argument missing? (-filePath)")
+	}
+	ca.OutputPath = strings.TrimSuffix(ca.OutputPath, "/")
+	fmt.Println("Report ca.OutputPath:", ca.OutputPath)
+
+	// Put the full path to the ReportScript
+	ca.ReportScriptPaths = make([]string, 0)
+	if len(reportDirectives.ReportScripts) > 0 {
+		for i := range reportDirectives.ReportScripts {
+			ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s", wh, ws, reportDirectives.ReportScripts[i]))
+		}
+	} else {
+		// reportScripts defaults to process name
+		ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s.sql", wh, ws, *reportName))
+	}
+
+	if len(ca.ReportScriptPaths) == 0 {
+		return fmt.Errorf("Error: can't determine the report definitions file.")
+	}
+	fmt.Println("Executing the following reports:")
+	for i := range ca.ReportScriptPaths {
+		fmt.Println("  -", ca.ReportScriptPaths[i])
 	}
 
 	// Do the reports
@@ -110,6 +182,7 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 }
 
 func main() {
+	var err error
 	fmt.Println("CMD LINE ARGS:",os.Args[1:])
 	flag.Parse()
 	hasErr := false
@@ -142,7 +215,6 @@ func main() {
 	if *dsn == "" && *awsDsnSecret == "" {
 		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
 		if *dsn == "" {
-			var err error
 			*dsn, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), *usingSshTunnel, *dbPoolSize)
 			if err != nil {
 				log.Printf("while calling GetDsnFromJson: %v", err)
@@ -188,73 +260,7 @@ func main() {
 	if *reportName == "" {
 		*reportName = *processName
 	}
-	// Read the report config file
-	var reportConfig = &map[string]delegate.ReportDirectives{}
-	configFile := fmt.Sprintf("%s/%s/reports/config.json", wh, ws)
-	file, err := os.ReadFile(configFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("Warning report config.json does not exist, using defaults")
-		} else {
-			hasErr = true
-			errMsg = append(errMsg, fmt.Sprintf("while reading report config.json: %v", err))
-		}
-	} else {
-		// Un-marshal the reportDirectives
-		err = json.Unmarshal(file, reportConfig)
-		if err != nil {
-			hasErr = true
-			errMsg = append(errMsg, fmt.Sprintf("Error while parsing report config.json: %v", err))
-		}
-		// The report directives for the current reportName
-		rd, ok := (*reportConfig)[*reportName]
-		if ok {
-			reportDirectives = &rd
-		}
-	}
-	// Apply / update the reportDirectives
-	outputPath = *filePath
-	switch {
-	case reportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
-		// Write the output file in the jetstore input folder of s3
-		outputPath = strings.ReplaceAll(outputPath,
-			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
-			os.Getenv("JETS_s3_INPUT_PREFIX"))
-	case reportDirectives.OutputS3Prefix != "":
-		// Write output file to a location based on a custom s3 prefix
-		outputPath = strings.ReplaceAll(outputPath,
-			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
-			reportDirectives.OutputS3Prefix)
-	case reportDirectives.OutputPath != "":
-		// Write output file to a specified s3 location
-		outputPath = reportDirectives.OutputPath
-	}
-	for i := range reportDirectives.FilePathSubstitution {
-		outputPath = strings.ReplaceAll(outputPath,
-			reportDirectives.FilePathSubstitution[i].Replace,
-			reportDirectives.FilePathSubstitution[i].With)
-	}
-	if outputPath == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Can't determine outputPath, is file path argument missing? (-filePath)")
-	}
-	outputPath = strings.TrimSuffix(outputPath, "/")
 
-	// Put the full path to the ReportScript
-	reportScriptPaths = make([]string, 0)
-	if len(reportDirectives.ReportScripts) > 0 {
-		for i := range reportDirectives.ReportScripts {
-			reportScriptPaths = append(reportScriptPaths, fmt.Sprintf("%s/%s/reports/%s", wh, ws, reportDirectives.ReportScripts[i]))
-		}
-	} else {
-		// reportScripts defaults to process name
-		reportScriptPaths = append(reportScriptPaths, fmt.Sprintf("%s/%s/reports/%s.sql", wh, ws, *reportName))
-	}
-
-	if len(reportScriptPaths) == 0 {
-		hasErr = true
-		errMsg = append(errMsg, "Error: can't determine the report definitions file.")
-	}
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
@@ -281,10 +287,6 @@ func main() {
 	fmt.Println("Got argument: filePath", *filePath)
 	fmt.Println("Got argument: originalFileName", *originalFileName)
 	fmt.Println("Is updateLookupTables?", reportDirectives.UpdateLookupTables)
-	fmt.Println("Report outputPath:", outputPath)
-	for i := range reportScriptPaths {
-		fmt.Println("Report definitions file:", reportScriptPaths[i])
-	}
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("Process Input file_key:", fileKey)
@@ -295,10 +297,10 @@ func main() {
 		ProcessName: *processName,
 		ReportName: *reportName,
 		FileKey: fileKey,
-		OutputPath: outputPath,
+		// OutputPath: ,
 		OriginalFileName: *originalFileName,
-		ReportScriptPaths: reportScriptPaths,
-		ReportConfiguration: reportConfig,
+		ReportScriptPaths: []string{},
+		// ReportConfiguration: reportConfig, // set in func coordinateWorkAndUpdateStatus
 		BucketName: *awsBucket,
 		RegionName: *awsRegion,
 	}

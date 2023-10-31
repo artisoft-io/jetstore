@@ -71,6 +71,7 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 	updatedKeys := make([]string, 0)
 	// Run the reports
 	for i := range ca.ReportScriptPaths {
+		log.Println("Running report:",ca.ReportScriptPaths[i])
 		err = ca.runReportsDelegate(dbpool, ca.ReportScriptPaths[i], &updatedKeys)
 		if err != nil {
 			return err
