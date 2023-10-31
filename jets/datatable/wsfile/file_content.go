@@ -22,14 +22,17 @@ func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceN
 		cmd = exec.Command(command)
 	}
 	if workspaceName != "" {
-		cmd.Dir = fmt.Sprintf("%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName)
+		path := fmt.Sprintf("%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName)
+		buf.WriteString(fmt.Sprintf("Executing command %s in %s\n", command, path))
+		cmd.Dir = path
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("WORKSPACE=%s", workspaceName),
 		)
+	} else {
+		buf.WriteString(fmt.Sprintf("Executing command %s (not workspace specific or path specified)\n", command))
 	}
 	cmd.Stdout = buf
 	cmd.Stderr = buf
-	buf.WriteString(fmt.Sprintf("Executing command %s in workspace %s\n", command, workspaceName))
 	err := cmd.Run()
 	if err != nil {
 		msg := fmt.Sprintf("while executing command '%v': %v\n", command, err)
