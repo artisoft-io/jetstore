@@ -30,14 +30,14 @@ func LogMetric(metricName string, dimentions *map[string]string, count int) {
 	m.Log()
 }
 
-func GetConfig(region string) (aws.Config,error) {
+func GetConfig() (aws.Config,error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	return config.LoadDefaultConfig(ctx)
 }
 
-func GetSecretValue(secret, region string) (string, error) {
-	cfg, err := GetConfig(region)
+func GetSecretValue(secret string) (string, error) {
+	cfg, err := GetConfig()
 	if err != nil {
 		return "", fmt.Errorf("while loading aws configuration: %v", err)
 	}
@@ -90,8 +90,8 @@ func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, er
 	return dsn, nil
 }
 
-func GetDsnFromSecret(secret, region string, useLocalhost bool, poolSize int) (string, error) {
-	secretString, err := GetSecretValue(secret, region)
+func GetDsnFromSecret(secret string, useLocalhost bool, poolSize int) (string, error) {
+	secretString, err := GetSecretValue(secret)
 	if err != nil {
 		return "", fmt.Errorf("while calling GetSecretValue: %v", err)
 	}

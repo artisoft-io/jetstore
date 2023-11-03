@@ -6,21 +6,18 @@ import 'package:jetsclient/utils/modules/workspace_ide/screen_config.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 
 final defaultMenuEntries = [
-  MenuEntry(
-      key: 'jetstoreHome',
-      label: 'JetStore Home',
-      routePath: homePath),
+  MenuEntry(key: 'jetstoreHome', label: 'JetStore Home', routePath: homePath),
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
       routePath: clientAdminPath),
   MenuEntry(
       key: 'sourceConfig',
-      label: 'File Staging Area',
+      label: 'Client Files',
       routePath: sourceConfigPath),
   MenuEntry(
       key: 'inputSourceMapping',
-      label: 'Input Source Mapping',
+      label: 'File Mapping',
       routePath: inputSourceMappingPath),
   // MenuEntry(
   //     key: 'processInput',
@@ -34,10 +31,11 @@ final defaultMenuEntries = [
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
       routePath: pipelineConfigPath),
-  MenuEntry(
-      key: 'workspaceIDEHome',
-      label: 'Workspace IDE Home',
-      routePath: workspaceRegistryPath),
+    MenuEntry(
+        key: 'workspaceIDEHome',
+        capability: 'workspace_ide',
+        label: 'Workspace IDE Home',
+        routePath: workspaceRegistryPath),
   // MenuEntry(
   //     otherPageStyle: ActionStyle.danger,
   //     key: 'dataPurge',
@@ -51,21 +49,18 @@ final defaultMenuEntries = [
 ];
 
 final adminMenuEntries = [
-  MenuEntry(
-      key: 'jetstoreHome',
-      label: 'JetStore Home',
-      routePath: homePath),
+  MenuEntry(key: 'jetstoreHome', label: 'JetStore Home', routePath: homePath),
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
       routePath: clientAdminPath),
   MenuEntry(
       key: 'sourceConfig',
-      label: 'File Staging Area',
+      label: 'Client Files',
       routePath: sourceConfigPath),
   MenuEntry(
       key: 'inputSourceMapping',
-      label: 'Input Source Mapping',
+      label: 'File Mapping',
       routePath: inputSourceMappingPath),
   MenuEntry(
       key: 'processConfig',
@@ -118,7 +113,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.sourceConfig: ScreenConfig(
       key: ScreenKeys.sourceConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'File Staging Area',
+      title: 'Client Files',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
@@ -226,6 +221,16 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: [],
       adminMenuEntries: []),
+
+  // Git User Profile Screen
+  ScreenKeys.userGitProfile: ScreenConfig(
+      key: ScreenKeys.userGitProfile,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Edit Git Profile',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries),
 
   // UserAdmin Screen
   ScreenKeys.userAdmin: ScreenConfig(

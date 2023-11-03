@@ -51,6 +51,7 @@ import (
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (value: yes, will reset the domain table, run workspace db init script, and upgrade system tables if database version is less than build version)
 // JETS_DOMAIN_KEY_SEPARATOR 
 // JETS_SCHEMA_FILE location of jetstore db schema file
+// JETS_ENCRYPTION_KEY required key to encrypt git token in users table
 
 var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret       = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -215,5 +216,6 @@ func main() {
 	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	fmt.Println("ENV JETS_RESET_DOMAIN_TABLE_ON_STARTUP:",os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 	fmt.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	fmt.Println("ENV len JETS_ENCRYPTION_KEY:",len(os.Getenv("JETS_ENCRYPTION_KEY")))
 	log.Fatal(listenAndServe())
 }

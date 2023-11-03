@@ -72,6 +72,7 @@ class ScreenKeys {
   static const login = "loginScreen";
   static const register = "registerScreen";
   static const userAdmin = "userAdminScreen";
+  static const userGitProfile = "userGitProfileScreen";
 
   static const fileRegistryTable = "fileRegistryTableScreen";
   static const filePreview = "filePreviewScreen";
@@ -125,6 +126,8 @@ class FormKeys {
   static const login = "login";
   static const register = "register";
   static const userAdmin = "userAdmin";
+  static const userGitProfile = "userGitProfile";
+  static const editUserProfile = "editUserProfile";
 
   // Workspace IDE forms
   static const workspaceRegistry = "workspaceRegistry";
@@ -134,6 +137,7 @@ class FormKeys {
   static const pullWorkspace = "pullWorkspaceDialog";
   static const pushOnlyWorkspace = "pushOnlyWorkspaceDialog";
   static const doGitCommandWorkspace = "doGitCommandWorkspaceDialog";
+  static const doGitStatusWorkspace = "doGitStatusWorkspaceDialog";
   static const viewGitLogWorkspace = "viewGitLogWorkspaceDialog";
   static const exportWorkspaceClientConfig = "exportWorkspaceClientConfig";
   static const addWorkspaceFile = "addWorkspaceFileDialog";
@@ -161,12 +165,20 @@ class FSK {
 
   static const userEmail = "user_email";
   static const userName = "name";
+  static const userRoles = "roles";
+  static const userCapabilities = "capabilities";
   static const userPassword = "password";
   static const userPasswordConfirm = "passwordConfirm";
   static const sessionId = "session_id";
   static const devMode = "dev_mode";
   static const isAdmin = "is_admin";
   static const isActive = "is_active";
+
+  static const gitName = "git_name";
+  static const gitEmail = "git_email";
+  static const gitHandle = "git_handle";
+  static const gitToken = "git_token";
+  static const gitTokenConfirm = "git_token.confirm";
 
   static const client = "client";
   static const org = "org";
@@ -199,7 +211,8 @@ class FSK {
   static const reteSessionTriples = "rete_session.triples";
   static const reteSessionRdfTypes = "rete_session.rdf_types";
   static const reteSessionEntityKeyByType = "rete_session.entity_key_by_type";
-  static const reteSessionEntityDetailsByKey = "rete_session.entity_details_by_key";
+  static const reteSessionEntityDetailsByKey =
+      "rete_session.entity_details_by_key";
 
   // Query Tool
   static const rawQuery = "raw_query";
@@ -263,11 +276,7 @@ class FSK {
   static const wsFileEditorContent = "file_content";
   static const wsOid = "oid";
   static const lastGitLog = "last_git_log";
-  static const gitUser = "git.user";
-  static const gitToken = "git.token";
   static const gitCommitMessage = "git.commit.message";
-  static const gitUserEmail = "git.user.email";
-  static const gitUserName = "git.user.name";
   static const gitCommand = "git.command";
   // matching menuItem and current page (virtual page)
   static const pageMatchKey = "pageMatchKey";
@@ -331,8 +340,9 @@ class ActionKeys {
   static const login = "loginAction";
   static const register = "registerAction";
   static const dialogCancel = "dialog.cancelAction";
-  static const toggleUserActive = "toggleUserActive";
+  static const editUserProfileOk = "editUserProfile.ok";
   static const deleteUser = "deleteUser";
+  static const submitGitProfileOk = "submitGitProfileOk";
 
   // for Client & Org Admin dialog
   static const clientOk = "client.ok";
@@ -344,6 +354,7 @@ class ActionKeys {
   // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
   static const dropTable = "dropTable";
+  static const deleteSourceConfig = "deleteSourceConfig";
 
   // for load file
   static const loaderOk = "loader.ok";
@@ -370,10 +381,12 @@ class ActionKeys {
   static const ruleConfigOk = "ruleConfig.ok";
   static const ruleConfigv2Ok = "ruleConfigv2.ok";
   static const ruleConfigAdd = "ruleConfig.add";
-  static const ruleConfigDelete = "ruleConfig.delete";
+  static const ruleConfigDelete = "ruleConfig.delete"; // Used in Edit Rule Config Dialog v1 - delete a triple
+  static const deleteRuleConfigv2 = "deleteRuleConfigv2";  // Action to Delete a Rule Config in DB
 
   // for add / edit pipeline config dialog
   static const pipelineConfigOk = "pipelineConfig.ok";
+  static const deletePipelineConfig = "deletePipelineConfig";
 
   // for pipeline execution dialogs
   static const startPipelineOk = "startPipeline.ok";
@@ -391,6 +404,7 @@ class ActionKeys {
   static const commitWorkspaceOk = "commitWorkspaceOk";
   static const pushOnlyWorkspaceOk = "pushOnlyWorkspaceOk";
   static const pullWorkspaceOk = "pullWorkspaceOk";
+  static const doGitStatusWorkspaceOk = "doGitStatusWorkspaceOk";
   static const doGitCommandWorkspaceOk = "doGitCommandWorkspaceOk";
   static const wsSaveFileOk = "wsSaveFileOk";
   static const loadWorkspaceConfig = "loadWorkspaceConfig";
@@ -468,6 +482,7 @@ class DTKeys {
 
   // User administration DT
   static const usersTable = "userTable";
+  static const userRolesTable = "userRolesTable";
 
   // Workspace IDE DT
   static const workspaceRegistryTable = "workspaceRegistryTable";

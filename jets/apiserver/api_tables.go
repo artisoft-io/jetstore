@@ -41,11 +41,11 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
 	case "raw_query", "raw_query_tool":
-		results, code, err = context.ExecRawQuery(&dataTableAction)
+		results, code, err = context.ExecRawQuery(&dataTableAction, token)
 	case "exec_ddl":
-		results, code, err = context.ExecDataManagementStatement(&dataTableAction)
+		results, code, err = context.ExecDataManagementStatement(&dataTableAction, token)
 	case "raw_query_map":
-		results, code, err = context.ExecRawQueryMap(&dataTableAction)
+		results, code, err = context.ExecRawQueryMap(&dataTableAction, token)
 	case "insert_raw_rows":
 		results, code, err = context.InsertRawRows(&dataTableAction, token)
 	case "insert_rows":
@@ -93,17 +93,17 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, token)
 	
 	case "workspace_read":
-		results, code, err = context.DoWorkspaceReadAction(&dataTableAction)
+		results, code, err = context.DoWorkspaceReadAction(&dataTableAction, token)
 
 	case "save_workspace_client_config":
 		results, code, err = context.SaveWorkspaceClientConfig(&dataTableAction, token)
 	
 	case "read":
-		results, code, err = context.DoReadAction(&dataTableAction)
+		results, code, err = context.DoReadAction(&dataTableAction, token)
 	case "preview_file":
-		results, code, err = context.DoPreviewFileAction(&dataTableAction)
+		results, code, err = context.DoPreviewFileAction(&dataTableAction, token)
 	case "drop_table":
-		results, code, err = context.DropTable(&dataTableAction)
+		results, code, err = context.DropTable(&dataTableAction, token)
 	case "refresh_token":
 		results = &map[string]interface{}{}
 		code = http.StatusOK

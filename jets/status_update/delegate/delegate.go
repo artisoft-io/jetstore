@@ -128,7 +128,7 @@ func (ca *CommandArguments) CoordinateWork() error {
 	var err error
 	if ca.AwsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		ca.Dsn, err = awsi.GetDsnFromSecret(ca.AwsDsnSecret, ca.AwsRegion, ca.UsingSshTunnel, ca.DbPoolSize)
+		ca.Dsn, err = awsi.GetDsnFromSecret(ca.AwsDsnSecret, ca.UsingSshTunnel, ca.DbPoolSize)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}

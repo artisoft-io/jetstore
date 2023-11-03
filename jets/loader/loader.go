@@ -814,7 +814,7 @@ func coordinateWork() error {
 	// ---------------------------------------
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		dsnStr, err := awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, 10)
+		dsnStr, err := awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, 10)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}
@@ -1024,7 +1024,7 @@ func main() {
 	awsApiSecret := os.Getenv("AWS_API_SECRET")
 	apiSecret := os.Getenv("API_SECRET")
 	if apiSecret == "" && awsApiSecret != "" {
-		apiSecret, err = awsi.GetSecretValue(awsApiSecret, *awsRegion)
+		apiSecret, err = awsi.GetSecretValue(awsApiSecret)
 		if err != nil {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("while getting apiSecret from aws secret: %v", err))

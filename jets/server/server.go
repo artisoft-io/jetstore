@@ -113,7 +113,7 @@ func doJob() (pipelineResult *PipelineResult, err error) {
 	if !devMode {
 		// We're not in dev mode, sync the overriten workspace files
 		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false)
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:", err)
 			return
@@ -159,7 +159,7 @@ func doJobAndReportStatus() error {
 	var err error
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *awsRegion, *usingSshTunnel, *dbPoolSize)
+		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, *dbPoolSize)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}

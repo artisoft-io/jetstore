@@ -123,8 +123,8 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
         focusNode: _node,
         showCursor: _focused,
         obscureText: _config.obscureText,
-        readOnly: _config.key == FSK.wsURI && globalWorkspaceUri.isNotEmpty
-            ? true
+        readOnly: _config.isReadOnlyEval != null
+            ? _config.isReadOnlyEval!()
             : _config.isReadOnly,
         maxLines: _config.maxLines,
         maxLength: _config.maxLength,

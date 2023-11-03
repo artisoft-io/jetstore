@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -13,7 +14,7 @@ import (
 
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
-func DeleteFileChange(dbpool *pgxpool.Pool, workspaceChangesKey, workspaceName, fileName, oid string, restaureFromStash bool) error {
+func DeleteFileChange(dbpool *pgxpool.Pool, workspaceChangesKey, workspaceName, fileName, oid string) error {
 	fmt.Println("DeleteWorkspaceChanges: Deleting key", workspaceChangesKey, "file name", fileName)
 	stmt := fmt.Sprintf("SELECT lo_unlink(%s); DELETE FROM jetsapi.workspace_changes WHERE key = %s",	oid, workspaceChangesKey)
 	fmt.Println("DELETE stmt:", stmt)
@@ -22,7 +23,14 @@ func DeleteFileChange(dbpool *pgxpool.Pool, workspaceChangesKey, workspaceName, 
 		log.Printf("While deleting row in workspace_changes table: %v", err)
 		return fmt.Errorf("while deleting row in workspace_changes table: %v", err)
 	}
-	
+	restaureFromStash := true
+	if strings.HasSuffix(fileName, ".db") || strings.HasSuffix(fileName, ".tgz") {
+		restaureFromStash = false
+		if strings.HasSuffix(fileName, ".tgz") {
+			os.Remove(fileName)
+		}
+	}
+
 	if !restaureFromStash {
 		return nil
 	}
@@ -48,10 +56,10 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 			`SELECT lo_unlink(oid) 
 			 FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = '%s' 
-			   AND file_name NOT IN ('workspace.db', 'lookup.db'); 
+			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'reports.tgz'); 
 			 DELETE FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = '%s'
-			   AND file_name NOT IN ('workspace.db', 'lookup.db');`,
+			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'reports.tgz');`,
 			workspaceName, workspaceName)
 	default:	
 		stmt = fmt.Sprintf(

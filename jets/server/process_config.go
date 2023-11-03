@@ -624,8 +624,12 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	}
 	//* TODO Add case when no domain key info is provided, use jets:key as the domain_key
 	// right now we err out if no domain key info is provided (although the field can be nullable)
-	if err != nil || !dkJson.Valid {
+	// If domain key json is null, default to "jets:key"
+	if err != nil {
 		return fmt.Errorf("could not load domain_keys_json from jetsapi.source_config for table %s: %v", pi.tableName, err)
+	}
+	if !dkJson.Valid {
+		dkJson.String = "\"jets:key\""
 	}
 	domainKeysJson := dkJson.String
 	objTypes, err := schema.GetObjectTypesFromDominsKeyJson(domainKeysJson, pi.objectType)

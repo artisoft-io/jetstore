@@ -37,34 +37,6 @@ String? workspaceIDEFormValidator(
       }
       return "Workspace URI must be provided.";
 
-    case FSK.gitUser:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Git user must be provided.";
-
-    case FSK.gitToken:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Git token must be provided.";
-
-    case FSK.gitUserEmail:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Git user email must be provided.";
-
-    case FSK.gitUserName:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Git user name must be provided.";
-
     case FSK.gitCommitMessage:
       String? value = v;
       if (value != null && value.characters.length > 1) {
@@ -166,6 +138,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
+      state[FSK.lastGitLog] = 'redacted';
       // print('Compiling Workspace state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
@@ -200,6 +173,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
+      state[FSK.lastGitLog] = 'redacted';
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [
@@ -375,7 +349,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }
       return result;
 
-    // Git Status of Workspace
+    // Git Command in Workspace
     case ActionKeys.doGitCommandWorkspaceOk:
       var state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
@@ -393,6 +367,36 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'action': 'workspace_insert_rows',
         'fromClauses': [
           <String, String>{'table': 'git_command_workspace'}
+        ],
+        'workspaceName': wsName,
+        'data': [state],
+      }, toEncodable: (_) => '');
+      JetsSpinnerOverlay.of(context).show();
+      var result = await postInsertRows(context, formState, encodedJsonBody,
+          errorReturnStatus: DTActionResult.statusErrorRefreshTable);
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).hide();
+      }
+      return result;
+
+    // Git Status of Workspace
+    case ActionKeys.doGitStatusWorkspaceOk:
+      var state = formState.getState(0);
+      state['user_email'] = JetsRouterDelegate().user.email;
+      if (state[FSK.key] is List<String>) {
+        state[FSK.key] = state[FSK.key][0];
+      }
+      if (state[FSK.wsName] is List<String>) {
+        state[FSK.wsName] = state[FSK.wsName][0];
+      }
+      final wsName = state[FSK.wsName];
+      if (state[FSK.wsURI] is List<String>) {
+        state[FSK.wsURI] = state[FSK.wsURI][0];
+      }
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'workspace_insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'git_status_workspace'}
         ],
         'workspaceName': wsName,
         'data': [state],
@@ -523,6 +527,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
       state['user_email'] = JetsRouterDelegate().user.email;
+      state[FSK.lastGitLog] = 'redacted';
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [

@@ -2,14 +2,46 @@ package wsfile
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// This file contains function to get and save file content
+// This file contains function to get and save file content & execute command in local workspace
+
+// Run command in workspace
+func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceName string) error {
+	var cmd *exec.Cmd
+	if args != nil {
+		cmd = exec.Command(command, (*args)...)
+	} else {
+		cmd = exec.Command(command)
+	}
+	if workspaceName != "" {
+		path := fmt.Sprintf("%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName)
+		buf.WriteString(fmt.Sprintf("Executing command %s in %s\n", command, path))
+		cmd.Dir = path
+		cmd.Env = append(os.Environ(),
+			fmt.Sprintf("WORKSPACE=%s", workspaceName),
+		)
+	} else {
+		buf.WriteString(fmt.Sprintf("Executing command %s (not workspace specific or path specified)\n", command))
+	}
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	err := cmd.Run()
+	if err != nil {
+		msg := fmt.Sprintf("while executing command '%v': %v\n", command, err)
+		log.Print(msg)
+		buf.WriteString(msg)
+	}
+	buf.WriteString("Done executing command\n")
+	return err
+}
 
 // GetWorkspaceFileContent --------------------------------------------------------------------------
 // Function to get the workspace file content based on relative file name
@@ -40,11 +72,6 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 
 	// Write file and metadata to database
 	var fileHd *os.File
-	fileHd, err = os.Open(path)
-	if err != nil {
-		return fmt.Errorf("(2) failed to open local workspace file %s: %v", fileName, err)
-	}
-	defer fileHd.Close()
 	p := strings.Index(fileName, "/")
 	var contentType string
 	if p > 0 {
@@ -60,6 +87,12 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 		Status:        dbutils.FO_Open,
 		UserEmail:     "system",
 	}
+	fileHd, err = os.Open(path)
+	if err != nil {
+		return fmt.Errorf("(2) failed to open local workspace file %s: %v", fileName, err)
+	}
+	defer fileHd.Close()
+
 	n, err := fo.WriteObject(dbpool, fileHd)
 	if err != nil {
 		return fmt.Errorf("failed to save local workspace file %s in database: %v", fileName, err)

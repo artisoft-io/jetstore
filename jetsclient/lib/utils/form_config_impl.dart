@@ -148,6 +148,83 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: registrationFormValidator,
     formActionsDelegate: registrationFormActions,
   ),
+  // User Git Profile Form
+  FormKeys.userGitProfile: FormConfig(
+    key: FormKeys.userGitProfile,
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.submitGitProfileOk,
+          capability: "user_profile",
+          label: "Submit",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.gitName,
+            label: "Name",
+            hint: "Enter your name for git commits",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 80,
+            useDefaultFont: true),
+        FormInputFieldConfig(
+            key: FSK.gitHandle,
+            label: "Git Handle",
+            hint: "Your git handle (user name) for git commit",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.allLower,
+            maxLength: 60,
+            useDefaultFont: true),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitEmail,
+            label: "Email",
+            hint: "Your email address for git commit",
+            flex: 1,
+            autofocus: false,
+            autofillHints: [AutofillHints.email],
+            obscureText: false,
+            textRestriction: TextRestriction.allLower,
+            maxLength: 80,
+            useDefaultFont: true),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitToken,
+            label: "Github Token",
+            hint: "Github token to use as password",
+            flex: 1,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120,
+            useDefaultFont: true),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitTokenConfirm,
+            label: "Github Token Confirmation",
+            hint: "Re-enter your github token",
+            flex: 1,
+            autofocus: false,
+            obscureText: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120,
+            useDefaultFont: true),
+      ],
+    ],
+    formValidatorDelegate: gitProfileFormValidator,
+    formActionsDelegate: gitProfileFormActions,
+  ),
   // User Administration Form (actionless -- user table has the actions)
   FormKeys.userAdmin: FormConfig(
     key: FormKeys.userAdmin,
@@ -155,10 +232,78 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: DTKeys.usersTable, dataTableConfig: DTKeys.usersTable)
+            key: DTKeys.usersTable,
+            dataTableConfig: DTKeys.usersTable,
+            tableHeight: double.infinity)
       ],
     ],
     formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formActionsDelegate: userAdminFormActions,
+  ),
+  // User Administration Form - Edit User Profile Dialog
+  FormKeys.editUserProfile: FormConfig(
+    key: FormKeys.editUserProfile,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.editUserProfileOk,
+          capability: "user_profile",
+          label: "Submit",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    useListView: true,
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.userName,
+            label: "Name",
+            hint: "User name",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            isReadOnly: true,
+            useDefaultFont: true,
+            maxLength: 80),
+        FormInputFieldConfig(
+            key: FSK.userEmail,
+            label: "Email",
+            hint: "User email",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            isReadOnly: true,
+            useDefaultFont: true,
+            maxLength: 80),
+      ],
+      [
+        FormDropdownFieldConfig(
+            key: FSK.isActive,
+            items: [
+              DropdownItemConfig(label: 'Select User Status...'),
+              DropdownItemConfig(label: 'Active', value: '1'),
+              DropdownItemConfig(label: 'Inactive', value: '0'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
+      ],
+      [
+        PaddingConfig(height: defaultPadding*4),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.userRolesTable, dataTableConfig: DTKeys.userRolesTable)
+      ],
+    ],
+    formValidatorDelegate: userAdminValidator,
     formActionsDelegate: userAdminFormActions,
   ),
 
@@ -189,9 +334,11 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.addClient: FormConfig(
     key: FormKeys.addClient,
     title: "Add Client",
+    useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.clientOk,
+          capability: "client_config",
           label: "Insert",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -237,9 +384,11 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.addOrg: FormConfig(
     key: FormKeys.addOrg,
     title: "Add Organization",
+    useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.orgOk,
+          capability: "client_config",
           label: "Insert",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -312,6 +461,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addSourceConfigOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -448,6 +598,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.loadAllFilesOk,
+          capability: "run_pipelines",
           label: "Load All Files",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -465,7 +616,6 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.fromSourcePeriodKey,
             tableHeight: double.infinity,
             dataTableConfig: FSK.fromSourcePeriodKey),
-
         FormDataTableFieldConfig(
             key: FSK.toSourcePeriodKey,
             tableHeight: double.infinity,
@@ -485,11 +635,12 @@ final Map<String, FormConfig> _formConfigurations = {
   // loadRawRows - Dialog to load / replace process mapping
   FormKeys.loadRawRows: FormConfig(
     key: FormKeys.loadRawRows,
-    title: "Load Raw Source Mapping",
+    title: "File Mapping Intake",
     useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.loadRawRowsOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -505,7 +656,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label: "Enter the Mapping Definition as csv/tsv-encoded text.",
+            label: "Enter the File Mapping Definition as csv/tsv-encoded text.",
             maxLines: 3,
             topMargin: defaultPadding,
             bottomMargin: defaultPadding)
@@ -513,8 +664,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormInputFieldConfig(
             key: FSK.rawRows,
-            label: "Raw Source Mapping (csv/tsv)",
-            hint: "Pastefrom spreadsheet using JetStore template",
+            label: "File Mapping (csv/tsv)",
+            hint: "Paste from spreadsheet using JetStore template",
             flex: 1,
             autofocus: false,
             obscureText: false,
@@ -574,6 +725,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addProcessInputOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -667,10 +819,11 @@ final Map<String, FormConfig> _formConfigurations = {
   // processMapping - Dialog to mapping intake file structure to canonical model
   FormKeys.processMapping: FormConfig(
     key: FormKeys.processMapping,
-    title: "Process Mapping",
+    title: "File Mapping Worksheet",
     actions: [
       FormActionConfig(
           key: ActionKeys.mapperOk,
+          capability: "client_config",
           label: "Save",
           enableOnlyWhenFormValid: true,
           buttonStyle: ActionStyle.primary,
@@ -679,6 +832,7 @@ final Map<String, FormConfig> _formConfigurations = {
           bottomMargin: defaultPadding),
       FormActionConfig(
           key: ActionKeys.mapperDraft,
+          capability: "client_config",
           label: "Save as Draft",
           enableOnlyWhenFormNotValid: true,
           buttonStyle: ActionStyle.primary,
@@ -834,6 +988,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.ruleConfigv2Ok,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -856,6 +1011,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Select a Client'),
             ],
             autovalidateMode: AutovalidateMode.onUserInteraction,
+            makeReadOnlyWhenHasSelectedValue: true,
             dropdownItemsQuery:
                 "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"),
         FormDropdownFieldConfig(
@@ -865,6 +1021,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Select a process'),
             ],
             autovalidateMode: AutovalidateMode.onUserInteraction,
+            makeReadOnlyWhenHasSelectedValue: true,
             dropdownItemsQuery:
                 "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"),
       ],
@@ -894,6 +1051,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.ruleConfigOk,
+          capability: "client_config",
           label: "Save",
           enableOnlyWhenFormValid: true,
           buttonStyle: ActionStyle.primary,
@@ -1057,6 +1215,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.pipelineConfigOk,
+          capability: "client_config",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -1193,6 +1352,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.startPipelineOk,
+          capability: "run_pipelines",
           label: "Start",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -1210,9 +1370,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label: "To start a pipeline using input data from a source that was"
-                " previously loaded, first select a Pipeline Configuration followed"
-                " by the source period the file was received ,and"
+            label: "To start a pipeline using data previously loaded, select a Pipeline Configuration followed"
+                " by the source period the file was received, and"
                 " then select the Main Input Source (required) and optionally"
                 " the Merge-In Input Sources.",
             maxLines: 5,
@@ -1497,6 +1656,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.queryToolOk,
+          capability: "workspace_ide",
           label: "Submit Query",
           buttonStyle: ActionStyle.primary,
           leftMargin: betweenTheButtonsPadding,

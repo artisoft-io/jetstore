@@ -409,6 +409,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.dataTableAction: "insert_rows",
             FSK.dataTableFromTable: "pipeline_execution_status",
           },
+          capability: 'run_pipelines',
           configForm: FormKeys.startPipeline),
       ActionConfig(
           actionType: DataTableActionType.showScreen,
@@ -1103,6 +1104,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
+          capability: 'client_config',
           configForm: FormKeys.addClient),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -1119,6 +1121,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
           actionName: ActionKeys.deleteClient),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1200,6 +1203,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenWhereClauseSatisfied: true,
           configForm: FormKeys.addOrg,
+          capability: 'client_config',
           stateFormNavigationParams: {FSK.client: FSK.client}),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -1208,6 +1212,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
           actionName: ActionKeys.deleteOrg),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1309,7 +1314,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       FromClause(schemaName: 'jetsapi', tableName: 'file_key_staging'),
       FromClause(schemaName: 'jetsapi', tableName: 'source_period'),
     ],
-    label: 'File Key Staging',
+    label: 'File Staging Area',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
@@ -1327,6 +1332,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'loadFile',
           label: 'Load File',
           style: ActionStyle.primary,
+          capability: 'run_pipelines',
           isEnabledWhenHavingSelectedRows: true),
       ActionConfig(
           actionType: DataTableActionType.showScreen,
@@ -1341,6 +1347,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionName: ActionKeys.syncFileKey,
           key: 'syncFileKey',
           label: 'Sync File Keys',
+          capability: 'run_pipelines',
           style: ActionStyle.secondary),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1394,6 +1401,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'loadMultiFile',
           label: 'Load Selected Files',
           style: ActionStyle.primary,
+          capability: 'run_pipelines',
           isEnabledWhenHavingSelectedRows: true),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1575,7 +1583,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       FromClause(schemaName: 'jetsapi', tableName: 'source_config'),
       FromClause(schemaName: 'jetsapi', tableName: 'object_type_registry'),
     ],
-    label: 'Select an Input Source',
+    label: 'Client File Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -1703,7 +1711,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'source_config')
     ],
-    label: 'Source Config',
+    label: 'Incoming Files',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -1736,6 +1744,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.loadAllFiles,
+          capability: 'run_pipelines',
           navigationParams: {
             FSK.client: 1,
             FSK.org: 2,
@@ -1748,9 +1757,23 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Drop Staging Table',
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'run_pipelines',
           style: ActionStyle.secondary),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteSourceConfig',
+          label: 'Delete',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
+          actionName: ActionKeys.deleteSourceConfig),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.client,
         columnIdx: 1,
@@ -1869,7 +1892,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_mapping')
     ],
-    label: 'Input Source Mapping',
+    label: 'File Mapping',
     apiPath: '/dataTable',
     isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
@@ -1894,13 +1917,14 @@ final Map<String, TableConfig> _tableConfigurations = {
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'loadRawRows',
-          label: 'Load Raw Rows',
+          label: 'Paste File Mapping',
           style: ActionStyle.secondary,
+          capability: 'client_config',
           configForm: FormKeys.loadRawRows),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'downloadMappingRows',
-          label: 'Download Mapping',
+          label: 'Download File Mapping',
           style: ActionStyle.secondary,
           isEnabledWhenWhereClauseSatisfied: true,
           actionName: ActionKeys.downloadMapping),
@@ -2005,7 +2029,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.processName: FSK.processName
           }),
     ],
-    // No formStateConfig since rows are not selectable
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
@@ -2083,9 +2107,22 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.processConfigKey: 3,
             FSK.ruleConfigJson: 4
           }),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deleteRuleConfig',
+          label: 'Delete',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
+          actionName: ActionKeys.deleteRuleConfigv2),
     ],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -2175,9 +2212,22 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.injectedProcessInputKeys: 12,
             FSK.ruleConfigJson: 13
           }),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          key: 'deletePipelineConfig',
+          label: 'Delete',
+          style: ActionStyle.danger,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          capability: 'client_config',
+          actionName: ActionKeys.deletePipelineConfig),
     ],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -2821,24 +2871,31 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortAscending: false,
       rowsPerPage: 50),
 
-  // Users Administration Data Table
+  // Users Administration Data Table - list of users
   DTKeys.usersTable: TableConfig(
     key: DTKeys.usersTable,
     fromClauses: [FromClause(schemaName: 'jetsapi', tableName: 'users')],
-    label: 'User Administration',
+    label: 'Registered Users',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
     whereClauses: [],
     actions: [
       ActionConfig(
-          actionType: DataTableActionType.doAction,
-          key: 'toggleUserActive',
-          label: 'Toggle Active',
+          actionType: DataTableActionType.showDialog,
+          key: 'editUserProfile',
+          label: 'Update User Profile',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          actionName: ActionKeys.toggleUserActive),
+          configForm: FormKeys.editUserProfile,
+          navigationParams: {
+            FSK.userName: 0,
+            FSK.userEmail: 1,
+            FSK.isActive: 2,
+            FSK.userRoles: 3,
+            DTKeys.userRolesTable: 3,
+          }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'deleteUser',
@@ -2846,6 +2903,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          capability: 'user_profile',
           actionName: ActionKeys.deleteUser),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: [
@@ -2872,6 +2930,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 3,
+          name: "roles",
+          label: 'Roles',
+          tooltips: 'User Roles',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 4,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Last Updated',
@@ -2880,6 +2945,44 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortColumnName: 'name',
     sortAscending: true,
     rowsPerPage: 10,
+  ),
+
+  // Users Administration Data Table - list of roles
+  DTKeys.userRolesTable: TableConfig(
+    key: DTKeys.userRolesTable,
+    fromClauses: [FromClause(schemaName: 'jetsapi', tableName: 'roles')],
+    label: 'Select Roles',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(stateKey: FSK.userRoles, columnIdx: 0),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "role",
+          label: 'Role Name',
+          tooltips: 'Role to assign to user',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "details",
+          label: 'Details',
+          tooltips: 'Role details',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "last_update",
+          label: 'Last Updated',
+          tooltips: 'Last Updated',
+          isNumeric: false),
+    ],
+    sortColumnName: 'role',
+    sortAscending: true,
+    rowsPerPage: 20,
   ),
 };
 

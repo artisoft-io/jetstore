@@ -224,6 +224,8 @@ class TextFieldConfig extends FormFieldConfig {
   }
 }
 
+typedef ReadOnlyEvaluator = bool Function();
+
 class FormInputFieldConfig extends FormFieldConfig {
   FormInputFieldConfig({
     required super.key,
@@ -235,6 +237,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     required this.autofocus,
     this.obscureText = false,
     this.isReadOnly = false,
+    this.isReadOnlyEval,
     required this.textRestriction,
     this.maxLines = 1,
     required this.maxLength,
@@ -247,6 +250,7 @@ class FormInputFieldConfig extends FormFieldConfig {
   final bool autofocus;
   final bool obscureText;
   final bool isReadOnly;
+  final ReadOnlyEvaluator? isReadOnlyEval;
   final TextRestriction textRestriction;
   final int maxLines;
   // 0 for unbound
@@ -299,6 +303,8 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     this.stateKeyPredicates = const [],
     this.whereStateContains = const {},
     required this.items,
+    this.isReadOnly = false,
+    this.makeReadOnlyWhenHasSelectedValue = false,
   });
   final String? dropdownItemsQuery;
   final List<String> stateKeyPredicates;
@@ -307,6 +313,8 @@ class FormDropdownFieldConfig extends FormFieldConfig {
   final String? returnedModelCacheKey;
   final int defaultItemPos;
   final List<DropdownItemConfig> items;
+  final bool isReadOnly;
+  final bool makeReadOnlyWhenHasSelectedValue;
   bool dropdownItemLoaded = false;
 
   @override
@@ -436,6 +444,7 @@ class FormActionConfig extends FormFieldConfig {
     this.topMargin = 0.0,
     this.rightMargin = 0.0,
     this.bottomMargin = 0.0,
+    this.capability,
   });
   final String label;
   final Map<ActionStyle, String> labelByStyle;
@@ -446,6 +455,7 @@ class FormActionConfig extends FormFieldConfig {
   final double topMargin;
   final double rightMargin;
   final double bottomMargin;
+  final String? capability;
 
   @override
   Widget makeFormField({

@@ -48,6 +48,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addWorkspaceOk,
+          capability: "workspace_ide",
           label: "Add / Update",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -78,7 +79,7 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             defaultValue: globalWorkspaceUri,
-            isReadOnly: globalWorkspaceUri.isNotEmpty,
+            isReadOnlyEval: () => globalWorkspaceUri.isNotEmpty,
             textRestriction: TextRestriction.none,
             maxLength: 120),
       ],
@@ -90,46 +91,6 @@ final Map<String, FormConfig> _formConfigurations = {
             flex: 1,
             autofocus: false,
             obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 120),
-      ],
-      [
-        FormInputFieldConfig(
-            key: FSK.gitUserName,
-            label: "Git User Name",
-            hint: "User name used for git push command",
-            flex: 1,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 20),
-        FormInputFieldConfig(
-            key: FSK.gitUserEmail,
-            label: "Git User Email",
-            hint: "User email used for git push, this might be a no-reply email based on github email settings",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 120),
-      ],
-      [
-        FormInputFieldConfig(
-            key: FSK.gitUser,
-            label: "Git User (handle)",
-            hint: "Git User used for git push command, this will not be saved",
-            flex: 1,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 20),
-        FormInputFieldConfig(
-            key: FSK.gitToken,
-            label: "Git Token",
-            hint: "Git User password used for git push, this will not be saved",
-            flex: 1,
-            autofocus: false,
-            obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 120),
       ],
@@ -146,6 +107,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.commitWorkspaceOk,
+          capability: "workspace_ide",
           label: "Commit & Push",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -192,26 +154,6 @@ final Map<String, FormConfig> _formConfigurations = {
             textRestriction: TextRestriction.none,
             maxLength: 120),
       ],
-      [
-        FormInputFieldConfig(
-            key: FSK.gitUser,
-            label: "Git User (handle)",
-            hint: "Git User used for git push command, this will not be saved",
-            flex: 1,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 20),
-        FormInputFieldConfig(
-            key: FSK.gitToken,
-            label: "Git Token",
-            hint: "Git User password used for git push, this will not be saved",
-            flex: 1,
-            autofocus: false,
-            obscureText: true,
-            textRestriction: TextRestriction.none,
-            maxLength: 120),
-      ],
     ],
     formValidatorDelegate: workspaceIDEFormValidator,
     formActionsDelegate: workspaceIDEFormActions,
@@ -225,6 +167,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.doGitCommandWorkspaceOk,
+          capability: "workspace_ide",
           label: "Execute",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -275,6 +218,67 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: workspaceIDEFormActions,
   ),
 
+  // Do Git Status Workspace Dialog
+  FormKeys.doGitStatusWorkspace: FormConfig(
+    key: FormKeys.doGitStatusWorkspace,
+    title: "Do Git Status in Local Workspace",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.doGitStatusWorkspaceOk,
+          capability: "workspace_ide",
+          label: "Git Status",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.gitCommand,
+            flex: 10,
+            label: "Git Status Commands",
+            hint: "Enter git commands to execute",
+            maxLines: 1,
+            maxLength: 100,
+            autofocus: false,
+            isReadOnlyEval: () => globalWorkspaceUri.isNotEmpty,
+            defaultValue: "git status",
+            textRestriction: TextRestriction.none),
+      ],
+    ],
+    formValidatorDelegate: workspaceIDEFormValidator,
+    formActionsDelegate: workspaceIDEFormActions,
+  ),
+
   // Push Only Workspace Changes Dialog
   FormKeys.pushOnlyWorkspace: FormConfig(
     key: FormKeys.pushOnlyWorkspace,
@@ -283,6 +287,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.pushOnlyWorkspaceOk,
+          capability: "workspace_ide",
           label: "Push Changes",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -317,26 +322,6 @@ final Map<String, FormConfig> _formConfigurations = {
             textRestriction: TextRestriction.none,
             maxLength: 120),
       ],
-      [
-        FormInputFieldConfig(
-            key: FSK.gitUser,
-            label: "Git User (handle)",
-            hint: "Git User used for git push command, this will not be saved",
-            flex: 1,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 20),
-        FormInputFieldConfig(
-            key: FSK.gitToken,
-            label: "Git Token",
-            hint: "Git User password used for git push, this will not be saved",
-            flex: 1,
-            autofocus: false,
-            obscureText: true,
-            textRestriction: TextRestriction.none,
-            maxLength: 120),
-      ],
     ],
     formValidatorDelegate: workspaceIDEFormValidator,
     formActionsDelegate: workspaceIDEFormActions,
@@ -350,6 +335,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.pullWorkspaceOk,
+          capability: "workspace_ide",
           label: "Pull Changes",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -381,26 +367,6 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             isReadOnly: true,
-            textRestriction: TextRestriction.none,
-            maxLength: 120),
-      ],
-      [
-        FormInputFieldConfig(
-            key: FSK.gitUser,
-            label: "Git User (handle)",
-            hint: "Git User used for git push command, this will not be saved",
-            flex: 1,
-            autofocus: true,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLength: 20),
-        FormInputFieldConfig(
-            key: FSK.gitToken,
-            label: "Git Token",
-            hint: "Git User password used for git push, this will not be saved",
-            flex: 1,
-            autofocus: false,
-            obscureText: true,
             textRestriction: TextRestriction.none,
             maxLength: 120),
       ],
@@ -471,6 +437,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.exportClientConfigOk,
+          capability: "workspace_ide",
           label: "Export Client Config",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -526,6 +493,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.wsSaveFileOk,
+          capability: "workspace_ide",
           label: "Save",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
@@ -557,6 +525,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [
       FormActionConfig(
           key: ActionKeys.addWorkspaceFilesOk,
+          capability: "workspace_ide",
           label: "Add File",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,

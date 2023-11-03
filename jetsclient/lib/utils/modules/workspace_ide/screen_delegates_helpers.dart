@@ -29,6 +29,7 @@ Future<String?> openWorkspaceActions(
   if (state[FSK.wsURI] is List<String>) {
     state[FSK.wsURI] = state[FSK.wsURI][0];
   }
+  state[FSK.lastGitLog] = 'redacted';
   final encodedJsonBody = jsonEncode(<String, dynamic>{
     'action': 'workspace_query_structure',
     'fromClauses': [
@@ -120,7 +121,6 @@ List<MenuEntry> mapMenuEntry(List<dynamic> data) {
   });
   return v.toList();
 }
-
 
 /// Initialization Delegate for File Editor Screen
 Future<int> initializeWorkspaceFileEditor(

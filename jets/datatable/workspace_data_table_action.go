@@ -39,7 +39,7 @@ func getWorkspaceUri(dataTableAction *DataTableAction, irow int) string {
 
 // WorkspaceInsertRows ------------------------------------------------------
 // Main insert row function with pre processing hooks for validating/authorizing the request
-// Main insert row function with post processing hooks for starting pipelines
+// Main insert row function with post processing hooks to perform work async
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
 func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
@@ -48,13 +48,15 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	if !ok {
 		return nil, http.StatusBadRequest, errors.New("error: unknown table")
 	}
-	// Check if stmt is reserved for admin only
-	if sqlStmt.AdminOnly {
-		userEmail, err := user.ExtractTokenID(token)
-		if err != nil || userEmail != *ctx.AdminEmail {
-			return nil, http.StatusUnauthorized, errors.New("error: unauthorized, only admin can delete users")
-		}
+	userProfile, err2 := ctx.VerifyUserPermission(sqlStmt, token)
+	if err2 != nil {
+		httpStatus = http.StatusUnauthorized
+		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		return
 	}
+	var gitProfile user.GitProfile
+	gitProfile, gitProfileErr := user.GetGitProfile(ctx.Dbpool, userProfile.Email)
+
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
@@ -74,13 +76,16 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			}
 			workspaceName := dataTableAction.WorkspaceName
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			gitUserName := dataTableAction.Data[irow]["git.user.name"]
-			gitUserEmail := dataTableAction.Data[irow]["git.user.email"]
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser :=      gitProfile.Name
+			gitToken :=     gitProfile.GitToken
+			gitUserName :=  gitProfile.GitHandle
+			gitUserEmail := gitProfile.Email
 			wsPN := dataTableAction.Data[irow]["previous.workspace_name"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil || 
-				gitUserName == nil || gitUserEmail == nil) {
+			if(wsUri == "" || gitUser == "" || gitToken == "" || 
+				gitUserName == "" || gitUserEmail == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing git information")
 			}
 			var wsPreviousName string
@@ -90,10 +95,10 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
 			gitLog, err = workspaceGit.UpdateLocalWorkspace(
-				gitUserName.(string),
-				gitUserEmail.(string),
-				gitUser.(string),
-				gitToken.(string),
+				gitProfile.Name,
+				gitProfile.Email,
+				gitProfile.GitHandle,
+				gitProfile.GitToken,
 				wsPreviousName,
 			)
 			var status string
@@ -106,20 +111,52 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "commit_workspace":
-			// Validating request only, actual task performed async in post-processing section below
+			// Validating request
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing workspace_name")
 			}
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil) {
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser := gitProfile.Name
+			gitToken := gitProfile.GitToken
+			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for commit_workspace, missing git information")
 			}
-			dataTableAction.Data[irow]["status"] = "Commit & Compile in progress"
-
+			// Commit changes in local workspace and push to repository:
+			//	- Commit and Push to repository
+			//  NOTE:
+			//	- Delete workspace overrides
+			//	  (except for workspace.db, lookup.db, and reports.tgz)
+			//	  must be done manually 
+			//	- Compile workspace must be done manually
+			var gitLog string
+			status := ""
+			workspaceName := dataTableAction.WorkspaceName
+			wsCM := dataTableAction.Data[irow]["git.commit.message"]
+			var wsCommitMessage string
+			if(wsCM != nil) {
+				// escape singe ' with ''
+				wsCommitMessage = strings.ReplaceAll(wsCM.(string), "'", "''")
+			}
+			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
+			var buf strings.Builder
+			// Commit and push workspace changes and update workspace_registry table
+			gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile,	wsCommitMessage)
+			buf.WriteString(gitLog)
+			buf.WriteString("\n")
+			if err != nil {
+				status = "error"
+			}
+			dataTableAction.Data[irow]["last_git_log"] = buf.String()
+			dataTableAction.Data[irow]["status"] = status
+	
 		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
 			// Execute git commands in workspace
+			if os.Getenv("WORKSPACE_URI") != "" {
+				return nil, http.StatusUnauthorized, fmt.Errorf("not authorized to execute git_command_workspace")
+			}
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing workspace_name")
 			}
@@ -137,20 +174,41 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = ""
 
+		case dataTableAction.FromClauses[0].Table == "git_status_workspace":
+			// Execute git status commands in workspace
+			if dataTableAction.WorkspaceName == "" {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing workspace_name")
+			}
+			wsUri := getWorkspaceUri(dataTableAction, irow)
+			if(wsUri == "") {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing git information")
+			}
+			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
+			gitLog, err = workspaceGit.GitCommandWorkspace("git status")
+			if err != nil {
+				log.Printf("Error while git status in workspace: %s\n", gitLog)
+				httpStatus = http.StatusBadRequest
+			}
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			dataTableAction.Data[irow]["status"] = ""
+
 		case dataTableAction.FromClauses[0].Table == "push_only_workspace":
 			// Push only workspace
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing workspace_name")
 			}
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil) {
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser := gitProfile.Name
+			gitToken := gitProfile.GitToken
+			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
 			}
 			var status string
 			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
-			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser.(string), gitToken.(string))
+			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser, gitToken)
 			if err != nil {
 				log.Printf("Error while push (only) workspace: %s\n", gitLog)
 				httpStatus = http.StatusBadRequest
@@ -165,13 +223,16 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing workspace_name")
 			}
 			wsUri := getWorkspaceUri(dataTableAction, irow)
-			gitUser := dataTableAction.Data[irow]["git.user"]
-			gitToken := dataTableAction.Data[irow]["git.token"]
-			if(wsUri == "" || gitUser == nil || gitToken == nil) {
+			if gitProfileErr != nil {
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
+			}
+			gitUser := gitProfile.Name
+			gitToken := gitProfile.GitToken
+			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = "Pull & Compile in progress"
+			dataTableAction.Data[irow]["status"] = "Pull workspace in progress"
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 			if dataTableAction.WorkspaceName == "" {
@@ -184,8 +245,18 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
 			}
-			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = "Load config in progress"
+			// using update_db script
+			log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+			serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
+			if ctx.UsingSshTunnel {
+				serverArgs = append(serverArgs, "-usingSshTunnel")
+			}
+			results, err := RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+			dataTableAction.Data[0]["last_git_log"] = results
+			dataTableAction.Data[0]["status"] = ""
+			if err != nil {
+				dataTableAction.Data[0]["status"] = "error"
+			}
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 			if dataTableAction.WorkspaceName == "" {
@@ -245,26 +316,35 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	// Post Processing Hook
 	// -----------------------------------------------------------------------
 	switch {
-	case dataTableAction.FromClauses[0].Table == "commit_workspace":
-		// Commit changes in local workspace and push to repository:
-		//	- Compile workspace
-		//	- Commit and Push to repository
-		//	- Delete changes in db (except for workspace.db and lookup.db)
-		go commitWorkspaceAction(ctx.Dbpool, dataTableAction)
+	// case dataTableAction.FromClauses[0].Table == "commit_workspace":
+	// 	// Commit changes in local workspace and push to repository:
+	// 	//	- Commit and Push to repository
+	// 	//  NOTE:
+	// 	//	- Delete workspace overrides
+	// 	//	  (except for workspace.db, lookup.db, and reports.tgz)
+	// 	//	  must be done manually 
+	// 	//	- Compile workspace must be done manually
+	// 	go commitWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
 
 	case dataTableAction.FromClauses[0].Table == "pull_workspace":
-		// Pull workspace changes, update workspace_registry table and delete overrides in workspace_changes
-		go pullWorkspaceAction(ctx.Dbpool, dataTableAction)
+		// Pull workspace changes in local repository:
+		//	- Pull changes from origin repo
+		//	- Update the file stash with pulled version
+		//  - Sync workspace overrides on top of the pull
+		//  NOTE:
+		//	- Compile workspace must be done manually
+		go pullWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
+		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
 		go compileWorkspaceAction(ctx.Dbpool, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 		go unitTestWorkspaceAction(ctx, dataTableAction, token)
 
-	case dataTableAction.FromClauses[0].Table == "load_workspace_config":
-		// Load workspace config
-		go loadWorkspaceConfigAction(ctx, dataTableAction)
+	// case dataTableAction.FromClauses[0].Table == "load_workspace_config":
+	// 	// Load workspace config
+	// 	go loadWorkspaceConfigAction(ctx, dataTableAction)
 
 	}
 	returnResults:
@@ -275,7 +355,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 }
 
 // DoWorkspaceReadAction ------------------------------------------------------
-func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
+func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
 
 	// Replace table schema with value $SCHEMA with the workspace_name
 	//* NOTE: Reading directly from sqlite, no schema needed (set $SCHEMA to empty)
@@ -283,6 +363,10 @@ func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction) (*ma
 		if dataTableAction.FromClauses[i].Schema == "$SCHEMA" {
 			dataTableAction.FromClauses[i].Schema = ""
 		}
+	}
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
 	}
 
 	// to package up the result
@@ -475,6 +559,12 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		err = errors.New("incomplete request")
 		return
 	}
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		httpStatus = http.StatusUnauthorized
+		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		return
+	}
 
 	// Request type indicates the granularity of the result (file or object)
 	requestType := dataTableAction.FromClauses[0].Table
@@ -649,6 +739,12 @@ func (ctx *Context) addWorkspaceFile(dataTableAction *DataTableAction, token str
 
 // AddWorkspaceFile
 func (ctx *Context) AddWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		httpStatus = http.StatusUnauthorized
+		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		return
+	}
 	httpStatus = http.StatusOK
 	err = ctx.addWorkspaceFile(dataTableAction, token)
 	if err != nil {
@@ -662,6 +758,12 @@ func (ctx *Context) AddWorkspaceFile(dataTableAction *DataTableAction, token str
 
 // DeleteWorkspaceFile
 func (ctx *Context) DeleteWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		httpStatus = http.StatusUnauthorized
+		err = errors.New("error: unauthorized, cannot get user info or does not have permission")
+		return
+	}
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
 	if workspaceName == "" {
@@ -712,6 +814,10 @@ func (ctx *Context) DeleteWorkspaceFile(dataTableAction *DataTableAction, token 
 // Function to get the workspace file content based on relative file name
 // Read the file from the workspace on file system since it's already in sync with database
 func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
 	workspaceName := dataTableAction.WorkspaceName
@@ -741,6 +847,10 @@ func (ctx *Context) GetWorkspaceFileContent(dataTableAction *DataTableAction, to
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
 func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
 	workspaceName := dataTableAction.WorkspaceName
@@ -770,6 +880,10 @@ func (ctx *Context) SaveWorkspaceFileContent(dataTableAction *DataTableAction, t
 // SaveWorkspaceClientConfig --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
 func (ctx *Context) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+	}
 	httpStatus = http.StatusOK
 	request := dataTableAction.Data[0]
 	workspaceName := dataTableAction.WorkspaceName
@@ -787,32 +901,15 @@ func (ctx *Context) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, 
 	return
 }
 
-// func compileWorkspace(dbpool *pgxpool.Pool, workspaceName string) (httpStatus int, err error) {
-// 	httpStatus = http.StatusOK
-// 	var gitLog string
-// 	gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
-// 	if err != nil {
-// 		httpStatus = http.StatusInternalServerError
-// 	}
-// 	// Save gitLog into workspace_registry, even if had error during compilation to have error details
-// 	stmt := fmt.Sprintf(
-// 		"UPDATE jetsapi.workspace_registry SET (last_git_log, user_email, last_update) = ('%s', 'system', DEFAULT) WHERE workspace_name = '%s'",
-// 		gitLog, workspaceName)
-// 	_, dbErr := dbpool.Exec(context.Background(), stmt)
-// 	if dbErr != nil {
-// 		log.Printf("While inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
-// 		if err == nil {
-// 			httpStatus = http.StatusInternalServerError
-// 			err = fmt.Errorf("while inserting in workspace_registry for workspace '%s': %v", workspaceName, dbErr)
-// 		}
-// 	}
-// 	return
-// }
-
 // DeleteWorkspaceChanges --------------------------------------------------------------------------
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
+// Restaure files from stash, except for .db and .tgz files
 func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+	}
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
 	for ipos := range dataTableAction.Data {
@@ -826,32 +923,12 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, wsFileName.(string), wsOid.(string), true)
+		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, wsFileName.(string), wsOid.(string))
 		if err != nil {
 			httpStatus = http.StatusBadRequest
 			return
 		}
 	}
-
-	// // If local workspace has no changes in db after the file revert, recompile workspace
-	// var nbrChanges int64
-	// stmt := fmt.Sprintf(
-	// 	"SELECT count(*) FROM jetsapi.workspace_changes WHERE workspace_name = '%s' AND file_name NOT IN ('workspace.db', 'lookup.db')",
-	// 	workspaceName)
-	// err = ctx.Dbpool.QueryRow(context.Background(), stmt).Scan(&nbrChanges)
-	// if err != nil {
-	// 	log.Printf("Unexpected error while reading number of changes on table workspace_changes: %v", err)
-	// 	httpStatus = http.StatusInternalServerError
-	// 	return
-	// }
-	// if nbrChanges == 0 {
-	// 	// Compile the workspace
-	// 	log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-	// 	dataTableAction.Action = "workspace_insert_rows"
-	// 	dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
-	// 	dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
-	// 	_, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
-	// }
 
 	results = &map[string]interface{}{}
 	return
@@ -861,6 +938,10 @@ func (ctx *Context) DeleteWorkspaceChanges(dataTableAction *DataTableAction, tok
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
 func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	if err2 != nil {
+		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
+	}
 	httpStatus = http.StatusOK
 	workspaceName := dataTableAction.WorkspaceName
 	if workspaceName == "" {
@@ -875,14 +956,6 @@ func (ctx *Context) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, 
 		httpStatus = http.StatusBadRequest
 		return
 	}
-
-	// // Compile the workspace
-	// log.Printf("All changes in workspace '%s' are reverted, re-compiling workspace", workspaceName)
-	// dataTableAction.Action = "workspace_insert_rows"
-	// dataTableAction.FromClauses = []FromClause{{Table: "compile_workspace_by_name"}}
-	// dataTableAction.Data[0]["workspace_name"] = dataTableAction.WorkspaceName
-	// dataTableAction.Data[0]["user_email"] = ctx.AdminEmail
-	// _, httpStatus, err = ctx.WorkspaceInsertRows(dataTableAction, token)
 
 	results = &map[string]interface{}{}
 	return

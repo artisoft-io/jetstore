@@ -14,7 +14,7 @@ import (
 func main() {
 
 	// Get the dsn from the aws secret
-	dsn, err := awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"),os.Getenv("JETS_REGION"), true, 10)
+	dsn, err := awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), true, 10)
 	if err != nil {
 		panic(err)
 	}

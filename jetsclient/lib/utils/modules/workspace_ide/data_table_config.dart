@@ -184,17 +184,30 @@ final Map<String, TableConfig> _tableConfigurations = {
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
-          key: 'doGitCommand',
-          label: 'Git Command',
+          key: 'doGitStatus',
+          label: 'Git Status',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
-          configForm: FormKeys.doGitCommandWorkspace,
+          configForm: FormKeys.doGitStatusWorkspace,
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
             FSK.wsURI: 2,
           }),
+      // ActionConfig(
+      //     actionType: DataTableActionType.showDialog,
+      //     key: 'doGitCommand',
+      //     label: 'Git Command',
+      //     style: ActionStyle.secondary,
+      //     isVisibleWhenCheckboxVisible: true,
+      //     isEnabledWhenHavingSelectedRows: true,
+      //     configForm: FormKeys.doGitCommandWorkspace,
+      //     navigationParams: {
+      //       FSK.key: 0,
+      //       FSK.wsName: 1,
+      //       FSK.wsURI: 2,
+      //     }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'viewGitLogWorkspace',
@@ -333,7 +346,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Delete/Revert ALL Changes',
           style: ActionStyle.danger,
           isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: true,
+          isEnabledWhenHavingSelectedRows: null,
           actionName: ActionKeys.deleteAllWorkspaceChanges),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
