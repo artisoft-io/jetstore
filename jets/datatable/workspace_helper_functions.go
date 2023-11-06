@@ -19,127 +19,61 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// Commit changes in local workspace and push to repository:
-//	- Commit and Push to repository
-//  NOTE:
-//	- Delete workspace overrides
-//	  (except for workspace.db, lookup.db, and reports.tgz)
-//	  must be done manually
-//	- Compile workspace must be done manually
-func commitWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dataTableAction *DataTableAction)  {
-
-	var err error
-	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
-	for irow := range dataTableAction.Data {
-		var gitLog string
-		status := ""
-		workspaceName := dataTableAction.WorkspaceName
-		wsUri := getWorkspaceUri(dataTableAction, irow)
-		wsCM := dataTableAction.Data[irow]["git.commit.message"]
-		var wsCommitMessage string
-		if(wsCM != nil) {
-			// escape singe ' with ''
-			wsCommitMessage = strings.ReplaceAll(wsCM.(string), "'", "''")
-		}
-		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
-		var buf strings.Builder
-		
-		// Commit and push workspace changes and update workspace_registry table
-		gitLog, err = workspaceGit.CommitLocalWorkspace(gitProfile,	wsCommitMessage)
-		buf.WriteString(gitLog)
-		buf.WriteString("\n")
-		if err != nil {
-			status = "error"
-			goto setCommitGitLog
-		}
-
-		setCommitGitLog:
-		dataTableAction.Data[irow]["last_git_log"] = buf.String()
-		dataTableAction.Data[irow]["status"] = status
-
-		// Perform the Insert Rows
-		for jcol, colKey := range sqlStmt.ColumnKeys {
-			row[jcol] = dataTableAction.Data[irow][colKey]
-		}
-
-		// Executing the InserRow Stmt
-		_, err = dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
-		if err != nil {
-			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-		}
-	}
-}
-
 // Pull workspace changes in local repository:
-//	- Pull changes from orign repo
+//	- Pull changes by fastforward only from WorkspaceBranch into current branch
 //	- Update the file stash with pulled version
-//  - Apply workspace overrides
+//  - Apply workspace overrides (except for compiled files)
 //  NOTE:
 //	- Compile workspace must be done manually
-func pullWorkspaceAction(dbpool *pgxpool.Pool,  gitProfile *user.GitProfile, dataTableAction *DataTableAction)  {
-
+func pullWorkspaceAction(dbpool *pgxpool.Pool, irow int,  gitProfile *user.GitProfile, dataTableAction *DataTableAction) (string, error) {
 	var err error
-	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
-	for irow := range dataTableAction.Data {
-		var gitLog string
-		status := ""
-		workspaceName := dataTableAction.WorkspaceName
-		wsUri := getWorkspaceUri(dataTableAction, irow)
+	var gitLog string
+	workspaceName := dataTableAction.WorkspaceName
+	wsUri := getWorkspaceUri(dataTableAction, irow)
+	workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+		WorkspaceName   : dataTableAction.WorkspaceName,
+		WorkspaceUri    : wsUri,
+		WorkspaceBranch : dataTableAction.WorkspaceBranch,
+		FeatureBranch   : dataTableAction.FeatureBranch,
+	})
+	var buf strings.Builder
 
-		workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
-		var buf strings.Builder
-
-		// Pull changes from repository
-		gitLog, err = workspaceGit.PullRemoteWorkspace(
-			gitProfile.GitHandle,
-			gitProfile.GitToken,
-		)
-		buf.WriteString(gitLog)
-		buf.WriteString("\n")
-		if err != nil {
-			status = "error"
-			goto setPullGitLog
-		}
-
-		// Clear existing stash
-		err = wsfile.ClearStash(workspaceName)
-		if err != nil {
-			buf.WriteString(fmt.Sprintf("Error while clearing stash for workspace %s, ignored\n", workspaceName))
-			log.Printf("Error while clearing stash for workspace %s, ignored", workspaceName)
-			err = nil
-		}
-		// Create new stash corresponding to this pulled workspace
-		err = wsfile.StashFiles(workspaceName)
-		if err != nil {
-			buf.WriteString(fmt.Sprintf("Error while stashing workspace %s, ignored\n", workspaceName))
-			log.Printf("Error while stashing workspace %s, ignored", workspaceName)
-			err = nil
-		}
-
-		// Apply workspace overrides from database, skipping compiled files
-		err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "", true, true)
-		if err != nil {
-			//* TODO Log to a new workspace error table to report in UI
-			log.Println("Error while synching workspace file from database:", err, "(ignored)")
-			err = nil
-		}
-
-		setPullGitLog:
-		dataTableAction.Data[irow]["last_git_log"] = buf.String()
-		dataTableAction.Data[irow]["status"] = status
-
-		// Perform the Insert Rows
-		for jcol, colKey := range sqlStmt.ColumnKeys {
-			row[jcol] = dataTableAction.Data[irow][colKey]
-		}
-
-		_, err = dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
-		if err != nil {
-			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-		}
+	// Pull changes from repository
+	gitLog, err = workspaceGit.PullRemoteWorkspace(
+		gitProfile.GitHandle,
+		gitProfile.GitToken,
+	)
+	buf.WriteString(gitLog)
+	buf.WriteString("\n")
+	if err != nil {
+		goto setPullGitLog
 	}
+
+	// Clear existing stash
+	err = wsfile.ClearStash(workspaceName)
+	if err != nil {
+		buf.WriteString(fmt.Sprintf("Error while clearing stash for workspace %s, ignored\n", workspaceName))
+		log.Printf("Error while clearing stash for workspace %s, ignored", workspaceName)
+		err = nil
+	}
+	// Create new stash corresponding to this pulled workspace
+	err = wsfile.StashFiles(workspaceName)
+	if err != nil {
+		buf.WriteString(fmt.Sprintf("Error while stashing workspace %s, ignored\n", workspaceName))
+		log.Printf("Error while stashing workspace %s, ignored", workspaceName)
+		err = nil
+	}
+
+	// Apply workspace overrides from database, skipping compiled files
+	err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "", true, true)
+	if err != nil {
+		buf.WriteString(fmt.Sprintf("Error while synching workspace file from database: %v (ignored)\n", err))
+		log.Println("Error while synching workspace file from database:", err, "(ignored)")
+		err = nil
+	}
+
+	setPullGitLog:
+	return buf.String(), err
 }
 
 
@@ -184,36 +118,6 @@ func unitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, tok
 	results, _, err := ctx.InsertRows(dataTableAction, token)
 
 	dataTableAction.Data[0]["last_git_log"] = (*results)["log"]
-	dataTableAction.Data[0]["status"] = ""
-	if err != nil {
-		dataTableAction.Data[0]["status"] = "error"
-	}
-
-	// Perform the Insert Rows
-	sqlStmt := sqlInsertStmts["unit_test"]
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
-	for jcol, colKey := range sqlStmt.ColumnKeys {
-		row[jcol] = dataTableAction.Data[0][colKey]
-	}
-
-	_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
-	if err != nil {
-		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-	}
-}
-
-// Load workspace config
-func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction)  {
-
-	// using update_db script
-	log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
-	serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
-	if ctx.UsingSshTunnel {
-		serverArgs = append(serverArgs, "-usingSshTunnel")
-	}
-	results, err := RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
-
-	dataTableAction.Data[0]["last_git_log"] = results
 	dataTableAction.Data[0]["status"] = ""
 	if err != nil {
 		dataTableAction.Data[0]["status"] = "error"

@@ -58,6 +58,8 @@ func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 type DataTableAction struct {
 	Action            string                   `json:"action"`
 	WorkspaceName     string                   `json:"workspaceName"`
+	WorkspaceBranch   string                   `json:"workspaceBranch"`
+	FeatureBranch     string                   `json:"featureBranch"`
 	RawQuery          string                   `json:"query"`
 	RawQueryMap       map[string]string        `json:"query_map"`
 	Columns           []Column                 `json:"columns"`

@@ -111,6 +111,8 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	case "get_workspace_uri":
 		results = &map[string]interface{}{
 			"workspace_uri": os.Getenv("WORKSPACE_URI"),
+			"workspace_name": os.Getenv("WORKSPACE"),
+			"workspace_branch": os.Getenv("WORKSPACE_BRANCH"),
 		}
 		code = http.StatusOK
 		err = nil

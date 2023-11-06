@@ -291,7 +291,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString(" DEFAULT ")
 			buf.WriteString(col.Default)
 		}
-}
+	}
 	// unique constraints - add / delete constaints
 	// Add new constraints
 	for _, constaint := range tableDefinition.TableConstraints {

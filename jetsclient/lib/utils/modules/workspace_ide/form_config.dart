@@ -1,7 +1,7 @@
+import 'package:jetsclient/screens/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/utils/form_config.dart';
 import 'package:jetsclient/utils/modules/workspace_ide/screen_delegates.dart';
-
 
 final Map<String, FormConfig> _formConfigurations = {
   // Workspace Registry Form
@@ -69,6 +69,14 @@ final Map<String, FormConfig> _formConfigurations = {
             flex: 1,
             autofocus: true,
             obscureText: false,
+            isReadOnlyEval: (JetsFormState formState) {
+              final b = formState.getValue(0, FSK.wsBranch) as String?;
+              final w = formState.getValue(0, FSK.wsName) as String?;
+              return b != null &&
+                  w != null &&
+                  b == globalWorkspaceBranch &&
+                  w == globalWorkspaceName;
+            },
             textRestriction: TextRestriction.none,
             maxLength: 20),
         FormInputFieldConfig(
@@ -79,9 +87,38 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             defaultValue: globalWorkspaceUri,
-            isReadOnlyEval: () => globalWorkspaceUri.isNotEmpty,
+            isReadOnlyEval: (JetsFormState formState) =>
+                globalWorkspaceUri.isNotEmpty,
             textRestriction: TextRestriction.none,
             maxLength: 120),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.wsBranch,
+            label: "Workspace Branch",
+            hint: "Workspace branch of origin",
+            flex: 1,
+            autofocus: true,
+            obscureText: false,
+            isReadOnlyEval: (JetsFormState formState) {
+              final b = formState.getValue(0, FSK.wsBranch) as String?;
+              final w = formState.getValue(0, FSK.wsName) as String?;
+              return b != null &&
+                  w != null &&
+                  b == globalWorkspaceBranch &&
+                  w == globalWorkspaceName;
+            },
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsFeatureBranch,
+            label: "Feature Branch",
+            hint: "Local branch to make changes",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
       ],
       [
         FormInputFieldConfig(
@@ -270,7 +307,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLines: 1,
             maxLength: 100,
             autofocus: false,
-            isReadOnlyEval: () => globalWorkspaceUri.isNotEmpty,
+            isReadOnlyEval: (JetsFormState formState) => globalWorkspaceUri.isNotEmpty,
             defaultValue: "git status",
             textRestriction: TextRestriction.none),
       ],
@@ -552,7 +589,7 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     // constraint to be from FormKeys.wsDataModelForm since it's a tab
     formValidatorDelegate: workspaceIDEFormValidator,
-    formActionsDelegate:   workspaceIDEFormActions,
+    formActionsDelegate: workspaceIDEFormActions,
   ),
 
   // Workspace Domain Class Table
@@ -584,7 +621,7 @@ final Map<String, FormConfig> _formConfigurations = {
               dataTableConfig: DTKeys.wsDataModelFilesTable)),
     ],
     formValidatorDelegate: workspaceIDEFormValidator,
-    formActionsDelegate:   workspaceIDEFormActions,
+    formActionsDelegate: workspaceIDEFormActions,
   ),
 
   // Workspace Jet Rules Table
@@ -618,7 +655,6 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: workspaceIDEFormValidator,
     formActionsDelegate: workspaceIDEFormActions,
   ),
-
 };
 
 FormConfig? getWorkspaceFormConfig(String key) {
