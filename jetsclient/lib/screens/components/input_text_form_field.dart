@@ -124,7 +124,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
         showCursor: _focused,
         obscureText: _config.obscureText,
         readOnly: _config.isReadOnlyEval != null
-            ? _config.isReadOnlyEval!()
+            ? _config.isReadOnlyEval!(widget.formState)
             : _config.isReadOnly,
         maxLines: _config.maxLines,
         maxLength: _config.maxLength,

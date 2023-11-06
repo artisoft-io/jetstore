@@ -26,8 +26,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
-            FSK.wsURI: 2,
-            FSK.description: 3,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
+            FSK.description: 5,
           }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -38,11 +40,11 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'removed'),
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'in progress'),
           ]],
@@ -54,11 +56,23 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          actionEnableCriterias: [[
+            ActionEnableCriteria(
+                columnPos: 6,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'removed'),
+            ActionEnableCriteria(
+                columnPos: 6,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'in progress'),
+          ]],
           configForm: FormKeys.exportWorkspaceClientConfig,
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
-            FSK.wsURI: 2,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -71,6 +85,9 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.dataTableAction: "workspace_insert_rows",
             FSK.dataTableFromTable: "unit_test",
             FSK.wsName: 1,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
           },
           configForm: FormKeys.startPipeline),
       ActionConfig(
@@ -82,7 +99,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'in progress'),
           ]],
@@ -96,11 +113,11 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'active'),
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'in progress'),
           ]],
@@ -116,7 +133,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'in progress'),
           ]],
@@ -130,7 +147,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.contains,
                 value: 'modified'),
           ]],
@@ -138,7 +155,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
-            FSK.wsURI: 2,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -149,7 +168,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'removed'),
           ]],
@@ -157,7 +176,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
-            FSK.wsURI: 2,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -168,11 +189,11 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'removed'),
             ActionEnableCriteria(
-                columnPos: 4,
+                columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'in progress'),
           ]],
@@ -180,7 +201,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
-            FSK.wsURI: 2,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
           }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -193,7 +216,9 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
-            FSK.wsURI: 2,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
           }),
       // ActionConfig(
       //     actionType: DataTableActionType.showDialog,
@@ -205,8 +230,10 @@ final Map<String, TableConfig> _tableConfigurations = {
       //     configForm: FormKeys.doGitCommandWorkspace,
       //     navigationParams: {
       //       FSK.key: 0,
-      //       FSK.wsName: 1,
-      //       FSK.wsURI: 2,
+            // FSK.wsName: 1,
+            // FSK.wsBranch: 2,
+            // FSK.wsFeatureBranch: 3,
+            // FSK.wsURI: 4,
       //     }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
@@ -219,8 +246,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,
-            FSK.wsURI: 2,
-            FSK.lastGitLog: 5,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
+            FSK.lastGitLog: 7,
           }),
       ActionConfig(
           actionType: DataTableActionType.refreshTable,
@@ -244,20 +273,28 @@ final Map<String, TableConfig> _tableConfigurations = {
         columnIdx: 1,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.wsURI,
+        stateKey: FSK.wsBranch,
         columnIdx: 2,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.description,
+        stateKey: FSK.wsFeatureBranch,
         columnIdx: 3,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.status,
+        stateKey: FSK.wsURI,
         columnIdx: 4,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.lastGitLog,
+        stateKey: FSK.description,
         columnIdx: 5,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.status,
+        columnIdx: 6,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.lastGitLog,
+        columnIdx: 7,
       ),
     ]),
     columns: [
@@ -276,37 +313,49 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 2,
+          name: "workspace_branch",
+          label: 'Workspace Branch',
+          tooltips: 'Workspace branch from origin',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "feature_branch",
+          label: 'Feature Branch',
+          tooltips: 'Workspace feature branch to make update',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
           name: "workspace_uri",
           label: 'Workspace Repo',
           tooltips: 'Workspace Repository Location',
           isNumeric: false),
       ColumnConfig(
-          index: 3,
+          index: 5,
           name: "description",
           label: 'Description',
           tooltips: 'Workspace Repository Location',
           isNumeric: false),
       ColumnConfig(
-          index: 4,
+          index: 6,
           name: "status",
           label: 'Status',
           tooltips: 'Workspace status',
           isNumeric: false),
       ColumnConfig(
-          index: 5,
+          index: 7,
           name: "last_git_log",
           label: 'Last Git Log',
           tooltips: '',
           isHidden: true,
           isNumeric: false),
       ColumnConfig(
-          index: 6,
+          index: 8,
           name: "user_email",
           label: 'User Email',
           tooltips: 'User who made the last change',
           isNumeric: false),
       ColumnConfig(
-          index: 7,
+          index: 9,
           name: "last_update",
           label: 'Last Update',
           tooltips: 'Last time the workspace was compiled',

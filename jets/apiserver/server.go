@@ -279,6 +279,21 @@ func (server *Server) checkWorkspaceVersion() error {
 		log.Printf("Error while stashing workspace file: %v", err)
 	}
 
+	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI is set
+	activeWorkspaceUri := os.Getenv("ACTIVE_WORKSPACE_URI")
+	workspaceBranch := os.Getenv("WORKSPACE_BRANCH")
+	if activeWorkspaceUri != "" && workspaceBranch != "" {
+		stmt := fmt.Sprintf(`
+			INSERT INTO jetsapi.workspace_registry 
+				(workspace_name, workspace_uri, workspace_branch, user_email) VALUES 
+				('%s', '%s', '%s', 'system')
+				ON CONFLICT DO NOTHING`, workspaceName, activeWorkspaceUri, workspaceBranch)
+		_, err = server.dbpool.Exec(context.Background(), stmt)
+		if err != nil {
+			log.Printf("while inserting active workspace into workspace_registry table: %v, ignored", err)
+		}	
+	}
+
 	// Check if need to Download overriten workspace files from database & recompile workspace, 
 	// skip if in dev mode
 	if globalDevMode {

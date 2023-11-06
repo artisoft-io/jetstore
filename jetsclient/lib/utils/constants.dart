@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 const defaultPadding = 16.0;
 const betweenTheButtonsPadding = 8.0;
 var globalWorkspaceUri = '';
+var globalWorkspaceName = '';
+var globalWorkspaceBranch = '';
 
 /// Button action style, used by both JetsDataTable and JetsForm
 enum ActionStyle {
@@ -271,6 +273,8 @@ class FSK {
   // Form Keys for Workspace IDE
   static const wsName = "workspace_name";
   static const wsPreviousName = "previous.workspace_name";
+  static const wsBranch = "workspace_branch";
+  static const wsFeatureBranch = "feature_branch";
   static const wsURI = "workspace_uri";
   static const wsFileName = "file_name";
   static const wsFileEditorContent = "file_content";

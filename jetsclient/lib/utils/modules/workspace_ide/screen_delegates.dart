@@ -27,6 +27,26 @@ String? workspaceIDEFormValidator(
       }
       return "Workspace name must be provided.";
 
+    case FSK.wsBranch:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      if (value != null && value.characters.length <= 1) {
+        return "Workspace branch is too short.";
+      }
+      return "Workspace branch must be provided.";
+
+    case FSK.wsFeatureBranch:
+      String? value = v;
+      if (value != null && value.characters.length > 1) {
+        return null;
+      }
+      if (value != null && value.characters.length <= 1) {
+        return "Feature branch is too short.";
+      }
+      return "Feature branch must be provided.";
+
     case FSK.wsURI:
       String? value = v;
       if (value != null && value.characters.length > 1) {
@@ -103,6 +123,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -112,6 +140,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': table}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -135,6 +165,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -146,6 +184,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': 'compile_workspace'}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -170,6 +210,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -180,6 +228,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': 'load_workspace_config'}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
@@ -200,11 +250,21 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }
       final state = formState.getState(0);
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       state['user_email'] = JetsRouterDelegate().user.email;
       // print('File Editor::Save File state: $state');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'add_workspace_file',
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -330,6 +390,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -339,6 +407,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': 'commit_workspace'}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -360,6 +430,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -369,6 +447,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': 'git_command_workspace'}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -390,6 +470,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -399,6 +487,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': 'git_status_workspace'}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -425,6 +515,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -434,6 +532,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': 'push_only_workspace'}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -460,6 +560,14 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
@@ -469,6 +577,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
           <String, String>{'table': 'pull_workspace'}
         ],
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
@@ -494,12 +604,22 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         state[FSK.wsName] = state[FSK.wsName][0];
       }
       final wsName = state[FSK.wsName];
+      if (state[FSK.wsBranch] is List<String>) {
+        state[FSK.wsBranch] = state[FSK.wsBranch][0];
+      }
+      final wsBranch = state[FSK.wsBranch];
+      if (state[FSK.wsFeatureBranch] is List<String>) {
+        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
+      }
+      final wsFeatureBranch = state[FSK.wsFeatureBranch];
       if (state[FSK.wsURI] is List<String>) {
         state[FSK.wsURI] = state[FSK.wsURI][0];
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'save_workspace_client_config',
         'workspaceName': wsName,
+        'workspaceBranch': wsBranch,
+        'featureBranch': wsFeatureBranch,
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();

@@ -88,6 +88,8 @@ Future<String?> loginFormActions(BuildContext context,
         }
 
         // Get the workspace_uri from the server WORKSPACE_URI env variable
+        // Get the workspace_name from the server WORKSPACE env variable
+        // Get the workspace_branch from the server WORKSPACE_BRANCH env variable
         msg = <String, dynamic>{
           'action': 'get_workspace_uri',
         };
@@ -99,6 +101,8 @@ Future<String?> loginFormActions(BuildContext context,
         if (result.statusCode == 401) return "Not Authorized";
         if (result.statusCode == 200) {
           globalWorkspaceUri = result.body['workspace_uri'] as String;
+          globalWorkspaceName = result.body['workspace_name'] as String;
+          globalWorkspaceBranch = result.body['workspace_branch'] as String;
         }
 
         JetsRouterDelegate()(JetsRouteData(
