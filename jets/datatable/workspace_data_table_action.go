@@ -68,13 +68,14 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "workspace_registry"):
 			// Insert or update workspace entry in workspace_registry table:
-			//	- If folder workspace_name in workspaces root does not exists, chechout workspace_uri in workspace_name
+			//	- If folder workspace_name in workspaces root does not exists, 
+			//    chechout branch (workspace_branch) from workspace_uri in workspace_name, 
+			//    switch to feature_branch
 			//  - If user is renaming workspace_name, delete the old workspace folder under workspaces root
 			//    Note: UI must provide old workspace name as 'previous.workspace_name' virtual column
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for update workspace_registry, missing workspace_name")
 			}
-			workspaceName := dataTableAction.WorkspaceName
 			wsUri := getWorkspaceUri(dataTableAction, irow)
 			if gitProfileErr != nil {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid git profile, cannot obtain git token")
@@ -93,7 +94,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				wsPreviousName = wsPN.(string)
 			}
 
-			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
+			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+				WorkspaceName   : dataTableAction.WorkspaceName,
+				WorkspaceUri    : wsUri,
+				WorkspaceBranch : dataTableAction.WorkspaceBranch,
+				FeatureBranch   : dataTableAction.FeatureBranch,
+			})
 			gitLog, err = workspaceGit.UpdateLocalWorkspace(
 				gitProfile.Name,
 				gitProfile.Email,
@@ -129,18 +135,21 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			//  NOTE:
 			//	- Delete workspace overrides
 			//	  (except for workspace.db, lookup.db, and reports.tgz)
-			//	  must be done manually 
 			//	- Compile workspace must be done manually
 			var gitLog string
 			status := ""
-			workspaceName := dataTableAction.WorkspaceName
 			wsCM := dataTableAction.Data[irow]["git.commit.message"]
 			var wsCommitMessage string
 			if(wsCM != nil) {
 				// escape singe ' with ''
 				wsCommitMessage = strings.ReplaceAll(wsCM.(string), "'", "''")
 			}
-			workspaceGit := git.NewWorkspaceGit(workspaceName, wsUri)
+			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+				WorkspaceName   : dataTableAction.WorkspaceName,
+				WorkspaceUri    : wsUri,
+				WorkspaceBranch : dataTableAction.WorkspaceBranch,
+				FeatureBranch   : dataTableAction.FeatureBranch,
+			})
 			var buf strings.Builder
 			// Commit and push workspace changes and update workspace_registry table
 			gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile,	wsCommitMessage)
@@ -148,6 +157,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			buf.WriteString("\n")
 			if err != nil {
 				status = "error"
+			} else {
+				// Delete all workspace overrides w/o restaure from stash
+				err = wsfile.DeleteAllFileChanges(ctx.Dbpool, dataTableAction.WorkspaceName, false, true)
+				if err != nil {
+					status = "error"
+				}
 			}
 			dataTableAction.Data[irow]["last_git_log"] = buf.String()
 			dataTableAction.Data[irow]["status"] = status
@@ -165,7 +180,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "" || gitCommand == nil) {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing git information")
 			}
-			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
+			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+				WorkspaceName   : dataTableAction.WorkspaceName,
+				WorkspaceUri    : wsUri,
+				WorkspaceBranch : dataTableAction.WorkspaceBranch,
+				FeatureBranch   : dataTableAction.FeatureBranch,
+			})
 			gitLog, err = workspaceGit.GitCommandWorkspace(gitCommand.(string))
 			if err != nil {
 				log.Printf("Error while git status workspace: %s\n", gitLog)
@@ -183,7 +203,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_status_workspace, missing git information")
 			}
-			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
+			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+				WorkspaceName   : dataTableAction.WorkspaceName,
+				WorkspaceUri    : wsUri,
+				WorkspaceBranch : dataTableAction.WorkspaceBranch,
+				FeatureBranch   : dataTableAction.FeatureBranch,
+			})
 			gitLog, err = workspaceGit.GitCommandWorkspace("git status")
 			if err != nil {
 				log.Printf("Error while git status in workspace: %s\n", gitLog)
@@ -207,7 +232,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
 			}
 			var status string
-			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, wsUri)
+			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+				WorkspaceName   : dataTableAction.WorkspaceName,
+				WorkspaceUri    : wsUri,
+				WorkspaceBranch : dataTableAction.WorkspaceBranch,
+				FeatureBranch   : dataTableAction.FeatureBranch,
+			})
 			gitLog, err = workspaceGit.PushOnlyWorkspace(gitUser, gitToken)
 			if err != nil {
 				log.Printf("Error while push (only) workspace: %s\n", gitLog)
@@ -218,7 +248,8 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "pull_workspace":
-			// Validating request only, actual task performed async in post-processing section below
+			// Pull changes by fastforwarding only from WorkspaceBranch into current branch
+			// Apply workspace overrides (except for compiled files)
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing workspace_name")
 			}
@@ -231,8 +262,15 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
+			var status string
+			gitLog, err = pullWorkspaceAction(ctx.Dbpool, irow, &gitProfile, dataTableAction)
+			if err != nil {
+				log.Printf("Error while pull workspace: %v\nLog: %s\n", err, gitLog)
+				httpStatus = http.StatusBadRequest
+				status = "error"
+			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
-			dataTableAction.Data[irow]["status"] = "Pull workspace in progress"
+			dataTableAction.Data[irow]["status"] = status
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 			if dataTableAction.WorkspaceName == "" {
@@ -273,7 +311,12 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			//	- It is an error to delete the active workspace
 			//	- Delete folder with workspace_name under workspaces root
 			//	- Delete in workspace_registry table by key (done below by the main sqlStmt)
-			workspaceGit := git.NewWorkspaceGit(dataTableAction.WorkspaceName, "")
+			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+				WorkspaceName   : dataTableAction.WorkspaceName,
+				WorkspaceUri    : "",
+				WorkspaceBranch : dataTableAction.WorkspaceBranch,
+				FeatureBranch   : dataTableAction.FeatureBranch,
+			})
 			err = workspaceGit.DeleteWorkspace()
 			if err != nil {
 				return nil, http.StatusBadRequest, err
@@ -316,25 +359,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	// Post Processing Hook
 	// -----------------------------------------------------------------------
 	switch {
-	// case dataTableAction.FromClauses[0].Table == "commit_workspace":
-	// 	// Commit changes in local workspace and push to repository:
-	// 	//	- Commit and Push to repository
-	// 	//  NOTE:
-	// 	//	- Delete workspace overrides
-	// 	//	  (except for workspace.db, lookup.db, and reports.tgz)
-	// 	//	  must be done manually 
-	// 	//	- Compile workspace must be done manually
-	// 	go commitWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
-
-	case dataTableAction.FromClauses[0].Table == "pull_workspace":
-		// Pull workspace changes in local repository:
-		//	- Pull changes from origin repo
-		//	- Update the file stash with pulled version
-		//  - Sync workspace overrides on top of the pull
-		//  NOTE:
-		//	- Compile workspace must be done manually
-		go pullWorkspaceAction(ctx.Dbpool, &gitProfile, dataTableAction)
-
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
 		go compileWorkspaceAction(ctx.Dbpool, dataTableAction)
@@ -407,49 +431,58 @@ func (ctx *Context) DoWorkspaceReadAction(dataTableAction *DataTableAction, toke
 			// Post processing for workspace_registry table to get status from file system:
 			//	- If workspace_registry.status == 'error', then status = 'error'
 			//  - If workspace_name folder does not exist: status = removed
-			//  - If workspace_name == os.Getenv("WORKSPACE"): 
-			//			- status = 'active' if branch named workspace_name exist
-			//			- status = 'active, local branch removed' if branch named workspace_name does not exist
+			//  - If workspace_name == os.Getenv("WORKSPACE") && workspace_branch == os.Getenv("WORKSPACE_BRANCH"): 
+			//			- status = 'active' if local branch set to feature_branch (i.e. != workspace_branch)
+			//			- status = 'active, missing feature branch' if local branch == workspace_branch
 			//  - If git status in workspace_name folder contains 'nothing to commit, working tree clean': status = no changes
 			//  - else: status = modified
-			// Get the column position for workspace_name and status
+			// Get the column position for workspace_name, workspace_branch, feature_branch and status
 			workspaceNamePos := -1
+			workspaceBranchPos := -1
+			featureBranchPos := -1
 			workspaceUriPos := -1
 			statusPos := -1
+			missingColumns := true
 			for i := range dataTableAction.Columns {
 				switch dataTableAction.Columns[i].Column {
 				case "workspace_name":
 					workspaceNamePos = i
-					if statusPos > -1 && workspaceUriPos > -1 {
-						goto done
-					}
 				case "workspace_uri":
 					workspaceUriPos = i
-					if workspaceNamePos > -1 && statusPos > -1 {
-						goto done
-					}
+				case "workspace_branch":
+					workspaceBranchPos = i
+				case "feature_branch":
+					featureBranchPos = i
 				case "status":
 					statusPos = i
-					if workspaceNamePos > -1 && workspaceUriPos > -1 {
-						goto done
-					}
 				}
-			}
+				if workspaceNamePos > -1 &&
+					workspaceBranchPos > -1 &&
+					featureBranchPos > -1 &&
+					workspaceUriPos > -1 &&
+					statusPos > -1 {	
+						missingColumns = false
+						goto done
+				}
+		}
 			done: 
-			if workspaceNamePos < 0 || workspaceUriPos < 0 || statusPos < 0 {
-				fmt.Println("Oops expecting workspace_name, workspace_uri and status columns")
+			if missingColumns {
+				fmt.Println("Oops expecting workspace_name, workspace_uri, workspace_branch, feature_branch and status columns")
 			} else {
 				// Get the status from git command
 				for irow := range *resultRows {
 					if (*resultRows)[irow][statusPos] == "" {
-						workspaceGit := git.NewWorkspaceGit(
-							(*resultRows)[irow][workspaceNamePos].(string),
-							(*resultRows)[irow][workspaceUriPos].(string))
+						workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
+							WorkspaceName   : (*resultRows)[irow][workspaceNamePos].(string),
+							WorkspaceUri    : (*resultRows)[irow][workspaceUriPos].(string),
+							WorkspaceBranch : (*resultRows)[irow][workspaceBranchPos].(string),
+						})
 						status, err := workspaceGit.GetStatus()
 						if err != nil {
 							return nil, http.StatusBadRequest, err
 						}
 						(*resultRows)[irow][statusPos] = status	
+						(*resultRows)[irow][featureBranchPos] = workspaceGit.FeatureBranch
 					}
 				}
 			}

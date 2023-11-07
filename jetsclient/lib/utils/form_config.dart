@@ -224,7 +224,7 @@ class TextFieldConfig extends FormFieldConfig {
   }
 }
 
-typedef ReadOnlyEvaluator = bool Function();
+typedef ReadOnlyEvaluator = bool Function(JetsFormState formState);
 
 class FormInputFieldConfig extends FormFieldConfig {
   FormInputFieldConfig({

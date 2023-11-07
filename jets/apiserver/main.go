@@ -41,7 +41,10 @@ import (
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // NBR_SHARDS set the nbr of shard to use for loader and server
 // WEB_APP_DEPLOYMENT_DIR
-// WORKSPACE Workspace currently in use
+// WORKSPACE Workspace currently in use (active workspace)
+// WORKSPACE_BRANCH deployed branch of active workspace
+// ACTIVE_WORKSPACE_URI Workspace uri for active workspace
+// WORKSPACE_URI (optional) fixed Workspace uri for all workspaces when defined
 // WORKSPACES_HOME Home dir of workspaces
 // JETS_BUCKET (required for SyncFileKeys)
 // JETS_s3_INPUT_PREFIX Input file key prefix
@@ -155,9 +158,9 @@ func main() {
 		}
 	}
 
-	if os.Getenv("WORKSPACES_HOME")=="" || os.Getenv("WORKSPACE")=="" {
+	if os.Getenv("WORKSPACES_HOME")=="" || os.Getenv("WORKSPACE")=="" || os.Getenv("WORKSPACE_BRANCH")=="" {
 		hasErr = true
-		errMsg = append(errMsg, "Env var WORKSPACES_HOME, and WORKSPACE are required.")
+		errMsg = append(errMsg, "Env var WORKSPACES_HOME, WORKSPACE, and WORKSPACE_BRANCH are required.")
 	}
 
 	_, globalDevMode = os.LookupEnv("JETSTORE_DEV_MODE")
@@ -209,6 +212,9 @@ func main() {
 	}
 	fmt.Println("ENV WORKSPACES_HOME:",os.Getenv("WORKSPACES_HOME"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
+	fmt.Println("ENV WORKSPACE_BRANCH:",os.Getenv("WORKSPACE_BRANCH"))
+	fmt.Println("ENV ACTIVE_WORKSPACE_URI:",os.Getenv("ACTIVE_WORKSPACE_URI"))
+	fmt.Println("ENV WORKSPACE_URI:",os.Getenv("WORKSPACE_URI"))
 	fmt.Println("ENV JETS_s3_INPUT_PREFIX:",os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Println("ENV JETS_s3_OUTPUT_PREFIX:",os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	fmt.Println("ENV JETS_VERSION:",os.Getenv("JETS_VERSION"))
