@@ -380,24 +380,30 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	})
 
 	// Add secret manager endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	secretManagerEndPoint := vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
 		Subnets: isolatedSubnetSelection,
 	})
 
 	// Add Step Functions endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	stepFunctionSyncEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
 		Subnets: isolatedSubnetSelection,
 	})
-	vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	stepFunctionEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
 		Subnets: isolatedSubnetSelection,
 	})
 
 	// Add Cloudwatch endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	cloudwatchEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
+		Subnets: isolatedSubnetSelection,
+	})
+
+	// Add S3 Interface endpoint
+	s3InterfaceEndPoint := vpc.AddInterfaceEndpoint(jsii.String("S3IEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_S3(),
 		Subnets: isolatedSubnetSelection,
 	})
 
@@ -1312,6 +1318,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	}
 
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
+	ecsUiService.Connections().AllowTo(cloudwatchEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch"))
+	ecsUiService.Connections().AllowTo(secretManagerEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Secret Manager"))
+	ecsUiService.Connections().AllowTo(stepFunctionSyncEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions Sync"))
+	ecsUiService.Connections().AllowTo(stepFunctionEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions"))
+	ecsUiService.Connections().AllowTo(s3InterfaceEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/S3"))
 
 	// Connectivity info for lambda functions to apiserver
 	p := uiPort
