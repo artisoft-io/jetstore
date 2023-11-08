@@ -1156,7 +1156,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String("UI-SecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String("Allow JetStore UI network access"),
-		AllowAllOutbound: jsii.Bool(false),
+		AllowAllOutbound: jsii.Bool(true),
 		DisableInlineRules: jsii.Bool(true),
 	})
 	// Add access to Github
