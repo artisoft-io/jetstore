@@ -371,38 +371,32 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add Endpoint for ecr
 	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
-		// Subnets: isolatedSubnetSelection,
 		Open: jsii.Bool(true),
 	})
 	vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
-		// Subnets: isolatedSubnetSelection,
 		Open: jsii.Bool(true),
 	})
 
 	// Add secret manager endpoint
 	secretManagerEndPoint := vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
-		// Subnets: isolatedSubnetSelection,
 		Open: jsii.Bool(true),
 	})
 
 	// Add Step Functions endpoint
 	stepFunctionSyncEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
-		// Subnets: isolatedSubnetSelection,
 		Open: jsii.Bool(true),
 	})
 	stepFunctionEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
-		// Subnets: isolatedSubnetSelection,
 		Open: jsii.Bool(true),
 	})
 
 	// Add Cloudwatch endpoint
 	cloudwatchEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
-		// Subnets: isolatedSubnetSelection,
 		Open: jsii.Bool(true),
 	})
 
@@ -1158,7 +1152,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Vpc: vpc,
 		Description: jsii.String("Allow JetStore UI network access"),
 		AllowAllOutbound: jsii.Bool(false),
-		// DisableInlineRules: jsii.Bool(true),
 	})
 	// Add access to Github
 	cdrs := jsii.Strings(    
