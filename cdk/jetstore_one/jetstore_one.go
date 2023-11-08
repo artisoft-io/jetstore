@@ -382,23 +382,27 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add secret manager endpoint
 	secretManagerEndPoint := vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
-		Subnets: isolatedSubnetSelection,
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 
 	// Add Step Functions endpoint
 	stepFunctionSyncEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
-		Subnets: isolatedSubnetSelection,
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 	stepFunctionEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
-		Subnets: isolatedSubnetSelection,
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 
 	// Add Cloudwatch endpoint
 	cloudwatchEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
-		Subnets: isolatedSubnetSelection,
+		// Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 
 	// Add S3 Interface endpoint
