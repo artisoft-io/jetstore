@@ -302,7 +302,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	}
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
-		CreateInternetGateway: jsii.Bool(false),
+		CreateInternetGateway: jsii.Bool(true),
 		NatGateways:        jsii.Number(float64(nbrNatGateway)),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
@@ -1157,8 +1157,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String("UI-SecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String("Allow JetStore UI network access"),
-		AllowAllOutbound: jsii.Bool(true),
-		DisableInlineRules: jsii.Bool(true),
+		AllowAllOutbound: jsii.Bool(false),
+		// DisableInlineRules: jsii.Bool(true),
 	})
 	// Add access to Github
 	cdrs := jsii.Strings(    
