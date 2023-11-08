@@ -1155,8 +1155,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		"185.199.108.0/22",
 		"140.82.112.0/20",
 		"143.55.64.0/20",
-		"2a0a:a440::/29",
-		"2606:50c0::/32",
 		"20.201.28.151/32",
 		"20.205.243.166/32",
 		"20.87.245.0/32",
