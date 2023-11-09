@@ -147,13 +147,13 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 	if wg.WorkspaceName == "" {
 		return "", fmt.Errorf("error, must provide workspace_name")
 	}
+	gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
 	workspacePath := fmt.Sprintf("%s/%s", wg.WorkspacesHome, wg.WorkspaceName)
 	var buf strings.Builder
 
 	// First, check if workspace directory exists or not
 	if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
-		buf.WriteString("== Workspace directory does not exist, checking out workspace from git ==\n")
-		gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
+		buf.WriteString("\nWorkspace directory does not exist, checking out workspace from git\n")
 		command := fmt.Sprintf("git clone --quiet 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceName)
 		buf.WriteString("Executing command ")
 		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
@@ -165,7 +165,21 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 			return buf.String(), err
 		}
 		buf.WriteString("\n")
- 	}
+ 	} else {
+		// Update repository
+		// git fetch  'https://<user>:<token>@<repo>' 
+		command := fmt.Sprintf("git fetch  'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
+		buf.WriteString("Executing command ")
+		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
+		buf.WriteString("\n")
+			result, err := runShellCommand(workspacePath, command)
+		buf.WriteString(result)
+		if err != nil {
+			buf.WriteString(fmt.Sprintf("\nGot error: %v", strings.ReplaceAll(err.Error(), gitToken, "***")))
+			return buf.String(), err
+		}
+
+	}
 
 	// Check if the feature branch exists, if so switch to it
 	command := fmt.Sprintf("git show-ref --verify --quiet refs/heads/%s", wg.FeatureBranch)
@@ -179,10 +193,33 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		buf.WriteString(
 			fmt.Sprintf("Feature Branch '%s' does not exist in local repo %s\nCreating it from Workspace Branch %s...\n", 
 				wg.FeatureBranch, workspacePath, wg.WorkspaceBranch))
-		// git checkout -b <FeatureBranch> <WorkspaceBranch>
-		command := fmt.Sprintf("git checkout -b %s %s", wg.FeatureBranch, wg.WorkspaceBranch)
+		// git switch <WorkspaceBranch>
+		command := fmt.Sprintf("git switch %s", wg.WorkspaceBranch)
 		buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
 		result, err := runShellCommand(workspacePath, command)
+		buf.WriteString(result)
+		if err != nil {
+			buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
+			return buf.String(), err
+		}
+		// FastForward WorkspaceBranch
+		// git pull --rebase=false --no-commit 'https://<user>:<token>@<repo>' WorkspaceBranch
+		command = fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceBranch)
+		buf.WriteString("Executing command ")
+		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
+		buf.WriteString("\n")
+		result, err = runShellCommand(workspacePath, command)
+		buf.WriteString(result)
+		if err != nil {
+			b2 := strings.ReplaceAll(buf.String(), gitUser, "***")
+			return strings.ReplaceAll(b2, gitToken, "***"), err
+		}
+		buf.WriteString("\nChanges pulled from repository\n")
+			// buf.WriteString("\n")
+		// git switch -c <FeatureBranch> <WorkspaceBranch>
+		command = fmt.Sprintf("git switch -c %s %s", wg.FeatureBranch, wg.WorkspaceBranch)
+		buf.WriteString(fmt.Sprintf("Executing command: %s\n", command))
+		result, err = runShellCommand(workspacePath, command)
 		buf.WriteString(result)
 		if err != nil {
 			buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
@@ -191,7 +228,6 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		buf.WriteString("\n")
 		// Publish the branch
 		// git push  'https://<user>:<token>@<repo>' 
-		gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
 		command = fmt.Sprintf("git push  'https://%s:%s@%s'", gitUser, gitToken, gitRepo)
 		buf.WriteString("Executing command ")
 		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
@@ -214,6 +250,19 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 			return buf.String(), err
 		}
 		buf.WriteString("\n")
+		// FastForward FeatureBranch
+		// git pull --rebase=false --no-commit 'https://<user>:<token>@<repo>' FeatureBranch
+		command = fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.FeatureBranch)
+		buf.WriteString("Executing command ")
+		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
+		buf.WriteString("\n")
+		result, err = runShellCommand(workspacePath, command)
+		buf.WriteString(result)
+		if err != nil {
+			b2 := strings.ReplaceAll(buf.String(), gitUser, "***")
+			return strings.ReplaceAll(b2, gitToken, "***"), err
+		}
+		buf.WriteString("\nChanges pulled from repository\n")
 	}
 	return buf.String(), nil
 }
