@@ -1317,7 +1317,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
 	ecsUiService.Connections().AllowTo(cloudwatchEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch"))
-	ecsUiService.Connections().AllowTo(cloudwatchLogsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/CloudwatchLogs"))
 	ecsUiService.Connections().AllowTo(secretManagerEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Secret Manager"))
 	ecsUiService.Connections().AllowTo(stepFunctionSyncEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions Sync"))
 	ecsUiService.Connections().AllowTo(stepFunctionEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions"))
