@@ -240,17 +240,17 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// source config
 	"workspace_registry": {
 		Stmt: `INSERT INTO jetsapi.workspace_registry 
-			(workspace_name, workspace_uri, description, last_git_log, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6)
+			(workspace_name, workspace_branch, workspace_uri, description, last_git_log, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING key`,
-		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "status", "user_email"},
+		ColumnKeys: []string{"workspace_name", "workspace_branch", "workspace_uri", "description", "last_git_log", "status", "user_email"},
 		Capability: "workspace_ide",
 	},
 	"update/workspace_registry": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(workspace_name, workspace_uri, description, last_git_log, status, user_email, last_update) 
-			= ($1, $2, $3, $4, $5, $6, DEFAULT) WHERE key = $7`,
-		ColumnKeys: []string{"workspace_name", "workspace_uri", "description", "last_git_log", "status", "user_email", "key"},
+			(workspace_name, workspace_branch, workspace_uri, description, last_git_log, status, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, $7, DEFAULT) WHERE key = $8`,
+		ColumnKeys: []string{"workspace_name", "workspace_branch", "workspace_uri", "description", "last_git_log", "status", "user_email", "key"},
 		Capability: "workspace_ide",
 	},
 	"commit_workspace": {
