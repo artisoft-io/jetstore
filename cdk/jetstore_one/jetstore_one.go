@@ -407,7 +407,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	// Add S3 Interface endpoint
 	s3InterfaceEndPoint := vpc.AddInterfaceEndpoint(jsii.String("S3IEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_S3(),
-		Subnets: isolatedSubnetSelection,
+		Open: jsii.Bool(true),
 	})
 
 	// Database Cluster
