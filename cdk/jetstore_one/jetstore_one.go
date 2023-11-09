@@ -396,10 +396,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// Add Cloudwatch endpoint
 	cloudwatchEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH(),
-		Open: jsii.Bool(true),
-	})
-	cloudwatchLogsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchLogsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
 		Open: jsii.Bool(true),
 	})
