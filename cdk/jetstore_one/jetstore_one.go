@@ -396,6 +396,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// Add Cloudwatch endpoint
 	cloudwatchEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH(),
+		Open: jsii.Bool(true),
+	})
+	cloudwatchLogsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchLogsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
 		Open: jsii.Bool(true),
 	})
@@ -1317,6 +1321,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
 	ecsUiService.Connections().AllowTo(cloudwatchEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch"))
+	ecsUiService.Connections().AllowTo(cloudwatchLogsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/CloudwatchLogs"))
 	ecsUiService.Connections().AllowTo(secretManagerEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Secret Manager"))
 	ecsUiService.Connections().AllowTo(stepFunctionSyncEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions Sync"))
 	ecsUiService.Connections().AllowTo(stepFunctionEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions"))
