@@ -369,12 +369,46 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		}))
 
 	// Add Endpoint for ecr
-	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	ecrEndPoint := vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
 		Open: jsii.Bool(true),
 	})
-	vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+	ecrApiEndPoint := vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
+		Open: jsii.Bool(true),
+	})
+
+	// Add aws config, kms, SNS, SQS, ECS, and Lambda as endpoints
+	awsConfigEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsConfigEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CONFIG(),
+		Open: jsii.Bool(true),
+	})
+	awsKmsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsKmsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CONFIG(),
+		Open: jsii.Bool(true),
+	})
+	awsSnsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsSnsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_SNS(),
+		Open: jsii.Bool(true),
+	})
+	awsSqsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsSqsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_SQS(),
+		Open: jsii.Bool(true),
+	})
+	ecsAgentEndPoint := vpc.AddInterfaceEndpoint(jsii.String("EcsAgentEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECS_AGENT(),
+		Open: jsii.Bool(true),
+	})
+	ecsTelemetryEndPoint := vpc.AddInterfaceEndpoint(jsii.String("EcsTelemetryEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECS_TELEMETRY(),
+		Open: jsii.Bool(true),
+	})
+	ecsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("EcsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECS(),
+		Open: jsii.Bool(true),
+	})
+	lambdaEndPoint := vpc.AddInterfaceEndpoint(jsii.String("LambdaEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_LAMBDA(),
 		Open: jsii.Bool(true),
 	})
 
@@ -399,10 +433,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
 		Open: jsii.Bool(true),
 	})
-
-	// Add S3 Interface endpoint
-	s3InterfaceEndPoint := vpc.AddInterfaceEndpoint(jsii.String("S3IEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_S3(),
+	cloudwatchMonitoringEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchMonitoringEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH(),
+		Open: jsii.Bool(true),
+	})
+	cloudwatchEventsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEventsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_EVENTS(),
 		Open: jsii.Bool(true),
 	})
 
@@ -1148,7 +1184,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
-	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String("UI-SecurityGroup"), &awsec2.SecurityGroupProps{
+	uiSecurityGroup := awsec2.NewSecurityGroup(stack, jsii.String("UISecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String("Allow JetStore UI network access"),
 		AllowAllOutbound: jsii.Bool(false),
@@ -1181,9 +1217,32 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		"20.29.134.19/32",
 	)
 	for _,cdr := range *cdrs {
-		securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)), 
+		uiSecurityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)), 
 			jsii.String("allow https access to github repository"), jsii.Bool(false))
 	}	
+	// Add IP from aws managed prefix list to access gateways
+	// pl-062e1d6f8317caab5 - com.amazonaws.us-east-1.route53-healthchecks
+	uiSecurityGroup.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-062e1d6f8317caab5")), awsec2.Port_AllTraffic(), jsii.String("allow access to route53-healthchecks"), jsii.Bool(false))
+	// pl-63a5400a - com.amazonaws.us-east-1.s3
+	uiSecurityGroup.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-63a5400a")), awsec2.Port_AllTraffic(), jsii.String("allow access to s3"), jsii.Bool(false))
+	uiSecurityGroup.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService/RDS"))
+	uiSecurityGroup.Connections().AllowTo(cloudwatchEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch"))
+	uiSecurityGroup.Connections().AllowTo(cloudwatchMonitoringEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch Monitoring"))
+	uiSecurityGroup.Connections().AllowTo(cloudwatchEventsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch Events"))
+	uiSecurityGroup.Connections().AllowTo(secretManagerEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Secret Manager"))
+	uiSecurityGroup.Connections().AllowTo(stepFunctionSyncEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions Sync"))
+	uiSecurityGroup.Connections().AllowTo(stepFunctionEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions"))
+	uiSecurityGroup.Connections().AllowTo(ecrApiEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECR API"))
+	uiSecurityGroup.Connections().AllowTo(ecrEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECR"))
+	uiSecurityGroup.Connections().AllowTo(awsConfigEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Aws Config"))
+	uiSecurityGroup.Connections().AllowTo(awsKmsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/KMS"))
+	uiSecurityGroup.Connections().AllowTo(awsSnsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/SNS"))
+	uiSecurityGroup.Connections().AllowTo(awsSqsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/SQS"))
+	uiSecurityGroup.Connections().AllowTo(ecsAgentEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECS Agent"))
+	uiSecurityGroup.Connections().AllowTo(ecsTelemetryEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECS Telemetry"))
+	uiSecurityGroup.Connections().AllowTo(ecsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECS"))
+	uiSecurityGroup.Connections().AllowTo(lambdaEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Lambda"))
+	
 	ecsUiService := awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
 		Cluster:        ecsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
@@ -1191,7 +1250,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		VpcSubnets:     privateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
-		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		SecurityGroups: &[]awsec2.ISecurityGroup{uiSecurityGroup},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(ecsUiService).Add(phiTagName, jsii.String("true"), nil)
@@ -1314,13 +1373,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			}),
 		})
 	}
-
-	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
-	ecsUiService.Connections().AllowTo(cloudwatchEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch"))
-	ecsUiService.Connections().AllowTo(secretManagerEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Secret Manager"))
-	ecsUiService.Connections().AllowTo(stepFunctionSyncEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions Sync"))
-	ecsUiService.Connections().AllowTo(stepFunctionEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions"))
-	ecsUiService.Connections().AllowTo(s3InterfaceEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/S3"))
 
 	// Connectivity info for lambda functions to apiserver
 	p := uiPort
