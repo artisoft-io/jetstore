@@ -1,4 +1,4 @@
-package main
+package stack
 
 import (
 	"fmt"
@@ -14,8 +14,20 @@ import (
 
 // Functions to create JetStore VPC
 var cidr string
+var phiTagName, piiTagName, descriptionTagName *string
+func init() {
+	if os.Getenv("JETS_TAG_NAME_PHI") != "" {
+		phiTagName = jsii.String(os.Getenv("JETS_TAG_NAME_PHI"))
+	}
+	if os.Getenv("JETS_TAG_NAME_PII") != "" {
+		piiTagName = jsii.String(os.Getenv("JETS_TAG_NAME_PII"))
+	}
+	if os.Getenv("JETS_TAG_NAME_DESCRIPTION") != "" {
+		descriptionTagName = jsii.String(os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
+	}
+}
 
-func createJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
+func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	cidr = os.Getenv("JETS_VPC_CIDR")
 	if cidr == "" {
 		cidr = "10.10.0.0/16"
@@ -72,10 +84,9 @@ func createJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
 		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
 		Subnets: &[]*awsec2.SubnetSelection{
-			&awsec2.SubnetSelection{
+			{
 				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
-			}, 
-			&awsec2.SubnetSelection{
+			},{
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 			}},
 	})
@@ -92,7 +103,7 @@ func createJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	return vpc
 }
 
-func addVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
+func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
 	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "SecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String(fmt.Sprintf("Allow network access for %s subnets", prefix)),

@@ -1,4 +1,4 @@
-package main
+package stack
 
 import (
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
@@ -8,7 +8,7 @@ import (
 
 // Functions to create the SecurityGroup giving access to GitHub
 
-func newGithubAccessSecurityGroup(stack awscdk.Stack, vpc awsec2.Vpc) awsec2.SecurityGroup {
+func NewGithubAccessSecurityGroup(stack awscdk.Stack, vpc awsec2.Vpc) awsec2.SecurityGroup {
 	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String("GithubAccessSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String("Allow network access to GitHub"),
