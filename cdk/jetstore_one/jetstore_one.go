@@ -384,7 +384,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		Open: jsii.Bool(true),
 	})
 	awsKmsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsKmsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CONFIG(),
+		Service: awsec2.InterfaceVpcEndpointAwsService_KMS(),
 		Open: jsii.Bool(true),
 	})
 	awsSnsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsSnsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
