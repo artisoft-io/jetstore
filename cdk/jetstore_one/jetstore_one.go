@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
@@ -59,163 +58,6 @@ type JetstoreOneStackProps struct {
 }
 
 var phiTagName, piiTagName, descriptionTagName *string
-
-// Support Functions
-func AddJetStoreAlarms(stack awscdk.Stack, alarmAction awscloudwatch.IAlarmAction, props *JetstoreOneStackProps) {
-
-	alarm := awscloudwatch.NewAlarm(stack, jsii.String("JetStoreAutoLoaderFailureAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("autoLoaderFailed"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(1),
-		AlarmDescription:   jsii.String("autoLoaderFailed >= 1 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: awscloudwatch.NewMetric(&awscloudwatch.MetricProps{
-			Namespace:  jsii.String("JetStore/Pipeline"),
-			MetricName: jsii.String("autoLoaderFailed"),
-			Period:     awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("JetStoreAutoServerFailureAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("autoServerFailed"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(1),
-		AlarmDescription:   jsii.String("autoServerFailed >= 1 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: awscloudwatch.NewMetric(&awscloudwatch.MetricProps{
-			Namespace:  jsii.String("JetStore/Pipeline"),
-			MetricName: jsii.String("autoServerFailed"),
-			Period:     awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-}
-func AddElbAlarms(stack awscdk.Stack, prefix string,
-	elb awselb.ApplicationLoadBalancer, alarmAction awscloudwatch.IAlarmAction, props *JetstoreOneStackProps) {
-
-	var alarm awscloudwatch.Alarm
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"TargetResponseTimeAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String(prefix + "TargetResponseTimeAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(10000),
-		AlarmDescription:   jsii.String("TargetResponseTime > 10000 for 1 datapoints within 1 minute"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metrics().TargetResponseTime(&awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(1)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"ServerErrorsAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String(prefix + "ServerErrorsAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(100),
-		AlarmDescription:   jsii.String("HTTPCode_Target_5XX_Count > 100 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metrics().HttpCodeTarget(awselb.HttpCodeTarget_TARGET_5XX_COUNT, &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"UnHealthyHostCountAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String(prefix + "UnHealthyHostCountAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		Threshold:          jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		AlarmDescription:   jsii.String("UnHealthyHostCount >= 1 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metrics().Custom(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-}
-
-func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
-	alarmAction awscloudwatch.IAlarmAction, props *JetstoreOneStackProps) {
-
-	var alarm awscloudwatch.Alarm
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("DiskQueueDepthAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("DiskQueueDepthAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(80),
-		AlarmDescription:   jsii.String("DiskQueueDepth >= 80 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.Metric(jsii.String("DiskQueueDepth"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("CPUUtilizationAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("CPUUtilizationAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(60),
-		AlarmDescription:   jsii.String(fmt.Sprintf("CPUUtilization > %.1f for 1 datapoints within 5 minutes", *props.CpuUtilizationAlarmThreshold)),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.MetricCPUUtilization(&awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("ServerlessDatabaseCapacityAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("ServerlessDatabaseCapacityAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		Threshold:          jsii.Number(*props.DbMaxCapacity * 0.8),
-		DatapointsToAlarm:  jsii.Number(1),
-		AlarmDescription:   jsii.String("ServerlessDatabaseCapacity >= MAX_CAPACITY*0.8 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.Metric(jsii.String("ServerlessDatabaseCapacity"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	// 1 ACU = 2 GB = 2 * 1024*1024*1024 bytes = 2147483648 bytes
-	// Alarm threshold in bytes, MIN_CAPACITY in ACU
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("FreeableMemoryAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("FreeableMemoryAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		Threshold:          jsii.Number(*props.DbMinCapacity * 2147483648 / 2.0),
-		DatapointsToAlarm:  jsii.Number(1),
-		AlarmDescription:   jsii.String("FreeableMemory < MIN_CAPACITY/2 in bytes for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_LESS_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.Metric(jsii.String("FreeableMemory"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-}
 
 func mkCatchProps() *sfn.CatchProps {
 	return &sfn.CatchProps{
@@ -287,58 +129,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// Create a VPC to run tasks in.
 	// ----------------------------------------------------------------------------------------------
-	cidr := os.Getenv("JETS_VPC_CIDR")
-	if cidr == "" {
-		cidr = "10.10.0.0/16"
-	}
-	nbrNatGateway := 0
-	if os.Getenv("JETS_NBR_NAT_GATEWAY") != "" {
-		var err error
-		nbrNatGateway, err = strconv.Atoi(os.Getenv("JETS_NBR_NAT_GATEWAY"))
-		if err != nil {
-			log.Printf("Invalid value for JETS_NBR_NAT_GATEWAY, setting to 0")
-			nbrNatGateway = 0
-		}
-	}
-	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
-		MaxAzs:             jsii.Number(2),
-		CreateInternetGateway: jsii.Bool(true),
-		NatGateways:        jsii.Number(float64(nbrNatGateway)),
-		EnableDnsHostnames: jsii.Bool(true),
-		EnableDnsSupport:   jsii.Bool(true),
-		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
-		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
-			{
-				Name:       jsii.String("public"),
-				SubnetType: awsec2.SubnetType_PUBLIC,
-				CidrMask: jsii.Number(20),
-			},
-			{
-				Name:       jsii.String("private"),
-				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
-				CidrMask: jsii.Number(20),
-			},
-			{
-				Name:       jsii.String("isolated"),
-				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
-				CidrMask: jsii.Number(20),
-			},
-		},
-		FlowLogs: &map[string]*awsec2.FlowLogOptions{
-			"VpcFlowFlog": {
-				TrafficType: awsec2.FlowLogTrafficType_ALL,
-			},
-		},
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("VPC for JetStore Platform"), nil)
-	}
 	publicSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
 	}
@@ -348,99 +138,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	isolatedSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
+	vpc := createJetStoreVPC(stack)
 	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
 		Value: vpc.VpcId(),
 	})
 
-	// Add Endpoints
-	// Add Endpoint for S3
-	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
-		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
-		Subnets: &[]*awsec2.SubnetSelection{privateSubnetSelection, isolatedSubnetSelection},
-	})
-	s3Endpoint.AddToPolicy(
-		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			Sid: jsii.String("bucketAccessPolicy"),
-			Principals: &[]awsiam.IPrincipal{
-				awsiam.NewAnyPrincipal(),
-			},
-			Actions:   jsii.Strings("s3:ListBucket", "s3:GetObject", "s3:PutObject"),
-			Resources: jsii.Strings("*"),
-		}))
+	// Add Endpoints on private subnets
+	privateSecurityGroup := addVpcEndpoints(stack, vpc, "Private", privateSubnetSelection)
 
-	// Add Endpoint for ecr
-	ecrEndPoint := vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
-		Open: jsii.Bool(true),
-	})
-	ecrApiEndPoint := vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
-		Open: jsii.Bool(true),
-	})
-
-	// Add aws config, kms, SNS, SQS, ECS, and Lambda as endpoints
-	awsConfigEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsConfigEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CONFIG(),
-		Open: jsii.Bool(true),
-	})
-	awsKmsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsKmsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_KMS(),
-		Open: jsii.Bool(true),
-	})
-	awsSnsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsSnsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_SNS(),
-		Open: jsii.Bool(true),
-	})
-	awsSqsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("AwsSqsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_SQS(),
-		Open: jsii.Bool(true),
-	})
-	ecsAgentEndPoint := vpc.AddInterfaceEndpoint(jsii.String("EcsAgentEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_ECS_AGENT(),
-		Open: jsii.Bool(true),
-	})
-	ecsTelemetryEndPoint := vpc.AddInterfaceEndpoint(jsii.String("EcsTelemetryEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_ECS_TELEMETRY(),
-		Open: jsii.Bool(true),
-	})
-	ecsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("EcsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_ECS(),
-		Open: jsii.Bool(true),
-	})
-	lambdaEndPoint := vpc.AddInterfaceEndpoint(jsii.String("LambdaEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_LAMBDA(),
-		Open: jsii.Bool(true),
-	})
-
-	// Add secret manager endpoint
-	secretManagerEndPoint := vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
-		Open: jsii.Bool(true),
-	})
-
-	// Add Step Functions endpoint
-	stepFunctionSyncEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
-		Open: jsii.Bool(true),
-	})
-	stepFunctionEndPoint := vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
-		Open: jsii.Bool(true),
-	})
-
-	// Add Cloudwatch endpoint
-	cloudwatchEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
-		Open: jsii.Bool(true),
-	})
-	cloudwatchMonitoringEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchMonitoringEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH(),
-		Open: jsii.Bool(true),
-	})
-	cloudwatchEventsEndPoint := vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEventsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_EVENTS(),
-		Open: jsii.Bool(true),
-	})
 
 	// Database Cluster
 	// ----------------------------------------------------------------------------------------------
@@ -1184,64 +889,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
-	uiSecurityGroup := awsec2.NewSecurityGroup(stack, jsii.String("UISecurityGroup"), &awsec2.SecurityGroupProps{
-		Vpc: vpc,
-		Description: jsii.String("Allow JetStore UI network access"),
-		AllowAllOutbound: jsii.Bool(false),
-	})
-	// Add access to Github
-	cdrs := jsii.Strings(    
-		"192.30.252.0/22",
-		"185.199.108.0/22",
-		"140.82.112.0/20",
-		"143.55.64.0/20",
-		"20.201.28.151/32",
-		"20.205.243.166/32",
-		"20.87.245.0/32",
-		"20.248.137.48/32",
-		"20.207.73.82/32",
-		"20.27.177.113/32",
-		"20.200.245.247/32",
-		"20.175.192.147/32",
-		"20.233.83.145/32",
-		"20.29.134.23/32",
-		"20.201.28.152/32",
-		"20.205.243.160/32",
-		"20.87.245.4/32",
-		"20.248.137.50/32",
-		"20.207.73.83/32",
-		"20.27.177.118/32",
-		"20.200.245.248/32",
-		"20.175.192.146/32",
-		"20.233.83.149/32",
-		"20.29.134.19/32",
-	)
-	for _,cdr := range *cdrs {
-		uiSecurityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)), 
-			jsii.String("allow https access to github repository"), jsii.Bool(false))
-	}	
-	// Add IP from aws managed prefix list to access gateways
-	// pl-062e1d6f8317caab5 - com.amazonaws.us-east-1.route53-healthchecks
-	uiSecurityGroup.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-062e1d6f8317caab5")), awsec2.Port_AllTraffic(), jsii.String("allow access to route53-healthchecks"), jsii.Bool(false))
-	// pl-63a5400a - com.amazonaws.us-east-1.s3
-	uiSecurityGroup.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-63a5400a")), awsec2.Port_AllTraffic(), jsii.String("allow access to s3"), jsii.Bool(false))
-	uiSecurityGroup.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService/RDS"))
-	uiSecurityGroup.Connections().AllowTo(cloudwatchEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch"))
-	uiSecurityGroup.Connections().AllowTo(cloudwatchMonitoringEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch Monitoring"))
-	uiSecurityGroup.Connections().AllowTo(cloudwatchEventsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Cloudwatch Events"))
-	uiSecurityGroup.Connections().AllowTo(secretManagerEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Secret Manager"))
-	uiSecurityGroup.Connections().AllowTo(stepFunctionSyncEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions Sync"))
-	uiSecurityGroup.Connections().AllowTo(stepFunctionEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Step Functions"))
-	uiSecurityGroup.Connections().AllowTo(ecrApiEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECR API"))
-	uiSecurityGroup.Connections().AllowTo(ecrEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECR"))
-	uiSecurityGroup.Connections().AllowTo(awsConfigEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Aws Config"))
-	uiSecurityGroup.Connections().AllowTo(awsKmsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/KMS"))
-	uiSecurityGroup.Connections().AllowTo(awsSnsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/SNS"))
-	uiSecurityGroup.Connections().AllowTo(awsSqsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/SQS"))
-	uiSecurityGroup.Connections().AllowTo(ecsAgentEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECS Agent"))
-	uiSecurityGroup.Connections().AllowTo(ecsTelemetryEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECS Telemetry"))
-	uiSecurityGroup.Connections().AllowTo(ecsEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/ECS"))
-	uiSecurityGroup.Connections().AllowTo(lambdaEndPoint, awsec2.Port_AllTraffic(), jsii.String("Allow connection uiService/Lambda"))
 	
 	ecsUiService := awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
 		Cluster:        ecsCluster,
@@ -1250,7 +897,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		VpcSubnets:     privateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
-		SecurityGroups: &[]awsec2.ISecurityGroup{uiSecurityGroup},
+		SecurityGroups: &[]awsec2.ISecurityGroup{
+			privateSecurityGroup, 
+			newGithubAccessSecurityGroup(stack, vpc)},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(ecsUiService).Add(phiTagName, jsii.String("true"), nil)

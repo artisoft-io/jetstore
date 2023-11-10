@@ -1,0 +1,213 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+
+	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	jsii "github.com/aws/jsii-runtime-go"
+)
+
+// Functions to create JetStore VPC
+var cidr string
+
+func createJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
+	cidr = os.Getenv("JETS_VPC_CIDR")
+	if cidr == "" {
+		cidr = "10.10.0.0/16"
+	}
+	nbrNatGateway := 0
+	if os.Getenv("JETS_NBR_NAT_GATEWAY") != "" {
+		var err error
+		nbrNatGateway, err = strconv.Atoi(os.Getenv("JETS_NBR_NAT_GATEWAY"))
+		if err != nil {
+			log.Printf("Invalid value for JETS_NBR_NAT_GATEWAY, setting to 0")
+			nbrNatGateway = 0
+		}
+	}
+	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
+		MaxAzs:             jsii.Number(2),
+		CreateInternetGateway: jsii.Bool(true),
+		NatGateways:        jsii.Number(float64(nbrNatGateway)),
+		EnableDnsHostnames: jsii.Bool(true),
+		EnableDnsSupport:   jsii.Bool(true),
+		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
+		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
+			{
+				Name:       jsii.String("public"),
+				SubnetType: awsec2.SubnetType_PUBLIC,
+				CidrMask: jsii.Number(20),
+			},
+			{
+				Name:       jsii.String("private"),
+				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
+				CidrMask: jsii.Number(20),
+			},
+			{
+				Name:       jsii.String("isolated"),
+				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
+				CidrMask: jsii.Number(20),
+			},
+		},
+		FlowLogs: &map[string]*awsec2.FlowLogOptions{
+			"VpcFlowFlog": {
+				TrafficType: awsec2.FlowLogTrafficType_ALL,
+			},
+		},
+	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("VPC for JetStore Platform"), nil)
+	}
+	// Add S3 Gateway Endpoint
+	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
+		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
+		Subnets: &[]*awsec2.SubnetSelection{
+			&awsec2.SubnetSelection{
+				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
+			}, 
+			&awsec2.SubnetSelection{
+				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
+			}},
+	})
+	s3Endpoint.AddToPolicy(
+		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Sid: jsii.String("bucketAccessPolicy"),
+			Principals: &[]awsiam.IPrincipal{
+				awsiam.NewAnyPrincipal(),
+			},
+			Actions:   jsii.Strings("s3:ListBucket", "s3:GetObject", "s3:PutObject"),
+			Resources: jsii.Strings("*"),
+		}))
+
+	return vpc
+}
+
+func addVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
+	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "SecurityGroup"), &awsec2.SecurityGroupProps{
+		Vpc: vpc,
+		Description: jsii.String(fmt.Sprintf("Allow network access for %s subnets", prefix)),
+		AllowAllOutbound: jsii.Bool(true),
+	})
+	securityGroup.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
+	// Add Endpoints
+	// pl-062e1d6f8317caab5 - com.amazonaws.us-east-1.route53-healthchecks
+	securityGroup.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-062e1d6f8317caab5")), awsec2.Port_AllTraffic(), jsii.String("allow access to route53-healthchecks"), jsii.Bool(false))
+	// pl-63a5400a - com.amazonaws.us-east-1.s3
+	securityGroup.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-63a5400a")), awsec2.Port_AllTraffic(), jsii.String("allow access to s3"), jsii.Bool(false))
+	// Add Endpoint for ecr
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"EcrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"EcrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+
+	// Add aws config, kms, SNS, SQS, ECS, and Lambda as endpoints
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"AwsConfigEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CONFIG(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"AwsKmsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_KMS(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"AwsSnsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_SNS(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"AwsSqsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_SQS(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"EcsAgentEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECS_AGENT(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"EcsTelemetryEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECS_TELEMETRY(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"EcsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_ECS(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"LambdaEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_LAMBDA(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+
+	// Add secret manager endpoint
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+
+	// Add Step Functions endpoint
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+
+	// Add Cloudwatch endpoint
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"CloudwatchMonitoringEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Open: jsii.Bool(true),
+	})
+	vpc.AddInterfaceEndpoint(jsii.String(prefix+"CloudwatchEventsEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_EVENTS(),
+		SecurityGroups: &[]awsec2.ISecurityGroup{securityGroup},
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})
+
+	return securityGroup
+}
