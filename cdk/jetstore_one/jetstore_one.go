@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	jetstorestack "github.com/artisoft-io/jetstore/cdk/jetstore_one/stack"
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudwatch"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudwatchactions"
@@ -49,14 +50,6 @@ func (ma DbClusterVisitor) Visit(node constructs.IConstruct) {
 	}
 }
 
-type JetstoreOneStackProps struct {
-	awscdk.StackProps
-	DbMinCapacity                *float64
-	DbMaxCapacity                *float64
-	CpuUtilizationAlarmThreshold *float64
-	SnsAlarmTopicArn             *string
-}
-
 var phiTagName, piiTagName, descriptionTagName *string
 
 func mkCatchProps() *sfn.CatchProps {
@@ -68,7 +61,7 @@ func mkCatchProps() *sfn.CatchProps {
 
 // Main Function
 // =====================================================================================================
-func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreOneStackProps) awscdk.Stack {
+func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstorestack.JetstoreOneStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -138,13 +131,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	isolatedSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
-	vpc := createJetStoreVPC(stack)
+	vpc := jetstorestack.CreateJetStoreVPC(stack)
 	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
 		Value: vpc.VpcId(),
 	})
 
 	// Add Endpoints on private subnets
-	privateSecurityGroup := addVpcEndpoints(stack, vpc, "Private", privateSubnetSelection)
+	privateSecurityGroup := jetstorestack.AddVpcEndpoints(stack, vpc, "Private", privateSubnetSelection)
 
 
 	// Database Cluster
@@ -899,7 +892,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		DesiredCount:   jsii.Number(1),
 		SecurityGroups: &[]awsec2.ISecurityGroup{
 			privateSecurityGroup, 
-			newGithubAccessSecurityGroup(stack, vpc)},
+			jetstorestack.NewGithubAccessSecurityGroup(stack, vpc)},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(ecsUiService).Add(phiTagName, jsii.String("true"), nil)
@@ -1045,14 +1038,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	)
 
 	// Add the ELB alerts
-	AddElbAlarms(stack, "UiElb", uiLoadBalancer, alarmAction, props)
+	jetstorestack.AddElbAlarms(stack, "UiElb", uiLoadBalancer, alarmAction, props)
 	if os.Getenv("JETS_ELB_MODE") == "public" {
-		AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer, alarmAction, props)
+		jetstorestack.AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer, alarmAction, props)
 	}
-	AddJetStoreAlarms(stack, alarmAction, props)
+	jetstorestack.AddJetStoreAlarms(stack, alarmAction, props)
 
 	// Add the RDS alerts
-	AddRdsAlarms(stack, rdsCluster, alarmAction, props)
+	jetstorestack.AddRdsAlarms(stack, rdsCluster, alarmAction, props)
 
 	// Add jump server
 	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
@@ -1338,7 +1331,7 @@ func main() {
 	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
 		snsAlarmTopicArn = jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	}
-	NewJetstoreOneStack(app, "JetstoreOneStack", &JetstoreOneStackProps{
+	NewJetstoreOneStack(app, "JetstoreOneStack", &jetstorestack.JetstoreOneStackProps{
 		awscdk.StackProps{
 			Env:         env(),
 			Description: stackDescription,
