@@ -107,7 +107,7 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSe
 	// Returned Security Group for ECS service & tasks
 	securityGroup4EcsTask := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "TaskSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
-		Description: jsii.String(fmt.Sprintf("Allow network access for %s subnets", prefix)),
+		Description: jsii.String(fmt.Sprintf("Allow ECS Tasks network access for %s subnets", prefix)),
 		AllowAllOutbound: jsii.Bool(false),
 	})
 	securityGroup4EcsTask.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
