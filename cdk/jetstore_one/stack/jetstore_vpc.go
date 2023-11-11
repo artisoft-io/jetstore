@@ -103,20 +103,20 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	return vpc
 }
 
-func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
+func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) *awsec2.SecurityGroup {
 	securityGroup4Endpoint := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "EndPointSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String(fmt.Sprintf("Allow network access for %s subnets", prefix)),
-		AllowAllOutbound: jsii.Bool(true),
+		AllowAllOutbound: jsii.Bool(false),
 	})
 	securityGroup4Endpoint.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
 	// Returned Security Group for ECS service & tasks
 	securityGroup4EcsTask := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "TaskSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String(fmt.Sprintf("Allow network access for %s subnets", prefix)),
-		AllowAllOutbound: jsii.Bool(true),
+		AllowAllOutbound: jsii.Bool(false),
 	})
-	securityGroup4Endpoint.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
+	securityGroup4EcsTask.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
 	// Add Endpoints
 	// pl-062e1d6f8317caab5 - com.amazonaws.us-east-1.route53-healthchecks
 	securityGroup4EcsTask.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-062e1d6f8317caab5")), awsec2.Port_AllTraffic(), jsii.String("allow access to route53-healthchecks"), jsii.Bool(false))
@@ -228,5 +228,5 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSe
 		Open: jsii.Bool(true),
 	}), awsec2.Port_AllTraffic(), jsii.String("allow access to cloudwatch events"))
 
-	return securityGroup4EcsTask
+	return &securityGroup4EcsTask
 }

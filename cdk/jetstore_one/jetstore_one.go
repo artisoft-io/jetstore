@@ -891,7 +891,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 		SecurityGroups: &[]awsec2.ISecurityGroup{
-			privateSecurityGroup, 
+			*privateSecurityGroup, 
 			jetstorestack.NewGithubAccessSecurityGroup(stack, vpc)},
 	})
 	if phiTagName != nil {
