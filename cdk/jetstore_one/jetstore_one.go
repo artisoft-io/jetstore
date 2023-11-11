@@ -195,6 +195,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Value: rdsCluster.ClusterIdentifier(),
 	})
 
+	// Grant access to ECS Tasks in Private subnets
+	privateSecurityGroup.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderTask"))
+
 	// Create the ecsCluster.
 	// ==============================================================================================================
 	ecsCluster := awsecs.NewCluster(stack, jsii.String("ecsCluster"), &awsecs.ClusterProps{
@@ -891,7 +894,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 		SecurityGroups: &[]awsec2.ISecurityGroup{
-			*privateSecurityGroup, 
+			privateSecurityGroup, 
 			jetstorestack.NewGithubAccessSecurityGroup(stack, vpc)},
 	})
 	if phiTagName != nil {

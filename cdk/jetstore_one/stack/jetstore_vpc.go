@@ -103,7 +103,7 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	return vpc
 }
 
-func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) *awsec2.SecurityGroup {
+func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
 	// Returned Security Group for ECS service & tasks
 	securityGroup4EcsTask := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "TaskSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
@@ -206,5 +206,5 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSe
 		Open: jsii.Bool(true),
 	}), awsec2.Port_AllTraffic(), jsii.String("allow access to cloudwatch events"))
 
-	return &securityGroup4EcsTask
+	return securityGroup4EcsTask
 }
