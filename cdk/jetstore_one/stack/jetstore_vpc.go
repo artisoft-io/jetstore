@@ -104,14 +104,14 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 }
 
 func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
-	securityGroup4Endpoint := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "SecurityGroup"), &awsec2.SecurityGroupProps{
+	securityGroup4Endpoint := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "EndPointSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String(fmt.Sprintf("Allow network access for %s subnets", prefix)),
 		AllowAllOutbound: jsii.Bool(true),
 	})
 	securityGroup4Endpoint.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
 	// Returned Security Group for ECS service & tasks
-	securityGroup4EcsTask := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "SecurityGroup"), &awsec2.SecurityGroupProps{
+	securityGroup4EcsTask := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "TaskSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String(fmt.Sprintf("Allow network access for %s subnets", prefix)),
 		AllowAllOutbound: jsii.Bool(true),
