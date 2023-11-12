@@ -917,10 +917,19 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			internetFacing = true
 			elbSubnetSelection = publicSubnetSelection
 		}
+		var elbSecurityGroup awsec2.ISecurityGroup
+		if os.Getenv("JETS_ELB_NO_ALL_INCOMING") == "true" {
+			elbSecurityGroup = awsec2.NewSecurityGroup(stack, jsii.String("UiElbSecurityGroup"), &awsec2.SecurityGroupProps{
+				Vpc: vpc,
+				Description: jsii.String("UI public ELB Security Group without all incoming traffic"),
+				AllowAllOutbound: jsii.Bool(false),
+			})
+		}
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(internetFacing),
 			VpcSubnets:      elbSubnetSelection,
+			SecurityGroup: elbSecurityGroup,
 			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
@@ -1166,6 +1175,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
 // JETS_ECR_REPO_ARN (required)
 // JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
+// JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
 // JETS_ELB_MODE (defaults private)
 // JETS_IMAGE_TAG (required)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
