@@ -1164,6 +1164,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // ACTIVE_WORKSPACE_URI source of active workspace
 // AWS_ACCOUNT (required)
 // AWS_REGION (required)
+// AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK (required) region specific aws prefix list for endpoint access
+// AWS_PREFIX_LIST_S3 (required) region specific aws prefix list for endpoint access
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
 // JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
 // JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
@@ -1213,6 +1215,8 @@ func main() {
 	fmt.Println("env ACTIVE_WORKSPACE_URI:", os.Getenv("ACTIVE_WORKSPACE_URI"))
 	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
 	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
+	fmt.Println("env AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK:", os.Getenv("AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK"))
+	fmt.Println("env AWS_PREFIX_LIST_S3:", os.Getenv("AWS_PREFIX_LIST_S3"))
 	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
 	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
@@ -1261,6 +1265,10 @@ func main() {
 	if os.Getenv("AWS_ACCOUNT") == "" || os.Getenv("AWS_REGION") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")
+	}
+	if os.Getenv("AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK") == "" || os.Getenv("AWS_PREFIX_LIST_S3") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variables 'AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK' and 'AWS_PREFIX_LIST_S3' are required.")
 	}
 	if os.Getenv("JETS_ELB_MODE") == "public" && os.Getenv("JETS_CERT_ARN") == "" {
 		hasErr = true
