@@ -120,8 +120,7 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			})
 			rtSeen[*rtId] = true
 		}
-	}
-	
+	}	
 
 	// Update route tables to go from peer vpc isolated subnet to vpc
 	rtSeen = make(map[string]bool)
@@ -129,6 +128,20 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		rtId := subnet.RouteTable().RouteTableId()
 		if !rtSeen[*rtId] {
 			awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RouteIsolatedSNPeerVpc2vpc%d", i)), &awsec2.CfnRouteProps{
+				RouteTableId: subnet.RouteTable().RouteTableId(),
+				VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
+				DestinationCidrBlock: vpc.VpcCidrBlock(),
+			})
+			rtSeen[*rtId] = true
+		}
+	}
+
+	// Update route tables to go from peer vpc private subnet to vpc
+	rtSeen = make(map[string]bool)
+	for i, subnet := range *peerVpc.PrivateSubnets() {
+		rtId := subnet.RouteTable().RouteTableId()
+		if !rtSeen[*rtId] {
+			awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RoutePrivateSNPeerVpc2vpc%d", i)), &awsec2.CfnRouteProps{
 				RouteTableId: subnet.RouteTable().RouteTableId(),
 				VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
 				DestinationCidrBlock: vpc.VpcCidrBlock(),
