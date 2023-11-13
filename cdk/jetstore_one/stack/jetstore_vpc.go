@@ -119,10 +119,12 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSe
 	})
 	securityGroup4EcsTask.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
 	// Add Endpoints
-	// pl-062e1d6f8317caab5 - com.amazonaws.us-east-1.route53-healthchecks
-	securityGroup4EcsTask.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-062e1d6f8317caab5")), awsec2.Port_AllTraffic(), jsii.String("allow access to route53-healthchecks"), jsii.Bool(false))
-	// pl-63a5400a - com.amazonaws.us-east-1.s3
-	securityGroup4EcsTask.AddEgressRule(awsec2.Peer_PrefixList(jsii.String("pl-63a5400a")), awsec2.Port_AllTraffic(), jsii.String("allow access to s3"), jsii.Bool(false))
+	// AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK - com.amazonaws.us-east-1.route53-healthchecks
+	securityGroup4EcsTask.AddEgressRule(awsec2.Peer_PrefixList(jsii.String(os.Getenv("AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK"))), 
+		awsec2.Port_AllTraffic(), jsii.String("allow access to route53-healthchecks"), jsii.Bool(false))
+	// AWS_PREFIX_LIST_S3 - com.amazonaws.us-east-1.s3
+	securityGroup4EcsTask.AddEgressRule(awsec2.Peer_PrefixList(jsii.String(os.Getenv("AWS_PREFIX_LIST_S3"))), 
+		awsec2.Port_AllTraffic(), jsii.String("allow access to s3"), jsii.Bool(false))
 	
 	// Add Endpoint for ecr
 	securityGroup4EcsTask.Connections().AllowTo(vpc.AddInterfaceEndpoint(jsii.String(prefix+"EcrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
