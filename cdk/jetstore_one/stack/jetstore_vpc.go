@@ -41,9 +41,16 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 			nbrNatGateway = 0
 		}
 	}
+	internetGateway := false
+	igEV := os.Getenv("JETS_VPC_INTERNET_GATEWAY")
+	if igEV == "true" || igEV == "TRUE" {
+		internetGateway = true
+	} else {
+		nbrNatGateway = 0
+	}
 	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
 		MaxAzs:             jsii.Number(2),
-		CreateInternetGateway: jsii.Bool(true),
+		CreateInternetGateway: jsii.Bool(internetGateway),
 		NatGateways:        jsii.Number(float64(nbrNatGateway)),
 		EnableDnsHostnames: jsii.Bool(true),
 		EnableDnsSupport:   jsii.Bool(true),
