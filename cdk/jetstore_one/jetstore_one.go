@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
+	jetstorestack "github.com/artisoft-io/jetstore/cdk/jetstore_one/stack"
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudwatch"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudwatchactions"
@@ -50,172 +50,7 @@ func (ma DbClusterVisitor) Visit(node constructs.IConstruct) {
 	}
 }
 
-type JetstoreOneStackProps struct {
-	awscdk.StackProps
-	DbMinCapacity                *float64
-	DbMaxCapacity                *float64
-	CpuUtilizationAlarmThreshold *float64
-	SnsAlarmTopicArn             *string
-}
-
 var phiTagName, piiTagName, descriptionTagName *string
-
-// Support Functions
-func AddJetStoreAlarms(stack awscdk.Stack, alarmAction awscloudwatch.IAlarmAction, props *JetstoreOneStackProps) {
-
-	alarm := awscloudwatch.NewAlarm(stack, jsii.String("JetStoreAutoLoaderFailureAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("autoLoaderFailed"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(1),
-		AlarmDescription:   jsii.String("autoLoaderFailed >= 1 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: awscloudwatch.NewMetric(&awscloudwatch.MetricProps{
-			Namespace:  jsii.String("JetStore/Pipeline"),
-			MetricName: jsii.String("autoLoaderFailed"),
-			Period:     awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("JetStoreAutoServerFailureAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("autoServerFailed"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(1),
-		AlarmDescription:   jsii.String("autoServerFailed >= 1 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: awscloudwatch.NewMetric(&awscloudwatch.MetricProps{
-			Namespace:  jsii.String("JetStore/Pipeline"),
-			MetricName: jsii.String("autoServerFailed"),
-			Period:     awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-}
-func AddElbAlarms(stack awscdk.Stack, prefix string,
-	elb awselb.ApplicationLoadBalancer, alarmAction awscloudwatch.IAlarmAction, props *JetstoreOneStackProps) {
-
-	var alarm awscloudwatch.Alarm
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"TargetResponseTimeAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String(prefix + "TargetResponseTimeAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(10000),
-		AlarmDescription:   jsii.String("TargetResponseTime > 10000 for 1 datapoints within 1 minute"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metrics().TargetResponseTime(&awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(1)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"ServerErrorsAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String(prefix + "ServerErrorsAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(100),
-		AlarmDescription:   jsii.String("HTTPCode_Target_5XX_Count > 100 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metrics().HttpCodeTarget(awselb.HttpCodeTarget_TARGET_5XX_COUNT, &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String(prefix+"UnHealthyHostCountAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String(prefix + "UnHealthyHostCountAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		Threshold:          jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		AlarmDescription:   jsii.String("UnHealthyHostCount >= 1 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: elb.Metrics().Custom(jsii.String("UnHealthyHostCount"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-}
-
-func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
-	alarmAction awscloudwatch.IAlarmAction, props *JetstoreOneStackProps) {
-
-	var alarm awscloudwatch.Alarm
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("DiskQueueDepthAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("DiskQueueDepthAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(80),
-		AlarmDescription:   jsii.String("DiskQueueDepth >= 80 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.Metric(jsii.String("DiskQueueDepth"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("CPUUtilizationAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("CPUUtilizationAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		DatapointsToAlarm:  jsii.Number(1),
-		Threshold:          jsii.Number(60),
-		AlarmDescription:   jsii.String(fmt.Sprintf("CPUUtilization > %.1f for 1 datapoints within 5 minutes", *props.CpuUtilizationAlarmThreshold)),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.MetricCPUUtilization(&awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("ServerlessDatabaseCapacityAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("ServerlessDatabaseCapacityAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		Threshold:          jsii.Number(*props.DbMaxCapacity * 0.8),
-		DatapointsToAlarm:  jsii.Number(1),
-		AlarmDescription:   jsii.String("ServerlessDatabaseCapacity >= MAX_CAPACITY*0.8 for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.Metric(jsii.String("ServerlessDatabaseCapacity"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-	// 1 ACU = 2 GB = 2 * 1024*1024*1024 bytes = 2147483648 bytes
-	// Alarm threshold in bytes, MIN_CAPACITY in ACU
-	alarm = awscloudwatch.NewAlarm(stack, jsii.String("FreeableMemoryAlarm"), &awscloudwatch.AlarmProps{
-		AlarmName:          jsii.String("FreeableMemoryAlarm"),
-		EvaluationPeriods:  jsii.Number(1),
-		Threshold:          jsii.Number(*props.DbMinCapacity * 2147483648 / 2.0),
-		DatapointsToAlarm:  jsii.Number(1),
-		AlarmDescription:   jsii.String("FreeableMemory < MIN_CAPACITY/2 in bytes for 1 datapoints within 5 minutes"),
-		ComparisonOperator: awscloudwatch.ComparisonOperator_LESS_THAN_THRESHOLD,
-		TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
-		Metric: rds.Metric(jsii.String("FreeableMemory"), &awscloudwatch.MetricOptions{
-			Period: awscdk.Duration_Minutes(jsii.Number(5)),
-		}),
-	})
-	if alarmAction != nil {
-		alarm.AddAlarmAction(alarmAction)
-	}
-}
 
 func mkCatchProps() *sfn.CatchProps {
 	return &sfn.CatchProps{
@@ -226,7 +61,7 @@ func mkCatchProps() *sfn.CatchProps {
 
 // Main Function
 // =====================================================================================================
-func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreOneStackProps) awscdk.Stack {
+func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstorestack.JetstoreOneStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -287,57 +122,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 	// Create a VPC to run tasks in.
 	// ----------------------------------------------------------------------------------------------
-	cidr := os.Getenv("JETS_VPC_CIDR")
-	if cidr == "" {
-		cidr = "10.10.0.0/16"
-	}
-	nbrNatGateway := 0
-	if os.Getenv("JETS_NBR_NAT_GATEWAY") != "" {
-		var err error
-		nbrNatGateway, err = strconv.Atoi(os.Getenv("JETS_NBR_NAT_GATEWAY"))
-		if err != nil {
-			log.Printf("Invalid value for JETS_NBR_NAT_GATEWAY, setting to 0")
-			nbrNatGateway = 0
-		}
-	}
-	vpc := awsec2.NewVpc(stack, jsii.String("JetStoreVpc"), &awsec2.VpcProps{
-		MaxAzs:             jsii.Number(2),
-		NatGateways:        jsii.Number(float64(nbrNatGateway)),
-		EnableDnsHostnames: jsii.Bool(true),
-		EnableDnsSupport:   jsii.Bool(true),
-		IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String(cidr)),
-		SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
-			{
-				Name:       jsii.String("public"),
-				SubnetType: awsec2.SubnetType_PUBLIC,
-				CidrMask: jsii.Number(20),
-			},
-			{
-				Name:       jsii.String("private"),
-				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
-				CidrMask: jsii.Number(20),
-			},
-			{
-				Name:       jsii.String("isolated"),
-				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
-				CidrMask: jsii.Number(20),
-			},
-		},
-		FlowLogs: &map[string]*awsec2.FlowLogOptions{
-			"VpcFlowFlog": {
-				TrafficType: awsec2.FlowLogTrafficType_ALL,
-			},
-		},
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(vpc).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(vpc).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("VPC for JetStore Platform"), nil)
-	}
 	publicSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
 	}
@@ -347,59 +131,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	isolatedSubnetSelection := &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
+	vpc := jetstorestack.CreateJetStoreVPC(stack)
 	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
 		Value: vpc.VpcId(),
 	})
 
-	// Add Endpoints
-	// Add Endpoint for S3
-	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
-		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
-		Subnets: &[]*awsec2.SubnetSelection{privateSubnetSelection, isolatedSubnetSelection},
-	})
-	s3Endpoint.AddToPolicy(
-		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			Sid: jsii.String("bucketAccessPolicy"),
-			Principals: &[]awsiam.IPrincipal{
-				awsiam.NewAnyPrincipal(),
-			},
-			Actions:   jsii.Strings("s3:ListBucket", "s3:GetObject", "s3:PutObject"),
-			Resources: jsii.Strings("*"),
-		}))
+	// Add Endpoints on private subnets
+	privateSecurityGroup := jetstorestack.AddVpcEndpoints(stack, vpc, "Private", privateSubnetSelection)
 
-	// Add Endpoint for ecr
-	vpc.AddInterfaceEndpoint(jsii.String("ecrEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_ECR_DOCKER(),
-		// Subnets: isolatedSubnetSelection,
-		Open: jsii.Bool(true),
-	})
-	vpc.AddInterfaceEndpoint(jsii.String("ecrApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_ECR(),
-		// Subnets: isolatedSubnetSelection,
-		Open: jsii.Bool(true),
-	})
-
-	// Add secret manager endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("SecretManagerEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_SECRETS_MANAGER(),
-		Subnets: isolatedSubnetSelection,
-	})
-
-	// Add Step Functions endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
-		Subnets: isolatedSubnetSelection,
-	})
-	vpc.AddInterfaceEndpoint(jsii.String("StatesEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS(),
-		Subnets: isolatedSubnetSelection,
-	})
-
-	// Add Cloudwatch endpoint
-	vpc.AddInterfaceEndpoint(jsii.String("CloudwatchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
-		Service: awsec2.InterfaceVpcEndpointAwsService_CLOUDWATCH_LOGS(),
-		Subnets: isolatedSubnetSelection,
-	})
 
 	// Database Cluster
 	// ----------------------------------------------------------------------------------------------
@@ -455,6 +194,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	awscdk.NewCfnOutput(stack, jsii.String("JetStore_RDS_Cluster_ID"), &awscdk.CfnOutputProps{
 		Value: rdsCluster.ClusterIdentifier(),
 	})
+
+	// Grant access to ECS Tasks in Private subnets
+	privateSecurityGroup.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderTask"))
 
 	// Create the ecsCluster.
 	// ==============================================================================================================
@@ -1143,6 +885,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
+	
 	ecsUiService := awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
 		Cluster:        ecsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
@@ -1150,6 +893,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		VpcSubnets:     privateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
+		SecurityGroups: &[]awsec2.ISecurityGroup{
+			privateSecurityGroup, 
+			jetstorestack.NewGithubAccessSecurityGroup(stack, vpc)},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(ecsUiService).Add(phiTagName, jsii.String("true"), nil)
@@ -1171,10 +917,19 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 			internetFacing = true
 			elbSubnetSelection = publicSubnetSelection
 		}
+		var elbSecurityGroup awsec2.ISecurityGroup
+		if os.Getenv("JETS_ELB_NO_ALL_INCOMING") == "true" {
+			elbSecurityGroup = awsec2.NewSecurityGroup(stack, jsii.String("UiElbSecurityGroup"), &awsec2.SecurityGroupProps{
+				Vpc: vpc,
+				Description: jsii.String("UI public ELB Security Group without all incoming traffic"),
+				AllowAllOutbound: jsii.Bool(false),
+			})
+		}
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(internetFacing),
 			VpcSubnets:      elbSubnetSelection,
+			SecurityGroup: elbSecurityGroup,
 			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
@@ -1273,8 +1028,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 		})
 	}
 
-	ecsUiService.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from ecsUiService"))
-
 	// Connectivity info for lambda functions to apiserver
 	p := uiPort
 	s := apiLoadBalancer.LoadBalancerDnsName()
@@ -1297,14 +1050,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 	)
 
 	// Add the ELB alerts
-	AddElbAlarms(stack, "UiElb", uiLoadBalancer, alarmAction, props)
+	jetstorestack.AddElbAlarms(stack, "UiElb", uiLoadBalancer, alarmAction, props)
 	if os.Getenv("JETS_ELB_MODE") == "public" {
-		AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer, alarmAction, props)
+		jetstorestack.AddElbAlarms(stack, "ServiceElb", serviceLoadBalancer, alarmAction, props)
 	}
-	AddJetStoreAlarms(stack, alarmAction, props)
+	jetstorestack.AddJetStoreAlarms(stack, alarmAction, props)
 
 	// Add the RDS alerts
-	AddRdsAlarms(stack, rdsCluster, alarmAction, props)
+	jetstorestack.AddRdsAlarms(stack, rdsCluster, alarmAction, props)
 
 	// Add jump server
 	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
@@ -1408,95 +1161,103 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *JetstoreO
 
 // Expected Env Variables
 // ----------------------
+// ACTIVE_WORKSPACE_URI source of active workspace
 // AWS_ACCOUNT (required)
 // AWS_REGION (required)
-// JETS_ECR_REPO_ARN (required)
-// JETS_IMAGE_TAG (required)
-// JETS_UI_PORT (defaults 8080)
-// JETS_ELB_MODE (defaults private)
-// JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
-// JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
-// NBR_SHARDS (defaults to 1)
-// TASK_MAX_CONCURRENCY (defaults to 1)
-// JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
-// JETS_s3_INPUT_PREFIX (required)
-// JETS_s3_OUTPUT_PREFIX (required)
+// AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK (required) region specific aws prefix list for endpoint access
+// AWS_PREFIX_LIST_S3 (required) region specific aws prefix list for endpoint access
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
+// JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
+// JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
+// JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
+// JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
+// JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
+// JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
+// JETS_ECR_REPO_ARN (required)
+// JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
+// JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
+// JETS_ELB_MODE (defaults private)
+// JETS_IMAGE_TAG (required)
+// JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
+// JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
+// JETS_LOADER_CHUNCK_SIZE loader file partition size
+// JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
+// JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
+// JETS_s3_INPUT_PREFIX (required)
+// JETS_s3_OUTPUT_PREFIX (required)
+// JETS_SERVER_TASK_CPU allocated cpu in vCPU units
+// JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
+// JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
+// JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
-// JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
-// JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
-// JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
 // JETS_TAG_NAME_PHI (optional, resource-level tag name for indicating if resource contains PHI data, value true/false)
 // JETS_TAG_NAME_PII (optional, resource-level tag name for indicating if resource contains PII data, value true/false)
-// JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
-// JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
-// JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
-// JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
-// JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
-// JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
-// WORKSPACES_HOME (required, to copy test files from workspace data folder)
+// JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
+// JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
+// JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
+// JETS_UI_PORT (defaults 8080)
+// JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
+// JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
+// NBR_SHARDS (defaults to 1)
+// RETENTION_DAYS site global rentention days, delete sessions if > 0
+// TASK_MAX_CONCURRENCY (defaults to 1)
 // WORKSPACE (required, indicate active workspace)
 // WORKSPACE_BRANCH to indicate the active workspace
 // WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
-// ACTIVE_WORKSPACE_URI source of active workspace
-// JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
-// JETS_LOADER_CHUNCK_SIZE loader file partition size
-// JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
-// JETS_SERVER_TASK_CPU allocated cpu in vCPU units
-// JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
-// JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
-// RETENTION_DAYS site global rentention days, delete sessions if > 0
-// JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
-// JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
+// WORKSPACES_HOME (required, to copy test files from workspace data folder)
 func main() {
 	defer jsii.Close()
 	var err error
 
 	fmt.Println("Got following env var")
+	fmt.Println("env ACTIVE_WORKSPACE_URI:", os.Getenv("ACTIVE_WORKSPACE_URI"))
 	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
 	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
-	fmt.Println("env JETS_ECR_REPO_ARN:", os.Getenv("JETS_ECR_REPO_ARN"))
-	fmt.Println("env JETS_IMAGE_TAG:", os.Getenv("JETS_IMAGE_TAG"))
-	fmt.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
-	fmt.Println("env JETS_ELB_MODE:", os.Getenv("JETS_ELB_MODE"))
-	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
-	fmt.Println("env JETS_ELB_INTERNET_FACING:", os.Getenv("JETS_ELB_INTERNET_FACING"))
-	fmt.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
-	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
-	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
-	fmt.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
-	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
-	fmt.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
-	fmt.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
+	fmt.Println("env AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK:", os.Getenv("AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK"))
+	fmt.Println("env AWS_PREFIX_LIST_S3:", os.Getenv("AWS_PREFIX_LIST_S3"))
 	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
-	fmt.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
+	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
+	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
+	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
+	fmt.Println("env JETS_DB_MAX_CAPACITY:", os.Getenv("JETS_DB_MAX_CAPACITY"))
+	fmt.Println("env JETS_DB_MIN_CAPACITY:", os.Getenv("JETS_DB_MIN_CAPACITY"))
 	fmt.Println("env JETS_DOMAIN_KEY_HASH_ALGO:", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	fmt.Println("env JETS_DOMAIN_KEY_HASH_SEED:", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
+	fmt.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	fmt.Println("env JETS_ECR_REPO_ARN:", os.Getenv("JETS_ECR_REPO_ARN"))
+	fmt.Println("env JETS_ELB_INTERNET_FACING:", os.Getenv("JETS_ELB_INTERNET_FACING"))
+	fmt.Println("env JETS_ELB_MODE:", os.Getenv("JETS_ELB_MODE"))
+	fmt.Println("env JETS_ELB_NO_ALL_INCOMING:", os.Getenv("JETS_ELB_NO_ALL_INCOMING"))
+	fmt.Println("env JETS_IMAGE_TAG:", os.Getenv("JETS_IMAGE_TAG"))
+	fmt.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
+	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
+	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
+	fmt.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
+	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:", os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
+	fmt.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
+	fmt.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
+	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
+	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
+	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
+	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 	fmt.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
-	fmt.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
-	fmt.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
-	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
 	fmt.Println("env JETS_TAG_NAME_PHI:", os.Getenv("JETS_TAG_NAME_PHI"))
 	fmt.Println("env JETS_TAG_NAME_PII:", os.Getenv("JETS_TAG_NAME_PII"))
-	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
-	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
-	fmt.Println("env JETS_DB_MIN_CAPACITY:", os.Getenv("JETS_DB_MIN_CAPACITY"))
-	fmt.Println("env JETS_DB_MAX_CAPACITY:", os.Getenv("JETS_DB_MAX_CAPACITY"))
-	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
-	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:", os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
-	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
-	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
+	fmt.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
+	fmt.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
+	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
+	fmt.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
+	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
+	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
+	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
+	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
+	fmt.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
 	fmt.Println("env WORKSPACE_BRANCH:", os.Getenv("WORKSPACE_BRANCH"))
 	fmt.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
-	fmt.Println("env ACTIVE_WORKSPACE_URI:", os.Getenv("ACTIVE_WORKSPACE_URI"))
-	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
-	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
-	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
-	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
-	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
-	fmt.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
+	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -1504,6 +1265,10 @@ func main() {
 	if os.Getenv("AWS_ACCOUNT") == "" || os.Getenv("AWS_REGION") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")
+	}
+	if os.Getenv("AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK") == "" || os.Getenv("AWS_PREFIX_LIST_S3") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "Env variables 'AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK' and 'AWS_PREFIX_LIST_S3' are required.")
 	}
 	if os.Getenv("JETS_ELB_MODE") == "public" && os.Getenv("JETS_CERT_ARN") == "" {
 		hasErr = true
@@ -1590,7 +1355,7 @@ func main() {
 	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
 		snsAlarmTopicArn = jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	}
-	NewJetstoreOneStack(app, "JetstoreOneStack", &JetstoreOneStackProps{
+	NewJetstoreOneStack(app, "JetstoreOneStack", &jetstorestack.JetstoreOneStackProps{
 		awscdk.StackProps{
 			Env:         env(),
 			Description: stackDescription,
