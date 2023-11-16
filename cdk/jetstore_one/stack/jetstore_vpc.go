@@ -97,6 +97,15 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 			}},
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(s3Endpoint).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(s3Endpoint).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(s3Endpoint).Add(descriptionTagName, jsii.String("S3 Gateway Endpoint for JetStore Platform"), nil)
+	}
 	s3Endpoint.AddToPolicy(
 		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Sid: jsii.String("bucketAccessPolicy"),
