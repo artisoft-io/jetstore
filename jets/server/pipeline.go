@@ -218,7 +218,12 @@ func ProcessData(dbpool *pgxpool.Pool, reteWorkspace *ReteWorkspace) (*PipelineR
 	if glogv > 1 {
 		fmt.Println("\nPIPELINE CONFIGURATION:")
 		fmt.Println(reteWorkspace.pipelineConfig.String())
-	}
+	// fmt.Println("Main Process Input Mapping:")
+	// for i := range reteWorkspace.pipelineConfig.mainProcessInput.processInputMapping {
+	// 	pi := &reteWorkspace.pipelineConfig.mainProcessInput.processInputMapping[i]
+	// 	fmt.Println("  ",pi.tableName,pi.inputColumn.String,"->",pi.dataProperty,"(",pi.rdfType,")")
+	// }
+}
 
 	// some bookeeping
 	// get all tables of the workspace
