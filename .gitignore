@@ -77,3 +77,4 @@ jets/run_reports/test_data/test_data
 jets/purge_database/purge_database
 jets/test_data_generator/test_data_generator
 jets/awsi/test/test
+jets/jsontest/httptest/httptest
