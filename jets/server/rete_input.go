@@ -242,7 +242,9 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 				} else {
 					br.InputColumn = sql.NullString{String: "UNNAMED", Valid: true}
 				}
-				br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting input value to column type: %v", err), Valid: true}
+				br.ErrorMessage = sql.NullString{String: 
+					fmt.Sprintf("while converting value from column %s to property %s: %v", 
+					inputColumnSpec.inputColumn.String, inputColumnSpec.dataProperty, err), Valid: true}
 				log.Println("Error while casting object value to column type:", br)
 				br.write2Chan((*writeOutputc)["jetsapi.process_errors"][0])
 				continue
