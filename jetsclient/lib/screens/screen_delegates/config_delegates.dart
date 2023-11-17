@@ -177,16 +177,17 @@ String? sourceConfigValidator(
       }
       return null;
     case FSK.codeValuesMappingJson:
-      String? value = v;
-      if (value == null || value.isEmpty) {
-        return null; // this field is nullable
-      }
-      // Validate that value is valid json
-      try {
-        jsonDecode(value);
-      } catch (e) {
-        return "Code values mapping is not a valid json: ${e.toString()}";
-      }
+    //* codeValuesMappingJson can be json or csv, not validating csv so not validating json here
+      // String? value = v;
+      // if (value == null || value.isEmpty) {
+      //   return null; // this field is nullable
+      // }
+      // // Validate that value is valid json
+      // try {
+      //   jsonDecode(value);
+      // } catch (e) {
+      //   return "Code values mapping is not a valid json: ${e.toString()}";
+      // }
       return null;
     case FSK.inputColumnsJson:
       String? value = v;

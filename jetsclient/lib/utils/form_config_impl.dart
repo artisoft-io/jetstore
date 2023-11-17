@@ -577,7 +577,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormInputFieldConfig(
             key: FSK.codeValuesMappingJson,
-            label: "Code Values Mapping (json)",
+            label: "Code Values Mapping (csv or json)",
             hint: "Client-Specific Code Values Mapping to Canonical Codes",
             flex: 1,
             autofocus: false,

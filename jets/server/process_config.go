@@ -2,21 +2,25 @@ package main
 
 import (
 	// "bufio"
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/google/uuid"
 )
 
 // Main data entity
@@ -680,9 +684,43 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 			codeValueMapping := make(map[string]map[string]string)
 			err := json.Unmarshal([]byte(code_values_mapping_json.String), &codeValueMapping)
 			if err != nil {
-				return fmt.Errorf("loadProcessInput: Could not parse the code_values_mapping_json from source_config table as json:%v", err)
+				// Check if it's csv with headers rather than json
+				byteBuf := []byte(code_values_mapping_json.String)
+				sepFlag, err2 := datatable.DetectDelimiter(byteBuf)
+				if err2 != nil {
+					// It's not csv either
+					return fmt.Errorf(
+						"loadProcessInput: Could not parse the code_values_mapping_json from source_config table as json or csv"+
+						"::json err:%v::csv err:%v", 
+						err, err2)
+				}
+				r := csv.NewReader(bytes.NewReader(byteBuf))
+				r.Comma = rune(sepFlag)
+				// read the headers
+				headers, err2 := r.Read()
+				if err2 == io.EOF {
+					// file contain no data
+				} else {
+					log.Printf("code_values_mapping_json is csv with headers: %s", strings.Join(headers, ", "))
+					// read the mapping
+					for {
+						codeMappingRow, err := r.Read()
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							return fmt.Errorf("while parsing code value mapping row: %v", err)
+						}
+						if codeValueMapping[codeMappingRow[0]] == nil {
+							codeValueMapping[codeMappingRow[0]] = make(map[string]string)
+						}
+						codeValueMapping[codeMappingRow[0]][codeMappingRow[1]] = codeMappingRow[2]
+					}
+				}
 			}
-			pi.codeValueMapping = &codeValueMapping
+			if len(codeValueMapping) > 0 {
+				pi.codeValueMapping = &codeValueMapping
+			}
 		}
 	}
 	return nil
