@@ -177,7 +177,7 @@ String? sourceConfigValidator(
       }
       return null;
     case FSK.codeValuesMappingJson:
-    //* codeValuesMappingJson can be json or csv, not validating csv so not validating json here
+      //* codeValuesMappingJson can be json or csv, not validating csv so not validating json here
       // String? value = v;
       // if (value == null || value.isEmpty) {
       //   return null; // this field is nullable
@@ -1164,6 +1164,8 @@ String? ruleConfigv2FormValidator(
       if (value == null || value.isEmpty) {
         return "Rule config must contain at least an empty array";
       }
+      // Check if it's a json array, if not return
+      if (!value.startsWith('[')) return null;
       // Validate that value is valid json
       try {
         final jv = jsonDecode(value);
@@ -1344,6 +1346,8 @@ String? pipelineConfigFormValidator(
       if (value == null || value.isEmpty) {
         return "Rule config must contain at least an empty array";
       }
+      // Check if it's a json array, if not return
+      if (!value.startsWith('[')) return null;
       // Validate that value is valid json
       try {
         final jv = jsonDecode(value);

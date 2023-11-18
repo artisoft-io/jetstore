@@ -549,7 +549,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		// Constructing a Resource from meta graph (not from a rete session!)
 		// Same construct is used with rete session handle
 		var object *bridge.Resource
-		switch t3.rdfType {
+		switch strings.TrimSpace(t3.rdfType) {
 		case "null":
 			object, err = rw.js.NewNull()
 		case "bn":

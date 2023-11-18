@@ -412,6 +412,18 @@ final Map<String, TableConfig> _tableConfigurations = {
           capability: 'run_pipelines',
           configForm: FormKeys.startPipeline),
       ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'testPipeline',
+          label: 'Test Pipeline',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          navigationParams: {
+            FSK.dataTableAction: "test_pipeline",
+            FSK.dataTableFromTable: "unit_test",
+          },
+          capability: 'run_pipelines',
+          configForm: FormKeys.startPipeline),      ActionConfig(
           actionType: DataTableActionType.showScreen,
           key: 'viewStatusDetails',
           label: 'View Execution Details',
