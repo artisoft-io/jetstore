@@ -182,6 +182,7 @@ type ProcessInput struct {
 	keyColumn             string
 	keyPosition           int
 	processInputMapping   []ProcessMap
+	inputColumnName2Pos   map[string]int
 	sessionId             string
 	codeValueMapping      *map[string]map[string]string
 }
@@ -626,8 +627,6 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	if err2 != nil {
 		return fmt.Errorf("while calling readProcessInputMapping: %v", err)
 	}
-	//* TODO Add case when no domain key info is provided, use jets:key as the domain_key
-	// right now we err out if no domain key info is provided (although the field can be nullable)
 	// If domain key json is null, default to "jets:key"
 	if err != nil {
 		return fmt.Errorf("could not load domain_keys_json from jetsapi.source_config for table %s: %v", pi.tableName, err)
@@ -670,6 +669,15 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 		dataProperty: "jets:source_period_sequence",
 		rdfType: "int",
 	})
+
+	// Add mapping column_name -> position of input row so we can lookup the position
+	// of an input column. This is needed by concat and concat_with built-in function (cleansing functions applyCleasingFunction)
+	pi.inputColumnName2Pos = make(map[string]int)
+	for i := range pi.processInputMapping {
+		if pi.processInputMapping[i].inputColumn.Valid {
+			pi.inputColumnName2Pos[pi.processInputMapping[i].inputColumn.String] = i
+		}
+	}
 
 	// Load the client-specific code value mapping to canonical values
 	if pi.sourceType == "file" {
