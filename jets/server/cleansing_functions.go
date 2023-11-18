@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"database/sql"
-	"encoding/csv"
 	"fmt"
-	"io"
 	"log"
 	"math"
 	"regexp"
@@ -14,7 +11,7 @@ import (
 	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
-	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 )
 
 type ConcatFunctionArg struct {
@@ -34,37 +31,19 @@ func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColum
 		return v.(*ConcatFunctionArg), nil
 	}
 	// Parsed the raw argument into ConcatFunctionArg and put it in the cache
-	byteBuf := []byte(*rawArg)
-	sepFlag, err := datatable.DetectDelimiter(byteBuf)
-	if err != nil {
-		// There's no delimiter, must be single column
-		colPos, ok := inputColumnName2Pos[*rawArg]
-		if !ok {
-			// Column not found
-			return nil, fmt.Errorf("error:single-column: argument %s is not an input column name (%s function -- %v)", *rawArg, functionName, err)
-		}
-		results := &ConcatFunctionArg{
-			ColumnPositions: []int{colPos},
-		}
-		cache[*rawArg] = results
-		return results, nil
-	}
-	r := csv.NewReader(bytes.NewReader(byteBuf))
-	r.Comma = rune(sepFlag)
-	// read the row
-	row, err := r.Read()
-	if err == io.EOF {
-		// contain no data!
+	rows, err := jcsv.Parse(*rawArg)
+	if len(rows)==0 || len(rows[0])==0 || err != nil {
+		// It's not csv or there's no data
 		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
 	}
 	results := &ConcatFunctionArg{
 		ColumnPositions: make([]int, 0),
 	}
-	for i := range row {
+	for i := range rows[0] {
 		if i==0 && functionName=="concat_with" {
-			results.Delimit = row[i]
+			results.Delimit = rows[0][i]
 		} else {
-			colPos, ok := inputColumnName2Pos[row[i]]
+			colPos, ok := inputColumnName2Pos[rows[0][i]]
 			// fmt.Println("*** concat:",row[i],"value @:", colPos,"ok?",ok)
 			if !ok {
 				// Column not found

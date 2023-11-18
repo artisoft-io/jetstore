@@ -2,21 +2,18 @@ package main
 
 import (
 	// "bufio"
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
-	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
@@ -569,6 +566,7 @@ func getLatestSessionId(dbpool *pgxpool.Pool, tableName string) (sessionId strin
 func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 	maxReteSessionsSaved := sql.NullInt64{}
 	var ruleConfigJson string
+	pc.ruleConfigs = make([]RuleConfig, 0)
 	err := dbpool.QueryRow(context.Background(),
 		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, source_period_type, max_rete_sessions_saved, rule_config_json
 		FROM jetsapi.pipeline_config WHERE key = $1`,
@@ -581,7 +579,23 @@ func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 		pc.maxReteSessionSaved = int(maxReteSessionsSaved.Int64)
 	}
 	if err := json.Unmarshal([]byte(ruleConfigJson), &pc.ruleConfigObjs); err != nil {
-		return fmt.Errorf("while reading jetsapi.pipeline_config table, invalid rule_config_json: %v", err)
+		// Assume it's csv
+		rows, err2 := jcsv.Parse(ruleConfigJson)
+		if len(rows)>1 && len(rows[0])>3 && err2 == nil {
+			for i := range rows {
+				// Skip the header
+				if i > 0 {
+					pc.ruleConfigs = append(pc.ruleConfigs, RuleConfig{
+						subject: rows[i][0],
+						predicate: rows[i][1],
+						object: rows[i][2],
+						rdfType: rows[i][3],
+					})
+				}
+			}	
+		} else {
+			return fmt.Errorf("while reading jetsapi.pipeline_config table, invalid rule_config_json\nJSON ERR:%v\nCSV ERR: %v", err, err2)
+		}	
 	}
 
 	return nil
@@ -693,37 +707,19 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 			err := json.Unmarshal([]byte(code_values_mapping_json.String), &codeValueMapping)
 			if err != nil {
 				// Check if it's csv with headers rather than json
-				byteBuf := []byte(code_values_mapping_json.String)
-				sepFlag, err2 := datatable.DetectDelimiter(byteBuf)
-				if err2 != nil {
+				codeValuesCsv, err2 := jcsv.Parse(code_values_mapping_json.String)
+				if len(codeValuesCsv)==0 || len(codeValuesCsv[0])==0 || err2 != nil {
 					// It's not csv either
 					return fmt.Errorf(
 						"loadProcessInput: Could not parse the code_values_mapping_json from source_config table as json or csv"+
 						"::json err:%v::csv err:%v", 
 						err, err2)
 				}
-				r := csv.NewReader(bytes.NewReader(byteBuf))
-				r.Comma = rune(sepFlag)
-				// read the headers
-				headers, err2 := r.Read()
-				if err2 == io.EOF {
-					// file contain no data
-				} else {
-					log.Printf("code_values_mapping_json is csv with headers: %s", strings.Join(headers, ", "))
-					// read the mapping
-					for {
-						codeMappingRow, err := r.Read()
-						if err == io.EOF {
-							break
-						}
-						if err != nil {
-							return fmt.Errorf("while parsing code value mapping row: %v", err)
-						}
-						if codeValueMapping[codeMappingRow[0]] == nil {
-							codeValueMapping[codeMappingRow[0]] = make(map[string]string)
-						}
-						codeValueMapping[codeMappingRow[0]][codeMappingRow[1]] = codeMappingRow[2]
+				for i := range codeValuesCsv {
+					if codeValueMapping[codeValuesCsv[i][0]] == nil {
+						codeValueMapping[codeValuesCsv[i][0]] = make(map[string]string)
 					}
+					codeValueMapping[codeValuesCsv[i][0]][codeValuesCsv[i][1]] = codeValuesCsv[i][2]
 				}
 			}
 			if len(codeValueMapping) > 0 {
@@ -781,7 +777,6 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessM
 
 // Read rule config triples, processConfigKey is rule_config.process_config_key
 func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
-	pc.ruleConfigs = make([]RuleConfig, 0)
 	rows, err := dbpool.Query(context.Background(),
 		`SELECT subject, predicate, object, rdf_type 
 		FROM jetsapi.rule_config WHERE process_config_key = $1 AND client = $2`,
@@ -813,10 +808,8 @@ func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
 		return err
 	}
 	if err == nil {
-		if err := json.Unmarshal([]byte(ruleConfigJson), &configObjs); err != nil {
-			return fmt.Errorf("while reading jetsapi.rule_configv2 table, invalid rule_config_json: %v", err)
-		}
-		if len(configObjs) > 0 {
+		err := json.Unmarshal([]byte(ruleConfigJson), &configObjs)
+		if err == nil && len(configObjs) > 0 {
 			pc.ruleConfigObjs = append(pc.ruleConfigObjs, configObjs...)
 		}
 	}

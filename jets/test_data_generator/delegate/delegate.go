@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/google/uuid"
 	// "github.com/jackc/pgx/v4/pgxpool"
 )
@@ -24,16 +24,16 @@ import (
 // JETS_s3_INPUT_PREFIX
 
 type CommandArguments struct {
-	AwsDsnSecret string
-	DbPoolSize int
-	UsingSshTunnel bool
-	AwsRegion string
-	Dsn string
-	NdcFilePath string
-	OutFileKey string
+	AwsDsnSecret    string
+	DbPoolSize      int
+	UsingSshTunnel  bool
+	AwsRegion       string
+	Dsn             string
+	NdcFilePath     string
+	OutFileKey      string
 	CsvTemplatePath string
-	NbrBaseClaims int
-	NbrMembers int
+	NbrBaseClaims   int
+	NbrMembers      int
 }
 
 // Support Functions
@@ -50,7 +50,7 @@ func (ca *CommandArguments) GetTemplateInfo() (string, string, error) {
 	// Header of the csv file
 	var headers, rowTemplate string
 	if fileScanner.Scan() {
-			headers = fileScanner.Text()
+		headers = fileScanner.Text()
 	} else {
 		return "", "", fmt.Errorf("error: file too short, no headers")
 	}
@@ -71,21 +71,21 @@ func (ca *CommandArguments) GetNdcList() (*[]string, error) {
 
 	// determine the csv separator
 	// auto detect the separator based on the first line
-	var sep_flag datatable.Chartype
+	var sep_flag jcsv.Chartype
 	buf := make([]byte, 2048)
 	_, err = readFile.Read(buf)
 	if err != nil {
 		return nil, fmt.Errorf("error while ready first few bytes of NdcFilePath %s: %v", ca.NdcFilePath, err)
 	}
-	sep_flag, err = datatable.DetectDelimiter(buf)
+	sep_flag, err = jcsv.DetectDelimiter(buf)
 	if err != nil {
-		return nil, fmt.Errorf("while calling datatable.DetectDelimiter: %v",err)
+		return nil, fmt.Errorf("while calling jcsv.DetectDelimiter: %v", err)
 	}
 	_, err = readFile.Seek(0, 0)
 	if err != nil {
 		return nil, fmt.Errorf("error while returning to beginning of NdcFilePath %s: %v", ca.NdcFilePath, err)
 	}
-	fmt.Println("Got csv separator", sep_flag)	
+	fmt.Println("Got csv separator", sep_flag)
 
 	// Setup a csv reader
 	csvReader := csv.NewReader(readFile)
@@ -104,10 +104,10 @@ func (ca *CommandArguments) GetNdcList() (*[]string, error) {
 	ndcList := make([]string, 0)
 	for {
 		record, err := csvReader.Read()
-		switch {			
+		switch {
 		case err == io.EOF:
 			// Done - expected exit route
-			fmt.Println("Got",len(ndcList),"NDCs")
+			fmt.Println("Got", len(ndcList), "NDCs")
 			return &ndcList, nil
 		case err != nil:
 			return nil, fmt.Errorf("while reading NdcFilePath csv file: %v", err)
@@ -124,7 +124,7 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	// if ca.Dsn == "" && ca.AwsDsnSecret == "" {
 	// 	ca.AwsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 	// 	if ca.Dsn == "" && ca.AwsDsnSecret == "" {
-	// 		errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")	
+	// 		errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")
 	// 	}
 	// }
 	if ca.AwsRegion == "" {
@@ -142,27 +142,27 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	}
 
 	if ca.NbrBaseClaims < 1 {
-		errMsg = append(errMsg, "NbrBaseClaims must be at least 1.")		
+		errMsg = append(errMsg, "NbrBaseClaims must be at least 1.")
 	}
 
 	if ca.NbrMembers < 1 {
-		errMsg = append(errMsg, "NbrMembers must be at least 1.")		
+		errMsg = append(errMsg, "NbrMembers must be at least 1.")
 	}
 
 	fmt.Println("Status Update Arguments:")
 	fmt.Println("----------------")
 	fmt.Println("Got argument: dsn, len", len(ca.Dsn))
-	fmt.Println("Got argument: awsRegion",ca.AwsRegion)
-	fmt.Println("Got argument: awsDsnSecret",ca.AwsDsnSecret)
-	fmt.Println("Got argument: dbPoolSize",ca.DbPoolSize)
-	fmt.Println("Got argument: usingSshTunnel",ca.UsingSshTunnel)
-	fmt.Println("Got argument: ndcFilePath",ca.NdcFilePath)
-	fmt.Println("Got argument: outFileKey",ca.OutFileKey)
-	fmt.Println("Got argument: csvTemplatePath",ca.CsvTemplatePath)
-	fmt.Println("Got argument: nbrBaseClaims",ca.NbrBaseClaims)
-	fmt.Println("Got argument: nbrMembers",ca.NbrMembers)
-	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
-	fmt.Printf("ENV JETS_BUCKET: %s\n",os.Getenv("JETS_BUCKET"))
+	fmt.Println("Got argument: awsRegion", ca.AwsRegion)
+	fmt.Println("Got argument: awsDsnSecret", ca.AwsDsnSecret)
+	fmt.Println("Got argument: dbPoolSize", ca.DbPoolSize)
+	fmt.Println("Got argument: usingSshTunnel", ca.UsingSshTunnel)
+	fmt.Println("Got argument: ndcFilePath", ca.NdcFilePath)
+	fmt.Println("Got argument: outFileKey", ca.OutFileKey)
+	fmt.Println("Got argument: csvTemplatePath", ca.CsvTemplatePath)
+	fmt.Println("Got argument: nbrBaseClaims", ca.NbrBaseClaims)
+	fmt.Println("Got argument: nbrMembers", ca.NbrMembers)
+	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n", os.Getenv("JETS_s3_INPUT_PREFIX"))
+	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
 
 	return errMsg
 }
@@ -212,22 +212,22 @@ func (ca *CommandArguments) CoordinateWork() error {
 	}
 	outWriter.WriteRune('\n')
 	outFilePath := fmt.Sprintf("%s/%s", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey)
-	fmt.Println("OutFile Path:",outFilePath)
+	fmt.Println("OutFile Path:", outFilePath)
 
 	// Generate test data
-	for iMbr:=0; iMbr<ca.NbrMembers; iMbr++ {
+	for iMbr := 0; iMbr < ca.NbrMembers; iMbr++ {
 		baseKey := uuid.New().String()
-		fmt.Println(iMbr+1,"of",ca.NbrMembers,"baseKey",baseKey)
-		for k1:=11; k1<13; k1++ {
-			for k2:=21; k2<23; k2++ {
-				for k3:=31; k3<34; k3++ {
-					for iClm:=0; iClm<ca.NbrBaseClaims; iClm++ {
+		fmt.Println(iMbr+1, "of", ca.NbrMembers, "baseKey", baseKey)
+		for k1 := 11; k1 < 13; k1++ {
+			for k2 := 21; k2 < 23; k2++ {
+				for k3 := 31; k3 < 34; k3++ {
+					for iClm := 0; iClm < ca.NbrBaseClaims; iClm++ {
 						ndc := (*ndcList)[rand.Intn(nbrNdc)]
 						_, err = outWriter.WriteString(fmt.Sprintf(rowTemplate, baseKey, k1, k2, k3, ndc))
 						if err != nil {
 							return fmt.Errorf("while writing test claim row to output file: %v", err)
 						}
-						outWriter.WriteRune('\n')										
+						outWriter.WriteRune('\n')
 					}
 				}
 			}
