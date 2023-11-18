@@ -156,6 +156,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 	// keep a map of map function argument that needs to be cast to double
 	ri.argdMap = make(map[string]float64)
 	var session_count int64
+	// keep a map of cleansing function arguments that needs to be parsed into a struct
+	ri.parsedFunctionArguments = make(map[string]interface{})
 
 	for inBundle := range dataInputc {
 

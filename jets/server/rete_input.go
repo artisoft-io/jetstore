@@ -29,6 +29,7 @@ type ReteInputContext struct {
 	rdf__type                        *bridge.Resource
 	reMap                            map[string]*regexp.Regexp
 	argdMap                          map[string]float64
+	parsedFunctionArguments          map[string]interface{}
 }
 
 // main processing function to execute rules
@@ -182,7 +183,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
 				// Apply cleansing function
-				obj, errMsg = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String)
+				obj, errMsg = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String, 
+					row, aJetRow.processInput.inputColumnName2Pos)
 			} else {
 				obj = row[icol].String
 			}
