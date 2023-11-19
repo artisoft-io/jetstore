@@ -7,9 +7,9 @@ import 'package:jetsclient/screens/screen_one.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/screens/screen_tab_form.dart';
 import 'package:jetsclient/utils/constants.dart';
-import 'package:jetsclient/utils/data_table_config_impl.dart';
-import 'package:jetsclient/utils/form_config_impl.dart';
-import 'package:jetsclient/utils/screen_config_impl.dart';
+import 'package:jetsclient/modules/data_table_config_impl.dart';
+import 'package:jetsclient/modules/form_config_impl.dart';
+import 'package:jetsclient/modules/screen_config_impl.dart';
 
 const PARAM_CHAR = ':';
 
