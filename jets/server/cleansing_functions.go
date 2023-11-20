@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"math"
@@ -10,7 +11,50 @@ import (
 	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 )
+
+type ConcatFunctionArg struct {
+	Delimit string
+	ColumnPositions []int
+}
+
+func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColumnName2Pos map[string]int, cache map[string]interface{}) (*ConcatFunctionArg, error) {
+	// rawArg is csv-encoded
+	if rawArg == nil {
+		return nil, fmt.Errorf("unexpected null argument to concat or concat_with function")
+	}
+	// Check if we have it cached
+	v := cache[*rawArg]
+	if v != nil {
+		// fmt.Println("*** OK Got Cached value for", *rawArg)
+		return v.(*ConcatFunctionArg), nil
+	}
+	// Parsed the raw argument into ConcatFunctionArg and put it in the cache
+	rows, err := jcsv.Parse(*rawArg)
+	if len(rows)==0 || len(rows[0])==0 || err != nil {
+		// It's not csv or there's no data
+		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
+	}
+	results := &ConcatFunctionArg{
+		ColumnPositions: make([]int, 0),
+	}
+	for i := range rows[0] {
+		if i==0 && functionName=="concat_with" {
+			results.Delimit = rows[0][i]
+		} else {
+			colPos, ok := inputColumnName2Pos[rows[0][i]]
+			// fmt.Println("*** concat:",row[i],"value @:", colPos,"ok?",ok)
+			if !ok {
+				// Column not found
+				return nil, fmt.Errorf("error:column-not-fount: argument %s is not an input column name (%s function)", *rawArg, functionName)
+			}
+			results.ColumnPositions = append(results.ColumnPositions, colPos)
+		}
+	}
+	cache[*rawArg] = results
+	return results, nil
+}
 
 func filterDigits(str string) string {
 	// Remove non digits characters
@@ -37,7 +81,8 @@ func filterDouble(str string) string {
 	return buf.String()
 }
 
-func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSession, inputColumnSpec *ProcessMap, inputValue *string) (string, string) {
+func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSession, inputColumnSpec *ProcessMap, 
+	inputValue *string, row []sql.NullString, inputColumnName2Pos map[string]int) (string, string) {
 	var obj, errMsg string
 	var err error
 	var sz int
@@ -284,6 +329,28 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 				}
 			}
 		}
+
+	case "concat", "concat_with":
+		// Cleansing function that concatenate input columns w delimiter
+		// Get the parsed argument
+		arg, err := ParseConcatFunctionArgument(&inputColumnSpec.argument.String, inputColumnSpec.functionName.String, inputColumnName2Pos, ri.parsedFunctionArguments)
+		if err != nil {
+			errMsg = err.Error()
+		} else {
+			var buf strings.Builder
+			buf.WriteString(*inputValue)
+			for i := range arg.ColumnPositions {
+				// fmt.Println("=== concat value @pos:",arg.ColumnPositions[i])
+				if row[arg.ColumnPositions[i]].Valid {
+					if arg.Delimit != "" {
+						buf.WriteString(arg.Delimit)
+					}
+					buf.WriteString(row[arg.ColumnPositions[i]].String)
+				}
+			}
+			obj = buf.String()		
+		}
+
 	default:
 		log.Panicf("ERROR unknown mapping function: %s", inputColumnSpec.functionName.String)
 	}
