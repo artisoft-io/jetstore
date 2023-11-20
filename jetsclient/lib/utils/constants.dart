@@ -290,6 +290,10 @@ class FSK {
   // workspace.db columns
   static const wsDbSourceFileName = "source_file_name";
 
+  // Keys for User Form - special state management keys
+  static const ufCurrentPage = "ufCurrentPage";
+  static const ufVisitedPages = "ufVisitedPages";
+
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -418,10 +422,17 @@ class ActionKeys {
   static const exportClientConfigOk = "exportClientConfigOk";
   static const addWorkspaceFilesOk = "addWorkspaceFilesOk";
   static const deleteWorkspaceFiles = "deleteWorkspaceFiles";
+
+  // User Form ActionKeys
+  static const ufStartFlow = "ufStartFlow";
+  static const ufNext = "ufNext";
+  static const ufPrevious = "ufPrevious";
+  static const ufContinueLater = "ufContinueLater";
+  static const ufCompleted = "ufCompleted";
 }
 
-/// Form Action Keys
-/// stardard keys to identify Form Action Config Key
+/// Status Keys
+/// stardard keys to identify Pipeline Execution Status
 class StatusKeys {
   static const submitted = "submitted";
   static const processing = "processing";
