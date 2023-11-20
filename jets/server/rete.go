@@ -156,6 +156,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 	// keep a map of map function argument that needs to be cast to double
 	ri.argdMap = make(map[string]float64)
 	var session_count int64
+	// keep a map of cleansing function arguments that needs to be parsed into a struct
+	ri.parsedFunctionArguments = make(map[string]interface{})
 
 	for inBundle := range dataInputc {
 
@@ -547,7 +549,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		// Constructing a Resource from meta graph (not from a rete session!)
 		// Same construct is used with rete session handle
 		var object *bridge.Resource
-		switch t3.rdfType {
+		switch strings.TrimSpace(t3.rdfType) {
 		case "null":
 			object, err = rw.js.NewNull()
 		case "bn":

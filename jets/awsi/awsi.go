@@ -129,7 +129,7 @@ func ListS3Objects(prefix *string, bucket, region string) (*[]string, error) {
 		for i := range result.Contents {
 			keys = append(keys, *result.Contents[i].Key)
 		}
-		isTruncated = result.IsTruncated
+		isTruncated = *result.IsTruncated
 		token = result.NextContinuationToken
 	}
 	return &keys, err

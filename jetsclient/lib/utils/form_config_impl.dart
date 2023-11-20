@@ -773,6 +773,7 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.lookbackPeriods,
             label: "Lookback Periods",
             hint: "Number of periods to include in the rule session",
+            defaultValue: "0",
             flex: 1,
             autofocus: false,
             obscureText: false,
@@ -1029,8 +1030,8 @@ final Map<String, FormConfig> _formConfigurations = {
         FormInputFieldConfig(
             key: FSK.ruleConfigJson,
             flex: 10,
-            label: "Rule Configuration Json",
-            hint: "Enter a valid json array of configuration objects",
+            label: "Rule Configuration csv or json",
+            hint: "Enter a valid json array or csv with headers of configuration objects",
             maxLines: 25,
             maxLength: 51200,
             autofocus: false,
@@ -1333,7 +1334,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormInputFieldConfig(
             key: FSK.ruleConfigJson,
             label: "Rule Configuration Json",
-            hint: "Enter a valid json array of configuration objects",
+            hint: "Enter a valid json array or csv with headers of configuration objects",
             maxLines: 10,
             maxLength: 51200,
             autofocus: false,

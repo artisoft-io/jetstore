@@ -110,7 +110,7 @@ func compileWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActi
 }
 
 // Execute pipeline in unit test mode
-func unitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, token string)  {
+func UnitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, token string)  {
 
 	dataTableAction.Action = "insert_rows"
 	dataTableAction.FromClauses[0].Table = "pipeline_execution_status"

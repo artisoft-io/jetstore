@@ -364,7 +364,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 		go compileWorkspaceAction(ctx.Dbpool, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
-		go unitTestWorkspaceAction(ctx, dataTableAction, token)
+		go UnitTestWorkspaceAction(ctx, dataTableAction, token)
 
 	// case dataTableAction.FromClauses[0].Table == "load_workspace_config":
 	// 	// Load workspace config

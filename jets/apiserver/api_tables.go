@@ -50,6 +50,11 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.InsertRawRows(&dataTableAction, token)
 	case "insert_rows":
 		results, code, err = context.InsertRows(&dataTableAction, token)
+	case "test_pipeline":
+		results = &map[string]interface{}{}	
+		code = 200
+		datatable.UnitTestWorkspaceAction(context, &dataTableAction, token)
+
 	case "workspace_insert_rows":
 		results, code, err = context.WorkspaceInsertRows(&dataTableAction, token)
 	case "workspace_query_structure":
