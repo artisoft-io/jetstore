@@ -84,6 +84,9 @@ class ScreenKeys {
   // Workspace IDE Screens
   static const workspaceRegistry = "workspaceRegistryScreen";
   static const workspaceHome = "workspaceHome";
+
+  // User Flow Screens
+  static const ufClientRegistry = "clientRegistryScreenUF";
 }
 
 /// Form ID Keys
@@ -149,7 +152,10 @@ class FormKeys {
   static const wsDataModelForm = "workspace.data_model.form";
   static const wsJetRulesForm = "workspace.jet_rules.form";
   static const wsLookupsForm = "workspace.lookups.form";
-  // ... more to come
+  
+  // User Flow Forms
+  static const ufClient = "ufClient";
+  static const ufVendor = "ufVendor";
 }
 
 /// Form State Keys
@@ -431,6 +437,12 @@ class ActionKeys {
   static const ufCompleted = "ufCompleted";
 }
 
+/// User Flow Keys
+class UserFlowKeys {
+  /// client_registry and client_org_registry
+  static const clientRegistryUF = "clientRegistryUF";
+
+}
 /// Status Keys
 /// stardard keys to identify Pipeline Execution Status
 class StatusKeys {

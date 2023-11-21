@@ -26,14 +26,14 @@ class UserFlowConfig {
       required this.states,
       required this.validatorDelegate,
       required this.actionDelegate,
-      this.existScreenPath = homePath});
+      this.exitScreenPath = homePath});
   final String startAtKey;
   final Map<String, UserFlowState> states;
   final ValidatorDelegate validatorDelegate;
   final UserFlowActionDelegate actionDelegate;
 
   /// The [JetsRouteData] to visit once the user flow has terminated
-  final String existScreenPath;
+  final String exitScreenPath;
 
   /// Returns a list of errors or empty list if valid
   List<String> validateConfiguration() {

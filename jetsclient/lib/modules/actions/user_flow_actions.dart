@@ -87,7 +87,7 @@ Future<String?> userFlowStateActions(
     case ActionKeys.ufCompleted:
       // Save state with associated session id
       Navigator.of(context)
-          .pushNamed(userFlowScreenState.userFlowConfig.existScreenPath);
+          .pushNamed(userFlowScreenState.userFlowConfig.exitScreenPath);
       break;
     default:
       print('Oops unknown ActionKey for workspaceIDE Form: $actionKey');

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
+import 'package:jetsclient/modules/client_config/user_flow_config.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/screen_form.dart';
 import 'package:jetsclient/screens/screen_multi_form.dart';
 import 'package:jetsclient/screens/screen_one.dart';
 import 'package:jetsclient/models/user.dart';
 import 'package:jetsclient/screens/screen_tab_form.dart';
+import 'package:jetsclient/screens/user_flow_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/modules/data_table_config_impl.dart';
 import 'package:jetsclient/modules/form_config_impl.dart';
@@ -37,11 +39,15 @@ const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
 const userAdminPath = '/userAdmin';
-const userGitProfilePath = '/userGitProfile/:user_email/:git_name/:git_email/:git_handle';
+const userGitProfilePath =
+    '/userGitProfile/:user_email/:git_name/:git_email/:git_handle';
 
 // Workspace IDE paths
 const workspaceRegistryPath = '/workspaces';
 const workspaceHomePath = '/workspaces/:workspace_name/home';
+
+// User Flow Paths
+const ufClientRegistryPath = '/clientRegistryUF';
 
 // const wsDomainClassesPath = '/workspaces/:workspace_name/domainClasses';
 // const wsDomainClasseDetailsPath =
@@ -56,7 +62,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Home Screen
   homePath: ScreenWithForm(
     key: const Key(ScreenKeys.home),
-    screenPath: JetsRouteData(homePath),
+    screenPath: const JetsRouteData(homePath),
     screenConfig: getScreenConfig(ScreenKeys.home),
     formConfig: getFormConfig(FormKeys.home),
   ),
@@ -64,7 +70,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Client & Organization Admin
   clientAdminPath: ScreenWithForm(
     key: const Key(ScreenKeys.clientAdmin),
-    screenPath: JetsRouteData(clientAdminPath),
+    screenPath: const JetsRouteData(clientAdminPath),
     screenConfig: getScreenConfig(ScreenKeys.clientAdmin),
     formConfig: getFormConfig(FormKeys.clientAdmin),
   ),
@@ -72,7 +78,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Source Config
   sourceConfigPath: ScreenWithForm(
     key: const Key(ScreenKeys.sourceConfig),
-    screenPath: JetsRouteData(sourceConfigPath),
+    screenPath: const JetsRouteData(sourceConfigPath),
     screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
     formConfig: getFormConfig(FormKeys.sourceConfig),
   ),
@@ -80,7 +86,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Input Source Mapping
   inputSourceMappingPath: ScreenWithForm(
     key: const Key(ScreenKeys.inputSourceMapping),
-    screenPath: JetsRouteData(inputSourceMappingPath),
+    screenPath: const JetsRouteData(inputSourceMappingPath),
     screenConfig: getScreenConfig(ScreenKeys.inputSourceMapping),
     formConfig: getFormConfig(FormKeys.inputSourceMapping),
   ),
@@ -88,7 +94,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Process Input
   processInputPath: ScreenWithForm(
     key: const Key(ScreenKeys.processInput),
-    screenPath: JetsRouteData(processInputPath),
+    screenPath: const JetsRouteData(processInputPath),
     screenConfig: getScreenConfig(ScreenKeys.processInput),
     formConfig: getFormConfig(FormKeys.processInput),
   ),
@@ -96,7 +102,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Rule Config
   processConfigPath: ScreenWithForm(
     key: const Key(ScreenKeys.processConfig),
-    screenPath: JetsRouteData(processConfigPath),
+    screenPath: const JetsRouteData(processConfigPath),
     screenConfig: getScreenConfig(ScreenKeys.processConfig),
     formConfig: getFormConfig(FormKeys.processConfig),
   ),
@@ -104,7 +110,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Rule Configv2
   ruleConfigPath: ScreenWithForm(
     key: const Key(ScreenKeys.ruleConfigv2),
-    screenPath: JetsRouteData(ruleConfigPath),
+    screenPath: const JetsRouteData(ruleConfigPath),
     screenConfig: getScreenConfig(ScreenKeys.ruleConfigv2),
     formConfig: getFormConfig(FormKeys.rulesConfigv2),
   ),
@@ -112,14 +118,14 @@ final Map<String, Widget> jetsRoutesMap = {
   // Workspace IDE - Workspace Registry
   workspaceRegistryPath: ScreenWithForm(
       key: const Key(ScreenKeys.workspaceRegistry),
-      screenPath: JetsRouteData(workspaceRegistryPath),
+      screenPath: const JetsRouteData(workspaceRegistryPath),
       screenConfig: getScreenConfig(ScreenKeys.workspaceRegistry),
       formConfig: getFormConfig(FormKeys.workspaceRegistry)),
 
   // Workspace IDE - Workspace Home
   workspaceHomePath: ScreenWithTabsWithForm(
     key: const Key(ScreenKeys.workspaceHome),
-    screenPath: JetsRouteData(workspaceHomePath),
+    screenPath: const JetsRouteData(workspaceHomePath),
     screenConfig: getScreenConfig(ScreenKeys.workspaceHome),
     formConfig: getFormConfig(FormKeys.workspaceHome),
   ),
@@ -127,7 +133,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Pipeline Config
   pipelineConfigPath: ScreenWithForm(
     key: const Key(ScreenKeys.pipelineConfig),
-    screenPath: JetsRouteData(pipelineConfigPath),
+    screenPath: const JetsRouteData(pipelineConfigPath),
     screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
     formConfig: getFormConfig(FormKeys.pipelineConfigForm),
   ),
@@ -135,7 +141,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Edit Form for Pipeline Config
   pipelineConfigEditFormPath: ScreenWithForm(
     key: const Key(ScreenKeys.pipelineConfigEdit),
-    screenPath: JetsRouteData(pipelineConfigEditFormPath),
+    screenPath: const JetsRouteData(pipelineConfigEditFormPath),
     screenConfig: getScreenConfig(ScreenKeys.pipelineConfigEdit),
     formConfig: getFormConfig(FormKeys.pipelineConfigEditForm),
   ),
@@ -143,7 +149,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Login Screen
   loginPath: ScreenWithForm(
     key: const Key(ScreenKeys.login),
-    screenPath: JetsRouteData(loginPath),
+    screenPath: const JetsRouteData(loginPath),
     screenConfig: getScreenConfig(ScreenKeys.login),
     formConfig: getFormConfig(FormKeys.login),
   ),
@@ -151,7 +157,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Register Screen
   registerPath: ScreenWithForm(
     key: const Key(ScreenKeys.register),
-    screenPath: JetsRouteData(registerPath),
+    screenPath: const JetsRouteData(registerPath),
     screenConfig: getScreenConfig(ScreenKeys.register),
     formConfig: getFormConfig(FormKeys.register),
   ),
@@ -159,7 +165,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // User Adminstration Screen
   userAdminPath: ScreenWithForm(
     key: const Key(ScreenKeys.userAdmin),
-    screenPath: JetsRouteData(userAdminPath),
+    screenPath: const JetsRouteData(userAdminPath),
     screenConfig: getScreenConfig(ScreenKeys.userAdmin),
     formConfig: getFormConfig(FormKeys.userAdmin),
   ),
@@ -167,7 +173,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // User Git Profile Screen
   userGitProfilePath: ScreenWithForm(
     key: const Key(ScreenKeys.userGitProfile),
-    screenPath: JetsRouteData(userGitProfilePath),
+    screenPath: const JetsRouteData(userGitProfilePath),
     screenConfig: getScreenConfig(ScreenKeys.userGitProfile),
     formConfig: getFormConfig(FormKeys.userGitProfile),
   ),
@@ -175,7 +181,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Domain Table Viewer
   domainTableViewerPath: ScreenOne(
       key: const Key(ScreenKeys.fileRegistryTable),
-      screenPath: JetsRouteData(domainTableViewerPath),
+      screenPath: const JetsRouteData(domainTableViewerPath),
       screenConfig: getScreenConfig(ScreenKeys.fileRegistryTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey,
@@ -187,7 +193,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Query Tool
   queryToolPath: ScreenWithMultiForms(
     key: const Key(ScreenKeys.queryToolScreen),
-    screenPath: JetsRouteData(queryToolPath),
+    screenPath: const JetsRouteData(queryToolPath),
     screenConfig: getScreenConfig(ScreenKeys.queryToolScreen),
     formConfig: [
       getFormConfig(FormKeys.queryToolInputForm),
@@ -198,7 +204,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // File Preview
   filePreviewPath: ScreenOne(
       key: const Key(ScreenKeys.filePreview),
-      screenPath: JetsRouteData(filePreviewPath),
+      screenPath: const JetsRouteData(filePreviewPath),
       screenConfig: getScreenConfig(ScreenKeys.filePreview),
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey,
@@ -210,7 +216,7 @@ final Map<String, Widget> jetsRoutesMap = {
   // Pipeline Execution Status Details Viewer
   executionStatusDetailsPath: ScreenOne(
       key: const Key(ScreenKeys.execStatusDetailsTable),
-      screenPath: JetsRouteData(executionStatusDetailsPath),
+      screenPath: const JetsRouteData(executionStatusDetailsPath),
       screenConfig: getScreenConfig(ScreenKeys.execStatusDetailsTable),
       validatorDelegate: (formState, p2, p3, p4) => null,
       actionsDelegate: (context, formKey, formState, actionKey,
@@ -222,9 +228,17 @@ final Map<String, Widget> jetsRoutesMap = {
   // Process Errors Viewer
   processErrorsPath: ScreenWithForm(
     key: const Key(ScreenKeys.processErrorsTable),
-    screenPath: JetsRouteData(processErrorsPath),
+    screenPath: const JetsRouteData(processErrorsPath),
     screenConfig: getScreenConfig(ScreenKeys.processErrorsTable),
     formConfig: getFormConfig(FormKeys.viewProcessErrors),
+  ),
+
+  // Client Registry User Flow
+  ufClientRegistryPath: UserFlowScreen(
+    key: const Key(UserFlowKeys.clientRegistryUF),
+    screenPath: const JetsRouteData(ufClientRegistryPath),
+    screenConfig: getScreenConfig(ScreenKeys.ufClientRegistry),
+    userFlowConfig: getUserFlowConfig(UserFlowKeys.clientRegistryUF),
   ),
 
   // Page Not Found
@@ -255,7 +269,7 @@ class MessageScreen extends StatelessWidget {
             tooltip: 'Log Out',
             onPressed: () {
               JetsRouterDelegate().user = UserModel();
-              JetsRouterDelegate()(JetsRouteData(loginPath));
+              JetsRouterDelegate()(const JetsRouteData(loginPath));
             },
           ),
         ],
