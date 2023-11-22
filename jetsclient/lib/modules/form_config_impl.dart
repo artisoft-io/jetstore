@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/modules/actions/config_delegates.dart';
 import 'package:jetsclient/modules/actions/process_errors_delegates.dart';
 import 'package:jetsclient/modules/actions/query_tool_screen_delegates.dart';
@@ -237,7 +238,7 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: double.infinity)
       ],
     ],
-    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: userAdminFormActions,
   ),
   // User Administration Form - Edit User Profile Dialog
@@ -1476,7 +1477,7 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: double.infinity)
       ],
     ],
-    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: processErrorsActions,
   ),
 
@@ -1586,7 +1587,7 @@ final Map<String, FormConfig> _formConfigurations = {
         ],
       ];
     },
-    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: processErrorsActions,
   ),
 
@@ -1611,7 +1612,7 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: 1000)
       ],
     ],
-    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: processErrorsActions,
   ),
 
@@ -1646,7 +1647,7 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: double.infinity),
       ],
     ],
-    formValidatorDelegate: (formState, p2, p3, p4) => null,
+    formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: processErrorsActions,
   ),
 

@@ -21,6 +21,12 @@ typedef FormActionsDelegate = Future<String?> Function(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {required int group});
 
+Future<String?> doNothingAction(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
+    {required int group}) async {
+  return null;
+}
+
 /// Form Field Validator, this correspond to ValidatorDelegate with
 /// the context and the formState curried by the JetsForm when calling makeFormField
 typedef JetsFormFieldValidator = String? Function(
@@ -123,7 +129,7 @@ class FormConfig {
   }
 
   final ValidatorDelegate formValidatorDelegate;
-  final FormActionsDelegate formActionsDelegate;
+  FormActionsDelegate formActionsDelegate;
 
   JetsFormState makeFormState({JetsFormState? parentFormState}) {
     return JetsFormState(

@@ -154,8 +154,11 @@ class FormKeys {
   static const wsLookupsForm = "workspace.lookups.form";
   
   // User Flow Forms
+  // Client Registry UF
+  static const ufStartClientRegistry = "ufStartClientRegistry";
   static const ufClient = "ufClient";
   static const ufVendor = "ufVendor";
+  static const ufDoneClientRegistry = "ufDoneClientRegistry";
 }
 
 /// Form State Keys
@@ -435,6 +438,12 @@ class ActionKeys {
   static const ufPrevious = "ufPrevious";
   static const ufContinueLater = "ufContinueLater";
   static const ufCompleted = "ufCompleted";
+
+  // User Flow Module Specific Form Actions
+  // Client Registry UF ActionKeys
+  static const crStartUF = "crStartUF";
+  static const crAddClientUF = "crAddClientUF";
+  static const crAddVendorUF = "crAddVendorUF";
 }
 
 /// User Flow Keys

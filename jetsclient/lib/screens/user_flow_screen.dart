@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/models/user_flow_config.dart';
+import 'package:jetsclient/modules/actions/user_flow_actions.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/components/form_with_tabs.dart';
 
@@ -19,6 +20,14 @@ class UserFlowScreen extends BaseScreen {
           final state = baseState as UserFlowScreenState;
           print("*** BUILDING UserFlowScreen: ${screenConfig.title}");
           final formConfig = state.formConfig;
+          // Curried Form Action Delegate to put the UF State
+          formConfig.formActionsDelegate = (BuildContext context,
+                  GlobalKey<FormState> formKey,
+                  JetsFormState formState,
+                  String actionKey,
+                  {group = 0}) =>
+              userFlowStateActions(
+                  state, context, formKey, formState, actionKey, group: group);
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -69,17 +78,16 @@ class UserFlowScreenState extends BaseScreenState {
 
   UserFlowScreen get _widget => super.widget as UserFlowScreen;
   UserFlowConfig get userFlowConfig => _widget.userFlowConfig;
-  ValidatorDelegate get validatorDelegate => userFlowConfig.validatorDelegate;
   // curried function example, injecting argument UserFlowState
-  FormActionsDelegate get actionsDelegate => (BuildContext context,
-          GlobalKey<FormState> formKey,
-          JetsFormState formState,
-          String actionKey,
-          {required int group}) {
-        return userFlowConfig.actionDelegate(
-            this, context, formKey, formState, actionKey,
-            group: group);
-      };
+  // FormActionsDelegate get actionsDelegate => (BuildContext context,
+  //         GlobalKey<FormState> formKey,
+  //         JetsFormState formState,
+  //         String actionKey,
+  //         {required int group}) {
+  //       return userFlowConfig.actionDelegate(
+  //           this, context, formKey, formState, actionKey,
+  //           group: group);
+  //     };
 
   @override
   void initState() {

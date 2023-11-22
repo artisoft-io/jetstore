@@ -5,6 +5,7 @@ import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/user_flow_screen.dart';
+import 'package:jetsclient/utils/constants.dart';
 
 typedef UserFlowActionDelegate = Future<String?> Function(
     UserFlowScreenState state,
@@ -13,6 +14,28 @@ typedef UserFlowActionDelegate = Future<String?> Function(
     JetsFormState formState,
     String actionKey,
     {dynamic group});
+
+/// Standard User Flow Actions for use in Form Config of UserFlowState
+List<FormActionConfig> standardActions = [
+  FormActionConfig(
+      key: ActionKeys.ufPrevious,
+      label: "Previous",
+      buttonStyle: ActionStyle.secondary,
+      leftMargin: defaultPadding,
+      rightMargin: betweenTheButtonsPadding),
+  FormActionConfig(
+      key: ActionKeys.ufContinueLater,
+      label: "Continue Later",
+      buttonStyle: ActionStyle.secondary,
+      leftMargin: betweenTheButtonsPadding,
+      rightMargin: defaultPadding),
+  FormActionConfig(
+      key: ActionKeys.ufNext,
+      label: "Next",
+      buttonStyle: ActionStyle.primary,
+      leftMargin: betweenTheButtonsPadding,
+      rightMargin: defaultPadding),
+];
 
 /// User Flow Configuration
 /// The user flow configuration is greatly inspired from the
@@ -24,13 +47,9 @@ class UserFlowConfig {
   UserFlowConfig(
       {required this.startAtKey,
       required this.states,
-      required this.validatorDelegate,
-      required this.actionDelegate,
       this.exitScreenPath = homePath});
   final String startAtKey;
   final Map<String, UserFlowState> states;
-  final ValidatorDelegate validatorDelegate;
-  final UserFlowActionDelegate actionDelegate;
 
   /// The [JetsRouteData] to visit once the user flow has terminated
   final String exitScreenPath;
@@ -73,6 +92,7 @@ class UserFlowState {
     required this.key,
     this.description = '',
     required this.formConfig,
+    required this.actionDelegate,
     this.stateAction,
     this.choices = const [],
     this.defaultNextState,
@@ -85,6 +105,7 @@ class UserFlowState {
   final bool isEnd;
   final List<UserFlowChoice> choices;
   final String? defaultNextState;
+  final FormActionsDelegate actionDelegate;
 
   /// returns the next state key of the user flow
   /// return null when no choices are true and [defaultNextState] is null

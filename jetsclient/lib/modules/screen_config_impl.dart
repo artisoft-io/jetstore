@@ -8,6 +8,10 @@ import 'package:jetsclient/routes/jets_routes_app.dart';
 final defaultMenuEntries = [
   MenuEntry(key: 'jetstoreHome', label: 'JetStore Home', routePath: homePath),
   MenuEntry(
+      key: 'clientRegistryUF',
+      label: 'New Client',
+      routePath: ufClientRegistryPath),
+  MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
       routePath: clientAdminPath),

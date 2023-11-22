@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
-import 'package:jetsclient/modules/client_config/user_flow_config.dart';
+import 'package:jetsclient/modules/user_flow_config_impl.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/screens/screen_form.dart';
 import 'package:jetsclient/screens/screen_multi_form.dart';

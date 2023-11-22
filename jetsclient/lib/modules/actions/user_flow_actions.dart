@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/models/form_config.dart';
+import 'package:jetsclient/modules/form_config_impl.dart';
 import 'package:jetsclient/screens/user_flow_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -19,6 +21,17 @@ Future<String?> userFlowStateActions(
       formState.setValue(group, FSK.ufCurrentPage, 0);
       formState.setValue(group, FSK.ufVisitedPages, <String>[]);
 
+      // Do the Action of the UserFlowState (associated with ufStartFlow)
+      final userFlowState = userFlowScreenState.currentUserFlowState;
+      if (userFlowState.stateAction != null) {
+        final err = await userFlowState.formConfig.formActionsDelegate(
+            context, formKey, formState, userFlowState.stateAction!,
+            group: group);
+        if (err != null) {
+          print("ERROR while doing userFlowState Action");
+        }
+      }
+
       // Set the next page to display
       final nextStateKey = userFlowScreenState.currentUserFlowState
           .next(group: group, formState: formState);
@@ -34,12 +47,13 @@ Future<String?> userFlowStateActions(
       if (!valid) {
         return null;
       }
-      // Do the Action of the UserFlowState
+      // Do the Action of the UserFlowState (associated with ufNext)
       final userFlowState = userFlowScreenState.currentUserFlowState;
       if (userFlowState.stateAction != null) {
         final err = await userFlowState.formConfig.formActionsDelegate(
-            context, formKey, formState, userFlowState.stateAction!, group: group);
-        if(err != null) {
+            context, formKey, formState, userFlowState.stateAction!,
+            group: group);
+        if (err != null) {
           print("ERROR while doing userFlowState Action");
         }
       }
@@ -86,11 +100,30 @@ Future<String?> userFlowStateActions(
     // User Flow Completed
     case ActionKeys.ufCompleted:
       // Save state with associated session id
+
+      // Do the Action of the UserFlowState (associated with ufCompleted)
+      final userFlowState = userFlowScreenState.currentUserFlowState;
+      if (userFlowState.stateAction != null) {
+        final err = await userFlowState.formConfig.formActionsDelegate(
+            context, formKey, formState, userFlowState.stateAction!,
+            group: group);
+        if (err != null) {
+          print("ERROR while doing userFlowState Action");
+        }
+      }
       Navigator.of(context)
           .pushNamed(userFlowScreenState.userFlowConfig.exitScreenPath);
       break;
     default:
-      print('Oops unknown ActionKey for workspaceIDE Form: $actionKey');
+      // Delegate to the UserFlowState Action
+      final userFlowState = userFlowScreenState.currentUserFlowState;
+      final err = await userFlowState.formConfig.formActionsDelegate(
+          context, formKey, formState, userFlowState.stateAction!,
+          group: group);
+      if (err != null) {
+        print("ERROR while doing userFlowState Action");
+      }
+      return err;
   }
   return null;
 }

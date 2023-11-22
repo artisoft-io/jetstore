@@ -8,6 +8,9 @@ import 'package:jetsclient/components/form.dart';
 typedef ValidatorDelegate = String? Function(
     JetsFormState formState, int, String, dynamic);
 
+/// Do nothing Form Validator, ie Always Valid
+String? alwaysValidForm(formState, p2, p3, p4) => null;
+
 typedef AnonymousCallback = void Function();
 
 /// Selected rows mapping, key is row primary key
