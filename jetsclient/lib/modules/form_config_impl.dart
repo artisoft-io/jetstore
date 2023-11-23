@@ -5,6 +5,7 @@ import 'package:jetsclient/modules/actions/process_errors_delegates.dart';
 import 'package:jetsclient/modules/actions/query_tool_screen_delegates.dart';
 import 'package:jetsclient/modules/actions/source_config_delegates.dart';
 import 'package:jetsclient/modules/actions/user_delegates.dart';
+import 'package:jetsclient/modules/client_config/form_config.dart';
 
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
@@ -1708,12 +1709,11 @@ final Map<String, FormConfig> _formConfigurations = {
 
 FormConfig getFormConfig(String key) {
   var config = _formConfigurations[key];
-  if (config == null) {
-    config = getWorkspaceFormConfig(key);
-    if (config == null) {
-      throw Exception(
-          'ERROR: Invalid program configuration: form configuration $key not found');
-    }
-  }
-  return config;
+  if (config != null)  return config;
+  config = getWorkspaceFormConfig(key);
+  if (config != null)  return config;
+  config = getClientRegistryFormConfig(key);
+  if (config != null)  return config;
+  throw Exception(
+      'ERROR: Invalid program configuration: form configuration $key not found');
 }

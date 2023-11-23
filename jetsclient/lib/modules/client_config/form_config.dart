@@ -15,7 +15,7 @@ final Map<String, FormConfig> _formConfigurations = {
           label: "Start",
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
+          rightMargin: defaultPadding),
     ],
     inputFields: [
       [
@@ -80,7 +80,7 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
     formValidatorDelegate: clientConfigFormValidator,
-    formActionsDelegate: doNothingAction,
+    formActionsDelegate: clientConfigFormActions,
   ),
   FormKeys.ufVendor: FormConfig(
     key: FormKeys.ufVendor,
@@ -147,7 +147,7 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.ufDoneClientRegistry: FormConfig(
     key: FormKeys.ufDoneClientRegistry,
     title: "Client Registry",
-    useListView: true,
+    // useListView: true,
     actions: [
       FormActionConfig(
           key: ActionKeys.ufCompleted,
@@ -170,6 +170,6 @@ final Map<String, FormConfig> _formConfigurations = {
   ),
 };
 
-FormConfig? getClientConfigFormConfig(String key) {
+FormConfig? getClientRegistryFormConfig(String key) {
   return _formConfigurations[key];
 }

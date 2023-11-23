@@ -15,7 +15,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
 };
 
 
-ScreenConfig? getWorkspaceScreenConfig(String key) {
+ScreenConfig? getClientRegistryScreenConfig(String key) {
   var config = _screenConfigurations[key];
   return config;
 }

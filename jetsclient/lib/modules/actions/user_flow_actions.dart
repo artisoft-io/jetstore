@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
-import 'package:jetsclient/models/form_config.dart';
-import 'package:jetsclient/modules/form_config_impl.dart';
 import 'package:jetsclient/screens/user_flow_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -13,32 +11,41 @@ Future<String?> userFlowStateActions(
     JetsFormState formState,
     String actionKey,
     {group = 0}) async {
+  print("*** userFlowStateActions called with actionKey $actionKey");
   switch (actionKey) {
     // Start User Flow
     case ActionKeys.ufStartFlow:
       // Prepare the FormState, get state from server
       // Keep the list of visited page for supporting previous and next buttons
       formState.setValue(group, FSK.ufCurrentPage, 0);
-      formState.setValue(group, FSK.ufVisitedPages, <String>[]);
+      final visitedPages = <String>[
+        userFlowScreenState.userFlowConfig.startAtKey
+      ];
+      formState.setValue(group, FSK.ufVisitedPages, visitedPages);
 
       // Do the Action of the UserFlowState (associated with ufStartFlow)
       final userFlowState = userFlowScreenState.currentUserFlowState;
       if (userFlowState.stateAction != null) {
-        final err = await userFlowState.formConfig.formActionsDelegate(
+        final err = await userFlowState.actionDelegate(
             context, formKey, formState, userFlowState.stateAction!,
             group: group);
         if (err != null) {
           print("ERROR while doing userFlowState Action");
         }
+      } else {
+        print(
+            "*** userFlowState.stateAction is null in userFlowStateActions with ActionKey $actionKey");
       }
 
       // Set the next page to display
-      final nextStateKey = userFlowScreenState.currentUserFlowState
-          .next(group: group, formState: formState);
-      userFlowScreenState.currentUserFlowState =
-          userFlowScreenState.userFlowConfig.states[nextStateKey!]!;
-      userFlowScreenState.formConfig =
-          userFlowScreenState.currentUserFlowState.formConfig;
+      final nextStateKey =
+          userFlowState.next(group: group, formState: formState);
+      print("^^^ nextStateKey is $nextStateKey");
+      visitedPages.add(nextStateKey!);
+      print("*** ActionKeys.ufStartFlow visitedPages is: $visitedPages");
+      final ufState = userFlowScreenState.userFlowConfig.states[nextStateKey];
+      final fConfig = ufState!.formConfig;
+      userFlowScreenState.setCurrentUserFlowState(ufState, fConfig);
       break;
 
     case ActionKeys.ufNext:
@@ -50,7 +57,7 @@ Future<String?> userFlowStateActions(
       // Do the Action of the UserFlowState (associated with ufNext)
       final userFlowState = userFlowScreenState.currentUserFlowState;
       if (userFlowState.stateAction != null) {
-        final err = await userFlowState.formConfig.formActionsDelegate(
+        final err = await userFlowState.actionDelegate(
             context, formKey, formState, userFlowState.stateAction!,
             group: group);
         if (err != null) {
@@ -67,28 +74,30 @@ Future<String?> userFlowStateActions(
         return "ERROR nextStateKey is null";
       }
       visitedPages.add(nextStateKey);
+      print("*** ActionKeys.ufNext visitedPages is now: $visitedPages");
       formState.setValue(group, FSK.ufCurrentPage, visitedPages.length - 1);
-      userFlowScreenState.currentUserFlowState =
-          userFlowScreenState.userFlowConfig.states[nextStateKey]!;
-      userFlowScreenState.formConfig =
-          userFlowScreenState.currentUserFlowState.formConfig;
+      final ufState = userFlowScreenState.userFlowConfig.states[nextStateKey];
+      final fConfig = ufState!.formConfig;
+      userFlowScreenState.setCurrentUserFlowState(ufState, fConfig);
       break;
 
     case ActionKeys.ufPrevious:
       // Move to previous page
       final visitedPages =
           formState.getValue(group, FSK.ufVisitedPages) as List<String>;
-      if (visitedPages.isEmpty) {
-        print("ERROR visitedPages is empty, cannot do previous");
-        return "ERROR visitedPages is empty, cannot do previous";
+      print("*** ActionKeys.ufPrevious visitedPages is: $visitedPages");
+      if (visitedPages.length < 2) {
+        print("ERROR visitedPages.length < 2, cannot do previous");
+        return "ERROR visitedPages.length < 2, cannot do previous";
       }
-      final nextStateKey = visitedPages.removeLast();
-      visitedPages.add(nextStateKey);
+      final page = visitedPages.removeLast();
+      print("*** ActionKeys.ufPrevious removed page: $page");
+      final nextStateKey = visitedPages.last;
+      print("*** ActionKeys.ufPrevious going to page: $nextStateKey");
       formState.setValue(group, FSK.ufCurrentPage, visitedPages.length - 1);
-      userFlowScreenState.currentUserFlowState =
-          userFlowScreenState.userFlowConfig.states[nextStateKey!]!;
-      userFlowScreenState.formConfig =
-          userFlowScreenState.currentUserFlowState.formConfig;
+      final ufState = userFlowScreenState.userFlowConfig.states[nextStateKey];
+      final fConfig = ufState!.formConfig;
+      userFlowScreenState.setCurrentUserFlowState(ufState, fConfig);
       break;
 
     // Cancel / Continue Later
@@ -104,22 +113,23 @@ Future<String?> userFlowStateActions(
       // Do the Action of the UserFlowState (associated with ufCompleted)
       final userFlowState = userFlowScreenState.currentUserFlowState;
       if (userFlowState.stateAction != null) {
-        final err = await userFlowState.formConfig.formActionsDelegate(
+        final err = await userFlowState.actionDelegate(
             context, formKey, formState, userFlowState.stateAction!,
             group: group);
         if (err != null) {
           print("ERROR while doing userFlowState Action");
         }
       }
-      Navigator.of(context)
-          .pushNamed(userFlowScreenState.userFlowConfig.exitScreenPath);
+      // Navigator.of(context)
+      //     .pushNamed(userFlowScreenState.userFlowConfig.exitScreenPath);
+      if(context.mounted) Navigator.of(context).pop();
       break;
     default:
       // Delegate to the UserFlowState Action
+      print("@default userFlowStateAction for ActionKey $actionKey");
       final userFlowState = userFlowScreenState.currentUserFlowState;
-      final err = await userFlowState.formConfig.formActionsDelegate(
-          context, formKey, formState, userFlowState.stateAction!,
-          group: group);
+      final err = await userFlowState
+          .actionDelegate(context, formKey, formState, actionKey, group: group);
       if (err != null) {
         print("ERROR while doing userFlowState Action");
       }

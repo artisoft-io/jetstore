@@ -253,7 +253,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
               ),
               // Left menu as TreeView
               Expanded(
-                flex: 24,
+                flex: 10,
                 child: SingleChildScrollView(
                   child: TreeView(
                       nodes: menuEntries

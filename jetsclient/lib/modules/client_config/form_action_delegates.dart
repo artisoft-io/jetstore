@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
@@ -16,7 +14,7 @@ String? clientConfigFormValidator(
 
     default:
       print(
-          'Oops Workspace Home Form Validator has no validator configured for form field $key');
+          'Oops clientConfigFormValidator Form Validator has no validator configured for form field $key');
   }
   return null;
 }
@@ -31,6 +29,14 @@ Future<String?> clientConfigFormActions(BuildContext context,
       // Init state with user email
       final state = formState.getState(0);
       state['user_email'] = JetsRouterDelegate().user.email;
+      return null;
+
+    case ActionKeys.crAddClientUF:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      print("*** ActionKeys.crAddClientUF called!");
       return null;
 
     // Cancel Dialog / Form

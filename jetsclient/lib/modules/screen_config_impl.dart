@@ -1,3 +1,4 @@
+import 'package:jetsclient/modules/client_config/screen_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/modules/actions/menu_delegates.dart';
 import 'package:jetsclient/models/screen_config.dart';
@@ -286,12 +287,12 @@ final Map<String, ScreenConfig> _screenConfigurations = {
 
 ScreenConfig getScreenConfig(String key) {
   var config = _screenConfigurations[key];
-  if (config == null) {
-    config = getWorkspaceScreenConfig(key);
-    if (config == null) {
-      throw Exception(
-          'ERROR: Invalid program configuration: screen configuration $key not found');
-    }
-  }
-  return config;
+  if (config != null) return config;
+  config = getWorkspaceScreenConfig(key);
+  if (config != null) return config;
+  config = getClientRegistryScreenConfig(key);
+  if (config != null) return config;
+
+  throw Exception(
+      'ERROR: Invalid program configuration: screen configuration $key not found');
 }

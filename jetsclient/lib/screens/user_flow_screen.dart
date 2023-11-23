@@ -27,7 +27,8 @@ class UserFlowScreen extends BaseScreen {
                   String actionKey,
                   {group = 0}) =>
               userFlowStateActions(
-                  state, context, formKey, formState, actionKey, group: group);
+                  state, context, formKey, formState, actionKey,
+                  group: group);
           return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -92,17 +93,31 @@ class UserFlowScreenState extends BaseScreenState {
   @override
   void initState() {
     super.initState();
-    currentUserFlowState = userFlowConfig.states[userFlowConfig.startAtKey]!;
-    formConfig = currentUserFlowState.formConfig;
-    formState = formConfig.makeFormState();
+    final ufState = userFlowConfig.states[userFlowConfig.startAtKey];
+    if (ufState == null) {
+      print(
+          "*** ERROR userFlowConfig for ${userFlowConfig.startAtKey} not found!");
+    } else {
+      print(
+          "^^^ Setting currentUserFlowState to ${ufState.key}: ${ufState.description}");
+      currentUserFlowState = ufState;
+      formConfig = currentUserFlowState.formConfig;
+      formState = formConfig.makeFormState();
+      // Initialize the Form State with the current navigation params
+      JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
+        formState.setValue(0, key, value);
+      });
+      // reset the updated keys since these updates is to put default values
+      // and is not from user interactions
+      //* TODO - Stop using group 0 as a special group with validation keys
+      formState.resetUpdatedKeys(0);
+    }
+  }
 
-    // Initialize the Form State with the current navigation params
-    JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
-      formState.setValue(0, key, value);
+  void setCurrentUserFlowState(UserFlowState ufState, FormConfig fConfig) {
+    setState(() {
+      currentUserFlowState = ufState;
+      formConfig = fConfig;
     });
-    // reset the updated keys since these updates is to put default values
-    // and is not from user interactions
-    //* TODO - Stop using group 0 as a special group with validation keys
-    formState.resetUpdatedKeys(0);
   }
 }
