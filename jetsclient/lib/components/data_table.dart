@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/export_routes.dart';
-import 'package:jetsclient/components/data_table_model.dart';
+import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/dialogs.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/modules/form_config_impl.dart';

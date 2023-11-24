@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/export_routes.dart';
-import 'package:jetsclient/components/data_table_model.dart';
+import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/dialogs.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -628,7 +628,9 @@ class JetsDataTableSource extends ChangeNotifier {
       }
     }
     Map<String, dynamic>? data;
-    if (state.tableConfig.modelStateFormKey != null) {
+    if (state.tableConfig.staticTableModel != null) {
+      data = <String, dynamic>{'rows': state.tableConfig.staticTableModel};
+    } else if (state.tableConfig.modelStateFormKey != null) {
       data = <String, dynamic>{
         'rows':
             state.formState?.getValue(0, state.tableConfig.modelStateFormKey!)

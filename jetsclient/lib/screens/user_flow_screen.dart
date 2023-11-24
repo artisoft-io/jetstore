@@ -18,7 +18,7 @@ class UserFlowScreen extends BaseScreen {
     required this.userFlowConfig,
   }) : super(builder: (BuildContext context, State<BaseScreen> baseState) {
           final state = baseState as UserFlowScreenState;
-          print("*** BUILDING UserFlowScreen: ${screenConfig.title}");
+          // print("*** BUILDING UserFlowScreen: ${screenConfig.title}");
           final formConfig = state.formConfig;
           // Curried Form Action Delegate to put the UF State
           formConfig.formActionsDelegate = (BuildContext context,
@@ -98,8 +98,8 @@ class UserFlowScreenState extends BaseScreenState {
       print(
           "*** ERROR userFlowConfig for ${userFlowConfig.startAtKey} not found!");
     } else {
-      print(
-          "^^^ Setting currentUserFlowState to ${ufState.key}: ${ufState.description}");
+      // print(
+      //     "^^^ Setting currentUserFlowState to ${ufState.key}: ${ufState.description}");
       currentUserFlowState = ufState;
       formConfig = currentUserFlowState.formConfig;
       formState = formConfig.makeFormState();

@@ -152,12 +152,15 @@ class FormKeys {
   static const wsDataModelForm = "workspace.data_model.form";
   static const wsJetRulesForm = "workspace.jet_rules.form";
   static const wsLookupsForm = "workspace.lookups.form";
-  
+
   // User Flow Forms
   // Client Registry UF
   static const ufStartClientRegistry = "ufStartClientRegistry";
-  static const ufClient = "ufClient";
+  static const ufSelectClientOrVendor = "ufSelectClientOrVendor";
+  static const ufCreateClient = "ufCreateClient";
+  static const ufSelectClient = "ufSelectClient";
   static const ufVendor = "ufVendor";
+  static const ufShowVendor = "ufShowVendor";
   static const ufDoneClientRegistry = "ufDoneClientRegistry";
 }
 
@@ -299,9 +302,21 @@ class FSK {
   // workspace.db columns
   static const wsDbSourceFileName = "source_file_name";
 
-  // Keys for User Form - special state management keys
+  // Keys for User Flow - special state management keys
+  // --------------------------------------------------
   static const ufCurrentPage = "ufCurrentPage";
   static const ufVisitedPages = "ufVisitedPages";
+
+  // Client Registry User Flow
+  static const ufClientOrVendorOption = "ufClientOrVendorOption";
+  /// value, create_client option
+  static const ufClientOption = "ufClientOption";
+  /// value, select_client option
+  static const ufVendorOption = "ufVendorOption";
+  /// to disambiguate FSK.details
+  static const ufClientDetails = "ufClientDetails"; 
+  /// to disambiguate FSK.details
+  static const ufVendorDetails = "ufVendorDetails"; 
 
   // reserved keys for cache
 
@@ -398,8 +413,10 @@ class ActionKeys {
   static const ruleConfigOk = "ruleConfig.ok";
   static const ruleConfigv2Ok = "ruleConfigv2.ok";
   static const ruleConfigAdd = "ruleConfig.add";
-  static const ruleConfigDelete = "ruleConfig.delete"; // Used in Edit Rule Config Dialog v1 - delete a triple
-  static const deleteRuleConfigv2 = "deleteRuleConfigv2";  // Action to Delete a Rule Config in DB
+  static const ruleConfigDelete =
+      "ruleConfig.delete"; // Used in Edit Rule Config Dialog v1 - delete a triple
+  static const deleteRuleConfigv2 =
+      "deleteRuleConfigv2"; // Action to Delete a Rule Config in DB
 
   // for add / edit pipeline config dialog
   static const pipelineConfigOk = "pipelineConfig.ok";
@@ -443,15 +460,17 @@ class ActionKeys {
   // Client Registry UF ActionKeys
   static const crStartUF = "crStartUF";
   static const crAddClientUF = "crAddClientUF";
+  static const crSelectClientUF = "crSelectClientUF";
   static const crAddVendorUF = "crAddVendorUF";
+  static const crShowVendorUF = "crShowVendorUF";
 }
 
 /// User Flow Keys
 class UserFlowKeys {
   /// client_registry and client_org_registry
   static const clientRegistryUF = "clientRegistryUF";
-
 }
+
 /// Status Keys
 /// stardard keys to identify Pipeline Execution Status
 class StatusKeys {
@@ -537,6 +556,10 @@ class DTKeys {
   static const wsJetRulesFilesTable = "wsJetRulesFilesTable";
 
   static const wsLookupsTable = "wsLookupsTable";
+
+  // User Flow Tables
+  // Client Registry User Flow Tables
+  // FSK.ufClientOrVendorOption
 }
 
 /// API Server endpoints

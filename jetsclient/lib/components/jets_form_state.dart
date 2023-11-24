@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:jetsclient/components/data_table_model.dart';
+import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/form.dart';
 
 /// Jets Form validator

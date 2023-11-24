@@ -20,19 +20,19 @@ List<FormActionConfig> standardActions = [
   FormActionConfig(
       key: ActionKeys.ufPrevious,
       label: "Previous",
-      buttonStyle: ActionStyle.secondary,
+      buttonStyle: ActionStyle.primary,
       leftMargin: defaultPadding,
       rightMargin: betweenTheButtonsPadding),
   FormActionConfig(
       key: ActionKeys.ufContinueLater,
-      label: "Continue Later",
-      buttonStyle: ActionStyle.secondary,
+      label: "Cancel",
+      buttonStyle: ActionStyle.primary,
       leftMargin: betweenTheButtonsPadding,
       rightMargin: defaultPadding),
   FormActionConfig(
       key: ActionKeys.ufNext,
       label: "Next",
-      buttonStyle: ActionStyle.primary,
+      buttonStyle: ActionStyle.secondary,
       leftMargin: betweenTheButtonsPadding,
       rightMargin: defaultPadding),
 ];
@@ -105,7 +105,7 @@ class UserFlowState {
   final bool isEnd;
   final List<UserFlowChoice> choices;
   final String? defaultNextState;
-  final FormActionsDelegate actionDelegate;
+  final UserFlowActionDelegate actionDelegate;
 
   /// returns the next state key of the user flow
   /// return null when no choices are true and [defaultNextState] is null
@@ -168,11 +168,17 @@ class Expression extends UserFlowChoice {
     int group = 0,
     required JetsFormState formState,
   }) {
-    final lhs = formState.getValue(group, lhsStateKey);
-    final rhs = isRhsStateKey ? formState.getValue(group, rhsValue) : rhsValue;
+    var lhs = formState.getValue(group, lhsStateKey);
+    var rhs = isRhsStateKey ? formState.getValue(group, rhsValue) : rhsValue;
     if (lhs == null || rhs == null) return false;
     switch (op) {
       case Operator.equals:
+        if (lhs is List<String> && lhs.isNotEmpty) {
+          lhs = lhs[0];
+        }
+        if (rhs is List<String> && rhs.isNotEmpty) {
+          rhs = rhs[0];
+        }
         return lhs == rhs;
 
       case Operator.contains:

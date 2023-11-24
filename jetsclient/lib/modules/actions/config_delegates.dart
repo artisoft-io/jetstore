@@ -313,8 +313,12 @@ Future<String?> sourceConfigActions(BuildContext context,
           'Are you sure you want to delete the selected organization?');
       if (uc != 'OK') return null;
       var state = formState.getState(0);
-      state[FSK.client] = state[FSK.client][0];
-      state[FSK.org] = state[FSK.org][0];
+      if(state[FSK.client] is List<String>) {
+        state[FSK.client] = state[FSK.client][0];
+      }
+      if(state[FSK.org] is List<String>) {
+        state[FSK.org] = state[FSK.org][0];
+      }
       state['user_email'] = JetsRouterDelegate().user.email;
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',

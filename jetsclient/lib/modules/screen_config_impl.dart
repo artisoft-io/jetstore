@@ -1,4 +1,4 @@
-import 'package:jetsclient/modules/client_config/screen_config.dart';
+import 'package:jetsclient/modules/client_registry/screen_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/modules/actions/menu_delegates.dart';
 import 'package:jetsclient/models/screen_config.dart';

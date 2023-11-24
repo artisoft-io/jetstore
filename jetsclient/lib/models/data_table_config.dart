@@ -1,5 +1,5 @@
 import 'package:jetsclient/components/data_table.dart';
-import 'package:jetsclient/components/data_table_model.dart';
+import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -16,6 +16,7 @@ class TableConfig {
       this.apiAction = "read",
       this.modelStateFormKey,
       this.modelStateHandler,
+      this.staticTableModel,
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
       required this.actions,
@@ -43,6 +44,7 @@ class TableConfig {
   final String apiAction;
   final String? modelStateFormKey;
   final ModelHandler? modelStateHandler;
+  final JetsDataModel? staticTableModel;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
   final List<ActionConfig> actions;

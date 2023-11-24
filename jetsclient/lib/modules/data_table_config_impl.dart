@@ -1,3 +1,4 @@
+import 'package:jetsclient/modules/client_registry/data_table_config.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
@@ -3000,12 +3001,11 @@ final Map<String, TableConfig> _tableConfigurations = {
 
 TableConfig getTableConfig(String key) {
   var config = _tableConfigurations[key];
-  if (config == null) {
-    config = getWorkspaceTableConfig(key);
-    if (config == null) {
-      throw Exception(
-          'ERROR: Invalid program configuration: table configuration $key not found');
-    }
-  }
-  return config;
+  if (config != null)  return config;
+  config = getWorkspaceTableConfig(key);
+  if (config != null)  return config;
+  config = getClientRegistryTableConfig(key);
+  if(config != null) return config;
+  throw Exception(
+      'ERROR: Invalid program configuration: table configuration $key not found');
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
-import 'package:jetsclient/components/data_table_model.dart';
+import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/dialogs.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -91,7 +91,9 @@ Future<int> postSimpleAction(BuildContext context, JetsFormState formState,
     messenger.showSnackBar(snackBar);
     formState.invokeCallbacks();
   } else {
-    showAlertDialog(context, "Something went wrong. Please try again.");
+    if(context.mounted) {
+      showAlertDialog(context, result.body['error'] ?? "Something went wrong. Please try again.");
+    }
   }
   return result.statusCode;
 }
