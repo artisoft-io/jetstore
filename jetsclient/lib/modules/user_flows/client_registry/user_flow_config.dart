@@ -1,5 +1,5 @@
 import 'package:jetsclient/models/user_flow_config.dart';
-import 'package:jetsclient/modules/client_registry/form_action_delegates.dart';
+import 'package:jetsclient/modules/user_flows/client_registry/form_action_delegates.dart';
 import 'package:jetsclient/modules/form_config_impl.dart';
 import 'package:jetsclient/utils/constants.dart';
 

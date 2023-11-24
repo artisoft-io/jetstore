@@ -1,6 +1,6 @@
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/models/user_flow_config.dart';
-import 'package:jetsclient/modules/client_registry/form_action_delegates.dart';
+import 'package:jetsclient/modules/user_flows/client_registry/form_action_delegates.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
 

@@ -5,7 +5,7 @@ import 'package:jetsclient/modules/actions/process_errors_delegates.dart';
 import 'package:jetsclient/modules/actions/query_tool_screen_delegates.dart';
 import 'package:jetsclient/modules/actions/source_config_delegates.dart';
 import 'package:jetsclient/modules/actions/user_delegates.dart';
-import 'package:jetsclient/modules/client_registry/form_config.dart';
+import 'package:jetsclient/modules/user_flows/client_registry/form_config.dart';
 
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
