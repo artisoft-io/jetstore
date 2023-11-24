@@ -162,7 +162,7 @@ Future<String?> clientRegistryFormActions(
         if (statusCode == 200) return null;
         return "Error while creating client";
       }
-      break;
+      return null;
 
     case ActionKeys.deleteOrg:
       // Get confirmation
