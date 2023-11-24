@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/components/form_button.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
@@ -205,66 +206,99 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
         appBar: appBar(
             context, widget.screenConfig.appBarLabel, widget.screenConfig,
             showLogout: widget.screenConfig.showLogout),
-        body: SplitView(
-          // SplitView: Left menu & client area
-          viewMode: SplitViewMode.Horizontal,
-          indicator: const SplitIndicator(viewMode: SplitViewMode.Horizontal),
-          activeIndicator: const SplitIndicator(
-            viewMode: SplitViewMode.Horizontal,
-            isActive: true,
-          ),
-          controller: SplitViewController(
-              weights: JetsRouterDelegate().splitViewControllerWeights ??
-                  [0.2, 0.8]),
-          onWeightChanged: (w) =>
-              JetsRouterDelegate().splitViewControllerWeights = w,
+        body: Column(
           children: [
-            // Left menu
-            Column(children: [
-              const SizedBox(height: defaultPadding),
-              // JetStore logo as button to home screen
-              Expanded(
-                  flex: 3,
-                  child: ConstrainedBox(
-                      constraints: const BoxConstraints.expand(),
-                      child: IconButton(
-                          onPressed: () =>
-                              JetsRouterDelegate()(JetsRouteData(homePath)),
-                          padding: const EdgeInsets.all(0.0),
-                          icon: Image.asset(widget.screenConfig.leftBarLogo)))),
-              const SizedBox(height: defaultPadding),
-              // Client filter drop down in left menu
-              Expanded(
-                flex: 1,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(40.0, 0.0, 0.0, 0.0),
-                  child: DropdownButtonFormField<String>(
-                      value: JetsRouterDelegate().selectedClient,
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          JetsRouterDelegate().selectedClient = newValue;
-                        });
-                      },
-                      items: dropdownItems
-                          .map((e) => DropdownMenuItem<String>(
-                              value: e.value, child: Text(e.label)))
-                          .toList()),
-                ),
+            //The toolbar buttons as List<MenuEntry>
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(defaultPadding, defaultPadding, 0, 0),
+                child: Row(
+                    children: widget.screenConfig.toolbarMenuEntries
+                        .map((menuEntry) => TextButton(
+                          style: buttonStyle(
+                              getActionStyle(menuEntry), themeData),
+                          onPressed: () => menuEntry.routePath != null
+                              ? JetsRouterDelegate()(JetsRouteData(
+                                  menuEntry.routePath!,
+                                  params: menuEntry.routeParams))
+                              : null,
+                          child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                menuEntry.label,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              )),
+                        ))
+                        .toList()),
               ),
-              // Left menu as TreeView
-              Expanded(
-                flex: 10,
-                child: SingleChildScrollView(
-                  child: TreeView(
-                      nodes: menuEntries
-                          .map((menuEntry) =>
-                              _makeTreeNode(0, context, themeData, menuEntry))
-                          .toList()),
+            ),
+            Expanded(
+              child: SplitView(
+                // SplitView: Left menu & client area
+                viewMode: SplitViewMode.Horizontal,
+                indicator:
+                    const SplitIndicator(viewMode: SplitViewMode.Horizontal),
+                activeIndicator: const SplitIndicator(
+                  viewMode: SplitViewMode.Horizontal,
+                  isActive: true,
                 ),
-              )
-            ]),
-            // Client area
-            JetsSpinnerOverlay(child: widget.builder(context, this)),
+                controller: SplitViewController(
+                    weights: JetsRouterDelegate().splitViewControllerWeights ??
+                        [0.2, 0.8]),
+                onWeightChanged: (w) =>
+                    JetsRouterDelegate().splitViewControllerWeights = w,
+                children: [
+                  // Left menu
+                  Column(children: [
+                    const SizedBox(height: defaultPadding),
+                    // JetStore logo as button to home screen
+                    Expanded(
+                        flex: 3,
+                        child: ConstrainedBox(
+                            constraints: const BoxConstraints.expand(),
+                            child: IconButton(
+                                onPressed: () =>
+                                    JetsRouterDelegate()(JetsRouteData(homePath)),
+                                padding: const EdgeInsets.all(0.0),
+                                icon: Image.asset(
+                                    widget.screenConfig.leftBarLogo)))),
+                    const SizedBox(height: defaultPadding),
+                    // Client filter drop down in left menu
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(40.0, 0.0, 0.0, 0.0),
+                        child: DropdownButtonFormField<String>(
+                            value: JetsRouterDelegate().selectedClient,
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                JetsRouterDelegate().selectedClient = newValue;
+                              });
+                            },
+                            items: dropdownItems
+                                .map((e) => DropdownMenuItem<String>(
+                                    value: e.value, child: Text(e.label)))
+                                .toList()),
+                      ),
+                    ),
+                    // Left menu as TreeView
+                    Expanded(
+                      flex: 10,
+                      child: SingleChildScrollView(
+                        child: TreeView(
+                            nodes: menuEntries
+                                .map((menuEntry) => _makeTreeNode(
+                                    0, context, themeData, menuEntry))
+                                .toList()),
+                      ),
+                    )
+                  ]),
+                  // Client area
+                  JetsSpinnerOverlay(child: widget.builder(context, this)),
+                ],
+              ),
+            ),
           ],
         ));
   }

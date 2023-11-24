@@ -14,6 +14,7 @@ class ScreenConfig {
     required this.leftBarLogo,
     required this.menuEntries,
     required this.adminMenuEntries,
+    this.toolbarMenuEntries = const[],
   });
   final ScreenType type;
   final String key;
@@ -23,6 +24,7 @@ class ScreenConfig {
   final String leftBarLogo;
   final List<MenuEntry> menuEntries;
   final List<MenuEntry> adminMenuEntries;
+  final List<MenuEntry> toolbarMenuEntries;
 }
 
 /// MenuActionDelegate is action function used by menu items

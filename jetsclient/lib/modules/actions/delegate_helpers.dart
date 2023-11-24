@@ -14,7 +14,7 @@ String? unpack(dynamic elm) {
   if (elm is String) {
     return elm;
   }
-  if (elm is List<String>) {
+  if (elm is List<String> && elm.isNotEmpty) {
     return elm[0];
   }
   return null;

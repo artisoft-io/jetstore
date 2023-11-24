@@ -137,18 +137,41 @@ Future<String?> clientRegistryFormActions(
       userFlowScreenState.setCurrentUserFlowState(ufState, fConfig);
       return null;
 
+    case ActionKeys.deleteClient:
+      // Get confirmation
+      var uc = await showConfirmationDialog(
+          context, 'Are you sure you want to delete the selected client?');
+      if (uc != 'OK') return null;
+      var state = formState.getState(0);
+      state[FSK.client] = unpack(state[FSK.client]);
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'delete/client'}
+        ],
+        'data': [state],
+      }, toEncodable: (_) => '');
+      if (context.mounted) {
+        final statusCode = await postSimpleAction(
+            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+        state.remove(FSK.client);
+        state.remove(FSK.details);
+        state.remove(FSK.ufVendorDetails);
+        state.remove(FSK.ufClientDetails);
+        state.remove(FSK.org);
+        if (statusCode == 200) return null;
+        return "Error while creating client";
+      }
+      break;
+
     case ActionKeys.deleteOrg:
       // Get confirmation
       var uc = await showConfirmationDialog(context,
           'Are you sure you want to delete the selected organization?');
       if (uc != 'OK') return null;
       var state = formState.getState(0);
-      if (state[FSK.client] is List<String>) {
-        state[FSK.client] = state[FSK.client][0];
-      }
-      if (state[FSK.org] is List<String>) {
-        state[FSK.org] = state[FSK.org][0];
-      }
+      state[FSK.client] = unpack(state[FSK.client]);
+      state[FSK.org] = unpack(state[FSK.org]);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [

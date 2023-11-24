@@ -9,10 +9,6 @@ import 'package:jetsclient/routes/jets_routes_app.dart';
 final defaultMenuEntries = [
   MenuEntry(key: 'jetstoreHome', label: 'JetStore Home', routePath: homePath),
   MenuEntry(
-      key: 'clientRegistryUF',
-      label: 'New Client',
-      routePath: ufClientRegistryPath),
-  MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
       routePath: clientAdminPath),
@@ -93,6 +89,13 @@ final adminMenuEntries = [
       menuAction: rerunDbInitAction),
 ];
 
+final toolbarMenuEntries = [
+  MenuEntry(
+      key: 'clientRegistryUF',
+      label: 'New Client Flow',
+      routePath: ufClientRegistryPath),
+];
+
 final Map<String, ScreenConfig> _screenConfigurations = {
   // Home Screen
   ScreenKeys.home: ScreenConfig(
@@ -102,7 +105,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Client & Organization Admin Screen
   ScreenKeys.clientAdmin: ScreenConfig(
@@ -112,7 +116,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Source Config Screen
   ScreenKeys.sourceConfig: ScreenConfig(
@@ -122,7 +127,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Domain Table Viewer Screen
   ScreenKeys.domainTableViewer: ScreenConfig(
@@ -132,7 +138,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Query Tool Screen
   ScreenKeys.queryToolScreen: ScreenConfig(
@@ -143,6 +150,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: workspaceRegistryMenuEntries,
       adminMenuEntries: workspaceRegistryMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries,
       type: ScreenType.other),
 
   // Input Source Mapping Screen
@@ -153,7 +161,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Process Input Configuration Screen
   ScreenKeys.processInput: ScreenConfig(
@@ -163,7 +172,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Rules Config Screen
   ScreenKeys.processConfig: ScreenConfig(
@@ -173,7 +183,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Rule Configv2 Screen
   ScreenKeys.ruleConfigv2: ScreenConfig(
@@ -183,7 +194,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Pipeline Config Screen
   ScreenKeys.pipelineConfig: ScreenConfig(
@@ -193,7 +205,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Pipeline Config Edit Screen
   ScreenKeys.pipelineConfigEdit: ScreenConfig(
@@ -203,7 +216,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // Login Screen
   ScreenKeys.login: ScreenConfig(
@@ -235,7 +249,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   // UserAdmin Screen
   ScreenKeys.userAdmin: ScreenConfig(
@@ -246,7 +261,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: adminMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   ScreenKeys.fileRegistryTable: ScreenConfig(
       key: ScreenKeys.fileRegistryTable,
@@ -255,7 +271,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   ScreenKeys.filePreview: ScreenConfig(
       key: ScreenKeys.filePreview,
@@ -264,7 +281,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   ScreenKeys.execStatusDetailsTable: ScreenConfig(
       key: ScreenKeys.execStatusDetailsTable,
@@ -273,7 +291,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 
   ScreenKeys.processErrorsTable: ScreenConfig(
       key: ScreenKeys.processErrorsTable,
@@ -282,7 +301,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 };
 
 ScreenConfig getScreenConfig(String key) {

@@ -11,7 +11,8 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries),
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 };
 
 

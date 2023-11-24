@@ -13,6 +13,9 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: [],
     inputFields: [
       [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
+      [
         TextFieldConfig(
             label:
                 "This flow will assist you in adding Client and/or Vendor in the Client Registry.",
@@ -21,7 +24,7 @@ final Map<String, FormConfig> _formConfigurations = {
             bottomMargin: 0),
       ],
       [
-        PaddingConfig(),
+        PaddingConfig(height: 2*defaultPadding),
       ],
       [
         PaddingConfig(),
@@ -42,6 +45,9 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
+      [
         FormDataTableFieldConfig(
             key: FSK.ufClientOrVendorOption,
             dataTableConfig: FSK.ufClientOrVendorOption),
@@ -56,8 +62,11 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
+      [
         TextFieldConfig(
-            label: "Enter the client name and details (optional)",
+            label: "Enter the client name:",
             maxLines: 1,
             topMargin: 0,
             bottomMargin: 0),
@@ -75,6 +84,16 @@ final Map<String, FormConfig> _formConfigurations = {
             useDefaultFont: true),
       ],
       [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
+      [
+        TextFieldConfig(
+            label: "Enter the client details (optional):",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0),
+      ],
+      [
         FormInputFieldConfig(
             key: FSK.ufClientDetails,
             label: "Client Details",
@@ -85,6 +104,9 @@ final Map<String, FormConfig> _formConfigurations = {
             textRestriction: TextRestriction.none,
             maxLength: 80,
             useDefaultFont: true),
+      ],
+      [
+        PaddingConfig(height: 2*defaultPadding),
       ],
     ],
     formValidatorDelegate: clientRegistryFormValidator,
@@ -130,6 +152,9 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     inputFields: [
       [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
+      [
         TextFieldConfig(
             label: "Enter a new Vendor (or Org) for the Client.",
             maxLines: 1,
@@ -150,6 +175,9 @@ final Map<String, FormConfig> _formConfigurations = {
             useDefaultFont: true),
       ],
       [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
+      [
         FormInputFieldConfig(
             key: FSK.org,
             label: "Organization Name",
@@ -168,6 +196,9 @@ final Map<String, FormConfig> _formConfigurations = {
             rightMargin: defaultPadding),
       ],
       [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
+      [
         FormInputFieldConfig(
             key: FSK.ufVendorDetails,
             label: "Details",
@@ -180,7 +211,7 @@ final Map<String, FormConfig> _formConfigurations = {
             useDefaultFont: true),
       ],
       [
-        PaddingConfig(),
+        PaddingConfig(height: 2*defaultPadding),
       ],
       [
         PaddingConfig(),

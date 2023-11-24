@@ -280,7 +280,7 @@ Future<String?> sourceConfigActions(BuildContext context,
           context, 'Are you sure you want to delete the selected client?');
       if (uc != 'OK') return null;
       var state = formState.getState(0);
-      state[FSK.client] = state[FSK.client][0];
+      state[FSK.client] = unpack(state[FSK.client]);
       state['user_email'] = JetsRouterDelegate().user.email;
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
