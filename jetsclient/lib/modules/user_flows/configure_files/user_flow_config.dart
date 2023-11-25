@@ -5,7 +5,7 @@ import 'package:jetsclient/utils/constants.dart';
 
 final Map<String, UserFlowConfig> _userFlowConfigurations = {
   //
-  UserFlowKeys.sourceConfigUF: UserFlowConfig(startAtKey: "startUF", states: {
+  UserFlowKeys.sourceConfigUF: UserFlowConfig(startAtKey: "select_add_or_edit", states: {
     "startUF": UserFlowState(
         key: "startUF",
         description: 'Start Configure Files User Flow',

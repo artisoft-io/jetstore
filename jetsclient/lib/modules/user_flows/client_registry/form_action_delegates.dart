@@ -55,9 +55,6 @@ Future<String?> clientRegistryFormActions(
   switch (actionKey) {
     // Start UF
     case ActionKeys.crStartUF:
-      // Init state with user email
-      final state = formState.getState(0);
-      state['user_email'] = JetsRouterDelegate().user.email;
       return null;
 
     case ActionKeys.crAddClientUF:

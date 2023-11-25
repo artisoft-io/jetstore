@@ -126,8 +126,6 @@ Future<String?> configureFilesFormActions(
   switch (actionKey) {
     // Start UF
     case ActionKeys.scStartUF:
-      // Init state with user email
-      state['user_email'] = JetsRouterDelegate().user.email;
       return null;
 
     // Prepopulate the type of file from current record

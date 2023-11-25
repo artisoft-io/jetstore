@@ -15,13 +15,7 @@ Future<String?> userFlowStateActions(
   switch (actionKey) {
     // Start User Flow
     case ActionKeys.ufStartFlow:
-      // Prepare the FormState, get state from server
-      // Keep the list of visited page for supporting previous and next buttons
-      formState.setValue(group, FSK.ufCurrentPage, 0);
-      final visitedPages = <String>[
-        userFlowScreenState.userFlowConfig.startAtKey
-      ];
-      formState.setValue(group, FSK.ufVisitedPages, visitedPages);
+      //* TODO Prepare the FormState, get state from server
 
       // Do the Action of the UserFlowState (associated with ufStartFlow)
       final userFlowState = userFlowScreenState.currentUserFlowState;
@@ -41,6 +35,8 @@ Future<String?> userFlowStateActions(
       final nextStateKey =
           userFlowState.next(group: group, formState: formState);
       // print("^^^ nextStateKey is $nextStateKey");
+      final visitedPages =
+          formState.getValue(group, FSK.ufVisitedPages) as List<String>;
       visitedPages.add(nextStateKey!);
       // print("*** ActionKeys.ufStartFlow visitedPages is: $visitedPages");
       final ufState = userFlowScreenState.userFlowConfig.states[nextStateKey];

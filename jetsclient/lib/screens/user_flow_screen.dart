@@ -79,16 +79,6 @@ class UserFlowScreenState extends BaseScreenState {
 
   UserFlowScreen get _widget => super.widget as UserFlowScreen;
   UserFlowConfig get userFlowConfig => _widget.userFlowConfig;
-  // curried function example, injecting argument UserFlowState
-  // FormActionsDelegate get actionsDelegate => (BuildContext context,
-  //         GlobalKey<FormState> formKey,
-  //         JetsFormState formState,
-  //         String actionKey,
-  //         {required int group}) {
-  //       return userFlowConfig.actionDelegate(
-  //           this, context, formKey, formState, actionKey,
-  //           group: group);
-  //     };
 
   @override
   void initState() {
@@ -107,10 +97,19 @@ class UserFlowScreenState extends BaseScreenState {
       JetsRouterDelegate().currentConfiguration?.params.forEach((key, value) {
         formState.setValue(0, key, value);
       });
+      formState.setValue(0, 'user_email', JetsRouterDelegate().user.email);
+
       // reset the updated keys since these updates is to put default values
       // and is not from user interactions
       //* TODO - Stop using group 0 as a special group with validation keys
       formState.resetUpdatedKeys(0);
+
+      // Keep the list of visited page for supporting previous and next buttons
+      formState.setValue(0, FSK.ufCurrentPage, 0);
+      final visitedPages = <String>[
+        userFlowConfig.startAtKey
+      ];
+      formState.setValue(0, FSK.ufVisitedPages, visitedPages);
     }
   }
 
