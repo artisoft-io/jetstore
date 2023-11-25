@@ -38,7 +38,7 @@ class UserFlowScreen extends BaseScreen {
                     fit: FlexFit.tight,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
-                          defaultPadding, 1.5 * defaultPadding, 0, 0),
+                          defaultPadding, 0, 0, 0),
                       child: Text(
                         screenConfig.title!,
                         style: Theme.of(context).textTheme.headlineMedium,

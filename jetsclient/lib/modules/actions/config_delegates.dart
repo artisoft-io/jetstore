@@ -733,9 +733,9 @@ Future<String?> processInputFormActions(BuildContext context,
     // Download process mapping rows
     case ActionKeys.downloadMapping:
       var state = formState.getState(0);
-      var client = state[FSK.client][0];
-      var org = state[FSK.org][0];
-      var objectType = state[FSK.objectType][0];
+      var client = unpack(state[FSK.client]);
+      var org = unpack(state[FSK.org]);
+      var objectType = unpack(state[FSK.objectType]);
       // Build the query
       var query = <String, dynamic>{
         "action": "read",

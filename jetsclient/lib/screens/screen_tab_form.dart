@@ -31,7 +31,7 @@ class ScreenWithTabsWithForm extends BaseScreen {
                       fit: FlexFit.tight,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                            defaultPadding, 2 * defaultPadding, 0, 0),
+                            defaultPadding, 0, 0, 0),
                         child: Text(
                           screenConfig.title!,
                           style: Theme.of(context).textTheme.headlineMedium,

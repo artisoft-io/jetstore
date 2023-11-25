@@ -1,11 +1,14 @@
 import 'package:jetsclient/models/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/user_flow_config.dart';
+import 'package:jetsclient/modules/user_flows/file_mapping/user_flow_config.dart';
 
 UserFlowConfig getUserFlowConfig(String key) {
   var config = getScreenConfigUserFlowConfig(key);
   if (config != null) return config;
   config = getConfigureFilesUserFlowConfig(key);
+  if (config != null) return config;
+  config = getFileMappingUserFlowConfig(key);
   if (config != null) return config;
   // Add UF from other modules here
   throw Exception(

@@ -208,40 +208,38 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
         body: Column(
           children: [
             //The toolbar buttons as List<MenuEntry>
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    defaultPadding, defaultPadding, 0, 0),
-                child: Row(
-                    children: widget.screenConfig.toolbarMenuEntries
-                        .map((menuEntry) => Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                  defaultPadding, 0, 0, defaultPadding),
-                              child: menuEntry.label.isEmpty
-                                  ? const SizedBox(
-                                      height: defaultPadding,
-                                      width: 2*defaultPadding,
-                                    )
-                                  : TextButton(
-                                      style: buttonStyle(
-                                          getActionStyle(menuEntry), themeData),
-                                      onPressed: () => menuEntry.routePath !=
-                                              null
-                                          ? JetsRouterDelegate()(JetsRouteData(
-                                              menuEntry.routePath!,
-                                              params: menuEntry.routeParams))
-                                          : null,
-                                      child: Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(
-                                            menuEntry.label,
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                          )),
-                                    ),
-                            ))
-                        .toList()),
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  defaultPadding, defaultPadding, 0, 0),
+              child: Row(
+                  children: widget.screenConfig.toolbarMenuEntries
+                      .map((menuEntry) => Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                defaultPadding, 0, 0, defaultPadding),
+                            child: menuEntry.label.isEmpty
+                                ? const SizedBox(
+                                    height: defaultPadding,
+                                    width: 2*defaultPadding,
+                                  )
+                                : TextButton(
+                                    style: buttonStyle(
+                                        getActionStyle(menuEntry), themeData),
+                                    onPressed: () => menuEntry.routePath !=
+                                            null
+                                        ? JetsRouterDelegate()(JetsRouteData(
+                                            menuEntry.routePath!,
+                                            params: menuEntry.routeParams))
+                                        : null,
+                                    child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          menuEntry.label,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                        )),
+                                  ),
+                          ))
+                      .toList()),
             ),
             Expanded(
               child: SplitView(

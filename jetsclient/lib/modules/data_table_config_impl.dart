@@ -425,7 +425,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.dataTableFromTable: "unit_test",
           },
           capability: 'run_pipelines',
-          configForm: FormKeys.startPipeline),      ActionConfig(
+          configForm: FormKeys.startPipeline),
+      ActionConfig(
           actionType: DataTableActionType.showScreen,
           key: 'viewStatusDetails',
           label: 'View Execution Details',
@@ -460,13 +461,12 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null),
     ],
-    formStateConfig:
-        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-          DataTableFormStateOtherColumnConfig(
-            stateKey: FSK.failureDetails,
-            columnIdx: 12,
-          ),
-        ]),
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.failureDetails,
+        columnIdx: 12,
+      ),
+    ]),
     columns: [
       ColumnConfig(
           index: 0,
@@ -898,8 +898,7 @@ final Map<String, TableConfig> _tableConfigurations = {
         FromClause(schemaName: '', tableName: 'sessions'),
       ],
       withClauses: [
-        WithClause(withName: 'sessions', 
-          asStatement: """
+        WithClause(withName: 'sessions', asStatement: """
             SELECT sr.session_id AS sess_id
             FROM
               jetsapi.pipeline_execution_status pe,
@@ -912,13 +911,12 @@ final Map<String, TableConfig> _tableConfigurations = {
               AND sr.month_period >= (sp.month_period - {lookback_periods})
               AND sr.month_period <= sp.month_period
             UNION
-            SELECT '{session_id}'""",
-          stateVariables: [
-            FSK.pipelineExectionStatusKey,
-            FSK.tableName,
-            FSK.lookbackPeriods,
-            FSK.sessionId,
-          ]),
+            SELECT '{session_id}'""", stateVariables: [
+          FSK.pipelineExectionStatusKey,
+          FSK.tableName,
+          FSK.lookbackPeriods,
+          FSK.sessionId,
+        ]),
       ],
       whereClauses: [
         WhereClause(column: "session_id", joinWith: "sessions.sess_id"),
@@ -1014,8 +1012,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       isCheckboxVisible: true,
       isCheckboxSingleSelect: true,
       whereClauses: [
-        WhereClause(
-            column: FSK.entityRdfType, formStateKey: FSK.entityRdfType),
+        WhereClause(column: FSK.entityRdfType, formStateKey: FSK.entityRdfType),
       ],
       actions: [],
       formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -1047,18 +1044,17 @@ final Map<String, TableConfig> _tableConfigurations = {
       isCheckboxVisible: true,
       isCheckboxSingleSelect: true,
       whereClauses: [
-        WhereClause(
-            column: FSK.entityKey, formStateKey: FSK.entityKey),
+        WhereClause(column: FSK.entityKey, formStateKey: FSK.entityKey),
       ],
       actions: [
-      ActionConfig(
-          actionType: DataTableActionType.doAction,
-          key: 'visitEntity',
-          label: 'Visit Object Entity',
-          style: ActionStyle.primary,
-          isVisibleWhenCheckboxVisible: true,
-          isEnabledWhenHavingSelectedRows: true,
-          actionName: ActionKeys.reteSessionVisitEntity),
+        ActionConfig(
+            actionType: DataTableActionType.doAction,
+            key: 'visitEntity',
+            label: 'Visit Object Entity',
+            style: ActionStyle.primary,
+            isVisibleWhenCheckboxVisible: true,
+            isEnabledWhenHavingSelectedRows: true,
+            actionName: ActionKeys.reteSessionVisitEntity),
       ],
       formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
         DataTableFormStateOtherColumnConfig(
@@ -2043,7 +2039,8 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.processName: FSK.processName
           }),
     ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
       ColumnConfig(
           index: 0,
@@ -2972,7 +2969,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [],
     actions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(stateKey: FSK.userRoles, columnIdx: 0),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.userRoles, columnIdx: 0),
     ]),
     columns: [
       ColumnConfig(
@@ -3002,13 +3000,13 @@ final Map<String, TableConfig> _tableConfigurations = {
 
 TableConfig getTableConfig(String key) {
   var config = _tableConfigurations[key];
-  if (config != null)  return config;
+  if (config != null) return config;
   config = getWorkspaceTableConfig(key);
-  if (config != null)  return config;
+  if (config != null) return config;
   config = getClientRegistryTableConfig(key);
-  if(config != null) return config;
+  if (config != null) return config;
   config = getConfigureFileTableConfig(key);
-  if(config != null) return config;
+  if (config != null) return config;
   throw Exception(
       'ERROR: Invalid program configuration: table configuration $key not found');
 }

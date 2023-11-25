@@ -7,6 +7,7 @@ import 'package:jetsclient/modules/actions/source_config_delegates.dart';
 import 'package:jetsclient/modules/actions/user_delegates.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/form_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/form_config.dart';
+import 'package:jetsclient/modules/user_flows/file_mapping/form_config.dart';
 
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
@@ -299,7 +300,7 @@ final Map<String, FormConfig> _formConfigurations = {
             defaultItemPos: 0),
       ],
       [
-        PaddingConfig(height: defaultPadding*4),
+        PaddingConfig(height: defaultPadding * 4),
       ],
       [
         FormDataTableFieldConfig(
@@ -1034,7 +1035,8 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.ruleConfigJson,
             flex: 10,
             label: "Rule Configuration CSV / Json",
-            hint: "Enter a valid json array or csv with headers of configuration objects",
+            hint:
+                "Enter a valid json array or csv with headers of configuration objects",
             maxLines: 25,
             maxLength: 51200,
             autofocus: false,
@@ -1337,7 +1339,8 @@ final Map<String, FormConfig> _formConfigurations = {
         FormInputFieldConfig(
             key: FSK.ruleConfigJson,
             label: "Rule Configuration CSV / Json",
-            hint: "Enter a valid json array or csv with headers of configuration objects",
+            hint:
+                "Enter a valid json array or csv with headers of configuration objects",
             maxLines: 10,
             maxLength: 51200,
             autofocus: false,
@@ -1374,7 +1377,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         // Instruction
         TextFieldConfig(
-            label: "To start a pipeline using data previously loaded, select a Pipeline Configuration followed"
+            label:
+                "To start a pipeline using data previously loaded, select a Pipeline Configuration followed"
                 " by the source period the file was received, and"
                 " then select the Main Input Source (required) and optionally"
                 " the Merge-In Input Sources.",
@@ -1710,13 +1714,15 @@ final Map<String, FormConfig> _formConfigurations = {
 
 FormConfig getFormConfig(String key) {
   var config = _formConfigurations[key];
-  if (config != null)  return config;
+  if (config != null) return config;
   config = getWorkspaceFormConfig(key);
-  if (config != null)  return config;
+  if (config != null) return config;
   config = getClientRegistryFormConfig(key);
-  if (config != null)  return config;
+  if (config != null) return config;
   config = getConfigureFileFormConfig(key);
-  if (config != null)  return config;
+  if (config != null) return config;
+  config = getFileMappingFormConfig(key);
+  if (config != null) return config;
   throw Exception(
       'ERROR: Invalid program configuration: form configuration $key not found');
 }

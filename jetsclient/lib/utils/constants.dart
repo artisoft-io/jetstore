@@ -88,6 +88,7 @@ class ScreenKeys {
   // User Flow Screens
   static const ufClientRegistry = "clientRegistryScreenUF";
   static const ufSourceConfig = "sourceConfigScreenUF";
+  static const ufFileMapping = "fileMappingScreenUF";
 }
 
 /// Form ID Keys
@@ -356,7 +357,7 @@ class FSK {
   static const scCsvOption = "scCsvOption";
   static const scHeaderlessCsvOption = "scHeaderlessCsvOption";
   static const scFixedWidthOption = "scFixedWidthOption";
-
+  
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -524,6 +525,7 @@ class UserFlowKeys {
   /// client_registry and client_org_registry
   static const clientRegistryUF = "clientRegistryUF";
   static const sourceConfigUF = "sourceConfigUF";
+  static const fileMappingUF = "fileMappingUF";
 }
 
 /// Status Keys
@@ -618,6 +620,9 @@ class DTKeys {
 
   // Source Config User Flow Tables
   // FSK.scSourceConfigKey
+
+  // File Mapping UF
+  static const fmInputSourceMappingUF = "fmInputSourceMappingUF";
 }
 
 /// API Server endpoints

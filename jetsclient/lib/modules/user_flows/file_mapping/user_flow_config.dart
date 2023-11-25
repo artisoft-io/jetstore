@@ -1,18 +1,13 @@
 import 'package:jetsclient/models/user_flow_config.dart';
+import 'package:jetsclient/modules/actions/config_delegates.dart';
 import 'package:jetsclient/modules/form_config_impl.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/form_action_delegates.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 final Map<String, UserFlowConfig> _userFlowConfigurations = {
   //
-  UserFlowKeys.sourceConfigUF: UserFlowConfig(startAtKey: "startUF", states: {
-    "startUF": UserFlowState(
-        key: "startUF",
-        description: 'Start File Mapping User Flow',
-        formConfig: getFormConfig(FormKeys.fmStartFileMappingUF),
-        actionDelegate: fileMappingFormActions,
-        stateAction: ActionKeys.fmStartUF,
-        defaultNextState: "select_source_config"),
+  UserFlowKeys.fileMappingUF:
+      UserFlowConfig(startAtKey: "select_source_config", states: {
     "select_source_config": UserFlowState(
         key: "select_source_config",
         description: 'Select an existing Source Config for mapping',
@@ -24,18 +19,13 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         key: "file_mapping",
         description: 'File Mapping',
         formConfig: getFormConfig(FormKeys.fmFileMappingUF),
-        actionDelegate: fileMappingFormActions,
+        actionDelegate: (_, v1, v2, v3, v4, {group}) =>
+            processInputFormActions(v1, v2, v3, v4, group: group),
         stateAction: ActionKeys.mapperOk,
-        defaultNextState: "doneUF"),
-    "doneUF": UserFlowState(
-        key: "doneUF",
-        description: 'User Flow Completed',
-        formConfig: getFormConfig(FormKeys.fmDoneFileMappingUF),
-        actionDelegate: fileMappingFormActions,
         isEnd: true),
   })
 };
 
-UserFlowConfig? getConfigureFilesUserFlowConfig(String key) {
+UserFlowConfig? getFileMappingUserFlowConfig(String key) {
   return _userFlowConfigurations[key];
 }
