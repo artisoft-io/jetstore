@@ -175,6 +175,11 @@ class FormKeys {
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
   static const scDoneSourceConfigUF = "scDoneSourceConfigUF";
+  // File Mapping UF Forms
+  static const fmStartFileMappingUF = "fmStartFileMappingUF";
+  static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
+  static const fmFileMappingUF = "fmFileMappingUF";
+  static const fmDoneFileMappingUF = "fmDoneFileMappingUF";
 }
 
 /// Form State Keys
@@ -508,6 +513,10 @@ class ActionKeys {
   static const scEditDomainKeysUF = "scEditDomainKeysUF";
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
+
+  // File Mapping UF ActionKeys
+  static const fmStartUF = "fmStartUF";
+  static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
 }
 
 /// User Flow Keys
