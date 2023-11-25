@@ -93,11 +93,37 @@ final adminMenuEntries = [
 final toolbarMenuEntries = [
   MenuEntry(
       key: 'clientRegistryUF',
-      label: 'New Client Flow',
+      label: 'Client / Vendor',
       routePath: ufClientRegistryPath),
   MenuEntry(
       key: 'sourceConfigUF',
-      label: 'File Configuration Flow',
+      label: 'File Configuration',
+      routePath: ufSourceConfigPath),
+  MenuEntry(
+      key: 'fileMappingUF',
+      label: 'File Mapping',
+      routePath: ufSourceConfigPath),
+  MenuEntry(
+      key: 'pipelineConfigUF',
+      label: 'Pipeline Configuration',
+      routePath: ufSourceConfigPath),
+  MenuEntry(
+      key: 'Spacer01',
+      label: ''),
+  MenuEntry(
+      key: 'loaderUF',
+      label: 'Load File',
+      routePath: ufSourceConfigPath),
+  MenuEntry(
+      key: 'startPipelineUF',
+      label: 'Start Pipeline',
+      routePath: ufSourceConfigPath),
+  MenuEntry(
+      key: 'Spacer02',
+      label: ''),
+  MenuEntry(
+      key: 'dataRegistryUF',
+      label: 'View Data',
       routePath: ufSourceConfigPath),
 ];
 

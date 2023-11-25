@@ -21,15 +21,18 @@ class ScreenWithForm extends BaseScreen {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if(screenConfig.title != null)
-                Flexible(
-                  flex: 1,
-                  fit: FlexFit.tight,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                        defaultPadding, 2 * defaultPadding, 0, 0),
-                    child: Text(
-                      screenConfig.title!,
-                      style: Theme.of(context).textTheme.headlineMedium,
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Flexible(
+                    flex: 1,
+                    fit: FlexFit.tight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                          defaultPadding, 2 * defaultPadding, 0, 0),
+                      child: Text(
+                        screenConfig.title!,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
                     ),
                   ),
                 ),

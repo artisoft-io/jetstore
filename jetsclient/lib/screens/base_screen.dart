@@ -175,7 +175,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final ThemeData themeData = Theme.of(context);
-    final dropdownItems = [DropdownItemConfig(label: 'Select client')];
+    final dropdownItems = [DropdownItemConfig(label: 'Filter Client')];
     dropdownItems.addAll(JetsRouterDelegate().clients);
     List<MenuEntry> menuEntries = [];
 
@@ -211,28 +211,36 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
             //The toolbar buttons as List<MenuEntry>
             Center(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(defaultPadding, defaultPadding, 0, 0),
+                padding: const EdgeInsets.fromLTRB(
+                    defaultPadding, defaultPadding, 0, 0),
                 child: Row(
                     children: widget.screenConfig.toolbarMenuEntries
                         .map((menuEntry) => Padding(
-                          padding: const EdgeInsets.fromLTRB(defaultPadding, 0, 0, defaultPadding),
-                          child: TextButton(
-                            style: buttonStyle(
-                                getActionStyle(menuEntry), themeData),
-                            onPressed: () => menuEntry.routePath != null
-                                ? JetsRouterDelegate()(JetsRouteData(
-                                    menuEntry.routePath!,
-                                    params: menuEntry.routeParams))
-                                : null,
-                            child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  menuEntry.label,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                )),
-                          ),
-                        ))
+                              padding: const EdgeInsets.fromLTRB(
+                                  defaultPadding, 0, 0, defaultPadding),
+                              child: menuEntry.label.isEmpty
+                                  ? const SizedBox(
+                                      height: defaultPadding,
+                                      width: 2*defaultPadding,
+                                    )
+                                  : TextButton(
+                                      style: buttonStyle(
+                                          getActionStyle(menuEntry), themeData),
+                                      onPressed: () => menuEntry.routePath !=
+                                              null
+                                          ? JetsRouterDelegate()(JetsRouteData(
+                                              menuEntry.routePath!,
+                                              params: menuEntry.routeParams))
+                                          : null,
+                                      child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            menuEntry.label,
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                          )),
+                                    ),
+                            ))
                         .toList()),
               ),
             ),
@@ -262,8 +270,8 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                           child: ConstrainedBox(
                               constraints: const BoxConstraints.expand(),
                               child: IconButton(
-                                  onPressed: () =>
-                                      JetsRouterDelegate()(JetsRouteData(homePath)),
+                                  onPressed: () => JetsRouterDelegate()(
+                                      JetsRouteData(homePath)),
                                   padding: const EdgeInsets.all(0.0),
                                   icon: Image.asset(
                                       widget.screenConfig.leftBarLogo))),

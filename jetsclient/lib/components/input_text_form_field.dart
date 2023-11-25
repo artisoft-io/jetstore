@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/modules/actions/delegate_helpers.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
 
@@ -88,7 +89,7 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
   void initState() {
     super.initState();
     _config = widget.formFieldConfig;
-    var value = widget.formState.getValue(_config.group, _config.key);
+    var value = unpack(widget.formState.getValue(_config.group, _config.key));
     if (value == null) {
       if (_config.key == FSK.wsURI) {
         value = globalWorkspaceUri;

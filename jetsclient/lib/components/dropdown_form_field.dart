@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/modules/actions/delegate_helpers.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 
 class JetsDropdownButtonFormField extends StatefulWidget {
@@ -46,7 +47,7 @@ class _JetsDropdownButtonFormFieldState
     // Check if there is a selection made in the form state
     // (case we are editing existing record versus add where there would be no
     //  existing value)
-    selectedValue = widget.formState.getValue(_config.group, _config.key);
+    selectedValue = unpack(widget.formState.getValue(_config.group, _config.key));
     // print("*** JetsDropdownButtonFormFieldState.initState() called");
 
     if (_config.dropdownItemsQuery != null) {
