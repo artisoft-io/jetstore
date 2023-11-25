@@ -286,10 +286,11 @@ class JetsFormWidgetState extends State<JetsForm> {
                                     ),
                                   )
                                 // last row of form action button
-                                : Center(
+                                : Align(
+                                    alignment: Alignment.centerRight,
                                     child: Padding(
                                       padding: const EdgeInsets.fromLTRB(
-                                          0, defaultPadding, 0, 0),
+                                          0, defaultPadding, 0, defaultPadding),
                                       child: Row(
                                           children: widget.formConfig.actions
                                               .map((e) => JetsFormButton(

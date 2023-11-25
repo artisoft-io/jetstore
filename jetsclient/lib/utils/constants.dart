@@ -87,6 +87,7 @@ class ScreenKeys {
 
   // User Flow Screens
   static const ufClientRegistry = "clientRegistryScreenUF";
+  static const ufSourceConfig = "sourceConfigScreenUF";
 }
 
 /// Form ID Keys
@@ -162,6 +163,18 @@ class FormKeys {
   static const ufVendor = "ufVendor";
   static const ufShowVendor = "ufShowVendor";
   static const ufDoneClientRegistry = "ufDoneClientRegistry";
+  // Source Config UF Forms
+  static const scStartConfigureFilesUF = "scStartConfigureFilesUF";
+  static const scAddOrEditSourceConfigUF = "scAddOrEditSourceConfigUF";
+  static const scAddSourceConfigUF = "scAddSourceConfigUF";
+  static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
+  static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
+  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
+  static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
+  static const scEditDomainKeysUF = "scEditDomainKeysUF";
+  static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
+  static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
+  static const scDoneSourceConfigUF = "scDoneSourceConfigUF";
 }
 
 /// Form State Keys
@@ -307,16 +320,37 @@ class FSK {
   static const ufCurrentPage = "ufCurrentPage";
   static const ufVisitedPages = "ufVisitedPages";
 
+  // Generic keys for add or edit decision choice
+  static const ufAddOrEditOption = "ufAddOrEditOption";
+  static const ufAddOption = "ufAddOption";
+  static const ufEditOption = "ufEditOption";
+
   // Client Registry User Flow
   static const ufClientOrVendorOption = "ufClientOrVendorOption";
+
   /// value, create_client option
   static const ufClientOption = "ufClientOption";
+
   /// value, select_client option
   static const ufVendorOption = "ufVendorOption";
+
   /// to disambiguate FSK.details
-  static const ufClientDetails = "ufClientDetails"; 
+  static const ufClientDetails = "ufClientDetails";
+
   /// to disambiguate FSK.details
-  static const ufVendorDetails = "ufVendorDetails"; 
+  static const ufVendorDetails = "ufVendorDetails";
+
+  // Source Config UF
+  // Add or Edit Source Config
+  static const scAddOrEditSourceConfigOption = "scAddOrEditSourceConfigOption";
+  // Select Source Config Table
+  static const scSourceConfigKey = "scSourceConfigKey";
+
+  // CSV, Headerless CSV or Fxied-width option
+  static const scCsvOrFixedOption = "scCsvOrFixedOption";
+  static const scCsvOption = "scCsvOption";
+  static const scHeaderlessCsvOption = "scHeaderlessCsvOption";
+  static const scFixedWidthOption = "scFixedWidthOption";
 
   // reserved keys for cache
 
@@ -463,12 +497,24 @@ class ActionKeys {
   static const crSelectClientUF = "crSelectClientUF";
   static const crAddVendorUF = "crAddVendorUF";
   static const crShowVendorUF = "crShowVendorUF";
+
+  // Source Config UF ActionKeys
+  static const scStartUF = "crStartUF";
+  static const scAddSourceConfigUF = "scAddSourceConfigUF";
+  static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
+  static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
+  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
+  static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
+  static const scEditDomainKeysUF = "scEditDomainKeysUF";
+  static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
+  static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
 }
 
 /// User Flow Keys
 class UserFlowKeys {
   /// client_registry and client_org_registry
   static const clientRegistryUF = "clientRegistryUF";
+  static const sourceConfigUF = "sourceConfigUF";
 }
 
 /// Status Keys
@@ -560,6 +606,9 @@ class DTKeys {
   // User Flow Tables
   // Client Registry User Flow Tables
   // FSK.ufClientOrVendorOption
+
+  // Source Config User Flow Tables
+  // FSK.scSourceConfigKey
 }
 
 /// API Server endpoints

@@ -148,7 +148,6 @@ final Map<String, FormConfig> _formConfigurations = {
           buttonStyle: ActionStyle.secondary,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
-
     ],
     inputFields: [
       [

@@ -48,6 +48,7 @@ const workspaceHomePath = '/workspaces/:workspace_name/home';
 
 // User Flow Paths
 const ufClientRegistryPath = '/clientRegistryUF';
+const ufSourceConfigPath = '/sourceConfigUF';
 
 // const wsDomainClassesPath = '/workspaces/:workspace_name/domainClasses';
 // const wsDomainClasseDetailsPath =
@@ -239,6 +240,12 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: const JetsRouteData(ufClientRegistryPath),
     screenConfig: getScreenConfig(ScreenKeys.ufClientRegistry),
     userFlowConfig: getUserFlowConfig(UserFlowKeys.clientRegistryUF),
+  ),
+  ufSourceConfigPath: UserFlowScreen(
+    key: const Key(UserFlowKeys.sourceConfigUF),
+    screenPath: const JetsRouteData(ufSourceConfigPath),
+    screenConfig: getScreenConfig(ScreenKeys.ufSourceConfig),
+    userFlowConfig: getUserFlowConfig(UserFlowKeys.sourceConfigUF),
   ),
 
   // Page Not Found

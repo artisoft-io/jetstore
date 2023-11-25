@@ -11,6 +11,7 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Start Client Registry User Flow',
         formConfig: getFormConfig(FormKeys.ufStartClientRegistry),
         actionDelegate: clientRegistryFormActions,
+        stateAction: ActionKeys.crStartUF,
         defaultNextState: "select_client_vendor"),
     "select_client_vendor": UserFlowState(
         key: "select_client_vendor",

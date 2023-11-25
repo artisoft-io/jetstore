@@ -214,21 +214,24 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.fromLTRB(defaultPadding, defaultPadding, 0, 0),
                 child: Row(
                     children: widget.screenConfig.toolbarMenuEntries
-                        .map((menuEntry) => TextButton(
-                          style: buttonStyle(
-                              getActionStyle(menuEntry), themeData),
-                          onPressed: () => menuEntry.routePath != null
-                              ? JetsRouterDelegate()(JetsRouteData(
-                                  menuEntry.routePath!,
-                                  params: menuEntry.routeParams))
-                              : null,
-                          child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                menuEntry.label,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                              )),
+                        .map((menuEntry) => Padding(
+                          padding: const EdgeInsets.fromLTRB(defaultPadding, 0, 0, defaultPadding),
+                          child: TextButton(
+                            style: buttonStyle(
+                                getActionStyle(menuEntry), themeData),
+                            onPressed: () => menuEntry.routePath != null
+                                ? JetsRouterDelegate()(JetsRouteData(
+                                    menuEntry.routePath!,
+                                    params: menuEntry.routeParams))
+                                : null,
+                            child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  menuEntry.label,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                )),
+                          ),
                         ))
                         .toList()),
               ),
@@ -255,14 +258,16 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                     // JetStore logo as button to home screen
                     Expanded(
                         flex: 3,
-                        child: ConstrainedBox(
-                            constraints: const BoxConstraints.expand(),
-                            child: IconButton(
-                                onPressed: () =>
-                                    JetsRouterDelegate()(JetsRouteData(homePath)),
-                                padding: const EdgeInsets.all(0.0),
-                                icon: Image.asset(
-                                    widget.screenConfig.leftBarLogo)))),
+                        child: Center(
+                          child: ConstrainedBox(
+                              constraints: const BoxConstraints.expand(),
+                              child: IconButton(
+                                  onPressed: () =>
+                                      JetsRouterDelegate()(JetsRouteData(homePath)),
+                                  padding: const EdgeInsets.all(0.0),
+                                  icon: Image.asset(
+                                      widget.screenConfig.leftBarLogo))),
+                        )),
                     const SizedBox(height: defaultPadding),
                     // Client filter drop down in left menu
                     Expanded(

@@ -6,6 +6,7 @@ import 'package:jetsclient/modules/actions/query_tool_screen_delegates.dart';
 import 'package:jetsclient/modules/actions/source_config_delegates.dart';
 import 'package:jetsclient/modules/actions/user_delegates.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/form_config.dart';
+import 'package:jetsclient/modules/user_flows/configure_files/form_config.dart';
 
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
@@ -1713,6 +1714,8 @@ FormConfig getFormConfig(String key) {
   config = getWorkspaceFormConfig(key);
   if (config != null)  return config;
   config = getClientRegistryFormConfig(key);
+  if (config != null)  return config;
+  config = getConfigureFileFormConfig(key);
   if (config != null)  return config;
   throw Exception(
       'ERROR: Invalid program configuration: form configuration $key not found');
