@@ -609,7 +609,7 @@ class JetsDataTableSource extends ChangeNotifier {
               .currentConfiguration
               ?.params[wc.formStateKey!];
 
-          if (value == null) {
+          if (value == null || (value is List && value.isEmpty)) {
             hasBlockingFilter = true;
           }
         }

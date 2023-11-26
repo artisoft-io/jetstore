@@ -89,6 +89,7 @@ class ScreenKeys {
   static const ufClientRegistry = "clientRegistryScreenUF";
   static const ufSourceConfig = "sourceConfigScreenUF";
   static const ufFileMapping = "fileMappingScreenUF";
+  static const ufPipelineConfig = "pipelineConfigScreenUF";
 }
 
 /// Form ID Keys
@@ -181,6 +182,19 @@ class FormKeys {
   static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
   static const fmFileMappingUF = "fmFileMappingUF";
   static const fmDoneFileMappingUF = "fmDoneFileMappingUF";
+  // Pipeline Config Forms
+  static const pcAddOrEditPipelineConfigUF = "pcAddOrEditPipelineConfigUF";
+  static const pcAddPipelineConfigUF = "pcAddPipelineConfigUF";
+  static const pcSelectPipelineConfigUF = "pcSelectPipelineConfigUF";
+  static const pcSelectMainProcessInputUF = "pcSelectMainProcessInputUF";
+  static const pcViewMergeProcessInputsUF = "pcViewMergeProcessInputsUF";
+  static const pcAddMergeProcessInputsUF = "pcAddMergeProcessInputsUF";
+  static const pcAddInjectedProcessInputsUF = "pcAddInjectedProcessInputsUF";
+  static const pcViewInjectedProcessInputsUF = "pcViewInjectedProcessInputsUF";
+  static const pcAutomationUF = "pcAutomationUF";
+  static const pcNewProcessInputsUF = "pcNewProcessInputsUF";
+  static const pcAddProcessInputsUF = "pcAddProcessInputsUF";
+  static const pcDonePipelineConfigUF = "pcDonePipelineConfigUF";
 }
 
 /// Form State Keys
@@ -352,12 +366,16 @@ class FSK {
   // Select Source Config Table
   static const scSourceConfigKey = "scSourceConfigKey";
 
+  // Pipeline Config UF
+  static const pcAddOrEditPipelineConfigOption =
+      "pcAddOrEditPipelineConfigOption";
+
   // CSV, Headerless CSV or Fxied-width option
   static const scCsvOrFixedOption = "scCsvOrFixedOption";
   static const scCsvOption = "scCsvOption";
   static const scHeaderlessCsvOption = "scHeaderlessCsvOption";
   static const scFixedWidthOption = "scFixedWidthOption";
-  
+
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -518,6 +536,22 @@ class ActionKeys {
   // File Mapping UF ActionKeys
   static const fmStartUF = "fmStartUF";
   static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
+
+  // Pipeline Config ActionKeys
+  static const pcAddPipelineConfigUF = "pcAddPipelineConfigUF";
+  static const pcSelectPipelineConfigUF = "pcSelectPipelineConfigUF";
+  static const pcSelectMainProcessInputUF = "pcSelectMainProcessInputUF";
+  static const pcSavePipelineConfigUF = "pcSavePipelineConfigUF";
+  static const pcNewMainProcessInputUF = "pcNewMainProcessInputUF";
+  static const pcGotToAddMergeProcessInputUF = "pcGotToAddMergeProcessInputUF";
+  static const pcGotToAddInjectedProcessInputUF =
+      "pcGotToAddInjectedProcessInputUF";
+  static const pcAddMergeProcessInputUF = "pcAddMergeProcessInputUF";
+  static const pcNewMergeProcessInputUF = "pcNewMergeProcessInputUF";
+  static const pcRemoveMergedProcessInput = "pcRemoveMergedProcessInput";
+  static const pcRemoveInjectedProcessInput = "pcRemoveInjectedProcessInput";
+  static const pcAddInjectedProcessInputUF = "pcAddInjectedProcessInputUF";
+  static const pcNewInjectedProcessInputUF = "pcNewInjectedProcessInputUF";
 }
 
 /// User Flow Keys
@@ -526,6 +560,7 @@ class UserFlowKeys {
   static const clientRegistryUF = "clientRegistryUF";
   static const sourceConfigUF = "sourceConfigUF";
   static const fileMappingUF = "fileMappingUF";
+  static const pipelineConfigUF = "pipelineConfigUF";
 }
 
 /// Status Keys
@@ -623,6 +658,15 @@ class DTKeys {
 
   // File Mapping UF
   static const fmInputSourceMappingUF = "fmInputSourceMappingUF";
+
+  // Pipeline Config UF DTKeys
+  static const pcPipelineConfigTable = "pcPipelineConfigTable";
+  static const pcMainProcessInputKey = "pcMainProcessInputKey";
+  static const pcMergedProcessInputKeys = "pcMergedProcessInputKeys";
+  static const pcInjectedProcessInputKeys = "pcInjectedProcessInputKeys";
+  static const pcViewMergedProcessInputKeys = "pcViewMergedProcessInputKeys";
+  static const pcViewInjectedProcessInputKeys =
+      "pcViewInjectedProcessInputKeys";
 }
 
 /// API Server endpoints

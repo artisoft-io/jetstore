@@ -1,6 +1,7 @@
 import 'package:jetsclient/modules/user_flows/client_registry/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/screen_config.dart';
+import 'package:jetsclient/modules/user_flows/pipeline_config/screen_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/modules/actions/menu_delegates.dart';
 import 'package:jetsclient/models/screen_config.dart';
@@ -107,7 +108,7 @@ final toolbarMenuEntries = [
   MenuEntry(
       key: 'pipelineConfigUF',
       label: 'Pipeline Configuration',
-      routePath: ufSourceConfigPath),
+      routePath: ufPipelineConfigPath),
   MenuEntry(
       key: 'Spacer01',
       label: ''),
@@ -347,6 +348,8 @@ ScreenConfig getScreenConfig(String key) {
   config = getConfigureFileScreenConfig(key);
   if (config != null) return config;
   config = getFileMappingScreenConfig(key);
+  if (config != null) return config;
+  config = getPipelineConfigScreenConfig(key);
   if (config != null) return config;
 
   throw Exception(

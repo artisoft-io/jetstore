@@ -1,5 +1,6 @@
 import 'package:jetsclient/modules/user_flows/client_registry/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/data_table_config.dart';
+import 'package:jetsclient/modules/user_flows/pipeline_config/data_table_config.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
@@ -3006,6 +3007,8 @@ TableConfig getTableConfig(String key) {
   config = getClientRegistryTableConfig(key);
   if (config != null) return config;
   config = getConfigureFileTableConfig(key);
+  if (config != null) return config;
+  config = getPipelineConfigTableConfig(key);
   if (config != null) return config;
   throw Exception(
       'ERROR: Invalid program configuration: table configuration $key not found');
