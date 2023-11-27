@@ -366,15 +366,15 @@ class FSK {
   // Select Source Config Table
   static const scSourceConfigKey = "scSourceConfigKey";
 
-  // Pipeline Config UF
-  static const pcAddOrEditPipelineConfigOption =
-      "pcAddOrEditPipelineConfigOption";
-
   // CSV, Headerless CSV or Fxied-width option
   static const scCsvOrFixedOption = "scCsvOrFixedOption";
   static const scCsvOption = "scCsvOption";
   static const scHeaderlessCsvOption = "scHeaderlessCsvOption";
   static const scFixedWidthOption = "scFixedWidthOption";
+
+  // Pipeline Config UF
+  static const pcAddOrEditPipelineConfigOption =
+      "pcAddOrEditPipelineConfigOption";
 
   // reserved keys for cache
 

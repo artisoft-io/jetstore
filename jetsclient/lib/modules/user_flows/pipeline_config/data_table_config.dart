@@ -53,7 +53,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'pipeline_config')
     ],
-    label: 'Pipeline Configuration',
+    label: 'Select a Pipeline Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -71,14 +71,63 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.key,
-        columnIdx: 0,
+        stateKey: FSK.client,
+        columnIdx: 1,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.processName,
+        columnIdx: 2,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.processConfigKey,
+        columnIdx: 3,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.mainProcessInputKey,
+        columnIdx: 4,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.mergedProcessInputKeys,
+        columnIdx: 5,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.mainObjectType,
+        columnIdx: 6,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.mainSourceType,
+        columnIdx: 7,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.sourcePeriodType,
+        columnIdx: 8,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.automated,
+        columnIdx: 9,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.description,
+        columnIdx: 10,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.maxReteSessionSaved,
+        columnIdx: 11,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.injectedProcessInputKeys,
+        columnIdx: 12,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.ruleConfigJson,
+        columnIdx: 13,
       ),
     ]),
     columns: [
       ColumnConfig(
           index: 0,
           name: "key",
+          table: "pipeline_config",
           label: 'Key',
           tooltips: 'Row Primary Key',
           isNumeric: true,
@@ -86,18 +135,21 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 1,
           name: "client",
+          table: "pipeline_config",
           label: 'Client',
           tooltips: 'Client the file came from',
           isNumeric: false),
       ColumnConfig(
           index: 2,
           name: "process_name",
+          table: "pipeline_config",
           label: 'Process',
           tooltips: 'Process Name',
           isNumeric: false),
       ColumnConfig(
           index: 3,
           name: "process_config_key",
+          table: "pipeline_config",
           label: 'Process Config',
           tooltips: '',
           isNumeric: true,
@@ -105,6 +157,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 4,
           name: "main_process_input_key",
+          table: "pipeline_config",
           label: 'Main Process Input',
           tooltips: '',
           isNumeric: true,
@@ -112,6 +165,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 5,
           name: "merged_process_input_keys",
+          table: "pipeline_config",
           label: 'Merged Process Inputs',
           tooltips: '',
           isNumeric: true,
@@ -119,18 +173,21 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 6,
           name: "main_object_type",
+          table: "pipeline_config",
           label: 'Domain Key',
           tooltips: 'Domain Key of main input table',
           isNumeric: false),
       ColumnConfig(
           index: 7,
           name: "main_source_type",
+          table: "pipeline_config",
           label: 'Main Source Type',
           tooltips: 'Source type of main input table',
           isNumeric: false),
       ColumnConfig(
           index: 8,
           name: "source_period_type",
+          table: "pipeline_config",
           label: 'Pipeline Frequency',
           tooltips: 'How often the pipeline execute',
           isNumeric: false,
@@ -138,18 +195,21 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 9,
           name: "automated",
+          table: "pipeline_config",
           label: 'Automated',
           tooltips: 'Is pipeline automated? (true: 1, false: 0)',
           isNumeric: false),
       ColumnConfig(
           index: 10,
           name: "description",
+          table: "pipeline_config",
           label: 'Description',
           tooltips: 'Pipeline description',
           isNumeric: false),
       ColumnConfig(
           index: 11,
           name: "max_rete_sessions_saved",
+          table: "pipeline_config",
           label: 'Max Rete Session Saved',
           tooltips: 'Max Rete Session Saved',
           isNumeric: true,
@@ -157,13 +217,15 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 12,
           name: "injected_process_input_keys",
-          label: 'Injected Data Process Inut',
+          table: "pipeline_config",
+          label: 'Injected Data Input',
           tooltips: '',
           isNumeric: false,
           isHidden: true),
       ColumnConfig(
           index: 13,
           name: "rule_config_json",
+          table: "pipeline_config",
           label: '',
           tooltips: '',
           isNumeric: false,
@@ -171,13 +233,14 @@ final Map<String, TableConfig> _tableConfigurations = {
       ColumnConfig(
           index: 14,
           name: "last_update",
+          table: "pipeline_config",
           label: 'Loaded At',
           tooltips: 'Indicates when the record was created',
           isNumeric: false),
     ],
     sortColumnName: 'last_update',
     sortAscending: false,
-    rowsPerPage: 50,
+    rowsPerPage: 20,
   ),
 
   // Process Input Table for Pipeline Config Dialog (FormKeys.pipelineConfigEditForm)
@@ -187,14 +250,34 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_input')
     ],
-    label: 'Main Process Input',
+    label: 'Select the Main Process Input',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
+      WhereClause(column: "source_type", defaultValue: ['file', 'domain_table']),
     ],
-    actions: [],
+    actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addProcessInput',
+          label: 'Add/Update Process Input Configuration',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.addProcessInput,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.client: 1,
+            FSK.org: 2,
+            FSK.objectType: 3,
+            FSK.entityRdfType: 4,
+            FSK.sourceType: 5,
+            FSK.tableName: 6,
+            FSK.lookbackPeriods: 7,
+          }),
+    ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.mainObjectType,

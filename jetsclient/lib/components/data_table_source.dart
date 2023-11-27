@@ -173,7 +173,7 @@ class JetsDataTableSource extends ChangeNotifier {
     // a Data Table row (case update a record)
     var value = formState.getValue(config.group, config.key);
     if (value == null) return;
-    assert((value is String) || (value is List<String>), 'Unexpected type');
+    assert((value is String?) || (value is List<String>), 'Unexpected type');
     if (value.isEmpty) return;
     WidgetField? selValues = [];
     if (value is List<String>) {

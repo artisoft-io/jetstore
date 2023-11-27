@@ -14,9 +14,35 @@ String? unpack(dynamic elm) {
   if (elm is String) {
     return elm;
   }
+  if (elm is int) {
+    return '$elm';
+  }
   if (elm is List<String> && elm.isNotEmpty) {
     return elm[0];
   }
+  return null;
+}
+
+// pack the elm into a list, if the elm is an ecoded list, decode the list
+List<String>? unpackToList(dynamic elm) {
+  // print("^^^ unpackToList elm: $elm");
+  if (elm == null) return null;
+  if (elm is List<String>) return elm;
+  if (elm is String) {
+    String str = elm;
+    if (str == '{}') return [];
+    if (str[0] == '{') {
+      final val = str.substring(1, str.length - 1).split(',');
+      // print("^^^ returning decoded val $val, isEmpty? ${val.isEmpty}");
+      return val;
+    } else {
+      final val = [str];
+      // print("^^^ returning [str] $val, isEmpty? ${val.isEmpty}");
+      return [str];
+    }
+  }
+  print(
+      "Error: toList is expecting a string or list of string, got ${elm.runtimeType}");
   return null;
 }
 
@@ -27,7 +53,7 @@ String? unpack(dynamic elm) {
 Future<String?> postInsertRows(
     BuildContext context, JetsFormState formState, String encodedJsonBody,
     {String serverEndPoint = ServerEPs.dataTableEP,
-     DTActionResult errorReturnStatus = DTActionResult.statusError}) async {
+    DTActionResult errorReturnStatus = DTActionResult.statusError}) async {
   var navigator = Navigator.of(context);
   var messenger = ScaffoldMessenger.of(context);
   var result = await HttpClientSingleton().sendRequest(
@@ -37,16 +63,20 @@ Future<String?> postInsertRows(
 
   // print("Got reply with status code ${result.statusCode}");
   // 401: Not authorized, will be redirected to login
-  if (result.statusCode == 401) return null; 
+  if (result.statusCode == 401) return null;
   if (result.statusCode == 200) {
     // Inform the user and transition
     const snackBar = SnackBar(content: Text('Record(s) successfully inserted'));
-    messenger.showSnackBar(snackBar);
+    if (context.mounted) {
+      messenger.showSnackBar(snackBar);
+    }
     // All good, let's the table know to refresh
     navigator.pop(DTActionResult.okDataTableDirty);
     return null;
-  } else if (result.statusCode == 400 || result.statusCode == 500 || 
-      result.statusCode == 406 || result.statusCode == 422) {
+  } else if (result.statusCode == 400 ||
+      result.statusCode == 500 ||
+      result.statusCode == 406 ||
+      result.statusCode == 422) {
     // http Bad Request / Not Acceptable / Unprocessable / ServerError
     // Check if we have an error message from server, if not put a generic one
     if (result.body['error'] != null) {
@@ -91,8 +121,9 @@ Future<int> postSimpleAction(BuildContext context, JetsFormState formState,
     messenger.showSnackBar(snackBar);
     formState.invokeCallbacks();
   } else {
-    if(context.mounted) {
-      showAlertDialog(context, result.body['error'] ?? "Something went wrong. Please try again.");
+    if (context.mounted) {
+      showAlertDialog(context,
+          result.body['error'] ?? "Something went wrong. Please try again.");
     }
   }
   return result.statusCode;
@@ -110,7 +141,7 @@ Future<HttpResponse> postRawAction(
 
   // print("Got reply $result \nwith status code ${result.statusCode}");
   // 401: Not authorized, will be redirected to login
-  if (result.statusCode == 401) return result; 
+  if (result.statusCode == 401) return result;
   if (result.statusCode == 200) {
     // Inform the user and transition
     const snackBar = SnackBar(content: Text('Request successfully completed'));
@@ -181,7 +212,9 @@ Future<Map<String, JetsDataModel?>?> queryMapJetsDataModel(
     }
     return model;
   } else {
-    showAlertDialog(context, "Something went wrong. Please try again.[2]");
+    if (context.mounted) {
+      showAlertDialog(context, "Something went wrong. Please try again.[2]");
+    }
   }
   return null;
 }
@@ -204,7 +237,7 @@ String makeTableNameFromState(Map<String, dynamic> state) {
 
 String makePgArray(dynamic values) {
   if (values == null) return '{}';
-  if (values is List<String>) {
+  if (values is List<String?>) {
     final buf = StringBuffer();
     buf.write("{");
     buf.writeAll(values, ",");

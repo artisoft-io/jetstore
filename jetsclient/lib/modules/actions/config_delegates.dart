@@ -313,10 +313,10 @@ Future<String?> sourceConfigActions(BuildContext context,
           'Are you sure you want to delete the selected organization?');
       if (uc != 'OK') return null;
       var state = formState.getState(0);
-      if(state[FSK.client] is List<String>) {
+      if (state[FSK.client] is List<String>) {
         state[FSK.client] = state[FSK.client][0];
       }
-      if(state[FSK.org] is List<String>) {
+      if (state[FSK.org] is List<String>) {
         state[FSK.org] = state[FSK.org][0];
       }
       state['user_email'] = JetsRouterDelegate().user.email;
@@ -464,7 +464,7 @@ String? processInputFormValidator(
       "Process Input Form has unexpected data type");
   var isRequired = formState.getValue(group, FSK.isRequiredFlag);
   // print(
-  //     "Validator Called for $group ($isRequired), $key, $v, state is ${formState.getValue(group, key)}");
+  //     "%%% Validator Called for $group ($isRequired), $key, $v, state is ${formState.getValue(group, key)}");
   // Check if we have client, object_type, and source_type to populate table_name
   // add entity_rdf_type based on object_type
   var objectTypeRegistry =
@@ -480,7 +480,8 @@ String? processInputFormValidator(
       case 'file':
         final org = formState.getValue(group, FSK.org);
         if (org != null) {
-          var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType);
+          var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType,
+              orElse: () => [entityRdfType as String, entityRdfType]);
           if (row == null) {
             print(
                 "processInputFormActions error: can't find object_type in objectTypeRegistry");

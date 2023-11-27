@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/models/user_flow_config.dart';
-import 'package:jetsclient/modules/actions/config_delegates.dart';
+import 'package:jetsclient/modules/user_flows/pipeline_config/form_action_delegates.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Form Config for Pipeline Config UF Module
@@ -22,7 +22,7 @@ final Map<String, FormConfig> _formConfigurations = {
             dataTableConfig: FSK.pcAddOrEditPipelineConfigOption),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
   FormKeys.pcAddPipelineConfigUF: FormConfig(
@@ -76,9 +76,10 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(height: defaultPadding),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
+
   FormKeys.pcSelectPipelineConfigUF: FormConfig(
     key: FormKeys.pcSelectPipelineConfigUF,
     actions: standardActions,
@@ -91,10 +92,11 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: double.infinity),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
+
   FormKeys.pcSelectMainProcessInputUF: FormConfig(
     key: FormKeys.pcSelectMainProcessInputUF,
     actions: standardActions,
@@ -102,12 +104,12 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFields: [
       [
         FormDataTableFieldConfig(
-            key: FSK.mainProcessInputKey,
-            dataTableConfig: FSK.mainProcessInputKey,
+            key: DTKeys.pcMainProcessInputKey,
+            dataTableConfig: DTKeys.pcMainProcessInputKey,
             tableHeight: double.infinity),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
@@ -139,7 +141,7 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
@@ -171,7 +173,7 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
@@ -187,7 +189,7 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: double.infinity),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
@@ -203,7 +205,7 @@ final Map<String, FormConfig> _formConfigurations = {
             tableHeight: double.infinity),
       ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
@@ -242,8 +244,6 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             flex: 1,
             defaultItemPos: 0),
-      ],
-      [
         FormDropdownFieldConfig(
             key: FSK.automated,
             items: [
@@ -254,8 +254,31 @@ final Map<String, FormConfig> _formConfigurations = {
             flex: 1,
             defaultItemPos: 0),
       ],
+      [
+        TextFieldConfig(
+            label: "Paste or enter the Rule Configuration as json or csv:",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.ruleConfigJson,
+            label: "Rule Configuration (csv or json)",
+            hint: "Pipeline-specific Rule Configuration",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            defaultValue: '[]',
+            maxLines: 13,
+            maxLength: 51200),
+      ],
+      [
+        PaddingConfig(height: 2*defaultPadding),
+      ],
     ],
-    formValidatorDelegate: pipelineConfigFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
