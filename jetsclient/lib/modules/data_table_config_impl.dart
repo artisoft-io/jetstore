@@ -111,7 +111,7 @@ final inputRegistryColumns = [
       isNumeric: true),
 ];
 
-final processInputColumns = [
+final baseProcessInputColumns = [
   ColumnConfig(
       index: 0,
       name: "key",
@@ -156,6 +156,9 @@ final processInputColumns = [
       tooltips: 'Table where the data reside',
       isNumeric: false,
       isHidden: false),
+];
+
+final processInputColumns = baseProcessInputColumns + [
   ColumnConfig(
       index: 7,
       name: "lookback_periods",

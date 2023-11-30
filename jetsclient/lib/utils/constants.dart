@@ -195,6 +195,7 @@ class FormKeys {
   static const pcNewProcessInputsUF = "pcNewProcessInputsUF";
   static const pcAddProcessInputsUF = "pcAddProcessInputsUF";
   static const pcDonePipelineConfigUF = "pcDonePipelineConfigUF";
+  static const pcNewProcessInputDialog = "pcNewProcessInputDialog";
 }
 
 /// Form State Keys
@@ -239,6 +240,8 @@ class FSK {
 
   static const objectType = "object_type";
   static const sourceType = "source_type";
+  // For the where clause of the data table
+  static const whereSourceType = "where.source_type";
   static const domainKeysJson = "domain_keys_json";
   static const inputColumnsJson = "input_columns_json";
   static const inputColumnsPositionsCsv = "input_columns_positions_csv";
@@ -552,6 +555,9 @@ class ActionKeys {
   static const pcRemoveInjectedProcessInput = "pcRemoveInjectedProcessInput";
   static const pcAddInjectedProcessInputUF = "pcAddInjectedProcessInputUF";
   static const pcNewInjectedProcessInputUF = "pcNewInjectedProcessInputUF";
+  // Action to calculate the process_input_registry key
+  // and set it to DTKeys.pcProcessInputRegistry
+  static const pcSetProcessInputRegistryKey = "pcSetProcessInputRegistryKey";
 }
 
 /// User Flow Keys
@@ -667,6 +673,7 @@ class DTKeys {
   static const pcViewMergedProcessInputKeys = "pcViewMergedProcessInputKeys";
   static const pcViewInjectedProcessInputKeys =
       "pcViewInjectedProcessInputKeys";
+  static const pcProcessInputRegistry = "pcProcessInputRegistry";
 }
 
 /// API Server endpoints

@@ -633,7 +633,7 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	case "domain_table", "alias_domain_table":
 		err = dbpool.QueryRow(context.Background(), 
 		"SELECT domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type=$1", 
-		pi.entityRdfType).Scan(&dkJson)
+		pi.tableName).Scan(&dkJson)
 		pi.processInputMapping, err2 = readProcessInputMapping(dbpool, pi.entityRdfType)
 	default:
 		return fmt.Errorf("error: unknown source_type in loadProcessInput: %s", pi.sourceType)
@@ -643,7 +643,7 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 	}
 	// If domain key json is null, default to "jets:key"
 	if err != nil {
-		return fmt.Errorf("could not load domain_keys_json from jetsapi.source_config for table %s: %v", pi.tableName, err)
+		return fmt.Errorf("could not load domain_keys_json for table %s: %v", pi.tableName, err)
 	}
 	if !dkJson.Valid {
 		dkJson.String = "\"jets:key\""

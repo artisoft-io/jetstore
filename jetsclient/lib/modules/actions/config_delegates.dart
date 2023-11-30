@@ -667,9 +667,16 @@ String? processInputFormValidator(
 
     case FSK.mappingErrorMessage:
       return null;
+
+    case DTKeys.pcProcessInputRegistry:
+      if (v != null) {
+        return null;
+      }
+      return "Please select an option.";
+
     default:
       print(
-          'Oops process input form has no validator configured for form field $key');
+          'Oops process input form has no validator configured for form field $key, which has value $v');
   }
   return null;
 }
@@ -841,18 +848,29 @@ Future<String?> processInputFormActions(BuildContext context,
       }, toEncodable: (_) => '');
       return postInsertRows(context, formState, encodedJsonBody);
 
+    // Supporting Process Config UF as well as expert mode
     case ActionKeys.addProcessInputOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
         return null;
       }
-      formState.setValue(group, FSK.userEmail, JetsRouterDelegate().user.email);
+      final state = formState.getState(group);
+      state[FSK.userEmail] = JetsRouterDelegate().user.email;
+      state[FSK.client] = unpack(state[FSK.client]);
+      state[FSK.org] = unpack(state[FSK.org]);
+      state[FSK.sourceType] = unpack(state[FSK.sourceType]);
+      state[FSK.objectType] = unpack(state[FSK.objectType]);
+      state[FSK.entityRdfType] = unpack(state[FSK.entityRdfType]);
+      state[FSK.tableName] = unpack(state[FSK.tableName]);
       var query = 'process_input'; // case add
       if (formState.getValue(group, FSK.key) != null) {
         query = 'update2/process_input';
       }
-      var sourceType = formState.getValue(group, FSK.sourceType) as String?;
-      if (sourceType == null) return null;
+      var sourceType = state[FSK.sourceType] as String?;
+      if (sourceType == null) {
+        print("Oops bailing out of addProcessInputOk, source_type is null!");
+        return null;
+      }
       if (sourceType != 'file') {
         formState.setValue(group, FSK.org, '');
       }

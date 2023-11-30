@@ -232,6 +232,25 @@ Future<String?> pipelineConfigFormActionsUF(
       }
       return null;
 
+    // Set the process_input_registry key
+    case ActionKeys.pcSetProcessInputRegistryKey:
+      // process_name || object_type || table_name || source_type AS key,
+      var processName = formState.getValue(group, FSK.processName) as String?;
+      var objectType = formState.getValue(group, FSK.objectType) as String?;
+      var tableName = formState.getValue(group, FSK.tableName) as String?;
+      var sourceType = formState.getValue(group, FSK.sourceType) as String?;
+      if (processName == null ||
+          objectType == null ||
+          tableName == null ||
+          sourceType == null) {
+        print(
+            "Something is null: processName:$processName, objectType:$objectType, tableName:$tableName, sourceType:$sourceType");
+        return null;
+      }
+      formState.setValue(group, DTKeys.pcProcessInputRegistry,
+          "$processName$objectType$tableName$sourceType");
+      return null;
+
     // Cancel Dialog / Form
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();

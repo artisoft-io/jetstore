@@ -260,22 +260,27 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     actions: [
       ActionConfig(
-          actionType: DataTableActionType.showDialog,
+          actionType: DataTableActionType.doActionShowDialog,
           key: 'addProcessInput',
           label: 'Add/Update Process Input Configuration',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.addProcessInput,
+          actionName: ActionKeys.pcSetProcessInputRegistryKey,
+          configForm: FormKeys.pcNewProcessInputDialog,
           navigationParams: {
             FSK.key: 0,
-            FSK.client: 1,
-            FSK.org: 2,
             FSK.objectType: 3,
             FSK.entityRdfType: 4,
             FSK.sourceType: 5,
             FSK.tableName: 6,
             FSK.lookbackPeriods: 7,
+            FSK.whereSourceType: '{file,domain_table}',
+          },
+          stateFormNavigationParams: {
+            DTKeys.pcProcessInputRegistry: DTKeys.pcProcessInputRegistry,
+            FSK.client: FSK.client,
+            FSK.processName: FSK.processName,
           }),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
@@ -292,6 +297,91 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortColumnName: 'last_update',
     sortAscending: false,
     rowsPerPage: 10,
+  ),
+
+  // Process Input Registry Table for New Process Input Dialog (FormKeys.pcNewProcessInputDialog)
+  DTKeys.pcProcessInputRegistry: TableConfig(
+    key: DTKeys.pcProcessInputRegistry,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'process_input_registry')
+    ],
+    // label: 'Select a Process Input',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    // defaultToAllRows: true,
+    whereClauses: [
+      WhereClause(column: "client", formStateKey: FSK.client, orWith: 
+        WhereClause(column: "client", defaultValue: [''])),
+      WhereClause(column: "source_type", formStateKey: FSK.whereSourceType),
+      WhereClause(column: "process_name", formStateKey: FSK.processName),
+    ],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.org,
+        columnIdx: 1,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.objectType,
+        columnIdx: 2,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.entityRdfType,
+        columnIdx: 3,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.sourceType,
+        columnIdx: 4,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.tableName,
+        columnIdx: 5,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: '',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "org",
+          label: 'Vendor',
+          tooltips: 'Client''s vendor the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Domain Key',
+          tooltips: 'Pipeline Grouping Domain Key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "entity_rdf_type",
+          label: 'Domain Class',
+          tooltips: 'Canonical model for the source data',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the data reside',
+          isNumeric: false,
+          isHidden: false),
+    ],
+    sortColumnName: 'table_name',
+    sortAscending: true,
+    rowsPerPage: 20,
   ),
 
 

@@ -314,6 +314,7 @@ class WhereClause {
     this.predicate,
     this.lookupColumnInFormState = false,
     this.like,
+    this.orWith,
   });
   final String? table;
   final String column;
@@ -323,6 +324,7 @@ class WhereClause {
   final FormStatePredicate? predicate;
   final bool lookupColumnInFormState;
   final String? like; // where with like stmt
+  final WhereClause? orWith;
 }
 
 class DataTableFormStateConfig {

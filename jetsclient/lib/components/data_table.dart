@@ -578,7 +578,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         String? err = await actionsDelegate(
             context, GlobalKey<FormState>(), formState!, ac.actionName!,
             group: 0);
-        if (err != null) {
+        if (err != null && context.mounted) {
           showAlertDialog(context, err);
         }
         break;
@@ -602,6 +602,18 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         ac.stateFormNavigationParams?.forEach((key, npKey) {
           dialogFormState.setValue(0, key, formState?.getValue(0, npKey));
         });
+        ac.navigationParams?.forEach((key, value) {
+          if (value is String?) {
+            dialogFormState.setValue(0, key, value);
+          } else {
+            if (row != null && value is int) {
+              dialogFormState.setValue(0, key, row[value]);
+            }
+          }
+        });
+        // reset the updated keys since these updates is to put default values
+        // and is not from user interactions
+        dialogFormState.resetUpdatedKeys(0);
 
         // perform the action, which will update formState
         String? err = await actionsDelegate(

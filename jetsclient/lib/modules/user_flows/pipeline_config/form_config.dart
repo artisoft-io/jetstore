@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/models/user_flow_config.dart';
+import 'package:jetsclient/modules/actions/config_delegates.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/form_action_delegates.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -281,6 +282,73 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
+  ),
+  // New Process Input Dialog
+  FormKeys.pcNewProcessInputDialog: FormConfig(
+    key: FormKeys.pcNewProcessInputDialog,
+    title: "New Process Input",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.addProcessInputOk,
+          capability: "client_config",
+          label: "Save",
+          buttonStyle: ActionStyle.primary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.secondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.client,
+            label: "Client",
+            hint: "",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            isReadOnly: true,
+            maxLength: 25,
+            useDefaultFont: true),
+        PaddingConfig(),
+        PaddingConfig(),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.pcProcessInputRegistry,
+            dataTableConfig: DTKeys.pcProcessInputRegistry,
+            tableHeight: 380),
+      ],
+      [
+        PaddingConfig(height: defaultPadding),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.lookbackPeriods,
+            label: "Lookback Periods",
+            hint: "Number of periods to include in the rule session",
+            defaultValue: "0",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.digitsOnly,
+            maxLength: 10,
+            useDefaultFont: true),
+        PaddingConfig(),
+        PaddingConfig(),
+      ],
+      [
+        PaddingConfig(),
+      ],
+    ],
+    formValidatorDelegate: processInputFormValidator,
+    formActionsDelegate: processInputFormActions,
   ),
   // Done Page
   FormKeys.pcDonePipelineConfigUF: FormConfig(

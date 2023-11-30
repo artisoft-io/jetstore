@@ -70,6 +70,7 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         formConfig: getFormConfig(FormKeys.pcDonePipelineConfigUF),
         actionDelegate: pipelineConfigFormActionsUF,
         isEnd: true),
+    // new_process_input is implemented as a dialog
     // "new_main_process_inputs": UserFlowState(
     //     key: "new_main_process_inputs",
     //     description: 'Add a main process inputs',

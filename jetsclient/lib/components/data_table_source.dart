@@ -265,6 +265,13 @@ class JetsDataTableSource extends ChangeNotifier {
     );
   }
 
+  Map<String, dynamic>? _addOrWith(WhereClause wc, Map<String, dynamic>? data) {
+    if (wc.orWith != null && data != null) {
+      data['orWith'] = _makeWhereClause(wc.orWith!);
+    }
+    return data;
+  }
+
   Map<String, dynamic>? _makeWhereClause(WhereClause wc) {
     final config = state.formFieldConfig; // when datatable is in a form
 
@@ -462,7 +469,7 @@ class JetsDataTableSource extends ChangeNotifier {
     // add WHERE clauses
     List<Map<String, dynamic>> whereClauses = [];
     for (final wc in state.tableConfig.whereClauses) {
-      var wcValue = _makeWhereClause(wc);
+      var wcValue = _addOrWith(wc, _makeWhereClause(wc));
       if (wcValue != null) {
         whereClauses.add(wcValue);
       }
@@ -601,6 +608,7 @@ class JetsDataTableSource extends ChangeNotifier {
     final config = state.formFieldConfig;
     var hasBlockingFilter = false;
     if (config != null) {
+      // print("*** getModelData::FORM STATE: ${state.formState?.getState(config.group)}");
       for (final wc in state.tableConfig.whereClauses) {
         if (wc.defaultValue.isNotEmpty) continue;
         if (wc.formStateKey != null) {
@@ -610,7 +618,19 @@ class JetsDataTableSource extends ChangeNotifier {
               ?.params[wc.formStateKey!];
 
           if (value == null || (value is List && value.isEmpty)) {
-            hasBlockingFilter = true;
+            if (wc.orWith != null) {
+              if (wc.orWith!.defaultValue.isNotEmpty) continue;
+              if (wc.orWith!.formStateKey != null) {
+                value = state.formState
+                    ?.getValue(config.group, wc.orWith!.formStateKey!);
+                value ??= JetsRouterDelegate()
+                    .currentConfiguration
+                    ?.params[wc.orWith!.formStateKey!];
+              }
+            }
+            if (value == null || (value is List && value.isEmpty)) {
+              hasBlockingFilter = true;
+            }
           }
         }
       }
@@ -622,8 +642,8 @@ class JetsDataTableSource extends ChangeNotifier {
         model = null;
         _totalRowCount = 0;
         notifyListeners();
-        // print(
-        //     "*** Table ${state.tableConfig.key} has blocking filter, no refresh");
+        print(
+            "*** Table ${state.tableConfig.key} has blocking filter, no refresh");
         return;
       }
     }
