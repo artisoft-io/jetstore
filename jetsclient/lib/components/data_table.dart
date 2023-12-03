@@ -403,12 +403,12 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   }
 
   void _refreshTable() {
-    // print("*** _refreshTable called for Table ${tableConfig.key} requesting ModelData");
+    // print(
+    //     "*** _refreshTable called for Table ${tableConfig.key} requesting ModelData");
     currentDataPage = 0;
     rowsPerPage = availableRowsPerPage[0];
     final config = formFieldConfig!;
     formState!.clearSelectedRow(config.group, config.key);
-    formState!.setValue(config.group, config.key, null);
     if (tableConfig.formStateConfig != null) {
       for (final field in tableConfig.formStateConfig!.otherColumns) {
         formState!.setValue(config.group, field.stateKey, null);
@@ -575,12 +575,16 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
         // perform the action then refresh the table
         formState!.addCallback(_refreshTable);
+        formState!.addListener(_refreshTable);
         String? err = await actionsDelegate(
             context, GlobalKey<FormState>(), formState!, ac.actionName!,
             group: 0);
         if (err != null && context.mounted) {
           showAlertDialog(context, err);
         }
+        // formState!.removeCallback(_refreshTable);
+        formState!.removeListener(_refreshTable);
+        formState!.removeCallback(_refreshTable);
         break;
 
       // Call server to do an action and then show a dialog

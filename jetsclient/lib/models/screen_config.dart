@@ -41,8 +41,8 @@ typedef MenuActionDelegate = Future<int> Function(
 /// the menuAction
 class MenuEntry {
   MenuEntry({
-    this.onPageStyle = ActionStyle.primary,
-    this.otherPageStyle = ActionStyle.secondary,
+    this.onPageStyle = ActionStyle.tbPrimary,
+    this.otherPageStyle = ActionStyle.tbSecondary,
     required this.key,
     required this.label,
     this.routePath,

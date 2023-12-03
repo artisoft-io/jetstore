@@ -1229,7 +1229,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           capability: 'client_config',
           actionName: ActionKeys.deleteOrg),
     ],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.org,
         columnIdx: 1,

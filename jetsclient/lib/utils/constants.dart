@@ -13,7 +13,12 @@ enum ActionStyle {
   alternate,
   menuSelected,
   menuAlternate,
-  danger
+  danger,
+  predominentInForm,
+  tbPrimary,
+  tbSecondary,
+  ufPrimary,
+  ufSecondary,
 }
 
 ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
@@ -45,6 +50,47 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
 
     case ActionStyle.menuAlternate:
       return null;
+
+    case ActionStyle.tbPrimary:
+      return TextButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.tbSecondary:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.ufPrimary:
+      return TextButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.ufSecondary:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.predominentInForm:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+    // return ElevatedButton.styleFrom(
+    //       backgroundColor: const Color.fromARGB(255, 61, 142, 64),
+    //       side: const BorderSide(color: Colors.yellow, width: 2),
+    //       textStyle: const TextStyle(
+    //           color: Colors.white, fontSize: 25, fontStyle: FontStyle.normal),
+    //     ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
 
     default: // primary
       return ElevatedButton.styleFrom(
@@ -196,6 +242,8 @@ class FormKeys {
   static const pcAddProcessInputsUF = "pcAddProcessInputsUF";
   static const pcDonePipelineConfigUF = "pcDonePipelineConfigUF";
   static const pcNewProcessInputDialog = "pcNewProcessInputDialog";
+  static const pcNewProcessInputDialog4MI = "pcNewProcessInputDialog4MI";
+  static const pcSummaryUF = "pcSummaryUF";
 }
 
 /// Form State Keys
@@ -362,6 +410,9 @@ class FSK {
 
   /// to disambiguate FSK.details
   static const ufVendorDetails = "ufVendorDetails";
+
+  /// All the process Input Keys of a Pipeline
+  static const ufAllProcessInputKeys = "ufAllProcessInputKeys";
 
   // Source Config UF
   // Add or Edit Source Config
@@ -558,6 +609,7 @@ class ActionKeys {
   // Action to calculate the process_input_registry key
   // and set it to DTKeys.pcProcessInputRegistry
   static const pcSetProcessInputRegistryKey = "pcSetProcessInputRegistryKey";
+  static const pcPrepareSummaryUF = "pcPrepareSummaryUF";
 }
 
 /// User Flow Keys
@@ -674,6 +726,8 @@ class DTKeys {
   static const pcViewInjectedProcessInputKeys =
       "pcViewInjectedProcessInputKeys";
   static const pcProcessInputRegistry = "pcProcessInputRegistry";
+  static const pcProcessInputRegistry4MI = "pcProcessInputRegistry4MI";
+  static const pcSummaryProcessInputs = "pcSummaryProcessInputs";
 }
 
 /// API Server endpoints

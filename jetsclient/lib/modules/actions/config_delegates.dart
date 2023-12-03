@@ -290,7 +290,7 @@ Future<String?> sourceConfigActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
-        postSimpleAction(
+        await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
       break;
@@ -303,7 +303,7 @@ Future<String?> sourceConfigActions(BuildContext context,
         'action': 'export_client_configuration',
         'data': [state],
       }, toEncodable: (_) => '');
-      postSimpleAction(
+      await postSimpleAction(
           context, formState, ServerEPs.purgeDataEP, encodedJsonBody);
       break;
 
@@ -328,7 +328,7 @@ Future<String?> sourceConfigActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
-        postSimpleAction(
+        await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
       break;
@@ -373,7 +373,7 @@ Future<String?> sourceConfigActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
-        postSimpleAction(
+        await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
       break;
@@ -423,7 +423,7 @@ Future<String?> sourceConfigActions(BuildContext context,
         'action': 'sync_file_keys',
         'data': [],
       }, toEncodable: (_) => '');
-      postSimpleAction(
+      await postSimpleAction(
           context, formState, ServerEPs.registerFileKeyEP, encodedJsonBody);
       break;
 
@@ -444,7 +444,7 @@ Future<String?> sourceConfigActions(BuildContext context,
           }
         ],
       }, toEncodable: (_) => '');
-      postSimpleAction(
+      await postSimpleAction(
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       break;
 
@@ -669,6 +669,7 @@ String? processInputFormValidator(
       return null;
 
     case DTKeys.pcProcessInputRegistry:
+    case DTKeys.pcProcessInputRegistry4MI:
       if (v != null) {
         return null;
       }
@@ -1300,7 +1301,7 @@ Future<String?> ruleConfigv2FormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
-        postSimpleAction(
+        await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
       break;
@@ -1317,8 +1318,8 @@ Future<String?> ruleConfigv2FormActions(BuildContext context,
 /// Pipeline Config Form / Dialog Validator
 String? pipelineConfigFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
-  // print(
-  //     "Validator Called for $group, $key, $v, state is ${formState.getValue(group, key)}");
+  print(
+      "Validator Called for $group, $key, $v, state is ${formState.getValue(group, key)}");
   assert((v is String?) || (v is List<String>?),
       "Pipeline Config Form has unexpected data type");
   switch (key) {
@@ -1398,6 +1399,7 @@ String? pipelineConfigFormValidator(
 Future<String?> pipelineConfigFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
+  final state = formState.getState(group);
   switch (actionKey) {
     // Pipeline Config Dialog
     case ActionKeys.pipelineConfigOk:
@@ -1443,20 +1445,19 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       // pre-populated as String from the data table action
       // from the selected row to update or is a List<String?> if user have selected
       // a row from the data table
-      var mainProcessInputKey = formState.getValue(0, FSK.mainProcessInputKey);
-      assert(mainProcessInputKey != null, "unexpected null value");
-      if (mainProcessInputKey is List<String?>) {
-        updateState[FSK.mainProcessInputKey] = mainProcessInputKey[0];
-      } else {
-        updateState[FSK.mainProcessInputKey] = mainProcessInputKey;
+      updateState[FSK.mainProcessInputKey] =
+          unpack(state[FSK.mainProcessInputKey]);
+      if (updateState[FSK.mainProcessInputKey] == null) {
+        print(
+            "UNEXPECTED null for mainProcessInputKey\nForm State is $state");
+        updateState[FSK.mainProcessInputKey] = const [];
       }
-      var mainObjectType = formState.getValue(0, FSK.mainObjectType);
-      assert(mainObjectType != null, "unexpected null value");
-      if (mainObjectType is List<String?>) {
-        updateState[FSK.mainObjectType] = mainObjectType[0];
-      } else {
-        updateState[FSK.mainObjectType] = mainObjectType;
+      updateState[FSK.mainObjectType] = unpack(state[FSK.mainObjectType]);
+      if (updateState[FSK.mainObjectType] == null) {
+        print("UNEXPECTED null for mainObjectType\nForm State is $state");
+        return 'Unexpeced null for mainObjectType';
       }
+
       var mainSourceType = formState.getValue(0, FSK.mainSourceType);
       assert(mainSourceType != null, "unexpected null value");
       if (mainSourceType is List<String?>) {
@@ -1519,7 +1520,7 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
-        postSimpleAction(
+        await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
       break;

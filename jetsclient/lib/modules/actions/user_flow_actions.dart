@@ -69,7 +69,14 @@ Future<String?> userFlowStateActions(
         print("ERROR nextStateKey is null");
         return "ERROR nextStateKey is null";
       }
-      visitedPages.add(nextStateKey);
+      if (visitedPages.contains(nextStateKey)) {
+        // Visiting an already visited page, unwind the stack
+        while (visitedPages.last != nextStateKey) {
+          visitedPages.removeLast();
+        }
+      } else {
+        visitedPages.add(nextStateKey);
+      }
       // print("*** ActionKeys.ufNext visitedPages is now: $visitedPages");
       formState.setValue(group, FSK.ufCurrentPage, visitedPages.length - 1);
       final ufState = userFlowScreenState.userFlowConfig.states[nextStateKey];

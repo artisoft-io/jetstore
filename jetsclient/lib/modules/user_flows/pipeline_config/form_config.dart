@@ -131,8 +131,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormActionConfig(
             key: ActionKeys.pcGotToAddMergeProcessInputUF,
-            label: "Add Input to Merge",
-            buttonStyle: ActionStyle.secondary,
+            label: "Add Data Source to Merge",
+            buttonStyle: ActionStyle.predominentInForm,
             leftMargin: defaultPadding,
             rightMargin: defaultPadding),
         PaddingConfig(),
@@ -163,8 +163,8 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormActionConfig(
             key: ActionKeys.pcGotToAddInjectedProcessInputUF,
-            label: "Add Input to Inject",
-            buttonStyle: ActionStyle.secondary,
+            label: "Add Data Source for Historical Data",
+            buttonStyle: ActionStyle.predominentInForm,
             leftMargin: defaultPadding,
             rightMargin: defaultPadding),
         PaddingConfig(),
@@ -212,26 +212,7 @@ final Map<String, FormConfig> _formConfigurations = {
   ),
   FormKeys.pcAutomationUF: FormConfig(
     key: FormKeys.pcAutomationUF,
-    actions: [
-      FormActionConfig(
-          key: ActionKeys.ufPrevious,
-          label: "Previous",
-          buttonStyle: ActionStyle.primary,
-          leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
-      FormActionConfig(
-          key: ActionKeys.ufContinueLater,
-          label: "Cancel",
-          buttonStyle: ActionStyle.primary,
-          leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
-      FormActionConfig(
-          key: ActionKeys.ufNext,
-          label: "Save and Finish",
-          buttonStyle: ActionStyle.secondary,
-          leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
-    ],
+    actions: standardActions,
     useListView: true,
     inputFields: [
       [
@@ -293,13 +274,13 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.addProcessInputOk,
           capability: "client_config",
           label: "Save",
-          buttonStyle: ActionStyle.primary,
+          buttonStyle: ActionStyle.ufPrimary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.secondary,
+          buttonStyle: ActionStyle.ufSecondary,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],
@@ -350,6 +331,186 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: processInputFormValidator,
     formActionsDelegate: processInputFormActions,
   ),
+  // New Process Input Dialog for Merge and Injected Process Inuts
+  FormKeys.pcNewProcessInputDialog4MI: FormConfig(
+    key: FormKeys.pcNewProcessInputDialog4MI,
+    title: "New Process Input",
+    useListView: true,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.addProcessInputOk,
+          capability: "client_config",
+          label: "Save",
+          buttonStyle: ActionStyle.ufPrimary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.dialogCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.ufSecondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.client,
+            label: "Client",
+            hint: "",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            isReadOnly: true,
+            maxLength: 25,
+            useDefaultFont: true),
+        PaddingConfig(),
+        PaddingConfig(),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.pcProcessInputRegistry4MI,
+            dataTableConfig: DTKeys.pcProcessInputRegistry4MI,
+            tableHeight: 380),
+      ],
+      [
+        PaddingConfig(height: defaultPadding),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.lookbackPeriods,
+            label: "Lookback Periods",
+            hint: "Number of periods to include in the rule session",
+            defaultValue: "0",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.digitsOnly,
+            maxLength: 10,
+            useDefaultFont: true),
+        PaddingConfig(),
+        PaddingConfig(),
+      ],
+      [
+        PaddingConfig(),
+      ],
+    ],
+    formValidatorDelegate: processInputFormValidator,
+    formActionsDelegate: processInputFormActions,
+  ),
+  // Summary Page
+  FormKeys.pcSummaryUF: FormConfig(
+    key: FormKeys.pcSummaryUF,
+    title: "Pipeline Configuration Summary",
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.ufPrevious,
+          label: "Previous",
+          buttonStyle: ActionStyle.ufPrimary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.ufContinueLater,
+          label: "Cancel",
+          buttonStyle: ActionStyle.ufPrimary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+      FormActionConfig(
+          key: ActionKeys.ufNext,
+          label: "Save & Done",
+          buttonStyle: ActionStyle.ufSecondary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+    ],
+    useListView: true,
+    inputFields: [
+      [
+        FormInputFieldConfig(
+            key: FSK.client,
+            label: "Client",
+            hint: "",
+            flex: 1,
+            isReadOnly: true,
+            autofocus: false,
+            obscureText: false,
+            maxLength: 20,
+            textRestriction: TextRestriction.none,
+            useDefaultFont: true),
+        FormInputFieldConfig(
+            key: FSK.processName,
+            label: "Process Name",
+            hint: "",
+            flex: 1,
+            isReadOnly: true,
+            autofocus: false,
+            obscureText: false,
+            maxLength: 20,
+            textRestriction: TextRestriction.none,
+            useDefaultFont: true),
+      ],
+      [
+        FormDropdownFieldConfig(
+            key: FSK.sourcePeriodType,
+            isReadOnly: true,
+            items: [
+              DropdownItemConfig(label: 'Select execution frequency'),
+              DropdownItemConfig(label: 'Monthly', value: 'month_period'),
+              DropdownItemConfig(label: 'Weekly', value: 'week_period'),
+              DropdownItemConfig(label: 'Daily', value: 'day_period'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
+        FormDropdownFieldConfig(
+            key: FSK.automated,
+            isReadOnly: true,
+            items: [
+              DropdownItemConfig(label: 'Select automation mode'),
+              DropdownItemConfig(label: 'Automated', value: '1'),
+              DropdownItemConfig(label: 'Manual', value: '0'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.description,
+            label: "Description",
+            hint: "Pipeline configuration description",
+            flex: 2,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLength: 512,
+            useDefaultFont: true),
+      ],
+      [
+        PaddingConfig(height: defaultPadding),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: DTKeys.pcSummaryProcessInputs,
+            dataTableConfig: DTKeys.pcSummaryProcessInputs,
+            tableHeight: 280),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.ruleConfigJson,
+            label: "Rule Configuration CSV / Json",
+            hint:
+                "Enter a valid json array or csv with headers of configuration objects",
+            isReadOnly: true,
+            maxLines: 4,
+            maxLength: 51200,
+            autofocus: false,
+            textRestriction: TextRestriction.none,
+            defaultValue: "[]"),
+      ],
+    ],
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
+    formActionsDelegate:
+        doNothingAction, // overriden by UserFlowState.actionDelegate
+  ),
+
   // Done Page
   FormKeys.pcDonePipelineConfigUF: FormConfig(
     key: FormKeys.pcDonePipelineConfigUF,
@@ -359,13 +520,13 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.ufPrevious,
           label: "Previous",
-          buttonStyle: ActionStyle.primary,
+          buttonStyle: ActionStyle.ufPrimary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.ufCompleted,
           label: "Done",
-          buttonStyle: ActionStyle.secondary,
+          buttonStyle: ActionStyle.ufSecondary,
           leftMargin: defaultPadding,
           rightMargin: defaultPadding),
     ],

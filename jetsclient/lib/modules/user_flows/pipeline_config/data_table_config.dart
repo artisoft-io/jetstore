@@ -18,7 +18,8 @@ final Map<String, TableConfig> _tableConfigurations = {
         ['New Pipeline Configuration', 'ufAddOption', '0'],
         ['Edit an Existing Pipeline Configuration', 'ufEditOption', '1'],
       ],
-      formStateConfig: DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
+      formStateConfig:
+          DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
       columns: [
         ColumnConfig(
             index: 0,
@@ -46,18 +47,23 @@ final Map<String, TableConfig> _tableConfigurations = {
       noFooter: true,
       rowsPerPage: 1000000),
 
-
   // Pipeline Config Data Table for Pipeline Config Forms
   DTKeys.pcPipelineConfigTable: TableConfig(
     key: DTKeys.pcPipelineConfigTable,
     fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'pipeline_config')
+      FromClause(schemaName: 'jetsapi', tableName: 'pipeline_config'),
+      FromClause(schemaName: 'jetsapi', tableName: 'process_config'),
     ],
     label: 'Select a Pipeline Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
-    whereClauses: [],
+    whereClauses: [
+      WhereClause(
+          column: 'process_name',
+          table: 'pipeline_config',
+          joinWith: 'process_config.process_name')
+    ],
     actions: [
       ActionConfig(
           actionType: DataTableActionType.doAction,
@@ -121,6 +127,10 @@ final Map<String, TableConfig> _tableConfigurations = {
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.ruleConfigJson,
         columnIdx: 13,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.entityRdfType,
+        columnIdx: 14,
       ),
     ]),
     columns: [
@@ -218,7 +228,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 12,
           name: "injected_process_input_keys",
           table: "pipeline_config",
-          label: 'Injected Data Input',
+          label: 'Data Sources of Historical Data',
           tooltips: '',
           isNumeric: false,
           isHidden: true),
@@ -232,6 +242,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 14,
+          name: "input_rdf_types",
+          table: "process_config",
+          label: '',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 15,
           name: "last_update",
           table: "pipeline_config",
           label: 'Loaded At',
@@ -250,19 +268,21 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_input')
     ],
-    label: 'Select the Main Process Input',
+    label: 'Select the Main Data Source',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
-      WhereClause(column: "source_type", defaultValue: ['file', 'domain_table']),
+      WhereClause(
+          column: "source_type", defaultValue: ['file', 'domain_table']),
+      WhereClause(column: "entity_rdf_type", formStateKey: FSK.entityRdfType),
     ],
     actions: [
       ActionConfig(
           actionType: DataTableActionType.doActionShowDialog,
           key: 'addProcessInput',
-          label: 'Add/Update Process Input Configuration',
+          label: 'Add/Update Data Source Configuration',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
@@ -270,6 +290,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           configForm: FormKeys.pcNewProcessInputDialog,
           navigationParams: {
             FSK.key: 0,
+            FSK.org: 2,
             FSK.objectType: 3,
             FSK.entityRdfType: 4,
             FSK.sourceType: 5,
@@ -278,7 +299,6 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.whereSourceType: '{file,domain_table}',
           },
           stateFormNavigationParams: {
-            DTKeys.pcProcessInputRegistry: DTKeys.pcProcessInputRegistry,
             FSK.client: FSK.client,
             FSK.processName: FSK.processName,
           }),
@@ -311,8 +331,10 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: true,
     // defaultToAllRows: true,
     whereClauses: [
-      WhereClause(column: "client", formStateKey: FSK.client, orWith: 
-        WhereClause(column: "client", defaultValue: [''])),
+      WhereClause(
+          column: "client",
+          formStateKey: FSK.client,
+          orWith: WhereClause(column: "client", defaultValue: [''])),
       WhereClause(column: "source_type", formStateKey: FSK.whereSourceType),
       WhereClause(column: "process_name", formStateKey: FSK.processName),
     ],
@@ -351,7 +373,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 1,
           name: "org",
           label: 'Vendor',
-          tooltips: 'Client''s vendor the file came from',
+          tooltips: 'Client' 's vendor the file came from',
           isNumeric: false),
       ColumnConfig(
           index: 2,
@@ -384,6 +406,92 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 20,
   ),
 
+  // Process Input Registry Table for New Process Input Dialog (FormKeys.pcNewProcessInputDialog4MI)
+  // This version of the table is for Merged and Injected Process Inputs (it has
+  // and additional WhereClause on the object_type to match the FSK.mainObjectType)
+  DTKeys.pcProcessInputRegistry4MI: TableConfig(
+    key: DTKeys.pcProcessInputRegistry4MI,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'process_input_registry')
+    ],
+    // label: 'Select a Process Input',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
+    // defaultToAllRows: true,
+    whereClauses: [
+      WhereClause(
+          column: "client",
+          formStateKey: FSK.client,
+          orWith: WhereClause(column: "client", defaultValue: [''])),
+      WhereClause(column: "source_type", formStateKey: FSK.whereSourceType),
+      WhereClause(column: "process_name", formStateKey: FSK.processName),
+      WhereClause(column: "object_type", formStateKey: FSK.objectType),
+    ],
+    actions: [],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      // NOTE: Do not set using stateKey same as in WhereClause
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.org,
+        columnIdx: 1,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.entityRdfType,
+        columnIdx: 3,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.sourceType,
+        columnIdx: 4,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.tableName,
+        columnIdx: 5,
+      ),
+    ]),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: '',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "org",
+          label: 'Vendor',
+          tooltips: 'Client' 's vendor the file came from',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "object_type",
+          label: 'Domain Key',
+          tooltips: 'Pipeline Grouping Domain Key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "entity_rdf_type",
+          label: 'Domain Class',
+          tooltips: 'Canonical model for the source data',
+          isNumeric: false),
+      ColumnConfig(
+          index: 4,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 5,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the data reside',
+          isNumeric: false,
+          isHidden: false),
+    ],
+    sortColumnName: 'table_name',
+    sortAscending: true,
+    rowsPerPage: 20,
+  ),
 
   // for selecting FSK.mergedProcessInputKeys
   DTKeys.pcViewMergedProcessInputKeys: TableConfig(
@@ -391,13 +499,16 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_input')
     ],
-    label: 'Merged Process Inputs',
+    label: 'Merged Data Sources',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [
-      WhereClause(
-          column: "key", formStateKey: FSK.mergedProcessInputKeys),
+      WhereClause(column: "key", formStateKey: FSK.mergedProcessInputKeys),
+    ],
+    refreshOnKeyUpdateEvent: [
+      DTKeys.pcMergedProcessInputKeys,
+      FSK.mergedProcessInputKeys
     ],
     actions: [
       ActionConfig(
@@ -423,13 +534,16 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_input')
     ],
-    label: 'Injected Process Inputs',
+    label: 'Data Sources of Historical Data',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
     whereClauses: [
-      WhereClause(
-          column: "key", formStateKey: FSK.injectedProcessInputKeys),
+      WhereClause(column: "key", formStateKey: FSK.injectedProcessInputKeys),
+    ],
+    refreshOnKeyUpdateEvent: [
+      DTKeys.pcInjectedProcessInputKeys,
+      FSK.injectedProcessInputKeys
     ],
     actions: [
       ActionConfig(
@@ -449,13 +563,36 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 10,
   ),
 
+  // for selecting FSK.injectedProcessInputKeys
+  DTKeys.pcSummaryProcessInputs: TableConfig(
+    key: DTKeys.pcSummaryProcessInputs,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'process_input')
+    ],
+    label: 'Data Sources',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: true,
+    noFooter: true,
+    whereClauses: [
+      WhereClause(column: "key", formStateKey: FSK.ufAllProcessInputKeys),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: processInputColumns,
+    sortColumnName: 'last_update',
+    sortAscending: false,
+    rowsPerPage: 100,
+  ),
+
   // for selecting FSK.mergedProcessInputKeys
   DTKeys.pcMergedProcessInputKeys: TableConfig(
     key: DTKeys.pcMergedProcessInputKeys,
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_input')
     ],
-    label: 'Select a Process Input to Merge',
+    label: 'Select a Data Source to Merge',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -464,25 +601,32 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(
           column: "source_type", defaultValue: ['file', 'domain_table']),
+      WhereClause(column: "entity_rdf_type", formStateKey: FSK.entityRdfType),
     ],
     actions: [
       ActionConfig(
-          actionType: DataTableActionType.showDialog,
+          actionType: DataTableActionType.doActionShowDialog,
           key: 'addProcessInput',
-          label: 'Add/Update Process Input Configuration',
+          label: 'Add/Update Data Source Configuration',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.addProcessInput,
+          actionName: ActionKeys.pcSetProcessInputRegistryKey,
+          configForm: FormKeys.pcNewProcessInputDialog4MI,
           navigationParams: {
             FSK.key: 0,
-            FSK.client: 1,
             FSK.org: 2,
             FSK.objectType: 3,
             FSK.entityRdfType: 4,
             FSK.sourceType: 5,
             FSK.tableName: 6,
             FSK.lookbackPeriods: 7,
+            FSK.whereSourceType: '{file,domain_table}',
+          },
+          stateFormNavigationParams: {
+            FSK.client: FSK.client,
+            FSK.processName: FSK.processName,
+            FSK.objectType: FSK.mainObjectType,
           }),
     ],
     formStateConfig:
@@ -499,7 +643,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'process_input')
     ],
-    label: 'Select a Process Input to Inject',
+    label: 'Select a Data Source to Inject',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -507,25 +651,33 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(column: "source_type", defaultValue: ['alias_domain_table']),
+      WhereClause(column: "entity_rdf_type", formStateKey: FSK.entityRdfType),
     ],
     actions: [
       ActionConfig(
-          actionType: DataTableActionType.showDialog,
+          actionType: DataTableActionType.doActionShowDialog,
           key: 'addProcessInput',
-          label: 'Add/Update Process Input Configuration',
+          label: 'Add/Update Data Source Configuration',
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
-          configForm: FormKeys.addProcessInput,
+          actionName: ActionKeys.pcSetProcessInputRegistryKey,
+          configForm: FormKeys.pcNewProcessInputDialog4MI,
           navigationParams: {
             FSK.key: 0,
-            FSK.client: 1,
             FSK.org: 2,
             FSK.objectType: 3,
             FSK.entityRdfType: 4,
             FSK.sourceType: 5,
             FSK.tableName: 6,
             FSK.lookbackPeriods: 7,
+            FSK.whereSourceType: '{alias_domain_table}',
+          },
+          stateFormNavigationParams: {
+            FSK.client: FSK.client,
+            FSK.processName: FSK.processName,
+            FSK.objectType: FSK.mainObjectType,
+            FSK.sourceType: FSK.sourceType,
           }),
     ],
     formStateConfig:
@@ -535,7 +687,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: false,
     rowsPerPage: 10,
   ),
-
 };
 
 TableConfig? getPipelineConfigTableConfig(String key) {

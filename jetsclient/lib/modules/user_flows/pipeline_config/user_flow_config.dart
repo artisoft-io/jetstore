@@ -62,22 +62,16 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Set pipeline automation',
         formConfig: getFormConfig(FormKeys.pcAutomationUF),
         actionDelegate: pipelineConfigFormActionsUF,
-        stateAction: ActionKeys.pcSavePipelineConfigUF,
-        defaultNextState: "doneUF"),
-    "doneUF": UserFlowState(
-        key: "doneUF",
-        description: 'User Flow Completed',
-        formConfig: getFormConfig(FormKeys.pcDonePipelineConfigUF),
+        stateAction: ActionKeys.pcPrepareSummaryUF,
+        defaultNextState: "summaryUF"),
+    "summaryUF": UserFlowState(
+        key: "summaryUF",
+        description: 'Pipeline Configuration Summary',
+        formConfig: getFormConfig(FormKeys.pcSummaryUF),
         actionDelegate: pipelineConfigFormActionsUF,
+        stateAction: ActionKeys.pcSavePipelineConfigUF,
         isEnd: true),
     // new_process_input is implemented as a dialog
-    // "new_main_process_inputs": UserFlowState(
-    //     key: "new_main_process_inputs",
-    //     description: 'Add a main process inputs',
-    //     formConfig: getFormConfig(FormKeys.pcNewProcessInputsUF),
-    //     actionDelegate: pipelineConfigFormActionsUF,
-    //     stateAction: ActionKeys.pcNewMainProcessInputUF,
-    //     defaultNextState: "select_main_process_input"),
     "add_merge_process_inputs": UserFlowState(
         key: "add_merge_process_inputs",
         description: 'Add a merge process inputs',
@@ -85,13 +79,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         actionDelegate: pipelineConfigFormActionsUF,
         stateAction: ActionKeys.pcAddMergeProcessInputUF,
         defaultNextState: "view_merge_process_inputs"),
-    // "new_merge_process_inputs": UserFlowState(
-    //     key: "new_merge_process_inputs",
-    //     description: 'Add a new merge process inputs',
-    //     formConfig: getFormConfig(FormKeys.pcNewProcessInputsUF),
-    //     actionDelegate: pipelineConfigFormActionsUF,
-    //     stateAction: ActionKeys.pcNewMergeProcessInputUF,
-    //     defaultNextState: "view_merge_process_inputs"),
     "add_injected_process_inputs": UserFlowState(
         key: "add_injected_process_inputs",
         description: 'Add an injected process inputs',
@@ -99,13 +86,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         actionDelegate: pipelineConfigFormActionsUF,
         stateAction: ActionKeys.pcAddInjectedProcessInputUF,
         defaultNextState: "view_injected_process_inputs"),
-    // "new_injected_process_inputs": UserFlowState(
-    //     key: "new_injected_process_inputs",
-    //     description: 'Add a new injected process inputs',
-    //     formConfig: getFormConfig(FormKeys.pcNewProcessInputsUF),
-    //     actionDelegate: pipelineConfigFormActionsUF,
-    //     stateAction: ActionKeys.pcNewInjectedProcessInputUF,
-    //     defaultNextState: "view_injected_process_inputs"),
   })
 };
 

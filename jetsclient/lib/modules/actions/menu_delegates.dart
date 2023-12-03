@@ -29,10 +29,12 @@ Future<int> purgeDataAction(BuildContext context, MenuEntry menuEntry, State<Sta
   // if (!mounted) return; needed?
   if (result.statusCode == 200) {
     // Inform the user and transition
-    const snackBar = SnackBar(
-      content: Text('Purge Client Data Successful'),
-    );
-    messenger.showSnackBar(snackBar);
+    if(context.mounted) {
+      const snackBar = SnackBar(
+        content: Text('Purge Client Data Successful'),
+      );
+      messenger.showSnackBar(snackBar);
+    }
   } else {
     return result.statusCode;
   }
@@ -60,10 +62,13 @@ Future<int> rerunDbInitAction(
   // if (!mounted) return; needed?
   if (result.statusCode == 200) {
     // Inform the user and transition
-    const snackBar = SnackBar(
-      content: Text('Re-run Database Initialization Successful'),
-    );
-    messenger.showSnackBar(snackBar);
+    if(context.mounted) {
+      const snackBar = SnackBar(
+        content: Text('Re-run Database Initialization Successful'),
+      );
+      messenger.showSnackBar(snackBar);
+    }
+
   } else {
     return result.statusCode;
   }

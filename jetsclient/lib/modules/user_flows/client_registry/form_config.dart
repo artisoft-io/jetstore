@@ -31,7 +31,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormActionConfig(
             key: ActionKeys.ufStartFlow,
             label: "Start",
-            buttonStyle: ActionStyle.secondary,
+            buttonStyle: ActionStyle.ufSecondary,
             leftMargin: defaultPadding,
             rightMargin: defaultPadding),
       ],
@@ -133,19 +133,19 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.ufPrevious,
           label: "Previous",
-          buttonStyle: ActionStyle.primary,
+          buttonStyle: ActionStyle.ufPrimary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.ufContinueLater,
           label: "Cancel",
-          buttonStyle: ActionStyle.primary,
+          buttonStyle: ActionStyle.ufPrimary,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
       FormActionConfig(
           key: ActionKeys.ufNext,
           label: "Add Vendor/Org and Next",
-          buttonStyle: ActionStyle.secondary,
+          buttonStyle: ActionStyle.ufSecondary,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],
@@ -190,7 +190,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormActionConfig(
             key: ActionKeys.crShowVendorUF,
             label: "View Vendor/Org",
-            buttonStyle: ActionStyle.secondary,
+            buttonStyle: ActionStyle.ufSecondary,
             leftMargin: defaultPadding,
             rightMargin: defaultPadding),
       ],
@@ -218,7 +218,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormActionConfig(
             key: ActionKeys.crAddVendorUF,
             label: "Add Vendor/Org and New",
-            buttonStyle: ActionStyle.secondary,
+            buttonStyle: ActionStyle.ufSecondary,
             leftMargin: defaultPadding,
             rightMargin: defaultPadding),
       ],
@@ -231,7 +231,20 @@ final Map<String, FormConfig> _formConfigurations = {
   ),
   FormKeys.ufShowVendor: FormConfig(
     key: FormKeys.ufShowVendor,
-    actions: standardActions,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.ufPrevious,
+          label: "Previous",
+          buttonStyle: ActionStyle.ufPrimary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.ufCompleted,
+          label: "Done",
+          buttonStyle: ActionStyle.ufSecondary,
+          leftMargin: defaultPadding,
+          rightMargin: defaultPadding),
+    ],
     inputFields: [
       [
         FormDataTableFieldConfig(
@@ -254,13 +267,13 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.ufPrevious,
           label: "Previous",
-          buttonStyle: ActionStyle.primary,
+          buttonStyle: ActionStyle.ufPrimary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.ufCompleted,
           label: "Done",
-          buttonStyle: ActionStyle.secondary,
+          buttonStyle: ActionStyle.ufSecondary,
           leftMargin: defaultPadding,
           rightMargin: defaultPadding),
     ],

@@ -120,10 +120,17 @@ class JetsFormState extends ChangeNotifier {
   final List<AnonymousCallback> _callbacks;
 
   void addCallback(AnonymousCallback cb) {
+    // print("+++ addCallback called");
     _callbacks.add(cb);
   }
 
+  void removeCallback(AnonymousCallback cb) {
+    // print("--- removeCallback called");
+    _callbacks.remove(cb);
+  }
+
   void invokeCallbacks() {
+    // print("~~~ invokeCallback called");
     for (var cb in _callbacks) {
       cb();
     }

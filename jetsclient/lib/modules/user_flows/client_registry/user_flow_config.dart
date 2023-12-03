@@ -56,12 +56,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Create org/vendor of client',
         formConfig: getFormConfig(FormKeys.ufShowVendor),
         actionDelegate: clientRegistryFormActions,
-        defaultNextState: "doneUF"),
-    "doneUF": UserFlowState(
-        key: "doneUF",
-        description: 'User Flow Completed',
-        formConfig: getFormConfig(FormKeys.ufDoneClientRegistry),
-        actionDelegate: clientRegistryFormActions,
         isEnd: true),
   })
 };

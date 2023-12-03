@@ -657,7 +657,7 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
-        postSimpleAction(
+        await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
       break;

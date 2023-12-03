@@ -772,7 +772,12 @@ final Map<String, FormConfig> _formConfigurations = {
             ],
             //* TODO read from workspace schema domain_classes (compilerv2)
             dropdownItemsQuery:
-                "SELECT entity_rdf_type FROM jetsapi.domain_keys_registry ORDER BY entity_rdf_type ASC LIMIT 100",
+                '''SELECT entity_rdf_type FROM jetsapi.domain_keys_registry 
+                   UNION 
+                   SELECT entity_rdf_type FROM jetsapi.object_type_registry
+                   UNION 
+                   SELECT alias_rdf_type as entity_rdf_type FROM jetsapi.alias_rdf_type_registry
+                   ORDER BY entity_rdf_type ASC LIMIT 100''',
             stateKeyPredicates: [FSK.objectType]),
         FormInputFieldConfig(
             key: FSK.lookbackPeriods,

@@ -20,19 +20,19 @@ List<FormActionConfig> standardActions = [
   FormActionConfig(
       key: ActionKeys.ufPrevious,
       label: "Previous",
-      buttonStyle: ActionStyle.primary,
+      buttonStyle: ActionStyle.ufPrimary,
       leftMargin: defaultPadding,
       rightMargin: betweenTheButtonsPadding),
   FormActionConfig(
       key: ActionKeys.ufContinueLater,
       label: "Cancel",
-      buttonStyle: ActionStyle.primary,
+      buttonStyle: ActionStyle.ufPrimary,
       leftMargin: betweenTheButtonsPadding,
       rightMargin: defaultPadding),
   FormActionConfig(
       key: ActionKeys.ufNext,
       label: "Next",
-      buttonStyle: ActionStyle.secondary,
+      buttonStyle: ActionStyle.ufSecondary,
       leftMargin: betweenTheButtonsPadding,
       rightMargin: defaultPadding),
 ];

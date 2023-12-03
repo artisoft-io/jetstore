@@ -157,11 +157,9 @@ Future<HttpResponse> postRawAction(
 // Action: raw_query
 // returns list of rows
 // returns JetsDataModel? = List<List<String?>>?
-Future<JetsDataModel?> queryJetsDataModel(
-    BuildContext context,
-    JetsFormState formState,
-    String serverEndPoint,
-    String encodedJsonBody) async {
+Future<JetsDataModel?> queryJetsDataModel(BuildContext context,
+    JetsFormState formState, String serverEndPoint, String encodedJsonBody,
+    {final silent = false}) async {
   var messenger = ScaffoldMessenger.of(context);
   var result = await HttpClientSingleton().sendRequest(
       path: serverEndPoint,
@@ -170,14 +168,19 @@ Future<JetsDataModel?> queryJetsDataModel(
 
   // print("Got reply with status code ${result.statusCode}");
   if (result.statusCode == 200) {
-    // Inform the user and transition
-    const snackBar = SnackBar(content: Text('Request successfully completed'));
-    messenger.showSnackBar(snackBar);
+    if (context.mounted && !silent) {
+      // Inform the user and transition
+      const snackBar =
+          SnackBar(content: Text('Request successfully completed'));
+      messenger.showSnackBar(snackBar);
+    }
     final rows = result.body['rows'] as List;
     final model = rows.map((e) => (e as List).cast<String?>()).toList();
     return model;
   } else {
-    showAlertDialog(context, "Something went wrong. Please try again.[1]");
+    if (context.mounted && !silent) {
+      showAlertDialog(context, "Something went wrong. Please try again.[1]");
+    }
   }
   return null;
 }

@@ -138,13 +138,8 @@ class JetsDataTableSource extends ChangeNotifier {
       }
     }
     // save the selected primary keys
-    if (selRowPKs.isNotEmpty) {
-      formState.setValue(config.group, config.key, selRowPKs);
-      state.didChange(selRowPKs);
-    } else {
-      formState.setValue(config.group, config.key, null);
-      state.didChange(null);
-    }
+    formState.setValue(config.group, config.key, selRowPKs);
+    state.didChange(selRowPKs);
 
     if (formStateConfig.otherColumns.isEmpty) {
       formState.notifyListeners();
@@ -172,9 +167,10 @@ class JetsDataTableSource extends ChangeNotifier {
     // Although it may be a String if the formState was initialized from
     // a Data Table row (case update a record)
     var value = formState.getValue(config.group, config.key);
+    // print(
+    //     "~~~! updateTableFromFormState: formStateKey: ${config.key}, value: $value");
     if (value == null) return;
     assert((value is String?) || (value is List<String>), 'Unexpected type');
-    if (value.isEmpty) return;
     WidgetField? selValues = [];
     if (value is List<String>) {
       selValues = value;
@@ -629,6 +625,8 @@ class JetsDataTableSource extends ChangeNotifier {
               }
             }
             if (value == null || (value is List && value.isEmpty)) {
+              // print(
+              //     "^^^ Table ${state.tableConfig.key} has blocking filter ${wc.formStateKey}, value $value");
               hasBlockingFilter = true;
             }
           }
@@ -642,8 +640,9 @@ class JetsDataTableSource extends ChangeNotifier {
         model = null;
         _totalRowCount = 0;
         notifyListeners();
-        print(
-            "*** Table ${state.tableConfig.key} has blocking filter, no refresh");
+        // print(
+        //     "*** Table ${state.tableConfig.key} has blocking filter, no refresh");
+        // print("The Form State is ${state.formState?.getState(config!.group)}");
         return;
       }
     }

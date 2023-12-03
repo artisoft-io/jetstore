@@ -27,13 +27,13 @@ final Map<String, FormConfig> _formConfigurations = {
       FormActionConfig(
           key: ActionKeys.ufPrevious,
           label: "Previous",
-          buttonStyle: ActionStyle.primary,
+          buttonStyle: ActionStyle.ufPrimary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.ufCompleted,
           label: "Done",
-          buttonStyle: ActionStyle.secondary,
+          buttonStyle: ActionStyle.ufSecondary,
           leftMargin: defaultPadding,
           rightMargin: defaultPadding),
     ],
