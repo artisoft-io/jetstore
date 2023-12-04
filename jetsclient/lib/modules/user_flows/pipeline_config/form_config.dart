@@ -489,7 +489,7 @@ final Map<String, FormConfig> _formConfigurations = {
         FormDataTableFieldConfig(
             key: DTKeys.pcSummaryProcessInputs,
             dataTableConfig: DTKeys.pcSummaryProcessInputs,
-            tableHeight: 280),
+            tableHeight: 272),
       ],
       [
         FormInputFieldConfig(
@@ -498,7 +498,7 @@ final Map<String, FormConfig> _formConfigurations = {
             hint:
                 "Enter a valid json array or csv with headers of configuration objects",
             isReadOnly: true,
-            maxLines: 4,
+            maxLines: 1,
             maxLength: 51200,
             autofocus: false,
             textRestriction: TextRestriction.none,
