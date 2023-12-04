@@ -8,7 +8,9 @@ import 'package:jetsclient/modules/actions/user_delegates.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/form_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/form_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/form_config.dart';
+import 'package:jetsclient/modules/user_flows/load_files/form_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/form_config.dart';
+import 'package:jetsclient/modules/user_flows/start_pipeline/form_config.dart';
 
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
@@ -1730,6 +1732,10 @@ FormConfig getFormConfig(String key) {
   config = getFileMappingFormConfig(key);
   if (config != null) return config;
   config = getPipelineConfigFormConfig(key);
+  if (config != null) return config;
+  config = getLoadFilesFormConfig(key);
+  if (config != null) return config;
+  config = getStartPipelineFormConfig(key);
   if (config != null) return config;
   throw Exception(
       'ERROR: Invalid program configuration: form configuration $key not found');

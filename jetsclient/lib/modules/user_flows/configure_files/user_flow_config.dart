@@ -6,13 +6,6 @@ import 'package:jetsclient/utils/constants.dart';
 final Map<String, UserFlowConfig> _userFlowConfigurations = {
   //
   UserFlowKeys.sourceConfigUF: UserFlowConfig(startAtKey: "select_add_or_edit", states: {
-    "startUF": UserFlowState(
-        key: "startUF",
-        description: 'Start Configure Files User Flow',
-        formConfig: getFormConfig(FormKeys.scStartConfigureFilesUF),
-        actionDelegate: configureFilesFormActions,
-        stateAction: ActionKeys.scStartUF,
-        defaultNextState: "select_add_or_edit"),
     "select_add_or_edit": UserFlowState(
         key: "select_add_or_edit",
         description: 'Select between add or edit source_config',
@@ -49,7 +42,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Select file type: csv or fixed-width',
         formConfig: getFormConfig(FormKeys.scCsvOrFixedSourceConfigUF),
         actionDelegate: configureFilesFormActions,
-        stateAction: ActionKeys.scCsvOrFixedSourceConfigUF,
         choices: [
           Expression(lhsStateKey: FSK.scCsvOrFixedOption,
           op: Operator.equals,
@@ -86,14 +78,12 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Edit Source Config Domain Keys',
         formConfig: getFormConfig(FormKeys.scEditDomainKeysUF),
         actionDelegate: configureFilesFormActions,
-        stateAction: ActionKeys.scEditDomainKeysUF,
         defaultNextState: "edit_code_value_mapping"),
     "edit_code_value_mapping": UserFlowState(
         key: "edit_code_value_mapping",
         description: 'Edit Code Value Mapping',
         formConfig: getFormConfig(FormKeys.scEditCodeValueMappingUF),
         actionDelegate: configureFilesFormActions,
-        stateAction: ActionKeys.scEditCodeValueMappingUF,
         defaultNextState: "edit_automated_mode"),
     "edit_automated_mode": UserFlowState(
         key: "edit_automated_mode",
@@ -101,12 +91,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         formConfig: getFormConfig(FormKeys.scEditAutomatedModeUF),
         actionDelegate: configureFilesFormActions,
         stateAction: ActionKeys.addSourceConfigOk,
-        defaultNextState: "doneUF"),
-    "doneUF": UserFlowState(
-        key: "doneUF",
-        description: 'User Flow Completed',
-        formConfig: getFormConfig(FormKeys.scDoneSourceConfigUF),
-        actionDelegate: configureFilesFormActions,
         isEnd: true),
   })
 };

@@ -256,8 +256,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Indicates when the record was created',
           isNumeric: false),
     ],
-    sortColumnName: 'last_update',
-    sortAscending: false,
+    sortColumnName: 'process_name',
+    sortAscending: true,
     rowsPerPage: 20,
   ),
 

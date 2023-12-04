@@ -3,7 +3,7 @@ import 'package:jetsclient/modules/user_flows/file_mapping/form_action_delegates
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
 
-/// Form Config for Source Config UF Module
+/// Form Config for File Mapping UF Module
 
 final Map<String, FormConfig> _formConfigurations = {
   FormKeys.fmSelectSourceConfigUF: FormConfig(

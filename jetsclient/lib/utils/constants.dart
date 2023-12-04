@@ -136,6 +136,8 @@ class ScreenKeys {
   static const ufSourceConfig = "sourceConfigScreenUF";
   static const ufFileMapping = "fileMappingScreenUF";
   static const ufPipelineConfig = "pipelineConfigScreenUF";
+  static const ufLoadFiles = "ufLoadFilesScreenUF";
+  static const ufStartPipeline = "ufStartPipelineScreenUF";
 }
 
 /// Form ID Keys
@@ -210,9 +212,7 @@ class FormKeys {
   static const ufSelectClient = "ufSelectClient";
   static const ufVendor = "ufVendor";
   static const ufShowVendor = "ufShowVendor";
-  static const ufDoneClientRegistry = "ufDoneClientRegistry";
   // Source Config UF Forms
-  static const scStartConfigureFilesUF = "scStartConfigureFilesUF";
   static const scAddOrEditSourceConfigUF = "scAddOrEditSourceConfigUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
@@ -240,10 +240,17 @@ class FormKeys {
   static const pcAutomationUF = "pcAutomationUF";
   static const pcNewProcessInputsUF = "pcNewProcessInputsUF";
   static const pcAddProcessInputsUF = "pcAddProcessInputsUF";
-  static const pcDonePipelineConfigUF = "pcDonePipelineConfigUF";
   static const pcNewProcessInputDialog = "pcNewProcessInputDialog";
   static const pcNewProcessInputDialog4MI = "pcNewProcessInputDialog4MI";
   static const pcSummaryUF = "pcSummaryUF";
+  // Load Files UF Forms
+  static const lfSelectSourceConfigUF = "lfSelectSourceConfigUF";
+  static const lfSelectFileKeysUF = "lfSelectFileKeysUF";
+  // Start Pipeline UF Forms
+  static const spSelectPipelineConfigUF = "spSelectPipelineConfigUF";
+  static const spSelectMainDataSourceUF = "spSelectMainDataSourceUF";
+  static const spSelectMergedDataSourcesUF = "spSelectMergedDataSourcesUF";
+  static const spSummaryUF = "spSummaryUF";
 }
 
 /// Form State Keys
@@ -430,6 +437,9 @@ class FSK {
   static const pcAddOrEditPipelineConfigOption =
       "pcAddOrEditPipelineConfigOption";
 
+  // Start Pipeline UF
+  static const spAllDataSourceKeys = "spAllDataSourceKeys";
+
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -580,11 +590,8 @@ class ActionKeys {
   static const scStartUF = "crStartUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
-  static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
   static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
-  static const scEditDomainKeysUF = "scEditDomainKeysUF";
-  static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
 
   // File Mapping UF ActionKeys
@@ -610,6 +617,17 @@ class ActionKeys {
   // and set it to DTKeys.pcProcessInputRegistry
   static const pcSetProcessInputRegistryKey = "pcSetProcessInputRegistryKey";
   static const pcPrepareSummaryUF = "pcPrepareSummaryUF";
+
+  // Load Files UF ActionKeys
+  static const lfLoadFilesUF = "lfLoadFilesUF";
+  static const lfDropTable = "lfDropTable";
+  static const lfSyncFileKey = "lfSyncFileKey";
+
+  // Start Pipeline UF ActionKeys
+  static const spPipelineSelected = "spPipelineSelected";
+  static const spStartPipelineUF = "spStartPipelineUF";
+  static const spTestPipelineUF = "spTestPipelineUF";
+  static const spPrepareStartPipeline = "spPrepareStartPipeline";
 }
 
 /// User Flow Keys
@@ -619,6 +637,8 @@ class UserFlowKeys {
   static const sourceConfigUF = "sourceConfigUF";
   static const fileMappingUF = "fileMappingUF";
   static const pipelineConfigUF = "pipelineConfigUF";
+  static const loadFilesUF = "loadFilesUF";
+  static const startPipelineUF = "startPipelineUF";
 }
 
 /// Status Keys
@@ -728,6 +748,14 @@ class DTKeys {
   static const pcProcessInputRegistry = "pcProcessInputRegistry";
   static const pcProcessInputRegistry4MI = "pcProcessInputRegistry4MI";
   static const pcSummaryProcessInputs = "pcSummaryProcessInputs";
+
+  // Load Files UF DTKeys
+  static const lfSourceConfigTable = "lfSourceConfigTable";
+  static const lfFileKeyStagingTable = "lfFileKeyStagingTable";
+
+  // Start Pipeline UF DTKeys
+  static const spInjectedProcessInput = "spInjectedProcessInput";
+  static const spSummaryDataSources = "spSummaryDataSources";
 }
 
 /// API Server endpoints

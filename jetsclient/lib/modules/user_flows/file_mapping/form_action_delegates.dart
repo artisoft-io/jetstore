@@ -8,7 +8,7 @@ import 'package:jetsclient/utils/constants.dart';
 String? fileMappingFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
-      "configureFilesFormValidator has unexpected data type");
+      "fileMappingFormValidator has unexpected data type");
   switch (key) {
     case DTKeys.inputSourceMapping:
       if (v != null) {
@@ -18,7 +18,7 @@ String? fileMappingFormValidator(
 
     default:
       print(
-          'Oops configureFilesFormValidator Form Validator has no validator configured for form field $key');
+          'Oops fileMappingFormValidator Form Validator has no validator configured for form field $key');
   }
   return null;
 }

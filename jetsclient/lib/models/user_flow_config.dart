@@ -208,18 +208,43 @@ class IsNullExpression extends UserFlowChoice {
   }
 }
 
-class IsNotExpression extends UserFlowChoice {
-  IsNotExpression({
-    required this.expression,
+/// Applies to String? or List<String?>? in formState
+class IsNullOrEmptyExpression extends UserFlowChoice {
+  IsNullOrEmptyExpression({
+    required this.lhsStateKey,
     required super.nextState,
   });
-  final Expression expression;
+  final String lhsStateKey;
   @override
   bool evalChoice({
     int group = 0,
     required JetsFormState formState,
   }) {
-    return !expression.evalChoice(group: group, formState: formState);
+    final v = formState.getValue(group, lhsStateKey);
+    // print("!!! IsNullOrEmptyExpression key: $lhsStateKey, v: $v");
+    if (v is String? || v is List<String?>?) {
+      return v == null || v.isEmpty;
+    }
+    print(
+        "OOps IsNullOrEmptyExpression expression got $v or type ${v.runtimeType}");
+    return false;
+  }
+}
+
+class IsNotExpression extends UserFlowChoice {
+  IsNotExpression({
+    required this.expression,
+    required super.nextState,
+  });
+  final UserFlowChoice expression;
+  @override
+  bool evalChoice({
+    int group = 0,
+    required JetsFormState formState,
+  }) {
+    final v = expression.evalChoice(group: group, formState: formState);
+    // print("!!! IsNotExpression of: $v");
+    return !v;
   }
 }
 
@@ -232,7 +257,7 @@ class BooleanExpression extends UserFlowChoice {
     required super.nextState,
   });
   final bool isConjunction;
-  final List<Expression> items;
+  final List<UserFlowChoice> items;
   @override
   bool evalChoice({
     int group = 0,

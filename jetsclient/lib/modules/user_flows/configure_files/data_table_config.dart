@@ -52,7 +52,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'source_config')
     ],
-    label: 'File Configuration',
+    label: 'Select a Data Source',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,

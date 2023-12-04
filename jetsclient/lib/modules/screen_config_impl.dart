@@ -1,7 +1,9 @@
 import 'package:jetsclient/modules/user_flows/client_registry/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/screen_config.dart';
+import 'package:jetsclient/modules/user_flows/load_files/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/screen_config.dart';
+import 'package:jetsclient/modules/user_flows/start_pipeline/screen_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/modules/actions/menu_delegates.dart';
 import 'package:jetsclient/models/screen_config.dart';
@@ -114,19 +116,19 @@ final toolbarMenuEntries = [
       label: ''),
   MenuEntry(
       key: 'loaderUF',
-      label: 'Load File',
-      routePath: ufSourceConfigPath),
+      label: 'Load Files',
+      routePath: ufLoadFilesPath),
   MenuEntry(
       key: 'startPipelineUF',
       label: 'Start Pipeline',
-      routePath: ufSourceConfigPath),
-  MenuEntry(
-      key: 'Spacer02',
-      label: ''),
-  MenuEntry(
-      key: 'dataRegistryUF',
-      label: 'View Data',
-      routePath: ufSourceConfigPath),
+      routePath: ufStartPipelinePath),
+  // MenuEntry(
+  //     key: 'Spacer02',
+  //     label: ''),
+  // MenuEntry(
+  //     key: 'dataRegistryUF',
+  //     label: 'View Data',
+  //     routePath: ufSourceConfigPath),
 ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {
@@ -350,6 +352,10 @@ ScreenConfig getScreenConfig(String key) {
   config = getFileMappingScreenConfig(key);
   if (config != null) return config;
   config = getPipelineConfigScreenConfig(key);
+  if (config != null) return config;
+  config = getLoadFilesScreenConfig(key);
+  if (config != null) return config;
+  config = getStartPipelineScreenConfig(key);
   if (config != null) return config;
 
   throw Exception(

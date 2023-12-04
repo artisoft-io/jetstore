@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/models/user_flow_config.dart';
 import 'package:jetsclient/modules/actions/config_delegates.dart';
@@ -416,7 +415,7 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
       FormActionConfig(
-          key: ActionKeys.ufNext,
+          key: ActionKeys.ufCompleted,
           label: "Save & Done",
           buttonStyle: ActionStyle.ufSecondary,
           leftMargin: betweenTheButtonsPadding,
@@ -507,42 +506,6 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
     formValidatorDelegate: pipelineConfigFormValidatorUF,
-    formActionsDelegate:
-        doNothingAction, // overriden by UserFlowState.actionDelegate
-  ),
-
-  // Done Page
-  FormKeys.pcDonePipelineConfigUF: FormConfig(
-    key: FormKeys.pcDonePipelineConfigUF,
-    title: "Pipeline Configuration",
-    useListView: true,
-    actions: [
-      FormActionConfig(
-          key: ActionKeys.ufPrevious,
-          label: "Previous",
-          buttonStyle: ActionStyle.ufPrimary,
-          leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
-      FormActionConfig(
-          key: ActionKeys.ufCompleted,
-          label: "Done",
-          buttonStyle: ActionStyle.ufSecondary,
-          leftMargin: defaultPadding,
-          rightMargin: defaultPadding),
-    ],
-    inputFields: [
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
-        TextFieldConfig(
-            label: "Congratulation, your Pipeline Configuration is completed.",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
-      ],
-    ],
-    formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: doNothingAction,
   ),
 };

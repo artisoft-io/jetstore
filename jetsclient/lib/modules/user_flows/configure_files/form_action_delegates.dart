@@ -171,6 +171,12 @@ Future<String?> configureFilesFormActions(
       final statusCode = await postSimpleAction(
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       if (statusCode == 200) return null;
+      if(statusCode == 409 && context.mounted) {
+        showAlertDialog(context, "Record already exist, please verify.");
+      }
+      if(context.mounted) {
+        showAlertDialog(context, "Server error, please try again.");
+      }
       return "Error while saving file configuration";
 
     case ActionKeys.deleteSourceConfig:

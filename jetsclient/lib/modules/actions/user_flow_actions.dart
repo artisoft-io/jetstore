@@ -111,6 +111,11 @@ Future<String?> userFlowStateActions(
 
     // User Flow Completed
     case ActionKeys.ufCompleted:
+      // Validate current form
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
       // Save state with associated session id
 
       // Do the Action of the UserFlowState (associated with ufCompleted)

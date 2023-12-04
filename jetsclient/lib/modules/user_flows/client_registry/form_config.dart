@@ -256,39 +256,6 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
-
-  // Done Page
-  FormKeys.ufDoneClientRegistry: FormConfig(
-    key: FormKeys.ufDoneClientRegistry,
-    title: "Client Registry",
-    useListView: true,
-    // useListView: true,
-    actions: [
-      FormActionConfig(
-          key: ActionKeys.ufPrevious,
-          label: "Previous",
-          buttonStyle: ActionStyle.ufPrimary,
-          leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
-      FormActionConfig(
-          key: ActionKeys.ufCompleted,
-          label: "Done",
-          buttonStyle: ActionStyle.ufSecondary,
-          leftMargin: defaultPadding,
-          rightMargin: defaultPadding),
-    ],
-    inputFields: [
-      [
-        TextFieldConfig(
-            label: "Congratulation, Client Registry Configuration Completed.",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
-      ],
-    ],
-    formValidatorDelegate: alwaysValidForm,
-    formActionsDelegate: doNothingAction,
-  ),
 };
 
 FormConfig? getClientRegistryFormConfig(String key) {

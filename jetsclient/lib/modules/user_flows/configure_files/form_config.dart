@@ -7,38 +7,6 @@ import 'package:jetsclient/models/form_config.dart';
 /// Form Config for Source Config UF Module
 
 final Map<String, FormConfig> _formConfigurations = {
-  FormKeys.scStartConfigureFilesUF: FormConfig(
-    key: FormKeys.scStartConfigureFilesUF,
-    useListView: true,
-    actions: [],
-    inputFields: [
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
-        TextFieldConfig(
-            label:
-                "This flow will assist you in configuring a client file comming from a specific vendor.",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
-      ],
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
-        PaddingConfig(),
-        FormActionConfig(
-            key: ActionKeys.ufStartFlow,
-            label: "Start",
-            buttonStyle: ActionStyle.ufSecondary,
-            leftMargin: defaultPadding,
-            rightMargin: defaultPadding),
-      ],
-    ],
-    formValidatorDelegate: alwaysValidForm,
-    formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
-  ),
   FormKeys.scAddOrEditSourceConfigUF: FormConfig(
     key: FormKeys.scAddOrEditSourceConfigUF,
     useListView: true,
@@ -286,8 +254,8 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
       FormActionConfig(
-          key: ActionKeys.ufNext,
-          label: "Save and Finish",
+          key: ActionKeys.ufCompleted,
+          label: "Save & Done",
           buttonStyle: ActionStyle.ufSecondary,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
@@ -319,40 +287,6 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
-    formActionsDelegate: doNothingAction,
-  ),
-  // Done Page
-  FormKeys.scDoneSourceConfigUF: FormConfig(
-    key: FormKeys.scDoneSourceConfigUF,
-    title: "File Configuration",
-    useListView: true,
-    actions: [
-      FormActionConfig(
-          key: ActionKeys.ufPrevious,
-          label: "Previous",
-          buttonStyle: ActionStyle.ufPrimary,
-          leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
-      FormActionConfig(
-          key: ActionKeys.ufCompleted,
-          label: "Done",
-          buttonStyle: ActionStyle.ufSecondary,
-          leftMargin: defaultPadding,
-          rightMargin: defaultPadding),
-    ],
-    inputFields: [
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
-        TextFieldConfig(
-            label: "Congratulation, your file configuration is completed, you should load a file before configuring the mapping.",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
-      ],
-    ],
-    formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: doNothingAction,
   ),
 };

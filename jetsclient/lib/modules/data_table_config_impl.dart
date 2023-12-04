@@ -1,6 +1,8 @@
 import 'package:jetsclient/modules/user_flows/client_registry/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/data_table_config.dart';
+import 'package:jetsclient/modules/user_flows/load_files/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/data_table_config.dart';
+import 'package:jetsclient/modules/user_flows/start_pipeline/data_table_config.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
@@ -1597,7 +1599,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       FromClause(schemaName: 'jetsapi', tableName: 'source_config'),
       FromClause(schemaName: 'jetsapi', tableName: 'object_type_registry'),
     ],
-    label: 'Client File Configuration',
+    label: 'Select a Data Source',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -2196,7 +2198,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     fromClauses: [
       FromClause(schemaName: 'jetsapi', tableName: 'pipeline_config')
     ],
-    label: 'Pipeline Configuration',
+    label: 'Select a Pipeline Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -2498,7 +2500,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       FromClause(schemaName: 'jetsapi', tableName: 'pipeline_config'),
       FromClause(schemaName: 'jetsapi', tableName: 'process_input'),
     ],
-    label: 'Pipeline Configuration',
+    label: 'Select a Pipeline Configuration',
     apiPath: '/dataTable',
     isCheckboxVisible: true,
     isCheckboxSingleSelect: true,
@@ -2519,6 +2521,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           stateKey: FSK.mainObjectType, columnIdx: 6),
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainSourceType, columnIdx: 7),
+      DataTableFormStateOtherColumnConfig(
+          stateKey: FSK.description, columnIdx: 8),
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.sourcePeriodType, columnIdx: 9),
       DataTableFormStateOtherColumnConfig(
@@ -2632,7 +2636,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Indicates when the record was created',
           isNumeric: false),
     ],
-    sortColumnName: 'client',
+    sortColumnName: 'process_name',
     sortAscending: true,
     rowsPerPage: 100,
   ),
@@ -3012,6 +3016,10 @@ TableConfig getTableConfig(String key) {
   config = getConfigureFileTableConfig(key);
   if (config != null) return config;
   config = getPipelineConfigTableConfig(key);
+  if (config != null) return config;
+  config = getLoadFilesTableConfig(key);
+  if (config != null) return config;
+  config = getStartPipelineTableConfig(key);
   if (config != null) return config;
   throw Exception(
       'ERROR: Invalid program configuration: table configuration $key not found');

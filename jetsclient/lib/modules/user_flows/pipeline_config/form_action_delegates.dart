@@ -40,6 +40,7 @@ String? pipelineConfigFormValidatorUF(
     case FSK.description:
     case DTKeys.pcViewInjectedProcessInputKeys:
     case DTKeys.pcViewMergedProcessInputKeys:
+    case DTKeys.pcSummaryProcessInputs:
       return null;
 
     default:
@@ -236,8 +237,8 @@ Future<String?> pipelineConfigFormActionsUF(
       final main = unpackToList(state[FSK.mainProcessInputKey]);
       final merged = unpackToList(state[FSK.mergedProcessInputKeys]);
       final injected = unpackToList(state[FSK.injectedProcessInputKeys]);
-      print("### ufAllProcessInputKeys: $main + $merged + $injected");
       if (main == null || merged == null || injected == null) {
+        print("### ufAllProcessInputKeys: $main + $merged + $injected");
         print("Error got a null list!");
         return "Unexpected error";
       }
@@ -294,6 +295,12 @@ Future<String?> pipelineConfigFormActionsUF(
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
         if (statusCode == 200) return null;
+        if(statusCode == 409 && context.mounted) {
+          showAlertDialog(context, "Record already exist, please verify.");
+        }
+        if(context.mounted) {
+          showAlertDialog(context, "Server error, please try again.");
+        }
         return "Error while saving pipeline config";
       }
       break;
