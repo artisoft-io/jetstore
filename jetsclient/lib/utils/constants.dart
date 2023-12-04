@@ -13,7 +13,12 @@ enum ActionStyle {
   alternate,
   menuSelected,
   menuAlternate,
-  danger
+  danger,
+  predominentInForm,
+  tbPrimary,
+  tbSecondary,
+  ufPrimary,
+  ufSecondary,
 }
 
 ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
@@ -45,6 +50,47 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
 
     case ActionStyle.menuAlternate:
       return null;
+
+    case ActionStyle.tbPrimary:
+      return TextButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.tbSecondary:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.ufPrimary:
+      return TextButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.ufSecondary:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.predominentInForm:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+    // return ElevatedButton.styleFrom(
+    //       backgroundColor: const Color.fromARGB(255, 61, 142, 64),
+    //       side: const BorderSide(color: Colors.yellow, width: 2),
+    //       textStyle: const TextStyle(
+    //           color: Colors.white, fontSize: 25, fontStyle: FontStyle.normal),
+    //     ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
 
     default: // primary
       return ElevatedButton.styleFrom(
@@ -84,6 +130,14 @@ class ScreenKeys {
   // Workspace IDE Screens
   static const workspaceRegistry = "workspaceRegistryScreen";
   static const workspaceHome = "workspaceHome";
+
+  // User Flow Screens
+  static const ufClientRegistry = "clientRegistryScreenUF";
+  static const ufSourceConfig = "sourceConfigScreenUF";
+  static const ufFileMapping = "fileMappingScreenUF";
+  static const ufPipelineConfig = "pipelineConfigScreenUF";
+  static const ufLoadFiles = "ufLoadFilesScreenUF";
+  static const ufStartPipeline = "ufStartPipelineScreenUF";
 }
 
 /// Form ID Keys
@@ -149,7 +203,54 @@ class FormKeys {
   static const wsDataModelForm = "workspace.data_model.form";
   static const wsJetRulesForm = "workspace.jet_rules.form";
   static const wsLookupsForm = "workspace.lookups.form";
-  // ... more to come
+
+  // User Flow Forms
+  // Client Registry UF
+  static const ufStartClientRegistry = "ufStartClientRegistry";
+  static const ufSelectClientOrVendor = "ufSelectClientOrVendor";
+  static const ufCreateClient = "ufCreateClient";
+  static const ufSelectClient = "ufSelectClient";
+  static const ufVendor = "ufVendor";
+  static const ufShowVendor = "ufShowVendor";
+  // Source Config UF Forms
+  static const scAddOrEditSourceConfigUF = "scAddOrEditSourceConfigUF";
+  static const scAddSourceConfigUF = "scAddSourceConfigUF";
+  static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
+  static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
+  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
+  static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
+  static const scEditDomainKeysUF = "scEditDomainKeysUF";
+  static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
+  static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
+  static const scDoneSourceConfigUF = "scDoneSourceConfigUF";
+  // File Mapping UF Forms
+  static const fmStartFileMappingUF = "fmStartFileMappingUF";
+  static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
+  static const fmFileMappingUF = "fmFileMappingUF";
+  static const fmDoneFileMappingUF = "fmDoneFileMappingUF";
+  // Pipeline Config Forms
+  static const pcAddOrEditPipelineConfigUF = "pcAddOrEditPipelineConfigUF";
+  static const pcAddPipelineConfigUF = "pcAddPipelineConfigUF";
+  static const pcSelectPipelineConfigUF = "pcSelectPipelineConfigUF";
+  static const pcSelectMainProcessInputUF = "pcSelectMainProcessInputUF";
+  static const pcViewMergeProcessInputsUF = "pcViewMergeProcessInputsUF";
+  static const pcAddMergeProcessInputsUF = "pcAddMergeProcessInputsUF";
+  static const pcAddInjectedProcessInputsUF = "pcAddInjectedProcessInputsUF";
+  static const pcViewInjectedProcessInputsUF = "pcViewInjectedProcessInputsUF";
+  static const pcAutomationUF = "pcAutomationUF";
+  static const pcNewProcessInputsUF = "pcNewProcessInputsUF";
+  static const pcAddProcessInputsUF = "pcAddProcessInputsUF";
+  static const pcNewProcessInputDialog = "pcNewProcessInputDialog";
+  static const pcNewProcessInputDialog4MI = "pcNewProcessInputDialog4MI";
+  static const pcSummaryUF = "pcSummaryUF";
+  // Load Files UF Forms
+  static const lfSelectSourceConfigUF = "lfSelectSourceConfigUF";
+  static const lfSelectFileKeysUF = "lfSelectFileKeysUF";
+  // Start Pipeline UF Forms
+  static const spSelectPipelineConfigUF = "spSelectPipelineConfigUF";
+  static const spSelectMainDataSourceUF = "spSelectMainDataSourceUF";
+  static const spSelectMergedDataSourcesUF = "spSelectMergedDataSourcesUF";
+  static const spSummaryUF = "spSummaryUF";
 }
 
 /// Form State Keys
@@ -194,6 +295,8 @@ class FSK {
 
   static const objectType = "object_type";
   static const sourceType = "source_type";
+  // For the where clause of the data table
+  static const whereSourceType = "where.source_type";
   static const domainKeysJson = "domain_keys_json";
   static const inputColumnsJson = "input_columns_json";
   static const inputColumnsPositionsCsv = "input_columns_positions_csv";
@@ -290,6 +393,53 @@ class FSK {
   // workspace.db columns
   static const wsDbSourceFileName = "source_file_name";
 
+  // Keys for User Flow - special state management keys
+  // --------------------------------------------------
+  static const ufCurrentPage = "ufCurrentPage";
+  static const ufVisitedPages = "ufVisitedPages";
+
+  // Generic keys for add or edit decision choice
+  static const ufAddOrEditOption = "ufAddOrEditOption";
+  static const ufAddOption = "ufAddOption";
+  static const ufEditOption = "ufEditOption";
+
+  // Client Registry User Flow
+  static const ufClientOrVendorOption = "ufClientOrVendorOption";
+
+  /// value, create_client option
+  static const ufClientOption = "ufClientOption";
+
+  /// value, select_client option
+  static const ufVendorOption = "ufVendorOption";
+
+  /// to disambiguate FSK.details
+  static const ufClientDetails = "ufClientDetails";
+
+  /// to disambiguate FSK.details
+  static const ufVendorDetails = "ufVendorDetails";
+
+  /// All the process Input Keys of a Pipeline
+  static const ufAllProcessInputKeys = "ufAllProcessInputKeys";
+
+  // Source Config UF
+  // Add or Edit Source Config
+  static const scAddOrEditSourceConfigOption = "scAddOrEditSourceConfigOption";
+  // Select Source Config Table
+  static const scSourceConfigKey = "scSourceConfigKey";
+
+  // CSV, Headerless CSV or Fxied-width option
+  static const scCsvOrFixedOption = "scCsvOrFixedOption";
+  static const scCsvOption = "scCsvOption";
+  static const scHeaderlessCsvOption = "scHeaderlessCsvOption";
+  static const scFixedWidthOption = "scFixedWidthOption";
+
+  // Pipeline Config UF
+  static const pcAddOrEditPipelineConfigOption =
+      "pcAddOrEditPipelineConfigOption";
+
+  // Start Pipeline UF
+  static const spAllDataSourceKeys = "spAllDataSourceKeys";
+
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -385,8 +535,10 @@ class ActionKeys {
   static const ruleConfigOk = "ruleConfig.ok";
   static const ruleConfigv2Ok = "ruleConfigv2.ok";
   static const ruleConfigAdd = "ruleConfig.add";
-  static const ruleConfigDelete = "ruleConfig.delete"; // Used in Edit Rule Config Dialog v1 - delete a triple
-  static const deleteRuleConfigv2 = "deleteRuleConfigv2";  // Action to Delete a Rule Config in DB
+  static const ruleConfigDelete =
+      "ruleConfig.delete"; // Used in Edit Rule Config Dialog v1 - delete a triple
+  static const deleteRuleConfigv2 =
+      "deleteRuleConfigv2"; // Action to Delete a Rule Config in DB
 
   // for add / edit pipeline config dialog
   static const pipelineConfigOk = "pipelineConfig.ok";
@@ -418,10 +570,79 @@ class ActionKeys {
   static const exportClientConfigOk = "exportClientConfigOk";
   static const addWorkspaceFilesOk = "addWorkspaceFilesOk";
   static const deleteWorkspaceFiles = "deleteWorkspaceFiles";
+
+  // User Form ActionKeys
+  static const ufStartFlow = "ufStartFlow";
+  static const ufNext = "ufNext";
+  static const ufPrevious = "ufPrevious";
+  static const ufContinueLater = "ufContinueLater";
+  static const ufCompleted = "ufCompleted";
+
+  // User Flow Module Specific Form Actions
+  // Client Registry UF ActionKeys
+  static const crStartUF = "crStartUF";
+  static const crAddClientUF = "crAddClientUF";
+  static const crSelectClientUF = "crSelectClientUF";
+  static const crAddVendorUF = "crAddVendorUF";
+  static const crShowVendorUF = "crShowVendorUF";
+
+  // Source Config UF ActionKeys
+  static const scStartUF = "crStartUF";
+  static const scAddSourceConfigUF = "scAddSourceConfigUF";
+  static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
+  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
+  static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
+  static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
+
+  // File Mapping UF ActionKeys
+  static const fmStartUF = "fmStartUF";
+  static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
+
+  // Pipeline Config ActionKeys
+  static const pcAddPipelineConfigUF = "pcAddPipelineConfigUF";
+  static const pcSelectPipelineConfigUF = "pcSelectPipelineConfigUF";
+  static const pcSelectMainProcessInputUF = "pcSelectMainProcessInputUF";
+  static const pcSavePipelineConfigUF = "pcSavePipelineConfigUF";
+  static const pcNewMainProcessInputUF = "pcNewMainProcessInputUF";
+  static const pcGotToAddMergeProcessInputUF = "pcGotToAddMergeProcessInputUF";
+  static const pcGotToAddInjectedProcessInputUF =
+      "pcGotToAddInjectedProcessInputUF";
+  static const pcAddMergeProcessInputUF = "pcAddMergeProcessInputUF";
+  static const pcNewMergeProcessInputUF = "pcNewMergeProcessInputUF";
+  static const pcRemoveMergedProcessInput = "pcRemoveMergedProcessInput";
+  static const pcRemoveInjectedProcessInput = "pcRemoveInjectedProcessInput";
+  static const pcAddInjectedProcessInputUF = "pcAddInjectedProcessInputUF";
+  static const pcNewInjectedProcessInputUF = "pcNewInjectedProcessInputUF";
+  // Action to calculate the process_input_registry key
+  // and set it to DTKeys.pcProcessInputRegistry
+  static const pcSetProcessInputRegistryKey = "pcSetProcessInputRegistryKey";
+  static const pcPrepareSummaryUF = "pcPrepareSummaryUF";
+
+  // Load Files UF ActionKeys
+  static const lfLoadFilesUF = "lfLoadFilesUF";
+  static const lfDropTable = "lfDropTable";
+  static const lfSyncFileKey = "lfSyncFileKey";
+
+  // Start Pipeline UF ActionKeys
+  static const spPipelineSelected = "spPipelineSelected";
+  static const spStartPipelineUF = "spStartPipelineUF";
+  static const spTestPipelineUF = "spTestPipelineUF";
+  static const spPrepareStartPipeline = "spPrepareStartPipeline";
 }
 
-/// Form Action Keys
-/// stardard keys to identify Form Action Config Key
+/// User Flow Keys
+class UserFlowKeys {
+  /// client_registry and client_org_registry
+  static const clientRegistryUF = "clientRegistryUF";
+  static const sourceConfigUF = "sourceConfigUF";
+  static const fileMappingUF = "fileMappingUF";
+  static const pipelineConfigUF = "pipelineConfigUF";
+  static const loadFilesUF = "loadFilesUF";
+  static const startPipelineUF = "startPipelineUF";
+}
+
+/// Status Keys
+/// stardard keys to identify Pipeline Execution Status
 class StatusKeys {
   static const submitted = "submitted";
   static const processing = "processing";
@@ -505,6 +726,36 @@ class DTKeys {
   static const wsJetRulesFilesTable = "wsJetRulesFilesTable";
 
   static const wsLookupsTable = "wsLookupsTable";
+
+  // User Flow Tables
+  // Client Registry User Flow Tables
+  // FSK.ufClientOrVendorOption
+
+  // Source Config User Flow Tables
+  // FSK.scSourceConfigKey
+
+  // File Mapping UF
+  static const fmInputSourceMappingUF = "fmInputSourceMappingUF";
+
+  // Pipeline Config UF DTKeys
+  static const pcPipelineConfigTable = "pcPipelineConfigTable";
+  static const pcMainProcessInputKey = "pcMainProcessInputKey";
+  static const pcMergedProcessInputKeys = "pcMergedProcessInputKeys";
+  static const pcInjectedProcessInputKeys = "pcInjectedProcessInputKeys";
+  static const pcViewMergedProcessInputKeys = "pcViewMergedProcessInputKeys";
+  static const pcViewInjectedProcessInputKeys =
+      "pcViewInjectedProcessInputKeys";
+  static const pcProcessInputRegistry = "pcProcessInputRegistry";
+  static const pcProcessInputRegistry4MI = "pcProcessInputRegistry4MI";
+  static const pcSummaryProcessInputs = "pcSummaryProcessInputs";
+
+  // Load Files UF DTKeys
+  static const lfSourceConfigTable = "lfSourceConfigTable";
+  static const lfFileKeyStagingTable = "lfFileKeyStagingTable";
+
+  // Start Pipeline UF DTKeys
+  static const spInjectedProcessInput = "spInjectedProcessInput";
+  static const spSummaryDataSources = "spSummaryDataSources";
 }
 
 /// API Server endpoints

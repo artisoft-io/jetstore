@@ -103,6 +103,8 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 		inVal := filterDigits(*inputValue)
 		sz = len(inVal)
 		switch {
+		case sz == 0:
+			obj = ""
 		case sz < 5:
 			var v int
 			v, err = strconv.Atoi(inVal)
@@ -142,6 +144,8 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 		inVal := filterDigits(*inputValue)
 		sz = len(inVal)
 		switch {
+		case sz == 0:
+			obj = ""
 		case sz > 5 && sz < 9:
 			var v int
 			v, err = strconv.Atoi(inVal)
@@ -165,6 +169,8 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 		inVal := filterDigits(*inputValue)
 		sz = len(inVal)
 		switch {
+		case sz == 0:
+			obj = ""
 		case sz < 4:
 			var v int
 			v, err = strconv.Atoi(inVal)
@@ -227,11 +233,15 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			inVal := filterDigits(*inputValue)
 			arg := inputColumnSpec.argument.String
 			var v int
-			v, err = strconv.Atoi(inVal)
-			if err == nil {
-				obj = fmt.Sprintf(arg, v)
+			if len(inVal) == 0 {
+				obj = ""
 			} else {
-				errMsg = err.Error()
+				v, err = strconv.Atoi(inVal)
+				if err == nil {
+					obj = fmt.Sprintf(arg, v)
+				} else {
+					errMsg = err.Error()
+				}	
 			}
 		} else {
 			// configuration error, bailing out

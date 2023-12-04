@@ -295,12 +295,22 @@
     "columns": [
       {
         "columnName": "object_type",
+        "description": "Correspond to the file type of the input file",
         "dataType": "text",
         "isPK": true
       },
       {
         "columnName": "entity_rdf_type",
+        "description": "This is the rdf type of the input records",
         "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "domain_key_object_types",
+        "description": "Domain key expected for the source_config",
+        "dataType": "text",
+        "isArray": true,
+        "default": "'{}'",
         "isNotNull": true
       },
       {
@@ -315,6 +325,7 @@
     "columns": [
       {
         "columnName": "entity_rdf_type",
+        "description": "This column should have been called table_name.",
         "dataType": "text",
         "isPK": true
       },
@@ -327,6 +338,29 @@
       {
         "columnName": "domain_keys_json",
         "dataType": "text"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "alias_rdf_type_registry",
+    "columns": [
+      {
+        "columnName": "alias_rdf_type",
+        "dataType": "text",
+        "isNotNull": true,
+        "isPK": true
+      },
+      {
+        "columnName": "entity_rdf_type",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "object_types",
+        "dataType": "text",
+        "isArray": true,
+        "isNotNull": true
       }
     ]
   },
@@ -745,6 +779,7 @@
       },
       {
         "columnName": "object_type",
+        "description": "This is the grouping domain key",
         "dataType": "text",
         "isNotNull": true
       },
@@ -771,13 +806,15 @@
       },
       {
         "columnName": "key_column",
-        "dataType": "text"
+        "dataType": "text",
+        "deprecated": true
       },
       {
         "columnName": "status",
         "dataType": "text",
         "default": "'created'",
-        "isNotNull": true
+        "isNotNull": true,
+        "deprecated": true
       },
       {
         "columnName": "user_email",
@@ -906,6 +943,14 @@
       {
         "columnName": "is_rule_set",
         "dataType": "bool",
+        "isNotNull": true
+      },
+      {
+        "columnName": "input_rdf_types",
+        "description": "This is the entity_rdf_type of the corresponding input_source table.",
+        "dataType": "text",
+        "isArray": true,
+        "default": "'{}'",
         "isNotNull": true
       },
       {

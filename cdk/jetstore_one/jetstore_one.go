@@ -494,6 +494,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Vpc: vpc,
 		VpcSubnets: isolatedSubnetSelection,
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(statusUpdateLambda).Add(phiTagName, jsii.String("false"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(statusUpdateLambda).Add(piiTagName, jsii.String("false"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(statusUpdateLambda).Add(descriptionTagName, jsii.String("JetStore lambda to update the pipeline status upon completion"), nil)
+	}
 	statusUpdateLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
 	rdsSecret.GrantRead(statusUpdateLambda, nil)
 	// NOTE following added below due to dependency
