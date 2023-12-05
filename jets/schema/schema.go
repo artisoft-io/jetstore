@@ -24,12 +24,14 @@ type TableDefinition struct {
 	TableConstraints []ConstraintDefinition  `json:"tableConstraints"`
 }
 type ColumnDefinition struct {
-	ColumnName string  `json:"columnName"`
-	DataType   string  `json:"dataType"`
-	Default    string  `json:"default"`
-	IsArray    bool    `json:"isArray"`
-	IsNotNull  bool    `json:"isNotNull"`
-	IsPK       bool    `json:"isPK"`
+	ColumnName   string  `json:"columnName"`
+	Description  string  `json:"description"`
+	DataType     string  `json:"dataType"`
+	Default      string  `json:"default"`
+	IsArray      bool    `json:"isArray"`
+	IsNotNull    bool    `json:"isNotNull"`
+	Deprecated   bool    `json:"deprecated"`
+	IsPK         bool    `json:"isPK"`
 }
 type IndexDefinition struct {
 	IndexName string    `json:"indexName"`
@@ -365,7 +367,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 			buf.WriteString("DROP INDEX ")
 			buf.WriteString(tableDefinition.SchemaName)
 			buf.WriteString(".")
-			buf.WriteString(idx.IndexName)
+			buf.WriteString(fmt.Sprintf("\"%s\"", idx.IndexName))
 			buf.WriteString(" ;\n")
 		}
 	}
