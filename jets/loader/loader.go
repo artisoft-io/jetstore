@@ -509,6 +509,12 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInf
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
 		}
+		// Make sure we don't have empty names in rawHeaders
+		for i := range rawHeaders {
+			if rawHeaders[i] == "" {
+				rawHeaders[i] = "Filler"
+			}
+		}
 		fmt.Println("Got input columns (rawHeaders) from json:", rawHeaders)
 
 	case FixedWith:

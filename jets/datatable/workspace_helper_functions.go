@@ -20,7 +20,7 @@ import (
 )
 
 // Pull workspace changes in local repository:
-//	- Pull changes by fastforward only from WorkspaceBranch into current branch
+//	- Pull changes by merging WorkspaceBranch into current branch
 //	- Update the file stash with pulled version
 //  - Apply workspace overrides (except for compiled files)
 //  NOTE:

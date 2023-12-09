@@ -188,10 +188,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
-            ActionEnableCriteria(
-                columnPos: 6,
-                criteriaType: DataTableActionEnableCriteria.doesNotContain,
-                value: 'removed'),
+            // ActionEnableCriteria(
+            //     columnPos: 6,
+            //     criteriaType: DataTableActionEnableCriteria.doesNotContain,
+            //     value: 'removed'),
             ActionEnableCriteria(
                 columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
@@ -220,21 +220,21 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.wsFeatureBranch: 3,
             FSK.wsURI: 4,
           }),
-      // ActionConfig(
-      //     actionType: DataTableActionType.showDialog,
-      //     key: 'doGitCommand',
-      //     label: 'Git Command',
-      //     style: ActionStyle.secondary,
-      //     isVisibleWhenCheckboxVisible: true,
-      //     isEnabledWhenHavingSelectedRows: true,
-      //     configForm: FormKeys.doGitCommandWorkspace,
-      //     navigationParams: {
-      //       FSK.key: 0,
-            // FSK.wsName: 1,
-            // FSK.wsBranch: 2,
-            // FSK.wsFeatureBranch: 3,
-            // FSK.wsURI: 4,
-      //     }),
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'doGitCommand',
+          label: 'Git Command',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          configForm: FormKeys.doGitCommandWorkspace,
+          navigationParams: {
+            FSK.key: 0,
+            FSK.wsName: 1,
+            FSK.wsBranch: 2,
+            FSK.wsFeatureBranch: 3,
+            FSK.wsURI: 4,
+          }),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
           key: 'viewGitLogWorkspace',

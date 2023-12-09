@@ -169,9 +169,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	
 		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
 			// Execute git commands in workspace
-			if os.Getenv("WORKSPACE_URI") != "" {
-				return nil, http.StatusUnauthorized, fmt.Errorf("not authorized to execute git_command_workspace")
-			}
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing workspace_name")
 			}
