@@ -1,3 +1,4 @@
+import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
 
@@ -181,23 +182,23 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.wsURI: 4,
           }),
       ActionConfig(
-          actionType: DataTableActionType.showDialog,
+          actionType: DataTableActionType.showScreen,
           key: 'pullWorkspace',
           label: 'Pull Workspace',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: ufPullWorkspacePath,
           actionEnableCriterias: [[
-            // ActionEnableCriteria(
-            //     columnPos: 6,
-            //     criteriaType: DataTableActionEnableCriteria.doesNotContain,
-            //     value: 'removed'),
+            ActionEnableCriteria(
+                columnPos: 6,
+                criteriaType: DataTableActionEnableCriteria.doesNotContain,
+                value: 'removed'),
             ActionEnableCriteria(
                 columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'in progress'),
           ]],
-          configForm: FormKeys.pullWorkspace,
           navigationParams: {
             FSK.key: 0,
             FSK.wsName: 1,

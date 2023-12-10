@@ -53,6 +53,7 @@ const ufFileMappingPath = '/fileMappingUF';
 const ufPipelineConfigPath = '/pipelineConfigUF';
 const ufLoadFilesPath = '/loadFilesUF';
 const ufStartPipelinePath = '/startPipelineUF';
+const ufPullWorkspacePath = '/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri';
 
 // const wsDomainClassesPath = '/workspaces/:workspace_name/domainClasses';
 // const wsDomainClasseDetailsPath =
@@ -274,6 +275,12 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: const JetsRouteData(ufStartPipelinePath),
     screenConfig: getScreenConfig(ScreenKeys.ufStartPipeline),
     userFlowConfig: getUserFlowConfig(UserFlowKeys.startPipelineUF),
+  ),
+  ufPullWorkspacePath: UserFlowScreen(
+    key: const Key(UserFlowKeys.workspacePullUF),
+    screenPath: const JetsRouteData(ufPullWorkspacePath),
+    screenConfig: getScreenConfig(ScreenKeys.ufPullWorkspace),
+    userFlowConfig: getUserFlowConfig(UserFlowKeys.workspacePullUF),
   ),
 
   // Page Not Found

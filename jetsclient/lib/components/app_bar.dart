@@ -19,6 +19,18 @@ AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
     automaticallyImplyLeading:
         screenConfig.key == ScreenKeys.login ? false : true,
     title: Text(appTitle),
+    //* TODO AppBar Drawer. . .
+    // leading: Builder(
+    //   builder: (BuildContext context) {
+    //     return IconButton(
+    //       icon: const Icon(Icons.menu),
+    //       onPressed: () {
+    //         Scaffold.of(context).openDrawer();
+    //       },
+    //       tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+    //     );
+    //   },
+    // ),
     actions: <Widget>[
       ElevatedButton(
           style: JetsRouterDelegate().isDarkMode(context)
@@ -28,12 +40,11 @@ AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
             final user = JetsRouterDelegate().user;
             if (user.isAuthenticated) {
               JetsRouterDelegate()(
-                  JetsRouteData(userGitProfilePath, 
-                    params: <String, dynamic>{
-                      'git_name': user.gitName,
-                      'git_email': user.gitEmail,
-                      'git_handle': user.gitHandle,
-                    }));
+                  JetsRouteData(userGitProfilePath, params: <String, dynamic>{
+                'git_name': user.gitName,
+                'git_email': user.gitEmail,
+                'git_handle': user.gitHandle,
+              }));
             }
           },
           child: Center(child: Text(JetsRouterDelegate().user.name))),
