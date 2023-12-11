@@ -138,6 +138,7 @@ class ScreenKeys {
   static const ufPipelineConfig = "pipelineConfigScreenUF";
   static const ufLoadFiles = "ufLoadFilesScreenUF";
   static const ufStartPipeline = "ufStartPipelineScreenUF";
+  static const ufPullWorkspace = "ufPullWorkspaceScreenUF";
 }
 
 /// Form ID Keys
@@ -251,6 +252,9 @@ class FormKeys {
   static const spSelectMainDataSourceUF = "spSelectMainDataSourceUF";
   static const spSelectMergedDataSourcesUF = "spSelectMergedDataSourcesUF";
   static const spSummaryUF = "spSummaryUF";
+  // Workspace Pull UF Forms
+  static const wpPullWorkspaceUF = "wpPullWorkspaceUF";
+  static const wpConfirmPullWorkspaceUF = "wpConfirmPullWorkspaceUF";
 }
 
 /// Form State Keys
@@ -628,6 +632,10 @@ class ActionKeys {
   static const spStartPipelineUF = "spStartPipelineUF";
   static const spTestPipelineUF = "spTestPipelineUF";
   static const spPrepareStartPipeline = "spPrepareStartPipeline";
+
+  // Workspace Pull UF ActionKeys
+  static const wpPullWorkspaceConfirmUF = "wpPullWorkspaceConfirmUF";
+  static const wpPullWorkspaceOkUF = "wpPullWorkspaceOkUF";
 }
 
 /// User Flow Keys
@@ -639,6 +647,7 @@ class UserFlowKeys {
   static const pipelineConfigUF = "pipelineConfigUF";
   static const loadFilesUF = "loadFilesUF";
   static const startPipelineUF = "startPipelineUF";
+  static const workspacePullUF = "workspacePullUF";
 }
 
 /// Status Keys
@@ -756,6 +765,10 @@ class DTKeys {
   // Start Pipeline UF DTKeys
   static const spInjectedProcessInput = "spInjectedProcessInput";
   static const spSummaryDataSources = "spSummaryDataSources";
+
+  // Workspace Pull UF DTKeys
+  static const otherWorkspaceActionOptions = "otherWorkspaceActionOptions";
+  static const wpPullWorkspaceConfirmOptions = "wpPullWorkspaceConfirmOptions";
 }
 
 /// API Server endpoints

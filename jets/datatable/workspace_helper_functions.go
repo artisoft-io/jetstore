@@ -20,21 +20,21 @@ import (
 )
 
 // Pull workspace changes in local repository:
-//	- Pull changes by fastforward only from WorkspaceBranch into current branch
-//	- Update the file stash with pulled version
-//  - Apply workspace overrides (except for compiled files)
-//  NOTE:
-//	- Compile workspace must be done manually
-func pullWorkspaceAction(dbpool *pgxpool.Pool, irow int,  gitProfile *user.GitProfile, dataTableAction *DataTableAction) (string, error) {
+//   - Pull changes by merging WorkspaceBranch into current branch
+//   - Update the file stash with pulled version
+//   - Apply workspace overrides (except for compiled files)
+//     NOTE:
+//   - Compile workspace must be done manually
+func pullWorkspaceAction(dbpool *pgxpool.Pool, irow int, gitProfile *user.GitProfile, dataTableAction *DataTableAction) (string, error) {
 	var err error
 	var gitLog string
 	workspaceName := dataTableAction.WorkspaceName
 	wsUri := getWorkspaceUri(dataTableAction, irow)
 	workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
-		WorkspaceName   : dataTableAction.WorkspaceName,
-		WorkspaceUri    : wsUri,
-		WorkspaceBranch : dataTableAction.WorkspaceBranch,
-		FeatureBranch   : dataTableAction.FeatureBranch,
+		WorkspaceName:   dataTableAction.WorkspaceName,
+		WorkspaceUri:    wsUri,
+		WorkspaceBranch: dataTableAction.WorkspaceBranch,
+		FeatureBranch:   dataTableAction.FeatureBranch,
 	})
 	var buf strings.Builder
 
@@ -72,13 +72,12 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool, irow int,  gitProfile *user.GitPr
 		err = nil
 	}
 
-	setPullGitLog:
+setPullGitLog:
 	return buf.String(), err
 }
 
-
 // Compile workspace changes, update workspace_registry table and delete overrides in workspace_changes
-func compileWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableAction)  {
+func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 
 	var err error
 	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -87,22 +86,99 @@ func compileWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActi
 		var gitLog string
 		status := ""
 		workspaceName := dataTableAction.WorkspaceName
-	
+
 		// Compile workspace
 		fmt.Println("Compiling workspace", workspaceName)
-		gitLog, err = workspace.CompileWorkspace(dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+		gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
 		if err != nil {
 			status = "error"
 		}
-		dataTableAction.Data[irow]["last_git_log"] = gitLog
+		lastLog := dataTableAction.Data[irow]["last_git_log"]
+		if lastLog != nil {
+			dataTableAction.Data[irow]["last_git_log"] = fmt.Sprintf("%v\n%s", lastLog, gitLog)
+		} else {
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+		}
+		// Check if load workspace config
+		if status != "error" {
+			didLoadWorkspaceConfig := false
+			otherActions := dataTableAction.Data[irow]["otherWorkspaceActionOptions"]
+			if(otherActions != nil) {
+				l := otherActions.([]interface{})
+				for i := range l {
+					if l[i] != nil && l[i] == "wpLoadClientConfgOption" {
+						status = "Loading client config in progress"
+						didLoadWorkspaceConfig = true
+						go loadWorkspaceConfigAction(ctx, dataTableAction)
+					}
+				}
+			}
+			if !didLoadWorkspaceConfig {
+				// Load the base workspace config in case domain schema or config changed
+				log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+				serverArgs := []string{"-initBaseWorkspaceDb", "-migrateDb"}
+				if ctx.UsingSshTunnel {
+					serverArgs = append(serverArgs, "-usingSshTunnel")
+				}
+				gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+				if err != nil {
+					status = "error"
+				}
+				lastLog = dataTableAction.Data[irow]["last_git_log"]
+				if lastLog != nil {
+					dataTableAction.Data[irow]["last_git_log"] = fmt.Sprintf("%v\n%s", lastLog, gitLog)
+				} else {
+					dataTableAction.Data[irow]["last_git_log"] = gitLog
+				}					
+			}
+		}
 		dataTableAction.Data[irow]["status"] = status
 
 		// Perform the Insert Rows
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol] = dataTableAction.Data[irow][colKey]
 		}
+		_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+		if err != nil {
+			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+		}
+	}
+}
 
-		_, err = dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+// LoadWorkspaceConfigAction to load client config into JetStore db
+// Update the workspace_registry table with status
+func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction) {
+	// using update_db script
+	log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+	serverArgs := []string{"-initWorkspaceDb", "-migrateDb"}
+	if ctx.UsingSshTunnel {
+		serverArgs = append(serverArgs, "-usingSshTunnel")
+	}
+
+	var err error
+	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
+	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	for irow := range dataTableAction.Data {
+		var gitLog string
+		status := ""
+		// update_db script
+		gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+		if err != nil {
+			status = "error"
+		}
+		lastLog := dataTableAction.Data[irow]["last_git_log"]
+		if lastLog != nil {
+			dataTableAction.Data[irow]["last_git_log"] = fmt.Sprintf("%v\n%s", lastLog, gitLog)
+		} else {
+			dataTableAction.Data[irow]["last_git_log"] = gitLog
+		}
+		dataTableAction.Data[irow]["status"] = status
+
+		// Perform the Insert Rows
+		for jcol, colKey := range sqlStmt.ColumnKeys {
+			row[jcol] = dataTableAction.Data[irow][colKey]
+		}
+		_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 		if err != nil {
 			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 		}
@@ -110,7 +186,7 @@ func compileWorkspaceAction(dbpool *pgxpool.Pool, dataTableAction *DataTableActi
 }
 
 // Execute pipeline in unit test mode
-func UnitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, token string)  {
+func UnitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, token string) {
 
 	dataTableAction.Action = "insert_rows"
 	dataTableAction.FromClauses[0].Table = "pipeline_execution_status"
@@ -136,12 +212,12 @@ func UnitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, tok
 	}
 }
 
-// Run update_db
+// Run update_db - function used by apiserver and server
 func RunUpdateDb(workspaceName string, serverArgs *[]string) (string, error) {
 	log.Printf("Run update_db: %s", *serverArgs)
 	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
 	cmd.Env = append(os.Environ(),
-	fmt.Sprintf("WORKSPACE=%s", workspaceName),
+		fmt.Sprintf("WORKSPACE=%s", workspaceName),
 	)
 	var buf strings.Builder
 	cmd.Stdout = &buf

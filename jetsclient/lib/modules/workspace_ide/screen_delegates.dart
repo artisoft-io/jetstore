@@ -553,32 +553,19 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       var state = formState.getState(0);
       // print('Add/Update Workspace state: $state');
       state['user_email'] = JetsRouterDelegate().user.email;
-      if (state[FSK.key] is List<String>) {
-        state[FSK.key] = state[FSK.key][0];
-      }
-      if (state[FSK.wsName] is List<String>) {
-        state[FSK.wsName] = state[FSK.wsName][0];
-      }
-      final wsName = state[FSK.wsName];
-      if (state[FSK.wsBranch] is List<String>) {
-        state[FSK.wsBranch] = state[FSK.wsBranch][0];
-      }
-      final wsBranch = state[FSK.wsBranch];
-      if (state[FSK.wsFeatureBranch] is List<String>) {
-        state[FSK.wsFeatureBranch] = state[FSK.wsFeatureBranch][0];
-      }
-      final wsFeatureBranch = state[FSK.wsFeatureBranch];
-      if (state[FSK.wsURI] is List<String>) {
-        state[FSK.wsURI] = state[FSK.wsURI][0];
-      }
+      state[FSK.key] = unpack(state[FSK.key]);
+      state[FSK.wsName] = unpack(state[FSK.wsName]);
+      state[FSK.wsBranch] = unpack(state[FSK.wsBranch]);
+      state[FSK.wsFeatureBranch] = unpack(state[FSK.wsFeatureBranch]);
+      state[FSK.wsURI] = unpack(state[FSK.wsURI]);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [
           <String, String>{'table': 'pull_workspace'}
         ],
-        'workspaceName': wsName,
-        'workspaceBranch': wsBranch,
-        'featureBranch': wsFeatureBranch,
+        'workspaceName': state[FSK.wsName],
+        'workspaceBranch': state[FSK.wsBranch],
+        'featureBranch': state[FSK.wsFeatureBranch],
         'data': [state],
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();

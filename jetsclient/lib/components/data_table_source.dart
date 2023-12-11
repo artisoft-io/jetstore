@@ -254,7 +254,7 @@ class JetsDataTableSource extends ChangeNotifier {
       selected: selectedRows.length > index ? selectedRows[index] : false,
       onSelectChanged: state.isTableEditable && isWhereClauseSatisfied
           ? (bool? value) {
-              if (value == null) return;
+              if (value == null || state.isTableReadOnly) return;
               _onSelectChanged(index, value);
             }
           : null,
