@@ -179,6 +179,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       var uc = await showConfirmationDialog(context,
           'Are you sure you want to load workspace configuration, some client configuration may be overriten?');
       if (uc != 'OK') return null;
+      print(
+          "*** (1) LOAD CONFIG formState.getState(0) is ${formState.getState(0)}");
       final state = Map<String, dynamic>.from(formState.getState(0));
       state['user_email'] = JetsRouterDelegate().user.email;
       state[FSK.key] = unpack(state[FSK.key]);
@@ -189,6 +191,10 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       state[FSK.wsURI] = unpack(state[FSK.wsURI]);
       state[FSK.status] = '';
       state[FSK.lastGitLog] = 'redacted';
+      print(
+          "*** (2) LOAD CONFIG state is $state");
+      print(
+          "*** (3) LOAD CONFIG formState.getState(0) is ${formState.getState(0)}");
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [

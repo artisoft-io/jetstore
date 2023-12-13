@@ -416,6 +416,10 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       }
     }
     dataSource.getModelData();
+    if (tableConfig.formStateConfig != null) {
+      dataSource.updateTableFromFormState();
+      dataSource.resetSecondaryKeys(tableConfig.formStateConfig!, formState!);
+    }
   }
 
   void checkRebuildTableOnFormStateChange() {
