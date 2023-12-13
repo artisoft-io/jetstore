@@ -235,11 +235,11 @@ Future<String?> pipelineConfigFormActionsUF(
     // Prepare for the summary page
     case ActionKeys.pcPrepareSummaryUF:
       final main = unpackToList(state[FSK.mainProcessInputKey]);
-      final merged = unpackToList(state[FSK.mergedProcessInputKeys]);
-      final injected = unpackToList(state[FSK.injectedProcessInputKeys]);
-      if (main == null || merged == null || injected == null) {
+      final merged = unpackToList(state[FSK.mergedProcessInputKeys])??const[];
+      final injected = unpackToList(state[FSK.injectedProcessInputKeys])??const[];
+      if (main == null) {
         print("### ufAllProcessInputKeys: $main + $merged + $injected");
-        print("Error got a null list!");
+        print("Error got a null main list!");
         return "Unexpected error";
       }
       state[FSK.ufAllProcessInputKeys] =
