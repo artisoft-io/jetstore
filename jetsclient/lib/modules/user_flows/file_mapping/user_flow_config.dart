@@ -21,7 +21,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         formConfig: getFormConfig(FormKeys.fmFileMappingUF),
         actionDelegate: (_, v1, v2, v3, v4, {group}) =>
             processInputFormActions(v1, v2, v3, v4, group: group),
-        stateAction: ActionKeys.mapperOk,
         isEnd: true),
   })
 };

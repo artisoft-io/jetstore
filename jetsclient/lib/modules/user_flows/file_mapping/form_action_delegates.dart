@@ -15,6 +15,8 @@ String? fileMappingFormValidator(
         return null;
       }
       return "A file configuration must be selected.";
+    case DTKeys.processMappingTable:
+      return null;
 
     default:
       print(
