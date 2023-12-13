@@ -304,6 +304,8 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
 			}
+			dataTableAction.Data[irow]["status"] = ""
+
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 			if dataTableAction.WorkspaceName == "" {
@@ -320,6 +322,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			//	- It is an error to delete the active workspace
 			//	- Delete folder with workspace_name under workspaces root
 			//	- Delete in workspace_registry table by key (done below by the main sqlStmt)
+			dataTableAction.Data[irow]["status"] = ""
 			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
 				WorkspaceName   : dataTableAction.WorkspaceName,
 				WorkspaceUri    : "",
