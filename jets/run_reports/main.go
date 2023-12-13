@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -54,6 +55,21 @@ var devMode bool
 // by writing back into the platform input folders, although using a different object_type in the output path
 // The output path is specified by var ca.OutputPath, which start to be the same as filePath but can be modified based on
 // the directives of config.json
+// NOTE 12/13/2023:
+// Exposing source_period_key as a substitution variable in the report scripts
+
+func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId string) (int, error) {
+	var sourcePeriodKey int
+	err := dbpool.QueryRow(context.Background(), 
+		"SELECT source_period_key FROM jetsapi.pipeline_execution_status WHERE session_id=$1", 
+		sessionId).Scan(&sourcePeriodKey)
+	if err != nil {
+		return 0, 
+			fmt.Errorf("failed to get source_period_key from pipeline_execution_status table for session_id '%s': %v", sessionId, err)
+	}
+	return sourcePeriodKey, nil
+}
+
 
 func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	wh := os.Getenv("WORKSPACES_HOME")
@@ -153,11 +169,21 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	}
 
 	if len(ca.ReportScriptPaths) == 0 {
-		return fmt.Errorf("Error: can't determine the report definitions file.")
+		return fmt.Errorf("error: can't determine the report definitions file")
 	}
 	fmt.Println("Executing the following reports:")
 	for i := range ca.ReportScriptPaths {
 		fmt.Println("  -", ca.ReportScriptPaths[i])
+	}
+
+	// Get the source_period_key from pipeline_execution_status table by session_id
+	if len(ca.SessionId) > 0 {
+		k, err := getSourcePeriodKey(dbpool, ca.SessionId)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			ca.SourcePeriodKey = strconv.Itoa(k)
+		}
 	}
 
 	// Do the reports

@@ -47,6 +47,7 @@ type CommandArguments struct {
 	WorkspaceName string
 	Client string
 	SessionId string
+	SourcePeriodKey string
 	ProcessName string
 	ReportName string
 	FileKey string
@@ -122,7 +123,22 @@ func (ca *CommandArguments)runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScri
 		}
 		return err
 	}
-	_, err = dbpool.Exec(context.Background(), string(file))
+
+	// Check for substitutions in the report sql:
+	// $CLIENT is replaced with client name obtained from command line (-client)
+	// $FILE_KEY  is replaced with input file key
+	// $SESSIONID is replaced with session_id
+	// $PROCESSNAME is replaced with the Rule Process name
+	// $SOURCE_PERIOD_KEY is replaced with the source_period_key
+
+	stmt := string(file)
+	stmt = strings.ReplaceAll(stmt, "$CLIENT", ca.Client)
+	stmt = strings.ReplaceAll(stmt, "$SESSIONID", ca.SessionId)
+	stmt = strings.ReplaceAll(stmt, "$PROCESSNAME", ca.ProcessName)
+	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", ca.FileKey)
+	stmt = strings.ReplaceAll(stmt, "$SOURCE_PERIOD_KEY", ca.SourcePeriodKey)
+
+	_, err = dbpool.Exec(context.Background(), stmt)
 if err != nil {
 	return fmt.Errorf("while executing sql script %s: %v", reportScriptPath, err)
 }
@@ -239,12 +255,14 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 	// $FILE_KEY  is replaced with input file key
 	// $SESSIONID is replaced with session_id
 	// $PROCESSNAME is replaced with the Rule Process name
+	// $SOURCE_PERIOD_KEY is replaced with the source_period_key
 
 	stmt := *sqlStmt
 	stmt = strings.ReplaceAll(stmt, "$CLIENT", ca.Client)
 	stmt = strings.ReplaceAll(stmt, "$SESSIONID", ca.SessionId)
 	stmt = strings.ReplaceAll(stmt, "$PROCESSNAME", ca.ProcessName)
 	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", ca.FileKey)
+	stmt = strings.ReplaceAll(stmt, "$SOURCE_PERIOD_KEY", ca.SourcePeriodKey)
 
 	fmt.Println("STMT: name:", name, "output file name:", s3FileName, "stmt:", stmt)
 

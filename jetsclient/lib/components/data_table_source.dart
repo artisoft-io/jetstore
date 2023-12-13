@@ -59,7 +59,7 @@ class JetsDataTableSource extends ChangeNotifier {
     return null;
   }
 
-  void _resetSecondaryKeys(
+  void resetSecondaryKeys(
       final DataTableFormStateConfig formStateConfig, JetsFormState formState) {
     // Reset the secondary keys in form state.
     // Note that secondary keys MUST be set in form state ONLY by
@@ -151,7 +151,7 @@ class JetsDataTableSource extends ChangeNotifier {
     // } else {
     //   print("${config.key}: Removing Selected Row $index");
     // }
-    _resetSecondaryKeys(formStateConfig, formState);
+    resetSecondaryKeys(formStateConfig, formState);
     formState.notifyListeners();
   }
 
