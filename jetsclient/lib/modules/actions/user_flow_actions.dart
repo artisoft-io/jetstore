@@ -130,14 +130,14 @@ Future<String?> userFlowStateActions(
           print("ERROR while doing userFlowState Action: $err");
         }
       }
-      if(context.mounted) {
+      if (context.mounted) {
         final p = userFlowScreenState.userFlowConfig.exitScreenPath;
-        if(p!= null) {
+        if (p != null) {
           JetsRouterDelegate()(JetsRouteData(p));
         } else {
           Navigator.of(context).pop();
         }
-      }    
+      }
       break;
 
     default:

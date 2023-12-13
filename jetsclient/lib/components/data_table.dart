@@ -380,7 +380,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       sortColumnTableName = col.table ?? '';
       return;
     }
-    print("error: table sort column unexpected fall through!");
+    // print("error: table sort column unexpected fall through!");
     sortColumnIndex = null;
     sortColumnName = '';
     sortColumnTableName = '';
