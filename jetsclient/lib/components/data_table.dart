@@ -278,7 +278,10 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
   late final JetsDataTableSource dataSource;
-  bool isTableEditable = false;
+  // isTableEditable control if checkbox is shown or not
+  // isTableReadOnly control if the state of the checkbox can be changed or not
+  bool get isTableEditable => tableConfig.isCheckboxVisible;
+  bool get isTableReadOnly => tableConfig.isReadOnly;
   int? sortColumnIndex;
   String sortColumnName = '';
   String sortColumnTableName = '';
@@ -326,8 +329,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
     dataSource = JetsDataTableSource(state: this);
     dataSource.addListener(triggerTableBuildFromDataTableSource);
-
-    isTableEditable = tableConfig.isCheckboxVisible;
 
     // register for change notification on the form state
     if (formState != null && formFieldConfig != null) {
@@ -379,7 +380,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       sortColumnTableName = col.table ?? '';
       return;
     }
-    print("error: table sort column unexpected fall through!");
+    // print("error: table sort column unexpected fall through!");
     sortColumnIndex = null;
     sortColumnName = '';
     sortColumnTableName = '';
@@ -415,6 +416,10 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       }
     }
     dataSource.getModelData();
+    if (tableConfig.formStateConfig != null) {
+      dataSource.updateTableFromFormState();
+      dataSource.resetSecondaryKeys(tableConfig.formStateConfig!, formState!);
+    }
   }
 
   void checkRebuildTableOnFormStateChange() {

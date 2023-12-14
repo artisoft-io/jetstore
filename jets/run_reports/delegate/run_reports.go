@@ -14,13 +14,12 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/xitongsys/parquet-go/writer"
 )
 
-// The delegate that actually perform the status update
+// The delegate that actually execute the report
 // Required Env variable:
 // JETS_DSN_SECRET
 // JETS_REGION
@@ -35,24 +34,27 @@ type StringSubstitution struct {
 }
 
 type ReportDirectives struct {
-	FilePathSubstitution []StringSubstitution `json:"filePathSubstitution"`
-	ReportScripts        []string             `json:"reportScripts"`
-	UpdateLookupTables   bool                 `json:"updateLookupTables"`
-	OutputS3Prefix       string               `json:"outputS3Prefix"`
-	OutputPath           string               `json:"outputPath"`
+	FilePathSubstitution         []StringSubstitution           `json:"filePathSubstitution"`
+	ReportScripts                []string                       `json:"reportScripts"`
+	UpdateLookupTables           bool                           `json:"updateLookupTables"`
+	OutputS3Prefix               string                         `json:"outputS3Prefix"`
+	OutputPath                   string                         `json:"outputPath"`
+	ReportsAsTable               map[string]string              `json:"reportsAsTable"`
+	ReportOrStatementProperties  map[string]map[string]string   `json:"reportOrStatementProperties"`
 }
 
 type CommandArguments struct {
 	WorkspaceName string
 	Client string
 	SessionId string
+	SourcePeriodKey string
 	ProcessName string
 	ReportName string
 	FileKey string
 	OutputPath string
 	OriginalFileName string
 	ReportScriptPaths []string
-	ReportConfiguration *map[string]ReportDirectives
+	CurrentReportDirectives *ReportDirectives
 	BucketName string
 	RegionName string
 }
@@ -67,18 +69,28 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 		}
 	}()
 
-	// Keep track of files (reports) written to s3 (case UpdateLookupTables)
+	// Keep track of files (reports) written to s3 (use case UpdateLookupTables)
 	updatedKeys := make([]string, 0)
+	reportDirectives := *ca.CurrentReportDirectives
+
 	// Run the reports
 	for i := range ca.ReportScriptPaths {
-		log.Println("Running report:",ca.ReportScriptPaths[i])
-		err = ca.runReportsDelegate(dbpool, ca.ReportScriptPaths[i], &updatedKeys)
+		reportProps := reportDirectives.ReportOrStatementProperties[reportDirectives.ReportScripts[i]]
+		// Determine if we file is a sql reports or a sql script, sql script are executed in one go
+		// while sql report are executed statement by statement with results generally saved to s3 (most common)
+		if reportProps["reportOrScript"] == "script" {
+			// Running as sql script
+			log.Println("Running sql script:",ca.ReportScriptPaths[i])
+			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[i])	
+		} else {
+			// Running as sql report by default
+			log.Println("Running report:",ca.ReportScriptPaths[i])
+			err = ca.runReportsDelegate(dbpool, ca.ReportScriptPaths[i], &updatedKeys)	
+		}
 		if err != nil {
 			return err
 		}
 	}
-
-	reportDirectives := (*ca.ReportConfiguration)[ca.ReportName]
 
 	// Done with the report part, see if we need to rebuild the lookup tables
 	if reportDirectives.UpdateLookupTables {
@@ -101,6 +113,38 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 }
 
 // Support Functions
+func (ca *CommandArguments)runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScriptPath string) error {
+
+	// Read the sql script
+	file, err := os.ReadFile(reportScriptPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("Error sql Script not found:", reportScriptPath)
+		}
+		return err
+	}
+
+	// Check for substitutions in the report sql:
+	// $CLIENT is replaced with client name obtained from command line (-client)
+	// $FILE_KEY  is replaced with input file key
+	// $SESSIONID is replaced with session_id
+	// $PROCESSNAME is replaced with the Rule Process name
+	// $SOURCE_PERIOD_KEY is replaced with the source_period_key
+
+	stmt := string(file)
+	stmt = strings.ReplaceAll(stmt, "$CLIENT", ca.Client)
+	stmt = strings.ReplaceAll(stmt, "$SESSIONID", ca.SessionId)
+	stmt = strings.ReplaceAll(stmt, "$PROCESSNAME", ca.ProcessName)
+	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", ca.FileKey)
+	stmt = strings.ReplaceAll(stmt, "$SOURCE_PERIOD_KEY", ca.SourcePeriodKey)
+
+	_, err = dbpool.Exec(context.Background(), stmt)
+if err != nil {
+	return fmt.Errorf("while executing sql script %s: %v", reportScriptPath, err)
+}
+	return nil
+}
+
 func (ca *CommandArguments)runReportsDelegate(dbpool *pgxpool.Pool, reportScriptPath string, updatedKeys *[]string) error {
 
 	// Get the report definitions
@@ -132,26 +176,31 @@ func (ca *CommandArguments)runReportsDelegate(dbpool *pgxpool.Pool, reportScript
 		
 		// read the sql statement		
 		stmt, err = reader.ReadString(';')
-		if err != nil {
+		if err == io.EOF {
+			isDone = true
+		} else if err != nil {
 			return fmt.Errorf("error while reading report stmt for report %s: %v", name, err)
 		}
 		if len(stmt) == 0 {
 			return fmt.Errorf("error while reading report definitions, stmt is empty for report: %s", name)
 		}
 		stmt = strings.TrimSpace(stmt)
+		stmt = strings.TrimSuffix(stmt, ";")
 
 		// Do the report
 		s3FileName, err := ca.DoReport(dbpool, &name, &stmt)
 		if err != nil {
 			return err
 		}
-		*updatedKeys = append(*updatedKeys, s3FileName)
+		if len(s3FileName) > 0 {
+			*updatedKeys = append(*updatedKeys, s3FileName)
+		}
 	}
 	return nil
 }
 
 // The heavy lifting
-
+// outputFileName is the name in the report sql file, this is mapped to a table name in ReportDirectives.ReportsAsTable
 func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (string, error) {
 
 	name := *outputFileName
@@ -180,13 +229,25 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 		pattern = strings.Replace(pattern, "DD", fmt.Sprintf("%02d", d), 1)
 		name = fmt.Sprintf("%s%s%s", head, pattern, remainder)
 	}
-	parquetOutput := false
+
+	reportDirectives := *ca.CurrentReportDirectives
+	stmtProps := reportDirectives.ReportOrStatementProperties[*outputFileName]
+	outputFormat := stmtProps["outputFormat"]
+
+	// Determine the output format
+	// s3 file name w/ path
+	var s3FileName string
 	options := "format TEXT"
 	switch {
-	case strings.Contains(name, ".parquet"):
-		parquetOutput = true;
-	case strings.Contains(name, ".csv"): 
+	case outputFormat == "parquet" || strings.Contains(name, ".parquet"):
+		outputFormat = "parquet"
+		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
+	case outputFormat == "csv" || strings.Contains(name, ".csv"): 
 		options = "format CSV, HEADER"
+		outputFormat = "csv"
+		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
+	default:
+		outputFormat = "none"
 	}
 
 	// Check for substitutions in the report sql:
@@ -194,198 +255,98 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 	// $FILE_KEY  is replaced with input file key
 	// $SESSIONID is replaced with session_id
 	// $PROCESSNAME is replaced with the Rule Process name
+	// $SOURCE_PERIOD_KEY is replaced with the source_period_key
 
-	// s3 file name w/ path
-	s3FileName := fmt.Sprintf("%s/%s", ca.OutputPath, name)
 	stmt := *sqlStmt
 	stmt = strings.ReplaceAll(stmt, "$CLIENT", ca.Client)
 	stmt = strings.ReplaceAll(stmt, "$SESSIONID", ca.SessionId)
 	stmt = strings.ReplaceAll(stmt, "$PROCESSNAME", ca.ProcessName)
 	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", ca.FileKey)
+	stmt = strings.ReplaceAll(stmt, "$SOURCE_PERIOD_KEY", ca.SourcePeriodKey)
 
 	fmt.Println("STMT: name:", name, "output file name:", s3FileName, "stmt:", stmt)
 
-	if parquetOutput {
-		// save report locally in parquet
-		fmt.Println("STMT", name, "saving in parquet format")
-		// Create temp directory for the local parquet file
-		tempDir, err := os.MkdirTemp("", "jetstore")
+	switch outputFormat {
+	case "parquet":
+		// Output to parquet format
+		err := ca.DoParquetReport(dbpool, &s3FileName, name, &stmt)
 		if err != nil {
-			return "", fmt.Errorf("while creating temp dir: %v", err)
+			return "", err
 		}
-		defer os.RemoveAll(tempDir)
-	
-		// open the parquet writer
-		tempFileName := fmt.Sprintf("%s/csv.parquet", tempDir)
-		fw, err := NewLocalFileWriter(tempFileName)
-		if err != nil {
-			return "", fmt.Errorf("while opening parquet file for write: %v", err)
-		}
-
-		// reading from db
-		rows, err := dbpool.Query(context.Background(), stmt)
-		if err != nil {
-			return "", fmt.Errorf("while called query: %v", err)
-		}
-		defer rows.Close()
-		
-		// output schema
-		csvSchema := make([]string, 0)
-		csvDatatypes := make([]string, 0)
-		fd := rows.FieldDescriptions()
-		// keep a mapping between input col position to output col position (for droping arrays and unknown data type)
-		outColFromInCol := make(map[int]int, len(fd))
-		inColFromOutCol := make(map[int]int, len(fd))
-
-		outPos := 0
-		for inPos := range fd {
-			oid := fd[inPos].DataTypeOID
-			columName := string(fd[inPos].Name)
-			// fmt.Println("*** ColumnName",columName,"oid",oid)
-			// skipping arrays and unknown data type
-			if !dbutils.IsArrayFromOID(oid) {
-				switch datatype := dbutils.DataTypeFromOID(oid); datatype {
-				case "string", "date", "time":
-					csvSchema = append(csvSchema, fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY", columName))
-					csvDatatypes = append(csvDatatypes, datatype)
-					outColFromInCol[inPos] = outPos
-					inColFromOutCol[outPos] = inPos
-					outPos += 1
-				case "double":
-					csvSchema = append(csvSchema, fmt.Sprintf("name=%s, type=DOUBLE", columName))
-					csvDatatypes = append(csvDatatypes, datatype)
-					outColFromInCol[inPos] = outPos
-					inColFromOutCol[outPos] = inPos
-					outPos += 1
-				case "timestamp", "long":
-					csvSchema = append(csvSchema, fmt.Sprintf("name=%s, type=INT64", columName))
-					csvDatatypes = append(csvDatatypes, datatype)
-					outColFromInCol[inPos] = outPos
-					inColFromOutCol[outPos] = inPos
-					outPos += 1
-				case "int":
-					csvSchema = append(csvSchema, fmt.Sprintf("name=%s, type=INT32", columName))
-					csvDatatypes = append(csvDatatypes, datatype)
-					outColFromInCol[inPos] = outPos
-					inColFromOutCol[outPos] = inPos
-					outPos += 1
-				default:
-					log.Printf("Got unknown data type, report %s, column %s, datatype oid %d, skipping", name, columName, oid)
-				}
-			} else {
-				log.Printf("Got an array data type, report %s, column %s, datatype oid %d, skipping", name, columName, oid)
-			}			
-		}
-		nbrInputColumns := len(fd)
-		nbrOutputColumns := len(outColFromInCol)
-
-		// Create the parquet writer now that we have the schema ready
-		pw, err := writer.NewCSVWriter(csvSchema, fw, 4)
-		if err != nil {
-			fw.Close()
-			return "", fmt.Errorf("while opening parquet csv writer: %v", err)
-		}
-		var rowCount int64
-
-		// Read from sql and write to parquet file
-		for rows.Next() {
-			dataRow := make([]interface{}, nbrInputColumns)
-			for inPos := 0; inPos < nbrInputColumns; inPos++ {
-				outPos, ok := outColFromInCol[inPos]
-				if ok {
-					switch csvDatatypes[outPos] {
-					case "string", "date", "time":
-						dataRow[inPos] = &sql.NullString{}
-					case "double":
-						dataRow[inPos] = &sql.NullFloat64{}
-					case "timestamp", "long":
-						dataRow[inPos] = &sql.NullInt64{}
-					case "int":
-						dataRow[inPos] = &sql.NullInt32{}	
-					}
-				} else {
-					dataRow[inPos] = &sql.NullString{}
-				}
-			}
-			// scan the row
-			if err = rows.Scan(dataRow...); err != nil {
-			fw.Close()
-			return "", fmt.Errorf("while scanning the row: %v", err)
-			}
-			// make a flat row for writing
-			flatRow := make([]interface{}, nbrOutputColumns)
-			for outPos := 0; outPos < nbrOutputColumns; outPos++ {
-				inPos, ok := inColFromOutCol[outPos]
-				if ok {
-					switch csvDatatypes[outPos] {
-					case "string", "date", "time":
-						ns := dataRow[inPos].(*sql.NullString)
-						if ns.Valid {
-							flatRow[outPos] = ns.String
-						} else {
-							flatRow[outPos] = ""
-						}
-					case "double":
-						ns := dataRow[inPos].(*sql.NullFloat64)
-						if ns.Valid {
-							flatRow[outPos] = ns.Float64
-						} else {
-							flatRow[outPos] = float64(0)
-						}
-					case "timestamp", "long":
-						ns := dataRow[inPos].(*sql.NullInt64)
-						if ns.Valid {
-							flatRow[outPos] = ns.Int64
-						} else {
-							flatRow[outPos] = int64(0)
-						}
-					case "int":
-						ns := dataRow[inPos].(*sql.NullInt32)
-						if ns.Valid {
-							flatRow[outPos] = ns.Int32
-						} else {
-							flatRow[outPos] = int32(0)
-						}
-					}
-				} else {
-					fw.Close()
-					return "", fmt.Errorf("unexpected error while scanning the row")
-				}
-			}
-			if err = pw.Write(flatRow); err != nil {
-				fw.Close()
-				return "", fmt.Errorf("while writing row to parquet file: %v", err)
-			}
-			rowCount += 1
-		}
-		if err = pw.WriteStop(); err != nil {
-			fw.Close()
-			return "", fmt.Errorf("while writing parquet stop (trailer): %v", err)
-		}
-		log.Println("Parquet Write Finished")
-		fw.Close()
-
-		// Copy file to s3 location
-		fileHd, err := os.Open(tempFileName)
-		if err != nil {
-			return "", fmt.Errorf("while opening written file to copy to s3: %v", err)
-		}
-		if err = awsi.UploadToS3(ca.BucketName, ca.RegionName, s3FileName, fileHd); err != nil {
-			return "", fmt.Errorf("while copying to s3: %v", err)
-		}
-		fmt.Println("Report:", name, "rowsUploaded containing", rowCount, "rows")
-
-	} else {
-		// save to s3 file s3FileName
-		stmt = strings.ReplaceAll(stmt, "'", "''")
-		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", stmt, ca.BucketName, s3FileName, ca.RegionName, options)
-		fmt.Println("S3 QUERY:", s3Stmt)
+	case "csv":
+		// save to s3 file s3FileName in csv format
+		escapedStmt := strings.ReplaceAll(stmt, "'", "''")
+		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
+		// fmt.Println("S3 QUERY:", s3Stmt)
 		var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
 		err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
 		if err != nil {
-			return "", fmt.Errorf("while executing s3 query %s: %v", stmt, err)
+			return "", fmt.Errorf("while executing s3 query %s: %v", escapedStmt, err)
 		}
 		fmt.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
+	default:
+		// Report not saved to s3, probably as as table (see below)
+		fmt.Println("Report %s not saved to s3", *outputFileName)
+	}
+
+	// Check if save the report to table
+	if reportDirectives.ReportsAsTable != nil {
+		tableName := reportDirectives.ReportsAsTable[*outputFileName]
+		if len(tableName) > 0 {
+			tableExists, err := schema.DoesTableExists(dbpool, "public", tableName)
+			if err != nil {
+				return "", fmt.Errorf("while verifying if table %s exist: %w", tableName, err)
+			}
+			// Save report as table
+			var tableStmt string
+			if tableExists {
+				// Get the column names
+				// Get the column definitions
+				columns := make([]string, 0)
+				cstmt := fmt.Sprintf(
+					"SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '%s'",
+					tableName)
+				rows, err := dbpool.Query(context.Background(), cstmt)
+				if err != nil {
+					return "", fmt.Errorf("while getting definition of table: %s", tableName)
+				}
+				for rows.Next() { // Iterate and fetch the records from result cursor
+					var columnName string
+					rows.Scan(&columnName)
+					columns = append(columns, fmt.Sprintf("\"%s\"", columnName))
+				}
+				rows.Close()
+				tableStmt = fmt.Sprintf("INSERT INTO public.\"%s\" (%s) (%s)", tableName, strings.Join(columns, ","), stmt)
+			} else {
+				// Create the table with the select stmt
+				tableStmt = fmt.Sprintf("CREATE TABLE IF NOT EXISTS public.\"%s\" AS (%s)", tableName, stmt)
+
+			}
+			fmt.Println("Insert/Create table", tableName, "using statement:")
+			fmt.Println(tableStmt)
+			_, err2 := dbpool.Exec(context.Background(), tableStmt)
+			if err2 != nil {
+				return "", fmt.Errorf("while executing report as table, statement:\n%s\nError is: %v", tableStmt, err2)
+			}
+
+			// Register the report with table input_registry:
+			registerReportStmt := `INSERT INTO jetsapi.input_registry (
+					client, org, object_type, file_key, 
+					source_period_key, table_name, source_type, 
+					session_id, user_email
+				) 
+				VALUES 
+					(
+						$1, $2, $3, $4, $5, 
+						$6, 'file', $7, $8
+					) ON CONFLICT DO NOTHING RETURNING key`
+			_, err2 = dbpool.Exec(context.Background(), registerReportStmt, 
+				ca.Client, stmtProps["org"], stmtProps["object_type"], ca.FileKey,
+				ca.SourcePeriodKey, tableName, ca.SessionId, "system")
+			if err2 != nil {
+				return "", fmt.Errorf("while adding report to input_registry table: %v", err2)
+			}
+		}
 	}
 
 	fmt.Println("------")

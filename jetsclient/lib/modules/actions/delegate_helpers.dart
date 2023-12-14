@@ -27,7 +27,13 @@ String? unpack(dynamic elm) {
 List<String>? unpackToList(dynamic elm) {
   // print("^^^ unpackToList elm: $elm");
   if (elm == null) return null;
-  if (elm is List<String>) return elm;
+  if (elm is List<String?>) {
+    final l = <String>[];
+    for (final e in elm) {
+      if (e != null) l.add(e);
+    }
+    return l;
+  }
   if (elm is String) {
     String str = elm;
     if (str == '{}') return [];
@@ -36,7 +42,7 @@ List<String>? unpackToList(dynamic elm) {
       // print("^^^ returning decoded val $val, isEmpty? ${val.isEmpty}");
       return val;
     } else {
-      final val = [str];
+      // final val = [str];
       // print("^^^ returning [str] $val, isEmpty? ${val.isEmpty}");
       return [str];
     }

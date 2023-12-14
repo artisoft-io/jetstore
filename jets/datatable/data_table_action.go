@@ -972,6 +972,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 			peKey := strconv.Itoa(returnedKey[irow])
 			//* TODO We should lookup main_input_file_key rather than file_key here
+			client := row["client"]
 			fileKey := dataTableAction.Data[irow]["file_key"]
 			sessionId := row["session_id"]
 			userEmail := row["user_email"]
@@ -992,6 +993,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				return
 			}
 			runReportsCommand := []string{
+				"-client", client.(string),
 				"-processName", processName.(string),
 				"-sessionId", sessionId.(string),
 				"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),

@@ -40,6 +40,7 @@ var jetsapiDbInitPath = flag.String("jetsapiDbInitPath", "", "jetsapi init db pa
 var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required or env var WORKSPACES_HOME/WORKSPACE)")
 var migrateDb = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
 var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsapi database, taking db init script path from env JETSAPI_DB_INIT_PATH (default: false)")
+var initBaseWorkspaceDb = flag.Bool("initBaseWorkspaceDb", false, "initialize the jetsapi database, base init only, taking db init script path from env JETSAPI_DB_INIT_PATH (default: false)")
 var extTables ExtTableInfo = make(map[string][]string)
 
 func init() {
@@ -87,6 +88,13 @@ func doJob() error {
 	if *initWorkspaceDb && *jetsapiDbInitPath != "" {
 		log.Println("Initialize jetsapi database with workspace-specific initalization")
 		err = InitializeJetsapiDb(dbpool, jetsapiDbInitPath)
+		if err != nil {
+			return err
+		}
+	}
+	if *initBaseWorkspaceDb && *jetsapiDbInitPath != "" {
+		log.Println("Initialize jetsapi database using base initalization script only")
+		err = InitializeBaseJetsapiDb(dbpool, jetsapiDbInitPath)
 		if err != nil {
 			return err
 		}
@@ -205,9 +213,13 @@ func main() {
 	if *jetsapiDbInitPath == "" {
 		*jetsapiDbInitPath = os.Getenv(("JETSAPI_DB_INIT_PATH"))
 	}
-	if *initWorkspaceDb && *jetsapiDbInitPath == "" {
+	if (*initWorkspaceDb || *initBaseWorkspaceDb) && *jetsapiDbInitPath == "" {
 		hasErr = true
-		errMsg = append(errMsg, "jetsapi dn init path (-jetsapiDbInitPath or env JETSAPI_DB_INIT_PATH) must be provided when -initWorkspaceDb is provided.")
+		errMsg = append(errMsg, "jetsapi init path (-jetsapiDbInitPath or env JETSAPI_DB_INIT_PATH) must be provided when -initWorkspaceDb or -initBaseWorkspaceDb is provided.")
+	}
+	if(*initWorkspaceDb && *initBaseWorkspaceDb) {
+		hasErr = true
+		errMsg = append(errMsg, "Cannot provide both -initWorkspaceDb and -initBaseWorkspaceDb is provided.")
 	}
 	if *workspaceDb == "" {
 		if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
@@ -239,6 +251,7 @@ func main() {
 	log.Println("   -migrateDb:", *migrateDb)
 	log.Println("   -drop:", *dropExisting)
 	log.Println("   -initWorkspaceDb:", *initWorkspaceDb)
+	log.Println("   -initBaseWorkspaceDb:", *initBaseWorkspaceDb)
 	log.Println("ENV JETSAPI_DB_INIT_PATH:", os.Getenv("JETSAPI_DB_INIT_PATH"))
 	log.Println("ENV WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
 	log.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))

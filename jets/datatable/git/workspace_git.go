@@ -203,8 +203,8 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 			return buf.String(), err
 		}
 		// FastForward WorkspaceBranch
-		// git pull --rebase=false --no-commit 'https://<user>:<token>@<repo>' WorkspaceBranch
-		command = fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceBranch)
+		// git pull --rebase=false --commit --no-edit 'https://<user>:<token>@<repo>' WorkspaceBranch
+		command = fmt.Sprintf("git pull --rebase=false --commit --no-edit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceBranch)
 		buf.WriteString("Executing command ")
 		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
 		buf.WriteString("\n")
@@ -251,8 +251,8 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 		}
 		buf.WriteString("\n")
 		// FastForward FeatureBranch
-		// git pull --rebase=false --no-commit 'https://<user>:<token>@<repo>' FeatureBranch
-		command = fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.FeatureBranch)
+		// git pull --rebase=false --commit --no-edit 'https://<user>:<token>@<repo>' FeatureBranch
+		command = fmt.Sprintf("git pull --rebase=false --commit --no-edit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.FeatureBranch)
 		buf.WriteString("Executing command ")
 		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
 		buf.WriteString("\n")
@@ -389,7 +389,7 @@ func (wg *WorkspaceGit) GitCommandWorkspace(gitCommand string) (string, error) {
 	return buf.String(), nil
 }
 
-// Pull changes from orign repo by fastforwarding changes into current branch
+// Pull changes from orign repo by merging changes into current branch
 func (wg *WorkspaceGit) PullRemoteWorkspace(gitUser, gitToken string) (string, error) {
 	if wg.WorkspaceName == "" {
 		return "", fmt.Errorf("error, must provide workspace_name")
@@ -398,7 +398,7 @@ func (wg *WorkspaceGit) PullRemoteWorkspace(gitUser, gitToken string) (string, e
 	var buf strings.Builder
 
 	gitRepo := strings.TrimPrefix(wg.WorkspaceUri, "https://")
-	command := fmt.Sprintf("git pull --rebase=false --no-commit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceBranch)
+	command := fmt.Sprintf("git pull --rebase=false --commit --no-edit 'https://%s:%s@%s' %s", gitUser, gitToken, gitRepo, wg.WorkspaceBranch)
 	buf.WriteString("Executing command ")
 	buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(command, gitUser, "***"), gitToken, "***"))
 	buf.WriteString("\n")

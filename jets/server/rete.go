@@ -385,8 +385,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
 									br := NewBadRow()
-									rowkey, err := subject.GetName()
-									if err == nil {
+									rowkey, err2 := subject.GetName()
+									if err2 == nil {
 										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
 									}
 									br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}

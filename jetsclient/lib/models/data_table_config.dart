@@ -19,6 +19,7 @@ class TableConfig {
       this.staticTableModel,
       required this.isCheckboxVisible,
       required this.isCheckboxSingleSelect,
+      this.isReadOnly = false,
       required this.actions,
       this.secondRowActions = const [],
       required this.columns,
@@ -47,6 +48,8 @@ class TableConfig {
   final JetsDataModel? staticTableModel;
   final bool isCheckboxVisible;
   final bool isCheckboxSingleSelect;
+  // Control if the table can be modified (applicable if isCheckboxVisible)
+  final bool isReadOnly;
   final List<ActionConfig> actions;
   final List<ActionConfig> secondRowActions;
   final List<ColumnConfig> columns;

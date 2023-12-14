@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/routes/jets_route_data.dart';
+import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/user_flow_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -125,13 +127,19 @@ Future<String?> userFlowStateActions(
             context, formKey, formState, userFlowState.stateAction!,
             group: group);
         if (err != null) {
-          print("ERROR while doing userFlowState Action");
+          print("ERROR while doing userFlowState Action: $err");
         }
       }
-      // Navigator.of(context)
-      //     .pushNamed(userFlowScreenState.userFlowConfig.exitScreenPath);
-      if (context.mounted) Navigator.of(context).pop();
+      if (context.mounted) {
+        final p = userFlowScreenState.userFlowConfig.exitScreenPath;
+        if (p != null) {
+          JetsRouterDelegate()(JetsRouteData(p));
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
       break;
+
     default:
       // Delegate to the UserFlowState Action
       // print("@default userFlowStateAction for ActionKey $actionKey");

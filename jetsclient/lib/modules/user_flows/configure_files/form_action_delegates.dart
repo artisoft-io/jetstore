@@ -69,11 +69,11 @@ String? configureFilesFormValidator(
       if (value == null || value.isEmpty) {
         return null; // this field is nullable
       }
-      // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
-      final otherv = formState.getValue(0, FSK.inputColumnsPositionsCsv);
-      if (otherv != null) {
-        return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
-      }
+      // // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
+      // final otherv = formState.getValue(0, FSK.inputColumnsPositionsCsv);
+      // if (otherv != null) {
+      //   return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
+      // }
       // Validate that value is valid json
       try {
         jsonDecode(value);
@@ -87,11 +87,11 @@ String? configureFilesFormValidator(
       if (value == null || value.isEmpty) {
         return null; // this field is nullable
       }
-      // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
-      final otherv = formState.getValue(0, FSK.inputColumnsJson);
-      if (otherv != null) {
-        return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
-      }
+      // // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
+      // final otherv = formState.getValue(0, FSK.inputColumnsJson);
+      // if (otherv != null) {
+      //   return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
+      // }
       return null;
 
     case FSK.automated:
@@ -135,14 +135,18 @@ Future<String?> configureFilesFormActions(
       state[FSK.tableName] = unpack(state[FSK.tableName]);
       state[FSK.objectType] = unpack(state[FSK.objectType]);
       state[FSK.inputColumnsJson] = unpack(state[FSK.inputColumnsJson]);
-      state[FSK.inputColumnsPositionsCsv] = unpack(state[FSK.inputColumnsPositionsCsv]);
+      state[FSK.inputColumnsPositionsCsv] =
+          unpack(state[FSK.inputColumnsPositionsCsv]);
       state[FSK.domainKeysJson] = unpack(state[FSK.domainKeysJson]);
-      state[FSK.codeValuesMappingJson] = unpack(state[FSK.codeValuesMappingJson]);
+      state[FSK.codeValuesMappingJson] =
+          unpack(state[FSK.codeValuesMappingJson]);
       state[FSK.automated] = unpack(state[FSK.automated]);
       if (state[FSK.inputColumnsJson] != null) {
-        formState.setValue(group, FSK.scCsvOrFixedOption, FSK.scHeaderlessCsvOption);
-      } else if(state[FSK.inputColumnsPositionsCsv] != null) {
-        formState.setValue(group, FSK.scCsvOrFixedOption, FSK.scFixedWidthOption);
+        formState.setValue(
+            group, FSK.scCsvOrFixedOption, FSK.scHeaderlessCsvOption);
+      } else if (state[FSK.inputColumnsPositionsCsv] != null) {
+        formState.setValue(
+            group, FSK.scCsvOrFixedOption, FSK.scFixedWidthOption);
       } else {
         formState.setValue(group, FSK.scCsvOrFixedOption, FSK.scCsvOption);
       }
@@ -154,27 +158,43 @@ Future<String?> configureFilesFormActions(
       if (!valid) {
         return null;
       }
-      // print('Add Source Config state: $state');
+
+      final stateCopy = Map<String, dynamic>.from(state);
       var query = 'source_config'; // case add
-      if (formState.getValue(0, FSK.key) != null) {
+      if (stateCopy[FSK.key] != null) {
         query = 'update/source_config';
       }
-
-      state['table_name'] = makeTableNameFromState(state);
+      stateCopy['table_name'] = makeTableNameFromState(state);
+      switch (unpack(stateCopy[FSK.scCsvOrFixedOption])) {
+        case FSK.scCsvOption:
+          stateCopy[FSK.inputColumnsJson] = null;
+          stateCopy[FSK.inputColumnsPositionsCsv] = null;
+          break;
+        case FSK.scHeaderlessCsvOption:
+          stateCopy[FSK.inputColumnsPositionsCsv] = null;
+          break;
+        case FSK.scFixedWidthOption:
+          stateCopy[FSK.inputColumnsJson] = null;
+          break;
+        default:
+          print("ERROR: missing FSK.scCsvOrFixedOption selection in state!");
+          return "error";
+      }
+      // print('*** Add Source Config state: $stateCopy');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [
           <String, String>{'table': query}
         ],
-        'data': [state],
+        'data': [stateCopy],
       }, toEncodable: (_) => '');
       final statusCode = await postSimpleAction(
           context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       if (statusCode == 200) return null;
-      if(statusCode == 409 && context.mounted) {
+      if (statusCode == 409 && context.mounted) {
         showAlertDialog(context, "Record already exist, please verify.");
       }
-      if(context.mounted) {
+      if (context.mounted) {
         showAlertDialog(context, "Server error, please try again.");
       }
       return "Error while saving file configuration";
@@ -229,7 +249,7 @@ Future<String?> configureFilesFormActions(
       Navigator.of(context).pop();
       break;
     default:
-      print('Oops unknown ActionKey for Client Config UF State: $actionKey');
+      print('Oops unknown ActionKey for Client Config UF: $actionKey');
   }
   return null;
 }
