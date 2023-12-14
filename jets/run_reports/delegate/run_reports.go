@@ -337,15 +337,12 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 				) 
 				VALUES 
 					(
-						$1, $2, $3, $4, 
-						(SELECT source_period_key 
-							FROM jetsapi.session_registry 
-							WHERE	session_id = $6), 
-						$5, 'file', $6, $7
+						$1, $2, $3, $4, $5, 
+						$6, 'file', $7, $8
 					) ON CONFLICT DO NOTHING RETURNING key`
 			_, err2 = dbpool.Exec(context.Background(), registerReportStmt, 
-				ca.Client, stmtProps["org"], stmtProps["object_type"], ca.FileKey, tableName,
-				ca.SessionId, "system")
+				ca.Client, stmtProps["org"], stmtProps["object_type"], ca.FileKey,
+				ca.SourcePeriodKey, tableName, ca.SessionId, "system")
 			if err2 != nil {
 				return "", fmt.Errorf("while adding report to input_registry table: %v", err2)
 			}
