@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
-import 'package:jetsclient/screens/components/form_with_tabs.dart';
+import 'package:jetsclient/components/form_with_tabs.dart';
 
-import 'package:jetsclient/utils/form_config.dart';
-import 'package:jetsclient/screens/components/jets_form_state.dart';
-import 'package:jetsclient/screens/components/form.dart';
-import 'package:jetsclient/screens/components/base_screen.dart';
+import 'package:jetsclient/models/form_config.dart';
+import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/components/form.dart';
+import 'package:jetsclient/screens/base_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// Screen with tabs across the top, each tab contains a form
@@ -31,7 +31,7 @@ class ScreenWithTabsWithForm extends BaseScreen {
                       fit: FlexFit.tight,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                            defaultPadding, 2 * defaultPadding, 0, 0),
+                            defaultPadding, 0, 0, 0),
                         child: Text(
                           screenConfig.title!,
                           style: Theme.of(context).textTheme.headlineMedium,

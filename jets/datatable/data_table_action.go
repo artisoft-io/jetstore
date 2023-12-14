@@ -91,11 +91,13 @@ type WithClause struct {
 	Stmt string `json:"stmt"`
 }
 type WhereClause struct {
-	Table    string   `json:"table"`
-	Column   string   `json:"column"`
-	Values   []string `json:"values"`
-	JoinWith string   `json:"joinWith"`
-	Like     string   `json:"like"`
+	Table    string          `json:"table"`
+	Column   string          `json:"column"`
+	Values   []string        `json:"values"`
+	JoinWith string          `json:"joinWith"`
+	Like     string          `json:"like"`
+	// Adding a simple or clause
+	OrWith   *WhereClause    `json:"orWith"`
 }
 
 // DataTableColumnDef used when returning the column definition
@@ -180,7 +182,7 @@ func (dtq *DataTableAction) getColumnsDefinitions(dbpool *pgxpool.Pool) ([]DataT
 	//* TODO use cache
 	tableSchema, err := schema.GetTableSchema(dbpool, dtq.FromClauses[0].Schema, dtq.FromClauses[0].Table)
 	if err != nil {
-		return nil, fmt.Errorf("While schema.GetTableSchema for %s.%s: %v", dtq.FromClauses[0].Schema, dtq.FromClauses[0].Table, err)
+		return nil, fmt.Errorf("while schema.GetTableSchema for %s.%s: %v", dtq.FromClauses[0].Schema, dtq.FromClauses[0].Table, err)
 	}
 	columnsDef = make([]DataTableColumnDef, 0, len(tableSchema.Columns))
 	for _, colDef := range tableSchema.Columns {
@@ -290,6 +292,72 @@ func (dtq *DataTableAction) makeWithClause() string {
 	return buf.String()
 }
 
+func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
+	if wc.OrWith != nil {
+		buf.WriteString("( ")
+	}
+	if wc.Table != "" {
+		buf.WriteString(pgx.Identifier{wc.Table, wc.Column}.Sanitize())
+	} else {
+		buf.WriteString(pgx.Identifier{wc.Column}.Sanitize())
+	}
+	nvalues := len(wc.Values)
+	// Check if value contains an pg array encoded into a string
+	if nvalues == 1 {
+		if wc.Values[0] == "{}" {
+			wc.Values[0] = "NULL"
+		} else {
+			v := wc.Values[0]
+			if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") {
+				wc.Values = strings.Split(v[1:len(v)-1], ",")
+				nvalues = len(wc.Values)
+			}
+		}
+	}
+	switch {
+	case len(wc.Like) > 0:
+		buf.WriteString(" LIKE ")
+		buf.WriteString("'")
+		buf.WriteString(wc.Like)
+		buf.WriteString("' ")
+	case len(wc.JoinWith) > 0:
+		buf.WriteString(" = ")
+		buf.WriteString(wc.JoinWith)
+	case nvalues > 1:
+		buf.WriteString(" IN (")
+		isFirstValue := true
+		for j := range wc.Values {
+			if !isFirstValue {
+				buf.WriteString(", ")
+			}
+			isFirstValue = false
+			value := wc.Values[j]
+			if value == "NULL" {
+				buf.WriteString(" NULL ")
+			} else {
+				buf.WriteString("'")
+				buf.WriteString(value)
+				buf.WriteString("'")
+			}
+		}
+		buf.WriteString(") ")
+	default:
+		value := wc.Values[0]
+		if value == "NULL" {
+			buf.WriteString(" is NULL ")
+		} else {
+			buf.WriteString(" = '")
+			buf.WriteString(value)
+			buf.WriteString("'")
+		}
+	}
+	if wc.OrWith != nil {
+		buf.WriteString(" OR ")
+		visitWhereClause(buf, wc.OrWith)
+		buf.WriteString(" )")
+	}
+}
+
 func (dtq *DataTableAction) makeWhereClause() string {
 	if len(dtq.WhereClauses) == 0 {
 		return ""
@@ -302,61 +370,7 @@ func (dtq *DataTableAction) makeWhereClause() string {
 			buf.WriteString(" AND ")
 		}
 		isFirst = false
-		if dtq.WhereClauses[i].Table != "" {
-			buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Table, dtq.WhereClauses[i].Column}.Sanitize())
-		} else {
-			buf.WriteString(pgx.Identifier{dtq.WhereClauses[i].Column}.Sanitize())
-		}
-		nvalues := len(dtq.WhereClauses[i].Values)
-		// Check if value contains an pg array encoded into a string
-		if nvalues == 1 {
-			if dtq.WhereClauses[i].Values[0] == "{}" {
-				dtq.WhereClauses[i].Values[0] = "NULL"
-			} else {
-				v := dtq.WhereClauses[i].Values[0]
-				if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") {
-					dtq.WhereClauses[i].Values = strings.Split(v[1:len(v)-1], ",")
-					nvalues = len(dtq.WhereClauses[i].Values)
-				}
-			}
-		}
-		switch {
-		case len(dtq.WhereClauses[i].Like) > 0:
-			buf.WriteString(" like ")
-			buf.WriteString("'")
-			buf.WriteString(dtq.WhereClauses[i].Like)
-			buf.WriteString("' ")
-		case len(dtq.WhereClauses[i].JoinWith) > 0:
-			buf.WriteString(" = ")
-			buf.WriteString(dtq.WhereClauses[i].JoinWith)
-		case nvalues > 1:
-			buf.WriteString(" IN (")
-			isFirstValue := true
-			for j := range dtq.WhereClauses[i].Values {
-				if !isFirstValue {
-					buf.WriteString(", ")
-				}
-				isFirstValue = false
-				value := dtq.WhereClauses[i].Values[j]
-				if value == "NULL" {
-					buf.WriteString(" NULL ")
-				} else {
-					buf.WriteString("'")
-					buf.WriteString(value)
-					buf.WriteString("'")
-				}
-			}
-			buf.WriteString(") ")
-		default:
-			value := dtq.WhereClauses[i].Values[0]
-			if value == "NULL" {
-				buf.WriteString(" is NULL ")
-			} else {
-				buf.WriteString(" = '")
-				buf.WriteString(value)
-				buf.WriteString("'")
-			}
-		}
+		visitWhereClause(&buf, &dtq.WhereClauses[i])
 	}
 	return buf.String()
 }
@@ -958,6 +972,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 			peKey := strconv.Itoa(returnedKey[irow])
 			//* TODO We should lookup main_input_file_key rather than file_key here
+			client := row["client"]
 			fileKey := dataTableAction.Data[irow]["file_key"]
 			sessionId := row["session_id"]
 			userEmail := row["user_email"]
@@ -978,6 +993,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				return
 			}
 			runReportsCommand := []string{
+				"-client", client.(string),
 				"-processName", processName.(string),
 				"-sessionId", sessionId.(string),
 				"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),

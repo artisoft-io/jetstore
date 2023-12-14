@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/utils/form_config.dart';
-import 'package:jetsclient/utils/screen_config.dart';
+import 'package:jetsclient/models/form_config.dart';
+import 'package:jetsclient/models/screen_config.dart';
 import 'dart:async';
 import 'jets_route_information_parser.dart';
 import 'jets_routes_app.dart';

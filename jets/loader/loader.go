@@ -509,6 +509,12 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInf
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
 		}
+		// Make sure we don't have empty names in rawHeaders
+		for i := range rawHeaders {
+			if rawHeaders[i] == "" {
+				rawHeaders[i] = "Filler"
+			}
+		}
 		fmt.Println("Got input columns (rawHeaders) from json:", rawHeaders)
 
 	case FixedWith:
@@ -687,6 +693,39 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInf
 		err = headersDKInfo.CreateStagingTable(dbpool, tableName)
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("while creating table: %v", err)
+		}
+	} else {
+		// Check if the input file has new headers compared to the staging table.
+		// ---------------------------------------------------------------
+		tableSchema, err := schema.GetTableSchema(dbpool, "public", tableName)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("while querying existing table schema: %v", err)
+		}
+		existingColumns := make(map[string]bool)
+		unseenColumns := make(map[string]bool)
+		// Make a lookup of existing column name
+		for i := range tableSchema.Columns {
+			c := &tableSchema.Columns[i]
+			existingColumns[c.ColumnName] = true
+		}
+		// Make a lookup of unseen columns
+		for i := range rawHeaders {
+			if !existingColumns[rawHeaders[i]] {
+				unseenColumns[rawHeaders[i]] = true
+			}
+		}
+		switch l := len(unseenColumns); {
+		case l > 20:
+			return nil, 0, 0, fmt.Errorf("error: too many unseen columns (%d), may be wrong file", l)
+		case l > 0:
+			// Add unseen columns to staging table
+			for c := range unseenColumns {
+				tableSchema.Columns = append(tableSchema.Columns, schema.ColumnDefinition{
+					ColumnName: c,
+					DataType: "text",
+				})
+			}
+			tableSchema.UpdateTable(dbpool, tableSchema)
 		}
 	}
 

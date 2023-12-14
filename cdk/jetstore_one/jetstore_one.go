@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -494,6 +495,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Vpc: vpc,
 		VpcSubnets: isolatedSubnetSelection,
 	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(statusUpdateLambda).Add(phiTagName, jsii.String("false"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(statusUpdateLambda).Add(piiTagName, jsii.String("false"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(statusUpdateLambda).Add(descriptionTagName, jsii.String("JetStore lambda to update the pipeline status upon completion"), nil)
+	}
 	statusUpdateLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
 	rdsSecret.GrantRead(statusUpdateLambda, nil)
 	// NOTE following added below due to dependency
@@ -1197,6 +1207,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
+// JETS_STACK_TAGS_JSON (optional, stack-level tags name/value as json)
 // JETS_UI_PORT (defaults 8080)
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
@@ -1248,6 +1259,7 @@ func main() {
 	fmt.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
 	fmt.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
 	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
+	fmt.Println("env JETS_STACK_TAGS_JSON:", os.Getenv("JETS_STACK_TAGS_JSON"))
 	fmt.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
 	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
@@ -1350,6 +1362,18 @@ func main() {
 	}
 	if os.Getenv("JETS_TAG_NAME_PROD") != "" && os.Getenv("JETS_TAG_VALUE_PROD") != "" {
 		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PROD")), jsii.String(os.Getenv("JETS_TAG_VALUE_PROD")), nil)
+	}
+	// Set custom tags from JETS_STACK_TAGS_JSON
+	if(os.Getenv("JETS_STACK_TAGS_JSON") != "") {
+		var tags map[string]string
+		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
+		if err != nil {
+			fmt.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
+			os.Exit(1)
+		}
+		for k, v := range tags {
+			awscdk.Tags_Of(app).Add(jsii.String(k), jsii.String(v), nil)
+		}
 	}
 	var snsAlarmTopicArn *string
 	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {

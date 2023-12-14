@@ -262,7 +262,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	}
 
 	// Drop input columns (rawHeaders) matching the reserved column names
-	// Drop input columns (rawHeaders) that appear more than once (e.g. 'filler' columns)
+	// Drop input columns (rawHeaders) that appear more than once (e.g. 'Filler' columns)
 	// compute headers of output table
 	for ipos := range dkInfo.RawHeaders {
 		h := dkInfo.RawHeaders[ipos]

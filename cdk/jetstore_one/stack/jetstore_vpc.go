@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -106,6 +107,17 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(s3Endpoint).Add(descriptionTagName, jsii.String("S3 Gateway Endpoint for JetStore Platform"), nil)
 	}
+	if(os.Getenv("JETS_STACK_TAGS_JSON") != "") {
+		var tags map[string]string
+		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
+		if err != nil {
+			fmt.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
+			os.Exit(1)
+		}
+		for k, v := range tags {
+			awscdk.Tags_Of(s3Endpoint).Add(jsii.String(k), jsii.String(v), nil)
+		}
+	}
 	s3Endpoint.AddToPolicy(
 		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Sid: jsii.String("bucketAccessPolicy"),
@@ -128,6 +140,17 @@ func addTag2Endpoint(endpoint awsec2.InterfaceVpcEndpoint) awsec2.InterfaceVpcEn
 	}
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(endpoint).Add(descriptionTagName, jsii.String("VPC endpoint for JetStore Platform"), nil)
+	}
+	if(os.Getenv("JETS_STACK_TAGS_JSON") != "") {
+		var tags map[string]string
+		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
+		if err != nil {
+			fmt.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
+			os.Exit(1)
+		}
+		for k, v := range tags {
+			awscdk.Tags_Of(endpoint).Add(jsii.String(k), jsii.String(v), nil)
+		}
 	}
 	return endpoint
 }

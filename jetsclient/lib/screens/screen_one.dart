@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:jetsclient/screens/components/data_table.dart';
-import 'package:jetsclient/screens/components/base_screen.dart';
-import 'package:jetsclient/screens/components/jets_form_state.dart';
-import 'package:jetsclient/utils/data_table_config.dart';
-import 'package:jetsclient/utils/form_config.dart';
+import 'package:jetsclient/components/data_table.dart';
+import 'package:jetsclient/screens/base_screen.dart';
+import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/models/data_table_config.dart';
+import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 class ScreenOne extends BaseScreen {

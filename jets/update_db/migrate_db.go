@@ -44,9 +44,50 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
+func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
+	// initialize jetsapi database -- base initialization only
+	// jetsapiInitPath using base_workspace_init_db.sql
+	basePath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
+	basePath = strings.TrimSuffix(basePath, "/")
+	sqlFile := fmt.Sprintf("%s/base_workspace_init_db.sql", basePath)
+	fmt.Println("\nInitializing jetsapi db using", sqlFile)
+	file, err := os.Open(sqlFile)
+	if err != nil {
+		return fmt.Errorf("error while opening jetsapi init db file: %v", err)
+	}
+	defer file.Close()
+	// load & exec sql stmts
+	reader := bufio.NewReader(file)
+	isDone := false
+	var stmt string
+	for !isDone {
+		stmt, err = reader.ReadString(';')
+		if err == io.EOF {
+			isDone = true
+			err = nil
+			break
+		} else if err != nil {
+			return fmt.Errorf("error while reading stmt: %v", err)
+		}
+		if len(stmt) == 0 {
+			return fmt.Errorf("error while reading db init, stmt is empty")
+		}
+		stmt = strings.TrimSpace(stmt)
+		// fmt.Println(stmt)
+		_, err = dbpool.Exec(context.Background(), stmt)
+		if err != nil {
+			return fmt.Errorf("error while executing: %v", err)
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("error executing the workspace init db path %s: %v", sqlFile, err)
+	}
+	return nil
+}
+
 func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
 	// initialize jetsapi database
-	// jetsapiInitPath use to be the path of workspace_init_db.sql
+	// jetsapiInitPath used to be the path of workspace_init_db.sql
 	// if jetsapiInitPath ends with workspace_init_db.sql, remove the suffix
 	// and use all files in directory
 	workspaceInitDbPath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")

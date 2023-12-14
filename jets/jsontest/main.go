@@ -1,8 +1,9 @@
 package main
 
 import (
-    "encoding/json"
-    "fmt"
+	"encoding/json"
+	"fmt"
+	"os"
 )
 
 func main() {
@@ -49,4 +50,21 @@ func main() {
 	fmt.Println("Columns are:", columns)
 	query := data["query"].(string)
 	fmt.Println("The query is:", query)
+
+	doOther1()
+}
+
+func doOther1() {
+	if(os.Getenv("JETS_STACK_TAGS_JSON") != "") {
+		var tags map[string]string
+		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
+		if err != nil {
+			fmt.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
+			os.Exit(1)
+		}
+		fmt.Println("Got JETS_STACK_TAGS_JSON:")
+		for k, v := range tags {
+			fmt.Println("  ",k,"=",v)
+		}
+	}
 }

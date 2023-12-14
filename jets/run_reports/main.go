@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -54,8 +55,21 @@ var devMode bool
 // by writing back into the platform input folders, although using a different object_type in the output path
 // The output path is specified by var ca.OutputPath, which start to be the same as filePath but can be modified based on
 // the directives of config.json
+// NOTE 12/13/2023:
+// Exposing source_period_key as a substitution variable in the report scripts
 
-var reportDirectives = &delegate.ReportDirectives{}
+func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId string) (int, error) {
+	var sourcePeriodKey int
+	err := dbpool.QueryRow(context.Background(), 
+		"SELECT source_period_key FROM jetsapi.pipeline_execution_status WHERE session_id=$1", 
+		sessionId).Scan(&sourcePeriodKey)
+	if err != nil {
+		return 0, 
+			fmt.Errorf("failed to get source_period_key from pipeline_execution_status table for session_id '%s': %v", sessionId, err)
+	}
+	return sourcePeriodKey, nil
+}
+
 
 func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	wh := os.Getenv("WORKSPACES_HOME")
@@ -88,7 +102,7 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	}
 
 	// Read the report config file
-	ca.ReportConfiguration = &map[string]delegate.ReportDirectives{}
+	reportConfiguration := &map[string]delegate.ReportDirectives{}
 	configFile := fmt.Sprintf("%s/%s/reports/config.json", wh, ws)
 	file, err := os.ReadFile(configFile)
 	if err != nil {
@@ -100,63 +114,76 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	} else {
 		// Un-marshal the reportDirectives
 		fmt.Println("Un-marshal the reportDirectives")
-		err = json.Unmarshal(file, ca.ReportConfiguration)
+		err = json.Unmarshal(file, reportConfiguration)
 		if err != nil {
-			return fmt.Errorf("Error while parsing report config.json: %v", err)
+			return fmt.Errorf("error while parsing report config.json: %v", err)
 		}
 		//*
-		fmt.Println("REPORT DIRECTIVES:",*ca.ReportConfiguration)
+		fmt.Println("REPORT DIRECTIVES:",*reportConfiguration)
 		// The report directives for the current reportName
-		rd, ok := (*ca.ReportConfiguration)[*reportName]
+		rd, ok := (*reportConfiguration)[*reportName]
 		if ok {
-			reportDirectives = &rd
+			ca.CurrentReportDirectives = &rd
+		} else {
+			ca.CurrentReportDirectives = &delegate.ReportDirectives{}
 		}
 	}
 	// Apply / update the reportDirectives
 	ca.OutputPath = *filePath
 	switch {
-	case reportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
+	case ca.CurrentReportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
 		// Write the output file in the jetstore input folder of s3
 		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
 			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
 			os.Getenv("JETS_s3_INPUT_PREFIX"))
-	case reportDirectives.OutputS3Prefix != "":
+	case ca.CurrentReportDirectives.OutputS3Prefix != "":
 		// Write output file to a location based on a custom s3 prefix
 		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
 			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
-			reportDirectives.OutputS3Prefix)
-	case reportDirectives.OutputPath != "":
+			ca.CurrentReportDirectives.OutputS3Prefix)
+	case ca.CurrentReportDirectives.OutputPath != "":
 		// Write output file to a specified s3 location
-		ca.OutputPath = reportDirectives.OutputPath
+		ca.OutputPath = ca.CurrentReportDirectives.OutputPath
 	}
-	for i := range reportDirectives.FilePathSubstitution {
+	for i := range ca.CurrentReportDirectives.FilePathSubstitution {
 		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
-			reportDirectives.FilePathSubstitution[i].Replace,
-			reportDirectives.FilePathSubstitution[i].With)
+			ca.CurrentReportDirectives.FilePathSubstitution[i].Replace,
+			ca.CurrentReportDirectives.FilePathSubstitution[i].With)
 	}
 	if ca.OutputPath == "" {
-		return fmt.Errorf("Can't determine ca.OutputPath, is file path argument missing? (-filePath)")
+		return fmt.Errorf("can't determine ca.OutputPath, is file path argument missing? (-filePath)")
 	}
 	ca.OutputPath = strings.TrimSuffix(ca.OutputPath, "/")
 	fmt.Println("Report ca.OutputPath:", ca.OutputPath)
 
 	// Put the full path to the ReportScript
 	ca.ReportScriptPaths = make([]string, 0)
-	if len(reportDirectives.ReportScripts) > 0 {
-		for i := range reportDirectives.ReportScripts {
-			ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s", wh, ws, reportDirectives.ReportScripts[i]))
+	if len(ca.CurrentReportDirectives.ReportScripts) > 0 {
+		for i := range ca.CurrentReportDirectives.ReportScripts {
+			ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s", wh, ws, ca.CurrentReportDirectives.ReportScripts[i]))
 		}
 	} else {
 		// reportScripts defaults to process name
 		ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s.sql", wh, ws, *reportName))
+		ca.CurrentReportDirectives.ReportScripts = []string{*reportName}
 	}
 
 	if len(ca.ReportScriptPaths) == 0 {
-		return fmt.Errorf("Error: can't determine the report definitions file.")
+		return fmt.Errorf("error: can't determine the report definitions file")
 	}
 	fmt.Println("Executing the following reports:")
 	for i := range ca.ReportScriptPaths {
 		fmt.Println("  -", ca.ReportScriptPaths[i])
+	}
+
+	// Get the source_period_key from pipeline_execution_status table by session_id
+	if len(ca.SessionId) > 0 {
+		k, err := getSourcePeriodKey(dbpool, ca.SessionId)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			ca.SourcePeriodKey = strconv.Itoa(k)
+		}
 	}
 
 	// Do the reports
@@ -286,12 +313,12 @@ func main() {
 	fmt.Println("Got argument: awsBucket", *awsBucket)
 	fmt.Println("Got argument: filePath", *filePath)
 	fmt.Println("Got argument: originalFileName", *originalFileName)
-	fmt.Println("Is updateLookupTables?", reportDirectives.UpdateLookupTables)
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("Process Input file_key:", fileKey)
 
 	ca := &delegate.CommandArguments{
+		Client: *client,
 		WorkspaceName: ws,
 		SessionId: *sessionId,
 		ProcessName: *processName,
@@ -300,7 +327,7 @@ func main() {
 		// OutputPath: ,
 		OriginalFileName: *originalFileName,
 		ReportScriptPaths: []string{},
-		// ReportConfiguration: reportConfig, // set in func coordinateWorkAndUpdateStatus
+		// CurrentReportConfiguration: reportConfig, // set in func coordinateWorkAndUpdateStatus
 		BucketName: *awsBucket,
 		RegionName: *awsRegion,
 	}

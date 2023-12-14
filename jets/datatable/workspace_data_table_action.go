@@ -169,9 +169,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	
 		case dataTableAction.FromClauses[0].Table == "git_command_workspace":
 			// Execute git commands in workspace
-			if os.Getenv("WORKSPACE_URI") != "" {
-				return nil, http.StatusUnauthorized, fmt.Errorf("not authorized to execute git_command_workspace")
-			}
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for git_command_workspace, missing workspace_name")
 			}
@@ -248,8 +245,9 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			dataTableAction.Data[irow]["status"] = status
 
 		case dataTableAction.FromClauses[0].Table == "pull_workspace":
-			// Pull changes by fastforwarding only from WorkspaceBranch into current branch
+			// Pull changes by merging WorkspaceBranch into current branch
 			// Apply workspace overrides (except for compiled files)
+			// Optionally, compile workspace and load client config
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing workspace_name")
 			}
@@ -260,7 +258,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			gitUser := gitProfile.Name
 			gitToken := gitProfile.GitToken
 			if(wsUri == "" || gitUser == "" || gitToken == "") {
-					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
+				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
 			var status string
 			gitLog, err = pullWorkspaceAction(ctx.Dbpool, irow, &gitProfile, dataTableAction)
@@ -270,6 +268,29 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				status = "error"
 			}
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
+			if status != "error" {
+				// Check if compile_workspace is requested, if not check if load client config is requested
+				otherActions := dataTableAction.Data[irow]["otherWorkspaceActionOptions"]
+				if(otherActions != nil) {
+					l := otherActions.([]interface{})
+					compileWorkspaceStarted := false
+					for i := range l {
+						if l[i] != nil && l[i] == "wpCompileWorkspaceOption" {
+							status = "Compiling workspace in progress"
+							go compileWorkspaceAction(ctx, dataTableAction)
+							compileWorkspaceStarted = true
+						}
+					}
+					if !compileWorkspaceStarted {
+						for i := range l {
+							if l[i] != nil && l[i] == "wpLoadClientConfgOption" {
+								status = "Loading client config in progress"
+								go loadWorkspaceConfigAction(ctx, dataTableAction)
+							}
+						}	
+					}
+				}
+			}
 			dataTableAction.Data[irow]["status"] = status
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
@@ -283,18 +304,8 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for load_workspace_config, missing workspace_name")
 			}
-			// using update_db script
-			log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
-			serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
-			if ctx.UsingSshTunnel {
-				serverArgs = append(serverArgs, "-usingSshTunnel")
-			}
-			results, err := RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
-			dataTableAction.Data[0]["last_git_log"] = results
-			dataTableAction.Data[0]["status"] = ""
-			if err != nil {
-				dataTableAction.Data[0]["status"] = "error"
-			}
+			dataTableAction.Data[irow]["status"] = ""
+
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 			if dataTableAction.WorkspaceName == "" {
@@ -311,6 +322,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			//	- It is an error to delete the active workspace
 			//	- Delete folder with workspace_name under workspaces root
 			//	- Delete in workspace_registry table by key (done below by the main sqlStmt)
+			dataTableAction.Data[irow]["status"] = ""
 			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
 				WorkspaceName   : dataTableAction.WorkspaceName,
 				WorkspaceUri    : "",
@@ -361,14 +373,14 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	switch {
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
-		go compileWorkspaceAction(ctx.Dbpool, dataTableAction)
+		go compileWorkspaceAction(ctx, dataTableAction)
 
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
 		go UnitTestWorkspaceAction(ctx, dataTableAction, token)
 
-	// case dataTableAction.FromClauses[0].Table == "load_workspace_config":
-	// 	// Load workspace config
-	// 	go loadWorkspaceConfigAction(ctx, dataTableAction)
+	case dataTableAction.FromClauses[0].Table == "load_workspace_config":
+		// Load workspace config
+		loadWorkspaceConfigAction(ctx, dataTableAction)
 
 	}
 	returnResults:
