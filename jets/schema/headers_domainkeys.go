@@ -93,8 +93,8 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 	}
 	return &headersDKInfo, nil
 }
-func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders []string, mainObjectType string, domainKeysJson *string, fixedWidthColumnPrefix string) error {
-	dkInfo.RawHeaders = append(dkInfo.RawHeaders, rawHeaders...)
+func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders *[]string, mainObjectType string, domainKeysJson *string, fixedWidthColumnPrefix string) error {
+	dkInfo.RawHeaders = append(dkInfo.RawHeaders, (*rawHeaders)...)
 	dkInfo.ReservedColumns["file_key"] = true
 	dkInfo.ReservedColumns["jets:key"] = true
 	dkInfo.ReservedColumns["last_update"] = true
@@ -102,8 +102,8 @@ func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders []strin
 	dkInfo.FixedWidthColumnPrefix = fixedWidthColumnPrefix
 	return dkInfo.Initialize(mainObjectType, domainKeysJson)
 }
-func (dkInfo *HeadersAndDomainKeysInfo)InitializeDomainTable(domainHeaders []string, mainObjectType string, domainKeysJson *string) error {
-	dkInfo.RawHeaders = append(dkInfo.RawHeaders, domainHeaders...)
+func (dkInfo *HeadersAndDomainKeysInfo)InitializeDomainTable(domainHeaders *[]string, mainObjectType string, domainKeysJson *string) error {
+	dkInfo.RawHeaders = append(dkInfo.RawHeaders, (*domainHeaders)...)
 	dkInfo.ReservedColumns["last_update"] = true
 	dkInfo.ReservedColumns["session_id"] = true
 	return dkInfo.Initialize(mainObjectType, domainKeysJson)
