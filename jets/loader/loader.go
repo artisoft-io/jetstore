@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	goparquet "github.com/fraugster/parquet-go"
 )
 
 // Main loader functions
@@ -34,6 +36,7 @@ const (
 	Csv InputEncoding = iota
 	HeaderlessCsv
 	FixedWidth
+	Parquet
 )
 
 func (s InputEncoding) String() string {
@@ -44,13 +47,31 @@ func (s InputEncoding) String() string {
 		return "headerless csv"
 	case FixedWidth:
 		return "fixed-width"
+	case Parquet:
+		return "parquet"
 	}
 	return "unknown"
 }
 
+func InputEncodingFromString(ie string) InputEncoding {
+	switch ie {
+	case "csv":
+		return Csv
+	case "headerless csv":
+		return HeaderlessCsv
+	case "fixed-width":
+		return FixedWidth
+	case "parquet":
+		return Parquet
+	}
+	return Csv
+}
+
 var inputFileEncoding InputEncoding
 
-func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, csvReader *csv.Reader, fwScanner *bufio.Scanner) (int64, *[]int, error) {
+func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, 
+	csvReader *csv.Reader, fwScanner *bufio.Scanner, parquetReader *goparquet.FileReader) (int64, *[]int, error) {
+
 	var badRowsPos []int
 	headerPos := headersDKInfo.GetHeaderPos()
 	fileKeyPos := headersDKInfo.HeadersPosMap["file_key"]
@@ -80,7 +101,7 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 	var partitionIndex int
 	var copyCount int64
 	var record []string
-	recordTypeOffset := 0
+	var recordTypeOffset int
 	currentLineNumber := 0
 	if inputFileEncoding == Csv {
 		// To account for the header line
@@ -101,6 +122,40 @@ func writeFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKe
 
 			case Csv, HeaderlessCsv:
 				record, err = csvReader.Read()
+
+			case Parquet:
+				record = make([]string, len(headersDKInfo.RawHeaders))
+				var parquetRow map[string]interface{}
+				parquetRow, err = parquetReader.NextRow()
+				if err == nil {
+					for i := range headersDKInfo.RawHeaders {
+						rawValue := parquetRow[headersDKInfo.RawHeaders[i]]
+						if rawValue == nil {
+							record[i] = ""
+						} else {
+							switch vv := rawValue.(type) {
+							case int:
+								record[i] = strconv.Itoa(vv)
+							case string:
+								record[i] = vv
+							case []byte:
+								record[i] = string(vv)
+							default:
+								t := reflect.TypeOf(rawValue)
+								if t.Kind() == reflect.Array {
+									v := reflect.ValueOf(rawValue)
+									bb := make([]byte, t.Len())
+									for i := range bb {
+										bb[i] = byte(v.Index(i).Interface().(uint8))
+									}
+									record[i] = string(bb)
+								} else {
+									record[i] = fmt.Sprintf("%v", rawValue)
+								}
+							}
+						}
+				}
+			}
 
 			case FixedWidth:
 				record = make([]string, len(headersDKInfo.RawHeaders))
@@ -255,6 +310,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInf
 
 	var csvReader *csv.Reader
 	var fwScanner *bufio.Scanner
+	var parquetReader *goparquet.FileReader
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("recovered error: %v", r)
@@ -342,6 +398,20 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInf
 			return nil, 0, 0, err
 		}
 		fmt.Println("Input columns (rawHeaders) for fixed-width schema:", rawHeaders)
+
+	case Parquet:
+		// Get the file headers from the parquet schema
+		parquetReader, err = goparquet.NewFileReader(fileHd)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		rawHeaders, err = getParquetFileHeaders(parquetReader)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("while reading parquet headers: %v", err)
+		}
+		// Make sure we don't have empty names in rawHeaders
+		adjustFillers(&rawHeaders)
+		fmt.Println("Got input columns (rawHeaders) from parquet file:", rawHeaders)
 	}
 
 	// Contruct the domain keys based on domainKeysJson
@@ -366,7 +436,7 @@ func processFile(dbpool *pgxpool.Pool, fileHd, errFileHd *os.File) (headersDKInf
 
 	// read the rest of the file(s)
 	// ---------------------------------------
-	copyCount, badRowsPosPtr, err := writeFile2DB(dbpool, headersDKInfo, csvReader, fwScanner)
+	copyCount, badRowsPosPtr, err := writeFile2DB(dbpool, headersDKInfo, csvReader, fwScanner, parquetReader)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -476,12 +546,14 @@ func coordinateWork() error {
 		return fmt.Errorf("error: the session id is already used")
 	}
 
-	// Get the DomainKeysJson and tableName from source_config table
+	// Get source_config info: DomainKeysJson, tableName, input_format, is_part_files from source_config table
 	// ---------------------------------------
 	var dkJson, cnJson, fwCsv sql.NullString
 	err = dbpool.QueryRow(context.Background(),
-		"SELECT table_name, domain_keys_json, input_columns_json, input_columns_positions_csv FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3",
-		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv)
+		`SELECT table_name, domain_keys_json, input_columns_json, input_columns_positions_csv ,
+		input_format, is_part_files
+		  FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3`,
+		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv, &inputFormat, &isPartFiles)
 	if err != nil {
 		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv from jetsapi.source_config failed: %v", err)
 	}
@@ -499,59 +571,39 @@ func coordinateWork() error {
 		inputColumnsPositionsCsv = fwCsv.String
 		inputFileEncoding = FixedWidth
 	default:
-		inputFileEncoding = Csv
+		if len(inputFormat) > 0 {
+			inputFileEncoding = InputEncodingFromString(inputFormat)
+		} else {
+			inputFileEncoding = Csv
+		}
 	}
 
 	var fileHd, errFileHd *os.File
-	if len(*awsBucket) > 0 {
-
-		// Download object using a download manager to a temp file (fileHd)
-		fileHd, err = os.CreateTemp("", "jetstore")
-		if err != nil {
-			return fmt.Errorf("failed to open temp input file: %v", err)
-		}
-		// fmt.Println("Temp input file name:", fileHd.Name())
-		defer os.Remove(fileHd.Name())
-
-		// Open the error file
-		errFileHd, err = os.CreateTemp("", "jetstore_err")
-		if err != nil {
-			return fmt.Errorf("failed to open temp error file: %v", err)
-		}
-		// fmt.Println("Temp error file name:", errFileHd.Name())
-		defer os.Remove(errFileHd.Name())
-
-		// Download the object
-		nsz, err := awsi.DownloadFromS3(*awsBucket, *awsRegion, *inFile, fileHd)
-		if err != nil {
-			return fmt.Errorf("failed to download input file: %v", err)
-		}
-		fmt.Println("downloaded", nsz, "bytes from s3")
-
-		// Get ready to read the file
-		fileHd.Seek(0, 0)
-
-	} else {
-
-		// open input file
-		fileHd, err := os.Open(*inFile)
-		if err != nil {
-			return fmt.Errorf("error while opening input file: %v", err)
-		}
-		defer fileHd.Close()
-
-		// open the error file
-		dp, fn := filepath.Split(*inFile)
-		if len(errOutDir) == 0 {
-			errFileHd, err = os.Create(dp + "err_" + fn)
-		} else {
-			errFileHd, err = os.Create(fmt.Sprintf("%s/err_%s", errOutDir, fn))
-		}
-		if err != nil {
-			return fmt.Errorf("error while opening err file for bad input records: %v", err)
-		}
-		defer errFileHd.Close()
+	// Download object using a download manager to a temp file (fileHd)
+	fileHd, err = os.CreateTemp("", "jetstore")
+	if err != nil {
+		return fmt.Errorf("failed to open temp input file: %v", err)
 	}
+	// fmt.Println("Temp input file name:", fileHd.Name())
+	defer os.Remove(fileHd.Name())
+
+	// Download the object
+	nsz, err := awsi.DownloadFromS3(*awsBucket, *awsRegion, *inFile, fileHd)
+	if err != nil {
+		return fmt.Errorf("failed to download input file: %v", err)
+	}
+	fmt.Println("downloaded", nsz, "bytes from s3")
+
+	// Get ready to read the file
+	fileHd.Seek(0, 0)
+
+	// Open the error file
+	errFileHd, err = os.CreateTemp("", "jetstore_err")
+	if err != nil {
+		return fmt.Errorf("failed to open temp error file: %v", err)
+	}
+	// fmt.Println("Temp error file name:", errFileHd.Name())
+	defer os.Remove(errFileHd.Name())
 
 	// Process the downloaded file
 	hasBadRows, err := processFileAndReportStatus(dbpool, fileHd, errFileHd)
@@ -559,7 +611,7 @@ func coordinateWork() error {
 		return err
 	}
 
-	if len(*awsBucket) > 0 && hasBadRows {
+	if hasBadRows {
 
 		// aws integration: Copy the error file to awsBucket
 		errFileHd.Seek(0, 0)

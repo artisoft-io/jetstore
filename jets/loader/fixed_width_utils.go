@@ -13,7 +13,6 @@ import (
 
 // Utilities for Fixed Width Files
 
-
 // Struct to hold column names and positions for fixed-width file encoding
 // ColumnsMap key is record type or empty string if single record type (RecordTypeColumn = nil)
 // In ColumnsMap elements, ColumnName is <record type>.<record column name> to make it unique across record types

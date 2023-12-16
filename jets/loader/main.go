@@ -34,9 +34,9 @@ import (
 // JETS_LOADER_CHUNCK_SIZE buffer size for input lines, default 200K
 // JETS_LOG_DEBUG (optional, if > 0 for printing debug statements)
 // JETS_DOMAIN_KEY_SEPARATOR
-var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
-var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret or -awsBucket is provided)")
-var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (aws integration)")
+var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required or JETS_DSN_SECRET or -dsn)")
+var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (required or JETS_REGION)")
+var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (required or JETS_BUCKET)")
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var inFile = flag.String("in_file", "", "the input file_key name (required)")
 var dsn = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
@@ -54,6 +54,8 @@ var tableName string
 var domainKeysJson string
 var inputColumnsJson string
 var inputColumnsPositionsCsv string
+var inputFormat string
+var isPartFiles int
 var sep_flag jcsv.Chartype = '€'
 var errOutDir string
 var jetsInputRowJetsKeyAlgo string
@@ -132,9 +134,9 @@ func main() {
 	if *awsRegion == "" {
 		*awsRegion = os.Getenv("JETS_REGION")
 	}
-	if (*awsBucket != "" || *awsDsnSecret != "") && *awsRegion == "" {
+	if *awsBucket == "" || *awsRegion == "" {
 		hasErr = true
-		errMsg = append(errMsg, "aws region must be provided when using either -awsDsnSecret or -awsBucket.")
+		errMsg = append(errMsg, "aws JETS_REGION and JETS_BUCKET are required")
 	}
 
 	errOutDir = os.Getenv("LOADER_ERR_DIR")
@@ -198,6 +200,9 @@ func main() {
 	fmt.Println("Got argument: loaderCompletedMetric", *completedMetric)
 	fmt.Println("Got argument: loaderFailedMetric", *failedMetric)
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
+	fmt.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
+	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
+	fmt.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
 	fmt.Printf("ENV JETS_LOADER_SM_ARN: %s\n", os.Getenv("JETS_LOADER_SM_ARN"))
 	fmt.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
 	fmt.Printf("ENV JETS_LOADER_CHUNCK_SIZE: %s\n", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
