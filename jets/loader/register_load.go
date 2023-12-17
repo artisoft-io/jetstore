@@ -13,7 +13,7 @@ import (
 
 // Utility functions to register load
 
-func registerCurrentLoad(copyCount int64, badRowCount int, dbpool *pgxpool.Pool,
+func registerCurrentLoad(copyCount int64, badRowCount int64, dbpool *pgxpool.Pool,
 	dkInfo *schema.HeadersAndDomainKeysInfo, status string, errMessage string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
 		object_type, table_name, client, org, file_key, session_id, source_period_key, status, error_message,

@@ -118,6 +118,24 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int: %v", k, vv, err)
 					}
 				}
+			case "size":
+				switch vv := v.(type) {
+				case int:
+					fileKeyObject[k] = int64(vv)
+				case int32:
+					fileKeyObject[k] = int64(vv)
+				case int64:
+					fileKeyObject[k] = vv
+				case float64:
+					fileKeyObject[k] = int64(vv)
+				case float32:
+					fileKeyObject[k] = int64(vv)
+				case string:
+					fileKeyObject[k], err = strconv.ParseInt(vv, 10, 64)
+					if err != nil {
+						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int64: %v", k, vv, err)
+					}
+				}
 			}
 		}
 		ctx.updateFileKeyComponentCase(&fileKeyObject)
@@ -132,6 +150,32 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
 		}
 		fileKeyObject["source_period_key"] = source_period_key
+
+		// Get source_config info
+		client := fileKeyObject["client"]
+		org := fileKeyObject["org"]
+		objectType := fileKeyObject["object_type"]
+		var tableName string
+		var automated int
+		var isPartFile int
+		stmt := "SELECT table_name, automated, is_part_files FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile)
+		// process if entry found
+		if err == nil {
+			// Multi Part File
+			if isPartFile == 1 && fileKeyObject["size"].(int64) > 1000 {
+				log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
+				return &map[string]interface{}{}, http.StatusOK, nil	
+			}
+			// Current key is for sentinel file, remove sentinel file name from file_key
+			fileKey := fileKeyObject["file_key"].(string)
+			idx := strings.LastIndex(fileKey, "/")
+			if idx >= 0 && idx < len(fileKey)-1 {
+				// Removing file name
+				fileKey = (fileKey)[0:idx]
+				fileKeyObject["file_key"] = fileKey
+			}
+		}
 
 		// Insert file key info in table file_key_staging
 		// make sure we have a value for each column
@@ -163,17 +207,6 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		if strings.Contains(fileKey.(string), "/test_") {
 			log.Println("File key is test file, skiping the automated load")
 		} else {
-			client := fileKeyObject["client"]
-			org := fileKeyObject["org"]
-			objectType := fileKeyObject["object_type"]
-			var tableName string
-			var automated int
-			stmt := "SELECT table_name, automated FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
-			err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated)
-			if err != nil {
-				return nil, http.StatusNotFound,
-					fmt.Errorf("in RegisterKeys while querying source_config to start a load: %v", err)
-			}
 			if automated > 0 {
 				// to make sure we don't duplicate session_id
 				sessionId += 1

@@ -2,12 +2,16 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/dimchansky/utfbom"
 )
 
 // Utilities for CSV Files
@@ -29,6 +33,88 @@ func detectCsvDelimitor(fileHd *os.File) (d jcsv.Chartype, err error) {
 	}
 	return
 }
+
+func getRawHeadersCsv(localInFile string) ([]string, error) {
+	// Get field delimiters used in files and rawHeaders
+	var fileHd *os.File
+	var err error
+	if isPartFiles == 1 {
+		// Part Files case, pick one file to get the info from
+    f, err := os.Open(localInFile)
+    if err != nil {
+			return nil, fmt.Errorf("error while ready temp directory %s content: %v", localInFile, err)
+		}
+    files, err := f.Readdir(0)
+    if err != nil {
+			return nil, fmt.Errorf("error(2) while ready temp directory %s content: %v", localInFile, err)
+    }
+		// Using the first non dir entry
+    for i := range files {
+			if !files[i].IsDir() {
+				fileHd, err = os.Open(files[i].Name())
+				if err != nil {
+					return nil, fmt.Errorf("error opening temp file: %v", err)
+				}
+				defer fileHd.Close()
+				// Get the delimit and headers from fileHd
+				return getRawHeadersFromCsvFile(fileHd)		
+			}
+    }
+	}
+	fileHd, err = os.Open(localInFile)
+	if err != nil {
+		return nil, fmt.Errorf("error opening temp file: %v", err)
+	}
+	defer fileHd.Close()
+	// Get the delimit and headers from fileHd
+	return getRawHeadersFromCsvFile(fileHd)
+}
+
+func getRawHeadersFromCsvFile(fileHd *os.File) ([]string, error) {
+	var rawHeaders []string
+	var err error
+	var csvReader *csv.Reader
+
+	// determine the csv separator
+	if sep_flag == '€' {
+		sep_flag, err = detectCsvDelimitor(fileHd)
+		if err != nil {
+			return nil, err
+		}
+	}
+	fmt.Println("Detected sep_flag", sep_flag)
+
+	// Read the file headers
+	switch inputFileEncoding {
+	case Csv:
+		// Remove the Byte Order Mark (BOM) at beggining of the file if present
+		sr, _ := utfbom.Skip(fileHd)
+		// Setup a csv reader
+		csvReader = csv.NewReader(sr)
+		csvReader.Comma = rune(sep_flag)
+		csvReader.ReuseRecord = true
+		rawHeaders, err = csvReader.Read()
+		if err == io.EOF {
+			return nil, errors.New("input csv file is empty")
+		} else if err != nil {
+			return nil, fmt.Errorf("while reading csv headers: %v", err)
+		}
+		// Make sure we don't have empty names in rawHeaders
+		adjustFillers(&rawHeaders)
+		fmt.Println("Got input columns (rawHeaders) from csv file:", rawHeaders)
+
+	case HeaderlessCsv:
+		err := json.Unmarshal([]byte(inputColumnsJson), &rawHeaders)
+		if err != nil {
+			return nil, fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
+		}
+		// Make sure we don't have empty names in rawHeaders
+		adjustFillers(&rawHeaders)
+		fmt.Println("Got input columns (rawHeaders) from json:", rawHeaders)
+	}
+	return rawHeaders, nil
+}
+
 
 func adjustFillers(rawHeaders *[]string) {
 	for i := range *rawHeaders {
