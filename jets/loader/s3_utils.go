@@ -15,8 +15,8 @@ func downloadS3Files() (string, error) {
 	var err error
 	if isPartFiles == 1 {
 		log.Printf("Downloading multi-part file from s3 folder: %s", *inFile)
-		keys, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
-		if err != nil || keys == nil {
+		s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
+		if err != nil || s3Objects == nil || len(s3Objects) == 0 {
 			return "", fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 		}
 
@@ -25,13 +25,12 @@ func downloadS3Files() (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to create local temp directory: %v", err)
 		}
-		for i := range *keys {
-			_, err = downloadS3Object((*keys)[i], inFilePath, 1000) 
+		for i := range s3Objects {
+			_, err = downloadS3Object(s3Objects[i].Key, inFilePath, 1000) 
 			if err != nil {
-				return "", fmt.Errorf("failed to download s3 file %s: %v", (*keys)[i], err)
+				return "", fmt.Errorf("failed to download s3 file %s: %v", s3Objects[i].Key, err)
 			}
 		}
-
 	} else {
 		// Download single file using a download manager to a temp file (fileHd)
 		inFilePath, err = downloadS3Object(*inFile, "", 0) 
@@ -53,8 +52,7 @@ func downloadS3Object(s3Key, localDir string, minSize int64) (string, error) {
 	}
 	defer fileHd.Close()
 	inFilePath = fileHd.Name()
-	//*
-	fmt.Printf("S3Key: %s, Temp file name: %s", s3Key, inFilePath)
+	log.Printf("S3Key: %s, Temp file name: %s", s3Key, inFilePath)
 
 	// Download the object
 	nsz, err := awsi.DownloadFromS3(*awsBucket, *awsRegion, s3Key, fileHd)

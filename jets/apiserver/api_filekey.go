@@ -42,7 +42,7 @@ func (server *Server) DoRegisterFileKeyAction(w http.ResponseWriter, r *http.Req
 	case "load_all_files":
 		results, code, err = context.LoadAllFiles(&registerFileKeyAction, token)
 	case "sync_file_keys":
-		results, code, err = context.SyncFileKeys(&registerFileKeyAction)
+		results, code, err = context.SyncFileKeys(&registerFileKeyAction, token)
 	default:
 		code = http.StatusUnprocessableEntity
 		err = fmt.Errorf("DoRegisterFileKeyAction: unknown action: %v", registerFileKeyAction.Action)
