@@ -45,18 +45,20 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 				filePaths = append(filePaths, filepath.Join(localInFile, files[i].Name()))
 			}
     }
+		fmt.Println("** Loading",len(filePaths), "files from", localInFile)
 		log.Printf("Loading %d files from %s", len(filePaths), localInFile)
 		//* Paralellize this
 		var totalRowCount, badRowCount int64
 		for i := range filePaths {
+			log.Printf("Loading part file '%s'", filePaths[i])
 			fileHd, err := os.Open(filePaths[i])
 			if err != nil {
-				return 0, 0, fmt.Errorf("error opening temp file (loadFiles): %v", err)
+				return 0, 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", filePaths[i], err)
 			}
 			defer fileHd.Close()
 			count, badCount, err := loadFile2DB(dbpool, headersDKInfo, fileHd, badRowsWriter)
 			if err != nil {
-				return 0, 0, fmt.Errorf("error opening temp file: %v", err)
+				return 0, 0, fmt.Errorf("while calling loadFile2DB (loadFiles): %v", err)
 			}
 			totalRowCount += count
 			badRowCount += badCount
@@ -64,6 +66,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		return totalRowCount, badRowCount, nil
 	}
 	// Loading single file
+	log.Printf("Loading single file '%s'", localInFile)
 	fileHd, err := os.Open(localInFile)
 	if err != nil {
 		return 0, 0, fmt.Errorf("error opening temp file: %v", err)
