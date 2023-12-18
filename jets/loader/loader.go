@@ -142,6 +142,11 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 		return nil, 0, 0, err
 	}
 
+	// Remove all files if isPartFile
+	if isPartFiles == 1 {
+		os.RemoveAll(localInFile)
+	}
+
 	log.Println("Inserted", copyCount, "rows in database!")
 
 	return headersDKInfo, copyCount, badRowCount, nil

@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -41,7 +42,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		filePaths := make([]string, 0)
     for i := range files {
 			if !files[i].IsDir() {
-				filePaths = append(filePaths, files[i].Name())
+				filePaths = append(filePaths, filepath.Join(localInFile, files[i].Name()))
 			}
     }
 		log.Printf("Loading %d files from %s", len(filePaths), localInFile)
@@ -86,6 +87,10 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 		csvReader = csv.NewReader(sr)
 		csvReader.Comma = rune(sep_flag)
 		csvReader.ReuseRecord = true
+		if inputFileEncoding == Csv {
+			// read the headers
+			csvReader.Read()
+		}
 
 	case FixedWidth:
 		// Remove the Byte Order Mark (BOM) at beggining of the file if present
