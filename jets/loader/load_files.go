@@ -32,11 +32,11 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		// Part Files case, load all files
     f, err := os.Open(localInFile)
     if err != nil {
-			return 0, 0, fmt.Errorf("error while ready temp directory %s content (loadFiles): %v", localInFile, err)
+			return 0, 0, fmt.Errorf("while reading temp directory '%s' content in loadFiles: %v", localInFile, err)
 		}
     files, err := f.Readdir(0)
     if err != nil {
-			return 0, 0, fmt.Errorf("error(2) while ready temp directory %s content (loadFiles): %v", localInFile, err)
+			return 0, 0, fmt.Errorf("while getting files in temp directory '%s' in loadFiles: %v", localInFile, err)
     }
 		// Using the non dir entries
 		filePaths := make([]string, 0)
@@ -45,7 +45,6 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 				filePaths = append(filePaths, filepath.Join(localInFile, files[i].Name()))
 			}
     }
-		fmt.Println("** Loading",len(filePaths), "files from", localInFile)
 		log.Printf("Loading %d files from %s", len(filePaths), localInFile)
 		//* Paralellize this
 		var totalRowCount, badRowCount int64
@@ -69,7 +68,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	log.Printf("Loading single file '%s'", localInFile)
 	fileHd, err := os.Open(localInFile)
 	if err != nil {
-		return 0, 0, fmt.Errorf("error opening temp file: %v", err)
+		return 0, 0, fmt.Errorf("while opening temp file '%s': %v", localInFile, err)
 	}
 	defer fileHd.Close()
 	return loadFile2DB(dbpool, headersDKInfo, fileHd, badRowsWriter)
