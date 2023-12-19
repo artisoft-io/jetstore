@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -28,6 +29,7 @@ import (
 // JETS_s3_INPUT_PREFIX Input file key prefix
 // JETS_s3_OUTPUT_PREFIX Output file key prefix
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
+// ENVIRONMENT used as substitution variable in reports
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
@@ -317,8 +319,17 @@ func main() {
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("Process Input file_key:", fileKey)
 
+	// Extract file key components
+	keyMap := make(map[string]interface{})
+	keyMap = datatable.SplitFileKeyIntoComponents(keyMap, &fileKey)
+	if *client != "" {
+		keyMap["client"] = *client
+	}
 	ca := &delegate.CommandArguments{
-		Client: *client,
+		Client: datatable.AsString(keyMap["client"]),
+		Org: datatable.AsString(keyMap["org"]),
+		ObjectType: datatable.AsString(keyMap["object_type"]),
+		Environment: os.Getenv("ENVIRONMENT"),
 		WorkspaceName: ws,
 		SessionId: *sessionId,
 		ProcessName: *processName,

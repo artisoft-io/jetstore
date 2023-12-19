@@ -335,6 +335,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -882,6 +883,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"WORKSPACE_BRANCH":                   jsii.String(os.Getenv("WORKSPACE_BRANCH")),
 			"WORKSPACE_URI":                      jsii.String(os.Getenv("WORKSPACE_URI")),
 			"ACTIVE_WORKSPACE_URI":               jsii.String(os.Getenv("ACTIVE_WORKSPACE_URI")),
+			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"NBR_SHARDS":                         jsii.String(nbrShards),
 		},
@@ -1174,6 +1176,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // ACTIVE_WORKSPACE_URI source of active workspace
 // AWS_ACCOUNT (required)
 // AWS_REGION (required)
+// ENVIRONMENT (used by run_report)
 // AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK (required) region specific aws prefix list for endpoint access
 // AWS_PREFIX_LIST_S3 (required) region specific aws prefix list for endpoint access
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
@@ -1270,6 +1273,7 @@ func main() {
 	fmt.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
 	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
+	fmt.Println("env ENVIRONMENT:", os.Getenv("ENVIRONMENT"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
