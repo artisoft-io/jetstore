@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -132,7 +133,8 @@ func ListS3Objects(prefix *string, bucket, region string) ([]*S3Object, error) {
 			return nil, err
 		}
 		for i := range result.Contents {
-			if *result.Contents[i].Size > 0 {
+			// Skip the directories
+			if !strings.HasSuffix(*result.Contents[i].Key, "/") {
 				keys = append(keys, &S3Object{
 					Key: *result.Contents[i].Key,
 					Size: *result.Contents[i].Size,

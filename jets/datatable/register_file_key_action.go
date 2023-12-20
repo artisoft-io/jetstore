@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -673,6 +674,28 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 	return &results, http.StatusOK, nil
 }
 
+func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
+	if fileKey != nil {
+		for _, component := range strings.Split(*fileKey, "/") {
+			elms := strings.Split(component, "=")
+			if len(elms) == 2 {
+				keyMap[elms[0]] = elms[1]
+				if elms[0] == "vendor" {
+					keyMap["org"] = elms[1]
+				}
+			}
+		}	
+	}
+	return keyMap
+}
+
+func AsString(i interface{}) string {
+	if i != nil && reflect.TypeOf(i).Kind() == reflect.String {
+		return i.(string)
+	}
+	return ""
+}
+
 // SyncFileKeys ------------------------------------------------------
 // 12/17/2023: Replacing all keys in file_key_staging to be able to reset keys from source_config that are Part File sources
 func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
@@ -726,12 +749,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, t
 			"size": s3Obj.Size,
 		}
 		// Split fileKey into components and then in it's elements
-		for _, component := range strings.Split(s3Key, "/") {
-			elms := strings.Split(component, "=")
-			if len(elms) == 2 {
-				fileKeyObject[elms[0]] = elms[1]
-			}
-		}
+		fileKeyObject = SplitFileKeyIntoComponents(fileKeyObject, &s3Key)
 		fileKeyObject["file_key"] = s3Key
 		year, err := strconv.Atoi(fileKeyObject["year"].(string))
 		if err != nil {
