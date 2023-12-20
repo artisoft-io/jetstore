@@ -210,6 +210,9 @@ func main() {
 		}
 		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
 	}
+	fmt.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
+	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
+	fmt.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
 	fmt.Println("ENV WORKSPACES_HOME:",os.Getenv("WORKSPACES_HOME"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("ENV WORKSPACE_BRANCH:",os.Getenv("WORKSPACE_BRANCH"))

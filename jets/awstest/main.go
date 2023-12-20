@@ -93,7 +93,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to open temp file: %v", err)
 	}
-	fmt.Println("Temp file name:", f.Name())
+	// log.Printf("Temp file name: %s", f.Name())
 	defer os.Remove(f.Name())
 
 	// Download the object

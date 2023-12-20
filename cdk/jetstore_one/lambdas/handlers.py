@@ -76,6 +76,7 @@ def register_key(event, context):
 
     # extract s3 key from event notification
     key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')    
+    size = event['Records'][0]['s3']['object']['size']
 
     if(str(key).endswith("/")):
       print('This is a directory path, bailing out!')
@@ -92,7 +93,8 @@ def register_key(event, context):
       "org": "",
       "year": "1970",
       "month": "1",
-      "day": "1"
+      "day": "1",
+      "size": size
     }
     for c in key_components:
         if "=" in c:

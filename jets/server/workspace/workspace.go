@@ -215,7 +215,7 @@ func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTable
 				mainObjectType = (*objectTypes)[0]
 			}
 
-			err = domainTable.DomainKeysInfo.InitializeDomainTable(*domainHeaders, mainObjectType, domainKeysJson)
+			err = domainTable.DomainKeysInfo.InitializeDomainTable(domainHeaders, mainObjectType, domainKeysJson)
 			if err != nil {
 				return domainTableMap, fmt.Errorf("while calling domainTable.DomainKeysInfo.InitializeDomainTable: %v", err)
 			}
