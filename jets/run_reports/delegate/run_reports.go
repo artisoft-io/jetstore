@@ -27,6 +27,7 @@ import (
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
 // JETS_s3_INPUT_PREFIX
+// ENVIRONMENT
 
 type StringSubstitution struct {
 	Replace string `json:"replace"`
@@ -46,6 +47,9 @@ type ReportDirectives struct {
 type CommandArguments struct {
 	WorkspaceName string
 	Client string
+	Org string
+	ObjectType string
+	Environment string
 	SessionId string
 	SourcePeriodKey string
 	ProcessName string
@@ -125,7 +129,10 @@ func (ca *CommandArguments)runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScri
 	}
 
 	// Check for substitutions in the report sql:
-	// $CLIENT is replaced with client name obtained from command line (-client)
+	// $CLIENT is replaced with client name obtained from command line (-client, if empty from File_Key)
+	// $ORG is repplaced by the file key org/vendor field
+	// $OBJECT_TYPE is replace by the object_type comming from the file key
+	// $ENVIRONMENT is replace by the env var ENVIRONMENT
 	// $FILE_KEY  is replaced with input file key
 	// $SESSIONID is replaced with session_id
 	// $PROCESSNAME is replaced with the Rule Process name
@@ -133,6 +140,9 @@ func (ca *CommandArguments)runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScri
 
 	stmt := string(file)
 	stmt = strings.ReplaceAll(stmt, "$CLIENT", ca.Client)
+	stmt = strings.ReplaceAll(stmt, "$ORG", ca.Org)
+	stmt = strings.ReplaceAll(stmt, "$OBJECT_TYPE", ca.ObjectType)
+	stmt = strings.ReplaceAll(stmt, "$ENVIRONMENT", ca.Environment)
 	stmt = strings.ReplaceAll(stmt, "$SESSIONID", ca.SessionId)
 	stmt = strings.ReplaceAll(stmt, "$PROCESSNAME", ca.ProcessName)
 	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", ca.FileKey)
@@ -204,16 +214,24 @@ func (ca *CommandArguments)runReportsDelegate(dbpool *pgxpool.Pool, reportScript
 func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (string, error) {
 
 	name := *outputFileName
-	// Remove ':' from originalFileName
+	// Remove ':' and '.' from originalFileName
 	cleanOriginalFileName := strings.ReplaceAll(ca.OriginalFileName, ":", "_")
+	cleanOriginalFileName = strings.ReplaceAll(cleanOriginalFileName, ".", "_")
 	// Check if name contains patterns for substitutions
 	// {CLIENT} is replaced with client name obtained from command line (-client)
+	// {ORG} is repplaced by the file key org/vendor field
+	// {OBJECT_TYPE} is replace by the object_type comming from the file key
+	// {ENVIRONMENT} is replace by the env var ENVIRONMENT
+	// {FILE_KEY}  is replaced with input file key
 	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
 	// {SESSIONID} is replaced with session_id
 	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
 	// {PROCESSNAME} is replaced with the Rule Process name
 	name = strings.ReplaceAll(name, "{CLIENT}", ca.Client)
 	name = strings.ReplaceAll(name, "{SESSIONID}", ca.SessionId)
+	name = strings.ReplaceAll(name, "{ORG}", ca.Org)
+	name = strings.ReplaceAll(name, "{OBJECT_TYPE}", ca.ObjectType)
+	name = strings.ReplaceAll(name, "{ENVIRONMENT}", ca.Environment)
 	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", cleanOriginalFileName)
 	name = strings.ReplaceAll(name, "{PROCESSNAME}", ca.ProcessName)
 	//* May need to loop if {D:YYYY_MM_DD} appears more than once in name
@@ -232,26 +250,46 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 
 	reportDirectives := *ca.CurrentReportDirectives
 	stmtProps := reportDirectives.ReportOrStatementProperties[*outputFileName]
+	if stmtProps == nil {
+		stmtProps = make(map[string]string)
+	}
+	// when org and object_type is not provided, use values from file key
+	var ok bool
+	_, ok = stmtProps["org"]
+	if !ok {
+		stmtProps["org"] = ca.Org
+	}
+	_, ok = stmtProps["object_type"]
+	if !ok {
+		stmtProps["object_type"] = ca.ObjectType
+	}
 	outputFormat := stmtProps["outputFormat"]
 
 	// Determine the output format
 	// s3 file name w/ path
 	var s3FileName string
-	options := "format TEXT"
+	var options string
 	switch {
-	case outputFormat == "parquet" || strings.Contains(name, ".parquet"):
+	case outputFormat == "parquet" || strings.HasSuffix(name, ".parquet"):
 		outputFormat = "parquet"
 		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	case outputFormat == "csv" || strings.Contains(name, ".csv"): 
+	case outputFormat == "csv" || strings.HasSuffix(name, ".csv"): 
 		options = "format CSV, HEADER"
 		outputFormat = "csv"
+		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
+	case outputFormat == "json" || strings.HasSuffix(name, ".json"): 
+		options = "format TEXT"
+		outputFormat = "json"
 		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
 	default:
 		outputFormat = "none"
 	}
 
 	// Check for substitutions in the report sql:
-	// $CLIENT is replaced with client name obtained from command line (-client)
+	// $CLIENT is replaced with client name obtained from command line (-client, if empty from File_Key)
+	// $ORG is repplaced by the file key org/vendor field
+	// $OBJECT_TYPE is replace by the object_type comming from the file key
+	// $ENVIRONMENT is replace by the env var ENVIRONMENT
 	// $FILE_KEY  is replaced with input file key
 	// $SESSIONID is replaced with session_id
 	// $PROCESSNAME is replaced with the Rule Process name
@@ -259,6 +297,9 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 
 	stmt := *sqlStmt
 	stmt = strings.ReplaceAll(stmt, "$CLIENT", ca.Client)
+	stmt = strings.ReplaceAll(stmt, "$ORG", ca.Org)
+	stmt = strings.ReplaceAll(stmt, "$OBJECT_TYPE", ca.ObjectType)
+	stmt = strings.ReplaceAll(stmt, "$ENVIRONMENT", ca.Environment)
 	stmt = strings.ReplaceAll(stmt, "$SESSIONID", ca.SessionId)
 	stmt = strings.ReplaceAll(stmt, "$PROCESSNAME", ca.ProcessName)
 	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", ca.FileKey)
@@ -273,10 +314,11 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 		if err != nil {
 			return "", err
 		}
-	case "csv":
-		// save to s3 file s3FileName in csv format
+	case "csv", "json":
+		// save to s3 file s3FileName in csv or json format
 		escapedStmt := strings.ReplaceAll(stmt, "'", "''")
-		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
+		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", 
+								escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
 		// fmt.Println("S3 QUERY:", s3Stmt)
 		var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
 		err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)

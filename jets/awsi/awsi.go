@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -103,8 +104,13 @@ func GetDsnFromSecret(secret string, useLocalhost bool, poolSize int) (string, e
 	return dsn, nil
 }
 
+type S3Object struct {
+	Key string
+	Size int64
+}
+
 // ListObjects lists the objects in a bucket with prefix if not nil.
-func ListS3Objects(prefix *string, bucket, region string) (*[]string, error) {
+func ListS3Objects(prefix *string, bucket, region string) ([]*S3Object, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
@@ -114,7 +120,7 @@ func ListS3Objects(prefix *string, bucket, region string) (*[]string, error) {
 	s3Client := s3.NewFromConfig(cfg)
 
 	// Download the keys
-	keys := make([]string, 0)
+	keys := make([]*S3Object, 0)
 	var token *string
 	for isTruncated := true; isTruncated; {
 		result, err := s3Client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
@@ -127,12 +133,18 @@ func ListS3Objects(prefix *string, bucket, region string) (*[]string, error) {
 			return nil, err
 		}
 		for i := range result.Contents {
-			keys = append(keys, *result.Contents[i].Key)
+			// Skip the directories
+			if !strings.HasSuffix(*result.Contents[i].Key, "/") {
+				keys = append(keys, &S3Object{
+					Key: *result.Contents[i].Key,
+					Size: *result.Contents[i].Size,
+				})
+			}
 		}
 		isTruncated = *result.IsTruncated
 		token = result.NextContinuationToken
 	}
-	return &keys, err
+	return keys, err
 }
 
 // Download obj from s3 into fileHd (must be writable), return size of download in bytes

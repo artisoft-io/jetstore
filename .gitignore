@@ -78,3 +78,5 @@ jets/purge_database/purge_database
 jets/test_data_generator/test_data_generator
 jets/awsi/test/test
 jets/jsontest/httptest/httptest
+jets/copytest/parquettest/parquettest
+jets/copytest/scratchpad/scratchpad

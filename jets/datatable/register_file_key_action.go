@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -18,8 +19,9 @@ import (
 )
 
 type RegisterFileKeyAction struct {
-	Action string                   `json:"action"`
-	Data   []map[string]interface{} `json:"data"`
+	Action           string                   `json:"action"`
+	Data             []map[string]interface{} `json:"data"`
+	NoAutomatedLoad  bool                     `json:"noAutomatedLoad"`
 }
 
 // Function to match the case for client, org, and object_type based on jetstore
@@ -58,7 +60,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 				// update client with proper case
 				fileKeyObject["client"] = clientCase
 			} else {
-				log.Printf("RegisterFileKeys: client %s not found in client_registry\n", client)
+				log.Printf("updateFileKeyComponentCase: client %s not found in client_registry\n", client)
 			}
 		} else {
 			var clientCase, orgCase string
@@ -69,7 +71,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 				fileKeyObject["client"] = clientCase
 				fileKeyObject["org"] = orgCase
 			} else {
-				log.Printf("RegisterFileKeys: client %s, org %s not found in client_org_registry\n", client, org)
+				log.Printf("updateFileKeyComponentCase: client %s, org %s not found in client_org_registry\n", client, org)
 			}
 		}	
 	}
@@ -81,7 +83,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 			// update object_type with proper case
 			fileKeyObject["object_type"] = objectCase
 		} else {
-			log.Printf("RegisterFileKeys: object_type %s not found in object_type_registry\n", objectType)
+			log.Printf("updateFileKeyComponentCase: object_type %s not found in object_type_registry\n", objectType)
 		}
 	}
 }
@@ -118,6 +120,24 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int: %v", k, vv, err)
 					}
 				}
+			case "size":
+				switch vv := v.(type) {
+				case int:
+					fileKeyObject[k] = int64(vv)
+				case int32:
+					fileKeyObject[k] = int64(vv)
+				case int64:
+					fileKeyObject[k] = vv
+				case float64:
+					fileKeyObject[k] = int64(vv)
+				case float32:
+					fileKeyObject[k] = int64(vv)
+				case string:
+					fileKeyObject[k], err = strconv.ParseInt(vv, 10, 64)
+					if err != nil {
+						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int64: %v", k, vv, err)
+					}
+				}
 			}
 		}
 		ctx.updateFileKeyComponentCase(&fileKeyObject)
@@ -133,18 +153,46 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		}
 		fileKeyObject["source_period_key"] = source_period_key
 
+		// Get source_config info
+		client := fileKeyObject["client"]
+		org := fileKeyObject["org"]
+		objectType := fileKeyObject["object_type"]
+		var tableName string
+		var automated int
+		var isPartFile int
+		fileKey := fileKeyObject["file_key"].(string)
+		stmt := "SELECT table_name, automated, is_part_files FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
+		allOk := true
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile)
+		// process if entry found
+		if err == nil {
+			// Multi Part File
+			if isPartFile == 1 {
+				size := fileKeyObject["size"].(int64)
+				if size == 0 || size > 1000 {
+					log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
+					goto NextKey
+				} else {
+					// Current key is for sentinel file, remove sentinel file name from file_key
+					idx := strings.LastIndex(fileKey, "/")
+					if idx >= 0 && idx < len(fileKey)-1 {
+						// Removing file name
+						fileKey = (fileKey)[0:idx]
+						fileKeyObject["file_key"] = fileKey
+					}	
+				}
+			}
+		}
 		// Insert file key info in table file_key_staging
 		// make sure we have a value for each column
 		// exclude file_key for error file (file name starting with err_)
-		allOk := true
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol], ok = fileKeyObject[colKey]
 			if !ok {
 				allOk = false
 			}
 		}
-		fileKey,ok := fileKeyObject["file_key"]
-		if !ok || strings.Contains(fileKey.(string), "/err_") {
+		if strings.Contains(fileKey, "/err_") {
 			log.Println("File key is an error file, skiping")
 			allOk = false
 		}
@@ -155,26 +203,15 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			}
 		} else {
 			log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
-			return &map[string]interface{}{}, http.StatusOK, nil
+			goto NextKey
 		}
 
 		// Start the loader if automated flag is set on source_config table
 		// and if not a test file
-		if strings.Contains(fileKey.(string), "/test_") {
+		if strings.Contains(fileKey, "/test_") {
 			log.Println("File key is test file, skiping the automated load")
 		} else {
-			client := fileKeyObject["client"]
-			org := fileKeyObject["org"]
-			objectType := fileKeyObject["object_type"]
-			var tableName string
-			var automated int
-			stmt := "SELECT table_name, automated FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
-			err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated)
-			if err != nil {
-				return nil, http.StatusNotFound,
-					fmt.Errorf("in RegisterKeys while querying source_config to start a load: %v", err)
-			}
-			if automated > 0 {
+			if !registerFileKeyAction.NoAutomatedLoad && automated > 0 {
 				// to make sure we don't duplicate session_id
 				sessionId += 1
 
@@ -201,6 +238,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				}
 			}
 		}
+		NextKey:
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
@@ -636,8 +674,31 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 	return &results, http.StatusOK, nil
 }
 
+func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
+	if fileKey != nil {
+		for _, component := range strings.Split(*fileKey, "/") {
+			elms := strings.Split(component, "=")
+			if len(elms) == 2 {
+				keyMap[elms[0]] = elms[1]
+				if elms[0] == "vendor" {
+					keyMap["org"] = elms[1]
+				}
+			}
+		}	
+	}
+	return keyMap
+}
+
+func AsString(i interface{}) string {
+	if i != nil && reflect.TypeOf(i).Kind() == reflect.String {
+		return i.(string)
+	}
+	return ""
+}
+
 // SyncFileKeys ------------------------------------------------------
-func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (*map[string]interface{}, int, error) {
+// 12/17/2023: Replacing all keys in file_key_staging to be able to reset keys from source_config that are Part File sources
+func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	// RegisterFileKeyAction.Data is not used in this action
 
 	log.Println("Syncing File Keys with s3")
@@ -654,112 +715,62 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction) (
 		return nil, http.StatusInternalServerError, fmt.Errorf("while calling awsi.ListS3Objects: %v", err)
 	}
 	// make key lookup
-	s3Lookup := make(map[string]bool)
-	for _, fileKey := range *keys {
-		if !strings.HasSuffix(fileKey, "/") &&
-			!strings.Contains(fileKey, "/err_") &&
-			strings.Contains(fileKey, "client=") &&
-			strings.Contains(fileKey, "object_type=") {
-			log.Println("Got Key from S3:", fileKey)
-			s3Lookup[fileKey] = true
+	s3Lookup := make(map[string]*awsi.S3Object)
+	for _, s3Obj := range keys {
+		if !strings.Contains(s3Obj.Key, "/err_") &&
+			strings.Contains(s3Obj.Key, "client=") &&
+			strings.Contains(s3Obj.Key, "object_type=") {
+			log.Println("Got Key from S3:", s3Obj.Key)
+			s3Lookup[s3Obj.Key] = s3Obj
 		}
 	}
-	dbLookup := make(map[string]bool)
 
-	// Get all keys from jetsapi.file_key_staging
-	sqlstmt := `SELECT key, file_key FROM jetsapi.file_key_staging`
-	rows, err := ctx.Dbpool.Query(context.Background(), sqlstmt)
+	// Truncate jetsapi.file_key_staging
+	sqlstmt := `TRUNCATE jetsapi.file_key_staging`
+	_, err = ctx.Dbpool.Exec(context.Background(), sqlstmt)
 	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("while querying all keys from file_key_staging table: %v", err)
-	}
-	defer rows.Close()
-	staleKeys := make([]string, 0)
-	var key int
-	var fileKey string
-	for rows.Next() {
-		if err := rows.Scan(&key, &fileKey); err != nil {
-			log.Printf("scanning key from file_key_staging table: %v", err)
-		}
-		if !s3Lookup[fileKey] {
-			staleKeys = append(staleKeys, fmt.Sprintf("%d", key))
-		}
-		dbLookup[fileKey] = true
+		return nil, http.StatusInternalServerError, fmt.Errorf("while truncating file_key_staging table: %v", err)
 	}
 
-	// Remove stale keys from db
-	if len(staleKeys) > 0 {
-		sqlstmt = fmt.Sprintf("DELETE FROM jetsapi.file_key_staging WHERE key IN (%s);", strings.Join(staleKeys, ","))
-		_, err = ctx.Dbpool.Exec(context.Background(), sqlstmt)
+	// Put keys to database (without starting any processes)
+	// Delegating to RegisterFileKeys for inserting into db
+	registerFileKeyDelegateAction := &RegisterFileKeyAction{
+		Action: "register_keys",
+		Data: make([]map[string]interface{}, 0),
+		NoAutomatedLoad: true,
+	}
+	for s3Key, s3Obj := range s3Lookup {
+		// fileKeyObject with defaults
+		fileKeyObject := map[string]interface{}{
+			"org":   "",
+			"year":  "1970",
+			"month": "1",
+			"day":   "1",
+			"size": s3Obj.Size,
+		}
+		// Split fileKey into components and then in it's elements
+		fileKeyObject = SplitFileKeyIntoComponents(fileKeyObject, &s3Key)
+		fileKeyObject["file_key"] = s3Key
+		year, err := strconv.Atoi(fileKeyObject["year"].(string))
 		if err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("while deleting stale keys from file_key_staging table: %v", err)
+			log.Printf("File Key with invalid year: %s, setting to 1970\n", fileKeyObject["year"])
+			year = 1970
 		}
-	}
-
-	// Add missing keys to database (without starting any processes)
-	sqlStmt, ok := sqlInsertStmts["file_key_staging"]
-	if !ok {
-		return nil, http.StatusBadRequest, errors.New("error cannot find file_key_staging stmt")
-	}
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
-	for s3Key := range s3Lookup {
-		if !dbLookup[s3Key] {
-			// fileKeyObject with defaults
-			fileKeyObject := map[string]interface{}{
-				"org":   "",
-				"year":  "1970",
-				"month": "1",
-				"day":   "1",
-			}
-			// Split fileKey into components and then in it's elements
-			for _, component := range strings.Split(s3Key, "/") {
-				elms := strings.Split(component, "=")
-				if len(elms) == 2 {
-					fileKeyObject[elms[0]] = elms[1]
-				}
-			}
-			fileKeyObject["file_key"] = s3Key
-			ctx.updateFileKeyComponentCase(&fileKeyObject)
-
-			// Inserting source_period
-			year, err := strconv.Atoi(fileKeyObject["year"].(string))
-			if err != nil {
-				log.Printf("File Key with invalid year: %s, setting to 1970\n", fileKeyObject["year"])
-				year = 1970
-			}
-			month, err := strconv.Atoi(fileKeyObject["month"].(string))
-			if err != nil {
-				log.Printf("File Key with invalid month: %s, setting to 1\n", fileKeyObject["year"])
-				year = 1
-			}
-			day, err := strconv.Atoi(fileKeyObject["day"].(string))
-			if err != nil {
-				log.Printf("File Key with invalid day: %s, setting to 1\n", fileKeyObject["year"])
-				year = 1
-			}
-
-			source_period_key, err := InsertSourcePeriod(ctx.Dbpool, year, month, day)
-			if err != nil {
-				return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
-			}
-			fileKeyObject["source_period_key"] = strconv.Itoa(source_period_key)
-
-			// Insert in db
-			allOk := true // make sure we have a value for each column
-			for jcol, colKey := range sqlStmt.ColumnKeys {
-				row[jcol], ok = fileKeyObject[colKey]
-				if !ok {
-					allOk = false
-				}
-			}
-			if allOk {
-				_, err = ctx.Dbpool.Exec(context.TODO(), sqlStmt.Stmt, row...)
-				if err != nil {
-					return nil, http.StatusInternalServerError, fmt.Errorf("while inserting missing file keys in file_key_staging table: %v", err)
-				}
-			} else {
-				log.Println("while SyncFileKeys: skipping incomplete file key:", s3Key)
-			}
+		month, err := strconv.Atoi(fileKeyObject["month"].(string))
+		if err != nil {
+			log.Printf("File Key with invalid month: %s, setting to 1\n", fileKeyObject["year"])
+			year = 1
 		}
+		day, err := strconv.Atoi(fileKeyObject["day"].(string))
+		if err != nil {
+			log.Printf("File Key with invalid day: %s, setting to 1\n", fileKeyObject["year"])
+			year = 1
+		}
+		// Updating object attribute with correct type
+		fileKeyObject["year"] = year
+		fileKeyObject["month"] = month
+		fileKeyObject["day"] = day
+		registerFileKeyDelegateAction.Data = append(registerFileKeyDelegateAction.Data, fileKeyObject)
 	}
-	return &map[string]interface{}{}, http.StatusOK, nil
+	return ctx.RegisterFileKeys(registerFileKeyDelegateAction, token)
 }
