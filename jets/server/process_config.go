@@ -578,27 +578,39 @@ func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 	if maxReteSessionsSaved.Valid {
 		pc.maxReteSessionSaved = int(maxReteSessionsSaved.Int64)
 	}
-	if err := json.Unmarshal([]byte(ruleConfigJson), &pc.ruleConfigObjs); err != nil {
-		// Assume it's csv
-		rows, err2 := jcsv.Parse(ruleConfigJson)
-		if len(rows)>1 && len(rows[0])>3 && err2 == nil {
-			for i := range rows {
-				// Skip the header
-				if i > 0 {
-					pc.ruleConfigs = append(pc.ruleConfigs, RuleConfig{
-						subject: rows[i][0],
-						predicate: rows[i][1],
-						object: rows[i][2],
-						rdfType: rows[i][3],
-					})
-				}
+	if len(ruleConfigJson) > 0 {
+		if err := json.Unmarshal([]byte(ruleConfigJson), &pc.ruleConfigObjs); err != nil {
+			// Assume it's csv
+			err2 := pc.parseRuleConfigCsv(&ruleConfigJson)
+			if err2 != nil {
+				return fmt.Errorf("while reading jetsapi.pipeline_config table, invalid rule_config_json\nJSON ERR:%v\nCSV ERR: %v", err, err2)
 			}	
+			log.Println("Got pipeline-specific rule config in csv format")
 		} else {
-			return fmt.Errorf("while reading jetsapi.pipeline_config table, invalid rule_config_json\nJSON ERR:%v\nCSV ERR: %v", err, err2)
+			if len(pc.ruleConfigObjs) > 0 {
+				log.Println("Got pipeline-specific rule config in json format")
+			}
 		}	
 	}
-
 	return nil
+}
+
+func (pc *PipelineConfig) parseRuleConfigCsv(ruleConfig *string) error {
+	rows, err := jcsv.Parse(*ruleConfig)
+	if len(rows)>1 && len(rows[0])>3 && err == nil {
+		for i := range rows {
+			// Skip the header
+			if i > 0 {
+				pc.ruleConfigs = append(pc.ruleConfigs, RuleConfig{
+					subject: rows[i][0],
+					predicate: rows[i][1],
+					object: rows[i][2],
+					rdfType: rows[i][3],
+				})
+			}
+		}	
+	}	
+	return err
 }
 
 // load ProcessInput
@@ -776,29 +788,30 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessM
 }
 
 // Read rule config triples, processConfigKey is rule_config.process_config_key
+// Note: At this point pipeline specific rule config is already loaded into pc
 func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
 	rows, err := dbpool.Query(context.Background(),
 		`SELECT subject, predicate, object, rdf_type 
 		FROM jetsapi.rule_config WHERE process_config_key = $1 AND client = $2`,
 		pc.processConfigKey, pc.clientName)
-	if err != nil {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	defer rows.Close()
-
-	// Loop through rows, using Scan to assign column data to struct fields.
-	for rows.Next() {
-		var rc RuleConfig
-		if err := rows.Scan(&rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
-			return err
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var rc RuleConfig
+			if err := rows.Scan(&rc.subject, &rc.predicate, &rc.object, &rc.rdfType); err != nil {
+				return err
+			}
+			pc.ruleConfigs = append(pc.ruleConfigs, rc)
 		}
-		pc.ruleConfigs = append(pc.ruleConfigs, rc)
-	}
-	if err = rows.Err(); err != nil {
-		return err
+		if err = rows.Err(); err != nil {
+			return err
+		}	
 	}
 
-	// Read the json config
+	// Read the json/csv config
 	var ruleConfigJson string
 	var configObjs []*map[string]interface{}
 	err = dbpool.QueryRow(context.Background(),
@@ -807,9 +820,18 @@ func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	if err == nil {
+	if err == nil && len(ruleConfigJson) > 0 {
 		err := json.Unmarshal([]byte(ruleConfigJson), &configObjs)
-		if err == nil && len(configObjs) > 0 {
+		if err != nil {
+			// Assume it's csv
+			err2 := pc.parseRuleConfigCsv(&ruleConfigJson)
+			if err2 != nil {
+				return fmt.Errorf("while reading jetsapi.rule_configv2 table, invalid rule_config_json\nJSON ERR:%v\nCSV ERR: %v", err, err2)
+			}	
+			log.Println("Got rule config from jetsapi.rule_configv2 in csv format")
+		}
+		if err == nil &&  len(configObjs) > 0 {
+			log.Println("Got rule config from jetsapi.rule_configv2 in json format")
 			pc.ruleConfigObjs = append(pc.ruleConfigObjs, configObjs...)
 		}
 	}
