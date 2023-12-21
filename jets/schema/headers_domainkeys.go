@@ -496,7 +496,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 			groupingKey = dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		default:
-			log.Println("Error: Domain Key column is not a string")
+			log.Printf("Error: Domain Key column is not a string, it's %s", reflect.TypeOf(groupingKey).Kind())
 			return "", 0, nil
 		}
 	}
@@ -506,7 +506,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 		case string:
 			cols[ipos] = value
 		default:
-			log.Println("Error: Domain Key column", dk.ColumnNames[ipos],"is not a string")
+			log.Println("Error: Domain Key column", dk.ColumnNames[ipos],"is not a string, it's", reflect.TypeOf(value).Kind())
 			return "", 0, nil
 		}
 	}

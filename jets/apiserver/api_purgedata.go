@@ -147,7 +147,7 @@ func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map
 }
 
 // ExportClientConfiguration ------------------------------------------------------
-// Export client configuration to jetstore bucket
+// Export client configuration to jetstore bucket (depricated)
 func (server *Server) ExportClientConfiguration(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	var client string
 	for irow := range purgeDataAction.Data {
@@ -160,7 +160,7 @@ func (server *Server) ExportClientConfiguration(purgeDataAction *PurgeDataAction
 			return nil, http.StatusBadRequest, fmt.Errorf("client name required to export client configuration")
 		}
 	}
-	// using update_db script
+	// using run_reports script
 	serverArgs := []string{ 
 		"-client", 
 		client, 

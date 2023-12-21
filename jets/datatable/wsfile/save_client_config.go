@@ -32,7 +32,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	//	- Make the select statement with the list of columns
 	//	- Create the insert statement with the ist of columns
 	//	- Make an list of interface{} based on columns spec to read each row
-	//	- Write each row based on based on the data type of the interface{}
+	//	- Write each row based on the data type of the interface{}
 	//  - Write the insert termination clause (ON CONFLICT DO NOTHING;)
 	jetsSchema, err := getJetsSchema()
 	if err != nil {
@@ -56,6 +56,13 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	// jetsapi.source_config
 	tableName = "source_config"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, false, &buf)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+	}
+
+	// jetsapi.rule_config
+	tableName = "rule_config"
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, true, &buf)
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
 	}
@@ -124,7 +131,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 
 // Write table values into buf, assuming whereColumn is of type text
 func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinition, 
-	tableName, whereColumn, whereValue string, skipKeyColumn, oneFieldPerRow bool, buf *strings.Builder) error {
+	tableName, whereColumn, whereValue string, skipKeyColumn, oneLinePerRow bool, buf *strings.Builder) error {
 
 	buf.WriteString(fmt.Sprintf("\n-- Table %s\n", tableName))
 	columnNames, err := getColumns(jetsSchema, skipKeyColumn, tableName)
@@ -158,7 +165,7 @@ func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinit
 			buf.WriteString(fmt.Sprintf("INSERT INTO jetsapi.\"%s\" (%s) VALUES\n", tableName, columnNamesStr))
 		}
 		isFirst = false
-		writeRow(oneFieldPerRow, buf, &columnValues)
+		writeRow(oneLinePerRow, buf, &columnValues)
 	}
 	if isFirst {
 		buf.WriteString(fmt.Sprintf("-- Table %s has no row for %s = %s\n", tableName, whereColumn, whereValue))
@@ -224,9 +231,9 @@ func makeColumnValues(jetsSchema *map[string]schema.TableDefinition, skipKeyColu
 	return result, nil
 }
 
-func writeRow(oneFieldPerRow bool, buf *strings.Builder, columnValues *[]interface{}) {
+func writeRow(oneLinePerRow bool, buf *strings.Builder, columnValues *[]interface{}) {
 	filedDelimit := ",\n   "
-	if oneFieldPerRow {
+	if oneLinePerRow {
 		filedDelimit = ", "
 	}
 	isFirst := true
