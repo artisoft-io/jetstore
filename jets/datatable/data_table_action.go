@@ -683,58 +683,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				dataTableAction.Data[irow]["encrypted_roles"] = encryptedRoles
 			}
-		case dataTableAction.FromClauses[0].Table == "rule_configv2" || 
-			dataTableAction.FromClauses[0].Table == "update/rule_configv2":
-			// Check if rule_config_json is json by checking it starts with [ and ends with ]
-			// If not json, assume it's csv, parse it to extract s,p,o and replace the table to be rule_config
-			// Note: This is a one to many: dataTableAction.Data[irow] in rule_config becomes many rows in rule_configv2.
-			//       Therefore the insert in rule_configv2 is performed here in the pre-processing hook and skip
-			//       the main insert below.
-			// Remove the old triples in rule_config, this needs to be done if it's csv or json
-			// First, remove the old triples if any
-			sqlStmtT3 := sqlInsertStmts["delete/rule_config"]
-			rowT3 := make([]interface{}, len(sqlStmtT3.ColumnKeys))
-			for jcol, colKey := range sqlStmtT3.ColumnKeys {
-				rowT3[jcol] = dataTableAction.Data[irow][colKey]
-			}
-			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmtT3.Stmt, rowT3...)
-			if err != nil {
-				log.Printf("While removing previous triples from table rule_config: %v", err)
-				httpStatus = http.StatusInternalServerError
-				err = errors.New("error while removing previous triples from table rule_config")
-				return
-			}
-			ruleConfigJson := strings.TrimSpace(dataTableAction.Data[irow]["rule_config_json"].(string))
-			isJson := strings.HasPrefix(ruleConfigJson, "[") && strings.HasSuffix(ruleConfigJson, "]")
-			if !isJson {
-				// Let's assume it's csv (unless error) and if so let's not update table rule_configv2
-				rows, err2 := jcsv.Parse(ruleConfigJson)
-				if len(rows)>1 && len(rows[0])==4 && err2 == nil {
-					// rows contains "s,p,o,type", perform the update here
-					// Inserting new config triples
-					sqlStmtT3 = sqlInsertStmts["rule_config"]
-					rowT3 = make([]interface{}, len(sqlStmtT3.ColumnKeys))
-					for i := range rows {
-						// skip the header
-						if i > 0 {
-							dataTableAction.Data[irow]["subject"] = rows[i][0]
-							dataTableAction.Data[irow]["predicate"] = rows[i][1]
-							dataTableAction.Data[irow]["object"] = rows[i][2]
-							dataTableAction.Data[irow]["rdf_type"] = rows[i][3]
-							for jcol, colKey := range sqlStmtT3.ColumnKeys {
-								rowT3[jcol] = dataTableAction.Data[irow][colKey]
-							}
-							_, err = ctx.Dbpool.Exec(context.Background(), sqlStmtT3.Stmt, rowT3...)
-							if err != nil {
-								log.Printf("While inserting triples into table rule_config: %v", err)
-								httpStatus = http.StatusInternalServerError
-								err = errors.New("error while inserting triples into table rule_config")
-								return
-							}		
-						}
-					}
-				}
-			}
 		}
 		if !dbUpdateDone {
 			// Proceed at doing the db update
