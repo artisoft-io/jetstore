@@ -165,6 +165,18 @@ class JetsFormWidgetState extends State<JetsForm> {
                   .toList());
         }
       }
+      if (widget.formConfig.typeaheadItemsQueries != null) {
+        for (var item in widget.formConfig.typeaheadItemsQueries!.entries) {
+          final model = data[item.value];
+          assert(model != null,
+              "queryInputFieldItems: Form is missconfigured, typeahead query is missing");
+          var dropdownItemList = [DropdownItemConfig(label: label0)];
+          dropdownItemList.addAll(model!
+              .map((e) => DropdownItemConfig(label: e[0]!, value: e[0]!)));
+          widget.formState
+              .addCacheValue(item.key, model.map((e) => e[0]!).toList());
+        }
+      }
 
       // Prepare the metadata item list caches
       if (widget.formConfig.metadataQueries != null) {

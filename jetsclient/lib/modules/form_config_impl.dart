@@ -872,8 +872,10 @@ final Map<String, FormConfig> _formConfigurations = {
     inputFieldsQuery: "inputFieldsQuery",
     savedStateQuery: "inputFieldsQuery",
     dropdownItemsQueries: {
-      FSK.inputColumnsDropdownItemsCache: "inputColumnsQuery",
       FSK.mappingFunctionsDropdownItemsCache: "mappingFunctionsQuery",
+    },
+    typeaheadItemsQueries: {
+      FSK.inputColumnsDropdownItemsCache: "inputColumnsQuery",
     },
     metadataQueries: {
       FSK.mappingFunctionDetailsCache: "mappingFunctionsQuery",
@@ -915,14 +917,33 @@ final Map<String, FormConfig> _formConfigurations = {
         ],
         [
           // input_column
-          FormDropdownWithSharedItemsFieldConfig(
+          FormTypeaheadFieldConfig(
             key: FSK.inputColumn,
             group: index,
             flex: 2,
             autovalidateMode: AutovalidateMode.always,
-            dropdownMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
+            typeaheadMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
             defaultItem: savedInputColumn ?? inputColumnDefault,
+            inputFieldConfig: FormInputFieldConfig(
+              key: FSK.inputColumn,
+              group: index,
+              label: 'Input Column',
+              hint: 'Input File Column Name',
+              autofocus: true,
+              autovalidateMode: AutovalidateMode.always,
+              textRestriction: TextRestriction.none,
+              defaultValue: savedInputColumn ?? inputColumnDefault,
+              maxLength: 120,
+            )
           ),
+          // FormDropdownWithSharedItemsFieldConfig(
+          //   key: FSK.inputColumn,
+          //   group: index,
+          //   flex: 2,
+          //   autovalidateMode: AutovalidateMode.always,
+          //   dropdownMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
+          //   defaultItem: savedInputColumn ?? inputColumnDefault,
+          // ),
           // function_name
           FormDropdownWithSharedItemsFieldConfig(
             key: FSK.functionName,
