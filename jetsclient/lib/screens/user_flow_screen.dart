@@ -21,6 +21,8 @@ class UserFlowScreen extends BaseScreen {
           // print("*** BUILDING UserFlowScreen: ${screenConfig.title}");
           final formConfig = state.formConfig;
           // Curried Form Action Delegate to put the UF State
+          // NOTE: Overriding the FormConfig Action Delegate with UF Standard
+          //       Action Delegate
           formConfig.formActionsDelegate = (BuildContext context,
                   GlobalKey<FormState> formKey,
                   JetsFormState formState,

@@ -228,6 +228,7 @@ class FormKeys {
   static const fmStartFileMappingUF = "fmStartFileMappingUF";
   static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
   static const fmFileMappingUF = "fmFileMappingUF";
+  static const fmMappingFormUF = "fmMappingFormUF";
   static const fmDoneFileMappingUF = "fmDoneFileMappingUF";
   // Pipeline Config Forms
   static const pcAddOrEditPipelineConfigUF = "pcAddOrEditPipelineConfigUF";
@@ -581,6 +582,7 @@ class ActionKeys {
   static const ufPrevious = "ufPrevious";
   static const ufContinueLater = "ufContinueLater";
   static const ufCompleted = "ufCompleted";
+  static const ufCancel = "ufCancel";
 
   // User Flow Module Specific Form Actions
   // Client Registry UF ActionKeys
@@ -644,6 +646,7 @@ class UserFlowKeys {
   static const clientRegistryUF = "clientRegistryUF";
   static const sourceConfigUF = "sourceConfigUF";
   static const fileMappingUF = "fileMappingUF";
+  static const mapFileUF = "mapFileUF";
   static const pipelineConfigUF = "pipelineConfigUF";
   static const loadFilesUF = "loadFilesUF";
   static const startPipelineUF = "startPipelineUF";
@@ -696,12 +699,8 @@ class DTKeys {
   // Input File Viewer DT
   static const inputFileViewerTable = "inputFileViewerTable";
 
-  // Input Source Mapping DT
-  static const inputSourceMapping = "inputSourceMapping";
-
   // Process Input Configuration DT
   static const processInputTable = "processInputTable";
-  static const processMappingTable = "processMappingTable";
 
   // Rules Config DT
   static const ruleConfigTable = "ruleConfigTable";
@@ -745,6 +744,8 @@ class DTKeys {
 
   // File Mapping UF
   static const fmInputSourceMappingUF = "fmInputSourceMappingUF";
+  // Table listing the mapping
+  static const fmFileMappingTableUF = "fmFileMappingTableUF";
 
   // Pipeline Config UF DTKeys
   static const pcPipelineConfigTable = "pcPipelineConfigTable";

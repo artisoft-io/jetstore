@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/modules/actions/delegate_helpers.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/dialogs.dart';
@@ -512,16 +513,13 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             formConfig.makeFormState(parentFormState: formState);
 
         // Need to use navigationParams for formState-less form (e.g. ScreenOne)
+        // to take params from the selected row
         // and stateFormNavigationParams for when having formState
         // Add defaultValue to stateFormNavigationParams
         // add state information to dialogFormState if navigationParams exists
         ac.stateFormNavigationParams?.forEach((key, npKey) {
-          var value = formState?.getValue(0, npKey);
-          if (value is List<String>) {
-            dialogFormState.setValue(0, key, value[0]);
-          } else {
-            dialogFormState.setValue(0, key, value);
-          }
+          var value = unpack(formState?.getValue(0, npKey));
+          dialogFormState.setValue(0, key, value);
         });
         ac.navigationParams?.forEach((key, value) {
           if (value is String?) {
@@ -554,16 +552,25 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         JetsRow? row = dataSource.getFirstSelectedRow();
         // check if no row is selected while we expect to have one selected
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
-        Map<String, dynamic>? params;
-        if (row != null) {
-          params = ac.navigationParams?.map((key, value) {
-            if (value is String?) return MapEntry(key, value);
-            return MapEntry(key, row[value]);
-          });
+
+        final params = <String, dynamic>{};
+        // Navigation params value are either default (string) or row column (int)
+        if (ac.navigationParams != null) {
+          params.addAll(ac.navigationParams!.map((key, value) {
+            if (row != null && value is int) return MapEntry(key, row[value]);
+            return MapEntry(key, value);
+          }));
+        }
+        // State Form Navigation Params are taken from StateForm
+        if (ac.stateFormNavigationParams != null) {
+          params.addAll(ac.stateFormNavigationParams!.map((key, value) {
+            final v = unpack(formState?.getValue(0, value));
+            return MapEntry(key, v);
+          }));
         }
         // print("NAVIGATING to ${ac.configScreenPath}, with ${params}");
-        JetsRouterDelegate()(
-            JetsRouteData(ac.configScreenPath!, params: params));
+        JetsRouterDelegate()(JetsRouteData(ac.configScreenPath!,
+            params: params.isEmpty ? null : params));
         break;
 
       // Refresh data table

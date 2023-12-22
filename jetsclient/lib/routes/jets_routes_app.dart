@@ -17,9 +17,9 @@ const PARAM_CHAR = ':';
 
 // Keys for UI pages
 const homePath = '/';
+// Expert screen, to be replaced by UFs
 const clientAdminPath = '/clientAdmin';
 const sourceConfigPath = '/sourceConfig';
-const inputSourceMappingPath = '/inputSourceMapping';
 const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
 const queryToolPath = '/queryTool';
@@ -89,13 +89,6 @@ final Map<String, Widget> jetsRoutesMap = {
     formConfig: getFormConfig(FormKeys.sourceConfig),
   ),
 
-  // Input Source Mapping
-  inputSourceMappingPath: ScreenWithForm(
-    key: const Key(ScreenKeys.inputSourceMapping),
-    screenPath: const JetsRouteData(inputSourceMappingPath),
-    screenConfig: getScreenConfig(ScreenKeys.inputSourceMapping),
-    formConfig: getFormConfig(FormKeys.inputSourceMapping),
-  ),
 
   // Process Input
   processInputPath: ScreenWithForm(

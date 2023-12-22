@@ -327,7 +327,7 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(),
       ],
     ],
-    formValidatorDelegate: processInputFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate: processInputFormActions,
   ),
   // New Process Input Dialog for Merge and Injected Process Inuts
@@ -394,7 +394,7 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(),
       ],
     ],
-    formValidatorDelegate: processInputFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate: processInputFormActions,
   ),
   // Summary Page
@@ -409,7 +409,7 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
-          key: ActionKeys.ufContinueLater,
+          key: ActionKeys.ufCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.ufPrimary,
           leftMargin: betweenTheButtonsPadding,

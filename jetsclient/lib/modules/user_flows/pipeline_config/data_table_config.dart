@@ -45,6 +45,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: 'option_order',
       sortAscending: true,
       noFooter: true,
+      noCopy2Clipboard: true,
       rowsPerPage: 1000000),
 
   // Pipeline Config Data Table for Pipeline Config Forms

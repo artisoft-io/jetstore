@@ -14,19 +14,18 @@ String? clientRegistryFormValidator(
       "ClientConfigFormValidator has unexpected data type");
   switch (key) {
     case FSK.ufClientOrVendorOption:
-      if (v != null) {
+      if (unpack(v) != null) {
         return null;
       }
       return "An option must be selected.";
 
     case FSK.client:
-      if (v != null) {
+      if (unpack(v) != null) {
         return null;
       }
       return "Client name is required.";
 
     case FSK.org:
-      print("*** Validating org with v $v");
       if (v != null && v != '') {
         return null;
       }

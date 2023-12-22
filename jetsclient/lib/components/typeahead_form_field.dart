@@ -1,6 +1,5 @@
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/modules/actions/delegate_helpers.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -116,17 +115,10 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
         child: TypeAheadField<String>(
           controller: _controller,
           builder: (context, controller, focusNode) => TextFormField(
-            autofocus: _config.autofocus,
+            key: widget.key,
+            autofocus: true,
             controller: _controller,
-            focusNode: _node,
-            showCursor: _focused,
-            obscureText: _config.obscureText,
-            readOnly: _config.isReadOnlyEval != null
-                ? _config.isReadOnlyEval!(widget.formState)
-                : _config.isReadOnly,
-            maxLines: _config.maxLines,
-            maxLength: _config.maxLength,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            focusNode: focusNode,
             decoration: InputDecoration(
               hintText: _config.hint,
               labelText: _config.label,
@@ -136,27 +128,10 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
                 widget.formValidator(_config.group, _config.key, p0),
             autovalidateMode: _config.autovalidateMode,
             autofillHints: _config.autofillHints,
-            style: _config.useDefaultFont
-                ? null
-                : const TextStyle(
-                    fontFamily: 'Victor Mono',
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
+            style: DefaultTextStyle.of(context)
+                .style
+                .copyWith(fontStyle: FontStyle.italic),
           ),
-
-          // builder: (context, controller, focusNode) => TextField(
-          //   controller: controller,
-          //   focusNode: focusNode,
-          //   autofocus: true,
-          //   style: DefaultTextStyle.of(context)
-          //       .style
-          //       .copyWith(fontStyle: FontStyle.italic),
-          //   decoration: InputDecoration(
-          //     border: const OutlineInputBorder(),
-          //     hintText: hintText,
-          //   ),
-          // ),
 
           decorationBuilder: (context, child) => Material(
             type: MaterialType.card,
@@ -165,45 +140,12 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
             child: child,
           ),
           itemBuilder: (context, item) => Text(item),
-          // debounceDuration: debounceDuration,
-          // hideOnSelect: settings.hideOnSelect.value,
-          // hideOnUnfocus: settings.hideOnUnfocus.value,
-          // hideWithKeyboard: settings.hideOnUnfocus.value,
-          // retainOnLoading: settings.retainOnLoading.value,
-          onSelected: (item) => _controller.clear(),
+          onSelected: (item) {
+            _controller.text = item;
+            widget.onChanged(item);
+          },
           suggestionsCallback: suggestionsCallback,
-          // itemSeparatorBuilder: itemSeparatorBuilder,
-          // listBuilder:
-          //     settings.gridLayout.value ? gridLayoutBuilder : null,
         )
-        // child: TextFormField(
-        //   autofocus: _config.autofocus,
-        //   controller: _controller,
-        //   focusNode: _node,
-        //   showCursor: _focused,
-        //   obscureText: _config.obscureText,
-        //   readOnly: _config.isReadOnlyEval != null
-        //       ? _config.isReadOnlyEval!(widget.formState)
-        //       : _config.isReadOnly,
-        //   maxLines: _config.maxLines,
-        //   maxLength: _config.maxLength,
-        //   maxLengthEnforcement: MaxLengthEnforcement.enforced,
-        //   decoration: InputDecoration(
-        //     hintText: _config.hint,
-        //     labelText: _config.label,
-        //   ),
-        //   onChanged: widget.onChanged,
-        //   validator: (p0) => widget.formValidator(_config.group, _config.key, p0),
-        //   autovalidateMode: _config.autovalidateMode,
-        //   autofillHints: _config.autofillHints,
-        //   style: _config.useDefaultFont
-        //       ? null
-        //       : const TextStyle(
-        //           fontFamily: 'Victor Mono',
-        //           fontWeight: FontWeight.w500,
-        //           fontFeatures: [FontFeature.tabularFigures()],
-        //         ),
-        // ),
         );
   }
 
@@ -211,7 +153,7 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
     final itemLower = item.toLowerCase().split(' ').join('');
     final patternLower = pattern.toLowerCase().split(' ').join('');
     final result = itemLower.contains(patternLower);
-    print("doesMatch item $item pattern $pattern result $result");
+    // print("doesMatch item $item pattern $pattern result $result");
     return result;
   }
 

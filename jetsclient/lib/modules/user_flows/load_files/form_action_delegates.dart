@@ -15,13 +15,13 @@ String? loadFilesFormValidator(
       "loadFilesFormValidator has unexpected data type");
   switch (key) {
     case DTKeys.lfSourceConfigTable:
-      if (v != null) {
+      if (unpack(v) != null) {
         return null;
       }
       return "Please select a file data source configuration.";
 
     case DTKeys.lfFileKeyStagingTable:
-      if (v != null) {
+      if (unpack(v) != null) {
         return null;
       }
       return "Please select a file(s) to load.";

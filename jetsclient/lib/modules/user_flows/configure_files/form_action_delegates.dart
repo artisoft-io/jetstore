@@ -15,7 +15,7 @@ String? configureFilesFormValidator(
   switch (key) {
     case FSK.scAddOrEditSourceConfigOption:
     case FSK.scCsvOrFixedOption:
-      if (v != null) {
+      if (unpack(v) != null) {
         return null;
       }
       return "An option must be selected.";

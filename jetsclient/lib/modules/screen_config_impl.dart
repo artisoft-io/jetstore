@@ -25,7 +25,7 @@ final defaultMenuEntries = [
   MenuEntry(
       key: 'inputSourceMapping',
       label: 'File Mapping',
-      routePath: inputSourceMappingPath),
+      routePath: ufFileMappingPath),
   // MenuEntry(
   //     key: 'processInput',
   //     label: 'Process Input Configuration',
@@ -68,7 +68,7 @@ final adminMenuEntries = [
   MenuEntry(
       key: 'inputSourceMapping',
       label: 'File Mapping',
-      routePath: inputSourceMappingPath),
+      routePath: ufFileMappingPath),
   MenuEntry(
       key: 'processConfig',
       label: 'Rules Configurations',

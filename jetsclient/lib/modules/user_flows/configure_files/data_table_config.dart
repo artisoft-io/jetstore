@@ -43,6 +43,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: 'option_order',
       sortAscending: true,
       noFooter: true,
+      noCopy2Clipboard: true,
       rowsPerPage: 1000000),
 
   // Table to Select a an existing Source Config
@@ -242,6 +243,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: 'option_order',
       sortAscending: true,
       noFooter: true,
+      noCopy2Clipboard: true,
       rowsPerPage: 1000000),
 };
 

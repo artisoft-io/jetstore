@@ -1,5 +1,6 @@
 import 'package:jetsclient/modules/user_flows/client_registry/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/data_table_config.dart';
+import 'package:jetsclient/modules/user_flows/file_mapping/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/load_files/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/start_pipeline/data_table_config.dart';
@@ -1593,95 +1594,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 50,
   ),
 
-  // Input Source Mapping: use Source Config to select table
-  DTKeys.inputSourceMapping: TableConfig(
-    key: DTKeys.inputSourceMapping,
-    fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'source_config'),
-      FromClause(schemaName: 'jetsapi', tableName: 'object_type_registry'),
-    ],
-    label: 'Select a Data Source',
-    apiPath: '/dataTable',
-    isCheckboxVisible: true,
-    isCheckboxSingleSelect: true,
-    whereClauses: [
-      WhereClause(
-          table: "source_config",
-          column: "object_type",
-          joinWith: "object_type_registry.object_type"),
-    ],
-    actions: [],
-    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.client,
-        columnIdx: 1,
-      ),
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.org,
-        columnIdx: 2,
-      ),
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.objectType,
-        columnIdx: 3,
-      ),
-      DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.tableName,
-        columnIdx: 4,
-      ),
-    ]),
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "client",
-          label: 'Client',
-          tooltips: 'Client the file came from',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "org",
-          label: 'Organization',
-          tooltips: 'Client' 's organization',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "object_type",
-          table: "source_config",
-          label: 'Object Type',
-          tooltips: 'Type of objects in file',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where to load the file',
-          isNumeric: false,
-          isHidden: false),
-      ColumnConfig(
-          index: 5,
-          name: "entity_rdf_type",
-          label: 'Domain Class',
-          tooltips: 'rdf:type of the Domain Class',
-          isNumeric: false,
-          isHidden: false),
-      ColumnConfig(
-          index: 6,
-          name: "last_update",
-          label: 'Last Updated',
-          tooltips: 'Indicates when the record was last updated',
-          isNumeric: false),
-    ],
-    sortColumnName: 'last_update',
-    sortAscending: false,
-    rowsPerPage: 10,
-  ),
-
   // Process Input Data Table
   // on Process Input Configuration Screen
   DTKeys.processInputTable: TableConfig(
@@ -1900,121 +1812,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'last_update',
     sortAscending: false,
-    rowsPerPage: 10,
-  ),
-
-  // Process Mapping Data Table
-  DTKeys.processMappingTable: TableConfig(
-    key: DTKeys.processMappingTable,
-    fromClauses: [
-      FromClause(schemaName: 'jetsapi', tableName: 'process_mapping')
-    ],
-    label: 'File Mapping',
-    apiPath: '/dataTable',
-    isCheckboxVisible: false,
-    isCheckboxSingleSelect: true,
-    whereClauses: [
-      WhereClause(column: "table_name", formStateKey: FSK.tableName)
-    ],
-    actions: [
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'configureMapping',
-          label: 'Configure Mapping',
-          style: ActionStyle.primary,
-          isEnabledWhenStateHasKeys: [
-            FSK.tableName,
-            FSK.objectType,
-          ],
-          configForm: FormKeys.processMapping,
-          stateFormNavigationParams: {
-            FSK.tableName: FSK.tableName,
-            FSK.objectType: FSK.objectType,
-          }),
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'loadRawRows',
-          label: 'Paste File Mapping',
-          style: ActionStyle.secondary,
-          capability: 'client_config',
-          configForm: FormKeys.loadRawRows),
-      ActionConfig(
-          actionType: DataTableActionType.doAction,
-          key: 'downloadMappingRows',
-          label: 'Download File Mapping',
-          style: ActionStyle.secondary,
-          isEnabledWhenWhereClauseSatisfied: true,
-          actionName: ActionKeys.downloadMapping),
-    ],
-    // No formStateConfig since rows are not selectable
-    columns: [
-      ColumnConfig(
-          index: 0,
-          name: "key",
-          label: 'Key',
-          tooltips: 'Row Primary Key',
-          isNumeric: true,
-          isHidden: true),
-      ColumnConfig(
-          index: 1,
-          name: "table_name",
-          label: 'Table Name',
-          tooltips: 'Table where the Process Input data reside',
-          isNumeric: false),
-      ColumnConfig(
-          index: 2,
-          name: "data_property",
-          label: 'Target Data Property',
-          tooltips: 'Canonical model data property',
-          isNumeric: false),
-      ColumnConfig(
-          index: 3,
-          name: "input_column",
-          label: 'Source Input Column',
-          tooltips: 'Column from the input data',
-          isNumeric: false),
-      ColumnConfig(
-          index: 4,
-          name: "function_name",
-          label: 'Cleansing Function',
-          tooltips: 'Function to cleanse input data',
-          isNumeric: false),
-      ColumnConfig(
-          index: 5,
-          name: "argument",
-          label: 'Cleansing Function Argument',
-          tooltips:
-              "Argument for the cleansing function (is either required or ignored)",
-          isNumeric: false),
-      ColumnConfig(
-          index: 6,
-          name: "default_value",
-          label: 'Default Value',
-          tooltips:
-              "Data Property default value if none in the input or the cleansing function returned null",
-          isNumeric: false),
-      ColumnConfig(
-          index: 7,
-          name: "error_message",
-          label: 'Error Message',
-          tooltips:
-              "Error message if no value is provided in the input or returned by cleansing function",
-          isNumeric: false),
-      ColumnConfig(
-          index: 8,
-          name: "user_email",
-          label: 'User',
-          tooltips: 'Who created the record',
-          isNumeric: false),
-      ColumnConfig(
-          index: 9,
-          name: "last_update",
-          label: 'Loaded At',
-          tooltips: 'Indicates when the record was created',
-          isNumeric: false),
-    ],
-    sortColumnName: 'data_property',
-    sortAscending: true,
     rowsPerPage: 10,
   ),
 
@@ -3023,6 +2820,8 @@ TableConfig getTableConfig(String key) {
   config = getStartPipelineTableConfig(key);
   if (config != null) return config;
   config = getWorkspacePullTableConfig(key);
+  if (config != null) return config;
+  config = getFileMappingTableConfig(key);
   if (config != null) return config;
   throw Exception(
       'ERROR: Invalid program configuration: table configuration $key not found');
