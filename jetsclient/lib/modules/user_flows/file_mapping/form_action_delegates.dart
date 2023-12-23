@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:jetsclient/components/dialogs.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/components/spinner_overlay.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/modules/actions/delegate_helpers.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/form_action_helpers.dart';
@@ -47,7 +48,6 @@ Future<String?> fileMappingFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
-
     // loadRawRows
     case ActionKeys.loadRawRowsOk:
       var valid = formKey.currentState!.validate();
@@ -87,6 +87,10 @@ Future<String?> fileMappingFormActions(BuildContext context,
           }
         ],
       }, toEncodable: (_) => '');
+      if (context.mounted) {
+        JetsSpinnerOverlay.of(context).show();
+      }
+
       var deleteResult = await HttpClientSingleton().sendRequest(
           path: ServerEPs.dataTableEP,
           token: JetsRouterDelegate().user.token,
@@ -124,6 +128,7 @@ Future<String?> fileMappingFormActions(BuildContext context,
           content: Text('Mapping Updated Sucessfully'),
         );
         if (context.mounted) {
+          JetsSpinnerOverlay.of(context).hide();
           ScaffoldMessenger.of(context).showSnackBar(snackBar);
           Navigator.of(context).pop();
         }
@@ -155,7 +160,6 @@ Future<String?> fileMappingFormActionsUF(
     {group = 0}) async {
   final state = formState.getState(group);
   switch (actionKey) {
-
     // Download process mapping rows
     case ActionKeys.downloadMapping:
       return downloadMapping(context, formState);
@@ -167,7 +171,6 @@ Future<String?> fileMappingFormActionsUF(
       state[FSK.tableName] = unpack(state[FSK.tableName]);
       state[FSK.objectType] = unpack(state[FSK.objectType]);
       return null;
-
 
     // Cancel Dialog / Form
     case ActionKeys.dialogCancel:

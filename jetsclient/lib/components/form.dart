@@ -36,6 +36,7 @@ class JetsFormWidgetState extends State<JetsForm> {
   // build in [queryInputFieldItems]
   InputFieldType alternateInputFields = [];
   bool? get useListView => widget.formConfig.useListView;
+  String? get errorMessage => widget.formState.getValue(0, FSK.serverError);
 
   InputFieldType get inputFields => widget.formConfig.inputFields.isEmpty
       ? alternateInputFields
@@ -137,8 +138,10 @@ class JetsFormWidgetState extends State<JetsForm> {
       final ic = data["inputColumnsQuery"];
       if (ic != null && ic.isEmpty) {
         widget.formState.setValue(0, FSK.serverError,
-            "It appear that the data has not been loaded yet. We need to load the data to configure the mapping.");
-        Navigator.of(context).pop(DTActionResult.statusError);
+            "Data has not been loaded to the staging table. Please load the data to configure the mapping.");
+        // if(context.mounted) {
+        //   Navigator.of(context).pop(DTActionResult.statusError);
+        // }
       }
 
       // Prepare the saved state cache
@@ -239,6 +242,16 @@ class JetsFormWidgetState extends State<JetsForm> {
                         (useListView != null && useListView == true)
                     ? ListView.builder(
                         itemBuilder: (BuildContext context, int index) {
+                          if (index == 0 && errorMessage != null) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(errorMessage!,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall),
+                            );
+                          }
                           if (index < inputFields.length) {
                             var fc = inputFields[index];
                             return Row(
@@ -271,51 +284,70 @@ class JetsFormWidgetState extends State<JetsForm> {
                             ),
                           );
                         },
-                        itemCount: widget.formConfig.actions.isNotEmpty
-                            ? inputFields.length + 1
-                            : inputFields.length)
+                        itemCount: errorMessage != null
+                            ? (widget.formConfig.actions.isNotEmpty
+                                ? inputFields.length + 2
+                                : inputFields.length + 1)
+                            : (widget.formConfig.actions.isNotEmpty
+                                ? inputFields.length + 1
+                                : inputFields.length))
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: List<Widget>.generate(
-                            widget.formConfig.actions.isNotEmpty
-                                ? inputFields.length + 1
-                                : inputFields.length,
-                            (index) => index < inputFields.length
-                                // widgets of the form's row
-                                ? Flexible(
-                                    flex: 10,
-                                    fit: FlexFit.tight,
+                            errorMessage != null
+                                ? (widget.formConfig.actions.isNotEmpty
+                                    ? inputFields.length + 2
+                                    : inputFields.length + 1)
+                                : (widget.formConfig.actions.isNotEmpty
+                                    ? inputFields.length + 1
+                                    : inputFields.length), (index) {
+                          if (index == 0 && errorMessage != null) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(errorMessage!,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall),
+                            );
+                          }
+                          return index < inputFields.length
+                              // widgets of the form's row
+                              ? Flexible(
+                                  flex: 10,
+                                  fit: FlexFit.tight,
+                                  child: Row(
+                                    children: inputFields[index]
+                                        .map((e) => Flexible(
+                                            flex: e.flex,
+                                            fit: FlexFit.tight,
+                                            child: e.makeFormField(
+                                                screenPath: widget.formPath,
+                                                formConfig: widget.formConfig,
+                                                formState: widget.formState)))
+                                        .toList(),
+                                  ),
+                                )
+                              // last row of form action button
+                              : Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        0, defaultPadding, 0, defaultPadding),
                                     child: Row(
-                                      children: inputFields[index]
-                                          .map((e) => Flexible(
-                                              flex: e.flex,
-                                              fit: FlexFit.tight,
-                                              child: e.makeFormField(
-                                                  screenPath: widget.formPath,
-                                                  formConfig: widget.formConfig,
-                                                  formState: widget.formState)))
-                                          .toList(),
-                                    ),
-                                  )
-                                // last row of form action button
-                                : Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          0, defaultPadding, 0, defaultPadding),
-                                      child: Row(
-                                          children: widget.formConfig.actions
-                                              .map((e) => JetsFormButton(
-                                                  key: Key(e.key),
-                                                  formActionConfig: e,
-                                                  formKey: widget.formKey,
-                                                  formState: widget.formState,
-                                                  actionsDelegate: widget
-                                                      .formConfig
-                                                      .formActionsDelegate))
-                                              .toList()),
-                                    ),
-                                  )),
+                                        children: widget.formConfig.actions
+                                            .map((e) => JetsFormButton(
+                                                key: Key(e.key),
+                                                formActionConfig: e,
+                                                formKey: widget.formKey,
+                                                formState: widget.formState,
+                                                actionsDelegate: widget
+                                                    .formConfig
+                                                    .formActionsDelegate))
+                                            .toList()),
+                                  ),
+                                );
+                        }),
                       )),
           ),
         ));

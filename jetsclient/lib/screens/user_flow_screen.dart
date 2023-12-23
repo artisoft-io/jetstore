@@ -108,9 +108,7 @@ class UserFlowScreenState extends BaseScreenState {
 
       // Keep the list of visited page for supporting previous and next buttons
       formState.setValue(0, FSK.ufCurrentPage, 0);
-      final visitedPages = <String>[
-        userFlowConfig.startAtKey
-      ];
+      final visitedPages = <String>[userFlowConfig.startAtKey];
       formState.setValue(0, FSK.ufVisitedPages, visitedPages);
     }
   }

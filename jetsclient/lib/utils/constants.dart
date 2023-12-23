@@ -135,6 +135,7 @@ class ScreenKeys {
   static const ufClientRegistry = "clientRegistryScreenUF";
   static const ufSourceConfig = "sourceConfigScreenUF";
   static const ufFileMapping = "fileMappingScreenUF";
+  static const ufMappingForm = "ufMappingFormScreenUF";
   static const ufPipelineConfig = "pipelineConfigScreenUF";
   static const ufLoadFiles = "ufLoadFilesScreenUF";
   static const ufStartPipeline = "ufStartPipelineScreenUF";

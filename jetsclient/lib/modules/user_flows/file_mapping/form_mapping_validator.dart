@@ -117,6 +117,14 @@ String? mappingFormValidator(
     case FSK.inputColumn:
       String? value = v;
       if (value != null && value.isNotEmpty) {
+        // Check that the input column is among the file columns
+        if(formState
+            .getCacheValue(FSK.inputColumnsDropdownItemsCache)
+            .where((item) => item == value)
+            .toList().isEmpty) {
+              formState.markFormKeyAsInvalid(group, key);
+              return "Input Column is not valid.";
+            }
         formState.markFormKeyAsValid(group, key);
         return null;
       }

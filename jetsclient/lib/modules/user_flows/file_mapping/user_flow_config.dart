@@ -27,7 +27,7 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         key: "map_file",
         description: 'Map file screen/dialog',
         formConfig: getFormConfig(FormKeys.fmMappingFormUF),
-        actionDelegate: fileMappingFormActionsUF,
+        actionDelegate: (p1, p2, p3, p4, p5, {group}) => fileMappingFormActions(p2, p3, p4, p5, group:group),
         isEnd: true),
   }),
 };

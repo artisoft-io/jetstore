@@ -50,10 +50,12 @@ const workspaceHomePath = '/workspaces/:workspace_name/home';
 const ufClientRegistryPath = '/clientRegistryUF';
 const ufSourceConfigPath = '/sourceConfigUF';
 const ufFileMappingPath = '/fileMappingUF';
+const ufMappingPath = '/fileMappingUF/mapping/:table_name/:object_type';
 const ufPipelineConfigPath = '/pipelineConfigUF';
 const ufLoadFilesPath = '/loadFilesUF';
 const ufStartPipelinePath = '/startPipelineUF';
-const ufPullWorkspacePath = '/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri';
+const ufPullWorkspacePath =
+    '/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri';
 
 // const wsDomainClassesPath = '/workspaces/:workspace_name/domainClasses';
 // const wsDomainClasseDetailsPath =
@@ -88,7 +90,6 @@ final Map<String, Widget> jetsRoutesMap = {
     screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
     formConfig: getFormConfig(FormKeys.sourceConfig),
   ),
-
 
   // Process Input
   processInputPath: ScreenWithForm(
@@ -250,6 +251,12 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: const JetsRouteData(ufFileMappingPath),
     screenConfig: getScreenConfig(ScreenKeys.ufFileMapping),
     userFlowConfig: getUserFlowConfig(UserFlowKeys.fileMappingUF),
+  ),
+  ufMappingPath: UserFlowScreen(
+    key: const Key(UserFlowKeys.mapFileUF),
+    screenPath: const JetsRouteData(ufMappingPath),
+    screenConfig: getScreenConfig(ScreenKeys.ufFileMapping),
+    userFlowConfig: getUserFlowConfig(UserFlowKeys.mapFileUF),
   ),
   ufPipelineConfigPath: UserFlowScreen(
     key: const Key(UserFlowKeys.pipelineConfigUF),

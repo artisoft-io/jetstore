@@ -1,3 +1,4 @@
+import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
 
@@ -107,17 +108,33 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "table_name", formStateKey: FSK.tableName)
     ],
     actions: [
+      // ActionConfig(
+      //     actionType: DataTableActionType.showDialog,
+      //     key: 'configureMapping',
+      //     label: 'Mapping Dialog',
+      //     style: ActionStyle.primary,
+      //     isEnabledWhenStateHasKeys: [
+      //       FSK.tableName,
+      //       FSK.objectType,
+      //     ],
+      //     configForm: FormKeys.fmMappingFormUF,
+      //     // configForm: FormKeys.processMapping,
+      //     stateFormNavigationParams: {
+      //       FSK.tableName: FSK.tableName,
+      //       FSK.objectType: FSK.objectType,
+      //     }),
       ActionConfig(
-          actionType: DataTableActionType.showDialog,
-          key: 'configureMapping',
+          actionType: DataTableActionType.showScreen,
+          key: 'configureMappingPage',
           label: 'Configure Mapping',
-          style: ActionStyle.primary,
+          style: ActionStyle.secondary,
           isEnabledWhenStateHasKeys: [
             FSK.tableName,
             FSK.objectType,
           ],
           configForm: FormKeys.fmMappingFormUF,
           // configForm: FormKeys.processMapping,
+          configScreenPath: ufMappingPath,
           stateFormNavigationParams: {
             FSK.tableName: FSK.tableName,
             FSK.objectType: FSK.objectType,

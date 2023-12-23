@@ -94,7 +94,7 @@ final Map<String, FormConfig> _formConfigurations = {
             isReadOnly: true,
             autofocus: false,
             obscureText: false,
-            maxLength: 20,
+            maxLength: 60,
             textRestriction: TextRestriction.none,
             useDefaultFont: true),
         FormInputFieldConfig(
@@ -105,7 +105,7 @@ final Map<String, FormConfig> _formConfigurations = {
             isReadOnly: true,
             autofocus: false,
             obscureText: false,
-            maxLength: 20,
+            maxLength: 100,
             textRestriction: TextRestriction.none,
             useDefaultFont: true),
       ],
@@ -119,7 +119,7 @@ final Map<String, FormConfig> _formConfigurations = {
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,
-            maxLength: 512,
+            maxLength: 1024,
             useDefaultFont: true),
       ],
       [
