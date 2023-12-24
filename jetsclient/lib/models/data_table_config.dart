@@ -39,8 +39,20 @@ class TableConfig {
     this.noFooter = false,
     this.dataRowMinHeight,
     this.dataRowMaxHeight,
-    this.noCopy2Clipboard = false,
-  });
+    this.noCopy2Clipboard = true,
+  }) {
+    if (isCheckboxVisible) {
+      actions.add(
+        ActionConfig(
+            actionType: DataTableActionType.toggleCopy2Clipboard,
+            key: 'toggleCopy2Clipboard',
+            label: '{toggleCopy2Clipboard}',
+            style: ActionStyle.primary,
+            isVisibleWhenCheckboxVisible: null,
+            isEnabledWhenHavingSelectedRows: null),
+      );
+    }
+  }
   final String key;
   final String label;
   final String apiPath;
@@ -85,6 +97,7 @@ enum DataTableActionType {
   cancelModifications,
   refreshTable,
   doAction,
+  toggleCopy2Clipboard,
   doActionShowDialog
 }
 

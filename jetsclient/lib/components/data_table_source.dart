@@ -238,7 +238,7 @@ class JetsDataTableSource extends ChangeNotifier {
                       width: e.columnWidth, //SET width
                       child: Text(model![index][e.index] ?? 'null',
                           maxLines: e.maxLines)),
-                  onLongPress: state.tableConfig.noCopy2Clipboard
+                  onLongPress: state.noCopy2Clipboard
                       ? null
                       : () {
                           Clipboard.setData(ClipboardData(
@@ -248,7 +248,7 @@ class JetsDataTableSource extends ChangeNotifier {
                                   content: Text("Copied to Clipboard")));
                         })
               : DataCell(Text(model![index][e.index] ?? 'null'),
-                  onLongPress: state.tableConfig.noCopy2Clipboard
+                  onLongPress: state.noCopy2Clipboard
                       ? null
                       : () {
                           Clipboard.setData(ClipboardData(

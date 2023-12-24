@@ -151,7 +151,11 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                                             .hasCapability(ac.capability!)))
                             ? () => state.actionDispatcher(context, ac)
                             : null,
-                        child: Text(ac.label),
+                        child: Text(ac.label == '{toggleCopy2Clipboard}'
+                            ? state.noCopy2Clipboard
+                                ? 'Enable Copy Cell'
+                                : 'Enable Select Row'
+                            : ac.label),
                       )
                     ]));
             // Second row of buttons
@@ -297,8 +301,13 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   List<Map<String, String>> columnNameMaps = [];
   String label = "";
 
+  // Editable noCopy2Clipboard from config
+  bool _noCopy2Clipboard = true;
+
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
+  bool get noCopy2Clipboard => _noCopy2Clipboard;
+
   JetsDataTableWidget get _dataTableWidget =>
       super.widget as JetsDataTableWidget;
   TableConfig get tableConfig => _dataTableWidget.tableConfig;
@@ -337,6 +346,10 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     }
     // print("DataTable.initState - calling getModelData for ${tableConfig.key}");
     dataSource.getModelData();
+    _noCopy2Clipboard = tableConfig.noCopy2Clipboard;
+    if (!tableConfig.isCheckboxVisible) {
+      _noCopy2Clipboard = false;
+    }
   }
 
   /// Get the sort column index as seen by the data table,
@@ -421,6 +434,14 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       dataSource.updateTableFromFormState();
       dataSource.resetSecondaryKeys(tableConfig.formStateConfig!, formState!);
     }
+  }
+
+  void _toggleCopy2Clipboard() {
+    // print(
+    //     "*** _toggleCopy2Clipboard called for Table ${tableConfig.key} requesting ModelData");
+    setState(() {
+      _noCopy2Clipboard = !_noCopy2Clipboard;
+    });
   }
 
   void checkRebuildTableOnFormStateChange() {
@@ -557,15 +578,14 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         // Navigation params value are either default (string) or row column (int)
         if (ac.navigationParams != null) {
           params.addAll(ac.navigationParams!.map((key, value) {
-
-          if (value is String?) {
-            return MapEntry(key, value);
-          } else {
-            if (row != null && value is int) {
-              return MapEntry(key, row[value]);
+            if (value is String?) {
+              return MapEntry(key, value);
+            } else {
+              if (row != null && value is int) {
+                return MapEntry(key, row[value]);
+              }
             }
-          }
-          return MapEntry(key, null);
+            return MapEntry(key, null);
             // if (row != null && value is int) return MapEntry(key, row[value]);
             // return MapEntry(key, value);
           }));
@@ -585,6 +605,11 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       // Refresh data table
       case DataTableActionType.refreshTable:
         _refreshTable();
+        break;
+
+      // toggle select row or Copy2Clipboard
+      case DataTableActionType.toggleCopy2Clipboard:
+        _toggleCopy2Clipboard();
         break;
 
       // Call server to do an action
