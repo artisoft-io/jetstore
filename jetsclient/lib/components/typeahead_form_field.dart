@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:flutter/material.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
@@ -26,16 +27,21 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
   late final TextEditingController _controller;
 
   late FocusNode _node;
-  bool _focused = false;
   FormTypeaheadFieldConfig get formConfig => widget.formFieldConfig;
   FormInputFieldConfig get _config => widget.formFieldConfig.inputFieldConfig;
 
-  void _handleFocusChange() {
-    if (_node.hasFocus != _focused) {
-      setState(() {
-        _focused = _node.hasFocus;
-      });
-    }
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    setState(() {
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        // print('Pressed the "ESC" key!');
+        _node.unfocus();
+      } else {
+        // print('Not a ESC: Pressed ${event.logicalKey.debugName}');
+      }
+    });
+    return event.logicalKey == LogicalKeyboardKey.escape
+        ? KeyEventResult.handled
+        : KeyEventResult.ignored;
   }
 
   void _controllerListener() {
@@ -94,8 +100,7 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
     }
     _controller = TextEditingController(text: value);
     _controller.addListener(_controllerListener);
-    _node = FocusNode(debugLabel: _config.key);
-    _node.addListener(_handleFocusChange);
+    _node = FocusNode(debugLabel: _config.key, onKeyEvent: _handleKeyEvent);
   }
 
   @override
@@ -103,7 +108,6 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
     // print("*** InputText dispose called for ${_config.key}");
     _controller.removeListener(_controllerListener);
     _controller.dispose();
-    _node.removeListener(_handleFocusChange);
     _node.dispose();
     super.dispose();
   }
@@ -114,9 +118,10 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
         child: TypeAheadField<String>(
           controller: _controller,
+          focusNode: _node,
           builder: (context, controller, focusNode) => TextFormField(
             key: widget.key,
-            autofocus: true,
+            autofocus: _config.autofocus,
             controller: _controller,
             focusNode: focusNode,
             decoration: InputDecoration(

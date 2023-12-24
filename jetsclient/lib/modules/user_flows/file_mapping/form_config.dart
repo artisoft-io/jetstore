@@ -181,7 +181,8 @@ final Map<String, FormConfig> _formConfigurations = {
         [
           // data_property
           TextFieldConfig(
-              label: "$index: ${inputFieldRow[0]}$isRequiredIndicator",
+              // label: "$index: ${inputFieldRow[0]}$isRequiredIndicator",
+              label: "${inputFieldRow[0]}$isRequiredIndicator",
               group: index,
               flex: 1,
               topMargin: 20.0)
@@ -191,7 +192,7 @@ final Map<String, FormConfig> _formConfigurations = {
           FormTypeaheadFieldConfig(
             key: FSK.inputColumn,
             group: index,
-            flex: 2,
+            flex: 3,
             autovalidateMode: AutovalidateMode.always,
             typeaheadMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
             defaultItem: savedInputColumn ?? inputColumnDefault,
@@ -200,7 +201,7 @@ final Map<String, FormConfig> _formConfigurations = {
               group: index,
               label: 'Input Column',
               hint: 'Input File Column Name',
-              autofocus: true,
+              autofocus: false,
               autovalidateMode: AutovalidateMode.always,
               textRestriction: TextRestriction.none,
               defaultValue: savedInputColumn ?? inputColumnDefault,
@@ -219,7 +220,7 @@ final Map<String, FormConfig> _formConfigurations = {
           FormDropdownWithSharedItemsFieldConfig(
             key: FSK.functionName,
             group: index,
-            flex: 1,
+            flex: 2,
             dropdownMenuItemCacheKey: FSK.mappingFunctionsDropdownItemsCache,
             defaultItem: savedState?[index][3],
           ),
@@ -230,7 +231,7 @@ final Map<String, FormConfig> _formConfigurations = {
             hint:
                 "Cleansing function argument, it is either required or ignored",
             group: index,
-            flex: 1,
+            flex: 2,
             autovalidateMode: AutovalidateMode.always,
             autofocus: false,
             obscureText: false,
@@ -244,7 +245,7 @@ final Map<String, FormConfig> _formConfigurations = {
             hint:
                 "Default value to use if input value is not provided or cleansing function returns null",
             group: index,
-            flex: 1,
+            flex: 2,
             autovalidateMode: AutovalidateMode.always,
             autofocus: false,
             obscureText: false,
@@ -258,7 +259,7 @@ final Map<String, FormConfig> _formConfigurations = {
             hint:
                 "Error message to raise if input value is not provided or cleansing function returns null and there is no default value",
             group: index,
-            flex: 1,
+            flex: 2,
             autofocus: false,
             obscureText: false,
             textRestriction: TextRestriction.none,

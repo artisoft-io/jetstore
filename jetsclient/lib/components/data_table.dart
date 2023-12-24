@@ -557,8 +557,17 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         // Navigation params value are either default (string) or row column (int)
         if (ac.navigationParams != null) {
           params.addAll(ac.navigationParams!.map((key, value) {
-            if (row != null && value is int) return MapEntry(key, row[value]);
+
+          if (value is String?) {
             return MapEntry(key, value);
+          } else {
+            if (row != null && value is int) {
+              return MapEntry(key, row[value]);
+            }
+          }
+          return MapEntry(key, null);
+            // if (row != null && value is int) return MapEntry(key, row[value]);
+            // return MapEntry(key, value);
           }));
         }
         // State Form Navigation Params are taken from StateForm

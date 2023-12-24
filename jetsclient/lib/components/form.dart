@@ -151,7 +151,8 @@ class JetsFormWidgetState extends State<JetsForm> {
       }
 
       // Prepare the dropdown item list caches
-      var label0 = "Select an item";
+      // var label0 = "Select an item";
+      var label0 = "Select cleansing function";
       if (widget.formConfig.dropdownItemsQueries != null) {
         for (var item in widget.formConfig.dropdownItemsQueries!.entries) {
           final model = data[item.value];
