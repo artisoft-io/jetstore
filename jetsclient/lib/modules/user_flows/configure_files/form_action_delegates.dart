@@ -12,6 +12,8 @@ String? configureFilesFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
       "configureFilesFormValidator has unexpected data type");
+
+  final fileType = unpack(formState.getValue(0, FSK.scCsvOrFixedOption));
   switch (key) {
     case FSK.scAddOrEditSourceConfigOption:
     case FSK.scCsvOrFixedOption:
@@ -65,9 +67,11 @@ String? configureFilesFormValidator(
       // }
       return null;
     case FSK.inputColumnsJson:
+      // this field is nullable unless FSK.scCsvOrFixedOption is Headerless CSV
+      if (fileType != FSK.scHeaderlessCsvOption) return null;
       String? value = unpack(v);
       if (value == null || value.isEmpty) {
-        return null; // this field is nullable
+        return "Input column names must be provided";
       }
       // // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
       // final otherv = formState.getValue(0, FSK.inputColumnsPositionsCsv);
@@ -83,9 +87,10 @@ String? configureFilesFormValidator(
       return null;
 
     case FSK.inputColumnsPositionsCsv:
+      if (fileType != FSK.scFixedWidthOption) return null;
       String? value = unpack(v);
       if (value == null || value.isEmpty) {
-        return null; // this field is nullable
+        return "Input columns names and positions must be provided using csv";
       }
       // // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
       // final otherv = formState.getValue(0, FSK.inputColumnsJson);

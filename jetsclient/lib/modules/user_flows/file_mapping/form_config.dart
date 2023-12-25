@@ -113,8 +113,7 @@ final Map<String, FormConfig> _formConfigurations = {
           enableOnlyWhenFormValid: true,
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding,
-          bottomMargin: defaultPadding),
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.mapperDraft,
           capability: "client_config",
@@ -122,15 +121,13 @@ final Map<String, FormConfig> _formConfigurations = {
           enableOnlyWhenFormNotValid: true,
           buttonStyle: ActionStyle.primary,
           leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding,
-          bottomMargin: defaultPadding),
+          rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.secondary,
           leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding,
-          bottomMargin: defaultPadding),
+          rightMargin: defaultPadding),
     ],
     queries: {
       "inputFieldsQuery":

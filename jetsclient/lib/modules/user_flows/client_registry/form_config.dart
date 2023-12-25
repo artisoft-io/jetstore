@@ -7,38 +7,6 @@ import 'package:jetsclient/models/form_config.dart';
 /// Form Config for Client Config UF Module
 
 final Map<String, FormConfig> _formConfigurations = {
-  FormKeys.ufStartClientRegistry: FormConfig(
-    key: FormKeys.ufStartClientRegistry,
-    useListView: true,
-    actions: [],
-    inputFields: [
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
-        TextFieldConfig(
-            label:
-                "This flow will assist you in adding Client and/or Vendor in the Client Registry.",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
-      ],
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
-        PaddingConfig(),
-        FormActionConfig(
-            key: ActionKeys.ufStartFlow,
-            label: "Start",
-            buttonStyle: ActionStyle.ufSecondary,
-            leftMargin: defaultPadding,
-            rightMargin: defaultPadding),
-      ],
-    ],
-    formValidatorDelegate: alwaysValidForm,
-    formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
-  ),
   FormKeys.ufSelectClientOrVendor: FormConfig(
     key: FormKeys.ufSelectClientOrVendor,
     useListView: true,

@@ -24,7 +24,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       key: ScreenKeys.workspaceRegistry,
       type: ScreenType.other,
       appBarLabel: 'JetStore Workspace IDE',
-      title: 'Welcome to JetStore Workspace IDE!',
+      title: '',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: workspaceRegistryMenuEntries,

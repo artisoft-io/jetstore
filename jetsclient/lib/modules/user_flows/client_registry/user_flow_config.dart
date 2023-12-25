@@ -6,13 +6,6 @@ import 'package:jetsclient/utils/constants.dart';
 final Map<String, UserFlowConfig> _userFlowConfigurations = {
   //
   UserFlowKeys.clientRegistryUF: UserFlowConfig(startAtKey: "select_client_vendor", states: {
-    "startUF": UserFlowState(
-        key: "startUF",
-        description: 'Start Client Registry User Flow',
-        formConfig: getFormConfig(FormKeys.ufStartClientRegistry),
-        actionDelegate: clientRegistryFormActions,
-        stateAction: ActionKeys.crStartUF,
-        defaultNextState: "select_client_vendor"),
     "select_client_vendor": UserFlowState(
         key: "select_client_vendor",
         description: 'Select between create client or add vendor/org',

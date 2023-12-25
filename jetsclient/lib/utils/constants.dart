@@ -208,7 +208,6 @@ class FormKeys {
 
   // User Flow Forms
   // Client Registry UF
-  static const ufStartClientRegistry = "ufStartClientRegistry";
   static const ufSelectClientOrVendor = "ufSelectClientOrVendor";
   static const ufCreateClient = "ufCreateClient";
   static const ufSelectClient = "ufSelectClient";

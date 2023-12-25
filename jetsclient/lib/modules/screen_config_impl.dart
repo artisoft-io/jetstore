@@ -137,7 +137,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.home: ScreenConfig(
       key: ScreenKeys.home,
       appBarLabel: 'JetStore Workspace',
-      title: 'Welcome to JetStore Workspace!',
+      title: '',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,

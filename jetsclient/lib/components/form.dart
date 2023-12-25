@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
-import 'package:jetsclient/components/dialogs.dart';
 import 'package:jetsclient/components/form_button.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -241,57 +240,55 @@ class JetsFormWidgetState extends State<JetsForm> {
                 // otherwise expand the controls to occupy the viewport
                 child: inputFields.length > 5 ||
                         (useListView != null && useListView == true)
-                    ? ListView.builder(
-                        itemBuilder: (BuildContext context, int index) {
-                          if (index == 0 && errorMessage != null) {
-                            return Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(errorMessage!,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall),
-                            );
-                          }
-                          if (index < inputFields.length) {
-                            var fc = inputFields[index];
-                            return Row(
-                              children: fc
-                                  .map((e) => Flexible(
-                                      flex: e.flex,
-                                      fit: FlexFit.tight,
-                                      child: e.makeFormField(
-                                          screenPath: widget.formPath,
-                                          formConfig: widget.formConfig,
-                                          formState: widget.formState)))
-                                  .toList(),
-                            );
-                          }
-                          // case last: row of buttons
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                  0, defaultPadding, 0, 0),
-                              child: Row(
-                                  children: widget.formConfig.actions
-                                      .map((e) => JetsFormButton(
-                                          key: Key(e.key),
-                                          formActionConfig: e,
-                                          formKey: widget.formKey,
-                                          formState: widget.formState,
-                                          actionsDelegate: widget
-                                              .formConfig.formActionsDelegate))
-                                      .toList()),
-                            ),
-                          );
-                        },
-                        itemCount: errorMessage != null
-                            ? (widget.formConfig.actions.isNotEmpty
-                                ? inputFields.length + 2
-                                : inputFields.length + 1)
-                            : (widget.formConfig.actions.isNotEmpty
-                                ? inputFields.length + 1
-                                : inputFields.length))
+                    ? Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                                itemBuilder: (BuildContext context, int index) {
+                                  if (index == 0 && errorMessage != null) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(errorMessage!,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .headlineSmall),
+                                    );
+                                  }
+                                  var fc = inputFields[index];
+                                  return Row(
+                                    children: fc
+                                        .map((e) => Flexible(
+                                            flex: e.flex,
+                                            fit: FlexFit.tight,
+                                            child: e.makeFormField(
+                                                screenPath: widget.formPath,
+                                                formConfig: widget.formConfig,
+                                                formState: widget.formState)))
+                                        .toList(),
+                                  );
+                                },
+                                itemCount: errorMessage != null
+                                    ? inputFields.length + 1
+                                    : inputFields.length),
+                          ),
+                          Center(
+                              child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                0, defaultPadding, 0, defaultPadding),
+                            child: Row(
+                                children: widget.formConfig.actions
+                                    .map((e) => JetsFormButton(
+                                        key: Key(e.key),
+                                        formActionConfig: e,
+                                        formKey: widget.formKey,
+                                        formState: widget.formState,
+                                        actionsDelegate: widget
+                                            .formConfig.formActionsDelegate))
+                                    .toList()),
+                          ))
+                        ],
+                      )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: List<Widget>.generate(

@@ -435,6 +435,15 @@ final Map<String, TableConfig> _tableConfigurations = {
           capability: 'run_pipelines',
           configForm: FormKeys.startPipeline),
       ActionConfig(
+          actionType: DataTableActionType.refreshTable,
+          key: 'refreshTable',
+          label: 'Refresh',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
+    ],
+    secondRowActions: [
+      ActionConfig(
           actionType: DataTableActionType.showScreen,
           key: 'viewStatusDetails',
           label: 'View Execution Details',
@@ -461,13 +470,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.showFailureDetails,
           navigationParams: {'session_id': 10, 'failure_details': 12}),
-      ActionConfig(
-          actionType: DataTableActionType.refreshTable,
-          key: 'refreshTable',
-          label: 'Refresh',
-          style: ActionStyle.secondary,
-          isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: null),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
