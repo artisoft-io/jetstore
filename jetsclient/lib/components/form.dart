@@ -37,6 +37,8 @@ class JetsFormWidgetState extends State<JetsForm> {
   bool? get useListView => widget.formConfig.useListView;
   String? get errorMessage => widget.formState.getValue(0, FSK.serverError);
 
+  InputFieldTypeV2 get inputFieldsV2 => widget.formConfig.inputFieldsV2;
+
   InputFieldType get inputFields => widget.formConfig.inputFields.isEmpty
       ? alternateInputFields
       : widget.formConfig.inputFields;
@@ -228,6 +230,221 @@ class JetsFormWidgetState extends State<JetsForm> {
     }
   }
 
+  Widget buildFormV1(BuildContext context) {
+    return inputFields.length > 5 ||
+            (useListView != null && useListView == true)
+        ? Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == 0 && errorMessage != null) {
+                        return Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(errorMessage!,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.headlineSmall),
+                        );
+                      }
+                      var fc = inputFields[index];
+                      return Row(
+                        children: fc
+                            .map((e) => Flexible(
+                                flex: e.flex,
+                                fit: FlexFit.tight,
+                                child: e.makeFormField(
+                                    screenPath: widget.formPath,
+                                    formConfig: widget.formConfig,
+                                    formState: widget.formState)))
+                            .toList(),
+                      );
+                    },
+                    itemCount: errorMessage != null
+                        ? inputFields.length + 1
+                        : inputFields.length),
+              ),
+              Center(
+                  child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    0, defaultPadding, 0, defaultPadding),
+                child: Row(
+                    children: widget.formConfig.actions
+                        .map((e) => JetsFormButton(
+                            key: Key(e.key),
+                            formActionConfig: e,
+                            formKey: widget.formKey,
+                            formState: widget.formState,
+                            actionsDelegate:
+                                widget.formConfig.formActionsDelegate))
+                        .toList()),
+              ))
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: List<Widget>.generate(
+                errorMessage != null
+                    ? (widget.formConfig.actions.isNotEmpty
+                        ? inputFields.length + 2
+                        : inputFields.length + 1)
+                    : (widget.formConfig.actions.isNotEmpty
+                        ? inputFields.length + 1
+                        : inputFields.length), (index) {
+              if (index == 0 && errorMessage != null) {
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(errorMessage!,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                );
+              }
+              return index < inputFields.length
+                  // widgets of the form's row
+                  ? Flexible(
+                      flex: 10,
+                      fit: FlexFit.tight,
+                      child: Row(
+                        children: inputFields[index]
+                            .map((e) => Flexible(
+                                flex: e.flex,
+                                fit: FlexFit.tight,
+                                child: e.makeFormField(
+                                    screenPath: widget.formPath,
+                                    formConfig: widget.formConfig,
+                                    formState: widget.formState)))
+                            .toList(),
+                      ),
+                    )
+                  // last row of form action button
+                  : Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            0, defaultPadding, 0, defaultPadding),
+                        child: Row(
+                            children: widget.formConfig.actions
+                                .map((e) => JetsFormButton(
+                                    key: Key(e.key),
+                                    formActionConfig: e,
+                                    formKey: widget.formKey,
+                                    formState: widget.formState,
+                                    actionsDelegate:
+                                        widget.formConfig.formActionsDelegate))
+                                .toList()),
+                      ),
+                    );
+            }),
+          );
+  }
+
+  Widget buildFormV2(BuildContext context) {
+    return inputFieldsV2.length > 5 ||
+            (useListView != null && useListView == true)
+        ? Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == 0 && errorMessage != null) {
+                        return Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(errorMessage!,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.headlineSmall),
+                        );
+                      }
+                      var fc = inputFieldsV2[index];
+                      return Row(
+                        children: fc.rowConfig
+                            .map((e) => Flexible(
+                                flex: e.flex,
+                                fit: FlexFit.tight,
+                                child: e.makeFormField(
+                                    screenPath: widget.formPath,
+                                    formConfig: widget.formConfig,
+                                    formState: widget.formState)))
+                            .toList(),
+                      );
+                    },
+                    itemCount: errorMessage != null
+                        ? inputFieldsV2.length + 1
+                        : inputFieldsV2.length),
+              ),
+              Center(
+                  child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    0, defaultPadding, 0, defaultPadding),
+                child: Row(
+                    children: widget.formConfig.actions
+                        .map((e) => JetsFormButton(
+                            key: Key(e.key),
+                            formActionConfig: e,
+                            formKey: widget.formKey,
+                            formState: widget.formState,
+                            actionsDelegate:
+                                widget.formConfig.formActionsDelegate))
+                        .toList()),
+              ))
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: List<Widget>.generate(
+                errorMessage != null
+                    ? (widget.formConfig.actions.isNotEmpty
+                        ? inputFieldsV2.length + 2
+                        : inputFieldsV2.length + 1)
+                    : (widget.formConfig.actions.isNotEmpty
+                        ? inputFieldsV2.length + 1
+                        : inputFieldsV2.length), (index) {
+              if (index == 0 && errorMessage != null) {
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(errorMessage!,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                );
+              }
+              return index < inputFieldsV2.length
+                  // widgets of the form's row
+                  ? Flexible(
+                      flex: inputFieldsV2[index].flex,
+                      fit: FlexFit.tight,
+                      child: Row(
+                        children: inputFieldsV2[index]
+                            .rowConfig
+                            .map((e) => Flexible(
+                                flex: e.flex,
+                                fit: FlexFit.tight,
+                                child: e.makeFormField(
+                                    screenPath: widget.formPath,
+                                    formConfig: widget.formConfig,
+                                    formState: widget.formState)))
+                            .toList(),
+                      ),
+                    )
+                  // last row of form action button
+                  : Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            0, defaultPadding, 0, defaultPadding),
+                        child: Row(
+                            children: widget.formConfig.actions
+                                .map((e) => JetsFormButton(
+                                    key: Key(e.key),
+                                    formActionConfig: e,
+                                    formKey: widget.formKey,
+                                    formState: widget.formState,
+                                    actionsDelegate:
+                                        widget.formConfig.formActionsDelegate))
+                                .toList()),
+                      ),
+                    );
+            }),
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -238,115 +455,9 @@ class JetsFormWidgetState extends State<JetsForm> {
             child: AutofillGroup(
                 // When inputFields.length > 5 or useListView==true then use ListView
                 // otherwise expand the controls to occupy the viewport
-                child: inputFields.length > 5 ||
-                        (useListView != null && useListView == true)
-                    ? Column(
-                        children: [
-                          Expanded(
-                            child: ListView.builder(
-                                itemBuilder: (BuildContext context, int index) {
-                                  if (index == 0 && errorMessage != null) {
-                                    return Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Text(errorMessage!,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .headlineSmall),
-                                    );
-                                  }
-                                  var fc = inputFields[index];
-                                  return Row(
-                                    children: fc
-                                        .map((e) => Flexible(
-                                            flex: e.flex,
-                                            fit: FlexFit.tight,
-                                            child: e.makeFormField(
-                                                screenPath: widget.formPath,
-                                                formConfig: widget.formConfig,
-                                                formState: widget.formState)))
-                                        .toList(),
-                                  );
-                                },
-                                itemCount: errorMessage != null
-                                    ? inputFields.length + 1
-                                    : inputFields.length),
-                          ),
-                          Center(
-                              child: Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                                0, defaultPadding, 0, defaultPadding),
-                            child: Row(
-                                children: widget.formConfig.actions
-                                    .map((e) => JetsFormButton(
-                                        key: Key(e.key),
-                                        formActionConfig: e,
-                                        formKey: widget.formKey,
-                                        formState: widget.formState,
-                                        actionsDelegate: widget
-                                            .formConfig.formActionsDelegate))
-                                    .toList()),
-                          ))
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: List<Widget>.generate(
-                            errorMessage != null
-                                ? (widget.formConfig.actions.isNotEmpty
-                                    ? inputFields.length + 2
-                                    : inputFields.length + 1)
-                                : (widget.formConfig.actions.isNotEmpty
-                                    ? inputFields.length + 1
-                                    : inputFields.length), (index) {
-                          if (index == 0 && errorMessage != null) {
-                            return Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(errorMessage!,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall),
-                            );
-                          }
-                          return index < inputFields.length
-                              // widgets of the form's row
-                              ? Flexible(
-                                  flex: 10,
-                                  fit: FlexFit.tight,
-                                  child: Row(
-                                    children: inputFields[index]
-                                        .map((e) => Flexible(
-                                            flex: e.flex,
-                                            fit: FlexFit.tight,
-                                            child: e.makeFormField(
-                                                screenPath: widget.formPath,
-                                                formConfig: widget.formConfig,
-                                                formState: widget.formState)))
-                                        .toList(),
-                                  ),
-                                )
-                              // last row of form action button
-                              : Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                        0, defaultPadding, 0, defaultPadding),
-                                    child: Row(
-                                        children: widget.formConfig.actions
-                                            .map((e) => JetsFormButton(
-                                                key: Key(e.key),
-                                                formActionConfig: e,
-                                                formKey: widget.formKey,
-                                                formState: widget.formState,
-                                                actionsDelegate: widget
-                                                    .formConfig
-                                                    .formActionsDelegate))
-                                            .toList()),
-                                  ),
-                                );
-                        }),
-                      )),
+                child: inputFieldsV2.isNotEmpty
+                    ? buildFormV2(context)
+                    : buildFormV1(context)),
           ),
         ));
   }

@@ -117,17 +117,15 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.pcViewMergeProcessInputsUF: FormConfig(
     key: FormKeys.pcViewMergeProcessInputsUF,
     actions: standardActions,
-    useListView: true,
-    inputFields: [
-      [
+    useListView: false,
+    inputFieldsV2: [
+      FormFieldRowConfig(flex:1, rowConfig: [
         FormDataTableFieldConfig(
             key: DTKeys.pcViewMergedProcessInputKeys,
-            dataTableConfig: DTKeys.pcViewMergedProcessInputKeys),
-      ],
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
+            dataTableConfig: DTKeys.pcViewMergedProcessInputKeys,
+            tableHeight: double.infinity),
+      ]),
+      FormFieldRowConfig(rowConfig: [
         FormActionConfig(
             key: ActionKeys.pcGotToAddMergeProcessInputUF,
             label: "Add Data Source to Merge",
@@ -136,10 +134,7 @@ final Map<String, FormConfig> _formConfigurations = {
             rightMargin: defaultPadding),
         PaddingConfig(),
         PaddingConfig(),
-      ],
-      [
-        PaddingConfig(),
-      ],
+      ]),
     ],
     formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
@@ -149,17 +144,16 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.pcViewInjectedProcessInputsUF: FormConfig(
     key: FormKeys.pcViewInjectedProcessInputsUF,
     actions: standardActions,
-    useListView: true,
-    inputFields: [
-      [
+    useListView: false,
+    inputFieldsV2: [
+      FormFieldRowConfig(flex:1, rowConfig: [
         FormDataTableFieldConfig(
             key: DTKeys.pcViewInjectedProcessInputKeys,
-            dataTableConfig: DTKeys.pcViewInjectedProcessInputKeys),
-      ],
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
+            dataTableConfig: DTKeys.pcViewInjectedProcessInputKeys,
+            tableHeight: double.infinity),
+      ]),
+      FormFieldRowConfig(rowConfig: [PaddingConfig()]),
+      FormFieldRowConfig(rowConfig: [
         FormActionConfig(
             key: ActionKeys.pcGotToAddInjectedProcessInputUF,
             label: "Add Data Source for Historical Data",
@@ -168,10 +162,7 @@ final Map<String, FormConfig> _formConfigurations = {
             rightMargin: defaultPadding),
         PaddingConfig(),
         PaddingConfig(),
-      ],
-      [
-        PaddingConfig(),
-      ],
+      ]),
     ],
     formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:

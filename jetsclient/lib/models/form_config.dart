@@ -33,10 +33,18 @@ Future<String?> doNothingAction(BuildContext context,
 typedef JetsFormFieldValidator = String? Function(
     int group, String key, dynamic v);
 
-typedef JetsFormFieldRowBuilder1 = List<FormFieldConfig> Function(
-    int index, List<String?> labels, JetsFormState formState);
-
 typedef InputFieldType = List<List<FormFieldConfig>>;
+
+typedef InputFieldTypeV2 = List<FormFieldRowConfig>;
+
+class FormFieldRowConfig {
+  FormFieldRowConfig({
+    this.flex = 0,
+    required this.rowConfig,
+  });
+  final int flex;
+  final List<FormFieldConfig> rowConfig;
+}
 
 typedef JetsFormFieldRowBuilder = InputFieldType Function(
     int index, List<String?>? inputFieldRow, JetsFormState formState);
@@ -88,6 +96,7 @@ class FormConfig {
     required this.key,
     this.title,
     this.inputFields = const [],
+    this.inputFieldsV2 = const [],
     this.formTabsConfig = const [],
     this.inputFieldRowBuilder,
     required this.actions,
@@ -107,6 +116,7 @@ class FormConfig {
   final String? title;
   // For form without tabs (classic forms)
   final InputFieldType inputFields;
+  final InputFieldTypeV2 inputFieldsV2;
   // Form form with tabs
   final List<FormTabConfig> formTabsConfig;
   final JetsFormFieldRowBuilder? inputFieldRowBuilder;
