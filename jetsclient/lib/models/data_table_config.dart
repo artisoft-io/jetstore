@@ -39,20 +39,8 @@ class TableConfig {
     this.noFooter = false,
     this.dataRowMinHeight,
     this.dataRowMaxHeight,
-    this.noCopy2Clipboard = true,
-  }) {
-    if (isCheckboxVisible) {
-      actions.add(
-        ActionConfig(
-            actionType: DataTableActionType.toggleCopy2Clipboard,
-            key: 'toggleCopy2Clipboard',
-            label: '{toggleCopy2Clipboard}',
-            style: ActionStyle.primary,
-            isVisibleWhenCheckboxVisible: null,
-            isEnabledWhenHavingSelectedRows: null),
-      );
-    }
-  }
+    this.noCopy2Clipboard,
+  });
   final String key;
   final String label;
   final String apiPath;
@@ -83,7 +71,7 @@ class TableConfig {
   final bool noFooter;
   final double? dataRowMinHeight;
   final double? dataRowMaxHeight;
-  final bool noCopy2Clipboard;
+  final bool? noCopy2Clipboard;
 }
 
 /// enum describing the type of actions that are available to data table
@@ -91,10 +79,6 @@ enum DataTableActionType {
   showDialog,
   showScreen,
   toggleCheckboxVisible,
-  makeSelectedRowsEditable,
-  saveDirtyRows,
-  deleteSelectedRows,
-  cancelModifications,
   refreshTable,
   doAction,
   toggleCopy2Clipboard,

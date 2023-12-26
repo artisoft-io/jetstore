@@ -126,6 +126,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                     ),
                     Container(width: 14.0),
                   ];
+
             // Header row - label + action buttons
             final headerRow = <Widget>[
               if (state.label.isNotEmpty)
@@ -151,13 +152,27 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                                             .hasCapability(ac.capability!)))
                             ? () => state.actionDispatcher(context, ac)
                             : null,
-                        child: Text(ac.label == '{toggleCopy2Clipboard}'
-                            ? state.noCopy2Clipboard
-                                ? 'Enable Copy Cell'
-                                : 'Enable Select Row'
-                            : ac.label),
+                        child: Text(ac.label),
                       )
                     ]));
+            if (state._checkboxVisible &&
+                tableConfig.noCopy2Clipboard == null) {
+              headerRow.add(const SizedBox(width: defaultPadding));
+              headerRow.add(ElevatedButton(
+                style: buttonStyle(ActionStyle.primary, themeData),
+                onPressed: () => state.actionDispatcher(
+                    context,
+                    ActionConfig(
+                        key: 'toggleCopy2Clipboard',
+                        actionType: DataTableActionType.toggleCopy2Clipboard,
+                        label: '',
+                        style: ActionStyle.primary)),
+                child: Text(state.noCopy2Clipboard
+                        ? 'Enable Copy Cell'
+                        : 'Enable Select Row'),
+              ));
+            }
+
             // Second row of buttons
             final secondRow = <Widget>[];
             secondRow.addAll(tableConfig.secondRowActions
@@ -285,7 +300,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   late final JetsDataTableSource dataSource;
   // isTableEditable control if checkbox is shown or not
   // isTableReadOnly control if the state of the checkbox can be changed or not
-  bool get isTableEditable => tableConfig.isCheckboxVisible;
+  bool get isTableEditable => _checkboxVisible;
   bool get isTableReadOnly => tableConfig.isReadOnly;
   int? sortColumnIndex;
   String sortColumnName = '';
@@ -303,6 +318,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
 
   // Editable noCopy2Clipboard from config
   bool _noCopy2Clipboard = true;
+  bool _checkboxVisible = true;
 
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
@@ -346,7 +362,8 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     }
     // print("DataTable.initState - calling getModelData for ${tableConfig.key}");
     dataSource.getModelData();
-    _noCopy2Clipboard = tableConfig.noCopy2Clipboard;
+    _checkboxVisible = tableConfig.isCheckboxVisible;
+    _noCopy2Clipboard = tableConfig.noCopy2Clipboard ?? true;
     if (!tableConfig.isCheckboxVisible) {
       _noCopy2Clipboard = false;
     }
@@ -441,6 +458,15 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     //     "*** _toggleCopy2Clipboard called for Table ${tableConfig.key} requesting ModelData");
     setState(() {
       _noCopy2Clipboard = !_noCopy2Clipboard;
+    });
+  }
+
+  void _toggleCheckboxVisible() {
+    // print(
+    //     "*** _toggleCopy2Clipboard called for Table ${tableConfig.key} requesting ModelData");
+    setState(() {
+      _checkboxVisible = !_checkboxVisible;
+      _noCopy2Clipboard = _checkboxVisible;
     });
   }
 
@@ -610,6 +636,11 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       // toggle select row or Copy2Clipboard
       case DataTableActionType.toggleCopy2Clipboard:
         _toggleCopy2Clipboard();
+        break;
+
+      // toggle show checkboxes
+      case DataTableActionType.toggleCheckboxVisible:
+        _toggleCheckboxVisible();
         break;
 
       // Call server to do an action

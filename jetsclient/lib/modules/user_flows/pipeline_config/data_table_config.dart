@@ -502,7 +502,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     label: 'Merged Data Sources',
     apiPath: '/dataTable',
-    isCheckboxVisible: true,
+    isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(column: "key", formStateKey: FSK.mergedProcessInputKeys),
@@ -513,11 +513,18 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     actions: [
       ActionConfig(
+          actionType: DataTableActionType.toggleCheckboxVisible,
+          key: 'toggleRowSelection',
+          label: 'Show/Hide Select Row',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
+      ActionConfig(
           actionType: DataTableActionType.doAction,
           actionName: ActionKeys.pcRemoveMergedProcessInput,
           key: 'removeMergedProcessInput',
           label: 'Remove',
-          style: ActionStyle.primary,
+          style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true),
     ],
@@ -537,7 +544,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     label: 'Data Sources of Historical Data',
     apiPath: '/dataTable',
-    isCheckboxVisible: true,
+    isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(column: "key", formStateKey: FSK.injectedProcessInputKeys),
@@ -548,11 +555,18 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     actions: [
       ActionConfig(
+          actionType: DataTableActionType.toggleCheckboxVisible,
+          key: 'toggleRowSelection',
+          label: 'Show/Hide Select Row',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
+      ActionConfig(
           actionType: DataTableActionType.doAction,
           actionName: ActionKeys.pcRemoveInjectedProcessInput,
           key: 'removeInjectedProcessInput',
           label: 'Remove',
-          style: ActionStyle.primary,
+          style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true),
     ],
