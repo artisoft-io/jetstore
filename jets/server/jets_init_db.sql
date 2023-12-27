@@ -14,5 +14,7 @@ INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_requir
   ('to_zipext4_from_zip9',   '0'),
   ('to_zipext4',             '0'),
   ('trim',                   '0'),
-  ('validate_date',          '0')
+  ('validate_date',          '0'),
+  ('substring',              '1'),
+  ('find_and_replace',       '1')
 ;

@@ -22,7 +22,7 @@ type ConcatFunctionArg struct {
 func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColumnName2Pos map[string]int, cache map[string]interface{}) (*ConcatFunctionArg, error) {
 	// rawArg is csv-encoded
 	if rawArg == nil {
-		return nil, fmt.Errorf("unexpected null argument to concat or concat_with function")
+		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
 	}
 	// Check if we have it cached
 	v := cache[*rawArg]
@@ -51,6 +51,75 @@ func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColum
 			}
 			results.ColumnPositions = append(results.ColumnPositions, colPos)
 		}
+	}
+	cache[*rawArg] = results
+	return results, nil
+}
+
+type SubStringFunctionArg struct {
+	Start int
+	End int
+}
+
+func ParseSubStringFunctionArgument(rawArg *string, functionName string, cache map[string]interface{}) (*SubStringFunctionArg, error) {
+	// rawArg is comma separated as: start,end
+	if rawArg == nil {
+		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
+	}
+	// Check if we have it cached
+	v := cache[*rawArg]
+	if v != nil {
+		// fmt.Println("*** OK Got Cached value for", *rawArg,":",v)
+		return v.(*SubStringFunctionArg), nil
+	}
+	// Parsed the raw argument into SubStringFunctionArg and put it in the cache
+	row := strings.Split(*rawArg, ",")
+	if len(row) != 2 {
+		// The argument is not valid
+		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end (%s function)", *rawArg, functionName)
+	}
+	start, err := strconv.Atoi(strings.TrimSpace(row[0]))
+	if err != nil {
+		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", *rawArg, err, functionName)
+	}
+	end, err := strconv.Atoi(strings.TrimSpace(row[1]))
+	if err != nil || (end > 0 && end <= start) {
+		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", *rawArg, err, functionName)
+	}
+	results := &SubStringFunctionArg{
+		Start: start,
+		End: end,
+	}
+	cache[*rawArg] = results
+	return results, nil
+}
+
+type FindReplaceFunctionArg struct {
+	Find string
+	ReplaceWith string
+}
+
+func ParseFindReplaceFunctionArgument(rawArg *string, functionName string, cache map[string]interface{}) (*FindReplaceFunctionArg, error) {
+	// rawArg is csv-encoded: "text to find","text to replace with"
+	if rawArg == nil {
+		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
+	}
+	// Check if we have it cached
+	v := cache[*rawArg]
+	if v != nil {
+		// fmt.Println("*** OK Got Cached value for", *rawArg,":",v)
+		return v.(*FindReplaceFunctionArg), nil
+	}
+	// Parsed the raw argument into FindReplaceFunctionArg and put it in the cache
+	rows, err := jcsv.Parse(*rawArg)
+	if len(rows)==0 || len(rows[0])!=2 || err != nil {
+		// It's not csv or there's no data
+		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
+	}
+
+	results := &FindReplaceFunctionArg{
+		Find: rows[0][0],
+		ReplaceWith: rows[0][1],
 	}
 	cache[*rawArg] = results
 	return results, nil
@@ -359,6 +428,34 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 				}
 			}
 			obj = buf.String()		
+		}
+
+	case "find_and_replace":
+		// Cleansing function that replace portion of the input column
+		// Get the parsed argument
+		arg, err := ParseFindReplaceFunctionArgument(&inputColumnSpec.argument.String, inputColumnSpec.functionName.String, ri.parsedFunctionArguments)
+		if err != nil {
+			errMsg = err.Error()
+		} else {
+			obj = strings.ReplaceAll(*inputValue, arg.Find, arg.ReplaceWith)
+		}
+
+	case "substring":
+		// Cleansing function that takes a substring of input columns
+		// Get the parsed argument
+		arg, err := ParseSubStringFunctionArgument(&inputColumnSpec.argument.String, inputColumnSpec.functionName.String, ri.parsedFunctionArguments)
+		if err != nil {
+			errMsg = err.Error()
+		} else {
+			end := arg.End
+			if end < 0 {
+				end = len(*inputValue) + end
+			}
+			if end > len(*inputValue) || end <= arg.Start {
+				obj = ""
+			} else {
+				obj = (*inputValue)[arg.Start:end]
+			}
 		}
 
 	default:
