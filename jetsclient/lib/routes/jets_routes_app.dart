@@ -19,7 +19,6 @@ const PARAM_CHAR = ':';
 const homePath = '/';
 // Expert screen, to be replaced by UFs
 const clientAdminPath = '/clientAdmin';
-const sourceConfigPath = '/sourceConfig';
 const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
 const queryToolPath = '/queryTool';
@@ -48,7 +47,7 @@ const workspaceHomePath = '/workspaces/:workspace_name/home';
 
 // User Flow Paths
 const ufClientRegistryPath = '/clientRegistryUF';
-const ufSourceConfigPath = '/sourceConfigUF';
+const ufSourceConfigPath = '/sourceConfigUF/:startAtKey';
 const ufFileMappingPath = '/fileMappingUF';
 const ufMappingPath = '/fileMappingUF/mapping/:table_name/:object_type';
 const ufPipelineConfigPath = '/pipelineConfigUF';
@@ -81,14 +80,6 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: const JetsRouteData(clientAdminPath),
     screenConfig: getScreenConfig(ScreenKeys.clientAdmin),
     formConfig: getFormConfig(FormKeys.clientAdmin),
-  ),
-
-  // Source Config
-  sourceConfigPath: ScreenWithForm(
-    key: const Key(ScreenKeys.sourceConfig),
-    screenPath: const JetsRouteData(sourceConfigPath),
-    screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
-    formConfig: getFormConfig(FormKeys.sourceConfig),
   ),
 
   // Process Input

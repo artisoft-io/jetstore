@@ -152,7 +152,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Automated',
           tooltips: 'Is load automated? (true: 1, false: 0)',
           isNumeric: true,
-          isHidden: true),
+          isHidden: false),
       ColumnConfig(
           index: 5,
           name: "table_name",

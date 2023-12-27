@@ -19,17 +19,14 @@ final defaultMenuEntries = [
       label: 'Clients and Organizations',
       routePath: clientAdminPath),
   MenuEntry(
-      key: 'sourceConfig',
+      key: 'sourceConfigUF',
       label: 'Client Files',
-      routePath: sourceConfigPath),
+      routePath: ufSourceConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_source_config'}),
   MenuEntry(
       key: 'inputSourceMapping',
       label: 'File Mapping',
       routePath: ufFileMappingPath),
-  // MenuEntry(
-  //     key: 'processInput',
-  //     label: 'Process Input Configuration',
-  //     routePath: processInputPath),
   MenuEntry(
       key: 'processConfig',
       label: 'Rules Configurations',
@@ -43,16 +40,6 @@ final defaultMenuEntries = [
         capability: 'workspace_ide',
         label: 'Workspace IDE Home',
         routePath: workspaceRegistryPath),
-  // MenuEntry(
-  //     otherPageStyle: ActionStyle.danger,
-  //     key: 'dataPurge',
-  //     label: 'Purge Client Data',
-  //     menuAction: purgeDataAction),
-  // MenuEntry(
-  //     otherPageStyle: ActionStyle.danger,
-  //     key: 'runInitDb',
-  //     label: 'Run Workspace Database Initialization',
-  //     menuAction: rerunDbInitAction),
 ];
 
 final adminMenuEntries = [
@@ -62,9 +49,10 @@ final adminMenuEntries = [
       label: 'Clients and Organizations',
       routePath: clientAdminPath),
   MenuEntry(
-      key: 'sourceConfig',
+      key: 'sourceConfigUF',
       label: 'Client Files',
-      routePath: sourceConfigPath),
+      routePath: ufSourceConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_source_config'}),
   MenuEntry(
       key: 'inputSourceMapping',
       label: 'File Mapping',

@@ -152,8 +152,6 @@ class FormKeys {
   static const addClient = "addClientDialog";
   static const addOrg = "addOrgDialog";
   // File Staging Area
-  static const sourceConfig = "sourceConfigForm";
-  static const addSourceConfig = "addSourceConfigDialog";
   static const loadRawRows = "loadRawRowsDialog";
   static const loadAllFiles = "loadAllFilesDialog";
   // Input Source Mapping Forms
@@ -400,6 +398,7 @@ class FSK {
 
   // Keys for User Flow - special state management keys
   // --------------------------------------------------
+  static const ufStartAtKey = "startAtKey";
   static const ufCurrentPage = "ufCurrentPage";
   static const ufVisitedPages = "ufVisitedPages";
 
@@ -686,7 +685,6 @@ class DTKeys {
   static const orgNameTable = "orgNameTable";
 
   // File Staging Area / Source Config DT
-  static const sourceConfigTable = "sourceConfigTable";
   static const fileKeyStagingTable = "fileKeyStagingTable";
   static const fileKeyStagingMultiLoadTable = "fileKeyStagingMultiLoadTable";
 
