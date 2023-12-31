@@ -19,10 +19,18 @@ enum ActionStyle {
   tbSecondary,
   ufPrimary,
   ufSecondary,
+  dialogOk,
+  dialogCancel,
 }
 
 ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
   switch (style) {
+    case ActionStyle.primary:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
     case ActionStyle.danger:
       return ElevatedButton.styleFrom(
         foregroundColor: td.colorScheme.onErrorContainer,
@@ -39,6 +47,18 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
       return ElevatedButton.styleFrom(
         foregroundColor: td.colorScheme.onPrimaryContainer,
         backgroundColor: Colors.orange.shade200,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.dialogOk:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.dialogCancel:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
       ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
 
     case ActionStyle.menuSelected:
@@ -85,19 +105,11 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
         backgroundColor: td.colorScheme.primaryContainer,
         textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
-    // return ElevatedButton.styleFrom(
-    //       backgroundColor: const Color.fromARGB(255, 61, 142, 64),
-    //       side: const BorderSide(color: Colors.yellow, width: 2),
-    //       textStyle: const TextStyle(
-    //           color: Colors.white, fontSize: 25, fontStyle: FontStyle.normal),
-    //     ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
 
     default: // primary
-      return ElevatedButton.styleFrom(
-        foregroundColor: td.colorScheme.onSecondaryContainer,
-        backgroundColor: td.colorScheme.secondaryContainer,
-      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+      print("*** UNKNOWN ActionStyle: $style");
   }
+  return null;
 }
 
 /// Screen ID Keys
@@ -207,7 +219,8 @@ class FormKeys {
   static const ufShowVendor = "ufShowVendor";
   // Source Config UF Forms
   static const scAddOrEditSourceConfigUF = "scAddOrEditSourceConfigUF";
-  static const scSelectSingleOrMultiPartFileUF = "scSelectSingleOrMultiPartFileUF";
+  static const scSelectSingleOrMultiPartFileUF =
+      "scSelectSingleOrMultiPartFileUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
   static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
@@ -598,7 +611,6 @@ class ActionKeys {
   static const scStartUF = "scStartUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
-  static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
 
   // File Mapping UF ActionKeys

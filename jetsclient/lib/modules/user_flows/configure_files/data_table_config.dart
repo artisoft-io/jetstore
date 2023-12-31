@@ -49,7 +49,7 @@ final Map<String, TableConfig> _tableConfigurations = {
   FSK.scSingleOrMultiPartFileOption: TableConfig(
       key: FSK.scSingleOrMultiPartFileOption,
       fromClauses: [],
-      label: 'Select one of the following options:',
+      label: 'Is the data source a single file or multi-part files?',
       apiPath: '',
       isCheckboxVisible: true,
       isCheckboxSingleSelect: true,
@@ -65,8 +65,8 @@ final Map<String, TableConfig> _tableConfigurations = {
         ColumnConfig(
             index: 0,
             name: "option_description",
-            label: 'Select one of the following option',
-            tooltips: 'Select one of the option',
+            label: 'Select one of the following options',
+            tooltips: '',
             isNumeric: false),
         ColumnConfig(
             index: 1,
@@ -271,7 +271,7 @@ final Map<String, TableConfig> _tableConfigurations = {
   FSK.scFileTypeOption: TableConfig(
       key: FSK.scFileTypeOption,
       fromClauses: [],
-      label: 'Select one of the following options:',
+      label: 'Select one of the following file type option:',
       apiPath: '',
       isCheckboxVisible: true,
       isCheckboxSingleSelect: true,

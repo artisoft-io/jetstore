@@ -63,7 +63,7 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.spSummaryUF: FormConfig(
     key: FormKeys.spSummaryUF,
     title: "Run Pipeline Summary",
-    useListView: true,
+    useListView: false,
     actions: [
       FormActionConfig(
           key: ActionKeys.ufPrevious,
@@ -84,8 +84,8 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: defaultPadding,
           rightMargin: defaultPadding),
     ],
-    inputFields: [
-      [
+    inputFieldsV2: [
+      FormFieldRowConfig(flex:0, rowConfig: [
         FormInputFieldConfig(
             key: FSK.client,
             label: "Client",
@@ -108,8 +108,8 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 100,
             textRestriction: TextRestriction.none,
             useDefaultFont: true),
-      ],
-      [
+      ]),
+      FormFieldRowConfig(flex:0, rowConfig: [
         FormInputFieldConfig(
             key: FSK.description,
             label: "Description",
@@ -121,20 +121,20 @@ final Map<String, FormConfig> _formConfigurations = {
             textRestriction: TextRestriction.none,
             maxLength: 1024,
             useDefaultFont: true),
-      ],
-      [
+      ]),
+      FormFieldRowConfig(flex:3, rowConfig: [
         FormDataTableFieldConfig(
             key: DTKeys.spSummaryDataSources,
             dataTableConfig: DTKeys.spSummaryDataSources,
             tableHeight: 224),
-      ],
-      [
+      ]),
+      FormFieldRowConfig(flex:2, rowConfig: [
         FormDataTableFieldConfig(
             key: DTKeys.spInjectedProcessInput,
             dataTableConfig: DTKeys.spInjectedProcessInput,
             tableHeight: 224)
-      ],
-      [
+      ]),
+      FormFieldRowConfig(flex:0, rowConfig: [
         PaddingConfig(),
         PaddingConfig(),
         FormActionConfig(
@@ -143,7 +143,7 @@ final Map<String, FormConfig> _formConfigurations = {
             buttonStyle: ActionStyle.ufSecondary,
             leftMargin: defaultPadding,
             rightMargin: defaultPadding),
-      ],
+      ]),
     ],
     formValidatorDelegate: startPipelineFormValidator,
     formActionsDelegate: doNothingAction,

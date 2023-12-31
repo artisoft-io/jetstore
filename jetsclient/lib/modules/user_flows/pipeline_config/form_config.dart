@@ -31,7 +31,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: defaultPadding),
       ],
       [
         FormDropdownFieldConfig(
@@ -264,13 +264,13 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.addProcessInputOk,
           capability: "client_config",
           label: "Save",
-          buttonStyle: ActionStyle.ufPrimary,
+          buttonStyle: ActionStyle.dialogOk,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.ufSecondary,
+          buttonStyle: ActionStyle.dialogCancel,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],
@@ -331,13 +331,13 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.addProcessInputOk,
           capability: "client_config",
           label: "Save",
-          buttonStyle: ActionStyle.ufPrimary,
+          buttonStyle: ActionStyle.dialogOk,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.ufSecondary,
+          buttonStyle: ActionStyle.dialogCancel,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],

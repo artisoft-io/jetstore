@@ -64,7 +64,7 @@ AppBar appBar(BuildContext context, String title, ScreenConfig screenConfig,
           tooltip: 'Log Out',
           onPressed: () {
             JetsRouterDelegate().user = UserModel();
-            JetsRouterDelegate()(JetsRouteData(loginPath));
+            JetsRouterDelegate()(const JetsRouteData(loginPath));
           },
         ),
     ],

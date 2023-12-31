@@ -156,7 +156,8 @@ Future<String?> configureFilesFormActions(
       } else if (unpack(state['is_part_files']) == '0') {
         state[FSK.scSingleOrMultiPartFileOption] = FSK.scSingleFileOption;
       } else {
-        print("*** ERROR Invalid value for 'is_part_files': ${unpack(state['is_part_files'])}");
+        print(
+            "*** ERROR Invalid value for 'is_part_files': ${unpack(state['is_part_files'])}");
       }
       if (state[FSK.scFileTypeOption] == '') {
         if (state[FSK.inputColumnsJson] != null) {
@@ -171,7 +172,12 @@ Future<String?> configureFilesFormActions(
       }
       return null;
 
-    // Add/Update Source Config
+    // Add Source Config
+    case ActionKeys.scAddSourceConfigUF:
+      state['table_name'] = makeTableNameFromState(state);
+      break;
+
+    // Post Add/Update Source Config to server
     case ActionKeys.addSourceConfigOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
@@ -183,7 +189,6 @@ Future<String?> configureFilesFormActions(
       if (stateCopy[FSK.key] != null) {
         query = 'update/source_config';
       }
-      stateCopy['table_name'] = makeTableNameFromState(state);
       switch (unpack(stateCopy[FSK.scFileTypeOption])) {
         case FSK.scCsvOption:
         case FSK.scParquetOption:
@@ -209,7 +214,8 @@ Future<String?> configureFilesFormActions(
           stateCopy['is_part_files'] = 1;
           break;
         default:
-          print("ERROR: missing/invalid FSK.scSingleOrMultiPartFileOption selection in state!");
+          print(
+              "ERROR: missing/invalid FSK.scSingleOrMultiPartFileOption selection in state!");
           return "error";
       }
       // print('*** Add Source Config state: $stateCopy');

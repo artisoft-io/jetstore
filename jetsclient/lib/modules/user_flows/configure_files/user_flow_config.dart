@@ -89,7 +89,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Edit Source Config Fixed Width Layout',
         formConfig: getFormConfig(FormKeys.scEditFixedWidthLayoutUF),
         actionDelegate: configureFilesFormActions,
-        stateAction: ActionKeys.scEditFixedWidthLayoutUF,
         defaultNextState: "select_single_or_multi_part_file"),
     "select_single_or_multi_part_file": UserFlowState(
         key: "select_single_or_multi_part_file",
