@@ -22,21 +22,19 @@ class JetsDropdownWithSharedItemsFormField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      flex: formFieldConfig.flex,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
-        child: DropdownButtonFormField<String>(
-            value: selectedValue,
-            onChanged: (String? newValue) {
-              formState.setValue(formFieldConfig.group, formFieldConfig.key, newValue);
-              onChanged(newValue);
-            },
-            autovalidateMode: formFieldConfig.autovalidateMode,
-            validator: (p0) =>
-                formValidator(formFieldConfig.group, formFieldConfig.key, p0),
-            items: formState.getCacheValue(formFieldConfig.dropdownMenuItemCacheKey),
-      ),
-    ));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
+      child: DropdownButtonFormField<String>(
+          value: selectedValue,
+          onChanged: (String? newValue) {
+            formState.setValue(formFieldConfig.group, formFieldConfig.key, newValue);
+            onChanged(newValue);
+          },
+          autovalidateMode: formFieldConfig.autovalidateMode,
+          validator: (p0) =>
+              formValidator(formFieldConfig.group, formFieldConfig.key, p0),
+          items: formState.getCacheValue(formFieldConfig.dropdownMenuItemCacheKey),
+    ),
+        );
   }
 }
