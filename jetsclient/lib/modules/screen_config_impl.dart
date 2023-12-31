@@ -181,17 +181,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
 
-  // // Process Input Configuration Screen
-  // ScreenKeys.processInput: ScreenConfig(
-  //     key: ScreenKeys.processInput,
-  //     appBarLabel: 'JetStore Workspace',
-  //     title: 'Process Input Configuration',
-  //     showLogout: true,
-  //     leftBarLogo: 'assets/images/logo.png',
-  //     menuEntries: defaultMenuEntries,
-  //     adminMenuEntries: adminMenuEntries,
-  //     toolbarMenuEntries: toolbarMenuEntries),
-
   // Rules Config Screen
   ScreenKeys.processConfig: ScreenConfig(
       key: ScreenKeys.processConfig,
@@ -213,17 +202,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       menuEntries: defaultMenuEntries,
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
-
-  // // Pipeline Config Screen
-  // ScreenKeys.pipelineConfig: ScreenConfig(
-  //     key: ScreenKeys.pipelineConfig,
-  //     appBarLabel: 'JetStore Workspace',
-  //     // title: 'Pipelines Configuration',
-  //     showLogout: true,
-  //     leftBarLogo: 'assets/images/logo.png',
-  //     menuEntries: defaultMenuEntries,
-  //     adminMenuEntries: adminMenuEntries,
-  //     toolbarMenuEntries: toolbarMenuEntries),
 
   // Pipeline Config Edit Screen
   ScreenKeys.pipelineConfigEdit: ScreenConfig(

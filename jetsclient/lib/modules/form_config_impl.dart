@@ -9,7 +9,6 @@ import 'package:jetsclient/modules/user_flows/client_registry/form_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/form_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/form_config.dart';
 import 'package:jetsclient/modules/user_flows/load_files/form_config.dart';
-import 'package:jetsclient/modules/user_flows/pipeline_config/form_action_delegates.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/form_config.dart';
 import 'package:jetsclient/modules/user_flows/start_pipeline/form_config.dart';
 import 'package:jetsclient/modules/user_flows/workspace_pull/form_config.dart';
@@ -357,129 +356,6 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate: loadAllFilesActions,
   ),
 
-  // // Process Input Form (table as actionless form)
-  // // Define ProcessInput Configuration
-  // FormKeys.processInput: FormConfig(
-  //   key: FormKeys.processInput,
-  //   actions: [
-  //     // Action-less form
-  //   ],
-  //   inputFields: [
-  //     [
-  //       FormDataTableFieldConfig(
-  //           key: DTKeys.processInputTable,
-  //           dataTableConfig: DTKeys.processInputTable,
-  //           tableHeight: 800)
-  //     ],
-  //   ],
-  //   formValidatorDelegate: alwaysValidForm,
-  //   formActionsDelegate: processInputFormActions,
-  // ),
-  // // addProcessInput - Dialog to add process input
-  // FormKeys.addProcessInput: FormConfig(
-  //   key: FormKeys.addProcessInput,
-  //   title: "Add/Update Process Input",
-  //   actions: [
-  //     FormActionConfig(
-  //         key: ActionKeys.addProcessInputOk,
-  //         capability: "client_config",
-  //         label: "Save",
-  //         buttonStyle: ActionStyle.primary,
-  //         leftMargin: defaultPadding,
-  //         rightMargin: betweenTheButtonsPadding),
-  //     FormActionConfig(
-  //         key: ActionKeys.dialogCancel,
-  //         label: "Cancel",
-  //         buttonStyle: ActionStyle.secondary,
-  //         leftMargin: betweenTheButtonsPadding,
-  //         rightMargin: defaultPadding),
-  //   ],
-  //   inputFields: [
-  //     [
-  //       FormDropdownFieldConfig(
-  //           key: FSK.client,
-  //           items: [
-  //             DropdownItemConfig(label: 'Select a Client'),
-  //           ],
-  //           dropdownItemsQuery:
-  //               "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"),
-  //     ],
-  //     [
-  //       FormDropdownFieldConfig(
-  //           key: FSK.objectType,
-  //           returnedModelCacheKey: FSK.objectTypeRegistryCache,
-  //           items: [
-  //             DropdownItemConfig(
-  //                 label: 'Select an Pipeline Grouping Domain Key'),
-  //           ],
-  //           dropdownItemsQuery:
-  //               "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 100"),
-  //     ],
-  //     [
-  //       FormDropdownFieldConfig(
-  //           key: FSK.entityRdfType,
-  //           returnedModelCacheKey: FSK.entityRdfTypeRegistryCache,
-  //           items: [
-  //             DropdownItemConfig(label: 'Select a Domain Class'),
-  //           ],
-  //           //* TODO read from workspace schema domain_classes (compilerv2)
-  //           dropdownItemsQuery:
-  //               '''SELECT entity_rdf_type FROM jetsapi.domain_keys_registry 
-  //                  UNION 
-  //                  SELECT entity_rdf_type FROM jetsapi.object_type_registry
-  //                  UNION 
-  //                  SELECT alias_rdf_type as entity_rdf_type FROM jetsapi.alias_rdf_type_registry
-  //                  ORDER BY entity_rdf_type ASC LIMIT 100''',
-  //           stateKeyPredicates: [FSK.objectType]),
-  //       FormInputFieldConfig(
-  //           key: FSK.lookbackPeriods,
-  //           label: "Lookback Periods",
-  //           hint: "Number of periods to include in the rule session",
-  //           defaultValue: "0",
-  //           flex: 1,
-  //           autofocus: false,
-  //           obscureText: false,
-  //           textRestriction: TextRestriction.digitsOnly,
-  //           maxLength: 10,
-  //           useDefaultFont: true),
-  //     ],
-  //     [
-  //       FormDropdownFieldConfig(
-  //           key: FSK.sourceType,
-  //           items: [
-  //             DropdownItemConfig(label: 'Select a Source Type'),
-  //             DropdownItemConfig(label: 'File', value: 'file'),
-  //             DropdownItemConfig(label: 'Domain Table', value: 'domain_table'),
-  //             DropdownItemConfig(
-  //                 label: 'Alias Domain Table', value: 'alias_domain_table'),
-  //           ],
-  //           defaultItemPos: 0),
-  //       FormDropdownFieldConfig(
-  //           key: FSK.org,
-  //           items: [
-  //             DropdownItemConfig(label: 'Select an Organization'),
-  //             DropdownItemConfig(label: 'No Organization', value: ''),
-  //           ],
-  //           dropdownItemsQuery:
-  //               "SELECT org FROM jetsapi.client_org_registry WHERE client = '{client}' ORDER BY org ASC LIMIT 100",
-  //           stateKeyPredicates: [FSK.client, FSK.sourceType],
-  //           whereStateContains: {FSK.sourceType: 'file'}),
-  //       FormDropdownFieldConfig(
-  //           key: FSK.tableName,
-  //           returnedModelCacheKey: FSK.entityRdfTypeRegistryCache,
-  //           items: [
-  //             DropdownItemConfig(label: 'Select a Domain Table'),
-  //           ],
-  //           dropdownItemsQuery:
-  //               "SELECT entity_rdf_type FROM jetsapi.object_type_registry ORDER BY entity_rdf_type ASC LIMIT 100",
-  //           whereStateContains: {FSK.sourceType: 'alias_domain_table'}),
-  //     ],
-  //   ],
-  //   useListView: true,
-  //   formValidatorDelegate: pipelineConfigFormValidatorUF,
-  //   formActionsDelegate: processInputFormActions,
-  // ),
-
   // Rule Configv2 - Action-less form to select Rule Configv2 to Edit or do Add
   FormKeys.rulesConfigv2: FormConfig(
     key: FormKeys.rulesConfigv2,
@@ -702,23 +578,6 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: processConfigFormValidator,
     formActionsDelegate: processConfigFormActions,
   ),
-
-  // // Add/Edit pipelineConfig - Form to add / edit pipeline config
-  // FormKeys.pipelineConfigForm: FormConfig(
-  //   key: FormKeys.pipelineConfigForm,
-  //   // title: "Pipeline Configuration",
-  //   actions: [],
-  //   inputFields: [
-  //     [
-  //       FormDataTableFieldConfig(
-  //           key: DTKeys.pipelineConfigTable,
-  //           dataTableConfig: DTKeys.pipelineConfigTable,
-  //           tableHeight: double.infinity),
-  //     ],
-  //   ],
-  //   formValidatorDelegate: pipelineConfigFormValidator,
-  //   formActionsDelegate: pipelineConfigFormActions,
-  // ),
 
   // Show Pipeline Failure Details - Dialog
   FormKeys.showFailureDetails: FormConfig(
