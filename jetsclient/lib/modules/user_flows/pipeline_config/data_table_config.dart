@@ -1,4 +1,4 @@
-import 'package:jetsclient/modules/data_table_config_impl.dart';
+import 'package:jetsclient/modules/user_flows/start_pipeline/data_table_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
 

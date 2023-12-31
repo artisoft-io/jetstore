@@ -17,7 +17,8 @@ final defaultMenuEntries = [
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
-      routePath: clientAdminPath),
+      routePath: ufClientRegistryPath,
+      routeParams: {FSK.ufStartAtKey: 'select_client'}),
   MenuEntry(
       key: 'sourceConfigUF',
       label: 'Client Files',
@@ -34,7 +35,8 @@ final defaultMenuEntries = [
   MenuEntry(
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
-      routePath: pipelineConfigPath),
+      routePath: ufPipelineConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_pipeline_config'}),
     MenuEntry(
         key: 'workspaceIDEHome',
         capability: 'workspace_ide',
@@ -47,7 +49,8 @@ final adminMenuEntries = [
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
-      routePath: clientAdminPath),
+      routePath: ufClientRegistryPath,
+      routeParams: {FSK.ufStartAtKey: 'select_client'}),
   MenuEntry(
       key: 'sourceConfigUF',
       label: 'Client Files',
@@ -64,7 +67,8 @@ final adminMenuEntries = [
   MenuEntry(
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
-      routePath: pipelineConfigPath),
+      routePath: ufPipelineConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_pipeline_config'}),
   MenuEntry(
       key: 'workspaceIDEHome',
       label: 'Workspace IDE Home',
@@ -132,17 +136,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
 
-  // Client & Organization Admin Screen
-  ScreenKeys.clientAdmin: ScreenConfig(
-      key: ScreenKeys.clientAdmin,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Clients and Organizations Administration',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
   // Source Config Screen
   ScreenKeys.sourceConfig: ScreenConfig(
       key: ScreenKeys.sourceConfig,
@@ -188,16 +181,16 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
 
-  // Process Input Configuration Screen
-  ScreenKeys.processInput: ScreenConfig(
-      key: ScreenKeys.processInput,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Process Input Configuration',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
+  // // Process Input Configuration Screen
+  // ScreenKeys.processInput: ScreenConfig(
+  //     key: ScreenKeys.processInput,
+  //     appBarLabel: 'JetStore Workspace',
+  //     title: 'Process Input Configuration',
+  //     showLogout: true,
+  //     leftBarLogo: 'assets/images/logo.png',
+  //     menuEntries: defaultMenuEntries,
+  //     adminMenuEntries: adminMenuEntries,
+  //     toolbarMenuEntries: toolbarMenuEntries),
 
   // Rules Config Screen
   ScreenKeys.processConfig: ScreenConfig(
@@ -221,16 +214,16 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
 
-  // Pipeline Config Screen
-  ScreenKeys.pipelineConfig: ScreenConfig(
-      key: ScreenKeys.pipelineConfig,
-      appBarLabel: 'JetStore Workspace',
-      // title: 'Pipelines Configuration',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
+  // // Pipeline Config Screen
+  // ScreenKeys.pipelineConfig: ScreenConfig(
+  //     key: ScreenKeys.pipelineConfig,
+  //     appBarLabel: 'JetStore Workspace',
+  //     // title: 'Pipelines Configuration',
+  //     showLogout: true,
+  //     leftBarLogo: 'assets/images/logo.png',
+  //     menuEntries: defaultMenuEntries,
+  //     adminMenuEntries: adminMenuEntries,
+  //     toolbarMenuEntries: toolbarMenuEntries),
 
   // Pipeline Config Edit Screen
   ScreenKeys.pipelineConfigEdit: ScreenConfig(

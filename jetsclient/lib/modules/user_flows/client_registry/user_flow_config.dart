@@ -29,20 +29,13 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         formConfig: getFormConfig(FormKeys.ufCreateClient),
         actionDelegate: clientRegistryFormActions,
         stateAction: ActionKeys.crAddClientUF,
-        defaultNextState: "client_org"),
+        defaultNextState: "show_org"),
     "select_client": UserFlowState(
         key: "select_client",
         description: 'Select an existing client',
         formConfig: getFormConfig(FormKeys.ufSelectClient),
         actionDelegate: clientRegistryFormActions,
         stateAction: ActionKeys.crSelectClientUF,
-        defaultNextState: "client_org"),
-    "client_org": UserFlowState(
-        key: "client_org",
-        description: 'Create org/vendor of client',
-        formConfig: getFormConfig(FormKeys.ufVendor),
-        actionDelegate: clientRegistryFormActions,
-        stateAction: ActionKeys.crAddVendorUF,
         defaultNextState: "show_org"),
     "show_org": UserFlowState(
         key: "show_org",

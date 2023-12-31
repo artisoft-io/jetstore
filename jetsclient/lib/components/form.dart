@@ -61,10 +61,10 @@ class JetsFormWidgetState extends State<JetsForm> {
 
   void queryInputFieldItems() async {
     // Check if we have a builder
-    assert(widget.formConfig.inputFieldRowBuilder != null,
-        "Jets Form with empty inputFields and no builder!");
-    assert(widget.formConfig.inputFieldsQuery != null,
-        "Jets Form with empty inputFields and no inputFieldsQuery!");
+    // assert(widget.formConfig.inputFieldRowBuilder != null,
+    //     "Jets Form with empty inputFields and no builder!");
+    // assert(widget.formConfig.inputFieldsQuery != null,
+    //     "Jets Form with empty inputFields and no inputFieldsQuery!");
     if (widget.formConfig.inputFieldRowBuilder == null ||
         widget.formConfig.inputFieldsQuery == null) {
       return;

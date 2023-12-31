@@ -104,14 +104,13 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
 /// standard keys to identify screen config key
 class ScreenKeys {
   static const home = "homeScreen";
-  static const clientAdmin = "clientAdminScreen";
   static const sourceConfig = "sourceConfigScreen";
   static const domainTableViewer = "domainTableViewerScreen";
   static const inputSourceMapping = "inputSourceMappingScreen";
-  static const processInput = "processInputScreen";
+  // static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
   static const ruleConfigv2 = "ruleConfigv2Screen";
-  static const pipelineConfig = "pipelineConfigScreen";
+  // static const pipelineConfig = "pipelineConfigScreen";
   static const pipelineConfigEdit = "pipelineConfigEditScreen";
 
   // Query Tool
@@ -147,10 +146,6 @@ class ScreenKeys {
 class FormKeys {
   // Home form
   static const home = "homeForm";
-  // Client & Org Admin Forms
-  static const clientAdmin = "clientAdminForm";
-  static const addClient = "addClientDialog";
-  static const addOrg = "addOrgDialog";
   // File Staging Area
   static const loadRawRows = "loadRawRowsDialog";
   static const loadAllFiles = "loadAllFilesDialog";
@@ -158,17 +153,16 @@ class FormKeys {
   static const inputSourceMapping = "inputSourceMapping";
   static const processMapping = "processMappingDialog";
   // Process Input Forms
-  static const processInput = "processInputForm";
-  static const addProcessInput = "addProcessInputDialog";
+  // static const processInput = "processInputForm";
+  // static const addProcessInput = "addProcessInputDialog";
   // Rule Process Config Forms
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
   static const rulesConfigv2 = "rulesConfigv2SelectForm";
   static const rulesConfigv2Dialog = "rulesConfigv2Dialog";
   // Pipeline Config & Exec Forms
-  static const pipelineConfigForm = "pipelineConfigForm";
-  static const pipelineConfigEditForm = "pipelineConfigEditForm";
-  static const startPipeline = "startPipelineDialog";
+  // static const pipelineConfigForm = "pipelineConfigForm";
+  // static const pipelineConfigEditForm = "pipelineConfigEditForm";
   static const showFailureDetails = "showFailureDetailsDialog";
   // Process Errors Dialogs
   static const viewProcessErrors = "viewProcessErrorsForm";
@@ -213,15 +207,17 @@ class FormKeys {
   static const ufShowVendor = "ufShowVendor";
   // Source Config UF Forms
   static const scAddOrEditSourceConfigUF = "scAddOrEditSourceConfigUF";
+  static const scSelectSingleOrMultiPartFileUF = "scSelectSingleOrMultiPartFileUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
   static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
-  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
+  static const scEditFileHeadersUF = "scEditFileHeadersUF";
+  static const scEditParquetHeadersUF = "scEditParquetHeadersUF";
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditDomainKeysUF = "scEditDomainKeysUF";
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
-  static const scDoneSourceConfigUF = "scDoneSourceConfigUF";
+  static const scSummaryUF = "scSummaryUF";
   // File Mapping UF Forms
   static const fmStartFileMappingUF = "fmStartFileMappingUF";
   static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
@@ -428,14 +424,21 @@ class FSK {
   // Source Config UF
   // Add or Edit Source Config
   static const scAddOrEditSourceConfigOption = "scAddOrEditSourceConfigOption";
+  // Single file or multi part files
+  static const scSingleOrMultiPartFileOption = "scSingleOrMultiPartFileOption";
+  static const scSingleFileOption = "scSingleFileOption";
+  static const scMultiPartFileOption = "scMultiPartFileOption";
   // Select Source Config Table
   static const scSourceConfigKey = "scSourceConfigKey";
 
-  // CSV, Headerless CSV or Fxied-width option
-  static const scCsvOrFixedOption = "scCsvOrFixedOption";
-  static const scCsvOption = "scCsvOption";
-  static const scHeaderlessCsvOption = "scHeaderlessCsvOption";
-  static const scFixedWidthOption = "scFixedWidthOption";
+  // CSV, Headerless CSV, Parquet or Fxied-width option
+  // DB: File format: csv, headerless_csv, fixed_width, parquet, parquet_select
+  static const scFileTypeOption = "input_format";
+  static const scCsvOption = "csv";
+  static const scHeaderlessCsvOption = "headerless_csv";
+  static const scFixedWidthOption = "fixed_width";
+  static const scParquetOption = "parquet";
+  static const scParquetSelectOption = "parquet_select";
 
   // Pipeline Config UF
   static const pcAddOrEditPipelineConfigOption =
@@ -585,17 +588,16 @@ class ActionKeys {
 
   // User Flow Module Specific Form Actions
   // Client Registry UF ActionKeys
-  static const crStartUF = "crStartUF";
   static const crAddClientUF = "crAddClientUF";
   static const crSelectClientUF = "crSelectClientUF";
   static const crAddVendorUF = "crAddVendorUF";
+  static const crAddVendorOk = "crAddVendorOk";
   static const crShowVendorUF = "crShowVendorUF";
 
   // Source Config UF ActionKeys
-  static const scStartUF = "crStartUF";
+  static const scStartUF = "scStartUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
-  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
 
@@ -680,9 +682,8 @@ class DTKeys {
       "inputRecordsFromProcessErrorTable";
 
   // Client & Organization Admin DT
-  static const clientAdminTable = "clientAdminTable";
-  static const clientTable = "clientTable";
-  static const orgNameTable = "orgNameTable";
+  // static const clientTable = "clientTable";
+  // static const orgNameTable = "orgNameTable";
 
   // File Staging Area / Source Config DT
   static const fileKeyStagingTable = "fileKeyStagingTable";
@@ -698,7 +699,7 @@ class DTKeys {
   static const inputFileViewerTable = "inputFileViewerTable";
 
   // Process Input Configuration DT
-  static const processInputTable = "processInputTable";
+  // static const processInputTable = "processInputTable";
 
   // Rules Config DT
   static const ruleConfigTable = "ruleConfigTable";
@@ -706,7 +707,7 @@ class DTKeys {
   static const clientsAndProcessesTableView = "clientsAndProcessesTableView";
 
   // Pipeline Config DT
-  static const pipelineConfigTable = "pipelineConfigTable";
+  // static const pipelineConfigTable = "pipelineConfigTable";
   static const mainProcessInputTable = "mainProcessInputTable";
   static const mergeProcessInputTable = "mergeProcessInputTable";
   static const injectedProcessInputTable = "injectedProcessInputTable";

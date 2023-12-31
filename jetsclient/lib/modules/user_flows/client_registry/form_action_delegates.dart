@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:jetsclient/components/dialogs.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/modules/actions/delegate_helpers.dart';
+import 'package:jetsclient/modules/form_config_impl.dart';
+import 'package:jetsclient/routes/jets_route_data.dart';
+import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/user_flow_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -42,6 +45,43 @@ String? clientRegistryFormValidator(
   return null;
 }
 
+/// Add Vendor/Org Dialog Action
+Future<String?> clientRegistryAddOrgFormActions(
+    BuildContext context,
+    GlobalKey<FormState> formKey,
+    JetsFormState formState,
+    String actionKey,
+    {group = 0}) async {
+
+  final state = formState.getState(group);
+  switch (actionKey) {
+
+    case ActionKeys.crAddVendorOk:
+      var valid = formKey.currentState!.validate();
+      if (!valid) {
+        return null;
+      }
+      final stateCopy = Map<String, dynamic>.from(state);
+      stateCopy[FSK.details] = state[FSK.ufVendorDetails];
+      var encodedJsonBody = jsonEncode(<String, dynamic>{
+        'action': 'insert_rows',
+        'fromClauses': [
+          <String, String>{'table': 'client_org_registry'}
+        ],
+        'data': [stateCopy],
+      }, toEncodable: (_) => '');
+      return postInsertRows(context, formState, encodedJsonBody);
+
+    // Cancel Dialog / Form
+    case ActionKeys.dialogCancel:
+      Navigator.of(context).pop();
+      break;
+    default:
+      print('Oops unknown ActionKey for Client Config UF State: $actionKey');
+  }
+  return null;
+}
+
 /// Client Config UF Form Actions - set on UserFlowState
 Future<String?> clientRegistryFormActions(
     UserFlowScreenState userFlowScreenState,
@@ -50,17 +90,15 @@ Future<String?> clientRegistryFormActions(
     JetsFormState formState,
     String actionKey,
     {group = 0}) async {
+
+  final state = formState.getState(group);
   switch (actionKey) {
-    // Start UF
-    case ActionKeys.crStartUF:
-      return null;
 
     case ActionKeys.crAddClientUF:
       var valid = formKey.currentState!.validate();
       if (!valid) {
         return null;
       }
-      final state = formState.getState(group);
       state[FSK.details] = state[FSK.ufClientDetails];
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
@@ -76,47 +114,12 @@ Future<String?> clientRegistryFormActions(
       if (statusCode == 200) return null;
       return "Error while creating client";
 
-    case ActionKeys.crAddVendorUF:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return null;
-      }
-      final state = formState.getState(group);
-      state[FSK.details] = state[FSK.ufVendorDetails];
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'client_org_registry'}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      final statusCode = await postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      state.remove(FSK.details);
-      state.remove(FSK.ufVendorDetails);
-      state.remove(FSK.org);
-      if (statusCode != 200) return "Error while vendor/org to client";
-
-      // Go to Page or State client_org - list of visited page is unchanged
-      // userFlowScreenState
-      final visitedPages =
-          formState.getValue(group, FSK.ufVisitedPages) as List<String>;
-      // visitedPages.add(nextStateKey);
-      formState.setValue(group, FSK.ufCurrentPage, visitedPages.length - 1);
-      final ufState = userFlowScreenState.userFlowConfig.states['client_org'];
-      final fConfig = ufState!.formConfig;
-      userFlowScreenState.setCurrentUserFlowState(ufState, fConfig);
-      return null;
-
     case ActionKeys.crSelectClientUF:
       var valid = formKey.currentState!.validate();
       if (!valid) {
         return null;
       }
-      final state = formState.getState(group);
-      if (state[FSK.client] is List<String>) {
-        state[FSK.client] = state[FSK.client][0];
-      }
+      state[FSK.client] = unpack(state[FSK.client]);
       return null;
 
     case ActionKeys.crShowVendorUF:
@@ -137,7 +140,6 @@ Future<String?> clientRegistryFormActions(
       var uc = await showConfirmationDialog(
           context, 'Are you sure you want to delete the selected client?');
       if (uc != 'OK') return null;
-      var state = formState.getState(0);
       state[FSK.client] = unpack(state[FSK.client]);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
@@ -164,7 +166,6 @@ Future<String?> clientRegistryFormActions(
       var uc = await showConfirmationDialog(context,
           'Are you sure you want to delete the selected organization?');
       if (uc != 'OK') return null;
-      var state = formState.getState(0);
       state[FSK.client] = unpack(state[FSK.client]);
       state[FSK.org] = unpack(state[FSK.org]);
       var encodedJsonBody = jsonEncode(<String, dynamic>{

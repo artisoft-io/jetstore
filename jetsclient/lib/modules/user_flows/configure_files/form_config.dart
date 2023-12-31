@@ -1,4 +1,3 @@
-import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/models/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/form_action_delegates.dart';
 import 'package:jetsclient/utils/constants.dart';
@@ -13,7 +12,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         FormDataTableFieldConfig(
@@ -22,7 +21,26 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
-    formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
+    formActionsDelegate:
+        doNothingAction, // overriden by UserFlowState.actionDelegate
+  ),
+  FormKeys.scSelectSingleOrMultiPartFileUF: FormConfig(
+    key: FormKeys.scSelectSingleOrMultiPartFileUF,
+    useListView: true,
+    actions: standardActions,
+    inputFields: [
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: FSK.scSingleOrMultiPartFileOption,
+            dataTableConfig: FSK.scSingleOrMultiPartFileOption),
+      ],
+    ],
+    formValidatorDelegate: configureFilesFormValidator,
+    formActionsDelegate:
+        doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
   FormKeys.scAddSourceConfigUF: FormConfig(
     key: FormKeys.scAddSourceConfigUF,
@@ -30,7 +48,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         FormDropdownFieldConfig(
@@ -51,7 +69,7 @@ final Map<String, FormConfig> _formConfigurations = {
             stateKeyPredicates: [FSK.client]),
       ],
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         FormDropdownFieldConfig(
@@ -64,11 +82,12 @@ final Map<String, FormConfig> _formConfigurations = {
                 "SELECT object_type, entity_rdf_type FROM jetsapi.object_type_registry ORDER BY object_type ASC LIMIT 50"),
       ],
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
-    formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
+    formActionsDelegate:
+        doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
   FormKeys.scSelectSourceConfigUF: FormConfig(
     key: FormKeys.scSelectSourceConfigUF,
@@ -82,7 +101,8 @@ final Map<String, FormConfig> _formConfigurations = {
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
-    formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
+    formActionsDelegate:
+        doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
   FormKeys.scCsvOrFixedSourceConfigUF: FormConfig(
     key: FormKeys.scCsvOrFixedSourceConfigUF,
@@ -90,37 +110,39 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         FormDataTableFieldConfig(
-            key: FSK.scCsvOrFixedOption,
-            dataTableConfig: FSK.scCsvOrFixedOption),
+            key: FSK.scFileTypeOption, dataTableConfig: FSK.scFileTypeOption),
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
-    formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
+    formActionsDelegate:
+        doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
-  FormKeys.scEditCsvHeadersUF: FormConfig(
-    key: FormKeys.scEditCsvHeadersUF,
+  FormKeys.scEditFileHeadersUF: FormConfig(
+    key: FormKeys.scEditFileHeadersUF,
     useListView: true,
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         TextFieldConfig(
-            label: "Paste or enter the CSV headers as a json array:",
-            maxLines: 1,
+            label:
+                "Paste or enter the file headers as a json array,\ncan be column position for parquet files:",
+            maxLines: 2,
             topMargin: 0,
             bottomMargin: 0),
       ],
       [
         FormInputFieldConfig(
             key: FSK.inputColumnsJson,
-            label: "Input file column names (json)",
-            hint: "Input file column names, only for headerless files",
+            label: "Input file column names or position (json)",
+            hint:
+                "Input file column names or position, for csv headerless or parquet files",
             flex: 1,
             autofocus: false,
             obscureText: false,
@@ -129,7 +151,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 51200),
       ],
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
@@ -141,7 +163,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         TextFieldConfig(
@@ -163,7 +185,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 51200),
       ],
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
@@ -175,11 +197,12 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         TextFieldConfig(
-            label: "Paste or enter the Domain Keys definition as json (leave empty if there is no need to group lines together while executing rules):",
+            label:
+                "Paste or enter the Domain Keys definition as json (leave empty if there is no need to group lines together while executing rules):",
             maxLines: 2,
             topMargin: 0,
             bottomMargin: 0),
@@ -197,7 +220,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 51200),
       ],
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
@@ -209,7 +232,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
       [
         TextFieldConfig(
@@ -231,7 +254,7 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 51200),
       ],
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: 2 * defaultPadding),
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
@@ -240,6 +263,41 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.scEditAutomatedModeUF: FormConfig(
     key: FormKeys.scEditAutomatedModeUF,
     useListView: true,
+    actions: standardActions,
+    inputFields: [
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+      [
+        TextFieldConfig(
+            label:
+                "Select if the files will be loaded manually or automatically from S3:",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0),
+      ],
+      [
+        FormDropdownFieldConfig(
+            key: FSK.automated,
+            items: [
+              DropdownItemConfig(label: 'Select Automation Status...'),
+              DropdownItemConfig(label: 'Automated', value: '1'),
+              DropdownItemConfig(label: 'Manual', value: '0'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
+      ],
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+    ],
+    formValidatorDelegate: configureFilesFormValidator,
+    formActionsDelegate: doNothingAction,
+  ),
+  // Summary Page
+  FormKeys.scSummaryUF: FormConfig(
+    key: FormKeys.scSummaryUF,
+    title: "File Configuration Summary",
     actions: [
       FormActionConfig(
           key: ActionKeys.ufPrevious,
@@ -260,30 +318,90 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],
+    useListView: true,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        FormInputFieldConfig(
+            key: FSK.client,
+            label: "Client",
+            hint: "",
+            flex: 1,
+            isReadOnly: true,
+            autofocus: false,
+            obscureText: false,
+            maxLength: 20,
+            textRestriction: TextRestriction.none,
+            useDefaultFont: true),
+        FormInputFieldConfig(
+            key: FSK.org,
+            label: "Vendor/Org",
+            hint: "",
+            flex: 1,
+            isReadOnly: true,
+            autofocus: false,
+            obscureText: false,
+            maxLength: 20,
+            textRestriction: TextRestriction.none,
+            useDefaultFont: true),
       ],
       [
-        TextFieldConfig(
-            label: "Select if the files will be loaded manually or automatically from S3:",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
+        FormInputFieldConfig(
+            key: FSK.objectType,
+            label: "Object Type",
+            hint: "Type of entity in the file",
+            flex: 2,
+            isReadOnly: true,
+            autofocus: false,
+            obscureText: false,
+            maxLength: 40,
+            textRestriction: TextRestriction.none,
+            useDefaultFont: true),
+        FormInputFieldConfig(
+            key: FSK.tableName,
+            label: "Staging Table Name",
+            hint: "",
+            flex: 3,
+            isReadOnly: true,
+            autofocus: false,
+            obscureText: false,
+            maxLength: 100,
+            textRestriction: TextRestriction.none,
+            useDefaultFont: true),
       ],
       [
         FormDropdownFieldConfig(
-            key: FSK.automated,
+            key: FSK.scFileTypeOption,
+            isReadOnly: true,
             items: [
-              DropdownItemConfig(label: 'Select Automation Status...'),
-              DropdownItemConfig(label: 'Automated', value: '1'),
-              DropdownItemConfig(label: 'Manual', value: '0'),
+              DropdownItemConfig(label: 'CSV', value: 'csv'),
+              DropdownItemConfig(label: 'Headerless CSV', value: 'headerless_csv'),
+              DropdownItemConfig(label: 'Fixed-Width Columns', value: 'fixed_width'),
+              DropdownItemConfig(label: 'Parquet', value: 'parquet'),
+              DropdownItemConfig(label: 'Parquet, Selected Columns', value: 'parquet_select'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
+        FormDropdownFieldConfig(
+            key: FSK.scSingleOrMultiPartFileOption,
+            isReadOnly: true,
+            items: [
+              DropdownItemConfig(label: 'Single File', value: 'scSingleFileOption'),
+              DropdownItemConfig(label: 'Multi-Part Files', value: 'scMultiPartFileOption'),
             ],
             flex: 1,
             defaultItemPos: 0),
       ],
       [
-        PaddingConfig(height: 2*defaultPadding),
+        FormDropdownFieldConfig(
+            key: FSK.automated,
+            isReadOnly: true,
+            items: [
+              DropdownItemConfig(label: 'Select automation mode'),
+              DropdownItemConfig(label: 'Automated', value: '1'),
+              DropdownItemConfig(label: 'Manual', value: '0'),
+            ],
+            flex: 1,
+            defaultItemPos: 0),
       ],
     ],
     formValidatorDelegate: configureFilesFormValidator,

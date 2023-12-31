@@ -94,26 +94,22 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: clientRegistryFormValidator,
     formActionsDelegate: doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
+  // Add vendor/org dialog
   FormKeys.ufVendor: FormConfig(
     key: FormKeys.ufVendor,
     useListView: true,
     actions: [
       FormActionConfig(
-          key: ActionKeys.ufPrevious,
-          label: "Previous",
-          buttonStyle: ActionStyle.ufPrimary,
+          key: ActionKeys.crAddVendorOk,
+          capability: "client_config",
+          label: "Add",
+          buttonStyle: ActionStyle.secondary,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
-          key: ActionKeys.ufCancel,
+          key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.ufPrimary,
-          leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
-      FormActionConfig(
-          key: ActionKeys.ufNext,
-          label: "Add Vendor/Org and Next",
-          buttonStyle: ActionStyle.ufSecondary,
+          buttonStyle: ActionStyle.primary,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],
@@ -134,7 +130,7 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Client Name",
             hint: "Client name as a short name",
             flex: 1,
-            autofocus: true,
+            autofocus: false,
             isReadOnly: true,
             obscureText: false,
             textRestriction: TextRestriction.none,
@@ -147,7 +143,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormInputFieldConfig(
             key: FSK.org,
-            label: "Organization Name",
+            label: "Vendor/Org Name",
             hint: "Organization name as a short name",
             flex: 1,
             autofocus: true,
@@ -155,12 +151,6 @@ final Map<String, FormConfig> _formConfigurations = {
             textRestriction: TextRestriction.none,
             maxLength: 20,
             useDefaultFont: true),
-        FormActionConfig(
-            key: ActionKeys.crShowVendorUF,
-            label: "View Vendor/Org",
-            buttonStyle: ActionStyle.ufSecondary,
-            leftMargin: defaultPadding,
-            rightMargin: defaultPadding),
       ],
       [
         PaddingConfig(height: 2*defaultPadding),
@@ -177,25 +167,9 @@ final Map<String, FormConfig> _formConfigurations = {
             maxLength: 80,
             useDefaultFont: true),
       ],
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
-        PaddingConfig(),
-        PaddingConfig(),
-        FormActionConfig(
-            key: ActionKeys.crAddVendorUF,
-            label: "Add Vendor/Org and New",
-            buttonStyle: ActionStyle.ufSecondary,
-            leftMargin: defaultPadding,
-            rightMargin: defaultPadding),
-      ],
-      [
-        PaddingConfig(),
-      ],
     ],
     formValidatorDelegate: clientRegistryFormValidator,
-    formActionsDelegate: doNothingAction,
+    formActionsDelegate: clientRegistryAddOrgFormActions,
   ),
   FormKeys.ufShowVendor: FormConfig(
     key: FormKeys.ufShowVendor,

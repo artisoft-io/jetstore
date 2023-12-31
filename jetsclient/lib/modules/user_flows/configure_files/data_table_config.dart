@@ -3,7 +3,7 @@ import 'package:jetsclient/models/data_table_config.dart';
 
 /// Source Config User Flow Tables
 final Map<String, TableConfig> _tableConfigurations = {
-  // Static choice table
+  // Static choice tables
   FSK.scAddOrEditSourceConfigOption: TableConfig(
       key: FSK.scAddOrEditSourceConfigOption,
       fromClauses: [],
@@ -17,7 +17,8 @@ final Map<String, TableConfig> _tableConfigurations = {
         ['Create a file configuration', 'ufAddOption', '0'],
         ['Edit an existing file configuration', 'ufEditOption', '1'],
       ],
-      formStateConfig: DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
+      formStateConfig:
+          DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
       columns: [
         ColumnConfig(
             index: 0,
@@ -30,7 +31,49 @@ final Map<String, TableConfig> _tableConfigurations = {
             name: "option",
             label: '',
             tooltips: '',
+            isNumeric: false,
+            isHidden: true),
+        ColumnConfig(
+            index: 2,
+            name: "option_order",
+            label: '',
+            tooltips: '',
             isNumeric: true,
+            isHidden: true),
+      ],
+      sortColumnName: 'option_order',
+      sortAscending: true,
+      noFooter: true,
+      noCopy2Clipboard: true,
+      rowsPerPage: 1000000),
+  FSK.scSingleOrMultiPartFileOption: TableConfig(
+      key: FSK.scSingleOrMultiPartFileOption,
+      fromClauses: [],
+      label: 'Select one of the following options:',
+      apiPath: '',
+      isCheckboxVisible: true,
+      isCheckboxSingleSelect: true,
+      whereClauses: [],
+      actions: [],
+      staticTableModel: [
+        ['Data source is a single file (most common)', 'scSingleFileOption', '0'],
+        ['Data source is a multi-part files', 'scMultiPartFileOption', '1'],
+      ],
+      formStateConfig:
+          DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
+      columns: [
+        ColumnConfig(
+            index: 0,
+            name: "option_description",
+            label: 'Select one of the following option',
+            tooltips: 'Select one of the option',
+            isNumeric: false),
+        ColumnConfig(
+            index: 1,
+            name: "option",
+            label: '',
+            tooltips: '',
+            isNumeric: false,
             isHidden: true),
         ColumnConfig(
             index: 2,
@@ -119,6 +162,14 @@ final Map<String, TableConfig> _tableConfigurations = {
         stateKey: FSK.inputColumnsPositionsCsv,
         columnIdx: 9,
       ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.scFileTypeOption,
+        columnIdx: 10,
+      ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: 'is_part_files',
+        columnIdx: 11,
+      ),
     ]),
     columns: [
       ColumnConfig(
@@ -192,6 +243,20 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 10,
+          name: "input_format",
+          label: 'File Format',
+          tooltips: 'File format: csv, headerless_csv, etc.',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 11,
+          name: "is_part_files",
+          label: 'Single or Multi-Part Files?',
+          tooltips: '',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 12,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Indicates when the record was last updated',
@@ -203,8 +268,8 @@ final Map<String, TableConfig> _tableConfigurations = {
   ),
 
   // File Structure Options: Csv, Headerless CSV or Fixed-width
-  FSK.scCsvOrFixedOption: TableConfig(
-      key: FSK.scCsvOrFixedOption,
+  FSK.scFileTypeOption: TableConfig(
+      key: FSK.scFileTypeOption,
       fromClauses: [],
       label: 'Select one of the following options:',
       apiPath: '',
@@ -213,11 +278,14 @@ final Map<String, TableConfig> _tableConfigurations = {
       whereClauses: [],
       actions: [],
       staticTableModel: [
-        ['CSV file with headers (most common)', 'scCsvOption', '0'],
-        ['Headerless CSV file', 'scHeaderlessCsvOption', '1'],
-        ['Fixed-width file', 'scFixedWidthOption', '2'],
+        ['CSV file with headers (most common)', 'csv', '0'],
+        ['Headerless CSV file', 'headerless_csv', '1'],
+        ['Fixed-width file', 'fixed_width', '2'],
+        ['Parquet file', 'parquet', '3'],
+        ['Parquet file with selected columns', 'parquet_select', '4'],
       ],
-      formStateConfig: DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
+      formStateConfig:
+          DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),
       columns: [
         ColumnConfig(
             index: 0,
@@ -230,7 +298,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             name: "option",
             label: '',
             tooltips: '',
-            isNumeric: true,
+            isNumeric: false,
             isHidden: true),
         ColumnConfig(
             index: 2,

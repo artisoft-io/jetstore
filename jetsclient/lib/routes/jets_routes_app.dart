@@ -18,8 +18,7 @@ const PARAM_CHAR = ':';
 // Keys for UI pages
 const homePath = '/';
 // Expert screen, to be replaced by UFs
-const clientAdminPath = '/clientAdmin';
-const processInputPath = '/processInput';
+// const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
 const queryToolPath = '/queryTool';
 const filePreviewPath = '/filePreviewPath/:file_key';
@@ -31,9 +30,9 @@ const processConfigPath = '/processConfig';
 // Rule Configv2
 const ruleConfigPath = '/ruleConfig';
 
-const pipelineConfigPath = '/pipelineConfig';
-const pipelineConfigEditFormPath =
-    '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys/:rule_config_json';
+// // const pipelineConfigPath = '/pipelineConfig';
+// const pipelineConfigEditFormPath =
+//     '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys/:rule_config_json';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
@@ -46,7 +45,7 @@ const workspaceRegistryPath = '/workspaces';
 const workspaceHomePath = '/workspaces/:workspace_name/home';
 
 // User Flow Paths
-const ufClientRegistryPath = '/clientRegistryUF';
+const ufClientRegistryPath = '/clientRegistryUF/:startAtKey';
 const ufSourceConfigPath = '/sourceConfigUF/:startAtKey';
 const ufFileMappingPath = '/fileMappingUF';
 const ufMappingPath = '/fileMappingUF/mapping/:table_name/:object_type';
@@ -74,21 +73,13 @@ final Map<String, Widget> jetsRoutesMap = {
     formConfig: getFormConfig(FormKeys.home),
   ),
 
-  // Client & Organization Admin
-  clientAdminPath: ScreenWithForm(
-    key: const Key(ScreenKeys.clientAdmin),
-    screenPath: const JetsRouteData(clientAdminPath),
-    screenConfig: getScreenConfig(ScreenKeys.clientAdmin),
-    formConfig: getFormConfig(FormKeys.clientAdmin),
-  ),
-
-  // Process Input
-  processInputPath: ScreenWithForm(
-    key: const Key(ScreenKeys.processInput),
-    screenPath: const JetsRouteData(processInputPath),
-    screenConfig: getScreenConfig(ScreenKeys.processInput),
-    formConfig: getFormConfig(FormKeys.processInput),
-  ),
+  // // Process Input
+  // processInputPath: ScreenWithForm(
+  //   key: const Key(ScreenKeys.processInput),
+  //   screenPath: const JetsRouteData(processInputPath),
+  //   screenConfig: getScreenConfig(ScreenKeys.processInput),
+  //   formConfig: getFormConfig(FormKeys.processInput),
+  // ),
 
   // Rule Config
   processConfigPath: ScreenWithForm(
@@ -119,22 +110,6 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: const JetsRouteData(workspaceHomePath),
     screenConfig: getScreenConfig(ScreenKeys.workspaceHome),
     formConfig: getFormConfig(FormKeys.workspaceHome),
-  ),
-
-  // Pipeline Config
-  pipelineConfigPath: ScreenWithForm(
-    key: const Key(ScreenKeys.pipelineConfig),
-    screenPath: const JetsRouteData(pipelineConfigPath),
-    screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
-    formConfig: getFormConfig(FormKeys.pipelineConfigForm),
-  ),
-
-  // Edit Form for Pipeline Config
-  pipelineConfigEditFormPath: ScreenWithForm(
-    key: const Key(ScreenKeys.pipelineConfigEdit),
-    screenPath: const JetsRouteData(pipelineConfigEditFormPath),
-    screenConfig: getScreenConfig(ScreenKeys.pipelineConfigEdit),
-    formConfig: getFormConfig(FormKeys.pipelineConfigEditForm),
   ),
 
   // Login Screen
