@@ -12,10 +12,13 @@ String? configureFilesFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
       "configureFilesFormValidator has unexpected data type");
+
+  final fileType = unpack(formState.getValue(0, FSK.scFileTypeOption));
   switch (key) {
     case FSK.scAddOrEditSourceConfigOption:
-    case FSK.scCsvOrFixedOption:
-      if (v != null) {
+    case FSK.scSingleOrMultiPartFileOption:
+    case FSK.scFileTypeOption:
+      if (unpack(v) != null) {
         return null;
       }
       return "An option must be selected.";
@@ -65,15 +68,13 @@ String? configureFilesFormValidator(
       // }
       return null;
     case FSK.inputColumnsJson:
+      // this field is nullable unless FSK.scFileTypeOption is Headerless CSV or Parquet Select
+      if ((fileType != FSK.scHeaderlessCsvOption) &&
+          (fileType != FSK.scParquetSelectOption)) return null;
       String? value = unpack(v);
       if (value == null || value.isEmpty) {
-        return null; // this field is nullable
+        return "Input column names must be provided";
       }
-      // // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
-      // final otherv = formState.getValue(0, FSK.inputColumnsPositionsCsv);
-      // if (otherv != null) {
-      //   return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
-      // }
       // Validate that value is valid json
       try {
         jsonDecode(value);
@@ -83,9 +84,10 @@ String? configureFilesFormValidator(
       return null;
 
     case FSK.inputColumnsPositionsCsv:
+      if (fileType != FSK.scFixedWidthOption) return null;
       String? value = unpack(v);
       if (value == null || value.isEmpty) {
-        return null; // this field is nullable
+        return "Input columns names and positions must be provided using csv";
       }
       // // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
       // final otherv = formState.getValue(0, FSK.inputColumnsJson);
@@ -105,6 +107,12 @@ String? configureFilesFormValidator(
         return null;
       }
       return "A file configuration must be selected.";
+
+    case FSK.tableName:
+      if (v != null) {
+        return null;
+      }
+      return "Error, a table name should be specified automatically.";
 
     default:
       print(
@@ -141,18 +149,35 @@ Future<String?> configureFilesFormActions(
       state[FSK.codeValuesMappingJson] =
           unpack(state[FSK.codeValuesMappingJson]);
       state[FSK.automated] = unpack(state[FSK.automated]);
-      if (state[FSK.inputColumnsJson] != null) {
-        formState.setValue(
-            group, FSK.scCsvOrFixedOption, FSK.scHeaderlessCsvOption);
-      } else if (state[FSK.inputColumnsPositionsCsv] != null) {
-        formState.setValue(
-            group, FSK.scCsvOrFixedOption, FSK.scFixedWidthOption);
+      state[FSK.scFileTypeOption] = unpack(state[FSK.scFileTypeOption]);
+
+      if (unpack(state['is_part_files']) == '1') {
+        state[FSK.scSingleOrMultiPartFileOption] = FSK.scMultiPartFileOption;
+      } else if (unpack(state['is_part_files']) == '0') {
+        state[FSK.scSingleOrMultiPartFileOption] = FSK.scSingleFileOption;
       } else {
-        formState.setValue(group, FSK.scCsvOrFixedOption, FSK.scCsvOption);
+        print(
+            "*** ERROR Invalid value for 'is_part_files': ${unpack(state['is_part_files'])}");
+      }
+      if (state[FSK.scFileTypeOption] == '') {
+        if (state[FSK.inputColumnsJson] != null) {
+          formState.setValue(
+              group, FSK.scFileTypeOption, FSK.scHeaderlessCsvOption);
+        } else if (state[FSK.inputColumnsPositionsCsv] != null) {
+          formState.setValue(
+              group, FSK.scFileTypeOption, FSK.scFixedWidthOption);
+        } else {
+          formState.setValue(group, FSK.scFileTypeOption, FSK.scCsvOption);
+        }
       }
       return null;
 
-    // Add/Update Source Config
+    // Add Source Config
+    case ActionKeys.scAddSourceConfigUF:
+      state['table_name'] = makeTableNameFromState(state);
+      break;
+
+    // Post Add/Update Source Config to server
     case ActionKeys.addSourceConfigOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
@@ -164,20 +189,33 @@ Future<String?> configureFilesFormActions(
       if (stateCopy[FSK.key] != null) {
         query = 'update/source_config';
       }
-      stateCopy['table_name'] = makeTableNameFromState(state);
-      switch (unpack(stateCopy[FSK.scCsvOrFixedOption])) {
+      switch (unpack(stateCopy[FSK.scFileTypeOption])) {
         case FSK.scCsvOption:
+        case FSK.scParquetOption:
           stateCopy[FSK.inputColumnsJson] = null;
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
           break;
         case FSK.scHeaderlessCsvOption:
+        case FSK.scParquetSelectOption:
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
           break;
         case FSK.scFixedWidthOption:
           stateCopy[FSK.inputColumnsJson] = null;
           break;
         default:
-          print("ERROR: missing FSK.scCsvOrFixedOption selection in state!");
+          print("ERROR: missing FSK.scFileTypeOption selection in state!");
+          return "error";
+      }
+      switch (unpack(stateCopy[FSK.scSingleOrMultiPartFileOption])) {
+        case FSK.scSingleFileOption:
+          stateCopy['is_part_files'] = 0;
+          break;
+        case FSK.scMultiPartFileOption:
+          stateCopy['is_part_files'] = 1;
+          break;
+        default:
+          print(
+              "ERROR: missing/invalid FSK.scSingleOrMultiPartFileOption selection in state!");
           return "error";
       }
       // print('*** Add Source Config state: $stateCopy');
@@ -220,7 +258,9 @@ Future<String?> configureFilesFormActions(
         state.remove(FSK.client);
         state.remove(FSK.org);
         state.remove(FSK.objectType);
-        state.remove(FSK.scCsvOrFixedOption);
+        state.remove(FSK.scFileTypeOption);
+        state.remove(FSK.scSingleOrMultiPartFileOption);
+        state.remove('is_part_files');
         state.remove(FSK.inputColumnsJson);
         state.remove(FSK.inputColumnsPositionsCsv);
         state.remove(FSK.domainKeysJson);

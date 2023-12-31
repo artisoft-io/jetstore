@@ -43,6 +43,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: 'option_order',
       sortAscending: true,
       noFooter: true,
+      noCopy2Clipboard: true,
       rowsPerPage: 1000000),
 
   // Client Table for Selecting Client
@@ -101,13 +102,32 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     label: 'Client Organization Registry',
     apiPath: '/dataTable',
-    isCheckboxVisible: true,
+    isCheckboxVisible: false,
     isCheckboxSingleSelect: true,
     defaultToAllRows: false,
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
     ],
     actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showDialog,
+          key: 'addVendorDialog',
+          label: 'Add Vendor/Org',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configForm: FormKeys.ufVendor,
+          capability: 'client_config',
+          stateFormNavigationParams: {
+            FSK.client: FSK.client,
+          }),
+      ActionConfig(
+          actionType: DataTableActionType.toggleCheckboxVisible,
+          key: 'toggleRowSelection',
+          label: 'Show/Hide Select Row',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'deleteOrg',

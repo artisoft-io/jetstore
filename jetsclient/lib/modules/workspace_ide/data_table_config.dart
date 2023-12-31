@@ -52,22 +52,6 @@ final Map<String, TableConfig> _tableConfigurations = {
           actionName: ActionKeys.openWorkspace),
       ActionConfig(
           actionType: DataTableActionType.showDialog,
-          key: 'unitTest',
-          label: 'Unit Test',
-          style: ActionStyle.secondary,
-          isVisibleWhenCheckboxVisible: true,
-          isEnabledWhenHavingSelectedRows: true,
-          navigationParams: {
-            FSK.dataTableAction: "workspace_insert_rows",
-            FSK.dataTableFromTable: "unit_test",
-            FSK.wsName: 1,
-            FSK.wsBranch: 2,
-            FSK.wsFeatureBranch: 3,
-            FSK.wsURI: 4,
-          },
-          configForm: FormKeys.startPipeline),
-      ActionConfig(
-          actionType: DataTableActionType.showDialog,
           key: 'exportWorkspaceClientConfig',
           label: 'Export Client Config',
           style: ActionStyle.secondary,

@@ -106,9 +106,26 @@ Future<String?> userFlowStateActions(
       break;
 
     // Cancel / Continue Later
+    // Same as User Flow Completed except does not validate the form
     case ActionKeys.ufContinueLater:
-      // Save state with associated session id
-      Navigator.of(context).pop();
+      // Do the Action of the current UserFlowState
+      final userFlowState = userFlowScreenState.currentUserFlowState;
+      if (userFlowState.stateAction != null) {
+        final err = await userFlowState.actionDelegate(userFlowScreenState,
+            context, formKey, formState, userFlowState.stateAction!,
+            group: group);
+        if (err != null) {
+          print("ERROR while doing userFlowState Action: $err");
+        }
+      }
+      if (context.mounted) {
+        final p = userFlowScreenState.userFlowConfig.exitScreenPath;
+        if (p != null) {
+          JetsRouterDelegate()(JetsRouteData(p));
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
       break;
 
     // User Flow Completed
@@ -130,6 +147,18 @@ Future<String?> userFlowStateActions(
           print("ERROR while doing userFlowState Action: $err");
         }
       }
+      if (context.mounted) {
+        final p = userFlowScreenState.userFlowConfig.exitScreenPath;
+        if (p != null) {
+          JetsRouterDelegate()(JetsRouteData(p));
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
+      break;
+
+    // Cancel UF - bailing out w/o calling State's Action Delegate
+    case ActionKeys.ufCancel:
       if (context.mounted) {
         final p = userFlowScreenState.userFlowConfig.exitScreenPath;
         if (p != null) {

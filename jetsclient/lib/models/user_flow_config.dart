@@ -3,7 +3,6 @@ import 'package:jetsclient/components/jets_form_state.dart';
 
 import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
-import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/screens/user_flow_screen.dart';
 import 'package:jetsclient/utils/constants.dart';
 
@@ -24,7 +23,7 @@ List<FormActionConfig> standardActions = [
       leftMargin: defaultPadding,
       rightMargin: betweenTheButtonsPadding),
   FormActionConfig(
-      key: ActionKeys.ufContinueLater,
+      key: ActionKeys.ufCancel,
       label: "Cancel",
       buttonStyle: ActionStyle.ufPrimary,
       leftMargin: betweenTheButtonsPadding,

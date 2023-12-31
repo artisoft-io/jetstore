@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/components/typeahead_form_field.dart';
 
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/components/dropdown_shared_items.dart';
@@ -32,10 +33,18 @@ Future<String?> doNothingAction(BuildContext context,
 typedef JetsFormFieldValidator = String? Function(
     int group, String key, dynamic v);
 
-typedef JetsFormFieldRowBuilder1 = List<FormFieldConfig> Function(
-    int index, List<String?> labels, JetsFormState formState);
-
 typedef InputFieldType = List<List<FormFieldConfig>>;
+
+typedef InputFieldTypeV2 = List<FormFieldRowConfig>;
+
+class FormFieldRowConfig {
+  FormFieldRowConfig({
+    this.flex = 0,
+    required this.rowConfig,
+  });
+  final int flex;
+  final List<FormFieldConfig> rowConfig;
+}
 
 typedef JetsFormFieldRowBuilder = InputFieldType Function(
     int index, List<String?>? inputFieldRow, JetsFormState formState);
@@ -87,6 +96,7 @@ class FormConfig {
     required this.key,
     this.title,
     this.inputFields = const [],
+    this.inputFieldsV2 = const [],
     this.formTabsConfig = const [],
     this.inputFieldRowBuilder,
     required this.actions,
@@ -94,6 +104,7 @@ class FormConfig {
     this.inputFieldsQuery,
     this.savedStateQuery,
     this.dropdownItemsQueries,
+    this.typeaheadItemsQueries,
     this.metadataQueries,
     this.stateKeyPredicates,
     this.formWithDynamicRows,
@@ -105,6 +116,7 @@ class FormConfig {
   final String? title;
   // For form without tabs (classic forms)
   final InputFieldType inputFields;
+  final InputFieldTypeV2 inputFieldsV2;
   // Form form with tabs
   final List<FormTabConfig> formTabsConfig;
   final JetsFormFieldRowBuilder? inputFieldRowBuilder;
@@ -113,6 +125,7 @@ class FormConfig {
   final String? savedStateQuery;
   final Map<String, String>? queries;
   final Map<String, String>? dropdownItemsQueries;
+  final Map<String, String>? typeaheadItemsQueries;
   final Map<String, String>? metadataQueries;
   final List<String>? stateKeyPredicates;
   final bool? formWithDynamicRows;
@@ -386,6 +399,42 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
           formConfig.formValidatorDelegate(formState, group, key, v)),
       formState: formState,
       selectedValue: formState.getValue(group, key),
+    );
+  }
+}
+
+/// Typeahead Widget with Shared [items], [items] is provided via
+/// the [typeaheadMenuItemCacheKey] form state cache key.
+/// [defaultItem] is specified here a the actual value (which can be null)
+/// of the dropdown.
+class FormTypeaheadFieldConfig extends FormFieldConfig {
+  FormTypeaheadFieldConfig({
+    required super.key,
+    super.group = 0,
+    super.flex = 1,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    required this.typeaheadMenuItemCacheKey,
+    required this.inputFieldConfig,
+    this.defaultItem,
+  });
+  final String typeaheadMenuItemCacheKey;
+  final String? defaultItem;
+  final FormInputFieldConfig inputFieldConfig;
+
+  @override
+  Widget makeFormField({
+    required JetsRouteData screenPath,
+    required FormConfig formConfig,
+    required JetsFormState formState,
+  }) {
+    return JetsTypeaheadFormField(
+      key: UniqueKey(),
+      formFieldConfig: this,
+      onChanged: (p0) => formState.setValueAndNotify(group, key, p0),
+      formValidator: ((group, key, v) =>
+          formConfig.formValidatorDelegate(formState, group, key, v)),
+      formState: formState,
+      // selectedValue: formState.getValue(group, key),
     );
   }
 }

@@ -519,7 +519,7 @@
       {
         "columnName": "automated",
         "dataType": "bool",
-        "default": "'0'",
+        "default": "0",
         "isNotNull": true
       },
       {
@@ -545,7 +545,7 @@
       },
       {
         "columnName": "input_format",
-        "description": "File format: csv, headerless_csv, fixed_width, parquet",
+        "description": "File format: csv, headerless_csv, fixed_width, parquet, parquet_select",
         "dataType": "text",
         "default": "''",
         "isNotNull": true
@@ -554,7 +554,7 @@
         "columnName": "is_part_files",
         "description": "If true '1': file key is directory of part files",
         "dataType": "bool",
-        "default": "'0'",
+        "default": "0",
         "isNotNull": true
       },
       {

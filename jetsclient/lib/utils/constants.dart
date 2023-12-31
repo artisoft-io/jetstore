@@ -19,10 +19,18 @@ enum ActionStyle {
   tbSecondary,
   ufPrimary,
   ufSecondary,
+  dialogOk,
+  dialogCancel,
 }
 
 ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
   switch (style) {
+    case ActionStyle.primary:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
     case ActionStyle.danger:
       return ElevatedButton.styleFrom(
         foregroundColor: td.colorScheme.onErrorContainer,
@@ -39,6 +47,18 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
       return ElevatedButton.styleFrom(
         foregroundColor: td.colorScheme.onPrimaryContainer,
         backgroundColor: Colors.orange.shade200,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.dialogOk:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onPrimaryContainer,
+        backgroundColor: td.colorScheme.primaryContainer,
+      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+
+    case ActionStyle.dialogCancel:
+      return ElevatedButton.styleFrom(
+        foregroundColor: td.colorScheme.onSecondaryContainer,
+        backgroundColor: td.colorScheme.secondaryContainer,
       ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
 
     case ActionStyle.menuSelected:
@@ -85,33 +105,24 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
         backgroundColor: td.colorScheme.primaryContainer,
         textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
-    // return ElevatedButton.styleFrom(
-    //       backgroundColor: const Color.fromARGB(255, 61, 142, 64),
-    //       side: const BorderSide(color: Colors.yellow, width: 2),
-    //       textStyle: const TextStyle(
-    //           color: Colors.white, fontSize: 25, fontStyle: FontStyle.normal),
-    //     ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
 
     default: // primary
-      return ElevatedButton.styleFrom(
-        foregroundColor: td.colorScheme.onSecondaryContainer,
-        backgroundColor: td.colorScheme.secondaryContainer,
-      ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
+      print("*** UNKNOWN ActionStyle: $style");
   }
+  return null;
 }
 
 /// Screen ID Keys
 /// standard keys to identify screen config key
 class ScreenKeys {
   static const home = "homeScreen";
-  static const clientAdmin = "clientAdminScreen";
   static const sourceConfig = "sourceConfigScreen";
   static const domainTableViewer = "domainTableViewerScreen";
   static const inputSourceMapping = "inputSourceMappingScreen";
-  static const processInput = "processInputScreen";
+  // static const processInput = "processInputScreen";
   static const processConfig = "processConfigScreen";
   static const ruleConfigv2 = "ruleConfigv2Screen";
-  static const pipelineConfig = "pipelineConfigScreen";
+  // static const pipelineConfig = "pipelineConfigScreen";
   static const pipelineConfigEdit = "pipelineConfigEditScreen";
 
   // Query Tool
@@ -135,6 +146,7 @@ class ScreenKeys {
   static const ufClientRegistry = "clientRegistryScreenUF";
   static const ufSourceConfig = "sourceConfigScreenUF";
   static const ufFileMapping = "fileMappingScreenUF";
+  static const ufMappingForm = "ufMappingFormScreenUF";
   static const ufPipelineConfig = "pipelineConfigScreenUF";
   static const ufLoadFiles = "ufLoadFilesScreenUF";
   static const ufStartPipeline = "ufStartPipelineScreenUF";
@@ -146,30 +158,23 @@ class ScreenKeys {
 class FormKeys {
   // Home form
   static const home = "homeForm";
-  // Client & Org Admin Forms
-  static const clientAdmin = "clientAdminForm";
-  static const addClient = "addClientDialog";
-  static const addOrg = "addOrgDialog";
   // File Staging Area
-  static const sourceConfig = "sourceConfigForm";
-  static const addSourceConfig = "addSourceConfigDialog";
   static const loadRawRows = "loadRawRowsDialog";
   static const loadAllFiles = "loadAllFilesDialog";
   // Input Source Mapping Forms
   static const inputSourceMapping = "inputSourceMapping";
   static const processMapping = "processMappingDialog";
   // Process Input Forms
-  static const processInput = "processInputForm";
-  static const addProcessInput = "addProcessInputDialog";
+  // static const processInput = "processInputForm";
+  // static const addProcessInput = "addProcessInputDialog";
   // Rule Process Config Forms
   static const processConfig = "processConfigForm";
   static const rulesConfig = "rulesConfigDialog";
   static const rulesConfigv2 = "rulesConfigv2SelectForm";
   static const rulesConfigv2Dialog = "rulesConfigv2Dialog";
   // Pipeline Config & Exec Forms
-  static const pipelineConfigForm = "pipelineConfigForm";
-  static const pipelineConfigEditForm = "pipelineConfigEditForm";
-  static const startPipeline = "startPipelineDialog";
+  // static const pipelineConfigForm = "pipelineConfigForm";
+  // static const pipelineConfigEditForm = "pipelineConfigEditForm";
   static const showFailureDetails = "showFailureDetailsDialog";
   // Process Errors Dialogs
   static const viewProcessErrors = "viewProcessErrorsForm";
@@ -207,7 +212,6 @@ class FormKeys {
 
   // User Flow Forms
   // Client Registry UF
-  static const ufStartClientRegistry = "ufStartClientRegistry";
   static const ufSelectClientOrVendor = "ufSelectClientOrVendor";
   static const ufCreateClient = "ufCreateClient";
   static const ufSelectClient = "ufSelectClient";
@@ -215,19 +219,23 @@ class FormKeys {
   static const ufShowVendor = "ufShowVendor";
   // Source Config UF Forms
   static const scAddOrEditSourceConfigUF = "scAddOrEditSourceConfigUF";
+  static const scSelectSingleOrMultiPartFileUF =
+      "scSelectSingleOrMultiPartFileUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
   static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
-  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
+  static const scEditFileHeadersUF = "scEditFileHeadersUF";
+  static const scEditParquetHeadersUF = "scEditParquetHeadersUF";
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditDomainKeysUF = "scEditDomainKeysUF";
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
-  static const scDoneSourceConfigUF = "scDoneSourceConfigUF";
+  static const scSummaryUF = "scSummaryUF";
   // File Mapping UF Forms
   static const fmStartFileMappingUF = "fmStartFileMappingUF";
   static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
   static const fmFileMappingUF = "fmFileMappingUF";
+  static const fmMappingFormUF = "fmMappingFormUF";
   static const fmDoneFileMappingUF = "fmDoneFileMappingUF";
   // Pipeline Config Forms
   static const pcAddOrEditPipelineConfigUF = "pcAddOrEditPipelineConfigUF";
@@ -399,6 +407,7 @@ class FSK {
 
   // Keys for User Flow - special state management keys
   // --------------------------------------------------
+  static const ufStartAtKey = "startAtKey";
   static const ufCurrentPage = "ufCurrentPage";
   static const ufVisitedPages = "ufVisitedPages";
 
@@ -428,14 +437,21 @@ class FSK {
   // Source Config UF
   // Add or Edit Source Config
   static const scAddOrEditSourceConfigOption = "scAddOrEditSourceConfigOption";
+  // Single file or multi part files
+  static const scSingleOrMultiPartFileOption = "scSingleOrMultiPartFileOption";
+  static const scSingleFileOption = "scSingleFileOption";
+  static const scMultiPartFileOption = "scMultiPartFileOption";
   // Select Source Config Table
   static const scSourceConfigKey = "scSourceConfigKey";
 
-  // CSV, Headerless CSV or Fxied-width option
-  static const scCsvOrFixedOption = "scCsvOrFixedOption";
-  static const scCsvOption = "scCsvOption";
-  static const scHeaderlessCsvOption = "scHeaderlessCsvOption";
-  static const scFixedWidthOption = "scFixedWidthOption";
+  // CSV, Headerless CSV, Parquet or Fxied-width option
+  // DB: File format: csv, headerless_csv, fixed_width, parquet, parquet_select
+  static const scFileTypeOption = "input_format";
+  static const scCsvOption = "csv";
+  static const scHeaderlessCsvOption = "headerless_csv";
+  static const scFixedWidthOption = "fixed_width";
+  static const scParquetOption = "parquet";
+  static const scParquetSelectOption = "parquet_select";
 
   // Pipeline Config UF
   static const pcAddOrEditPipelineConfigOption =
@@ -581,21 +597,20 @@ class ActionKeys {
   static const ufPrevious = "ufPrevious";
   static const ufContinueLater = "ufContinueLater";
   static const ufCompleted = "ufCompleted";
+  static const ufCancel = "ufCancel";
 
   // User Flow Module Specific Form Actions
   // Client Registry UF ActionKeys
-  static const crStartUF = "crStartUF";
   static const crAddClientUF = "crAddClientUF";
   static const crSelectClientUF = "crSelectClientUF";
   static const crAddVendorUF = "crAddVendorUF";
+  static const crAddVendorOk = "crAddVendorOk";
   static const crShowVendorUF = "crShowVendorUF";
 
   // Source Config UF ActionKeys
-  static const scStartUF = "crStartUF";
+  static const scStartUF = "scStartUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
-  static const scEditCsvHeadersUF = "scEditCsvHeadersUF";
-  static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
 
   // File Mapping UF ActionKeys
@@ -644,6 +659,7 @@ class UserFlowKeys {
   static const clientRegistryUF = "clientRegistryUF";
   static const sourceConfigUF = "sourceConfigUF";
   static const fileMappingUF = "fileMappingUF";
+  static const mapFileUF = "mapFileUF";
   static const pipelineConfigUF = "pipelineConfigUF";
   static const loadFilesUF = "loadFilesUF";
   static const startPipelineUF = "startPipelineUF";
@@ -678,12 +694,10 @@ class DTKeys {
       "inputRecordsFromProcessErrorTable";
 
   // Client & Organization Admin DT
-  static const clientAdminTable = "clientAdminTable";
-  static const clientTable = "clientTable";
-  static const orgNameTable = "orgNameTable";
+  // static const clientTable = "clientTable";
+  // static const orgNameTable = "orgNameTable";
 
   // File Staging Area / Source Config DT
-  static const sourceConfigTable = "sourceConfigTable";
   static const fileKeyStagingTable = "fileKeyStagingTable";
   static const fileKeyStagingMultiLoadTable = "fileKeyStagingMultiLoadTable";
 
@@ -696,12 +710,8 @@ class DTKeys {
   // Input File Viewer DT
   static const inputFileViewerTable = "inputFileViewerTable";
 
-  // Input Source Mapping DT
-  static const inputSourceMapping = "inputSourceMapping";
-
   // Process Input Configuration DT
-  static const processInputTable = "processInputTable";
-  static const processMappingTable = "processMappingTable";
+  // static const processInputTable = "processInputTable";
 
   // Rules Config DT
   static const ruleConfigTable = "ruleConfigTable";
@@ -709,7 +719,7 @@ class DTKeys {
   static const clientsAndProcessesTableView = "clientsAndProcessesTableView";
 
   // Pipeline Config DT
-  static const pipelineConfigTable = "pipelineConfigTable";
+  // static const pipelineConfigTable = "pipelineConfigTable";
   static const mainProcessInputTable = "mainProcessInputTable";
   static const mergeProcessInputTable = "mergeProcessInputTable";
   static const injectedProcessInputTable = "injectedProcessInputTable";
@@ -745,6 +755,8 @@ class DTKeys {
 
   // File Mapping UF
   static const fmInputSourceMappingUF = "fmInputSourceMappingUF";
+  // Table listing the mapping
+  static const fmFileMappingTableUF = "fmFileMappingTableUF";
 
   // Pipeline Config UF DTKeys
   static const pcPipelineConfigTable = "pcPipelineConfigTable";
