@@ -13,6 +13,7 @@ String? configureFilesFormValidator(
   assert((v is String?) || (v is List<String>?),
       "configureFilesFormValidator has unexpected data type");
 
+  v = formState.getValue(group, key);
   final fileType = unpack(formState.getValue(0, FSK.scFileTypeOption));
   switch (key) {
     case FSK.scAddOrEditSourceConfigOption:

@@ -15,6 +15,7 @@ String? clientRegistryFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
       "ClientConfigFormValidator has unexpected data type");
+  v = formState.getValue(group, key);
   switch (key) {
     case FSK.ufClientOrVendorOption:
       if (unpack(v) != null) {
@@ -46,16 +47,11 @@ String? clientRegistryFormValidator(
 }
 
 /// Add Vendor/Org Dialog Action
-Future<String?> clientRegistryAddOrgFormActions(
-    BuildContext context,
-    GlobalKey<FormState> formKey,
-    JetsFormState formState,
-    String actionKey,
+Future<String?> clientRegistryAddOrgFormActions(BuildContext context,
+    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
-
   final state = formState.getState(group);
   switch (actionKey) {
-
     case ActionKeys.crAddVendorOk:
       var valid = formKey.currentState!.validate();
       if (!valid) {
@@ -90,10 +86,8 @@ Future<String?> clientRegistryFormActions(
     JetsFormState formState,
     String actionKey,
     {group = 0}) async {
-
   final state = formState.getState(group);
   switch (actionKey) {
-
     case ActionKeys.crAddClientUF:
       var valid = formKey.currentState!.validate();
       if (!valid) {
