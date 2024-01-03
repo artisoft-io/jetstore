@@ -123,6 +123,8 @@ Future<String?> pipelineConfigFormActionsUF(
         ],
         'data': [state],
       }, toEncodable: (_) => '');
+      formState.clearSelectedRow(group, DTKeys.pcPipelineConfigTable);
+      formState.getState(group).remove(DTKeys.pcPipelineConfigTable);
       if (context.mounted) {
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);

@@ -148,6 +148,8 @@ Future<String?> clientRegistryFormActions(
         ],
         'data': [state],
       }, toEncodable: (_) => '');
+      formState.clearSelectedRow(group, FSK.client);
+      formState.getState(group).remove(FSK.client);
       if (context.mounted) {
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
@@ -175,6 +177,8 @@ Future<String?> clientRegistryFormActions(
         ],
         'data': [state],
       }, toEncodable: (_) => '');
+      formState.clearSelectedRow(group, FSK.org);
+      formState.getState(group).remove(FSK.org);
       if (context.mounted) {
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
