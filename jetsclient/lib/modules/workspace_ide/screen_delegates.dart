@@ -16,6 +16,7 @@ String? workspaceIDEFormValidator(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
       "workspaceIDE Form has unexpected data type");
+  v = formState.getValue(group, key);
   switch (key) {
     case FSK.wsName:
       String? value = v;
@@ -523,6 +524,8 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
         'featureBranch': state[FSK.wsFeatureBranch],
         'data': [state],
       }, toEncodable: (_) => '');
+      formState.clearSelectedRow(group, DTKeys.workspaceRegistryTable);
+      formState.getState(group).remove(DTKeys.workspaceRegistryTable);
       if (context.mounted) {
         await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);

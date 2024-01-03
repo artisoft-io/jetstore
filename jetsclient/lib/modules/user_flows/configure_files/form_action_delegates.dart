@@ -13,6 +13,7 @@ String? configureFilesFormValidator(
   assert((v is String?) || (v is List<String>?),
       "configureFilesFormValidator has unexpected data type");
 
+  v = formState.getValue(group, key);
   final fileType = unpack(formState.getValue(0, FSK.scFileTypeOption));
   switch (key) {
     case FSK.scAddOrEditSourceConfigOption:
@@ -250,21 +251,24 @@ Future<String?> configureFilesFormActions(
         ],
         'data': [state],
       }, toEncodable: (_) => '');
+      // print("*** Clear Selected Rows Called, pre post");
+      formState.clearSelectedRow(group, FSK.scSourceConfigKey);
+      state.remove(FSK.scSourceConfigKey);
+      state.remove(FSK.key);
+      state.remove(FSK.client);
+      state.remove(FSK.org);
+      state.remove(FSK.objectType);
+      state.remove(FSK.scFileTypeOption);
+      state.remove(FSK.scSingleOrMultiPartFileOption);
+      state.remove('is_part_files');
+      state.remove(FSK.inputColumnsJson);
+      state.remove(FSK.inputColumnsPositionsCsv);
+      state.remove(FSK.domainKeysJson);
+      state.remove(FSK.codeValuesMappingJson);
       if (context.mounted) {
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
         if (statusCode != 200) return "Error while deleting file configuration";
-        state.remove(FSK.key);
-        state.remove(FSK.client);
-        state.remove(FSK.org);
-        state.remove(FSK.objectType);
-        state.remove(FSK.scFileTypeOption);
-        state.remove(FSK.scSingleOrMultiPartFileOption);
-        state.remove('is_part_files');
-        state.remove(FSK.inputColumnsJson);
-        state.remove(FSK.inputColumnsPositionsCsv);
-        state.remove(FSK.domainKeysJson);
-        state.remove(FSK.codeValuesMappingJson);
       }
       return null;
 

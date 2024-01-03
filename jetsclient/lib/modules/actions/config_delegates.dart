@@ -247,6 +247,8 @@ Future<String?> processConfigFormActions(BuildContext context,
           }
         ],
       }, toEncodable: (_) => '');
+      formState.clearSelectedRow(group, DTKeys.ruleConfigTable);
+      formState.getState(group).remove(DTKeys.ruleConfigTable);
       var navigator = Navigator.of(context);
       // First delete existing rule config triples
       var deleteResult = await HttpClientSingleton().sendRequest(
@@ -532,6 +534,8 @@ Future<String?> ruleConfigv2FormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
+      formState.clearSelectedRow(group, DTKeys.ruleConfigv2Table);
+      state.remove(DTKeys.ruleConfigv2Table);
         await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
@@ -734,26 +738,28 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       }
       return null;
 
-    case ActionKeys.deletePipelineConfig:
-      // Get confirmation
-      var uc = await showConfirmationDialog(context,
-          'Are you sure you want to delete the selected Pipeline Configuration?');
-      if (uc != 'OK') return null;
-      var state = formState.getState(0);
-      state[FSK.key] = state[FSK.key][0];
-      state['user_email'] = JetsRouterDelegate().user.email;
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'delete/pipeline_config'}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      if (context.mounted) {
-        await postSimpleAction(
-            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      }
-      break;
+    // case ActionKeys.deletePipelineConfig:
+    //   // Get confirmation
+    //   var uc = await showConfirmationDialog(context,
+    //       'Are you sure you want to delete the selected Pipeline Configuration?');
+    //   if (uc != 'OK') return null;
+    //   var state = formState.getState(0);
+    //   state[FSK.key] = state[FSK.key][0];
+    //   state['user_email'] = JetsRouterDelegate().user.email;
+    //   var encodedJsonBody = jsonEncode(<String, dynamic>{
+    //     'action': 'insert_rows',
+    //     'fromClauses': [
+    //       <String, String>{'table': 'delete/pipeline_config'}
+    //     ],
+    //     'data': [state],
+    //   }, toEncodable: (_) => '');
+    //   formState.clearSelectedRow(group, DTKeys.ruleConfigTable);
+    //   formState.getState(group).remove(DTKeys.ruleConfigTable);
+    //   if (context.mounted) {
+    //     await postSimpleAction(
+    //         context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+    //   }
+    //   break;
 
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();

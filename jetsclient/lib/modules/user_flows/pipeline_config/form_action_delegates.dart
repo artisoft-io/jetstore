@@ -14,6 +14,7 @@ String? pipelineConfigFormValidatorUF(
     JetsFormState formState, int group, String key, dynamic v) {
   assert((v is String?) || (v is List<String>?),
       "pipelineConfigFormValidator has unexpected data type");
+  v = formState.getValue(group, key);
   switch (key) {
     case FSK.pcAddOrEditPipelineConfigOption:
     case DTKeys.pcPipelineConfigTable:
@@ -115,7 +116,7 @@ Future<String?> pipelineConfigFormActionsUF(
           'Are you sure you want to delete the selected Pipeline Configuration?');
       if (uc != 'OK') return null;
       var state = formState.getState(0);
-      state[FSK.key] = state[FSK.key][0];
+      state[FSK.key] = unpack(state[FSK.key]);
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'insert_rows',
         'fromClauses': [
@@ -123,6 +124,8 @@ Future<String?> pipelineConfigFormActionsUF(
         ],
         'data': [state],
       }, toEncodable: (_) => '');
+      formState.clearSelectedRow(group, DTKeys.pcPipelineConfigTable);
+      formState.getState(group).remove(DTKeys.pcPipelineConfigTable);
       if (context.mounted) {
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
