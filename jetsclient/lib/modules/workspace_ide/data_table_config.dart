@@ -76,9 +76,9 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.wsURI: 4,
           }),
       ActionConfig(
-          actionType: DataTableActionType.doAction,
+          actionType: DataTableActionType.showScreen,
           key: 'loadWorkspaceConfig',
-          label: 'Load Config',
+          label: 'Load Client Config',
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
@@ -88,7 +88,10 @@ final Map<String, TableConfig> _tableConfigurations = {
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
                 value: 'in progress'),
           ]],
-          actionName: ActionKeys.loadWorkspaceConfig),
+          configScreenPath: ufLoadConfigPath,
+          navigationParams: {
+            FSK.wsName: 1,
+          }),
       ActionConfig(
           actionType: DataTableActionType.doAction,
           key: 'deleteWorkspace',

@@ -27,6 +27,7 @@ String? unpack(dynamic elm) {
 List<String>? unpackToList(dynamic elm) {
   // print("^^^ unpackToList elm: $elm");
   if (elm == null) return null;
+  if (elm is List<String>) return elm;
   if (elm is List<String?>) {
     final l = <String>[];
     for (final e in elm) {

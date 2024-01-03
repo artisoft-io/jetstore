@@ -1,5 +1,6 @@
 import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/models/user_flow_config.dart';
+import 'package:jetsclient/modules/user_flows/workspace_pull/form_action_delegates.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
 
@@ -17,7 +18,7 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Workspace Name",
             hint: "Workspace name is used as the workspace key",
             flex: 1,
-            autofocus: true,
+            autofocus: false,
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
@@ -69,7 +70,7 @@ final Map<String, FormConfig> _formConfigurations = {
             label: "Workspace Name",
             hint: "Workspace name is used as the workspace key",
             flex: 1,
-            autofocus: true,
+            autofocus: false,
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
@@ -93,6 +94,105 @@ final Map<String, FormConfig> _formConfigurations = {
             key: DTKeys.wpPullWorkspaceConfirmOptions,
             dataTableConfig: DTKeys.wpPullWorkspaceConfirmOptions)
       ],
+    ],
+    formValidatorDelegate: alwaysValidForm,
+    formActionsDelegate: doNothingAction,
+  ),
+
+  // Load Client Config UF
+  FormKeys.wpLoadConfigUF: FormConfig(
+    key: FormKeys.wpLoadConfigUF,
+    actions: standardActions,
+    useListView: false,
+    inputFieldsV2: [
+      FormFieldRowConfig(flex:0, rowConfig: [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ]),
+      FormFieldRowConfig(flex:1, rowConfig: [
+        FormDataTableFieldConfig(
+            key: FSK.wpClientList,
+            dataTableConfig: FSK.wpClientList,
+            tableHeight: double.infinity),
+      ]),
+      FormFieldRowConfig(flex:0, rowConfig: [
+        PaddingConfig(),
+        PaddingConfig(),
+        FormActionConfig(
+            key: ActionKeys.wpLoadAllClientConfigUF,
+            label: "Load All Clients Config",
+            buttonStyle: ActionStyle.ufSecondary,
+            leftMargin: defaultPadding,
+            rightMargin: defaultPadding),
+      ]),
+    ],
+    formValidatorDelegate: loadConfigFormValidator,
+    formActionsDelegate: doNothingAction,
+  ),
+  FormKeys.wpConfirmLoadConfigUF: FormConfig(
+    key: FormKeys.wpConfirmLoadConfigUF,
+    actions: [
+      FormActionConfig(
+          key: ActionKeys.ufPrevious,
+          label: "Previous",
+          buttonStyle: ActionStyle.ufPrimary,
+          leftMargin: defaultPadding,
+          rightMargin: betweenTheButtonsPadding),
+      FormActionConfig(
+          key: ActionKeys.ufCompleted,
+          label: "Comfirm",
+          buttonStyle: ActionStyle.ufSecondary,
+          leftMargin: defaultPadding,
+          rightMargin: defaultPadding),
+    ],
+    useListView: false,
+    inputFieldsV2: [
+      FormFieldRowConfig(flex:0, rowConfig: [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 20),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 120),
+      ]),
+      FormFieldRowConfig(flex:1, rowConfig: [
+        FormDataTableFieldConfig(
+            key: FSK.wpClientListRO,
+            dataTableConfig: FSK.wpClientListRO,
+            tableHeight: double.infinity),
+      ]),
     ],
     formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: doNothingAction,
