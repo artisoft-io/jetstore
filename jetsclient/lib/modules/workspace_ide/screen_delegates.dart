@@ -174,47 +174,6 @@ Future<String?> workspaceIDEFormActions(BuildContext context,
       }
       return null;
 
-    case ActionKeys.loadWorkspaceConfig:
-      // Get confirmation
-      var uc = await showConfirmationDialog(context,
-          'Are you sure you want to load workspace configuration, some client configuration may be overriten?');
-      if (uc != 'OK') return null;
-      print(
-          "*** (1) LOAD CONFIG formState.getState(0) is ${formState.getState(0)}");
-      final state = Map<String, dynamic>.from(formState.getState(0));
-      state['user_email'] = JetsRouterDelegate().user.email;
-      state[FSK.key] = unpack(state[FSK.key]);
-      state[FSK.wsName] = unpack(state[FSK.wsName]);
-      state[FSK.wsPreviousName] = unpack(state[FSK.wsPreviousName]);
-      state[FSK.wsBranch] = unpack(state[FSK.wsBranch]);
-      state[FSK.wsFeatureBranch] = unpack(state[FSK.wsFeatureBranch]);
-      state[FSK.wsURI] = unpack(state[FSK.wsURI]);
-      state[FSK.status] = '';
-      state[FSK.lastGitLog] = 'redacted';
-      print(
-          "*** (2) LOAD CONFIG state is $state");
-      print(
-          "*** (3) LOAD CONFIG formState.getState(0) is ${formState.getState(0)}");
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'workspace_insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'load_workspace_config'}
-        ],
-        'workspaceName': state[FSK.wsName],
-        'workspaceBranch': state[FSK.wsBranch],
-        'featureBranch': state[FSK.wsFeatureBranch],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      if (context.mounted) {
-        JetsSpinnerOverlay.of(context).show();
-        await postSimpleAction(
-            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      }
-      if (context.mounted) {
-        JetsSpinnerOverlay.of(context).hide();
-      }
-      return null;
-
     // Add workspace file
     case ActionKeys.addWorkspaceFilesOk:
       var valid = formKey.currentState!.validate();

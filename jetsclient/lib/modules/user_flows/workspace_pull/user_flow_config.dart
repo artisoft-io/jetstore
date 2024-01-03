@@ -5,7 +5,7 @@ import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 final Map<String, UserFlowConfig> _userFlowConfigurations = {
-  //
+  // Pull Workspace
   UserFlowKeys.workspacePullUF: UserFlowConfig(
       startAtKey: "pull_workspace",
       exitScreenPath: workspaceRegistryPath,
@@ -24,7 +24,27 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
             actionDelegate: pullWorkspaceFormActions,
             stateAction: ActionKeys.wpPullWorkspaceOkUF,
             isEnd: true),
-      })
+      }),
+  // Load Client Config
+  UserFlowKeys.loadConfigUF: UserFlowConfig(
+      startAtKey: "load_config",
+      exitScreenPath: workspaceRegistryPath,
+      states: {
+        "load_config": UserFlowState(
+            key: "load_config",
+            description: 'Load Client Config form',
+            formConfig: getFormConfig(FormKeys.wpLoadConfigUF),
+            actionDelegate: loadConfigFormActions,
+            stateAction: ActionKeys.wpLoadConfigConfirmUF,
+            defaultNextState: "confirm"),
+        "confirm": UserFlowState(
+            key: "confirm",
+            description: 'Confirm Load Config',
+            formConfig: getFormConfig(FormKeys.wpConfirmLoadConfigUF),
+            actionDelegate: loadConfigFormActions,
+            stateAction: ActionKeys.wpLoadConfigOkUF,
+            isEnd: true),
+      }),
 };
 
 UserFlowConfig? getWorkspacePullUserFlowConfig(String key) {

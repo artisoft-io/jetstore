@@ -151,6 +151,7 @@ class ScreenKeys {
   static const ufLoadFiles = "ufLoadFilesScreenUF";
   static const ufStartPipeline = "ufStartPipelineScreenUF";
   static const ufPullWorkspace = "ufPullWorkspaceScreenUF";
+  static const ufLoadConfig = "ufLoadConfigScreenUF";
 }
 
 /// Form ID Keys
@@ -263,6 +264,9 @@ class FormKeys {
   // Workspace Pull UF Forms
   static const wpPullWorkspaceUF = "wpPullWorkspaceUF";
   static const wpConfirmPullWorkspaceUF = "wpConfirmPullWorkspaceUF";
+  // Load Client Config UF Forms
+  static const wpLoadConfigUF = "wpLoadConfigUF";
+  static const wpConfirmLoadConfigUF = "wpConfirmLoadConfigUF";
 }
 
 /// Form State Keys
@@ -456,6 +460,12 @@ class FSK {
   // Pipeline Config UF
   static const pcAddOrEditPipelineConfigOption =
       "pcAddOrEditPipelineConfigOption";
+
+  // Load Client Config UF
+  static const wpClientList = "wpClientList";
+  // update_db argument: -clients
+  static const updateDbClients = "updateDbClients";
+  static const wpClientListRO = "wpClientListRO";
 
   // Start Pipeline UF
   static const spAllDataSourceKeys = "spAllDataSourceKeys";
@@ -651,6 +661,11 @@ class ActionKeys {
   // Workspace Pull UF ActionKeys
   static const wpPullWorkspaceConfirmUF = "wpPullWorkspaceConfirmUF";
   static const wpPullWorkspaceOkUF = "wpPullWorkspaceOkUF";
+
+  // Load Client Config UF ActionKeys
+  static const wpLoadConfigConfirmUF = "wpLoadConfigConfirmUF";
+  static const wpLoadConfigOkUF = "wpLoadConfigOkUF";
+  static const wpLoadAllClientConfigUF = "wpLoadAllClientConfigUF";
 }
 
 /// User Flow Keys
@@ -664,6 +679,7 @@ class UserFlowKeys {
   static const loadFilesUF = "loadFilesUF";
   static const startPipelineUF = "startPipelineUF";
   static const workspacePullUF = "workspacePullUF";
+  static const loadConfigUF = "loadConfigUF";
 }
 
 /// Status Keys
