@@ -31,7 +31,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2*defaultPadding),
+        PaddingConfig(height: defaultPadding),
       ],
       [
         FormDropdownFieldConfig(
@@ -117,17 +117,15 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.pcViewMergeProcessInputsUF: FormConfig(
     key: FormKeys.pcViewMergeProcessInputsUF,
     actions: standardActions,
-    useListView: true,
-    inputFields: [
-      [
+    useListView: false,
+    inputFieldsV2: [
+      FormFieldRowConfig(flex:1, rowConfig: [
         FormDataTableFieldConfig(
             key: DTKeys.pcViewMergedProcessInputKeys,
-            dataTableConfig: DTKeys.pcViewMergedProcessInputKeys),
-      ],
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
+            dataTableConfig: DTKeys.pcViewMergedProcessInputKeys,
+            tableHeight: double.infinity),
+      ]),
+      FormFieldRowConfig(rowConfig: [
         FormActionConfig(
             key: ActionKeys.pcGotToAddMergeProcessInputUF,
             label: "Add Data Source to Merge",
@@ -136,10 +134,7 @@ final Map<String, FormConfig> _formConfigurations = {
             rightMargin: defaultPadding),
         PaddingConfig(),
         PaddingConfig(),
-      ],
-      [
-        PaddingConfig(),
-      ],
+      ]),
     ],
     formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
@@ -149,17 +144,16 @@ final Map<String, FormConfig> _formConfigurations = {
   FormKeys.pcViewInjectedProcessInputsUF: FormConfig(
     key: FormKeys.pcViewInjectedProcessInputsUF,
     actions: standardActions,
-    useListView: true,
-    inputFields: [
-      [
+    useListView: false,
+    inputFieldsV2: [
+      FormFieldRowConfig(flex:1, rowConfig: [
         FormDataTableFieldConfig(
             key: DTKeys.pcViewInjectedProcessInputKeys,
-            dataTableConfig: DTKeys.pcViewInjectedProcessInputKeys),
-      ],
-      [
-        PaddingConfig(height: 2*defaultPadding),
-      ],
-      [
+            dataTableConfig: DTKeys.pcViewInjectedProcessInputKeys,
+            tableHeight: double.infinity),
+      ]),
+      FormFieldRowConfig(rowConfig: [PaddingConfig()]),
+      FormFieldRowConfig(rowConfig: [
         FormActionConfig(
             key: ActionKeys.pcGotToAddInjectedProcessInputUF,
             label: "Add Data Source for Historical Data",
@@ -168,10 +162,7 @@ final Map<String, FormConfig> _formConfigurations = {
             rightMargin: defaultPadding),
         PaddingConfig(),
         PaddingConfig(),
-      ],
-      [
-        PaddingConfig(),
-      ],
+      ]),
     ],
     formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate:
@@ -273,13 +264,13 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.addProcessInputOk,
           capability: "client_config",
           label: "Save",
-          buttonStyle: ActionStyle.ufPrimary,
+          buttonStyle: ActionStyle.dialogOk,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.ufSecondary,
+          buttonStyle: ActionStyle.dialogCancel,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],
@@ -327,7 +318,7 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(),
       ],
     ],
-    formValidatorDelegate: processInputFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate: processInputFormActions,
   ),
   // New Process Input Dialog for Merge and Injected Process Inuts
@@ -340,13 +331,13 @@ final Map<String, FormConfig> _formConfigurations = {
           key: ActionKeys.addProcessInputOk,
           capability: "client_config",
           label: "Save",
-          buttonStyle: ActionStyle.ufPrimary,
+          buttonStyle: ActionStyle.dialogOk,
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
           key: ActionKeys.dialogCancel,
           label: "Cancel",
-          buttonStyle: ActionStyle.ufSecondary,
+          buttonStyle: ActionStyle.dialogCancel,
           leftMargin: betweenTheButtonsPadding,
           rightMargin: defaultPadding),
     ],
@@ -394,7 +385,7 @@ final Map<String, FormConfig> _formConfigurations = {
         PaddingConfig(),
       ],
     ],
-    formValidatorDelegate: processInputFormValidator,
+    formValidatorDelegate: pipelineConfigFormValidatorUF,
     formActionsDelegate: processInputFormActions,
   ),
   // Summary Page
@@ -409,7 +400,7 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
-          key: ActionKeys.ufContinueLater,
+          key: ActionKeys.ufCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.ufPrimary,
           leftMargin: betweenTheButtonsPadding,

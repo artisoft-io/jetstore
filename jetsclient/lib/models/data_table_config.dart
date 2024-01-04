@@ -9,36 +9,38 @@ typedef ModelHandler = Map<String, dynamic>? Function(JetsFormState formState);
 /// [refreshOnKeyUpdateEvent] contains list of key that will trigger a table
 /// refresh, used when underlying table is updated independently of this table.
 class TableConfig {
-  TableConfig(
-      {required this.key,
-      this.label = "",
-      required this.apiPath,
-      this.apiAction = "read",
-      this.modelStateFormKey,
-      this.modelStateHandler,
-      this.staticTableModel,
-      required this.isCheckboxVisible,
-      required this.isCheckboxSingleSelect,
-      this.isReadOnly = false,
-      required this.actions,
-      this.secondRowActions = const [],
-      required this.columns,
-      this.defaultToAllRows = false,
-      required this.fromClauses,
-      required this.whereClauses,
-      this.distinctOnClauses = const [],
-      this.refreshOnKeyUpdateEvent = const [],
-      this.formStateConfig,
-      required this.sortColumnName,
-      this.sortColumnTableName = '',
-      required this.sortAscending,
-      required this.rowsPerPage,
-      this.withClauses = const [],
-      this.sqlQuery,
-      this.requestColumnDef = false,
-      this.noFooter = false,
-      this.dataRowMinHeight,
-      this.dataRowMaxHeight});
+  TableConfig({
+    required this.key,
+    this.label = "",
+    required this.apiPath,
+    this.apiAction = "read",
+    this.modelStateFormKey,
+    this.modelStateHandler,
+    this.staticTableModel,
+    required this.isCheckboxVisible,
+    required this.isCheckboxSingleSelect,
+    this.isReadOnly = false,
+    required this.actions,
+    this.secondRowActions = const [],
+    required this.columns,
+    this.defaultToAllRows = false,
+    required this.fromClauses,
+    required this.whereClauses,
+    this.distinctOnClauses = const [],
+    this.refreshOnKeyUpdateEvent = const [],
+    this.formStateConfig,
+    required this.sortColumnName,
+    this.sortColumnTableName = '',
+    required this.sortAscending,
+    required this.rowsPerPage,
+    this.withClauses = const [],
+    this.sqlQuery,
+    this.requestColumnDef = false,
+    this.noFooter = false,
+    this.dataRowMinHeight,
+    this.dataRowMaxHeight,
+    this.noCopy2Clipboard,
+  });
   final String key;
   final String label;
   final String apiPath;
@@ -69,6 +71,7 @@ class TableConfig {
   final bool noFooter;
   final double? dataRowMinHeight;
   final double? dataRowMaxHeight;
+  final bool? noCopy2Clipboard;
 }
 
 /// enum describing the type of actions that are available to data table
@@ -76,12 +79,9 @@ enum DataTableActionType {
   showDialog,
   showScreen,
   toggleCheckboxVisible,
-  makeSelectedRowsEditable,
-  saveDirtyRows,
-  deleteSelectedRows,
-  cancelModifications,
   refreshTable,
   doAction,
+  toggleCopy2Clipboard,
   doActionShowDialog
 }
 

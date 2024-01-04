@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:jetsclient/modules/user_flows/file_mapping/form_action_helpers.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/components/dialogs.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
@@ -8,8 +9,6 @@ import 'package:jetsclient/components/spinner_overlay.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/models/form_config.dart';
-// import 'package:provider/provider.dart';
-import 'package:jetsclient/utils/download.dart';
 import 'package:jetsclient/modules/actions/delegate_helpers.dart';
 
 /// Validation and Actions delegates for the source to pipeline config forms
@@ -132,555 +131,6 @@ Future<String?> homeFormActions(BuildContext context,
   return null;
 }
 
-/// Validation and Actions delegates for the Source Config forms
-/// Validation and Actions delegates for the Client & Org admin forms
-String? sourceConfigValidator(
-    JetsFormState formState, int group, String key, dynamic v) {
-  assert((v is String?) || (v is List<String>?),
-      "Source Config Form has unexpected data type");
-  switch (key) {
-    case FSK.client:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      if (value != null && value.characters.length <= 1) {
-        return "Client name is too short.";
-      }
-      return "Client name must be selected.";
-    case FSK.org:
-      String? value = v;
-      if (value != null) {
-        return null;
-      }
-      return "Organization name must be selected.";
-    case FSK.details:
-      // optional
-      return null;
-
-    case FSK.objectType:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Object Type name must be selected.";
-    case FSK.domainKeysJson:
-      String? value = v;
-      if (value == null || value.isEmpty) {
-        return null; // this field is nullable
-      }
-      // Validate that value is valid json
-      try {
-        jsonDecode(value);
-      } catch (e) {
-        return "Domain keys is not a valid json: ${e.toString()}";
-      }
-      return null;
-    case FSK.codeValuesMappingJson:
-      //* codeValuesMappingJson can be json or csv, not validating csv so not validating json here
-      // String? value = v;
-      // if (value == null || value.isEmpty) {
-      //   return null; // this field is nullable
-      // }
-      // // Validate that value is valid json
-      // try {
-      //   jsonDecode(value);
-      // } catch (e) {
-      //   return "Code values mapping is not a valid json: ${e.toString()}";
-      // }
-      return null;
-    case FSK.inputColumnsJson:
-      String? value = v;
-      if (value == null || value.isEmpty) {
-        return null; // this field is nullable
-      }
-      // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
-      final otherv = formState.getValue(0, FSK.inputColumnsPositionsCsv);
-      if (otherv != null) {
-        return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
-      }
-      // Validate that value is valid json
-      try {
-        jsonDecode(value);
-      } catch (e) {
-        return "Input column names is not a valid json: ${e.toString()}";
-      }
-      return null;
-
-    case FSK.inputColumnsPositionsCsv:
-      String? value = v;
-      if (value == null || value.isEmpty) {
-        return null; // this field is nullable
-      }
-      // Validate that FSK.inputColumnsJson and FSK.inputColumnsPositionsCsv are exclusive
-      final otherv = formState.getValue(0, FSK.inputColumnsJson);
-      if (otherv != null) {
-        return "Cannot specify both input columns names (headerless file) and input columns names and positions (fixed-width file).";
-      }
-      return null;
-
-    case FSK.sourcePeriodKey:
-      if (v != null) {
-        return null;
-      }
-      return "Execution frequency choice must be selected.";
-
-    case FSK.automated:
-      if (v != null) {
-        return null;
-      }
-      return "Automation choice must be selected.";
-
-    default:
-      print(
-          'Oops Source Config Form has no validator configured for form field $key');
-  }
-  return null;
-}
-
-/// Source Configuration Form Actions
-/// Cient and Org Admin Form Actions
-Future<String?> sourceConfigActions(BuildContext context,
-    GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
-    {group = 0}) async {
-  switch (actionKey) {
-    // Add Client
-    case ActionKeys.clientOk:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return null;
-      }
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'client_registry'}
-        ],
-        'data': [formState.getState(0)],
-      }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
-
-    // Add Org
-    case ActionKeys.orgOk:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return null;
-      }
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'client_org_registry'}
-        ],
-        'data': [formState.getState(0)],
-      }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
-
-    case ActionKeys.deleteClient:
-      // Get confirmation
-      var uc = await showConfirmationDialog(
-          context, 'Are you sure you want to delete the selected client?');
-      if (uc != 'OK') return null;
-      var state = formState.getState(0);
-      state[FSK.client] = unpack(state[FSK.client]);
-      state['user_email'] = JetsRouterDelegate().user.email;
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'delete/client'}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      if (context.mounted) {
-        await postSimpleAction(
-            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      }
-      break;
-
-    case ActionKeys.exportClientConfig:
-      var state = formState.getState(0);
-      state[FSK.client] = unpack(state[FSK.client]);
-      state['user_email'] = JetsRouterDelegate().user.email;
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'export_client_configuration',
-        'data': [state],
-      }, toEncodable: (_) => '');
-      await postSimpleAction(
-          context, formState, ServerEPs.purgeDataEP, encodedJsonBody);
-      break;
-
-    case ActionKeys.deleteOrg:
-      // Get confirmation
-      var uc = await showConfirmationDialog(context,
-          'Are you sure you want to delete the selected organization?');
-      if (uc != 'OK') return null;
-      var state = formState.getState(0);
-      if (state[FSK.client] is List<String>) {
-        state[FSK.client] = state[FSK.client][0];
-      }
-      if (state[FSK.org] is List<String>) {
-        state[FSK.org] = state[FSK.org][0];
-      }
-      state['user_email'] = JetsRouterDelegate().user.email;
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'delete/org'}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      if (context.mounted) {
-        await postSimpleAction(
-            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      }
-      break;
-
-    // Add/Update Source Config
-    case ActionKeys.addSourceConfigOk:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return null;
-      }
-      var state = formState.getState(0);
-      // print('Add Source Config state: $state');
-      var query = 'source_config'; // case add
-      if (formState.getValue(0, FSK.key) != null) {
-        query = 'update/source_config';
-      }
-
-      state['user_email'] = JetsRouterDelegate().user.email;
-      state['table_name'] = makeTableNameFromState(state);
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': query}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
-
-    case ActionKeys.deleteSourceConfig:
-      // Get confirmation
-      var uc = await showConfirmationDialog(context,
-          'Are you sure you want to delete the selected Source Configuration?');
-      if (uc != 'OK') return null;
-      var state = formState.getState(0);
-      state[FSK.key] = state[FSK.key][0];
-      state['user_email'] = JetsRouterDelegate().user.email;
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'delete/source_config'}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      if (context.mounted) {
-        await postSimpleAction(
-            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      }
-      break;
-
-    // Start loader
-    case ActionKeys.loaderOk:
-      // No form validation since does not use widgets
-      // var valid = formKey.currentState!.validate();
-      // if (!valid) {
-      //   return;
-      // }
-      var state = formState.getState(0);
-      // Fields comming from table selected row will be in array, unpack the value
-      // Updated: This is now multi select table, convert column array to multiple rows
-      List<dynamic> requestData = [];
-      for (var i = 0; i < state[FSK.fileKey].length; i++) {
-        requestData.add(<String, dynamic>{
-          FSK.client: state[FSK.client][0],
-          FSK.org: state[FSK.org][0],
-          FSK.objectType: state[FSK.objectType][0],
-          FSK.tableName: state[FSK.tableName][0],
-          FSK.fileKey: state[FSK.fileKey][i],
-          FSK.sourcePeriodKey: state[FSK.sourcePeriodKey][i],
-          FSK.status: StatusKeys.submitted,
-          FSK.userEmail: JetsRouterDelegate().user.email,
-          FSK.sessionId: "${DateTime.now().millisecondsSinceEpoch + i}",
-        });
-      }
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'input_loader_status'}
-        ],
-        'data': requestData,
-      }, toEncodable: (_) => '');
-      JetsSpinnerOverlay.of(context).show();
-      return postInsertRows(context, formState, encodedJsonBody);
-
-    // Sync File Keys with web storage (s3)
-    case ActionKeys.syncFileKey:
-      // No form validation since does not use widgets
-      // var valid = formKey.currentState!.validate();
-      // if (!valid) {
-      //   return;
-      // }
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'sync_file_keys',
-        'data': [],
-      }, toEncodable: (_) => '');
-      await postSimpleAction(
-          context, formState, ServerEPs.registerFileKeyEP, encodedJsonBody);
-      break;
-
-    // Drop staging table
-    case ActionKeys.dropTable:
-      // No form validation since does not use widgets
-      // var valid = formKey.currentState!.validate();
-      // if (!valid) {
-      //   return;
-      // }
-      var state = formState.getState(0);
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'drop_table',
-        'data': [
-          {
-            'schemaName': 'public',
-            'tableName': state[FSK.tableName][0],
-          }
-        ],
-      }, toEncodable: (_) => '');
-      await postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      break;
-
-    case ActionKeys.dialogCancel:
-      Navigator.of(context).pop();
-      break;
-    default:
-      print('Oops unknown ActionKey for Source Config Form: $actionKey');
-  }
-  return null;
-}
-
-/// Process Input Form / Dialog Validator
-String? processInputFormValidator(
-    JetsFormState formState, int group, String key, dynamic v) {
-  assert((v is String?) || (v is List<String>?),
-      "Process Input Form has unexpected data type");
-  var isRequired = formState.getValue(group, FSK.isRequiredFlag);
-  // print(
-  //     "%%% Validator Called for $group ($isRequired), $key, $v, state is ${formState.getValue(group, key)}");
-  // Check if we have client, object_type, and source_type to populate table_name
-  // add entity_rdf_type based on object_type
-  var objectTypeRegistry =
-      formState.getCacheValue(FSK.objectTypeRegistryCache) as List?;
-  var client = formState.getValue(group, FSK.client);
-  var sourceType = formState.getValue(group, FSK.sourceType);
-  var entityRdfType = formState.getValue(group, FSK.entityRdfType);
-  if (objectTypeRegistry != null &&
-      client != null &&
-      sourceType != null &&
-      entityRdfType != null) {
-    switch (sourceType) {
-      case 'file':
-        final org = formState.getValue(group, FSK.org);
-        if (org != null) {
-          var row = objectTypeRegistry.firstWhere((e) => e[1] == entityRdfType,
-              orElse: () => [entityRdfType as String, entityRdfType]);
-          if (row == null) {
-            print(
-                "processInputFormActions error: can't find object_type in objectTypeRegistry");
-          } else {
-            // add table_name to form state based on source_type of domain class (rdf:type)
-            String tableName = makeTableName(client, org, row[0]);
-            if (formState.getValue(0, FSK.tableName) != tableName) {
-              // print("SET AND NOTIFY TABLENAME $tableName");
-              formState.setValueAndNotify(0, FSK.tableName, tableName);
-            }
-          }
-        }
-        break;
-      case 'domain_table':
-        if (formState.getValue(group, FSK.tableName) != entityRdfType) {
-          formState.setValueAndNotify(group, FSK.tableName, entityRdfType);
-        }
-        break;
-      case 'alias_domain_table':
-        // Do nothing, table_name is already in formState
-        break;
-      default:
-        print(
-            "processInputFormActions error: unknown source_type: $sourceType");
-    }
-  }
-
-  // Check if we need to refresh the token - case of long running form
-  if (JetsRouterDelegate().user.isTokenAged) {
-    HttpClientSingleton().refreshToken();
-  }
-
-  switch (key) {
-    // Load Raw Rows
-    case FSK.rawRows:
-      if (v != null) {
-        String value = v;
-        if (value.isNotEmpty) {
-          return null;
-        }
-      }
-      return "Raw rows must be provided.";
-
-    // Add/Update Process Input Dialog Validations
-    case FSK.client:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Client name must be provided.";
-    case FSK.org:
-      if (v != null) {
-        return null;
-      }
-      if (sourceType == null || sourceType != 'file') {
-        return null;
-      }
-      return "Organization must be selected.";
-
-    case FSK.objectType:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Object Type name must be selected.";
-    case FSK.sourceType:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Source Type name must be selected.";
-    case FSK.entityRdfType:
-      String? value = v;
-      if (value != null && value.characters.length > 1) {
-        return null;
-      }
-      return "Domain Class name must be selected.";
-    case FSK.lookbackPeriods:
-      String? value = v;
-      if (value != null && value.characters.isNotEmpty) {
-        return null;
-      }
-      return "Lookback period must be provided.";
-    case FSK.tableName:
-      String? value = v;
-      if (value != null && value.characters.isNotEmpty) {
-        return null;
-      }
-      if (sourceType == null || sourceType != 'alias_domain_table') {
-        return null;
-      }
-      return "Table name must be provided.";
-
-    // Process Mapping Dialog Validation
-    case FSK.inputColumn:
-      String? value = v;
-      if (value != null && value.isNotEmpty) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      if (isRequired == null || isRequired == false) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      final defaultValue =
-          formState.getValue(group, FSK.mappingDefaultValue) as String?;
-      if (defaultValue != null && defaultValue.isNotEmpty) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      var errorMsg =
-          formState.getValue(group, FSK.mappingErrorMessage) as String?;
-      if (errorMsg != null && errorMsg.isNotEmpty) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      formState.markFormKeyAsInvalid(group, key);
-      return "Input Column must be selected or either a default or an error message must be provided.";
-
-    case FSK.functionName:
-      return null;
-
-    case FSK.functionArgument:
-      String? value = v;
-      var functionName = formState.getValue(group, FSK.functionName) as String?;
-      // print("Validating argument '$value' for function $functionName");
-      if (functionName == null || functionName.isEmpty) {
-        if (value != null && value.isNotEmpty) {
-          formState.markFormKeyAsInvalid(group, key);
-          return "Remove the argument when no function is selected";
-        } else {
-          formState.markFormKeyAsValid(group, key);
-          return null;
-        }
-      }
-      if (value != null && value.isNotEmpty) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      var mappingFunctionDetails =
-          formState.getCacheValue(FSK.mappingFunctionDetailsCache) as List?;
-      assert(mappingFunctionDetails != null,
-          "processInputFormActions error: mappingFunctionDetails is null");
-      if (mappingFunctionDetails == null) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      var row = mappingFunctionDetails.firstWhere(
-        (e) => e[0] == functionName,
-      );
-      // check if function argument is required
-      if (row[1] != "1") {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      formState.markFormKeyAsInvalid(group, key);
-      return "Cleansing function argument is required";
-
-    case FSK.mappingDefaultValue:
-      String? value = v;
-      if (value != null && value.isEmpty) {
-        value = null;
-      }
-      var errorMsg =
-          formState.getValue(group, FSK.mappingErrorMessage) as String?;
-      if (errorMsg != null && errorMsg.isEmpty) {
-        errorMsg = null;
-      }
-      if (value != null && errorMsg == null) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      if (value == null && errorMsg != null) {
-        formState.markFormKeyAsValid(group, key);
-        return null;
-      }
-      if (value != null && errorMsg != null) {
-        formState.markFormKeyAsInvalid(group, key);
-        return "Cannot specify both a default value and an error message";
-      }
-      formState.markFormKeyAsValid(group, key);
-      return null;
-
-    case FSK.mappingErrorMessage:
-      return null;
-
-    case DTKeys.pcProcessInputRegistry:
-    case DTKeys.pcProcessInputRegistry4MI:
-      if (v != null) {
-        return null;
-      }
-      return "Please select an option.";
-
-    default:
-      print(
-          'Oops process input form has no validator configured for form field $key, which has value $v');
-  }
-  return null;
-}
 
 /// Process and Rules Config Form / Dialog Validator
 String? processConfigFormValidator(
@@ -739,115 +189,6 @@ Future<String?> processInputFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
   switch (actionKey) {
-    // Download process mapping rows
-    case ActionKeys.downloadMapping:
-      var state = formState.getState(0);
-      var client = unpack(state[FSK.client]);
-      var org = unpack(state[FSK.org]);
-      var objectType = unpack(state[FSK.objectType]);
-      // Build the query
-      var query = <String, dynamic>{
-        "action": "read",
-        "fromClauses": [
-          {"schema": "jetsapi", "table": "source_config"},
-          {"schema": "jetsapi", "table": "process_mapping"}
-        ],
-        "whereClauses": [
-          {
-            "table": "source_config",
-            "column": "client",
-            "values": [client]
-          },
-          {
-            "table": "source_config",
-            "column": "org",
-            "values": [org]
-          },
-          {
-            "table": "source_config",
-            "column": "object_type",
-            "values": [objectType]
-          },
-          {
-            "table": "source_config",
-            "column": "table_name",
-            "joinWith": "process_mapping.table_name"
-          }
-        ],
-        "offset": 0,
-        "limit": 1000,
-        "columns": [
-          {"column": "client"},
-          {"column": "org"},
-          {"column": "object_type"},
-          {"column": "data_property"},
-          {"column": "input_column"},
-          {"column": "function_name"},
-          {"column": "argument"},
-          {"column": "default_value"},
-          {"column": "error_message"}
-        ],
-        "sortColumn": "data_property",
-        "sortAscending": true
-      };
-      var result = await HttpClientSingleton().sendRequest(
-          path: ServerEPs.dataTableEP,
-          token: JetsRouterDelegate().user.token,
-          encodedJsonBody: json.encode(query));
-      Map<String, dynamic>? data;
-      if (result.statusCode == 401) return null;
-      if (result.statusCode == 200) {
-        data = result.body;
-      } else {
-        const snackBar = SnackBar(
-          content: Text('Unknown Error reading data from table'),
-        );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        }
-        return null;
-      }
-      final rows = data!['rows'] as List;
-      List<List<String?>> model =
-          rows.map((e) => (e as List).cast<String?>()).toList();
-      // Prepare the csv buffer
-      var buffer = StringBuffer();
-      buffer.writeln(
-          '"client","org","object_type","data_property","input_column","function_name","argument","default_value","error_message"');
-      for (var row in model) {
-        var isFirst = true;
-        for (var column in row) {
-          if (!isFirst) {
-            buffer.write(',');
-          }
-          isFirst = false;
-          if (column != null) {
-            buffer.write('"$column"');
-          }
-        }
-        buffer.writeln();
-      }
-      // Download the result!
-      download(utf8.encode(buffer.toString()), downloadName: 'mapping.csv');
-      break;
-
-    // loadRawRows
-    case ActionKeys.loadRawRowsOk:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return null;
-      }
-      var state = formState.getState(0);
-      // print('Load Raw Rows state: $state');
-      state['user_email'] = JetsRouterDelegate().user.email;
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_raw_rows',
-        'fromClauses': [
-          <String, String>{'table': 'raw_rows/process_mapping'}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
 
     // Supporting Process Config UF as well as expert mode
     case ActionKeys.addProcessInputOk:
@@ -855,118 +196,8 @@ Future<String?> processInputFormActions(BuildContext context,
       if (!valid) {
         return null;
       }
-      final state = formState.getState(group);
-      state[FSK.userEmail] = JetsRouterDelegate().user.email;
-      state[FSK.client] = unpack(state[FSK.client]);
-      state[FSK.org] = unpack(state[FSK.org]);
-      state[FSK.sourceType] = unpack(state[FSK.sourceType]);
-      state[FSK.objectType] = unpack(state[FSK.objectType]);
-      state[FSK.entityRdfType] = unpack(state[FSK.entityRdfType]);
-      state[FSK.tableName] = unpack(state[FSK.tableName]);
-      var query = 'process_input'; // case add
-      if (formState.getValue(group, FSK.key) != null) {
-        query = 'update2/process_input';
-      }
-      var sourceType = state[FSK.sourceType] as String?;
-      if (sourceType == null) {
-        print("Oops bailing out of addProcessInputOk, source_type is null!");
-        return null;
-      }
-      if (sourceType != 'file') {
-        formState.setValue(group, FSK.org, '');
-      }
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': query}
-        ],
-        'data': [formState.getState(0)],
-      }, toEncodable: (_) => '');
-      return postInsertRows(context, formState, encodedJsonBody);
+      return addProcessInput(context, formState);
 
-    // Process Mapping Dialog
-    case ActionKeys.mapperOk:
-    case ActionKeys.mapperDraft:
-      if (!formState.isFormValid() && actionKey == ActionKeys.mapperOk) {
-        return null;
-      }
-      // Insert rows to process_mapping, if successful update process_input.status
-      var tableName = formState.getValue(group, FSK.tableName);
-      if (tableName == null) {
-        print(
-            "processInputFormActions error: save mapping - table_name is null");
-        return "processInputFormActions error: save mapping - table_name is null";
-      }
-      for (var i = 0; i < formState.groupCount; i++) {
-        formState.setValue(i, FSK.tableName, tableName);
-        formState.setValue(i, FSK.userEmail, JetsRouterDelegate().user.email);
-      }
-      var navigator = Navigator.of(context);
-      // first issue a delete statement to make sure we replace all mappings
-      var deleteJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'delete/process_mapping'}
-        ],
-        'data': [
-          {
-            FSK.tableName: tableName,
-            FSK.userEmail: JetsRouterDelegate().user.email,
-          }
-        ],
-      }, toEncodable: (_) => '');
-      var deleteResult = await HttpClientSingleton().sendRequest(
-          path: ServerEPs.dataTableEP,
-          token: JetsRouterDelegate().user.token,
-          encodedJsonBody: deleteJsonBody);
-
-      if (deleteResult.statusCode == 401) return "Not Authorized";
-      if (deleteResult.statusCode != 200) {
-        formState.setValue(
-            0, FSK.serverError, "Something went wrong. Please try again.");
-        navigator.pop(DTActionResult.statusError);
-        return "Something went wrong. Please try again.";
-      }
-      // delete successfull, update process_mapping
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'process_mapping'}
-        ],
-        'data': formState.getInternalState(),
-      }, toEncodable: (_) => '');
-      // Insert rows to process_mapping
-      var result = await HttpClientSingleton().sendRequest(
-          path: ServerEPs.dataTableEP,
-          token: JetsRouterDelegate().user.token,
-          encodedJsonBody: encodedJsonBody);
-
-      if (result.statusCode == 401) return "Not Authorized";
-      if (result.statusCode == 200) {
-        // trigger a refresh of the process_mapping table
-        formState.parentFormState?.setValue(0, FSK.tableName, null);
-        formState.parentFormState
-            ?.setValueAndNotify(0, FSK.tableName, tableName);
-        const snackBar = SnackBar(
-          content: Text('Mapping Updated Sucessfully'),
-        );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(snackBar);
-          navigator.pop(DTActionResult.ok);
-        }
-      } else if (result.statusCode == 400 ||
-          result.statusCode == 406 ||
-          result.statusCode == 422) {
-        // http Bad Request / Not Acceptable / Unprocessable
-        formState.setValue(
-            0, FSK.serverError, "Something went wrong. Please try again.");
-        navigator.pop(DTActionResult.statusError);
-      } else {
-        formState.setValue(
-            0, FSK.serverError, "Got a server error. Please try again.");
-        navigator.pop(DTActionResult.statusError);
-      }
-      break;
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
       break;
@@ -1016,6 +247,8 @@ Future<String?> processConfigFormActions(BuildContext context,
           }
         ],
       }, toEncodable: (_) => '');
+      formState.clearSelectedRow(group, DTKeys.ruleConfigTable);
+      formState.getState(group).remove(DTKeys.ruleConfigTable);
       var navigator = Navigator.of(context);
       // First delete existing rule config triples
       var deleteResult = await HttpClientSingleton().sendRequest(
@@ -1301,6 +534,8 @@ Future<String?> ruleConfigv2FormActions(BuildContext context,
         'data': [state],
       }, toEncodable: (_) => '');
       if (context.mounted) {
+      formState.clearSelectedRow(group, DTKeys.ruleConfigv2Table);
+      state.remove(DTKeys.ruleConfigv2Table);
         await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       }
@@ -1448,8 +683,7 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       updateState[FSK.mainProcessInputKey] =
           unpack(state[FSK.mainProcessInputKey]);
       if (updateState[FSK.mainProcessInputKey] == null) {
-        print(
-            "UNEXPECTED null for mainProcessInputKey\nForm State is $state");
+        print("UNEXPECTED null for mainProcessInputKey\nForm State is $state");
         updateState[FSK.mainProcessInputKey] = const [];
       }
       updateState[FSK.mainObjectType] = unpack(state[FSK.mainObjectType]);
@@ -1504,26 +738,28 @@ Future<String?> pipelineConfigFormActions(BuildContext context,
       }
       return null;
 
-    case ActionKeys.deletePipelineConfig:
-      // Get confirmation
-      var uc = await showConfirmationDialog(context,
-          'Are you sure you want to delete the selected Pipeline Configuration?');
-      if (uc != 'OK') return null;
-      var state = formState.getState(0);
-      state[FSK.key] = state[FSK.key][0];
-      state['user_email'] = JetsRouterDelegate().user.email;
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'insert_rows',
-        'fromClauses': [
-          <String, String>{'table': 'delete/pipeline_config'}
-        ],
-        'data': [state],
-      }, toEncodable: (_) => '');
-      if (context.mounted) {
-        await postSimpleAction(
-            context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      }
-      break;
+    // case ActionKeys.deletePipelineConfig:
+    //   // Get confirmation
+    //   var uc = await showConfirmationDialog(context,
+    //       'Are you sure you want to delete the selected Pipeline Configuration?');
+    //   if (uc != 'OK') return null;
+    //   var state = formState.getState(0);
+    //   state[FSK.key] = state[FSK.key][0];
+    //   state['user_email'] = JetsRouterDelegate().user.email;
+    //   var encodedJsonBody = jsonEncode(<String, dynamic>{
+    //     'action': 'insert_rows',
+    //     'fromClauses': [
+    //       <String, String>{'table': 'delete/pipeline_config'}
+    //     ],
+    //     'data': [state],
+    //   }, toEncodable: (_) => '');
+    //   formState.clearSelectedRow(group, DTKeys.ruleConfigTable);
+    //   formState.getState(group).remove(DTKeys.ruleConfigTable);
+    //   if (context.mounted) {
+    //     await postSimpleAction(
+    //         context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+    //   }
+    //   break;
 
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();

@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/thedatashed/xlsxreader"
 )
 
 // Load single or directory of part files to JetStore
@@ -46,16 +47,11 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 			}
     }
 		log.Printf("Loading %d files from %s", len(filePaths), localInFile)
-		//* Paralellize this
+		//* TODO Paralellize reading files
 		var totalRowCount, badRowCount int64
 		for i := range filePaths {
 			log.Printf("Loading part file '%s'", filePaths[i])
-			fileHd, err := os.Open(filePaths[i])
-			if err != nil {
-				return 0, 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", filePaths[i], err)
-			}
-			defer fileHd.Close()
-			count, badCount, err := loadFile2DB(dbpool, headersDKInfo, fileHd, badRowsWriter)
+			count, badCount, err := loadFile2DB(dbpool, headersDKInfo, &filePaths[i], badRowsWriter)
 			if err != nil {
 				return 0, 0, fmt.Errorf("while calling loadFile2DB (loadFiles): %v", err)
 			}
@@ -66,45 +62,71 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	}
 	// Loading single file
 	log.Printf("Loading single file '%s'", localInFile)
-	fileHd, err := os.Open(localInFile)
-	if err != nil {
-		return 0, 0, fmt.Errorf("while opening temp file '%s': %v", localInFile, err)
-	}
-	defer fileHd.Close()
-	return loadFile2DB(dbpool, headersDKInfo, fileHd, badRowsWriter)
+	return loadFile2DB(dbpool, headersDKInfo, &localInFile, badRowsWriter)
 }
 
 
-func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, fileHd *os.File, badRowsWriter *bufio.Writer) (int64, int64, error) {
+func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *string, badRowsWriter *bufio.Writer) (int64, int64, error) {
+	var fileHd *os.File
 	var csvReader *csv.Reader
 	var fwScanner *bufio.Scanner
 	var parquetReader *goparquet.FileReader
+	var xl *xlsxreader.XlsxFileCloser
+	var xlCh chan xlsxreader.Row
+	var currentSheetPos int
 	var err error
 
+
 	switch inputFileEncoding {
-	case Csv, HeaderlessCsv:
-		// Remove the Byte Order Mark (BOM) at beggining of the file if present
-		sr, _ := utfbom.Skip(fileHd)
-		// Setup a csv reader
-		csvReader = csv.NewReader(sr)
-		csvReader.Comma = rune(sep_flag)
-		csvReader.ReuseRecord = true
-		if inputFileEncoding == Csv {
-			// read the headers
-			csvReader.Read()
+	case Xlsx, HeaderlessXlsx:
+	// open the file, need to get the sheet structure
+	xl, err = xlsxreader.OpenFile(*filePath)
+	if err != nil {
+		return 0, 0, fmt.Errorf("while opening file %s using xlsx reader: %v", *filePath, err)
+	}
+	defer xl.Close()
+	currentSheetPos = inputFormatData["currentSheetPos"].(int)
+	xlCh = xl.ReadRows(xl.Sheets[currentSheetPos])
+	if inputFileEncoding == Xlsx {
+		// Skip the header line
+		_, ok := <-xlCh
+		if !ok {
+			return 0, 0, fmt.Errorf("error: could not re-read headers from xlsx file")
 		}
+	}
 
-	case FixedWidth:
-		// Remove the Byte Order Mark (BOM) at beggining of the file if present
-		sr, enc := utfbom.Skip(fileHd)
-		fmt.Printf("Detected encoding: %s\n", enc)
-		// Setup a fixed-width reader
-		fwScanner = bufio.NewScanner(sr)
-
-	case Parquet:
-		parquetReader, err = goparquet.NewFileReader(fileHd)
+	default:
+		fileHd, err = os.Open(*filePath)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", *filePath, err)
+		}
+		defer fileHd.Close()
+
+		switch inputFileEncoding {
+		case Csv, HeaderlessCsv:
+			// Remove the Byte Order Mark (BOM) at beggining of the file if present
+			sr, _ := utfbom.Skip(fileHd)
+			// Setup a csv reader
+			csvReader = csv.NewReader(sr)
+			csvReader.Comma = rune(sep_flag)
+			csvReader.ReuseRecord = true
+			if inputFileEncoding == Csv {
+				// read the headers
+				csvReader.Read()
+			}
+
+		case FixedWidth:
+			// Remove the Byte Order Mark (BOM) at beggining of the file if present
+			sr, enc := utfbom.Skip(fileHd)
+			fmt.Printf("Detected encoding: %s\n", enc)
+			// Setup a fixed-width reader
+			fwScanner = bufio.NewScanner(sr)
+
+		case Parquet:
+			parquetReader, err = goparquet.NewFileReader(fileHd)
+			if err != nil {
+				return 0, 0, err
+			}
 		}
 	}
 
@@ -139,7 +161,7 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 	var record []string
 	var recordTypeOffset int
 	currentLineNumber := 0
-	if inputFileEncoding == Csv {
+	if inputFileEncoding == Csv || inputFileEncoding == Xlsx {
 		// To account for the header line
 		currentLineNumber += 1
 	}
@@ -157,6 +179,20 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 
 			case Csv, HeaderlessCsv:
 				record, err = csvReader.Read()
+
+			case Xlsx, HeaderlessXlsx:
+				record = make([]string, len(headersDKInfo.RawHeaders))
+				row, ok := <-xlCh
+				if !ok {
+					err = io.EOF
+				}
+				if row.Error != nil {
+					err = row.Error
+				} else {
+					for i := range row.Cells {
+						record[row.Cells[i].ColumnIndex()] = row.Cells[i].Value
+					}
+				}
 
 			case Parquet:
 				record = make([]string, len(headersDKInfo.RawHeaders))
@@ -252,16 +288,13 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 				var badRowCount int64
 				if inputFileEncoding == Csv || inputFileEncoding == HeaderlessCsv {
 					badRowCount = int64(len(badRowsPos))
-					if inputFileEncoding == Csv || inputFileEncoding == HeaderlessCsv {
-						if badRowCount > 0 {
-							err = copyBadRowsToErrorFile(&badRowsPos, fileHd, badRowsWriter)
-							if err != nil {
-								log.Printf("Error while writing bad rows to error file (ignored): %v", err)
-							}
+					if badRowCount > 0 {
+						err = copyBadRowsToErrorFile(&badRowsPos, fileHd, badRowsWriter)
+						if err != nil {
+							log.Printf("Error while writing bad rows to error file (ignored): %v", err)
 						}
-					}	
+					}
 				}
-				
 				return copyCount + nrows, badRowCount, nil
 
 			case err != nil:

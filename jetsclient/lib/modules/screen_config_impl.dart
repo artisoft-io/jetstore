@@ -17,19 +17,17 @@ final defaultMenuEntries = [
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
-      routePath: clientAdminPath),
+      routePath: ufClientRegistryPath,
+      routeParams: {FSK.ufStartAtKey: 'select_client'}),
   MenuEntry(
-      key: 'sourceConfig',
+      key: 'sourceConfigUF',
       label: 'Client Files',
-      routePath: sourceConfigPath),
+      routePath: ufSourceConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_source_config'}),
   MenuEntry(
       key: 'inputSourceMapping',
       label: 'File Mapping',
-      routePath: inputSourceMappingPath),
-  // MenuEntry(
-  //     key: 'processInput',
-  //     label: 'Process Input Configuration',
-  //     routePath: processInputPath),
+      routePath: ufFileMappingPath),
   MenuEntry(
       key: 'processConfig',
       label: 'Rules Configurations',
@@ -37,22 +35,13 @@ final defaultMenuEntries = [
   MenuEntry(
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
-      routePath: pipelineConfigPath),
+      routePath: ufPipelineConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_pipeline_config'}),
     MenuEntry(
         key: 'workspaceIDEHome',
         capability: 'workspace_ide',
         label: 'Workspace IDE Home',
         routePath: workspaceRegistryPath),
-  // MenuEntry(
-  //     otherPageStyle: ActionStyle.danger,
-  //     key: 'dataPurge',
-  //     label: 'Purge Client Data',
-  //     menuAction: purgeDataAction),
-  // MenuEntry(
-  //     otherPageStyle: ActionStyle.danger,
-  //     key: 'runInitDb',
-  //     label: 'Run Workspace Database Initialization',
-  //     menuAction: rerunDbInitAction),
 ];
 
 final adminMenuEntries = [
@@ -60,15 +49,17 @@ final adminMenuEntries = [
   MenuEntry(
       key: 'clientOrgAdmin',
       label: 'Clients and Organizations',
-      routePath: clientAdminPath),
+      routePath: ufClientRegistryPath,
+      routeParams: {FSK.ufStartAtKey: 'select_client'}),
   MenuEntry(
-      key: 'sourceConfig',
+      key: 'sourceConfigUF',
       label: 'Client Files',
-      routePath: sourceConfigPath),
+      routePath: ufSourceConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_source_config'}),
   MenuEntry(
       key: 'inputSourceMapping',
       label: 'File Mapping',
-      routePath: inputSourceMappingPath),
+      routePath: ufFileMappingPath),
   MenuEntry(
       key: 'processConfig',
       label: 'Rules Configurations',
@@ -76,7 +67,8 @@ final adminMenuEntries = [
   MenuEntry(
       key: 'pipelineConfig',
       label: 'Pipelines Configuration',
-      routePath: pipelineConfigPath),
+      routePath: ufPipelineConfigPath,
+      routeParams: {FSK.ufStartAtKey: 'select_pipeline_config'}),
   MenuEntry(
       key: 'workspaceIDEHome',
       label: 'Workspace IDE Home',
@@ -137,18 +129,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.home: ScreenConfig(
       key: ScreenKeys.home,
       appBarLabel: 'JetStore Workspace',
-      title: 'Welcome to JetStore Workspace!',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
-  // Client & Organization Admin Screen
-  ScreenKeys.clientAdmin: ScreenConfig(
-      key: ScreenKeys.clientAdmin,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Clients and Organizations Administration',
+      title: '',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
@@ -200,17 +181,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
 
-  // Process Input Configuration Screen
-  ScreenKeys.processInput: ScreenConfig(
-      key: ScreenKeys.processInput,
-      appBarLabel: 'JetStore Workspace',
-      title: 'Process Input Configuration',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
   // Rules Config Screen
   ScreenKeys.processConfig: ScreenConfig(
       key: ScreenKeys.processConfig,
@@ -227,17 +197,6 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       key: ScreenKeys.ruleConfigv2,
       appBarLabel: 'JetStore Workspace',
       // title: 'Rules Configuration',
-      showLogout: true,
-      leftBarLogo: 'assets/images/logo.png',
-      menuEntries: defaultMenuEntries,
-      adminMenuEntries: adminMenuEntries,
-      toolbarMenuEntries: toolbarMenuEntries),
-
-  // Pipeline Config Screen
-  ScreenKeys.pipelineConfig: ScreenConfig(
-      key: ScreenKeys.pipelineConfig,
-      appBarLabel: 'JetStore Workspace',
-      // title: 'Pipelines Configuration',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,

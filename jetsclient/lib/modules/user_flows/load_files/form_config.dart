@@ -31,7 +31,7 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
-          key: ActionKeys.ufContinueLater,
+          key: ActionKeys.ufCancel,
           label: "Cancel",
           buttonStyle: ActionStyle.ufPrimary,
           leftMargin: betweenTheButtonsPadding,

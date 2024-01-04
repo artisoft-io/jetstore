@@ -237,19 +237,26 @@ class JetsDataTableSource extends ChangeNotifier {
                   SizedBox(
                       width: e.columnWidth, //SET width
                       child: Text(model![index][e.index] ?? 'null',
-                          maxLines: e.maxLines)), onLongPress: () {
-                  Clipboard.setData(
-                      ClipboardData(text: model![index][e.index] ?? 'null'));
-                  ScaffoldMessenger.of(state.context).showSnackBar(
-                      const SnackBar(content: Text("Copied to Clipboard")));
-                })
+                          maxLines: e.maxLines)),
+                  onLongPress: state.noCopy2Clipboard
+                      ? null
+                      : () {
+                          Clipboard.setData(ClipboardData(
+                              text: model![index][e.index] ?? 'null'));
+                          ScaffoldMessenger.of(state.context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Copied to Clipboard")));
+                        })
               : DataCell(Text(model![index][e.index] ?? 'null'),
-                  onLongPress: () {
-                  Clipboard.setData(
-                      ClipboardData(text: model![index][e.index] ?? 'null'));
-                  ScaffoldMessenger.of(state.context).showSnackBar(
-                      const SnackBar(content: Text("Copied to Clipboard")));
-                }))
+                  onLongPress: state.noCopy2Clipboard
+                      ? null
+                      : () {
+                          Clipboard.setData(ClipboardData(
+                              text: model![index][e.index] ?? 'null'));
+                          ScaffoldMessenger.of(state.context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Copied to Clipboard")));
+                        }))
           .toList(),
       selected: selectedRows.length > index ? selectedRows[index] : false,
       onSelectChanged: state.isTableEditable && isWhereClauseSatisfied

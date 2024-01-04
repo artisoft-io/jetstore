@@ -59,7 +59,7 @@ func (fw *FixedWidthEncodingInfo) String() string {
 	return buf.String()
 }
 
-func getFixedWidthFileHeaders() (rawHeaders []string, fixedWidthColumnPrefix string, err error) {
+func getFixedWidthFileHeaders() (rawHeaders *[]string, fixedWidthColumnPrefix string, err error) {
 		// Get the rawHeaders from input_columns_positions_csv
 		byteBuf := []byte(inputColumnsPositionsCsv)
 		sepFlag, err := jcsv.DetectDelimiter(byteBuf)
@@ -155,7 +155,7 @@ func getFixedWidthFileHeaders() (rawHeaders []string, fixedWidthColumnPrefix str
 			}
 		}
 		// Make the rawHeaders list from the fixedWitdthEncodingInfo
-		rawHeaders = make([]string, 0)
+		*rawHeaders = make([]string, 0)
 		columnOffset := 0
 		for _, recordType := range fixedWitdthEncodingInfo.RecordTypeList {
 			columnList, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
@@ -167,7 +167,7 @@ func getFixedWidthFileHeaders() (rawHeaders []string, fixedWidthColumnPrefix str
 			}
 			fixedWitdthEncodingInfo.ColumnsOffsetMap[recordType] = columnOffset
 			for i := range *columnList {
-				rawHeaders = append(rawHeaders, (*columnList)[i].ColumnName)
+				*rawHeaders = append(*rawHeaders, (*columnList)[i].ColumnName)
 				columnOffset += 1
 			}
 		}

@@ -17,10 +17,8 @@ const PARAM_CHAR = ':';
 
 // Keys for UI pages
 const homePath = '/';
-const clientAdminPath = '/clientAdmin';
-const sourceConfigPath = '/sourceConfig';
-const inputSourceMappingPath = '/inputSourceMapping';
-const processInputPath = '/processInput';
+// Expert screen, to be replaced by UFs
+// const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
 const queryToolPath = '/queryTool';
 const filePreviewPath = '/filePreviewPath/:file_key';
@@ -32,9 +30,6 @@ const processConfigPath = '/processConfig';
 // Rule Configv2
 const ruleConfigPath = '/ruleConfig';
 
-const pipelineConfigPath = '/pipelineConfig';
-const pipelineConfigEditFormPath =
-    '/pipelineConfig/edit/:key/:client/:process_name/:process_config_key/:main_process_input_key/:merged_process_input_keys/:main_object_type/:main_source_type/:source_period_type/:automated/:description/:max_rete_sessions_saved/:injected_process_input_keys/:rule_config_json';
 const pageNotFoundPath = '/404';
 const loginPath = '/login';
 const registerPath = '/register';
@@ -47,22 +42,16 @@ const workspaceRegistryPath = '/workspaces';
 const workspaceHomePath = '/workspaces/:workspace_name/home';
 
 // User Flow Paths
-const ufClientRegistryPath = '/clientRegistryUF';
-const ufSourceConfigPath = '/sourceConfigUF';
+const ufClientRegistryPath = '/clientRegistryUF/:startAtKey';
+const ufSourceConfigPath = '/sourceConfigUF/:startAtKey';
 const ufFileMappingPath = '/fileMappingUF';
+const ufMappingPath = '/fileMappingUF/mapping/:table_name/:object_type';
 const ufPipelineConfigPath = '/pipelineConfigUF';
 const ufLoadFilesPath = '/loadFilesUF';
 const ufStartPipelinePath = '/startPipelineUF';
-const ufPullWorkspacePath = '/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri';
-
-// const wsDomainClassesPath = '/workspaces/:workspace_name/domainClasses';
-// const wsDomainClasseDetailsPath =
-//     '/workspaces/:workspace_name/domainClasses/:class_name';
-// const wsDomainTablesPath = '/workspaces/:workspace_name/domainTables';
-// const wsDomainTableDetailsPath =
-//     '/workspaces/:workspace_name/domainTables/:table_name';
-// const wsJetRulesPath = '/workspaces/:workspace_name/jetRules';
-// const wsJetRuleDetailsPath = '/workspaces/:workspace_name/jetRules/:rule_name';
+const ufPullWorkspacePath =
+    '/pullWorkspaceUF/:key/:workspace_name/:workspace_branch/:feature_branch/:workspace_uri';
+const ufLoadConfigPath = '/workspaces/loadConfigUF/:workspace_name';
 
 final Map<String, Widget> jetsRoutesMap = {
   // Home Screen
@@ -73,37 +62,13 @@ final Map<String, Widget> jetsRoutesMap = {
     formConfig: getFormConfig(FormKeys.home),
   ),
 
-  // Client & Organization Admin
-  clientAdminPath: ScreenWithForm(
-    key: const Key(ScreenKeys.clientAdmin),
-    screenPath: const JetsRouteData(clientAdminPath),
-    screenConfig: getScreenConfig(ScreenKeys.clientAdmin),
-    formConfig: getFormConfig(FormKeys.clientAdmin),
-  ),
-
-  // Source Config
-  sourceConfigPath: ScreenWithForm(
-    key: const Key(ScreenKeys.sourceConfig),
-    screenPath: const JetsRouteData(sourceConfigPath),
-    screenConfig: getScreenConfig(ScreenKeys.sourceConfig),
-    formConfig: getFormConfig(FormKeys.sourceConfig),
-  ),
-
-  // Input Source Mapping
-  inputSourceMappingPath: ScreenWithForm(
-    key: const Key(ScreenKeys.inputSourceMapping),
-    screenPath: const JetsRouteData(inputSourceMappingPath),
-    screenConfig: getScreenConfig(ScreenKeys.inputSourceMapping),
-    formConfig: getFormConfig(FormKeys.inputSourceMapping),
-  ),
-
-  // Process Input
-  processInputPath: ScreenWithForm(
-    key: const Key(ScreenKeys.processInput),
-    screenPath: const JetsRouteData(processInputPath),
-    screenConfig: getScreenConfig(ScreenKeys.processInput),
-    formConfig: getFormConfig(FormKeys.processInput),
-  ),
+  // // Process Input
+  // processInputPath: ScreenWithForm(
+  //   key: const Key(ScreenKeys.processInput),
+  //   screenPath: const JetsRouteData(processInputPath),
+  //   screenConfig: getScreenConfig(ScreenKeys.processInput),
+  //   formConfig: getFormConfig(FormKeys.processInput),
+  // ),
 
   // Rule Config
   processConfigPath: ScreenWithForm(
@@ -134,22 +99,6 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: const JetsRouteData(workspaceHomePath),
     screenConfig: getScreenConfig(ScreenKeys.workspaceHome),
     formConfig: getFormConfig(FormKeys.workspaceHome),
-  ),
-
-  // Pipeline Config
-  pipelineConfigPath: ScreenWithForm(
-    key: const Key(ScreenKeys.pipelineConfig),
-    screenPath: const JetsRouteData(pipelineConfigPath),
-    screenConfig: getScreenConfig(ScreenKeys.pipelineConfig),
-    formConfig: getFormConfig(FormKeys.pipelineConfigForm),
-  ),
-
-  // Edit Form for Pipeline Config
-  pipelineConfigEditFormPath: ScreenWithForm(
-    key: const Key(ScreenKeys.pipelineConfigEdit),
-    screenPath: const JetsRouteData(pipelineConfigEditFormPath),
-    screenConfig: getScreenConfig(ScreenKeys.pipelineConfigEdit),
-    formConfig: getFormConfig(FormKeys.pipelineConfigEditForm),
   ),
 
   // Login Screen
@@ -258,6 +207,12 @@ final Map<String, Widget> jetsRoutesMap = {
     screenConfig: getScreenConfig(ScreenKeys.ufFileMapping),
     userFlowConfig: getUserFlowConfig(UserFlowKeys.fileMappingUF),
   ),
+  ufMappingPath: UserFlowScreen(
+    key: const Key(UserFlowKeys.mapFileUF),
+    screenPath: const JetsRouteData(ufMappingPath),
+    screenConfig: getScreenConfig(ScreenKeys.ufFileMapping),
+    userFlowConfig: getUserFlowConfig(UserFlowKeys.mapFileUF),
+  ),
   ufPipelineConfigPath: UserFlowScreen(
     key: const Key(UserFlowKeys.pipelineConfigUF),
     screenPath: const JetsRouteData(ufPipelineConfigPath),
@@ -281,6 +236,12 @@ final Map<String, Widget> jetsRoutesMap = {
     screenPath: const JetsRouteData(ufPullWorkspacePath),
     screenConfig: getScreenConfig(ScreenKeys.ufPullWorkspace),
     userFlowConfig: getUserFlowConfig(UserFlowKeys.workspacePullUF),
+  ),
+  ufLoadConfigPath: UserFlowScreen(
+    key: const Key(UserFlowKeys.loadConfigUF),
+    screenPath: const JetsRouteData(ufLoadConfigPath),
+    screenConfig: getScreenConfig(ScreenKeys.ufLoadConfig),
+    userFlowConfig: getUserFlowConfig(UserFlowKeys.loadConfigUF),
   ),
 
   // Page Not Found

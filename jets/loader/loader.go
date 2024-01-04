@@ -22,10 +22,14 @@ import (
 type InputEncoding int64
 
 const (
-	Csv InputEncoding = iota
+	Unspecified InputEncoding = iota
+	Csv
 	HeaderlessCsv
 	FixedWidth
 	Parquet
+	ParquetSelect
+	Xlsx
+	HeaderlessXlsx
 )
 
 func (s InputEncoding) String() string {
@@ -33,27 +37,41 @@ func (s InputEncoding) String() string {
 	case Csv:
 		return "csv"
 	case HeaderlessCsv:
-		return "headerless csv"
+		return "headerless_csv"
 	case FixedWidth:
-		return "fixed-width"
+		return "fixed_width"
 	case Parquet:
 		return "parquet"
+	case ParquetSelect:
+		return "parquet_select"
+	case Xlsx:
+		return "xlsx"
+	case HeaderlessXlsx:
+		return "headerless_xlsx"
 	}
-	return "unknown"
+	return "unspecified"
 }
 
 func InputEncodingFromString(ie string) InputEncoding {
 	switch ie {
 	case "csv":
 		return Csv
-	case "headerless csv":
+	case "headerless_csv":
 		return HeaderlessCsv
-	case "fixed-width":
+	case "fixed_width":
 		return FixedWidth
 	case "parquet":
 		return Parquet
+	case "parquet_select":
+		return ParquetSelect
+	case "xlsx":
+		return Xlsx
+	case "headerless_xlsx":
+		return HeaderlessXlsx
+	case "unspecified":
+		return Unspecified
 	}
-	return Csv
+	return Unspecified
 }
 
 var inputFileEncoding InputEncoding
@@ -67,7 +85,7 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 			debug.PrintStack()
 		}
 	}()
-	var rawHeaders []string
+	var rawHeaders *[]string
 	var fixedWidthColumnPrefix string
 
 	// Setup a writer for error file (bad records)
@@ -82,14 +100,14 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 		}
 
 		// Write raw header to error file
-		for i := range rawHeaders {
+		for i := range *rawHeaders {
 			if i > 0 {
 				_, err = badRowsWriter.WriteRune(rune(sep_flag))
 				if err != nil {
 					return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
 				}
 			}
-			_, err = badRowsWriter.WriteString(rawHeaders[i])
+			_, err = badRowsWriter.WriteString((*rawHeaders)[i])
 			if err != nil {
 				return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
 			}
@@ -113,6 +131,21 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("while reading parquet headers: %v", err)
 		}
+
+	case ParquetSelect:
+		//* TODO ParquetSelect is not implemented
+		return nil, 0, 0, fmt.Errorf("error: parquet_select file format is not implemented")
+
+	case Xlsx, HeaderlessXlsx:
+		// Parse the file type specific options
+		err = parseInputFormatDataXlsx(&inputFormatDataJson)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
+		}
+		rawHeaders, err = getRawHeadersXlsx(localInFile)
+		if err != nil {
+			return nil, 0, 0, err
+		}
 	}
 
 	// Contruct the domain keys based on domainKeysJson
@@ -122,7 +155,7 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 		return nil, 0, 0, fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
 	}
 
-	err = headersDKInfo.InitializeStagingTable(&rawHeaders, *objectType, &domainKeysJson, fixedWidthColumnPrefix)
+	err = headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson, fixedWidthColumnPrefix)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("while calling InitializeStagingTable: %v", err)
 	}
@@ -245,11 +278,11 @@ func coordinateWork() error {
 	var dkJson, cnJson, fwCsv sql.NullString
 	err = dbpool.QueryRow(context.Background(),
 		`SELECT table_name, domain_keys_json, input_columns_json, input_columns_positions_csv ,
-		input_format, is_part_files
+		input_format, is_part_files, input_format_data_json
 		  FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3`,
-		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv, &inputFormat, &isPartFiles)
+		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv, &inputFormat, &isPartFiles, &inputFormatDataJson)
 	if err != nil {
-		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv from jetsapi.source_config failed: %v", err)
+		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
 	if cnJson.Valid && fwCsv.Valid {
 		return fmt.Errorf("error, cannot specify both input_columns_json and input_columns_positions_csv")
@@ -257,19 +290,21 @@ func coordinateWork() error {
 	if dkJson.Valid {
 		domainKeysJson = dkJson.String
 	}
+	inputFileEncoding = InputEncodingFromString(inputFormat)
 	switch {
 	case cnJson.Valid:
 		inputColumnsJson = cnJson.String
-		inputFileEncoding = HeaderlessCsv
+		if inputFileEncoding == Unspecified {
+			inputFileEncoding = HeaderlessCsv
+		}
 	case fwCsv.Valid:
 		inputColumnsPositionsCsv = fwCsv.String
-		inputFileEncoding = FixedWidth
-	default:
-		if len(inputFormat) > 0 {
-			inputFileEncoding = InputEncodingFromString(inputFormat)
-		} else {
-			inputFileEncoding = Csv
+		if inputFileEncoding == Unspecified {
+			inputFileEncoding = FixedWidth
 		}
+	case inputFileEncoding == Unspecified:
+		// For backward compatibility
+		inputFileEncoding = Csv
 	}
 
 	log.Printf("Input file encoding (format) is: %s", inputFileEncoding.String())

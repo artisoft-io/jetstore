@@ -38,6 +38,7 @@ var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws s
 var dsn = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
 var jetsapiDbInitPath = flag.String("jetsapiDbInitPath", "", "jetsapi init db path (required, default from JETSAPI_DB_INIT_PATH)")
 var workspaceDb = flag.String("workspaceDb", "", "workspace db path (required or env var WORKSPACES_HOME/WORKSPACE)")
+var clients = flag.String("clients", "", "list of clients to load config, alternate to -initWorkspaceDb")
 var migrateDb = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version, taking db schema location from env JETS_SCHEMA_FILE (default: false)")
 var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsapi database, taking db init script path from env JETSAPI_DB_INIT_PATH (default: false)")
 var initBaseWorkspaceDb = flag.Bool("initBaseWorkspaceDb", false, "initialize the jetsapi database, base init only, taking db init script path from env JETSAPI_DB_INIT_PATH (default: false)")
@@ -86,8 +87,15 @@ func doJob() error {
 
 	// Initialize jetsapi database with workspace-specific initalization
 	if *initWorkspaceDb && *jetsapiDbInitPath != "" {
-		log.Println("Initialize jetsapi database with workspace-specific initalization")
+		log.Println("Initialize jetsapi database with ALL workspace-specific initalization")
 		err = InitializeJetsapiDb(dbpool, jetsapiDbInitPath)
+		if err != nil {
+			return err
+		}
+	}
+	if len(*clients)>0 && *jetsapiDbInitPath != "" {
+		log.Println("Initialize jetsapi database with workspace-specific initalization for clients", *clients)
+		err = InitializeBaseJetsapiDb4Clients(dbpool, jetsapiDbInitPath, clients)
 		if err != nil {
 			return err
 		}
@@ -206,20 +214,20 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
 	}
-	// if *dropExisting && !*initWorkspaceDb {
-	// 	hasErr = true
-	// 	errMsg = append(errMsg, "When droping all tables (-drop) must also run the workspace db initialization script (-initWorkspaceDb).")
-	// }
 	if *jetsapiDbInitPath == "" {
 		*jetsapiDbInitPath = os.Getenv(("JETSAPI_DB_INIT_PATH"))
 	}
-	if (*initWorkspaceDb || *initBaseWorkspaceDb) && *jetsapiDbInitPath == "" {
+	if (len(*clients)>0 || *initWorkspaceDb || *initBaseWorkspaceDb) && *jetsapiDbInitPath == "" {
 		hasErr = true
 		errMsg = append(errMsg, "jetsapi init path (-jetsapiDbInitPath or env JETSAPI_DB_INIT_PATH) must be provided when -initWorkspaceDb or -initBaseWorkspaceDb is provided.")
 	}
 	if(*initWorkspaceDb && *initBaseWorkspaceDb) {
 		hasErr = true
-		errMsg = append(errMsg, "Cannot provide both -initWorkspaceDb and -initBaseWorkspaceDb is provided.")
+		errMsg = append(errMsg, "Cannot provide both -initWorkspaceDb and -initBaseWorkspaceDb, both are provided.")
+	}
+	if(*initWorkspaceDb && len(*clients)>0) {
+		hasErr = true
+		errMsg = append(errMsg, "Cannot provide both -initWorkspaceDb and -clients, both are provided.")
 	}
 	if *workspaceDb == "" {
 		if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
@@ -252,6 +260,7 @@ func main() {
 	log.Println("   -drop:", *dropExisting)
 	log.Println("   -initWorkspaceDb:", *initWorkspaceDb)
 	log.Println("   -initBaseWorkspaceDb:", *initBaseWorkspaceDb)
+	log.Println("   -clients:", *clients)
 	log.Println("ENV JETSAPI_DB_INIT_PATH:", os.Getenv("JETSAPI_DB_INIT_PATH"))
 	log.Println("ENV WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
 	log.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))
