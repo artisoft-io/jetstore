@@ -59,120 +59,124 @@ func (fw *FixedWidthEncodingInfo) String() string {
 	return buf.String()
 }
 
-func getFixedWidthFileHeaders() (rawHeaders *[]string, fixedWidthColumnPrefix string, err error) {
-		// Get the rawHeaders from input_columns_positions_csv
-		byteBuf := []byte(inputColumnsPositionsCsv)
-		sepFlag, err := jcsv.DetectDelimiter(byteBuf)
+func getFixedWidthFileHeaders() (*[]string, string, error) {
+	// Get the rawHeaders from input_columns_positions_csv
+	var rawHeaders []string
+	var fixedWidthColumnPrefix string
+	var err error
+
+	byteBuf := []byte(inputColumnsPositionsCsv)
+	sepFlag, err := jcsv.DetectDelimiter(byteBuf)
+	if err != nil {
+		return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while detecting delimiters for source_config.input_columns_positions_csv: %v", err)
+	}
+	r := csv.NewReader(bytes.NewReader(byteBuf))
+	r.Comma = rune(sepFlag)
+	headers, err2 := r.Read()
+	if err2 == io.EOF {
+		return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("error source_config.input_columns_positions_csv contains no data")
+	}
+	// Validating headers:
+	// 	- expecting headers: 'start', 'end', and 'column_names', and
+	// 	- optionally a recordType header
+	if len(headers) < 3 || len(headers) > 4 {
+		return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("error source_config.input_columns_positions_csv contains invalid number of headers: %s",
+			strings.Join(headers, ","))
+	}
+	var recordTypeColumnName string
+	startPos := -1
+	endPos := -1
+	columnNamesPos := -1
+	recordTypePos := -1
+	for i, name := range headers {
+		switch name {
+		case "start":
+			startPos = i
+		case "end":
+			endPos = i
+		case "column_names":
+			columnNamesPos = i
+		default:
+			recordTypePos = i
+			recordTypeColumnName = name
+		}
+	}
+	if startPos < 0 || endPos < 0 || columnNamesPos < 0 {
+		return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("error source_config.input_columns_positions_csv contains invalid headers: %s",
+			strings.Join(headers, ","))
+	}
+	fixedWitdthEncodingInfo = &FixedWidthEncodingInfo{
+		ColumnsMap:       make(map[string]*[]*FixedWidthColumn),
+		ColumnsOffsetMap: make(map[string]int),
+		RecordTypeList:   make([]string, 0),
+	}
+	// Map record's header names and positions
+	// Make an ordered list of record type to properly order the columns' grouping
+	seenRecordType := make(map[string]bool)
+	for {
+		headerInfo, err := r.Read()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while detecting delimiters for source_config.input_columns_positions_csv: %v", err)
+			return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while parsing header name and position: %v", err)
 		}
-		r := csv.NewReader(bytes.NewReader(byteBuf))
-		r.Comma = rune(sepFlag)
-		headers, err2 := r.Read()
-		if err2 == io.EOF {
-			return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("error source_config.input_columns_positions_csv contains no data")
+		startV, err := strconv.Atoi(headerInfo[startPos])
+		if err != nil {
+			return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while parsing start position for header %s: %v", headers[columnNamesPos], err)
 		}
-		// Validating headers:
-		// 	- expecting headers: 'start', 'end', and 'column_names', and
-		// 	- optionally a recordType header
-		if len(headers) < 3 || len(headers) > 4 {
-			return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("error source_config.input_columns_positions_csv contains invalid number of headers: %s",
-				strings.Join(headers, ","))
+		endV, err := strconv.Atoi(headerInfo[endPos])
+		if err != nil {
+			return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while parsing end position for header %s: %v", headers[columnNamesPos], err)
 		}
-		var recordTypeColumnName string
-		startPos := -1
-		endPos := -1
-		columnNamesPos := -1
-		recordTypePos := -1
-		for i, name := range headers {
-			switch name {
-			case "start":
-				startPos = i
-			case "end":
-				endPos = i
-			case "column_names":
-				columnNamesPos = i
-			default:
-				recordTypePos = i
-				recordTypeColumnName = name
-			}
+		var recordType string
+		if recordTypePos >= 0 {
+			recordType = headerInfo[recordTypePos]
 		}
-		if startPos < 0 || endPos < 0 || columnNamesPos < 0 {
-			return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("error source_config.input_columns_positions_csv contains invalid headers: %s",
-				strings.Join(headers, ","))
+		if !seenRecordType[recordType] {
+			fixedWitdthEncodingInfo.RecordTypeList = append(fixedWitdthEncodingInfo.RecordTypeList, recordType)
 		}
-		fixedWitdthEncodingInfo = &FixedWidthEncodingInfo{
-			ColumnsMap:       make(map[string]*[]*FixedWidthColumn),
-			ColumnsOffsetMap: make(map[string]int),
-			RecordTypeList:   make([]string, 0),
+		seenRecordType[recordType] = true
+		fwColumn := &FixedWidthColumn{
+			Start: startV,
+			End:   endV,
 		}
-		// Map record's header names and positions
-		// Make an ordered list of record type to properly order the columns' grouping
-		seenRecordType := make(map[string]bool)
-		for {
-			headerInfo, err := r.Read()
-			if err == io.EOF {
-				break
+		if recordTypePos >= 0 {
+			fwColumn.ColumnName = fmt.Sprintf("%s.%s", recordType, headerInfo[columnNamesPos])
+			if headerInfo[columnNamesPos] == recordTypeColumnName {
+				fixedWitdthEncodingInfo.RecordTypeColumn = fwColumn
 			}
-			if err != nil {
-				return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while parsing header name and position: %v", err)
-			}
-			startV, err := strconv.Atoi(headerInfo[startPos])
-			if err != nil {
-				return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while parsing start position for header %s: %v", headers[columnNamesPos], err)
-			}
-			endV, err := strconv.Atoi(headerInfo[endPos])
-			if err != nil {
-				return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("while parsing end position for header %s: %v", headers[columnNamesPos], err)
-			}
-			var recordType string
-			if recordTypePos >= 0 {
-				recordType = headerInfo[recordTypePos]
-			}
-			if !seenRecordType[recordType] {
-				fixedWitdthEncodingInfo.RecordTypeList = append(fixedWitdthEncodingInfo.RecordTypeList, recordType)
-			}
-			seenRecordType[recordType] = true
-			fwColumn := &FixedWidthColumn{
-				Start: startV,
-				End:   endV,
-			}
-			if recordTypePos >= 0 {
-				fwColumn.ColumnName = fmt.Sprintf("%s.%s", recordType, headerInfo[columnNamesPos])
-				if headerInfo[columnNamesPos] == recordTypeColumnName {
-					fixedWitdthEncodingInfo.RecordTypeColumn = fwColumn
-				}
-			} else {
-				fwColumn.ColumnName = headerInfo[columnNamesPos]
-			}
-			// Put the fwColumn into the info struct
-			fixedWidthColumnList := fixedWitdthEncodingInfo.ColumnsMap[recordType]
-			if fixedWidthColumnList == nil {
-				fixedWidthColumnList = &[]*FixedWidthColumn{fwColumn}
-				fixedWitdthEncodingInfo.ColumnsMap[recordType] = fixedWidthColumnList
-			} else {
-				*fixedWidthColumnList = append(*fixedWidthColumnList, fwColumn)
-			}
+		} else {
+			fwColumn.ColumnName = headerInfo[columnNamesPos]
 		}
-		// Make the rawHeaders list from the fixedWitdthEncodingInfo
-		*rawHeaders = make([]string, 0)
-		columnOffset := 0
-		for _, recordType := range fixedWitdthEncodingInfo.RecordTypeList {
-			columnList, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
-			if !ok {
-				return rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("unexpected error: cannot find columns for recordType: %s", recordType)
-			}
-			if columnOffset == 0 {
-				fixedWidthColumnPrefix = recordType
-			}
-			fixedWitdthEncodingInfo.ColumnsOffsetMap[recordType] = columnOffset
-			for i := range *columnList {
-				*rawHeaders = append(*rawHeaders, (*columnList)[i].ColumnName)
-				columnOffset += 1
-			}
+		// Put the fwColumn into the info struct
+		fixedWidthColumnList := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+		if fixedWidthColumnList == nil {
+			fixedWidthColumnList = &[]*FixedWidthColumn{fwColumn}
+			fixedWitdthEncodingInfo.ColumnsMap[recordType] = fixedWidthColumnList
+		} else {
+			*fixedWidthColumnList = append(*fixedWidthColumnList, fwColumn)
 		}
-		if jetsDebug > 0 {
-			fmt.Println(fixedWitdthEncodingInfo.String())
+	}
+	// Make the rawHeaders list from the fixedWitdthEncodingInfo
+	rawHeaders = make([]string, 0)
+	columnOffset := 0
+	for _, recordType := range fixedWitdthEncodingInfo.RecordTypeList {
+		columnList, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+		if !ok {
+			return &rawHeaders, fixedWidthColumnPrefix, fmt.Errorf("unexpected error: cannot find columns for recordType: %s", recordType)
 		}
-		return
+		if columnOffset == 0 {
+			fixedWidthColumnPrefix = recordType
+		}
+		fixedWitdthEncodingInfo.ColumnsOffsetMap[recordType] = columnOffset
+		for i := range *columnList {
+			rawHeaders = append(rawHeaders, (*columnList)[i].ColumnName)
+			columnOffset += 1
+		}
+	}
+	if jetsDebug > 0 {
+		fmt.Println(fixedWitdthEncodingInfo.String())
+	}
+	return &rawHeaders, fixedWidthColumnPrefix, nil
 }
