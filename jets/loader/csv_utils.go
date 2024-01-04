@@ -35,7 +35,7 @@ func detectCsvDelimitor(fileHd *os.File) (d jcsv.Chartype, err error) {
 	return
 }
 
-func getRawHeadersCsv(localInFile string) ([]string, error) {
+func getRawHeadersCsv(localInFile string) (*[]string, error) {
 	// Get field delimiters used in files and rawHeaders
 	var fileHd *os.File
 	var err error
@@ -62,7 +62,7 @@ func getRawHeadersCsv(localInFile string) ([]string, error) {
 			}
     }
 		log.Printf("No files in temp directory %s", localInFile)
-		return []string{}, nil
+		return &[]string{}, nil
 	}
 	fileHd, err = os.Open(localInFile)
 	if err != nil {
@@ -73,7 +73,7 @@ func getRawHeadersCsv(localInFile string) ([]string, error) {
 	return getRawHeadersFromCsvFile(fileHd)
 }
 
-func getRawHeadersFromCsvFile(fileHd *os.File) ([]string, error) {
+func getRawHeadersFromCsvFile(fileHd *os.File) (*[]string, error) {
 	var rawHeaders []string
 	var err error
 	var csvReader *csv.Reader
@@ -115,7 +115,7 @@ func getRawHeadersFromCsvFile(fileHd *os.File) ([]string, error) {
 		adjustFillers(&rawHeaders)
 		fmt.Println("Got input columns (rawHeaders) from json:", rawHeaders)
 	}
-	return rawHeaders, nil
+	return &rawHeaders, nil
 }
 
 

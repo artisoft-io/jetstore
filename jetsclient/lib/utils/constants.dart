@@ -224,7 +224,8 @@ class FormKeys {
       "scSelectSingleOrMultiPartFileUF";
   static const scAddSourceConfigUF = "scAddSourceConfigUF";
   static const scSelectSourceConfigUF = "scSelectSourceConfigUF";
-  static const scCsvOrFixedSourceConfigUF = "scCsvOrFixedSourceConfigUF";
+  static const scSourceConfigTypeUF = "scSourceConfigTypeUF";
+  static const scEditXlsxOptionsUF = "scEditXlsxOptionsUF";
   static const scEditFileHeadersUF = "scEditFileHeadersUF";
   static const scEditParquetHeadersUF = "scEditParquetHeadersUF";
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
@@ -448,7 +449,7 @@ class FSK {
   // Select Source Config Table
   static const scSourceConfigKey = "scSourceConfigKey";
 
-  // CSV, Headerless CSV, Parquet or Fxied-width option
+  // CSV, Headerless CSV, Parquet, Fxied-width, Xlsx, HeaderlessXlsx option
   // DB: File format: csv, headerless_csv, fixed_width, parquet, parquet_select
   static const scFileTypeOption = "input_format";
   static const scCsvOption = "csv";
@@ -456,6 +457,12 @@ class FSK {
   static const scFixedWidthOption = "fixed_width";
   static const scParquetOption = "parquet";
   static const scParquetSelectOption = "parquet_select";
+  static const scXlsxOption = "xlsx";
+  static const scHeaderlessXlsxOption = "headerless_xlsx";
+
+  // Additional input_format configuration as json
+  static const scInputFormatDataJson = "input_format_data_json";
+  static const scCurrentSheet = "currentSheet";
 
   // Pipeline Config UF
   static const pcAddOrEditPipelineConfigOption =
@@ -537,6 +544,7 @@ class ActionKeys {
 
   // for Source Config dialog
   static const addSourceConfigOk = "addSourceConfig.ok";
+  static const scEditXlsxOptionsUF = "scEditXlsxOptionsUF";
   static const dropTable = "dropTable";
   static const deleteSourceConfig = "deleteSourceConfig";
 

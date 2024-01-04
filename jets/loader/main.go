@@ -55,6 +55,7 @@ var domainKeysJson string
 var inputColumnsJson string
 var inputColumnsPositionsCsv string
 var inputFormat string
+var inputFormatDataJson string
 var isPartFiles int
 var sep_flag jcsv.Chartype = '€'
 var errOutDir string
@@ -66,7 +67,7 @@ var jetsDebug int
 var processingErrors []string
 
 func init() {
-	flag.Var(&sep_flag, "sep", "Field separator for csv files, default is auto detect between pipe ('|'), tab ('\t') or comma (',')")
+	flag.Var(&sep_flag, "sep", "Field separator for csv files, default is auto detect between pipe ('|'), tilda ('~'), tab ('\t') or comma (',')")
 	processingErrors = make([]string, 0)
 }
 

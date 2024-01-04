@@ -22,8 +22,11 @@ func main() {
 			return
 		}
 
-		if row.Index < 15 {
+		if row.Index < 5 {
 			fmt.Printf("%+v \n", row.Cells)
+		} else {
+			// reading only the first 5 rows (see doc comments for drawback for ReadRows)
+			return
 		}
 	}
 }
