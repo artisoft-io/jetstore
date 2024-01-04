@@ -554,8 +554,7 @@
         "columnName": "input_format_data_json",
         "description": "Additional configuration that is input_format specific encoded as json",
         "dataType": "text",
-        "default": "''",
-        "isNotNull": true
+        "default": "''"
       },
       {
         "columnName": "is_part_files",
