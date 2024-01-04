@@ -20,7 +20,7 @@ String? startPipelineFormValidator(
     case FSK.client:
     case FSK.processName:
     case FSK.mergedInputRegistryKeys:
-      if (v != null) return null;
+      if (unpack(v) != null) return null;
       return "Select an option";
 
     case FSK.mainTableName:

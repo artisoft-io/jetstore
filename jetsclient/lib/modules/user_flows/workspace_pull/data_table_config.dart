@@ -52,6 +52,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: 'option_order',
       sortAscending: true,
       noFooter: true,
+      noCopy2Clipboard: true,
       rowsPerPage: 1000000),
   // Confirm choice table
   DTKeys.wpPullWorkspaceConfirmOptions: TableConfig(
@@ -99,7 +100,72 @@ final Map<String, TableConfig> _tableConfigurations = {
       sortColumnName: 'option_order',
       sortAscending: true,
       noFooter: true,
+      noCopy2Clipboard: true,
       rowsPerPage: 1000000),
+
+  // Load Client Config UF Tables
+  FSK.wpClientList: TableConfig(
+    key: FSK.wpClientList,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'client_registry')
+    ],
+    label: 'Select Clients',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    whereClauses: [],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client Name',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "details",
+          label: 'Client details',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'client',
+    sortAscending: true,
+    rowsPerPage: 100,
+  ),
+  FSK.wpClientListRO: TableConfig(
+    key: FSK.wpClientListRO,
+    fromClauses: [
+      FromClause(schemaName: 'jetsapi', tableName: 'client_registry')
+    ],
+    label: 'Clients Selected',
+    apiPath: '/dataTable',
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: false,
+    isReadOnly: true,
+    whereClauses: [],
+    actions: [ ],
+    formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "client",
+          label: 'Client Name',
+          tooltips: '',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "details",
+          label: 'Client details',
+          tooltips: '',
+          isNumeric: false),
+    ],
+    sortColumnName: 'client',
+    sortAscending: true,
+    rowsPerPage: 100,
+  ),
+
 };
 
 TableConfig? getWorkspacePullTableConfig(String key) {

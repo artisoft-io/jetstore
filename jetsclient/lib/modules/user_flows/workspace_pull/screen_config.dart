@@ -13,6 +13,15 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       menuEntries: defaultMenuEntries,
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
+  ScreenKeys.ufLoadConfig: ScreenConfig(
+      key: ScreenKeys.ufLoadConfig,
+      appBarLabel: 'JetStore Workspace',
+      title: 'Load Client Configurations',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
 };
 
 

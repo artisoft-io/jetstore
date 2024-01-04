@@ -47,17 +47,17 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// source config
 	"source_config": {
 		Stmt: `INSERT INTO jetsapi.source_config 
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			RETURNING key`,
-		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "user_email"},
+		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "user_email"},
 		Capability: "client_config",
 	},
 	"update/source_config": {
 		Stmt: `UPDATE jetsapi.source_config SET
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, user_email, last_update) 
-			= ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, DEFAULT) WHERE key = $11`,
-		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "user_email", "key"},
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, user_email, last_update) 
+			= ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, DEFAULT) WHERE key = $14`,
+		ColumnKeys: []string{"object_type", "client", "org", "automated", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "user_email", "key"},
 		Capability: "client_config",
 	},
 	"delete/source_config": {

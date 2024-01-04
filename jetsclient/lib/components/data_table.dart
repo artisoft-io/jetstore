@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/modules/actions/delegate_helpers.dart';
 import 'package:jetsclient/routes/export_routes.dart';
 import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/dialogs.dart';
@@ -125,6 +126,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                     ),
                     Container(width: 14.0),
                   ];
+
             // Header row - label + action buttons
             final headerRow = <Widget>[
               if (state.label.isNotEmpty)
@@ -153,6 +155,24 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                         child: Text(ac.label),
                       )
                     ]));
+            if (state._checkboxVisible &&
+                tableConfig.noCopy2Clipboard == null) {
+              headerRow.add(const SizedBox(width: defaultPadding));
+              headerRow.add(ElevatedButton(
+                style: buttonStyle(ActionStyle.primary, themeData),
+                onPressed: () => state.actionDispatcher(
+                    context,
+                    ActionConfig(
+                        key: 'toggleCopy2Clipboard',
+                        actionType: DataTableActionType.toggleCopy2Clipboard,
+                        label: '',
+                        style: ActionStyle.primary)),
+                child: Text(state.noCopy2Clipboard
+                        ? 'Enable Copy Cell'
+                        : 'Enable Select Row'),
+              ));
+            }
+
             // Second row of buttons
             final secondRow = <Widget>[];
             secondRow.addAll(tableConfig.secondRowActions
@@ -280,7 +300,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   late final JetsDataTableSource dataSource;
   // isTableEditable control if checkbox is shown or not
   // isTableReadOnly control if the state of the checkbox can be changed or not
-  bool get isTableEditable => tableConfig.isCheckboxVisible;
+  bool get isTableEditable => _checkboxVisible;
   bool get isTableReadOnly => tableConfig.isReadOnly;
   int? sortColumnIndex;
   String sortColumnName = '';
@@ -296,8 +316,14 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
   List<Map<String, String>> columnNameMaps = [];
   String label = "";
 
+  // Editable noCopy2Clipboard from config
+  bool _noCopy2Clipboard = true;
+  bool _checkboxVisible = true;
+
   int get indexOffset => currentDataPage * rowsPerPage;
   int get maxIndex => (currentDataPage + 1) * rowsPerPage;
+  bool get noCopy2Clipboard => _noCopy2Clipboard;
+
   JetsDataTableWidget get _dataTableWidget =>
       super.widget as JetsDataTableWidget;
   TableConfig get tableConfig => _dataTableWidget.tableConfig;
@@ -336,6 +362,11 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     }
     // print("DataTable.initState - calling getModelData for ${tableConfig.key}");
     dataSource.getModelData();
+    _checkboxVisible = tableConfig.isCheckboxVisible;
+    _noCopy2Clipboard = tableConfig.noCopy2Clipboard ?? true;
+    if (!tableConfig.isCheckboxVisible) {
+      _noCopy2Clipboard = false;
+    }
   }
 
   /// Get the sort column index as seen by the data table,
@@ -420,6 +451,23 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       dataSource.updateTableFromFormState();
       dataSource.resetSecondaryKeys(tableConfig.formStateConfig!, formState!);
     }
+  }
+
+  void _toggleCopy2Clipboard() {
+    // print(
+    //     "*** _toggleCopy2Clipboard called for Table ${tableConfig.key} requesting ModelData");
+    setState(() {
+      _noCopy2Clipboard = !_noCopy2Clipboard;
+    });
+  }
+
+  void _toggleCheckboxVisible() {
+    // print(
+    //     "*** _toggleCopy2Clipboard called for Table ${tableConfig.key} requesting ModelData");
+    setState(() {
+      _checkboxVisible = !_checkboxVisible;
+      _noCopy2Clipboard = _checkboxVisible;
+    });
   }
 
   void checkRebuildTableOnFormStateChange() {
@@ -512,16 +560,13 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
             formConfig.makeFormState(parentFormState: formState);
 
         // Need to use navigationParams for formState-less form (e.g. ScreenOne)
+        // to take params from the selected row
         // and stateFormNavigationParams for when having formState
         // Add defaultValue to stateFormNavigationParams
         // add state information to dialogFormState if navigationParams exists
         ac.stateFormNavigationParams?.forEach((key, npKey) {
-          var value = formState?.getValue(0, npKey);
-          if (value is List<String>) {
-            dialogFormState.setValue(0, key, value[0]);
-          } else {
-            dialogFormState.setValue(0, key, value);
-          }
+          var value = unpack(formState?.getValue(0, npKey));
+          dialogFormState.setValue(0, key, value);
         });
         ac.navigationParams?.forEach((key, value) {
           if (value is String?) {
@@ -554,21 +599,48 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         JetsRow? row = dataSource.getFirstSelectedRow();
         // check if no row is selected while we expect to have one selected
         if (row == null && ac.isEnabledWhenHavingSelectedRows == true) return;
-        Map<String, dynamic>? params;
-        if (row != null) {
-          params = ac.navigationParams?.map((key, value) {
-            if (value is String?) return MapEntry(key, value);
-            return MapEntry(key, row[value]);
-          });
+
+        final params = <String, dynamic>{};
+        // Navigation params value are either default (string) or row column (int)
+        if (ac.navigationParams != null) {
+          params.addAll(ac.navigationParams!.map((key, value) {
+            if (value is String?) {
+              return MapEntry(key, value);
+            } else {
+              if (row != null && value is int) {
+                return MapEntry(key, row[value]);
+              }
+            }
+            return MapEntry(key, null);
+            // if (row != null && value is int) return MapEntry(key, row[value]);
+            // return MapEntry(key, value);
+          }));
+        }
+        // State Form Navigation Params are taken from StateForm
+        if (ac.stateFormNavigationParams != null) {
+          params.addAll(ac.stateFormNavigationParams!.map((key, value) {
+            final v = unpack(formState?.getValue(0, value));
+            return MapEntry(key, v);
+          }));
         }
         // print("NAVIGATING to ${ac.configScreenPath}, with ${params}");
-        JetsRouterDelegate()(
-            JetsRouteData(ac.configScreenPath!, params: params));
+        JetsRouterDelegate()(JetsRouteData(ac.configScreenPath!,
+            params: params.isEmpty ? null : params));
         break;
 
       // Refresh data table
       case DataTableActionType.refreshTable:
         _refreshTable();
+        break;
+
+      // toggle select row or Copy2Clipboard
+      case DataTableActionType.toggleCopy2Clipboard:
+        _toggleCopy2Clipboard();
+        break;
+
+      // toggle show checkboxes
+      case DataTableActionType.toggleCheckboxVisible:
+        _toggleCheckboxVisible();
         break;
 
       // Call server to do an action

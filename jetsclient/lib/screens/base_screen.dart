@@ -268,7 +268,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                               constraints: const BoxConstraints.expand(),
                               child: IconButton(
                                   onPressed: () => JetsRouterDelegate()(
-                                      JetsRouteData(homePath)),
+                                      const JetsRouteData(homePath)),
                                   padding: const EdgeInsets.all(0.0),
                                   icon: Image.asset(
                                       widget.screenConfig.leftBarLogo))),

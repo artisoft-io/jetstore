@@ -80,3 +80,4 @@ jets/awsi/test/test
 jets/jsontest/httptest/httptest
 jets/copytest/parquettest/parquettest
 jets/copytest/scratchpad/scratchpad
+jets/copytest/xlsxreader/xlsxreader

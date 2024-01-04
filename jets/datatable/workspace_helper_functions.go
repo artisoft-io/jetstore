@@ -150,7 +150,7 @@ func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction) {
 	// using update_db script
 	log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
-	serverArgs := []string{"-initWorkspaceDb", "-migrateDb"}
+	serverArgs := []string{"-migrateDb"}
 	if ctx.UsingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
@@ -158,30 +158,36 @@ func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction) {
 	var err error
 	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
-	for irow := range dataTableAction.Data {
-		var gitLog string
-		status := ""
-		// update_db script
-		gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
-		if err != nil {
-			status = "error"
-		}
-		lastLog := dataTableAction.Data[irow]["last_git_log"]
-		if lastLog != nil {
-			dataTableAction.Data[irow]["last_git_log"] = fmt.Sprintf("%v\n%s", lastLog, gitLog)
-		} else {
-			dataTableAction.Data[irow]["last_git_log"] = gitLog
-		}
-		dataTableAction.Data[irow]["status"] = status
+	irow := 0
+	var gitLog string
+	status := ""
+	// update_db script
+	clients := dataTableAction.Data[irow]["updateDbClients"]
+	if clients != nil {
+		serverArgs = append(serverArgs, "-clients")
+		serverArgs = append(serverArgs, clients.(string))
+	} else {
+		serverArgs = append(serverArgs, "-initWorkspaceDb")
+	}
+	gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+	if err != nil {
+		status = "error"
+	}
+	lastLog := dataTableAction.Data[irow]["last_git_log"]
+	if lastLog != nil {
+		dataTableAction.Data[irow]["last_git_log"] = fmt.Sprintf("%v\n%s", lastLog, gitLog)
+	} else {
+		dataTableAction.Data[irow]["last_git_log"] = gitLog
+	}
+	dataTableAction.Data[irow]["status"] = status
 
-		// Perform the Insert Rows
-		for jcol, colKey := range sqlStmt.ColumnKeys {
-			row[jcol] = dataTableAction.Data[irow][colKey]
-		}
-		_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
-		if err != nil {
-			log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-		}
+	// Perform the Insert Rows
+	for jcol, colKey := range sqlStmt.ColumnKeys {
+		row[jcol] = dataTableAction.Data[irow][colKey]
+	}
+	_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+	if err != nil {
+		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 	}
 }
 

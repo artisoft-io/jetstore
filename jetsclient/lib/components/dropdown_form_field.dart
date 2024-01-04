@@ -235,30 +235,27 @@ class _JetsDropdownButtonFormFieldState
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      flex: widget.formFieldConfig.flex,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
-        child: DropdownButtonFormField<String>(
-            value: selectedValue,
-            onChanged: _config.isReadOnly ||
-                    (_config.makeReadOnlyWhenHasSelectedValue &&
-                        selectedValue != null)
-                ? null
-                : (String? newValue) {
-                    setState(() {
-                      selectedValue = newValue;
-                    });
-                    widget.onChanged(newValue);
-                  },
-            autovalidateMode: _config.autovalidateMode,
-            validator: (p0) =>
-                widget.formValidator(_config.group, _config.key, p0),
-            items: items
-                .map((e) => DropdownMenuItem<String>(
-                    value: e.value, child: Text(e.label)))
-                .toList()),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
+      child: DropdownButtonFormField<String>(
+          value: selectedValue,
+          onChanged: _config.isReadOnly ||
+                  (_config.makeReadOnlyWhenHasSelectedValue &&
+                      selectedValue != null)
+              ? null
+              : (String? newValue) {
+                  setState(() {
+                    selectedValue = newValue;
+                  });
+                  widget.onChanged(newValue);
+                },
+          autovalidateMode: _config.autovalidateMode,
+          validator: (p0) =>
+              widget.formValidator(_config.group, _config.key, p0),
+          items: items
+              .map((e) => DropdownMenuItem<String>(
+                  value: e.value, child: Text(e.label)))
+              .toList()),
     );
   }
 }

@@ -21,6 +21,8 @@ class UserFlowScreen extends BaseScreen {
           // print("*** BUILDING UserFlowScreen: ${screenConfig.title}");
           final formConfig = state.formConfig;
           // Curried Form Action Delegate to put the UF State
+          // NOTE: Overriding the FormConfig Action Delegate with UF Standard
+          //       Action Delegate
           formConfig.formActionsDelegate = (BuildContext context,
                   GlobalKey<FormState> formKey,
                   JetsFormState formState,
@@ -37,8 +39,8 @@ class UserFlowScreen extends BaseScreen {
                     flex: 1,
                     fit: FlexFit.tight,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                          defaultPadding, 0, 0, 0),
+                      padding:
+                          const EdgeInsets.fromLTRB(defaultPadding, 0, 0, 0),
                       child: Text(
                         screenConfig.title!,
                         style: Theme.of(context).textTheme.headlineMedium,
@@ -83,7 +85,7 @@ class UserFlowScreenState extends BaseScreenState {
   @override
   void initState() {
     super.initState();
-    final ufState = userFlowConfig.states[userFlowConfig.startAtKey];
+    var ufState = userFlowConfig.states[userFlowConfig.startAtKey];
     if (ufState == null) {
       print(
           "*** ERROR userFlowConfig for ${userFlowConfig.startAtKey} not found!");
@@ -99,6 +101,17 @@ class UserFlowScreenState extends BaseScreenState {
       });
       formState.setValue(0, 'user_email', JetsRouterDelegate().user.email);
 
+      // Update ufState if key present in navigation params
+      final skey = formState.getValue(0, FSK.ufStartAtKey);
+      if (skey != null) {
+        ufState = userFlowConfig.states[skey];
+        if (ufState == null) {
+          print("*** ERROR2 userFlowConfig for $skey not found!");
+        } else {
+          currentUserFlowState = ufState;
+          formConfig = currentUserFlowState.formConfig;
+        }
+      }
       // reset the updated keys since these updates is to put default values
       // and is not from user interactions
       //* TODO - Stop using group 0 as a special group with validation keys
@@ -106,9 +119,7 @@ class UserFlowScreenState extends BaseScreenState {
 
       // Keep the list of visited page for supporting previous and next buttons
       formState.setValue(0, FSK.ufCurrentPage, 0);
-      final visitedPages = <String>[
-        userFlowConfig.startAtKey
-      ];
+      final visitedPages = <String>[ufState!.key];
       formState.setValue(0, FSK.ufVisitedPages, visitedPages);
     }
   }

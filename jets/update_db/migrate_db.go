@@ -44,12 +44,7 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
-func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
-	// initialize jetsapi database -- base initialization only
-	// jetsapiInitPath using base_workspace_init_db.sql
-	basePath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
-	basePath = strings.TrimSuffix(basePath, "/")
-	sqlFile := fmt.Sprintf("%s/base_workspace_init_db.sql", basePath)
+func loadConfig(dbpool *pgxpool.Pool, sqlFile string) error {
 	fmt.Println("\nInitializing jetsapi db using", sqlFile)
 	file, err := os.Open(sqlFile)
 	if err != nil {
@@ -81,6 +76,34 @@ func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) erro
 	}
 	if err != nil {
 		return fmt.Errorf("error executing the workspace init db path %s: %v", sqlFile, err)
+	}
+	return nil
+}
+
+func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
+	// initialize jetsapi database -- base initialization only
+	// jetsapiInitPath using base_workspace_init_db.sql
+	basePath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
+	basePath = strings.TrimSuffix(basePath, "/")
+	sqlFile := fmt.Sprintf("%s/base_workspace_init_db.sql", basePath)
+	return loadConfig(dbpool, sqlFile)
+}
+
+func InitializeBaseJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsapiInitPath *string, clients *string) error {
+	// initialize jetsapi database for the clients
+	// jetsapiInitPath using base_workspace_init_db.sql
+	if clients == nil {
+		return fmt.Errorf("InitializeBaseJetsapiDb4Clients: Invalid argument, clients cannot be nil")
+	}
+	basePath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
+	basePath = strings.TrimSuffix(basePath, "/")
+	clientList := strings.Split(*clients, ",")
+	for i := range clientList {
+		sqlFile := fmt.Sprintf("%s/%s_workspace_init_db.sql", basePath, strings.ToLower(clientList[i]))
+		err := loadConfig(dbpool, sqlFile)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
