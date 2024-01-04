@@ -42,8 +42,8 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         defaultNextState: "select_file_type_option"),
     "select_file_type_option": UserFlowState(
         key: "select_file_type_option",
-        description: 'Select file type: csv, parquet or fixed-width',
-        formConfig: getFormConfig(FormKeys.scCsvOrFixedSourceConfigUF),
+        description: 'Select file type: csv, parquet, fixed-width, etc.',
+        formConfig: getFormConfig(FormKeys.scSourceConfigTypeUF),
         actionDelegate: configureFilesFormActions,
         choices: [
           Expression(
@@ -58,6 +58,18 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
               rhsValue: FSK.scHeaderlessCsvOption,
               isRhsStateKey: false,
               nextState: 'edit_csv_headers'),
+          Expression(
+              lhsStateKey: FSK.scFileTypeOption,
+              op: Operator.equals,
+              rhsValue: FSK.scXlsxOption,
+              isRhsStateKey: false,
+              nextState: 'edit_xlsx_options'),
+          Expression(
+              lhsStateKey: FSK.scFileTypeOption,
+              op: Operator.equals,
+              rhsValue: FSK.scHeaderlessXlsxOption,
+              isRhsStateKey: false,
+              nextState: 'edit_xlsx_options'),
           Expression(
               lhsStateKey: FSK.scFileTypeOption,
               op: Operator.equals,
@@ -77,10 +89,25 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
               isRhsStateKey: false,
               nextState: 'edit_csv_headers'),
         ]),
+    "edit_xlsx_options": UserFlowState(
+        key: "edit_xlsx_options",
+        description: 'Specify additional options for xlsx files',
+        formConfig: getFormConfig(FormKeys.scEditXlsxOptionsUF),
+        actionDelegate: configureFilesFormActions,
+        stateAction: ActionKeys.scEditXlsxOptionsUF,
+        choices: [
+          Expression(
+              lhsStateKey: FSK.scFileTypeOption,
+              op: Operator.equals,
+              rhsValue: FSK.scHeaderlessXlsxOption,
+              isRhsStateKey: false,
+              nextState: 'edit_csv_headers'),
+        ],
+        defaultNextState: "select_single_or_multi_part_file"),
     "edit_csv_headers": UserFlowState(
         key: "edit_csv_headers",
         description:
-            'Specify Headers for Headerless CSV or Parquet Select Options',
+            'Specify Headers for Headerless CSV/XLSX or Parquet Select Options',
         formConfig: getFormConfig(FormKeys.scEditFileHeadersUF),
         actionDelegate: configureFilesFormActions,
         defaultNextState: "select_single_or_multi_part_file"),

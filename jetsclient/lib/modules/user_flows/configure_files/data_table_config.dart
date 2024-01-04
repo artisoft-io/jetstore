@@ -170,6 +170,10 @@ final Map<String, TableConfig> _tableConfigurations = {
         stateKey: 'is_part_files',
         columnIdx: 11,
       ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.scInputFormatDataJson,
+        columnIdx: 12,
+      ),
     ]),
     columns: [
       ColumnConfig(
@@ -257,6 +261,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 12,
+          name: "input_format_data_json",
+          label: 'input_format_data_json',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 13,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Indicates when the record was last updated',
@@ -280,9 +291,11 @@ final Map<String, TableConfig> _tableConfigurations = {
       staticTableModel: [
         ['CSV file with headers (most common)', 'csv', '0'],
         ['Headerless CSV file', 'headerless_csv', '1'],
-        ['Fixed-width file', 'fixed_width', '2'],
-        ['Parquet file', 'parquet', '3'],
-        ['Parquet file with selected columns', 'parquet_select', '4'],
+        ['XLSX file with header row', 'xlsx', '2'],
+        ['Headerless XLSX file', 'headerless_xlsx', '3'],
+        ['Fixed-width file', 'fixed_width', '4'],
+        ['Parquet file', 'parquet', '5'],
+        ['Parquet file with selected columns', 'parquet_select', '6'],
       ],
       formStateConfig:
           DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),

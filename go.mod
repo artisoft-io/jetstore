@@ -82,6 +82,7 @@ require (
 
 require (
 	github.com/fraugster/parquet-go v0.12.0
+	github.com/thedatashed/xlsxreader v1.2.5
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	github.com/xitongsys/parquet-go v1.6.2
 )

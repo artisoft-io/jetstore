@@ -20,6 +20,7 @@ String? unpack(dynamic elm) {
   if (elm is List<String> && elm.isNotEmpty) {
     return elm[0];
   }
+  print("*** Oops elm is not String in unpack: $elm");
   return null;
 }
 

@@ -104,8 +104,8 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
-  FormKeys.scCsvOrFixedSourceConfigUF: FormConfig(
-    key: FormKeys.scCsvOrFixedSourceConfigUF,
+  FormKeys.scSourceConfigTypeUF: FormConfig(
+    key: FormKeys.scSourceConfigTypeUF,
     useListView: true,
     actions: standardActions,
     inputFields: [
@@ -120,6 +120,42 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: configureFilesFormValidator,
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
+  ),
+  FormKeys.scEditXlsxOptionsUF: FormConfig(
+    key: FormKeys.scEditXlsxOptionsUF,
+    useListView: true,
+    actions: standardActions,
+    inputFields: [
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+      [
+        TextFieldConfig(
+            label:
+                "Enter the sheet name or position containing the data,\nthe first sheet is at position 0:",
+            maxLines: 2,
+            topMargin: 0,
+            bottomMargin: 0),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.scCurrentSheet,
+            label: "Sheet name or position containing the data (position starts at 0)",
+            hint:
+                "Sheet name or position containing the data (position starts at 0)",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 1,
+            maxLength: 256),
+      ],
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+    ],
+    formValidatorDelegate: configureFilesFormValidator,
+    formActionsDelegate: doNothingAction,
   ),
   FormKeys.scEditFileHeadersUF: FormConfig(
     key: FormKeys.scEditFileHeadersUF,
@@ -374,10 +410,16 @@ final Map<String, FormConfig> _formConfigurations = {
             isReadOnly: true,
             items: [
               DropdownItemConfig(label: 'CSV', value: 'csv'),
-              DropdownItemConfig(label: 'Headerless CSV', value: 'headerless_csv'),
-              DropdownItemConfig(label: 'Fixed-Width Columns', value: 'fixed_width'),
+              DropdownItemConfig(
+                  label: 'Headerless CSV', value: 'headerless_csv'),
+              DropdownItemConfig(label: 'XLSX', value: 'xlsx'),
+              DropdownItemConfig(
+                  label: 'Headerless XLSX', value: 'headerless_xlsx'),
+              DropdownItemConfig(
+                  label: 'Fixed-Width Columns', value: 'fixed_width'),
               DropdownItemConfig(label: 'Parquet', value: 'parquet'),
-              DropdownItemConfig(label: 'Parquet, Selected Columns', value: 'parquet_select'),
+              DropdownItemConfig(
+                  label: 'Parquet, Selected Columns', value: 'parquet_select'),
             ],
             flex: 1,
             defaultItemPos: 0),
@@ -385,8 +427,10 @@ final Map<String, FormConfig> _formConfigurations = {
             key: FSK.scSingleOrMultiPartFileOption,
             isReadOnly: true,
             items: [
-              DropdownItemConfig(label: 'Single File', value: 'scSingleFileOption'),
-              DropdownItemConfig(label: 'Multi-Part Files', value: 'scMultiPartFileOption'),
+              DropdownItemConfig(
+                  label: 'Single File', value: 'scSingleFileOption'),
+              DropdownItemConfig(
+                  label: 'Multi-Part Files', value: 'scMultiPartFileOption'),
             ],
             flex: 1,
             defaultItemPos: 0),

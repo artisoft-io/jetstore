@@ -39,10 +39,18 @@ String? configureFilesFormValidator(
 
     case FSK.objectType:
       String? value = unpack(v);
-      if (value != null && value.characters.length > 1) {
+      if (value != null && value.characters.isNotEmpty) {
         return null;
       }
       return "Object Type name must be selected.";
+
+    case FSK.scCurrentSheet:
+      String? value = unpack(v);
+      if (value != null && value.characters.isNotEmpty) {
+        return null;
+      }
+      return "Specify the sheet position.";
+
     case FSK.domainKeysJson:
       String? value = unpack(v);
       if (value == null || value.isEmpty) {
@@ -136,6 +144,12 @@ Future<String?> configureFilesFormActions(
     case ActionKeys.scStartUF:
       return null;
 
+    // Edit Xlsx Option: specify sheet name or position
+    case ActionKeys.scEditXlsxOptionsUF:
+      state[FSK.scInputFormatDataJson] =
+          '{"currentSheet": "${unpack(state[FSK.scCurrentSheet])}"}';
+      return null;
+
     // Prepopulate the type of file from current record
     case ActionKeys.scSelectSourceConfigUF:
       state[FSK.key] = unpack(state[FSK.key]);
@@ -151,7 +165,7 @@ Future<String?> configureFilesFormActions(
           unpack(state[FSK.codeValuesMappingJson]);
       state[FSK.automated] = unpack(state[FSK.automated]);
       state[FSK.scFileTypeOption] = unpack(state[FSK.scFileTypeOption]);
-
+      // Map part file indicator
       if (unpack(state['is_part_files']) == '1') {
         state[FSK.scSingleOrMultiPartFileOption] = FSK.scMultiPartFileOption;
       } else if (unpack(state['is_part_files']) == '0') {
@@ -160,7 +174,9 @@ Future<String?> configureFilesFormActions(
         print(
             "*** ERROR Invalid value for 'is_part_files': ${unpack(state['is_part_files'])}");
       }
-      if (state[FSK.scFileTypeOption] == '') {
+      // Backward compatibility on input_type
+      final fileType = state[FSK.scFileTypeOption];
+      if (fileType == '') {
         if (state[FSK.inputColumnsJson] != null) {
           formState.setValue(
               group, FSK.scFileTypeOption, FSK.scHeaderlessCsvOption);
@@ -169,6 +185,20 @@ Future<String?> configureFilesFormActions(
               group, FSK.scFileTypeOption, FSK.scFixedWidthOption);
         } else {
           formState.setValue(group, FSK.scFileTypeOption, FSK.scCsvOption);
+        }
+      }
+      // input file options
+      final scOptions = unpack(state[FSK.scInputFormatDataJson]);
+      state[FSK.scInputFormatDataJson] = scOptions;
+      if (fileType == FSK.scHeaderlessXlsxOption ||
+          fileType == FSK.scXlsxOption) {
+        if (scOptions != null && scOptions.isNotEmpty) {
+          try {
+            final xlsxOptions = jsonDecode(scOptions);
+            state[FSK.scCurrentSheet] = xlsxOptions[FSK.scCurrentSheet];
+          } catch (e) {
+            return "Input column names is not a valid json: ${e.toString()}";
+          }
         }
       }
       return null;
@@ -191,20 +221,29 @@ Future<String?> configureFilesFormActions(
         query = 'update/source_config';
       }
       switch (unpack(stateCopy[FSK.scFileTypeOption])) {
+        case FSK.scXlsxOption:
+        case FSK.scHeaderlessXlsxOption:
+          stateCopy[FSK.inputColumnsJson] = null;
+          stateCopy[FSK.inputColumnsPositionsCsv] = null;
+          break;
         case FSK.scCsvOption:
         case FSK.scParquetOption:
           stateCopy[FSK.inputColumnsJson] = null;
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
+          stateCopy[FSK.scInputFormatDataJson] = null;
           break;
         case FSK.scHeaderlessCsvOption:
         case FSK.scParquetSelectOption:
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
+          stateCopy[FSK.scInputFormatDataJson] = null;
           break;
         case FSK.scFixedWidthOption:
           stateCopy[FSK.inputColumnsJson] = null;
+          stateCopy[FSK.scInputFormatDataJson] = null;
           break;
         default:
-          print("ERROR: missing FSK.scFileTypeOption selection in state!");
+          print(
+              "ERROR: unknown FSK.scFileTypeOption in state: ${unpack(stateCopy[FSK.scFileTypeOption])}");
           return "error";
       }
       switch (unpack(stateCopy[FSK.scSingleOrMultiPartFileOption])) {

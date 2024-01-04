@@ -551,6 +551,13 @@
         "isNotNull": true
       },
       {
+        "columnName": "input_format_data_json",
+        "description": "Additional configuration that is input_format specific encoded as json",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "is_part_files",
         "description": "If true '1': file key is directory of part files",
         "dataType": "bool",
