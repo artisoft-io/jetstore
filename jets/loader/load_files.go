@@ -89,9 +89,17 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 	xlCh = xl.ReadRows(xl.Sheets[currentSheetPos])
 	if inputFileEncoding == Xlsx {
 		// Skip the header line
-		_, ok := <-xlCh
-		if !ok {
-			return 0, 0, fmt.Errorf("error: could not re-read headers from xlsx file")
+		var row xlsxreader.Row
+		var ok bool
+		for {
+			row, ok = <-xlCh
+			if !ok || row.Error != nil {
+				return 0, 0, fmt.Errorf("error: could not re-read headers from xlsx file")
+			}
+			if len(row.Cells) > 1 {
+				// ok got headers
+				break
+			}
 		}
 	}
 

@@ -84,10 +84,19 @@ func getRawHeadersFromXlsxFile(fileName string) (*[]string, error) {
 	// Read the file headers
 	switch inputFileEncoding {
 	case Xlsx:	
-		// Read the first non empty line as the headers
-		row, ok := <-xl.ReadRows(xl.Sheets[currentSheetPos])
-		if !ok || row.Error != nil {
-			return nil, fmt.Errorf("error: could not read headers from xlsx file: %v", row.Error)
+		// Read the first non empty line as the headers, requires more than 1 header
+		var row xlsxreader.Row
+		var ok bool
+		xlCh := xl.ReadRows(xl.Sheets[currentSheetPos])
+		for {
+			row, ok = <-xlCh
+			if !ok || row.Error != nil {
+				return nil, fmt.Errorf("error: could not read headers from xlsx file: %v", row.Error)
+			}
+			if len(row.Cells) > 1 {
+				// ok got headers
+				break
+			}
 		}
 		ipos := 0
 		rawHeaders = make([]string, 0)
