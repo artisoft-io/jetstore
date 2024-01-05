@@ -275,12 +275,12 @@ func coordinateWork() error {
 
 	// Get source_config info: DomainKeysJson, tableName, input_format, is_part_files from source_config table
 	// ---------------------------------------
-	var dkJson, cnJson, fwCsv sql.NullString
+	var dkJson, cnJson, ifJson, fwCsv sql.NullString
 	err = dbpool.QueryRow(context.Background(),
 		`SELECT table_name, domain_keys_json, input_columns_json, input_columns_positions_csv ,
 		input_format, is_part_files, input_format_data_json
 		  FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3`,
-		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv, &inputFormat, &isPartFiles, &inputFormatDataJson)
+		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv, &inputFormat, &isPartFiles, &ifJson)
 	if err != nil {
 		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
@@ -289,6 +289,9 @@ func coordinateWork() error {
 	}
 	if dkJson.Valid {
 		domainKeysJson = dkJson.String
+	}
+	if ifJson.Valid {
+		inputFormatDataJson = ifJson.String
 	}
 	inputFileEncoding = InputEncodingFromString(inputFormat)
 	switch {

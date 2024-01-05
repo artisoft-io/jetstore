@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -661,6 +662,33 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				}
 				dataTableAction.Data[irow]["input_session_id"] = inSessionId
 			}
+		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "source_config"):
+			// Populate calculated column domain_keys
+			if dataTableAction.Data[irow]["domain_keys_json"] == nil {
+				dataTableAction.Data[irow]["domain_keys"] = []string{dataTableAction.Data[irow]["object_type"].(string)}
+			} else {
+				var f interface{}
+				err2 := json.Unmarshal([]byte(dataTableAction.Data[irow]["domain_keys_json"].(string)), &f)
+				if err2 != nil {
+					err = fmt.Errorf("while parsing domainKeysJson using json parser: %v", err2)
+					return
+				}
+				// Extract the domain keys structure from the json
+				switch value := f.(type) {
+				case string, []interface{}:
+					dataTableAction.Data[irow]["domain_keys"] = []string{dataTableAction.Data[irow]["object_type"].(string)}
+				case map[string]interface{}:
+					keys := make([]string, 0, len(value))
+					for k := range value {
+						keys = append(keys, k)
+					}
+					dataTableAction.Data[irow]["domain_keys"] = keys
+				default:
+					err = fmt.Errorf("domainKeysJson contains %v which is of a type that is not supported", value)
+					return
+				}			
+			}
+
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "user_git_profile"):
 			gitToken := dataTableAction.Data[irow]["git_token"]
 			if gitToken != nil && gitToken != "" {

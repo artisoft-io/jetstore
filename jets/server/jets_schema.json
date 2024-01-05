@@ -532,6 +532,14 @@
         "dataType": "text"
       },
       {
+        "columnName": "domain_keys",
+        "description": "Grouping object_type(s) of the staging table.",
+        "dataType": "text",
+        "isArray": true,
+        "default": "'{}'",
+        "isNotNull": true
+        },
+      {
         "columnName": "code_values_mapping_json",
         "dataType": "text"
       },
@@ -554,8 +562,7 @@
         "columnName": "input_format_data_json",
         "description": "Additional configuration that is input_format specific encoded as json",
         "dataType": "text",
-        "default": "''",
-        "isNotNull": true
+        "default": "''"
       },
       {
         "columnName": "is_part_files",

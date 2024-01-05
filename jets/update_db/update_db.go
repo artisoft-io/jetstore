@@ -108,6 +108,14 @@ func doJob() error {
 		}
 	}
 
+	if *migrateDb {
+		log.Println("Applying update db scripts")
+		err = UpdateScripts(dbpool)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Create the domain tables
 	if *workspaceDb == "" {
 		return nil
