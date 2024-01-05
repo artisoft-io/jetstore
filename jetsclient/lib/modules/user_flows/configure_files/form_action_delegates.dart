@@ -230,16 +230,16 @@ Future<String?> configureFilesFormActions(
         case FSK.scParquetOption:
           stateCopy[FSK.inputColumnsJson] = null;
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
-          stateCopy[FSK.scInputFormatDataJson] = null;
+          stateCopy[FSK.scInputFormatDataJson] = '';
           break;
         case FSK.scHeaderlessCsvOption:
         case FSK.scParquetSelectOption:
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
-          stateCopy[FSK.scInputFormatDataJson] = null;
+          stateCopy[FSK.scInputFormatDataJson] = '';
           break;
         case FSK.scFixedWidthOption:
           stateCopy[FSK.inputColumnsJson] = null;
-          stateCopy[FSK.scInputFormatDataJson] = null;
+          stateCopy[FSK.scInputFormatDataJson] = '';
           break;
         default:
           print(
