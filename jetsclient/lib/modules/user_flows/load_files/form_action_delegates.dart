@@ -88,7 +88,7 @@ Future<String?> loadFilesFormActionsUF(
       }, toEncodable: (_) => '');
       JetsSpinnerOverlay.of(context).show();
       await postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+          context, formState, ServerEPs.registerFileKeyEP, encodedJsonBody);
       if (context.mounted) {
         JetsSpinnerOverlay.of(context).hide();
       }
