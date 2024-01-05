@@ -78,6 +78,10 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.key,
+        columnIdx: 0,
+      ),
+      DataTableFormStateOtherColumnConfig(
         stateKey: FSK.client,
         columnIdx: 1,
       ),
