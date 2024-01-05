@@ -430,7 +430,9 @@ class FormTypeaheadFieldConfig extends FormFieldConfig {
     return JetsTypeaheadFormField(
       key: UniqueKey(),
       formFieldConfig: this,
-      onChanged: (p0) => formState.setValueAndNotify(group, key, p0),
+      onChanged: (p0) {
+        formState.setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null);
+      },
       formValidator: ((group, key, v) =>
           formConfig.formValidatorDelegate(formState, group, key, v)),
       formState: formState,
