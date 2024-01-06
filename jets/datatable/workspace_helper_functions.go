@@ -106,7 +106,7 @@ func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 			if(otherActions != nil) {
 				l := otherActions.([]interface{})
 				for i := range l {
-					if l[i] != nil && l[i] == "wpLoadClientConfgOption" {
+					if l[i] != nil && (l[i] == "wpLoadClientConfgOption" || l[i] == "wpLoadSelectedClientConfgOption") {
 						status = "Loading client config in progress"
 						didLoadWorkspaceConfig = true
 						go loadWorkspaceConfigAction(ctx, dataTableAction)
@@ -115,7 +115,7 @@ func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 			}
 			if !didLoadWorkspaceConfig {
 				// Load the base workspace config in case domain schema or config changed
-				log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+				log.Printf("Loading base Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
 				serverArgs := []string{"-initBaseWorkspaceDb", "-migrateDb"}
 				if ctx.UsingSshTunnel {
 					serverArgs = append(serverArgs, "-usingSshTunnel")

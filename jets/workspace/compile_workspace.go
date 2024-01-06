@@ -134,37 +134,42 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	log.Println(cmdLog)
 	log.Println("============================")
 
-	// Copy the sqlite files & the tar file to db
-	buf.WriteString("\nCopy the sqlite file to db\n")
-	sourcesPath := []string{
-		fmt.Sprintf("%s/%s/lookup.db", wh, workspaceName),
-		fmt.Sprintf("%s/%s/workspace.db", wh, workspaceName),
-		fmt.Sprintf("%s/%s/reports.tgz", wh, workspaceName),
-	}
-	fileNames := []string{ "lookup.db", "workspace.db", "reports.tgz" }
-	fo := []dbutils.FileDbObject{
-		{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
-		{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
-		{WorkspaceName: workspaceName, ContentType: "reports.tgz",	Status: dbutils.FO_Open, UserEmail: "system"}}
-	for i := range sourcesPath {
-		// Copy the file to db as large objects
-		file, err := os.Open(sourcesPath[i])
-		if err != nil {
-			buf.WriteString("While opening local output file:")
-			buf.WriteString(err.Error())
-			buf.WriteString("\n")
-			log.Printf("While opening local output file: %v", err)
-			return buf.String(), err
+	_, globalDevMode := os.LookupEnv("JETSTORE_DEV_MODE")
+	if globalDevMode {
+		log.Println("IN DEV MODE = Skipping copy large object to DB")
+	} else {
+		// Copy the sqlite files & the tar file to db
+		buf.WriteString("\nCopy the sqlite file to db\n")
+		sourcesPath := []string{
+			fmt.Sprintf("%s/%s/lookup.db", wh, workspaceName),
+			fmt.Sprintf("%s/%s/workspace.db", wh, workspaceName),
+			fmt.Sprintf("%s/%s/reports.tgz", wh, workspaceName),
 		}
-		fo[i].FileName = fileNames[i]
-		fo[i].Oid = 0
-		_,err = fo[i].WriteObject(dbpool, file)
-		file.Close()
-		if err != nil {
-			buf.WriteString("Failed to upload file to db:")
-			buf.WriteString(err.Error())
-			buf.WriteString("\n")
-			return buf.String(), fmt.Errorf("failed to upload file to db: %v", err)
+		fileNames := []string{ "lookup.db", "workspace.db", "reports.tgz" }
+		fo := []dbutils.FileDbObject{
+			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
+			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
+			{WorkspaceName: workspaceName, ContentType: "reports.tgz",	Status: dbutils.FO_Open, UserEmail: "system"}}
+		for i := range sourcesPath {
+			// Copy the file to db as large objects
+			file, err := os.Open(sourcesPath[i])
+			if err != nil {
+				buf.WriteString("While opening local output file:")
+				buf.WriteString(err.Error())
+				buf.WriteString("\n")
+				log.Printf("While opening local output file: %v", err)
+				return buf.String(), err
+			}
+			fo[i].FileName = fileNames[i]
+			fo[i].Oid = 0
+			_,err = fo[i].WriteObject(dbpool, file)
+			file.Close()
+			if err != nil {
+				buf.WriteString("Failed to upload file to db:")
+				buf.WriteString(err.Error())
+				buf.WriteString("\n")
+				return buf.String(), fmt.Errorf("failed to upload file to db: %v", err)
+			}
 		}
 	}
 	err = UpdateWorkspaceVersionDb(dbpool, workspaceName, version)
