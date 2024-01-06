@@ -283,7 +283,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 					}
 					if !compileWorkspaceStarted {
 						for i := range l {
-							if l[i] != nil && l[i] == "wpLoadClientConfgOption" {
+							if l[i] != nil && (l[i] == "wpLoadClientConfgOption" || l[i] == "wpLoadSelectedClientConfgOption") {
 								status = "Loading client config in progress"
 								go loadWorkspaceConfigAction(ctx, dataTableAction)
 							}

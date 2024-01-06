@@ -35,6 +35,8 @@ Future<String?> pullWorkspaceFormActions(
       state[FSK.wsBranch] = unpack(state[FSK.wsBranch]);
       state[FSK.wsFeatureBranch] = unpack(state[FSK.wsFeatureBranch]);
       state[FSK.wsURI] = unpack(state[FSK.wsURI]);
+      state[FSK.updateDbClients] =
+          unpackToList(state[FSK.wpClientList])?.join(',');
       var encodedJsonBody = jsonEncode(<String, dynamic>{
         'action': 'workspace_insert_rows',
         'fromClauses': [
@@ -86,12 +88,11 @@ String? loadConfigFormValidator(
 }
 
 Future<int> loadConfigInternal(
-  BuildContext context,
-  GlobalKey<FormState> formKey,
-  JetsFormState formState,
-  String actionKey,
-  group) async {
-    
+    BuildContext context,
+    GlobalKey<FormState> formKey,
+    JetsFormState formState,
+    String actionKey,
+    group) async {
   final state = Map<String, dynamic>.from(formState.getState(group));
   state['user_email'] = JetsRouterDelegate().user.email;
   state[FSK.updateDbClients] = unpackToList(state[FSK.wpClientList])?.join(',');
@@ -139,12 +140,13 @@ Future<String?> loadConfigFormActions(
           context, formKey, formState, actionKey, group);
       if (result != 200)
         print("OOps, loading all client config http result is $result");
-      if(context.mounted) {
+      if (context.mounted) {
         Navigator.of(context).pop();
       }
       break;
     case ActionKeys.wpLoadConfigOkUF:
-      final result = await loadConfigInternal(context, formKey, formState, actionKey, group);
+      final result = await loadConfigInternal(
+          context, formKey, formState, actionKey, group);
       if (result != 200)
         print("OOps, loading specific client config http result is $result");
       break;

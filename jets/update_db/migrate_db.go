@@ -35,10 +35,14 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 	}
 	for i := range schemaDef {
 		fmt.Println("-- Got schema for",schemaDef[i].SchemaName,".",schemaDef[i].TableName)
-		// Note: We don't drop system tables, need a separate action for that
-		err = schemaDef[i].UpdateTableSchema(dbpool, false)
-		if err != nil {
-			return fmt.Errorf("error while migrating jetstore schema: %v", err)
+		if schemaDef[i].TableName == "workspace_changes" {
+			log.Println("SKIPING table workspace_changes to prevent locking - must be updated at deployment time via deploy scripts")
+		} else {
+			// Note: We don't drop system tables
+			err = schemaDef[i].UpdateTableSchema(dbpool, false)
+			if err != nil {
+				return fmt.Errorf("error while migrating jetstore schema: %v", err)
+			}
 		}
 	}
 	return nil
