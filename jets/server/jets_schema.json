@@ -384,6 +384,10 @@
         "isNotNull": true
       },
       {
+        "columnName": "default_column_value",
+        "dataType": "text"
+      },
+      {
         "columnName": "details",
         "dataType": "text"
       }
@@ -1594,6 +1598,7 @@
   {
     "schemaName": "jetsapi",
     "tableName": "workspace_changes",
+    "description": "ATTENTION: schema of this table is not updated by update_db to prevent locking",
     "columns": [
       {
         "columnName": "key",

@@ -264,6 +264,7 @@ class FormKeys {
   static const spSummaryUF = "spSummaryUF";
   // Workspace Pull UF Forms
   static const wpPullWorkspaceUF = "wpPullWorkspaceUF";
+  static const wpSelectClientsgUF = "wpSelectClientsgUF";
   static const wpConfirmPullWorkspaceUF = "wpConfirmPullWorkspaceUF";
   // Load Client Config UF Forms
   static const wpLoadConfigUF = "wpLoadConfigUF";
