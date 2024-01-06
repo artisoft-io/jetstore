@@ -16,6 +16,21 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
             formConfig: getFormConfig(FormKeys.wpPullWorkspaceUF),
             actionDelegate: pullWorkspaceFormActions,
             stateAction: ActionKeys.wpPullWorkspaceConfirmUF,
+            choices: [
+              Expression(
+                  lhsStateKey: DTKeys.otherWorkspaceActionOptions,
+                  op: Operator.contains,
+                  rhsValue: 'wpLoadSelectedClientConfgOption',
+                  isRhsStateKey: false,
+                  nextState: 'select_clients'),
+            ],
+            defaultNextState: "confirm"),
+        "select_clients": UserFlowState(
+            key: "select_clients",
+            description: 'Select clients to load',
+            formConfig: getFormConfig(FormKeys.wpSelectClientsgUF),
+            actionDelegate: loadConfigFormActions,
+            stateAction: ActionKeys.wpLoadConfigConfirmUF,
             defaultNextState: "confirm"),
         "confirm": UserFlowState(
             key: "confirm",

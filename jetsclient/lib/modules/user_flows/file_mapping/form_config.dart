@@ -8,7 +8,6 @@ import 'package:jetsclient/models/form_config.dart';
 /// Form Config for File Mapping UF Module
 
 final Map<String, FormConfig> _formConfigurations = {
-
   // File Mapping - Select Source
   FormKeys.fmSelectSourceConfigUF: FormConfig(
     key: FormKeys.fmSelectSourceConfigUF,
@@ -25,7 +24,7 @@ final Map<String, FormConfig> _formConfigurations = {
     formActionsDelegate:
         doNothingAction, // overriden by UserFlowState.actionDelegate
   ),
-  
+
   // File Mapping - List mapping definition & Actions
   FormKeys.fmFileMappingUF: FormConfig(
     key: FormKeys.fmFileMappingUF,
@@ -131,7 +130,7 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     queries: {
       "inputFieldsQuery":
-          "SELECT md.data_property, md.is_required, pm.input_column, pm.function_name, pm.argument, pm.default_value, pm.error_message FROM jetsapi.object_type_mapping_details md LEFT JOIN (SELECT * FROM jetsapi.process_mapping WHERE table_name = '{table_name}') pm ON md.data_property = pm.data_property WHERE md.object_type = '{object_type}' ORDER BY md.data_property ASC LIMIT 1000",
+          "SELECT md.data_property, md.is_required, pm.input_column, pm.function_name, pm.argument, pm.default_value, pm.error_message, md.default_column_value FROM jetsapi.object_type_mapping_details md LEFT JOIN (SELECT * FROM jetsapi.process_mapping WHERE table_name = '{table_name}') pm ON md.data_property = pm.data_property WHERE md.object_type = '{object_type}' ORDER BY md.data_property ASC LIMIT 1000",
       "inputColumnsQuery":
           "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table_name}' AND column_name NOT IN ('file_key','last_update','session_id','shard_id') ORDER BY column_name",
       "mappingFunctionsQuery":
@@ -161,9 +160,13 @@ final Map<String, FormConfig> _formConfigurations = {
       final isRequiredIndicator = isRequired ? '*' : '';
       final savedInputColumn = savedState?[index][2];
       final inputColumnList =
-          formState.getCacheValue(FSK.inputColumnsCache) as List;
-      final inputColumnDefault =
-          inputColumnList.contains(inputFieldRow[0]) ? inputFieldRow[0] : null;
+          (formState.getCacheValue(FSK.inputColumnsCache) as List)
+              .map((e) => e[0])
+              .toList();
+      final inputColumnDefault = inputFieldRow[7] ??
+          (inputColumnList.contains(inputFieldRow[0])
+              ? inputFieldRow[0]
+              : null);
       if (isRequired) formState.setValue(index, FSK.isRequiredFlag, "1");
       // set the default values to the formState
       formState.setValue(index, FSK.dataProperty, inputFieldRow[0]);
@@ -187,24 +190,23 @@ final Map<String, FormConfig> _formConfigurations = {
         [
           // input_column
           FormTypeaheadFieldConfig(
-            key: FSK.inputColumn,
-            group: index,
-            flex: 3,
-            autovalidateMode: AutovalidateMode.always,
-            typeaheadMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
-            defaultItem: savedInputColumn ?? inputColumnDefault,
-            inputFieldConfig: FormInputFieldConfig(
               key: FSK.inputColumn,
               group: index,
-              label: 'Input Column',
-              hint: 'Input File Column Name',
-              autofocus: false,
+              flex: 3,
               autovalidateMode: AutovalidateMode.always,
-              textRestriction: TextRestriction.none,
-              defaultValue: savedInputColumn ?? inputColumnDefault,
-              maxLength: 120,
-            )
-          ),
+              typeaheadMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
+              defaultItem: savedInputColumn ?? inputColumnDefault,
+              inputFieldConfig: FormInputFieldConfig(
+                key: FSK.inputColumn,
+                group: index,
+                label: 'Input Column',
+                hint: 'Input File Column Name',
+                autofocus: false,
+                autovalidateMode: AutovalidateMode.always,
+                textRestriction: TextRestriction.none,
+                defaultValue: savedInputColumn ?? inputColumnDefault,
+                maxLength: 120,
+              )),
           // FormDropdownWithSharedItemsFieldConfig(
           //   key: FSK.inputColumn,
           //   group: index,

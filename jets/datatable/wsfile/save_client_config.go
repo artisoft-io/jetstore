@@ -80,6 +80,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
 	}
+	buf.WriteString("SELECT setval(pg_get_serial_sequence('jetsapi.process_input', 'key'), max(key)) FROM jetsapi.process_input;\n")
 
 	// jetsapi.pipeline_config
 	tableName = "pipeline_config"

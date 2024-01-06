@@ -22,7 +22,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 20),
+            maxLength: 60),
         FormInputFieldConfig(
             key: FSK.wsURI,
             label: "Worksapce URI",
@@ -32,7 +32,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 120),
+            maxLength: 200),
       ],
       [
         PaddingConfig(height: defaultPadding),
@@ -56,6 +56,12 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
+          key: ActionKeys.ufCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.ufPrimary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+      FormActionConfig(
           key: ActionKeys.ufCompleted,
           label: "Comfirm",
           buttonStyle: ActionStyle.ufSecondary,
@@ -74,7 +80,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 20),
+            maxLength: 60),
         FormInputFieldConfig(
             key: FSK.wsURI,
             label: "Worksapce URI",
@@ -84,28 +90,31 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 120),
-      ],
-      [
-        PaddingConfig(height: defaultPadding),
+            maxLength: 200),
       ],
       [
         FormDataTableFieldConfig(
             key: DTKeys.wpPullWorkspaceConfirmOptions,
-            dataTableConfig: DTKeys.wpPullWorkspaceConfirmOptions)
+            dataTableConfig: DTKeys.wpPullWorkspaceConfirmOptions,
+            tableHeight: 280),
+      ],
+      [
+        FormDataTableFieldConfig(
+            key: FSK.wpClientListRO,
+            dataTableConfig: FSK.wpClientListRO),
       ],
     ],
     formValidatorDelegate: alwaysValidForm,
     formActionsDelegate: doNothingAction,
   ),
 
-  // Load Client Config UF
-  FormKeys.wpLoadConfigUF: FormConfig(
-    key: FormKeys.wpLoadConfigUF,
+  // Select Clients to load -- Pulll Workspace UF
+  FormKeys.wpSelectClientsgUF: FormConfig(
+    key: FormKeys.wpSelectClientsgUF,
     actions: standardActions,
     useListView: false,
     inputFieldsV2: [
-      FormFieldRowConfig(flex:0, rowConfig: [
+      FormFieldRowConfig(flex: 0, rowConfig: [
         FormInputFieldConfig(
             key: FSK.wsName,
             label: "Workspace Name",
@@ -115,7 +124,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 20),
+            maxLength: 60),
         FormInputFieldConfig(
             key: FSK.wsURI,
             label: "Worksapce URI",
@@ -125,15 +134,54 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 120),
+            maxLength: 200),
       ]),
-      FormFieldRowConfig(flex:1, rowConfig: [
+      FormFieldRowConfig(flex: 1, rowConfig: [
         FormDataTableFieldConfig(
             key: FSK.wpClientList,
             dataTableConfig: FSK.wpClientList,
             tableHeight: double.infinity),
       ]),
-      FormFieldRowConfig(flex:0, rowConfig: [
+    ],
+    formValidatorDelegate: loadConfigFormValidator,
+    formActionsDelegate: doNothingAction,
+  ),
+
+  // Indicates which client to load or load them all -- Load Client UF
+  FormKeys.wpLoadConfigUF: FormConfig(
+    key: FormKeys.wpLoadConfigUF,
+    actions: standardActions,
+    useListView: false,
+    inputFieldsV2: [
+      FormFieldRowConfig(flex: 0, rowConfig: [
+        FormInputFieldConfig(
+            key: FSK.wsName,
+            label: "Workspace Name",
+            hint: "Workspace name is used as the workspace key",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 60),
+        FormInputFieldConfig(
+            key: FSK.wsURI,
+            label: "Worksapce URI",
+            hint: "Repository where the workspace is versioned",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            isReadOnly: true,
+            textRestriction: TextRestriction.none,
+            maxLength: 200),
+      ]),
+      FormFieldRowConfig(flex: 1, rowConfig: [
+        FormDataTableFieldConfig(
+            key: FSK.wpClientList,
+            dataTableConfig: FSK.wpClientList,
+            tableHeight: double.infinity),
+      ]),
+      FormFieldRowConfig(flex: 0, rowConfig: [
         PaddingConfig(),
         PaddingConfig(),
         FormActionConfig(
@@ -157,6 +205,12 @@ final Map<String, FormConfig> _formConfigurations = {
           leftMargin: defaultPadding,
           rightMargin: betweenTheButtonsPadding),
       FormActionConfig(
+          key: ActionKeys.ufCancel,
+          label: "Cancel",
+          buttonStyle: ActionStyle.ufPrimary,
+          leftMargin: betweenTheButtonsPadding,
+          rightMargin: defaultPadding),
+      FormActionConfig(
           key: ActionKeys.ufCompleted,
           label: "Comfirm",
           buttonStyle: ActionStyle.ufSecondary,
@@ -165,7 +219,7 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     useListView: false,
     inputFieldsV2: [
-      FormFieldRowConfig(flex:0, rowConfig: [
+      FormFieldRowConfig(flex: 0, rowConfig: [
         FormInputFieldConfig(
             key: FSK.wsName,
             label: "Workspace Name",
@@ -175,7 +229,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 20),
+            maxLength: 60),
         FormInputFieldConfig(
             key: FSK.wsURI,
             label: "Worksapce URI",
@@ -185,9 +239,9 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             isReadOnly: true,
             textRestriction: TextRestriction.none,
-            maxLength: 120),
+            maxLength: 200),
       ]),
-      FormFieldRowConfig(flex:1, rowConfig: [
+      FormFieldRowConfig(flex: 1, rowConfig: [
         FormDataTableFieldConfig(
             key: FSK.wpClientListRO,
             dataTableConfig: FSK.wpClientListRO,
