@@ -697,6 +697,11 @@ class JetsDataTableSource extends ChangeNotifier {
 
       // Set selectedRows based on form state
       updateTableFromFormState();
+      // filter rows for RO tables
+      if (state.tableConfig.showSelectedOnly) {
+        filterSelectedRows();
+      }
+
       notifyListeners();
       // reset the form state variable used for notification only
       final group = state.formFieldConfig?.group ?? 0;
@@ -704,7 +709,20 @@ class JetsDataTableSource extends ChangeNotifier {
       state.formState?.setValue(group, FSK.rawDdlQueryReady, null);
       state.formState?.setValue(group, FSK.queryReady, null);
       state.formState?.resetUpdatedKeys(group);
+
     }
+  }
+
+  void filterSelectedRows() {
+    if (model == null) return;
+    final List<List<String?>> l = [];
+    for (var i = 0; i < model!.length; i++) {
+      if (selectedRows[i]) {
+        l.add(model![i]);
+      }
+    }
+    model = l;
+    selectedRows = List.filled(l.length, true);
   }
 
   //* TODO currently not used, do we need local sort?
