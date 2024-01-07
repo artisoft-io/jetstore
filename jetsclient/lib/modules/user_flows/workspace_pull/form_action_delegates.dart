@@ -23,6 +23,11 @@ Future<String?> pullWorkspaceFormActions(
     case ActionKeys.wpPullWorkspaceConfirmUF:
       state[DTKeys.wpPullWorkspaceConfirmOptions] =
           state[DTKeys.otherWorkspaceActionOptions];
+      final l = state[DTKeys.otherWorkspaceActionOptions] as List;
+      if (!l.contains('wpLoadSelectedClientConfgOption')) {
+        state[FSK.wpClientList] = null;
+        state[FSK.wpClientListRO] = null;
+      }
       // print('Workspace Pull Action: $actionKey, state: $state');
       break;
 

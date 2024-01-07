@@ -20,6 +20,7 @@ class TableConfig {
     required this.isCheckboxVisible,
     required this.isCheckboxSingleSelect,
     this.isReadOnly = false,
+    this.showSelectedOnly = false,
     required this.actions,
     this.secondRowActions = const [],
     required this.columns,
@@ -52,6 +53,7 @@ class TableConfig {
   final bool isCheckboxSingleSelect;
   // Control if the table can be modified (applicable if isCheckboxVisible)
   final bool isReadOnly;
+  final bool showSelectedOnly;
   final List<ActionConfig> actions;
   final List<ActionConfig> secondRowActions;
   final List<ColumnConfig> columns;

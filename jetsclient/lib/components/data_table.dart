@@ -168,8 +168,8 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                         label: '',
                         style: ActionStyle.primary)),
                 child: Text(state.noCopy2Clipboard
-                        ? 'Enable Copy Cell'
-                        : 'Enable Select Row'),
+                    ? 'Enable Copy Cell'
+                    : 'Enable Select Row'),
               ));
             }
 
