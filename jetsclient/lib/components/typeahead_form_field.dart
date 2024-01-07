@@ -137,7 +137,6 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
                 .style
                 .copyWith(fontStyle: FontStyle.italic),
           ),
-
           decorationBuilder: (context, child) => Material(
             type: MaterialType.card,
             elevation: 4,
@@ -150,8 +149,7 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
             widget.onChanged(item);
           },
           suggestionsCallback: suggestionsCallback,
-        )
-        );
+        ));
   }
 
   bool doesMatch(String item, String pattern) {
@@ -162,12 +160,45 @@ class _JetsTypeaheadFormFieldState extends State<JetsTypeaheadFormField> {
     return result;
   }
 
-  Future<List<String>> suggestionsCallback(String pattern) async =>
-      Future<List<String>>.delayed(
-        const Duration(milliseconds: 50),
-        () => widget.formState
-            .getCacheValue(formConfig.typeaheadMenuItemCacheKey)
-            .where((item) => doesMatch(item, pattern))
-            .toList(),
-      );
+  Future<List<String>> suggestionsCallback(String pattern) async {
+    if (pattern.isEmpty) {
+      final List<String> priority = [];
+      final List<String> rest = [];
+      final List<String> l =
+          widget.formState.getCacheValue(formConfig.typeaheadMenuItemCacheKey);
+      final String? priorityTarget = formConfig.priorityTargetKey != null
+          ? widget.formState
+              .getValue(formConfig.group, formConfig.priorityTargetKey!)
+          : null;
+      if (priorityTarget != null) {
+        final patterns =
+            priorityTarget.toLowerCase().replaceAll(':', '_').split('_');
+        // print("**Patterns: ${patterns.join(',')}");
+        for (var element in l) {
+          var gotIt = false;
+          for (var p in patterns) {
+            if (element.toLowerCase().contains(p)) {
+              priority.add(element);
+              gotIt = true;
+              break;
+            }
+          }
+          if (!gotIt) {
+            rest.add(element);
+          }
+        }
+        // print("GOT Priority ${priority.join(',')}");
+        priority.addAll(rest);
+        return priority;
+      }
+      return l;
+    }
+    return Future<List<String>>.delayed(
+      const Duration(milliseconds: 50),
+      () => widget.formState
+          .getCacheValue(formConfig.typeaheadMenuItemCacheKey)
+          .where((item) => doesMatch(item, pattern))
+          .toList(),
+    );
+  }
 }

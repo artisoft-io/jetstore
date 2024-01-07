@@ -195,6 +195,7 @@ final Map<String, FormConfig> _formConfigurations = {
               flex: 3,
               autovalidateMode: AutovalidateMode.always,
               typeaheadMenuItemCacheKey: FSK.inputColumnsDropdownItemsCache,
+              priorityTargetKey: FSK.dataProperty,
               defaultItem: savedInputColumn ?? inputColumnDefault,
               inputFieldConfig: FormInputFieldConfig(
                 key: FSK.inputColumn,
