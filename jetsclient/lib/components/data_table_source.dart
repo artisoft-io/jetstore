@@ -213,6 +213,18 @@ class JetsDataTableSource extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _cellValue(int index, ColumnConfig e) {
+    final v = model![index][e.index];
+    if (e.cellFilter != null) {
+      return e.cellFilter!(v) ?? 'null';
+    }
+    return v ?? 'null';
+  }
+
+  String _cellFullValue(int index, ColumnConfig e) {
+    return model![index][e.index] ?? 'null';
+  }
+
   DataRow getRow(int index) {
     assert(model != null);
     // print("getRow Called with index $index which has key ${model![index][1]} ");
@@ -236,23 +248,23 @@ class JetsDataTableSource extends ChangeNotifier {
               ? DataCell(
                   SizedBox(
                       width: e.columnWidth, //SET width
-                      child: Text(model![index][e.index] ?? 'null',
+                      child: Text(_cellValue(index, e),
                           maxLines: e.maxLines)),
                   onLongPress: state.noCopy2Clipboard
                       ? null
                       : () {
                           Clipboard.setData(ClipboardData(
-                              text: model![index][e.index] ?? 'null'));
+                              text: _cellFullValue(index, e)));
                           ScaffoldMessenger.of(state.context).showSnackBar(
                               const SnackBar(
                                   content: Text("Copied to Clipboard")));
                         })
-              : DataCell(Text(model![index][e.index] ?? 'null'),
+              : DataCell(Text(_cellValue(index, e)),
                   onLongPress: state.noCopy2Clipboard
                       ? null
                       : () {
                           Clipboard.setData(ClipboardData(
-                              text: model![index][e.index] ?? 'null'));
+                              text: _cellFullValue(index, e)));
                           ScaffoldMessenger.of(state.context).showSnackBar(
                               const SnackBar(
                                   content: Text("Copied to Clipboard")));
@@ -709,7 +721,6 @@ class JetsDataTableSource extends ChangeNotifier {
       state.formState?.setValue(group, FSK.rawDdlQueryReady, null);
       state.formState?.setValue(group, FSK.queryReady, null);
       state.formState?.resetUpdatedKeys(group);
-
     }
   }
 
