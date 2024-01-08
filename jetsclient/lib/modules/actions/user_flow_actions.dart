@@ -154,6 +154,8 @@ Future<String?> userFlowStateActions(
         } else {
           Navigator.of(context).pop();
         }
+      } else {
+        print("Oops no longer mounted!");
       }
       break;
 

@@ -4,6 +4,7 @@ import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 typedef ModelHandler = Map<String, dynamic>? Function(JetsFormState formState);
+typedef CellFilter = String? Function(String? text);
 
 /// Data Table Configuration class
 /// [refreshOnKeyUpdateEvent] contains list of key that will trigger a table
@@ -20,6 +21,7 @@ class TableConfig {
     required this.isCheckboxVisible,
     required this.isCheckboxSingleSelect,
     this.isReadOnly = false,
+    this.showSelectedOnly = false,
     required this.actions,
     this.secondRowActions = const [],
     required this.columns,
@@ -52,6 +54,7 @@ class TableConfig {
   final bool isCheckboxSingleSelect;
   // Control if the table can be modified (applicable if isCheckboxVisible)
   final bool isReadOnly;
+  final bool showSelectedOnly;
   final List<ActionConfig> actions;
   final List<ActionConfig> secondRowActions;
   final List<ColumnConfig> columns;
@@ -250,6 +253,7 @@ class ColumnConfig {
     this.isHidden = false,
     this.maxLines = 0,
     this.columnWidth = 0,
+    this.cellFilter,
   });
   final int index;
   final String? table;
@@ -260,6 +264,7 @@ class ColumnConfig {
   final bool isHidden;
   final int maxLines;
   final double columnWidth;
+  final CellFilter? cellFilter;
 }
 
 class WithClause {
