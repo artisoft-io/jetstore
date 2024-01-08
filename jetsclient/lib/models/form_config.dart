@@ -415,9 +415,11 @@ class FormTypeaheadFieldConfig extends FormFieldConfig {
     super.autovalidateMode = AutovalidateMode.disabled,
     required this.typeaheadMenuItemCacheKey,
     required this.inputFieldConfig,
+    this.priorityTargetKey,
     this.defaultItem,
   });
   final String typeaheadMenuItemCacheKey;
+  final String? priorityTargetKey;
   final String? defaultItem;
   final FormInputFieldConfig inputFieldConfig;
 

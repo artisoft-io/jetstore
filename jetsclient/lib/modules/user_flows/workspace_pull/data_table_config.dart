@@ -68,6 +68,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       isCheckboxVisible: true,
       isCheckboxSingleSelect: false,
       isReadOnly: true,
+      showSelectedOnly: true,
       whereClauses: [],
       actions: [],
       staticTableModel: [
@@ -156,6 +157,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxSingleSelect: false,
     noCopy2Clipboard: true,
     isReadOnly: true,
+    showSelectedOnly: true,
     whereClauses: [],
     actions: [ ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
