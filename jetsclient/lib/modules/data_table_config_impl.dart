@@ -183,7 +183,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           name: "file_key",
           label: 'File Key',
           tooltips: 'File key',
-          isNumeric: false),
+          isNumeric: false,
+          cellFilter: (text) => text?.substring(text.lastIndexOf('/'))),
       ColumnConfig(
           index: 11,
           name: "session_id",
@@ -203,7 +204,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Error that occured during execution',
           isNumeric: false,
           maxLines: 3,
-          columnWidth: 600),
+          columnWidth: 400,
+          cellFilter: (text) => text?.replaceFirst('File contains 0 bad rows,recovered error: ', '')),
       ColumnConfig(
           index: 14,
           name: "user_email",
@@ -355,7 +357,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Main Input File Key',
           tooltips:
               'Start the process by loading the this file and then execute the rule process',
-          isNumeric: false),
+          isNumeric: false,
+          cellFilter: (text) => text?.substring(text.lastIndexOf('/'))),
       ColumnConfig(
           index: 10,
           name: "session_id",
@@ -381,14 +384,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Main Input Registry',
           tooltips:
               'Main input from previously loaded file, this specify the input session id',
-          isNumeric: true),
+          isNumeric: true,
+          isHidden: true),
       ColumnConfig(
           index: 14,
           name: "merged_input_registry_keys",
           label: 'Merge-In Input Registry',
           tooltips:
               'Indicate the session id of the input sources to be merged with the main input source',
-          isNumeric: false),
+          isNumeric: false,
+          isHidden: true),
       ColumnConfig(
           index: 15,
           name: "user_email",
