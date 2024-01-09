@@ -417,6 +417,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				Command:             sfn.JsonPath_ListAt(jsii.String("$.loaderCommand")),
 			},
 		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		ResultPath:         sfn.JsonPath_DISCARD(),
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
@@ -439,6 +440,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
 			},
 		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		ResultPath:         sfn.JsonPath_DISCARD(),
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
@@ -576,6 +578,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
 			},
 		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		ResultPath:         sfn.JsonPath_DISCARD(),
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
@@ -704,6 +707,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				Command:             sfn.JsonPath_ListAt(jsii.String("$")),
 			},
 		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	runServerTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerTask"))
@@ -725,6 +729,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
 			},
 		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		ResultPath:         sfn.JsonPath_DISCARD(),
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})

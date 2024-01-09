@@ -184,7 +184,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'File Key',
           tooltips: 'File key',
           isNumeric: false,
-          cellFilter: (text) => text?.substring(text.lastIndexOf('/'))),
+          cellFilter: (text) {
+            if(text == null) return null;
+            return '...${text.substring(text.lastIndexOf('/'))}';
+          }),
       ColumnConfig(
           index: 11,
           name: "session_id",
@@ -358,7 +361,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips:
               'Start the process by loading the this file and then execute the rule process',
           isNumeric: false,
-          cellFilter: (text) => text?.substring(text.lastIndexOf('/'))),
+          cellFilter: (text) {
+            if(text == null) return null;
+            return '...${text.substring(text.lastIndexOf('/'))}';
+          }),
       ColumnConfig(
           index: 10,
           name: "session_id",
