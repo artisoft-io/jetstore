@@ -82,7 +82,10 @@ final inputRegistryColumns = [
       label: 'File Key',
       tooltips: 'File Key of the loaded file',
       isNumeric: false,
-      cellFilter: (text) => text?.substring(text.lastIndexOf('/'))),
+          cellFilter: (text) {
+            if(text == null) return null;
+            return '...${text.substring(text.lastIndexOf('/'))}';
+          }),
   ColumnConfig(
       index: 11,
       table: "input_registry",
