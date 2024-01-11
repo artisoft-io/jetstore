@@ -59,6 +59,9 @@ var devMode bool
 // the directives of config.json
 // NOTE 12/13/2023:
 // Exposing source_period_key as a substitution variable in the report scripts
+// NOTE 01/11/2024:
+// DO NOT USE jetsapi.session_registry FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET
+// The session_id is registered AFTER the report completion during the status_update task
 
 func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId string) (int, error) {
 	var sourcePeriodKey int
@@ -318,6 +321,9 @@ func main() {
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
 	fmt.Println("Process Input file_key:", fileKey)
+	fmt.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
+	fmt.Println("*** The session_id is registered AFTER the report completion during the status_update task")
+	fmt.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
 
 	// Extract file key components
 	keyMap := make(map[string]interface{})
