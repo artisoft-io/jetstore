@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -17,8 +18,17 @@ import (
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"go.uber.org/zap"
 )
-
+var logger *zap.Logger
+func init() {
+	// Create logger.
+	var err error
+	logger, err = zap.NewProduction()
+	if err != nil {
+		panic("failed to create logger: " + err.Error())
+	}
+}
 // The delegate that actually execute the report
 // Required Env variable:
 // JETS_DSN_SECRET
@@ -305,7 +315,7 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 	stmt = strings.ReplaceAll(stmt, "$FILE_KEY", ca.FileKey)
 	stmt = strings.ReplaceAll(stmt, "$SOURCE_PERIOD_KEY", ca.SourcePeriodKey)
 
-	fmt.Println("STMT: name:", name, "output file name:", s3FileName, "stmt:", stmt)
+	logger.Info("STMT", zap.String("name", name), zap.String("output file name", s3FileName), zap.String("stmt", stmt))
 
 	switch outputFormat {
 	case "parquet":
@@ -358,6 +368,12 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 					columns = append(columns, fmt.Sprintf("\"%s\"", columnName))
 				}
 				rows.Close()
+				fmt.Println("*** columns are",strings.Join(columns, ", "))
+				// sort.Strings(columns)
+				sort.Slice(columns, func(i, j int) bool {
+					return columns[i] < columns[j]
+				})
+				fmt.Println("*** now columns are",strings.Join(columns, ", "))
 				tableStmt = fmt.Sprintf("INSERT INTO public.\"%s\" (%s) (%s)", tableName, strings.Join(columns, ","), stmt)
 			} else {
 				// Create the table with the select stmt
