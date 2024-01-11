@@ -368,12 +368,10 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 					columns = append(columns, fmt.Sprintf("\"%s\"", columnName))
 				}
 				rows.Close()
-				fmt.Println("*** columns are",strings.Join(columns, ", "))
-				// sort.Strings(columns)
+				fmt.Println("*** SORTING columns for Report AS Table, make sure columns are sorted in query")
 				sort.Slice(columns, func(i, j int) bool {
 					return columns[i] < columns[j]
 				})
-				fmt.Println("*** now columns are",strings.Join(columns, ", "))
 				tableStmt = fmt.Sprintf("INSERT INTO public.\"%s\" (%s) (%s)", tableName, strings.Join(columns, ","), stmt)
 			} else {
 				// Create the table with the select stmt
