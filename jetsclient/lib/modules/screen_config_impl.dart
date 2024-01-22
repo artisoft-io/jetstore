@@ -21,7 +21,7 @@ final defaultMenuEntries = [
       routeParams: {FSK.ufStartAtKey: 'select_client'}),
   MenuEntry(
       key: 'sourceConfigUF',
-      label: 'Client Files',
+      label: 'File Configurations',
       routePath: ufSourceConfigPath,
       routeParams: {FSK.ufStartAtKey: 'select_source_config'}),
   MenuEntry(
@@ -53,7 +53,7 @@ final adminMenuEntries = [
       routeParams: {FSK.ufStartAtKey: 'select_client'}),
   MenuEntry(
       key: 'sourceConfigUF',
-      label: 'Client Files',
+      label: 'File Configurations',
       routePath: ufSourceConfigPath,
       routeParams: {FSK.ufStartAtKey: 'select_source_config'}),
   MenuEntry(
@@ -140,7 +140,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.sourceConfig: ScreenConfig(
       key: ScreenKeys.sourceConfig,
       appBarLabel: 'JetStore Workspace',
-      title: 'Client Files',
+      title: 'File Configurations',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
