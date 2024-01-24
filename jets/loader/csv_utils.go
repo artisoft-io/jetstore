@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/dimchansky/utfbom"
@@ -39,31 +38,6 @@ func getRawHeadersCsv(localInFile string) (*[]string, error) {
 	// Get field delimiters used in files and rawHeaders
 	var fileHd *os.File
 	var err error
-	if isPartFiles == 1 {
-		// Part Files case, pick one file to get the info from
-    f, err := os.Open(localInFile)
-    if err != nil {
-			return nil, fmt.Errorf("while reading temp directory %s content in getRawHeadersCsv: %v", localInFile, err)
-		}
-    files, err := f.Readdir(0)
-    if err != nil {
-			return nil, fmt.Errorf("while getting files in temp directory %s content in getRawHeadersCsv: %v", localInFile, err)
-    }
-		// Using the first non dir entry
-    for i := range files {
-			if !files[i].IsDir() {
-				fileHd, err = os.Open(filepath.Join(localInFile, files[i].Name()))
-				if err != nil {
-					return nil, fmt.Errorf("while opening temp file in getRawHeadersCsv: %v", err)
-				}
-				defer fileHd.Close()
-				// Get the delimit and headers from fileHd
-				return getRawHeadersFromCsvFile(fileHd)		
-			}
-    }
-		log.Printf("No files in temp directory %s", localInFile)
-		return &[]string{}, nil
-	}
 	fileHd, err = os.Open(localInFile)
 	if err != nil {
 		return nil, fmt.Errorf("while opening temp file %s to read headers: %v", localInFile, err)

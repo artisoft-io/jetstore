@@ -169,7 +169,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			// Multi Part File
 			if isPartFile == 1 {
 				size := fileKeyObject["size"].(int64)
-				if size == 0 || size > 1000 {
+				if size > 1000 {
 					log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
 					goto NextKey
 				} else {

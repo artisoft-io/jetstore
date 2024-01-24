@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -76,27 +77,48 @@ func InputEncodingFromString(ie string) InputEncoding {
 
 var inputFileEncoding InputEncoding
 
+type Copy2DbResult struct {
+	CopyCount   int64
+	BadRowCount int64
+	err         error
+}
+
 // processFile
 // --------------------------------------------------------------------------------------
-func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, copyCount int64, badRowCount int64, err error) {
+func processFile(dbpool *pgxpool.Pool, done chan struct{},	headersFileCh, fileNamesCh <-chan string, 
+		errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, copy2DbResultCh chan Copy2DbResult) {
+	copy2DbResultCh = make(chan Copy2DbResult, 1)
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("recovered error: %v", r)
+			copy2DbResultCh <- Copy2DbResult{err :fmt.Errorf("recovered error: %v", r)}
 			debug.PrintStack()
+			close(done)
 		}
 	}()
 	var rawHeaders *[]string
+	var headersFile string
 	var fixedWidthColumnPrefix string
+	var err error
 
 	// Setup a writer for error file (bad records)
 	badRowsWriter := bufio.NewWriter(errFileHd)
 	defer badRowsWriter.Flush()
 
+	// Get the file name to get the headers from
+	select {
+	case headersFile = <-headersFileCh:
+		log.Printf("Reading headers from file %s", headersFile)
+	case <-time.After(5 * time.Second):
+		err = fmt.Errorf("unable to get the header file name")
+		goto gotError
+	}
+
 	switch inputFileEncoding {
 	case Csv, HeaderlessCsv:
-		rawHeaders, err = getRawHeadersCsv(localInFile)
+		rawHeaders, err = getRawHeadersCsv(headersFile)
 		if err != nil {
-			return nil, 0, 0, err
+			err = fmt.Errorf("while getting csv headers: %v", err)
+			goto gotError
 		}
 
 		// Write raw header to error file
@@ -104,47 +126,53 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 			if i > 0 {
 				_, err = badRowsWriter.WriteRune(rune(sep_flag))
 				if err != nil {
-					return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
+					err = fmt.Errorf("while writing csv headers to err file: %v", err)
+					goto gotError
 				}
 			}
 			_, err = badRowsWriter.WriteString((*rawHeaders)[i])
 			if err != nil {
-				return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
+				err = fmt.Errorf("while writing csv headers to err file: %v", err)
+				goto gotError
 			}
 		}
 		_, err = badRowsWriter.WriteRune('\n')
 		if err != nil {
-			return nil, 0, 0, fmt.Errorf("while writing csv headers to err file: %v", err)
-		}
+			err = fmt.Errorf("while writing csv headers to err file (2): %v", err)
+			goto gotError
+	}
 
 	case FixedWidth:
 		// Get the headers from the header spec (input_columns_positions_csv)
 		rawHeaders, fixedWidthColumnPrefix, err = getFixedWidthFileHeaders()
 		if err != nil {
-			return nil, 0, 0, err
+			goto gotError
 		}
 		fmt.Println("Input columns (rawHeaders) for fixed-width schema:", rawHeaders)
 
 	case Parquet:
 		// Get the file headers from the parquet schema
-		rawHeaders, err = getRawHeadersParquet(localInFile)
+		rawHeaders, err = getRawHeadersParquet(headersFile)
 		if err != nil {
-			return nil, 0, 0, fmt.Errorf("while reading parquet headers: %v", err)
+			err = fmt.Errorf("while reading parquet headers: %v", err)
+			goto gotError
 		}
 
 	case ParquetSelect:
 		//* TODO ParquetSelect is not implemented
-		return nil, 0, 0, fmt.Errorf("error: parquet_select file format is not implemented")
+		err = fmt.Errorf("error: parquet_select file format is not implemented")
+		goto gotError
 
 	case Xlsx, HeaderlessXlsx:
 		// Parse the file type specific options
 		err = parseInputFormatDataXlsx(&inputFormatDataJson)
 		if err != nil {
-			return nil, 0, 0, fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
+			err = fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
+			goto gotError
 		}
-		rawHeaders, err = getRawHeadersXlsx(localInFile)
+		rawHeaders, err = getRawHeadersXlsx(headersFile)
 		if err != nil {
-			return nil, 0, 0, err
+			goto gotError
 		}
 	}
 
@@ -152,12 +180,14 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 	// ---------------------------------------
 	headersDKInfo, err = schema.NewHeadersAndDomainKeysInfo(tableName)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
+		err = fmt.Errorf("while calling NewHeadersAndDomainKeysInfo: %v", err)
+		goto gotError
 	}
 
 	err = headersDKInfo.InitializeStagingTable(rawHeaders, *objectType, &domainKeysJson, fixedWidthColumnPrefix)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("while calling InitializeStagingTable: %v", err)
+		err = fmt.Errorf("while calling InitializeStagingTable: %v", err)
+		goto gotError
 	}
 
 	if jetsDebug >= 2 {
@@ -167,38 +197,54 @@ func processFile(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (
 
 	// prepare staging table
 	err = prepareStagingTable(dbpool, headersDKInfo, tableName)
+	if err != nil {
+		goto gotError
+	}
 
 	// read the rest of the file(s)
 	// ---------------------------------------
-	copyCount, badRowCount, err = loadFiles(dbpool, headersDKInfo, localInFile, badRowsWriter)
-	if err != nil {
-		return nil, 0, 0, err
-	}
+	loadFiles(dbpool, headersDKInfo, done, fileNamesCh, copy2DbResultCh, badRowsWriter)
 
-	// Remove all files if isPartFile
-	if isPartFiles == 1 {
-		os.RemoveAll(localInFile)
-	}
+	// All good!
+	return 
 
-	log.Println("Inserted", copyCount, "rows in database!")
+	gotError:
+	copy2DbResultCh <- Copy2DbResult{err: err}
+	close(done)
+	return
 
-	return headersDKInfo, copyCount, badRowCount, nil
 }
 
 // processFileAndReportStatus is a wrapper around processFile to report error
-func processFileAndReportStatus(dbpool *pgxpool.Pool, localInFile string, errFileHd *os.File) (bool, error) {
+func processFileAndReportStatus(dbpool *pgxpool.Pool, 
+	done chan struct{},	headersFileCh, fileNamesCh <-chan string, 
+	resultsCh <-chan DownloadS3Result, inFolderPath string, errFileHd *os.File) (bool, error) {
 
-	headersDKInfo, copyCount, badRowCount, err := processFile(dbpool, localInFile, errFileHd)
+	headersDKInfo, copy2DbResultCh := processFile(dbpool, done, headersFileCh, fileNamesCh, errFileHd)
+	downloadResult := <- resultsCh
+	copy2DbResult := <- copy2DbResultCh
+
+	log.Println("Downloaded", downloadResult.InputFilesCount,"files from s3")
+	log.Println("Inserted", copy2DbResult.CopyCount, "rows in database with", copy2DbResult.BadRowCount,"bad rows")
+	err := downloadResult.err
+	if err == nil {
+		err = copy2DbResult.err
+	}
+	if downloadResult.err != nil {
+		processingErrors = append(processingErrors, downloadResult.err.Error())
+	} 
+	if copy2DbResult.err != nil {
+		processingErrors = append(processingErrors, copy2DbResult.err.Error())
+	}
 
 	// registering the load
 	// ---------------------------------------
 	status := "completed"
-	if badRowCount > 0 || err != nil {
+	if copy2DbResult.BadRowCount > 0 || err != nil {
 		status = "errors"
-		processingErrors = append(processingErrors, fmt.Sprintf("File contains %d bad rows", badRowCount))
+		processingErrors = append(processingErrors, fmt.Sprintf("File contains %d bad rows", copy2DbResult.BadRowCount))
 		if err != nil {
 			status = "failed"
-			processingErrors = append(processingErrors, err.Error())
 			err = nil
 		}
 	}
@@ -228,12 +274,12 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool, localInFile string, errFil
 		awsi.LogMetric(*failedMetric, dimentions, 1)
 	}
 
-	err = registerCurrentLoad(copyCount, badRowCount, dbpool, headersDKInfo, status, errMessage)
+	err = registerCurrentLoad(copy2DbResult.CopyCount, copy2DbResult.BadRowCount, dbpool, headersDKInfo, status, errMessage)
 	if err != nil {
 		return false, fmt.Errorf("error while registering the load: %v", err)
 	}
 
-	return badRowCount > 0, err
+	return copy2DbResult.BadRowCount > 0, err
 }
 
 func coordinateWork() error {
@@ -311,12 +357,16 @@ func coordinateWork() error {
 	}
 
 	log.Printf("Input file encoding (format) is: %s", inputFileEncoding.String())
-
-	localInFile, err := downloadS3Files()
-	if err != nil {
-		return fmt.Errorf("failed to download input file(s): %v", err)
-	}
-	defer os.Remove(localInFile)
+	// Start the download of file(s) from s3 and upload to db, coordinated using channel
+	done := make(chan struct{})
+	defer func() {
+		select {
+		case <-done:
+			// done chan is already closed due to error
+		default:
+			close(done)
+		}
+	}()
 
 	// Open the error file
 	var errFileHd *os.File
@@ -327,8 +377,14 @@ func coordinateWork() error {
 	// fmt.Println("Temp error file name:", errFileHd.Name())
 	defer os.Remove(errFileHd.Name())
 
-	// Process the downloaded file
-	hasBadRows, err := processFileAndReportStatus(dbpool, localInFile, errFileHd)
+	headersFileCh, fileNamesCh, resultsCh, inFolderPath, err := downloadS3Files(done)
+	if err != nil {
+		return fmt.Errorf("failed to setup the download of input file(s): %v", err)
+	}
+	defer os.Remove(inFolderPath)
+
+	// Process the downloaded file(s)
+	hasBadRows, err := processFileAndReportStatus(dbpool, done, headersFileCh, fileNamesCh, resultsCh, inFolderPath, errFileHd)
 	if err != nil {
 		return err
 	}
