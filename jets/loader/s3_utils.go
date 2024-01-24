@@ -8,37 +8,98 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
-// Utilities to dowmload & upload to s3
+// Utilities to dowmload from s3
 
-func downloadS3Files() (string, error) {
-	var inFilePath string
+type DownloadS3Result struct {
+	InputFilesCount int
+	err             error
+}
+
+// Input arg:
+// done: unbuffered channel to indicate to stop downloading file (must be an error downstream)
+// Returned values:
+// headersFileCh: channel having the first file name to get headers from
+// fileNamesCh: unbuffered channel having all file names (incl header file), one at a time
+// resultsCh: channel indicating the downoader results (nbr of files downloaded or error)
+// inFolderPath: temp folder containing the downloaded files
+// error when setting up the downloader
+func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan DownloadS3Result, string, error) {
+	var inFolderPath string
 	var err error
-	if isPartFiles == 1 {
-		log.Printf("Downloading multi-part file from s3 folder: %s", *inFile)
-		s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
-		if err != nil || s3Objects == nil || len(s3Objects) == 0 {
-			return "", fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
-		}
+	headersFileCh := make(chan string, 1)
+	fileNamesCh := make(chan string)
+	resultsCh := make(chan DownloadS3Result, 1)
 
-		// Create a local temp directory to hold the files
-		inFilePath, err = os.MkdirTemp("", "jetstore")
-		if err != nil {
-			return "", fmt.Errorf("failed to create local temp directory: %v", err)
-		}
-		for i := range s3Objects {
-			_, err = downloadS3Object(s3Objects[i].Key, inFilePath, 1000) 
-			if err != nil {
-				return "", fmt.Errorf("failed to download s3 file %s: %v", s3Objects[i].Key, err)
-			}
-		}
-	} else {
-		// Download single file using a download manager to a temp file (fileHd)
-		inFilePath, err = downloadS3Object(*inFile, "", 0) 
-		if err != nil {
-			return "", fmt.Errorf("failed to download input file: %v", err)
-		}
+	// Create a local temp directory to hold the file(s)
+	inFolderPath, err = os.MkdirTemp("", "jetstore")
+	if err != nil {
+		return nil, nil, nil, "", fmt.Errorf("failed to create local temp directory: %v", err)
 	}
-	return inFilePath, nil
+
+	go func() {
+		defer close(fileNamesCh)
+		var inFilePath string
+
+		if isPartFiles == 1 {
+			log.Printf("Downloading multi-part file from s3 folder: %s", *inFile)
+			s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
+			if err != nil || s3Objects == nil || len(s3Objects) == 0 {
+				resultsCh <- DownloadS3Result{
+					err: fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err),
+				}
+				return
+			}	
+			gotHeaders := false
+			for i := range s3Objects {
+				inFilePath, err = downloadS3Object(s3Objects[i].Key, inFolderPath, 1000) 
+				if err != nil {
+					resultsCh <- DownloadS3Result{
+						InputFilesCount: i,
+						err: fmt.Errorf("failed to download s3 file %s: %v", s3Objects[i].Key, err),
+					}
+					return
+				}
+				if len(inFilePath) > 0 {
+					if !gotHeaders {
+						headersFileCh <- inFilePath
+						gotHeaders = true
+					}
+					select {
+					case fileNamesCh <- inFilePath:
+					case <-done:
+						resultsCh <- DownloadS3Result{InputFilesCount: i+1}
+						return
+					}
+				}
+			}
+			resultsCh <- DownloadS3Result{InputFilesCount: len(s3Objects)}
+		} else {
+			// Download single file using a download manager to a temp file (fileHd)
+			inFilePath, err = downloadS3Object(*inFile, inFolderPath, 0) 
+			switch {
+			case err != nil:
+				resultsCh <- DownloadS3Result{err: fmt.Errorf("while downloading single file from s3: %v", err)}
+				return
+			case inFilePath == "":
+				resultsCh <- DownloadS3Result{err: fmt.Errorf("error: got sentinel file from s3: %s", *inFile)}
+				return
+			}
+			if err != nil || inFilePath == "" {
+				resultsCh <- DownloadS3Result{err: fmt.Errorf("while downloading single file from s3: %v", err)}
+				return
+			}
+			headersFileCh <- inFilePath
+			select {
+			case fileNamesCh <- inFilePath:
+			case <-done:
+				resultsCh <- DownloadS3Result{}
+				return
+			}
+			resultsCh <- DownloadS3Result{InputFilesCount: 1}
+		}	
+	}()
+
+	return headersFileCh, fileNamesCh, resultsCh, inFolderPath, nil
 }
 
 func downloadS3Object(s3Key, localDir string, minSize int64) (string, error) {
@@ -59,11 +120,12 @@ func downloadS3Object(s3Key, localDir string, minSize int64) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to download input file: %v", err)
 	}
-	log.Println("downloaded", nsz, "bytes from s3")	
+	log.Println("downloaded", nsz, "bytes for key",s3Key)	
 	if minSize > 0 && nsz < minSize {
 		log.Printf("Ignoring sentinel file %s", s3Key)
 		fileHd.Close()
 		os.Remove(inFilePath)
+		return "", nil
 	}
 	return inFilePath, nil
 }
