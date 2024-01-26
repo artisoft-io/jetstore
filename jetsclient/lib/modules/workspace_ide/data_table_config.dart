@@ -40,10 +40,10 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: true,
           isEnabledWhenHavingSelectedRows: true,
           actionEnableCriterias: [[
-            ActionEnableCriteria(
-                columnPos: 6,
-                criteriaType: DataTableActionEnableCriteria.doesNotContain,
-                value: 'removed'),
+            // ActionEnableCriteria(
+            //     columnPos: 6,
+            //     criteriaType: DataTableActionEnableCriteria.doesNotContain,
+            //     value: 'removed'),
             ActionEnableCriteria(
                 columnPos: 6,
                 criteriaType: DataTableActionEnableCriteria.doesNotContain,
