@@ -232,6 +232,13 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSe
 		Open: jsii.Bool(true),
 	})), awsec2.Port_AllTraffic(), jsii.String("allow access to secret manager"))
 
+	// Add code commit endpoint
+	securityGroup4EcsTask.Connections().AllowTo(addTag2Endpoint(vpc.AddInterfaceEndpoint(jsii.String(prefix+"CodeCommitEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_CODECOMMIT_GIT(),
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to code commit git"))
+
 	// Add Step Functions endpoint
 	securityGroup4EcsTask.Connections().AllowTo(addTag2Endpoint(vpc.AddInterfaceEndpoint(jsii.String(prefix+"StatesSynchEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
 		Service: awsec2.InterfaceVpcEndpointAwsService_STEP_FUNCTIONS_SYNC(),
