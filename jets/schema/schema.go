@@ -183,6 +183,10 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 		}
 	}
 	if tableExists {
+		if tableDefinition.TableName == "workspace_changes" {
+			log.Println("SKIPING table workspace_changes to prevent locking - must be updated at deployment time via deploy scripts")
+			return nil
+		}
 		existingSchema, err := GetTableSchema(dbpool, tableDefinition.SchemaName, tableDefinition.TableName)
 		if err != nil {
 			return fmt.Errorf("while UpdateTableSchema getting exisiting table schema for table %s: %w", tableDefinition.TableName, err)
