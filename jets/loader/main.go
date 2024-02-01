@@ -221,7 +221,7 @@ func main() {
 	fmt.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	if devMode {
 		fmt.Println("Running in DEV MODE")
-		fmt.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
+		fmt.Println("Nbr Shards in DEV MODE: nbrShards", *nbrShards)
 	}
 	jetsDebug, _ = strconv.Atoi(os.Getenv("JETS_LOG_DEBUG"))
 
