@@ -169,7 +169,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			// Multi Part File
 			if isPartFile == 1 {
 				size := fileKeyObject["size"].(int64)
-				if size == 0 || size > 1000 {
+				if size > 1000 {
 					log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
 					goto NextKey
 				} else {
@@ -577,11 +577,12 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 
 		// Get details of the pipeline_config that are ready to execute to make entries in pipeline_execution_status
 		payload := make([]map[string]interface{}, 0)
-		for _, pcKey := range *pipelineConfigKeys {
+		baseSessionId := time.Now().UnixMilli()
+		for i, pcKey := range *pipelineConfigKeys {
 			data := map[string]interface{}{
 				"pipeline_config_key":   strconv.Itoa(pcKey),
 				"input_session_id":      nil,
-				"session_id":            strconv.FormatInt(time.Now().UnixMilli(), 10),
+				"session_id":            strconv.FormatInt(baseSessionId + int64(i), 10),
 				"source_period_key":     sourcePeriodKey,
 				"status":                "submitted",
 				"user_email":            "system",

@@ -3,9 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/thedatashed/xlsxreader"
@@ -25,27 +22,6 @@ func parseInputFormatDataXlsx(inputDataFormatJson *string) error {
 
 func getRawHeadersXlsx(localInFile string) (*[]string, error) {
 	// Get rawHeaders from file or json
-	if isPartFiles == 1 {
-		// Part Files case, pick one file to get the info from
-    f, err := os.Open(localInFile)
-    if err != nil {
-			return nil, fmt.Errorf("while reading temp directory %s content in getRawHeadersXlsx: %v", localInFile, err)
-		}
-    files, err := f.Readdir(0)
-    if err != nil {
-			return nil, fmt.Errorf("while getting files in temp directory %s content in getRawHeadersXlsx: %v", localInFile, err)
-    }
-		// Using the first non dir entry
-    for i := range files {
-			if !files[i].IsDir() {
-				// Get the headers from fileHd
-				return getRawHeadersFromXlsxFile(filepath.Join(localInFile, files[i].Name()))		
-			}
-    }
-		log.Printf("No files in temp directory %s", localInFile)
-		return &[]string{}, nil
-	}
-	// Get the headers from fileHd
 	return getRawHeadersFromXlsxFile(localInFile)
 }
 

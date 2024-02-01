@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -27,42 +26,23 @@ import (
 // Load single or directory of part files to JetStore
 
 
-func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, localInFile string, badRowsWriter *bufio.Writer) (int64, int64, error) {
+// func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, localInFile string, badRowsWriter *bufio.Writer) (int64, int64, error) {
+func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
+	fileNamesCh <-chan string, copy2DbResultCh chan<- Copy2DbResult, badRowsWriter *bufio.Writer) {
 
-	if isPartFiles == 1 {
-		// Part Files case, load all files
-    f, err := os.Open(localInFile)
-    if err != nil {
-			return 0, 0, fmt.Errorf("while reading temp directory '%s' content in loadFiles: %v", localInFile, err)
+	var totalRowCount, badRowCount int64
+	for localInFile := range fileNamesCh {
+		log.Printf("Loading file '%s'", localInFile)
+		count, badCount, err := loadFile2DB(dbpool, headersDKInfo, &localInFile, badRowsWriter)
+		if err != nil {
+			copy2DbResultCh <- Copy2DbResult{CopyCount: totalRowCount, BadRowCount: badRowCount, err: err}
+			close(done)
+			return
 		}
-    files, err := f.Readdir(0)
-    if err != nil {
-			return 0, 0, fmt.Errorf("while getting files in temp directory '%s' in loadFiles: %v", localInFile, err)
-    }
-		// Using the non dir entries
-		filePaths := make([]string, 0)
-    for i := range files {
-			if !files[i].IsDir() {
-				filePaths = append(filePaths, filepath.Join(localInFile, files[i].Name()))
-			}
-    }
-		log.Printf("Loading %d files from %s", len(filePaths), localInFile)
-		//* TODO Paralellize reading files
-		var totalRowCount, badRowCount int64
-		for i := range filePaths {
-			log.Printf("Loading part file '%s'", filePaths[i])
-			count, badCount, err := loadFile2DB(dbpool, headersDKInfo, &filePaths[i], badRowsWriter)
-			if err != nil {
-				return 0, 0, fmt.Errorf("while calling loadFile2DB (loadFiles): %v", err)
-			}
-			totalRowCount += count
-			badRowCount += badCount
-		}
-		return totalRowCount, badRowCount, nil
+		totalRowCount += count
+		badRowCount += badCount
 	}
-	// Loading single file
-	log.Printf("Loading single file '%s'", localInFile)
-	return loadFile2DB(dbpool, headersDKInfo, &localInFile, badRowsWriter)
+	copy2DbResultCh <- Copy2DbResult{CopyCount: totalRowCount, BadRowCount: badRowCount}
 }
 
 
@@ -84,7 +64,11 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 	if err != nil {
 		return 0, 0, fmt.Errorf("while opening file %s using xlsx reader: %v", *filePath, err)
 	}
-	defer xl.Close()
+	defer func() {
+		xl.Close()
+		os.Remove(*filePath)
+	}()
+
 	currentSheetPos = inputFormatData["currentSheetPos"].(int)
 	xlCh = xl.ReadRows(xl.Sheets[currentSheetPos])
 	if inputFileEncoding == Xlsx {
@@ -108,8 +92,11 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 		if err != nil {
 			return 0, 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", *filePath, err)
 		}
-		defer fileHd.Close()
-
+		defer func() {
+			fileHd.Close()
+			os.Remove(*filePath)
+		}()
+	
 		switch inputFileEncoding {
 		case Csv, HeaderlessCsv:
 			// Remove the Byte Order Mark (BOM) at beggining of the file if present
@@ -292,11 +279,11 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 				// expected exit route
 				// ---------------------------------------------------
 				// Copy the bad rows from input file into the error file
-				// Case csv or HeaderlessCsv
+				// Case csv or HeaderlessCsv and single file load
 				var badRowCount int64
 				if inputFileEncoding == Csv || inputFileEncoding == HeaderlessCsv {
 					badRowCount = int64(len(badRowsPos))
-					if badRowCount > 0 {
+					if badRowCount > 0 && isPartFiles != 1 {
 						err = copyBadRowsToErrorFile(&badRowsPos, fileHd, badRowsWriter)
 						if err != nil {
 							log.Printf("Error while writing bad rows to error file (ignored): %v", err)

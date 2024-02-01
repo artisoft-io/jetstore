@@ -79,8 +79,8 @@ func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, er
 		m["host"] = "localhost"
 		fmt.Println("LOCAL TESTING using ssh tunnel (expecting ssh tunnel open)")
 	}
-	if poolSize < 5 {
-		poolSize = 5
+	if poolSize < 10 {
+		poolSize = 10
 	}
 	dsn := fmt.Sprintf("postgresql://%s:%s@%s:%.0f/postgres?pool_max_conns=%d", 
 		m["username"].(string), 

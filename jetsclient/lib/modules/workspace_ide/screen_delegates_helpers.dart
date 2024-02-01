@@ -107,12 +107,12 @@ List<MenuEntry> mapMenuEntry(List<dynamic> data) {
     }
     return MenuEntry(
       key: pageMatchKey ?? '',
-      label: e!["label"] ?? '',
+      label: '${e!["label"] ?? ''} (${size/1000}Kb)',
       routePath:
-          size < 120000 ? (routePath.isNotEmpty ? routePath : null) : null,
+          size < 250000 ? (routePath.isNotEmpty ? routePath : null) : null,
       pageMatchKey: pageMatchKey,
       routeParams: e!["route_params"],
-      menuAction: size < 120000 ? initializeWorkspaceFileEditor : null,
+      menuAction: size < 250000 ? initializeWorkspaceFileEditor : null,
       formConfigKey: formConfigKey,
       onPageStyle: onPageStyle,
       otherPageStyle: otherPageStyle,
