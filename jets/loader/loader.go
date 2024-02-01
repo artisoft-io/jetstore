@@ -108,7 +108,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{},	headersFileCh, fileNa
 	select {
 	case headersFile = <-headersFileCh:
 		log.Printf("Reading headers from file %s", headersFile)
-	case <-time.After(5 * time.Second):
+	case <-time.After(5 * time.Minute):
 		err = fmt.Errorf("unable to get the header file name")
 		goto gotError
 	}
