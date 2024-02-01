@@ -577,11 +577,12 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 
 		// Get details of the pipeline_config that are ready to execute to make entries in pipeline_execution_status
 		payload := make([]map[string]interface{}, 0)
-		for _, pcKey := range *pipelineConfigKeys {
+		baseSessionId := time.Now().UnixMilli()
+		for i, pcKey := range *pipelineConfigKeys {
 			data := map[string]interface{}{
 				"pipeline_config_key":   strconv.Itoa(pcKey),
 				"input_session_id":      nil,
-				"session_id":            strconv.FormatInt(time.Now().UnixMilli(), 10),
+				"session_id":            strconv.FormatInt(baseSessionId + int64(i), 10),
 				"source_period_key":     sourcePeriodKey,
 				"status":                "submitted",
 				"user_email":            "system",
