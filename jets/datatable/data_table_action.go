@@ -578,9 +578,9 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 		case "raw_rows/process_mapping":
 			// Put the table name in each row
 			var tableName string
-			client := dataTableAction.Data[0]["client"]
-			org := dataTableAction.Data[0]["org"]
-			objectType := dataTableAction.Data[0]["object_type"]
+			client := dataTableAction.Data[irow]["client"]
+			org := dataTableAction.Data[irow]["org"]
+			objectType := dataTableAction.Data[irow]["object_type"]
 			if client != nil && objectType != nil {
 				if org == nil || org == "" {
 					tableName = fmt.Sprintf("%s_%s", client, objectType)
@@ -594,7 +594,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 				}
 			}
 			if tableName == "" {
-				tableName = dataTableAction.Data[0]["table_name"].(string)
+				tableName = dataTableAction.Data[irow]["table_name"].(string)
 			}
 			// Remove existing rows in database
 			stmt := `DELETE FROM jetsapi.process_mapping 
@@ -903,30 +903,30 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 		}
 	case "pipeline_execution_status", "short/pipeline_execution_status":
-		// Need to get:
-		//	- DevMode: run_report_only, run_server_only, run_server_reports
-		//  - State Machine URI: serverSM, or reportsSM
-		// from process_config table
-		// ----------------------------
-		var devModeCode, stateMachineName string
-		processName := dataTableAction.Data[0]["process_name"]
-		if processName == nil {
-			httpStatus = http.StatusBadRequest
-			err = errors.New("missing column process_name in request")
-			return
-		}
-		// devModeCode, stateMachineName, err = getDevModeCode(ctx.Dbpool, processName.(string))
-		stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, processName).Scan(&devModeCode, &stateMachineName)
-		if err != nil {
-			httpStatus = http.StatusInternalServerError
-			err = fmt.Errorf("while getting devModeCode, stateMachineName from process_config WHERE process_name = '%v': %v", processName, err)
-			return
-		}
-
 		// Run the server -- prepare the command line arguments
 		row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
 		for irow := range dataTableAction.Data {
+			// Need to get:
+			//	- DevMode: run_report_only, run_server_only, run_server_reports
+			//  - State Machine URI: serverSM, or reportsSM
+			// from process_config table
+			// ----------------------------
+			var devModeCode, stateMachineName string
+			processName := dataTableAction.Data[irow]["process_name"]
+			if processName == nil {
+				httpStatus = http.StatusBadRequest
+				err = errors.New("missing column process_name in request")
+				return
+			}
+			// devModeCode, stateMachineName, err = getDevModeCode(ctx.Dbpool, processName.(string))
+			stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, processName).Scan(&devModeCode, &stateMachineName)
+			if err != nil {
+				httpStatus = http.StatusInternalServerError
+				err = fmt.Errorf("while getting devModeCode, stateMachineName from process_config WHERE process_name = '%v': %v", processName, err)
+				return
+			}
+
 			// returnedKey is the key of the row inserted in the db, here it correspond to peKey
 			if returnedKey[irow] <= 0 {
 				log.Printf(
