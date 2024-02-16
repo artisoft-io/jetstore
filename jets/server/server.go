@@ -66,7 +66,6 @@ var nodeId = flag.Int("nodeId", 0, "DB node id associated to this processing nod
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
 var outTables = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
 var shardId = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
-var doNotLockSessionId = flag.Bool("doNotLockSessionId", false, "Do NOT lock sessionId on sucessful completion (default is to lock the sessionId and register Domain Table output on successful completion")
 var userEmail = flag.String("userEmail", "", "User identifier to register the execution results (required)")
 var completedMetric = flag.String("serverCompletedMetric", "serverCompleted", "Metric name to register the server execution successfull completion (default: serverCompleted)")
 var failedMetric = flag.String("serverFailedMetric", "serverFailed", "Metric name to register the server execution failure (default: serverFailed)")
@@ -204,9 +203,6 @@ func doJobAndReportStatus() error {
 	log.Printf("ENV JETSTORE_DEV_MODE: %s\n", os.Getenv("JETSTORE_DEV_MODE"))
 	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
-	if *doNotLockSessionId {
-		log.Printf("The sessionId will not be locked and output table will not be registered to input_registry.")
-	}
 	dsn := dsnSplit[*nodeId%nbrDbNodes]
 	dbpool, err := pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
@@ -237,7 +233,7 @@ func doJobAndReportStatus() error {
 	if err != nil {
 		pipelineResult.Status = "failed"
 		errMessage = err.Error()
-		err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId, errMessage)
+		err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, errMessage)
 		if err2 != nil {
 			log.Printf("error while writing pipeline status: %v", err2)
 		}
@@ -256,7 +252,7 @@ func doJobAndReportStatus() error {
 	if errCount > 0 {
 		pipelineResult.Status = "errors"
 	}
-	err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, *doNotLockSessionId, errMessage)
+	err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, *pipelineExecKey, *shardId, errMessage)
 	if err2 != nil {
 		log.Printf("error while writing pipeline status: %v", err2)
 	}

@@ -1,4 +1,4 @@
-package delegate
+package datatable
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -23,12 +22,17 @@ import (
 // JETS_DSN_JSON_VALUE
 // JETS_s3_INPUT_PREFIX
 
-type CommandArguments struct {
+// Status Update command line arguments
+// When used as a delegate from apiserver Dbpool is non nil
+// and then the connection properties (AwsDsnSecret, DbPoolSize, UsingSshTunnel, AwsRegion)
+// are not needed.
+type StatusUpdate struct {
 	AwsDsnSecret string
 	DbPoolSize int
 	UsingSshTunnel bool
 	AwsRegion string
 	Dsn string
+	Dbpool *pgxpool.Pool
 	PeKey int
 	Status	string
 	FailureDetails string
@@ -75,7 +79,7 @@ func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string,
 
 // Package Main Functions
 // --------------------------------------------------------------------------------------
-func (ca *CommandArguments) ValidateArguments() []string {
+func (ca *StatusUpdate) ValidateArguments() []string {
 	var errMsg []string
 	if ca.Status == "" {
 		errMsg = append(errMsg, "Status must be provided (-status).")
@@ -83,7 +87,7 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	if ca.PeKey < 0 {
 		errMsg = append(errMsg, "Pipeline Execution Status key must be provided (-peKey).")
 	}
-	if ca.Dsn == "" && ca.AwsDsnSecret == "" {
+	if ca.Dsn == "" && ca.AwsDsnSecret == "" && ca.Dbpool == nil {
 		ca.Dsn = os.Getenv("JETS_DSN_URI_VALUE")
 		if ca.Dsn == "" {
 			var err error
@@ -123,48 +127,56 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	return errMsg
 }
 
-func (ca *CommandArguments) CoordinateWork() error {
-	// open db connection
+func (ca *StatusUpdate) CoordinateWork() error {
+	// open db connection, if not already opened
 	var err error
-	if ca.AwsDsnSecret != "" {
-		// Get the dsn from the aws secret
-		ca.Dsn, err = awsi.GetDsnFromSecret(ca.AwsDsnSecret, ca.UsingSshTunnel, ca.DbPoolSize)
-		if err != nil {
-			return fmt.Errorf("while getting dsn from aws secret: %v", err)
+	if ca.Dbpool == nil {
+		if ca.AwsDsnSecret != "" {
+			// Get the dsn from the aws secret
+			ca.Dsn, err = awsi.GetDsnFromSecret(ca.AwsDsnSecret, ca.UsingSshTunnel, ca.DbPoolSize)
+			if err != nil {
+				return fmt.Errorf("while getting dsn from aws secret: %v", err)
+			}
 		}
+		ca.Dbpool, err = pgxpool.Connect(context.Background(), ca.Dsn)
+		if err != nil {
+			return fmt.Errorf("while opening db connection: %v", err)
+		}
+		defer func() {
+			ca.Dbpool.Close()
+			ca.Dbpool = nil
+		}()	
 	}
-	dbpool, err := pgxpool.Connect(context.Background(), ca.Dsn)
-	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
-	}
-	defer dbpool.Close()
 
 	// Update the pipeline_execution_status based on worst case status
 	switch {
 	case ca.Status == "failed":
-		err = updateStatus(dbpool, ca.PeKey, "failed", &ca.FailureDetails)
+		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", &ca.FailureDetails)
 
-	case getStatusCount(dbpool, ca.PeKey, "failed") > 0:
-		err = updateStatus(dbpool, ca.PeKey, "failed", &ca.FailureDetails)
+	case getStatusCount(ca.Dbpool, ca.PeKey, "failed") > 0:
+		ca.Status = "recovered"
+		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", &ca.FailureDetails)
 
-	case getStatusCount(dbpool, ca.PeKey, "errors") > 0:
-		err = updateStatus(dbpool, ca.PeKey, "errors", nil)
+	case getStatusCount(ca.Dbpool, ca.PeKey, "errors") > 0:
+		err = updateStatus(ca.Dbpool, ca.PeKey, "errors", nil)
 
 	default:
-		err = updateStatus(dbpool, ca.PeKey, "completed", nil)
+		err = updateStatus(ca.Dbpool, ca.PeKey, "completed", nil)
 	}
 	if err != nil {
 		return fmt.Errorf("while updating process execution status: %v", err)
 	}
 	// Register out tables
-	err = datatable.RegisterDomainTables(dbpool, ca.PeKey)
-	if err != nil {
-		return fmt.Errorf("while registrying out tables to input_registry: %v", err)
+	if ca.Status != "failed" {
+		err = RegisterDomainTables(ca.Dbpool, ca.PeKey)
+		if err != nil {
+			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
+		}
 	}
 
 	// Lock the session
-	client, sessionId, sourcePeriodKey := getPeInfo(dbpool, ca.PeKey)
-	err = schema.RegisterSession(dbpool, "domain_table", client, sessionId, sourcePeriodKey)
+	client, sessionId, sourcePeriodKey := getPeInfo(ca.Dbpool, ca.PeKey)
+	err = schema.RegisterSession(ca.Dbpool, "domain_table", client, sessionId, sourcePeriodKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)
 	}	

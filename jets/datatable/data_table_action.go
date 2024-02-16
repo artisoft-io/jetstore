@@ -978,10 +978,16 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			// Call server synchronously
 			case ctx.DevMode:
 				var buf strings.Builder
+				peKeyInt, _ := strconv.Atoi(peKey)
+				ca := StatusUpdate{
+					Status: "completed",
+					Dbpool: ctx.Dbpool,
+					PeKey: peKeyInt,
+				}
 				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
-					for shardId := 0; shardId < ctx.NbrShards; shardId++ {
+					for shardId := 0; shardId < ctx.NbrShards && err == nil; shardId++ {
 						serverArgs := []string{
 							"-peKey", peKey,
 							"-userEmail", userEmail.(string),
@@ -999,9 +1005,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						if ctx.UsingSshTunnel {
 							serverArgs = append(serverArgs, "-usingSshTunnel")
 						}
-						if shardId < ctx.NbrShards-1 {
-							serverArgs = append(serverArgs, "-doNotLockSessionId")
-						}
 						log.Printf("Run server: %s", serverArgs)
 						cmd := exec.Command("/usr/local/bin/server", serverArgs...)
 						cmd.Env = append(os.Environ(),
@@ -1012,20 +1015,25 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						cmd.Stderr = &buf
 						log.Printf("Executing server command '%v'", serverArgs)
 						err = cmd.Run()
-						if err != nil {
-							log.Printf("while executing server command '%v': %v", serverArgs, err)
-							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-							log.Println("SERVER CAPTURED OUTPUT BEGIN")
-							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-							(*results)["log"] = buf.String()
-							log.Println((*results)["log"])
-							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-							log.Println("SERVER CAPTURED OUTPUT END")
-							log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-							httpStatus = http.StatusInternalServerError
-							err = errors.New("error while running server command")
-							return
-						}
+					}
+					if err != nil {
+						log.Printf("while executing server command: %v", err)
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("SERVER CAPTURED OUTPUT BEGIN")
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						(*results)["log"] = buf.String()
+						log.Println((*results)["log"])
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						log.Println("SERVER CAPTURED OUTPUT END")
+						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+						err = errors.New("error while running server command")
+						ca.Status = "failed"
+						ca.FailureDetails = "Error while running server command in test mode"
+						// Update server execution status table
+						ca.ValidateArguments()
+						ca.CoordinateWork()
+						httpStatus = http.StatusInternalServerError
+						return
 					}
 				}
 
@@ -1055,9 +1063,17 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while running run_reports command")
+						ca.Status = "failed"
+						ca.FailureDetails = "Error while running reports command in test mode"
+						// Update server execution status table
+						ca.ValidateArguments()
+						ca.CoordinateWork()
 						return
 					}
 				}
+				// all good, update server execution status table
+				ca.ValidateArguments()
+				ca.CoordinateWork()
 				log.Println("============================")
 				log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
@@ -1076,7 +1092,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						"-userEmail", userEmail.(string),
 						"-shardId", strconv.Itoa(shardId),
 						"-nbrShards", strconv.Itoa(ctx.NbrShards),
-						"-doNotLockSessionId",
 					}
 					if serverCompletedMetric != "" {
 						serverArgs = append(serverArgs, "-serverCompletedMetric")
