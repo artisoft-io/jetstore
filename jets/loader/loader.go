@@ -268,10 +268,10 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		"client":      *client,
 		"object_type": *objectType,
 	}
-	if status == "completed" {
-		awsi.LogMetric(*completedMetric, dimentions, 1)
-	} else {
+	if status == "failed" {
 		awsi.LogMetric(*failedMetric, dimentions, 1)
+	} else {
+		awsi.LogMetric(*completedMetric, dimentions, 1)
 	}
 
 	err = registerCurrentLoad(copy2DbResult.CopyCount, copy2DbResult.BadRowCount, dbpool, headersDKInfo, status, errMessage)
