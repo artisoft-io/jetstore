@@ -8,8 +8,6 @@ import (
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable"
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/server/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -57,11 +55,10 @@ type writeResult struct {
 
 // PipelineResult Method to update status
 // Register the status details to pipeline_execution_details
-// Lock the sessionId (register sessionId with session_registry) if not failed and doNotLockSessionId is false
-// Register output tables only if doNotLockSessionId is false
+// Lock the sessionId & Register output tables (register sessionId with session_registry) if not failed
 // Do nothing if pipelineExecutionKey < 0
 func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, 
-	shardId int, doNotLockSessionId bool, errMessage string) error {
+	shardId int, errMessage string) error {
 	if pipelineExecutionKey < 0 {
 		return nil
 	}
@@ -76,25 +73,6 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 			&mainInputSessionId, &sessionId, &sourcePeriodKey, &userEmail)
 	if err != nil {
 		return fmt.Errorf("QueryRow on pipeline_execution_status failed: %v", err)
-	}
-
-	// Register the sessionId && Update execution status to pipeline_execution_status table
-	if !doNotLockSessionId {
-		// Lock the session	if not failed in session_registry
-		if pr.Status != "failed" {
-			err = schema.RegisterSession(dbpool, "domain_table", client, sessionId, sourcePeriodKey)
-			if err != nil {
-				return fmt.Errorf("while recording out session id: %v", err)
-			}
-		}
-	
-		// Record the status of the pipeline execution
-		log.Printf("Updating status '%s' to pipeline_execution_status table", pr.Status)
-		stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, last_update) = ($1, DEFAULT) WHERE key = $2"
-		_, err = dbpool.Exec(context.Background(), stmt, pr.Status, pipelineExecutionKey)
-		if err != nil {
-			return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
-		}
 	}
 
 	// Emit server execution metric
@@ -121,14 +99,6 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 			pr.Status, errMessage, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, userEmail)
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
-		}
-	}
-
-	if pr.Status != "failed" && !doNotLockSessionId {
-		// Register the output domain tables to input_registry
-		err = datatable.RegisterDomainTables(dbpool, pipelineExecutionKey)
-		if err != nil {
-			return fmt.Errorf("while calling workspace.RegisterDomainTables: %v", err)
 		}
 	}
 	return nil

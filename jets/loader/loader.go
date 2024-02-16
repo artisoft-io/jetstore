@@ -249,7 +249,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		}
 	}
 	// register the session if status is not failed
-	if status != "failed" && !*doNotLockSessionId {
+	if status != "failed" {
 
 		err = schema.RegisterSession(dbpool, "file", *client, *sessionId, *sourcePeriodKey)
 		if err != nil {
