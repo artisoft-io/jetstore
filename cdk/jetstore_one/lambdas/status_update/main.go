@@ -7,9 +7,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/artisoft-io/jetstore/jets/status_update/delegate"
-
 	// "github.com/aws/aws-lambda-go/events"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/aws/aws-lambda-go/lambda"
 	"go.uber.org/zap"
 )
@@ -77,7 +76,7 @@ func main() {
 
 func handler(ctx context.Context, arguments map[string]interface{}) (err error) {
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
-	ca := delegate.CommandArguments{
+	ca := datatable.StatusUpdate{
 		Status: arguments["-status"].(string),
 	}
 	v, err := strconv.Atoi(arguments["-peKey"].(string))
