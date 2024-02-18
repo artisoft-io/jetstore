@@ -313,7 +313,7 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Text(
-                            'build on ${DateFormat.yMMMd().format(DateTime.fromMillisecondsSinceEpoch(int.parse(JetsRouterDelegate().jetstoreVersion), isUtc: true))}'),
+                            'build on ${DateFormat.yMMMd().format(DateTime.fromMillisecondsSinceEpoch(int.parse(JetsRouterDelegate().jetstoreVersion) * 1000, isUtc: true))}'),
                       ),
                   ]),
                   // Client area
