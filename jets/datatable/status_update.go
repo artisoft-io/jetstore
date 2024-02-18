@@ -155,12 +155,14 @@ func (ca *StatusUpdate) CoordinateWork() error {
 
 	case getStatusCount(ca.Dbpool, ca.PeKey, "failed") > 0:
 		ca.Status = "recovered"
-		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", &ca.FailureDetails)
+		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", &ca.FailureDetails)
 
 	case getStatusCount(ca.Dbpool, ca.PeKey, "errors") > 0:
+		ca.Status = "errors"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "errors", nil)
 
 	default:
+		ca.Status = "completed"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "completed", nil)
 	}
 	if err != nil {
