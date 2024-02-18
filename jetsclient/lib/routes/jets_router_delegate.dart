@@ -17,8 +17,9 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   }
 
   final GlobalKey<NavigatorState> _navigatorKey;
-  JetsRouteData routeData = JetsRouteData(homePath);
+  JetsRouteData routeData = const JetsRouteData(homePath);
 
+  String jetstoreVersion = '###';
   var user = UserModel();
   var devMode = false;
   List<MaterialPage> _pages = [];
