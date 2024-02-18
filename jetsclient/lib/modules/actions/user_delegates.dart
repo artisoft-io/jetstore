@@ -53,6 +53,9 @@ Future<String?> loginFormActions(BuildContext context,
 
       if (result.statusCode == 200) {
         // update the [UserModel]
+        var version = (result.body[FSK.jetstoreVersion] ?? '###') as String;
+        if(version.isEmpty) version = '###';
+        JetsRouterDelegate().jetstoreVersion = version;
         JetsRouterDelegate().user.name = result.body[FSK.userName];
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
         JetsRouterDelegate().user.isAdmin = result.body[FSK.isAdmin];
