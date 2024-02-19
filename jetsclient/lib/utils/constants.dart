@@ -284,6 +284,8 @@ class FSK {
   static const dataTableAction = "datatable.action";
   static const dataTableFromTable = "datatable.from.table";
 
+  static const jetstoreVersion = "jetstore_version";
+
   static const userEmail = "user_email";
   static const userName = "name";
   static const userRoles = "roles";

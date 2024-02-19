@@ -4,7 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"github.com/artisoft-io/jetstore/jets/status_update/delegate"
+
+	"github.com/artisoft-io/jetstore/jets/datatable"
 )
 
 // Env variable:
@@ -29,7 +30,7 @@ func main() {
 	fmt.Println("CMD LINE ARGS:",os.Args[1:])
 	flag.Parse()
 
-	ca := &delegate.CommandArguments{
+	ca := &datatable.StatusUpdate{
 		AwsDsnSecret: *awsDsnSecret,
 		DbPoolSize: *dbPoolSize,
 		UsingSshTunnel: *usingSshTunnel,

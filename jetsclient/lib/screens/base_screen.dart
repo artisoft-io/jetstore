@@ -11,6 +11,7 @@ import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/models/screen_config.dart';
 import 'package:split_view/split_view.dart';
 import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
+import 'package:intl/intl.dart';
 
 /// Signature for building the widget of main area of BaseScreen.
 typedef ScreenWidgetBuilder = Widget Function(
@@ -219,13 +220,12 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                             child: menuEntry.label.isEmpty
                                 ? const SizedBox(
                                     height: defaultPadding,
-                                    width: 2*defaultPadding,
+                                    width: 2 * defaultPadding,
                                   )
                                 : TextButton(
                                     style: buttonStyle(
                                         getActionStyle(menuEntry), themeData),
-                                    onPressed: () => menuEntry.routePath !=
-                                            null
+                                    onPressed: () => menuEntry.routePath != null
                                         ? JetsRouterDelegate()(JetsRouteData(
                                             menuEntry.routePath!,
                                             params: menuEntry.routeParams))
@@ -302,7 +302,19 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                                     0, context, themeData, menuEntry))
                                 .toList()),
                       ),
-                    )
+                    ),
+                    if (JetsRouterDelegate().jetstoreVersion != '###')
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 0.0),
+                        child: Text(
+                            'Version ${JetsRouterDelegate().jetstoreVersion}'),
+                      ),
+                    if (JetsRouterDelegate().jetstoreVersion != '###')
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                            'build on ${DateFormat.yMMMd().format(DateTime.fromMillisecondsSinceEpoch(int.parse(JetsRouterDelegate().jetstoreVersion) * 1000, isUtc: true))}'),
+                      ),
                   ]),
                   // Client area
                   JetsSpinnerOverlay(child: widget.builder(context, this)),

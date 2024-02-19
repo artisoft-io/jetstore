@@ -28,8 +28,8 @@ func registerCurrentLoad(copyCount int64, badRowCount int64, dbpool *pgxpool.Poo
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
 	log.Println("Updated input_loader_status table with main object type:", *objectType, "client", *client, "org", *clientOrg)
-	// Register all loads, even when status != "completed" to provide visibility of the loaded data in UI
-	if dkInfo != nil {
+	// Register loads, except when status == "failed" or copyCount == 0
+	if dkInfo != nil && copyCount > 0 && status != "failed" {
 		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
 		ipos := 0
 		for objType := range dkInfo.DomainKeysInfoMap {
