@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -72,6 +73,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		"capabilities": jetsUser.GetCapabilities(),
 		"token": jetsUser.Token,
 		"gitProfile": jetsUser.UserGitProfile,
+		"jetstore_version": os.Getenv("JETS_VERSION"),
 	}
 	JSON(w, http.StatusOK, data)
 }
