@@ -2,6 +2,7 @@ package datatable
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -53,6 +54,20 @@ func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int, status strin
 		log.Fatalf(msg)
 	}
 	return count
+}
+func getOutputRecordCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) int64 {
+	var count sql.NullInt64
+	err := dbpool.QueryRow(context.Background(), 
+		"SELECT SUM(output_records_count) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1", 
+		pipelineExecutionKey).Scan(&count)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0
+		}
+		msg := fmt.Sprintf("QueryRow on pipeline_execution_details to get nbr of output records failed: %v", err)
+		log.Fatalf(msg)
+	}
+	return count.Int64
 }
 func getPeInfo(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, string, int) {
 	var client, sessionId string
@@ -169,7 +184,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		return fmt.Errorf("while updating process execution status: %v", err)
 	}
 	// Register out tables
-	if ca.Status != "failed" {
+	if ca.Status != "failed" && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
 		err = RegisterDomainTables(ca.Dbpool, ca.PeKey)
 		if err != nil {
 			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
