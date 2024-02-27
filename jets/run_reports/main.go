@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -15,6 +17,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
 	"github.com/artisoft-io/jetstore/jets/workspace"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -62,6 +65,11 @@ var devMode bool
 // NOTE 01/11/2024:
 // DO NOT USE jetsapi.session_registry FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET
 // The session_id is registered AFTER the report completion during the status_update task
+// NOTE 02/27/2024:
+// When run_report is used by serverSM, make sure there was data in output before running the reports.
+// This is when count(*) > 0 from pipeline_execution_details where session_id = $session_id (that is serverSM case)
+// and then if sum(output_records_count) == 0 && count(*) > 0 from pipeline_execution_details where session_id = $session_id
+// skip running the reports
 
 func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId string) (int, error) {
 	var sourcePeriodKey int
@@ -75,6 +83,20 @@ func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId string) (int, error) {
 	return sourcePeriodKey, nil
 }
 
+func getOutputRecordCount(dbpool *pgxpool.Pool, sessionId string) (int64, int64) {
+	var dbRecordCount, outputRecordCount sql.NullInt64
+	err := dbpool.QueryRow(context.Background(), 
+		"SELECT COUNT(*), SUM(output_records_count) FROM jetsapi.pipeline_execution_details WHERE session_id=$1", 
+		sessionId).Scan(&dbRecordCount, &outputRecordCount)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, 0
+		}
+		msg := fmt.Sprintf("QueryRow on pipeline_execution_details to get nbr of output records failed: %v", err)
+		log.Fatalf(msg)
+	}
+	return dbRecordCount.Int64, outputRecordCount.Int64
+}
 
 func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	wh := os.Getenv("WORKSPACES_HOME")
@@ -93,6 +115,15 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}
 	defer dbpool.Close()
+
+	// Check for special case: serverSM produced no output records, then exit silently
+	if len(ca.SessionId) > 0 {
+		dbRecordCount, outputRecordCount := getOutputRecordCount(dbpool, ca.SessionId)
+		if dbRecordCount > 0 && outputRecordCount == 0 {
+			fmt.Println("This run_report is for a serverSM that produced no output records, exiting silently")
+			return nil
+		}
+	}
 
 	// Fetch reports.tgz from overriten workspace files (here we want the reports definitions in particular)
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true

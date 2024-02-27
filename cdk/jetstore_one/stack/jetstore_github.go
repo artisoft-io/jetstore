@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
@@ -49,17 +50,38 @@ func getGithubIps() *[]*string {
 	return results
 }
 
-func NewGithubAccessSecurityGroup(stack awscdk.Stack, vpc awsec2.Vpc) awsec2.SecurityGroup {
-	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String("GithubAccessSecurityGroup"), &awsec2.SecurityGroupProps{
+func getBitbucketIps() *[]*string {
+	results := jsii.Strings(
+		"104.192.136.0/21",
+		"185.166.140.0/22",
+		"18.205.93.0/25",
+		"18.234.32.128/25",
+		"13.52.5.0/25",
+	)
+	return results
+}
+
+func NewGitAccessSecurityGroup(stack awscdk.Stack, vpc awsec2.Vpc) awsec2.SecurityGroup {
+	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String("GitAccessSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
-		Description: jsii.String("Allow network access to GitHub"),
+		Description: jsii.String("Allow network access to Git SCM"),
 		AllowAllOutbound: jsii.Bool(false),
 	})
-	// Add access to Github
-	cdrs := getGithubIps()
-	for _,cdr := range *cdrs {
-		securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)), 
-			jsii.String("allow https access to github repository"), jsii.Bool(false))
-	}	
+	// Add access to GIT SCM
+	gitScm := os.Getenv("JETS_GIT_ACCESS")
+	if strings.Contains(gitScm, "github") {
+		fmt.Println("Providing access to github for git integration")
+		for _,cdr := range (*getGithubIps()) {
+			securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)), 
+				jsii.String("allow https access to github repository"), jsii.Bool(false))
+		}	
+	}
+	if strings.Contains(gitScm, "bitbucket") {
+		fmt.Println("Providing access to bitbucket for git integration")
+		for _,cdr := range (*getBitbucketIps()) {
+			securityGroup.AddEgressRule(awsec2.Peer_Ipv4(cdr), awsec2.Port_Tcp(jsii.Number(443)), 
+				jsii.String("allow https access to bitbucket repository"), jsii.Bool(false))
+		}	
+	}
 	return securityGroup
 }
