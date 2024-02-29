@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -18,35 +17,56 @@ import (
 	"github.com/dimchansky/utfbom"
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/thedatashed/xlsxreader"
 )
 
 // Load single or directory of part files to JetStore
 
+// Compute Pipes Feature Mode
+// New feature to process input file content using in-memory compute pipes and save the computation result into database.
+// Backward compatibility: when compute pipe graph config is null or empty, the input file content is save in database, meaning the
+// compute transformation is the identity operator.
 
-// func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, localInFile string, badRowsWriter *bufio.Writer) (int64, int64, error) {
 func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
-	fileNamesCh <-chan string, copy2DbResultCh chan<- Copy2DbResult, badRowsWriter *bufio.Writer) {
+	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan<- Copy2DbResult,
+	badRowsWriter *bufio.Writer) {
+
+	// Create a channel to use as a buffer between the file loader and the copy to db
+	// This gives the opportunity to use Compute Pipes to transform the data before writing to the db
+	// This channel is buffered by the same size as the chunk size sent to db
+	computePipesInputCh := make(chan []interface{}, 100)
+
+	defer func() {
+		// if r := recover(); r != nil {
+		// 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{err: fmt.Errorf("recovered error: %v", r)}
+		// 	debug.PrintStack()
+		// 	close(done)
+		// }
+		fmt.Println("Closing computePipesInputCh **")
+		close(computePipesInputCh)
+	}()
+
+	// Start the Compute Pipes async
+	go startComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh)
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {
 		log.Printf("Loading file '%s'", localInFile)
-		count, badCount, err := loadFile2DB(dbpool, headersDKInfo, &localInFile, badRowsWriter)
-		if err != nil {
-			copy2DbResultCh <- Copy2DbResult{CopyCount: totalRowCount, BadRowCount: badRowCount, err: err}
-			close(done)
-			return
-		}
+		count, badCount, err := loadFile2DB(headersDKInfo, &localInFile, badRowsWriter, done, computePipesInputCh)
 		totalRowCount += count
 		badRowCount += badCount
+		if err != nil {
+			fmt.Println("loadFile2Db returned error", err)
+			loadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: badRowCount, err: err}
+			return
+		}
 	}
-	copy2DbResultCh <- Copy2DbResult{CopyCount: totalRowCount, BadRowCount: badRowCount}
+	loadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: badRowCount}
 }
 
-
-func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *string, badRowsWriter *bufio.Writer) (int64, int64, error) {
+func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *string, badRowsWriter *bufio.Writer,
+	done chan struct{}, computePipesInputCh chan<- []interface{}) (int64, int64, error) {
 	var fileHd *os.File
 	var csvReader *csv.Reader
 	var fwScanner *bufio.Scanner
@@ -56,36 +76,35 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 	var currentSheetPos int
 	var err error
 
-
 	switch inputFileEncoding {
 	case Xlsx, HeaderlessXlsx:
-	// open the file, need to get the sheet structure
-	xl, err = xlsxreader.OpenFile(*filePath)
-	if err != nil {
-		return 0, 0, fmt.Errorf("while opening file %s using xlsx reader: %v", *filePath, err)
-	}
-	defer func() {
-		xl.Close()
-		os.Remove(*filePath)
-	}()
+		// open the file, need to get the sheet structure
+		xl, err = xlsxreader.OpenFile(*filePath)
+		if err != nil {
+			return 0, 0, fmt.Errorf("while opening file %s using xlsx reader: %v", *filePath, err)
+		}
+		defer func() {
+			xl.Close()
+			os.Remove(*filePath)
+		}()
 
-	currentSheetPos = inputFormatData["currentSheetPos"].(int)
-	xlCh = xl.ReadRows(xl.Sheets[currentSheetPos])
-	if inputFileEncoding == Xlsx {
-		// Skip the header line
-		var row xlsxreader.Row
-		var ok bool
-		for {
-			row, ok = <-xlCh
-			if !ok || row.Error != nil {
-				return 0, 0, fmt.Errorf("error: could not re-read headers from xlsx file")
-			}
-			if len(row.Cells) > 1 {
-				// ok got headers
-				break
+		currentSheetPos = inputFormatData["currentSheetPos"].(int)
+		xlCh = xl.ReadRows(xl.Sheets[currentSheetPos])
+		if inputFileEncoding == Xlsx {
+			// Skip the header line
+			var row xlsxreader.Row
+			var ok bool
+			for {
+				row, ok = <-xlCh
+				if !ok || row.Error != nil {
+					return 0, 0, fmt.Errorf("error: could not re-read headers from xlsx file")
+				}
+				if len(row.Cells) > 1 {
+					// ok got headers
+					break
+				}
 			}
 		}
-	}
 
 	default:
 		fileHd, err = os.Open(*filePath)
@@ -96,7 +115,7 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 			fileHd.Close()
 			os.Remove(*filePath)
 		}()
-	
+
 		switch inputFileEncoding {
 		case Csv, HeaderlessCsv:
 			// Remove the Byte Order Mark (BOM) at beggining of the file if present
@@ -139,20 +158,7 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 		return 0, 0, err
 	}
 
-	// Copy the file by partitions having filePartitionSize lines
-	var filePartitionSize int
-	if len(os.Getenv("JETS_LOADER_CHUNCK_SIZE")) > 0 {
-		filePartitionSize, err = strconv.Atoi(os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
-		if err != nil {
-			return 0, 0, fmt.Errorf("while parsing JETS_LOADER_CHUNCK_SIZE: %v", err)
-		}
-	} else {
-		filePartitionSize = 50000
-	}
-	log.Println("Using filePartitionSize of", filePartitionSize, " (from env JETS_LOADER_CHUNCK_SIZE)")
-
-	var partitionIndex int
-	var copyCount int64
+	var inputRowCount int64
 	var record []string
 	var recordTypeOffset int
 	currentLineNumber := 0
@@ -164,222 +170,213 @@ func loadFile2DB(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKey
 	skipRecord := errors.New("skip record")
 	var skippedRecordType string
 	for {
-		inputRows := make([][]interface{}, 0, filePartitionSize)
-		// read and write up to filePartitionSize rows
-		for partitionIndex = 0; partitionIndex < filePartitionSize; partitionIndex++ {
-			currentLineNumber += 1
-			err = nil
+		// read and put the rows into computePipesInputCh
+		currentLineNumber += 1
+		err = nil
 
-			switch inputFileEncoding {
+		switch inputFileEncoding {
 
-			case Csv, HeaderlessCsv:
-				record, err = csvReader.Read()
+		case Csv, HeaderlessCsv:
+			record, err = csvReader.Read()
 
-			case Xlsx, HeaderlessXlsx:
-				record = make([]string, len(headersDKInfo.RawHeaders))
-				row, ok := <-xlCh
-				if !ok {
+		case Xlsx, HeaderlessXlsx:
+			record = make([]string, len(headersDKInfo.RawHeaders))
+			row, ok := <-xlCh
+			if !ok {
+				err = io.EOF
+			}
+			if row.Error != nil {
+				err = row.Error
+			} else {
+				for i := range row.Cells {
+					record[row.Cells[i].ColumnIndex()] = row.Cells[i].Value
+				}
+			}
+
+		case Parquet:
+			record = make([]string, len(headersDKInfo.RawHeaders))
+			var parquetRow map[string]interface{}
+			parquetRow, err = parquetReader.NextRow()
+			if err == nil {
+				for i := range headersDKInfo.RawHeaders {
+					rawValue := parquetRow[headersDKInfo.RawHeaders[i]]
+					if rawValue == nil {
+						record[i] = ""
+					} else {
+						switch vv := rawValue.(type) {
+						case int:
+							record[i] = strconv.Itoa(vv)
+						case string:
+							record[i] = vv
+						case []byte:
+							record[i] = string(vv)
+						default:
+							t := reflect.TypeOf(rawValue)
+							if t.Kind() == reflect.Array {
+								v := reflect.ValueOf(rawValue)
+								bb := make([]byte, t.Len())
+								for i := range bb {
+									bb[i] = byte(v.Index(i).Interface().(uint8))
+								}
+								record[i] = string(bb)
+							} else {
+								record[i] = fmt.Sprintf("%v", rawValue)
+							}
+						}
+					}
+				}
+			}
+
+		case FixedWidth:
+			record = make([]string, len(headersDKInfo.RawHeaders))
+			ok := fwScanner.Scan()
+			if !ok {
+				err = fwScanner.Err()
+				if err == nil {
 					err = io.EOF
 				}
-				if row.Error != nil {
-					err = row.Error
-				} else {
-					for i := range row.Cells {
-						record[row.Cells[i].ColumnIndex()] = row.Cells[i].Value
+			} else {
+				line := fwScanner.Text()
+				ll := len(line)
+				// split the line into the record according to the record type
+				var recordType string
+				if fixedWitdthEncodingInfo.RecordTypeColumn != nil {
+					s := fixedWitdthEncodingInfo.RecordTypeColumn.Start
+					e := fixedWitdthEncodingInfo.RecordTypeColumn.End
+					if s < ll && e <= ll {
+						recordType = strings.TrimSpace(line[s:e])
 					}
 				}
-
-			case Parquet:
-				record = make([]string, len(headersDKInfo.RawHeaders))
-				var parquetRow map[string]interface{}
-				parquetRow, err = parquetReader.NextRow()
-				if err == nil {
-					for i := range headersDKInfo.RawHeaders {
-						rawValue := parquetRow[headersDKInfo.RawHeaders[i]]
-						if rawValue == nil {
-							record[i] = ""
-						} else {
-							switch vv := rawValue.(type) {
-							case int:
-								record[i] = strconv.Itoa(vv)
-							case string:
-								record[i] = vv
-							case []byte:
-								record[i] = string(vv)
-							default:
-								t := reflect.TypeOf(rawValue)
-								if t.Kind() == reflect.Array {
-									v := reflect.ValueOf(rawValue)
-									bb := make([]byte, t.Len())
-									for i := range bb {
-										bb[i] = byte(v.Index(i).Interface().(uint8))
-									}
-									record[i] = string(bb)
-								} else {
-									record[i] = fmt.Sprintf("%v", rawValue)
-								}
-							}
-						}
-				}
-			}
-
-			case FixedWidth:
-				record = make([]string, len(headersDKInfo.RawHeaders))
-				ok := fwScanner.Scan()
-				if !ok {
-					err = fwScanner.Err()
-					if err == nil {
-						err = io.EOF
-					}
+				columnsInfo, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
+				if !ok || columnsInfo == nil {
+					err = skipRecord
+					skippedRecordType = recordType
 				} else {
-					line := fwScanner.Text()
-					ll := len(line)
-					// split the line into the record according to the record type
-					var recordType string
-					if fixedWitdthEncodingInfo.RecordTypeColumn != nil {
-						s := fixedWitdthEncodingInfo.RecordTypeColumn.Start
-						e := fixedWitdthEncodingInfo.RecordTypeColumn.End
-						if s < ll && e <= ll {
-							recordType = strings.TrimSpace(line[s:e])
-						}
-					}
-					columnsInfo, ok := fixedWitdthEncodingInfo.ColumnsMap[recordType]
-					if !ok || columnsInfo == nil {
-						err = skipRecord
-						skippedRecordType = recordType
+					recordTypeOffset, ok = fixedWitdthEncodingInfo.ColumnsOffsetMap[recordType]
+					if !ok {
+						log.Printf("Bad fixed-width record: unknown record type '%s' at line %d", recordType, currentLineNumber)
+						err = badFixedWidthRecord
 					} else {
-						recordTypeOffset, ok = fixedWitdthEncodingInfo.ColumnsOffsetMap[recordType]
-						if !ok {
-							log.Printf("Bad fixed-width record: unknown record type '%s' at line %d", recordType, currentLineNumber)
-							err = badFixedWidthRecord
-						} else {
-							for i := range *columnsInfo {
-								columnInfo := (*columnsInfo)[i]
-								if columnInfo.Start < ll && columnInfo.End <= ll {
-									record[recordTypeOffset+i] = strings.TrimSpace(line[columnInfo.Start:columnInfo.End])
-								}
-								if jetsDebug >= 2 {
-									fmt.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n", recordTypeOffset+i, record[recordTypeOffset+i], columnInfo.Start, columnInfo.End, recordType, recordTypeOffset)
-								}
+						for i := range *columnsInfo {
+							columnInfo := (*columnsInfo)[i]
+							if columnInfo.Start < ll && columnInfo.End <= ll {
+								record[recordTypeOffset+i] = strings.TrimSpace(line[columnInfo.Start:columnInfo.End])
+							}
+							if jetsDebug >= 2 {
+								fmt.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n",
+									recordTypeOffset+i, record[recordTypeOffset+i], columnInfo.Start, columnInfo.End, recordType, recordTypeOffset)
 							}
 						}
 					}
 				}
 			}
+		}
 
-			switch {
+		switch {
 
-			case err == io.EOF:
-				// write to db what we have in this file partition
-				nrows, err := dbpool.CopyFrom(context.Background(),
-					pgx.Identifier{tableName}, headersDKInfo.Headers, pgx.CopyFromRows(inputRows))
-				if err != nil {
-					return 0, 0, fmt.Errorf("while copy csv to table: %v", err)
-				}
-				// expected exit route
-				// ---------------------------------------------------
-				// Copy the bad rows from input file into the error file
-				// Case csv or HeaderlessCsv and single file load
-				var badRowCount int64
-				if inputFileEncoding == Csv || inputFileEncoding == HeaderlessCsv {
-					badRowCount = int64(len(badRowsPos))
-					if badRowCount > 0 && isPartFiles != 1 {
-						err = copyBadRowsToErrorFile(&badRowsPos, fileHd, badRowsWriter)
-						if err != nil {
-							log.Printf("Error while writing bad rows to error file (ignored): %v", err)
-						}
-					}
-				}
-				return copyCount + nrows, badRowCount, nil
-
-			case err != nil:
-				// get the details of the error
-				var details *csv.ParseError
-				switch {
-				case errors.As(err, &details):
-					log.Printf("while reading csv records: %v", err)
-					for i := details.StartLine; i <= details.Line; i++ {
-						badRowsPos = append(badRowsPos, i)
-					}
-				case err == skipRecord:
-					log.Printf("Skipping record with record type: %s", skippedRecordType)
-				case err == badFixedWidthRecord:
-					badRowsPos = append(badRowsPos, currentLineNumber)
-				default:
-					return 0, 0, fmt.Errorf("error while reading input records: %v", err)
-				}
-
-			default:
-				// Remove invalid utf-8 sequence from input record
-				for i := range record {
-					record[i] = strings.ToValidUTF8(record[i], "")
-				}
-
-				copyRec := make([]interface{}, len(headersDKInfo.Headers))
-				for i, ipos := range headerPos {
-					if ipos < len(record) {
-						copyRec[i] = record[ipos]
-					}
-				}
-				// Set the file_key, session_id, and shard_id
-				copyRec[fileKeyPos] = *inFile
-				copyRec[sessionIdPos] = *sessionId
-				jetsKeyStr := uuid.New().String()
-				copyRec[lastUpdatePos] = lastUpdate
-				var mainDomainKey string
-				var mainDomainKeyPos int
-				for _, ot := range *objTypes {
-					groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
+		case err == io.EOF:
+			// expected exit route
+			// ---------------------------------------------------
+			// Copy the bad rows from input file into the error file
+			// Case csv or HeaderlessCsv and single file load
+			var badRowCount int64
+			if inputFileEncoding == Csv || inputFileEncoding == HeaderlessCsv {
+				badRowCount = int64(len(badRowsPos))
+				if badRowCount > 0 && isPartFiles != 1 {
+					err = copyBadRowsToErrorFile(&badRowsPos, fileHd, badRowsWriter)
 					if err != nil {
-						badRowsPos = append(badRowsPos, currentLineNumber)
-						processingErrors = append(processingErrors, err.Error())
-						goto NextRow
+						log.Printf("Error while writing bad rows to error file (ignored): %v", err)
 					}
-					if jetsDebug >= 2 {
-						fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
-					}
-					domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
-					if ot == *objectType {
-						mainDomainKey = groupingKey
-						mainDomainKeyPos = domainKeyPos
-					}
-					copyRec[domainKeyPos] = groupingKey
-					shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
-					copyRec[shardIdPos] = shardId
 				}
-				var buf strings.Builder
-				switch jetsInputRowJetsKeyAlgo {
-				case "row_hash":
-					// Add sourcePeriodKey in row_hash calculation so if same record in input
-					// for 2 different period, they get different jets:key
-					buf.WriteString(strconv.Itoa(*sourcePeriodKey))
-					for _, h := range headersDKInfo.Headers {
-						ipos := headersDKInfo.HeadersPosMap[h]
-						if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
-							buf.WriteString(record[ipos])
-						}
-					}
-					jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
-					if jetsDebug >= 2 {
-						fmt.Println("COMPUTING ROW HASH WITH", buf.String())
-						fmt.Println("row_hash jetsKeyStr", jetsKeyStr)
-					}
-				case "domain_key":
-					jetsKeyStr = mainDomainKey
-				}
-				if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
-					copyRec[mainDomainKeyPos] = jetsKeyStr
-				}
-				copyRec[jetsKeyPos] = jetsKeyStr
-				inputRows = append(inputRows, copyRec)
 			}
-NextRow:
+			return inputRowCount, badRowCount, nil
+
+		case err != nil:
+			// get the details of the error
+			var details *csv.ParseError
+			switch {
+			case errors.As(err, &details):
+				log.Printf("while reading csv records: %v", err)
+				for i := details.StartLine; i <= details.Line; i++ {
+					badRowsPos = append(badRowsPos, i)
+				}
+			case err == skipRecord:
+				log.Printf("Skipping record with record type: %s", skippedRecordType)
+			case err == badFixedWidthRecord:
+				badRowsPos = append(badRowsPos, currentLineNumber)
+			default:
+				return 0, 0, fmt.Errorf("error while reading input records: %v", err)
+			}
+
+		default:
+			// Remove invalid utf-8 sequence from input record
+			for i := range record {
+				record[i] = strings.ToValidUTF8(record[i], "")
+			}
+
+			copyRec := make([]interface{}, len(headersDKInfo.Headers))
+			for i, ipos := range headerPos {
+				if ipos < len(record) {
+					copyRec[i] = record[ipos]
+				}
+			}
+			// Set the file_key, session_id, and shard_id
+			copyRec[fileKeyPos] = *inFile
+			copyRec[sessionIdPos] = *sessionId
+			jetsKeyStr := uuid.New().String()
+			copyRec[lastUpdatePos] = lastUpdate
+			var mainDomainKey string
+			var mainDomainKeyPos int
+			for _, ot := range *objTypes {
+				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
+				if err != nil {
+					badRowsPos = append(badRowsPos, currentLineNumber)
+					processingErrors = append(processingErrors, err.Error())
+					goto NextRow
+				}
+				if jetsDebug >= 2 {
+					fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
+				}
+				domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
+				if ot == *objectType {
+					mainDomainKey = groupingKey
+					mainDomainKeyPos = domainKeyPos
+				}
+				copyRec[domainKeyPos] = groupingKey
+				shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
+				copyRec[shardIdPos] = shardId
+			}
+			var buf strings.Builder
+			switch jetsInputRowJetsKeyAlgo {
+			case "row_hash":
+				// Add sourcePeriodKey in row_hash calculation so if same record in input
+				// for 2 different period, they get different jets:key
+				buf.WriteString(strconv.Itoa(*sourcePeriodKey))
+				for _, h := range headersDKInfo.Headers {
+					ipos := headersDKInfo.HeadersPosMap[h]
+					if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
+						buf.WriteString(record[ipos])
+					}
+				}
+				jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
+				if jetsDebug >= 2 {
+					fmt.Println("COMPUTING ROW HASH WITH", buf.String())
+					fmt.Println("row_hash jetsKeyStr", jetsKeyStr)
+				}
+			case "domain_key":
+				jetsKeyStr = mainDomainKey
+			}
+			if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
+				copyRec[mainDomainKeyPos] = jetsKeyStr
+			}
+			copyRec[jetsKeyPos] = jetsKeyStr
+			select {
+			case computePipesInputCh <- copyRec:
+			case <-done:
+				return inputRowCount, int64(len(badRowsPos)), fmt.Errorf("loading input row from file interrupted")
+			}
+			inputRowCount += 1
 		}
-		// write the full partition of rows to the db
-		count, err := dbpool.CopyFrom(context.Background(), pgx.Identifier{tableName}, headersDKInfo.Headers, pgx.CopyFromRows(inputRows))
-		if err != nil {
-			return 0, 0, fmt.Errorf("while copy csv to table: %v", err)
-		}
-		copyCount += count
+	NextRow:
 	}
 }

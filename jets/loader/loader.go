@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -77,24 +76,24 @@ func InputEncodingFromString(ie string) InputEncoding {
 
 var inputFileEncoding InputEncoding
 
+type LoadFromS3FilesResult struct {
+	LoadRowCount int64
+	BadRowCount  int64
+	err          error
+}
+
 type Copy2DbResult struct {
-	CopyCount   int64
-	BadRowCount int64
-	err         error
+	CopyRowCount int64
+	err          error
 }
 
 // processFile
 // --------------------------------------------------------------------------------------
-func processFile(dbpool *pgxpool.Pool, done chan struct{},	headersFileCh, fileNamesCh <-chan string, 
-		errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, copy2DbResultCh chan Copy2DbResult) {
+func processFile(dbpool *pgxpool.Pool, done chan struct{}, headersFileCh, fileNamesCh <-chan string,
+	errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, loadFromS3FilesResultCh chan LoadFromS3FilesResult,
+	copy2DbResultCh chan Copy2DbResult) {
+	loadFromS3FilesResultCh = make(chan LoadFromS3FilesResult, 1)
 	copy2DbResultCh = make(chan Copy2DbResult, 1)
-	defer func() {
-		if r := recover(); r != nil {
-			copy2DbResultCh <- Copy2DbResult{err :fmt.Errorf("recovered error: %v", r)}
-			debug.PrintStack()
-			close(done)
-		}
-	}()
 	var rawHeaders *[]string
 	var headersFile string
 	var fixedWidthColumnPrefix string
@@ -140,7 +139,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{},	headersFileCh, fileNa
 		if err != nil {
 			err = fmt.Errorf("while writing csv headers to err file (2): %v", err)
 			goto gotError
-	}
+		}
 
 	case FixedWidth:
 		// Get the headers from the header spec (input_columns_positions_csv)
@@ -203,36 +202,44 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{},	headersFileCh, fileNa
 
 	// read the rest of the file(s)
 	// ---------------------------------------
-	loadFiles(dbpool, headersDKInfo, done, fileNamesCh, copy2DbResultCh, badRowsWriter)
+	loadFiles(dbpool, headersDKInfo, done, fileNamesCh, loadFromS3FilesResultCh, copy2DbResultCh, badRowsWriter)
 
 	// All good!
-	return 
+	return
 
-	gotError:
-	copy2DbResultCh <- Copy2DbResult{err: err}
+gotError:
+	fmt.Println("processFile gotError ***", err)
+	loadFromS3FilesResultCh <- LoadFromS3FilesResult{err: err}
 	close(done)
 	return
 
 }
 
 // processFileAndReportStatus is a wrapper around processFile to report error
-func processFileAndReportStatus(dbpool *pgxpool.Pool, 
-	done chan struct{},	headersFileCh, fileNamesCh <-chan string, 
-	resultsCh <-chan DownloadS3Result, inFolderPath string, errFileHd *os.File) (bool, error) {
+func processFileAndReportStatus(dbpool *pgxpool.Pool,
+	done chan struct{}, headersFileCh, fileNamesCh <-chan string,
+	downloadS3ResultCh <-chan DownloadS3Result, inFolderPath string, errFileHd *os.File) (bool, error) {
 
-	headersDKInfo, copy2DbResultCh := processFile(dbpool, done, headersFileCh, fileNamesCh, errFileHd)
-	downloadResult := <- resultsCh
-	copy2DbResult := <- copy2DbResultCh
-
-	log.Println("Downloaded", downloadResult.InputFilesCount,"files from s3")
-	log.Println("Inserted", copy2DbResult.CopyCount, "rows in database with", copy2DbResult.BadRowCount,"bad rows")
+	headersDKInfo, loadFromS3FilesResultCh, copy2DbResultCh := processFile(dbpool, done, headersFileCh, fileNamesCh, errFileHd)
+	downloadResult := <-downloadS3ResultCh
+	log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3", downloadResult.err)
+	loadFromS3FilesResult := <-loadFromS3FilesResultCh
+	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.err)
+	copy2DbResult := <-copy2DbResultCh
+	log.Println("Inserted", copy2DbResult.CopyRowCount, "rows in database", copy2DbResult.err)
 	err := downloadResult.err
+	if err == nil {
+		err = loadFromS3FilesResult.err
+	}
 	if err == nil {
 		err = copy2DbResult.err
 	}
 	if downloadResult.err != nil {
 		processingErrors = append(processingErrors, downloadResult.err.Error())
-	} 
+	}
+	if loadFromS3FilesResult.err != nil {
+		processingErrors = append(processingErrors, loadFromS3FilesResult.err.Error())
+	}
 	if copy2DbResult.err != nil {
 		processingErrors = append(processingErrors, copy2DbResult.err.Error())
 	}
@@ -240,9 +247,9 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 	// registering the load
 	// ---------------------------------------
 	status := "completed"
-	if copy2DbResult.BadRowCount > 0 || err != nil {
+	if loadFromS3FilesResult.BadRowCount > 0 || err != nil {
 		status = "errors"
-		processingErrors = append(processingErrors, fmt.Sprintf("File contains %d bad rows", copy2DbResult.BadRowCount))
+		processingErrors = append(processingErrors, fmt.Sprintf("File contains %d bad rows", loadFromS3FilesResult.BadRowCount))
 		if err != nil {
 			status = "failed"
 			err = nil
@@ -274,12 +281,12 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		awsi.LogMetric(*completedMetric, dimentions, 1)
 	}
 
-	err = registerCurrentLoad(copy2DbResult.CopyCount, copy2DbResult.BadRowCount, dbpool, headersDKInfo, status, errMessage)
+	err = registerCurrentLoad(loadFromS3FilesResult.LoadRowCount, loadFromS3FilesResult.BadRowCount, dbpool, headersDKInfo, status, errMessage)
 	if err != nil {
 		return false, fmt.Errorf("error while registering the load: %v", err)
 	}
 
-	return copy2DbResult.BadRowCount > 0, err
+	return loadFromS3FilesResult.BadRowCount > 0, err
 }
 
 func coordinateWork() error {
@@ -377,14 +384,14 @@ func coordinateWork() error {
 	// fmt.Println("Temp error file name:", errFileHd.Name())
 	defer os.Remove(errFileHd.Name())
 
-	headersFileCh, fileNamesCh, resultsCh, inFolderPath, err := downloadS3Files(done)
+	headersFileCh, fileNamesCh, downloadS3ResultCh, inFolderPath, err := downloadS3Files(done)
 	if err != nil {
 		return fmt.Errorf("failed to setup the download of input file(s): %v", err)
 	}
 	defer os.Remove(inFolderPath)
 
 	// Process the downloaded file(s)
-	hasBadRows, err := processFileAndReportStatus(dbpool, done, headersFileCh, fileNamesCh, resultsCh, inFolderPath, errFileHd)
+	hasBadRows, err := processFileAndReportStatus(dbpool, done, headersFileCh, fileNamesCh, downloadS3ResultCh, inFolderPath, errFileHd)
 	if err != nil {
 		return err
 	}

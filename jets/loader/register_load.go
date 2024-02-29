@@ -13,7 +13,7 @@ import (
 
 // Utility functions to register load
 
-func registerCurrentLoad(copyCount int64, badRowCount int64, dbpool *pgxpool.Pool,
+func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Pool,
 	dkInfo *schema.HeadersAndDomainKeysInfo, status string, errMessage string) error {
 	stmt := `INSERT INTO jetsapi.input_loader_status (
 		object_type, table_name, client, org, file_key, session_id, source_period_key, status, error_message,
@@ -23,13 +23,13 @@ func registerCurrentLoad(copyCount int64, badRowCount int64, dbpool *pgxpool.Poo
 			DO UPDATE SET (status, error_message, load_count, bad_row_count, user_email, last_update) =
 			(EXCLUDED.status, EXCLUDED.error_message, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt,
-		*objectType, tableName, *client, *clientOrg, *inFile, *sessionId, *sourcePeriodKey, status, errMessage, copyCount, badRowCount, *userEmail)
+		*objectType, tableName, *client, *clientOrg, *inFile, *sessionId, *sourcePeriodKey, status, errMessage, loadCount, badRowCount, *userEmail)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
-	log.Println("Updated input_loader_status table with main object type:", *objectType, "client", *client, "org", *clientOrg)
-	// Register loads, except when status == "failed" or copyCount == 0
-	if dkInfo != nil && copyCount > 0 && status != "failed" {
+	log.Println("Updated input_loader_status table with main object type:", *objectType, "client", *client, "org", *clientOrg, ":: status is", status)
+	// Register loads, except when status == "failed" or loadCount == 0
+	if dkInfo != nil && loadCount > 0 && status != "failed" {
 		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
 		ipos := 0
 		for objType := range dkInfo.DomainKeysInfoMap {
