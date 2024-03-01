@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -82,18 +83,13 @@ type LoadFromS3FilesResult struct {
 	err          error
 }
 
-type Copy2DbResult struct {
-	CopyRowCount int64
-	err          error
-}
-
 // processFile
 // --------------------------------------------------------------------------------------
 func processFile(dbpool *pgxpool.Pool, done chan struct{}, headersFileCh, fileNamesCh <-chan string,
 	errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, loadFromS3FilesResultCh chan LoadFromS3FilesResult,
-	copy2DbResultCh chan Copy2DbResult) {
+	copy2DbResultCh chan compute_pipes.ComputePipesResult) {
 	loadFromS3FilesResultCh = make(chan LoadFromS3FilesResult, 1)
-	copy2DbResultCh = make(chan Copy2DbResult, 1)
+	copy2DbResultCh = make(chan compute_pipes.ComputePipesResult, 1)
 	var rawHeaders *[]string
 	var headersFile string
 	var fixedWidthColumnPrefix string
@@ -226,13 +222,13 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 	loadFromS3FilesResult := <-loadFromS3FilesResultCh
 	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.err)
 	copy2DbResult := <-copy2DbResultCh
-	log.Println("Inserted", copy2DbResult.CopyRowCount, "rows in database", copy2DbResult.err)
+	log.Println("Inserted", copy2DbResult.CopyRowCount, "rows in database", copy2DbResult.Err)
 	err := downloadResult.err
 	if err == nil {
 		err = loadFromS3FilesResult.err
 	}
 	if err == nil {
-		err = copy2DbResult.err
+		err = copy2DbResult.Err
 	}
 	if downloadResult.err != nil {
 		processingErrors = append(processingErrors, downloadResult.err.Error())
@@ -240,8 +236,8 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 	if loadFromS3FilesResult.err != nil {
 		processingErrors = append(processingErrors, loadFromS3FilesResult.err.Error())
 	}
-	if copy2DbResult.err != nil {
-		processingErrors = append(processingErrors, copy2DbResult.err.Error())
+	if copy2DbResult.Err != nil {
+		processingErrors = append(processingErrors, copy2DbResult.Err.Error())
 	}
 
 	// registering the load
@@ -328,12 +324,12 @@ func coordinateWork() error {
 
 	// Get source_config info: DomainKeysJson, tableName, input_format, is_part_files from source_config table
 	// ---------------------------------------
-	var dkJson, cnJson, ifJson, fwCsv sql.NullString
+	var dkJson, cnJson, ifJson, fwCsv, cpJson sql.NullString
 	err = dbpool.QueryRow(context.Background(),
 		`SELECT table_name, domain_keys_json, input_columns_json, input_columns_positions_csv ,
-		input_format, is_part_files, input_format_data_json
+		input_format, is_part_files, input_format_data_json, compute_pipes_json
 		  FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3`,
-		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv, &inputFormat, &isPartFiles, &ifJson)
+		*client, *clientOrg, *objectType).Scan(&tableName, &dkJson, &cnJson, &fwCsv, &inputFormat, &isPartFiles, &ifJson, &cpJson)
 	if err != nil {
 		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
@@ -361,6 +357,10 @@ func coordinateWork() error {
 	case inputFileEncoding == Unspecified:
 		// For backward compatibility
 		inputFileEncoding = Csv
+	}
+	if cpJson.Valid {
+		computePipesJson = cpJson.String
+		log.Println("This loader contains Compute Pipes configuration")
 	}
 
 	log.Printf("Input file encoding (format) is: %s", inputFileEncoding.String())

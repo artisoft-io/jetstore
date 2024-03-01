@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/dimchansky/utfbom"
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/google/uuid"
@@ -29,7 +30,7 @@ import (
 // compute transformation is the identity operator.
 
 func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
-	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan<- Copy2DbResult,
+	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan<- compute_pipes.ComputePipesResult,
 	badRowsWriter *bufio.Writer) {
 
 	// Create a channel to use as a buffer between the file loader and the copy to db
@@ -48,7 +49,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	}()
 
 	// Start the Compute Pipes async
-	go startComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh)
+	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh)
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {

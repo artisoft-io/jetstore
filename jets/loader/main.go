@@ -55,6 +55,7 @@ var inputColumnsJson string
 var inputColumnsPositionsCsv string
 var inputFormat string
 var inputFormatDataJson string
+var computePipesJson string
 var isPartFiles int
 var sep_flag jcsv.Chartype = '€'
 var errOutDir string
