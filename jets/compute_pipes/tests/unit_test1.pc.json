@@ -1,0 +1,149 @@
+{
+  "output_tables": [
+    {
+      "type": "table",
+      "key": "$REPORT_OUTPUT",
+      "name": "rx_unit_test",
+      "columns": [
+        {
+          "type": "column",
+          "name": "dw_rawfilename",
+          "rdf_type": "text"
+        },
+        {
+          "type": "column",
+          "name": "n",
+          "rdf_type": "int"
+        },
+        {
+          "type": "column",
+          "name": "distinct_mbr_id",
+          "rdf_type": "int"
+        },
+        {
+          "type": "column",
+          "name": "sum_copay",
+          "rdf_type": "double"
+        },
+        {
+          "type": "column",
+          "name": "min_paid_date",
+          "rdf_type": "date"
+        },
+        {
+          "type": "column",
+          "name": "nbr_subscribers",
+          "rdf_type": "int"
+        },
+        {
+          "type": "column",
+          "name": "null_mbr_id",
+          "rdf_type": "int"
+        },
+        {
+          "type": "column",
+          "name": "paid_zero",
+          "rdf_type": "int"
+        },
+        {
+          "type": "column",
+          "name": "session_id",
+          "rdf_type": "text"
+        }
+      ]
+    }
+  ],
+  "pipes_config": [
+    {
+      "type": "splitter",
+      "input": "input_row",
+      "column": "dw_rawfilename",
+      "apply": [
+        {
+          "type": "aggregate",
+          "columns": [
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename"
+            },
+            {
+              "name": "n",
+              "type": "count",
+              "expr": "*"
+            },
+            {
+              "name": "distinct_mbr_id",
+              "type": "distinct_count",
+              "expr": "mbr_id"
+            },
+            {
+              "name": "sum_copay",
+              "type": "sum",
+              "expr": "rev_copay_amt"
+            },
+            {
+              "name": "min_paid_date",
+              "type": "min",
+              "expr": "rev_paid_date"
+            },
+            {
+              "name": "nbr_subscribers",
+              "type": "count",
+              "expr": "*",
+              "where": {
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_relationship_code"
+                },
+                "op": "==",
+                "rhs": {
+                  "type": "value",
+                  "expr": "'E'"
+                }
+              }
+            },
+            {
+              "name": "null_mbr_id",
+              "type": "count",
+              "expr": "mbr_id",
+              "where": {
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_id"
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL"
+                }
+              }
+            },
+            {
+              "name": "paid_zero",
+              "type": "count",
+              "expr": "*",
+              "where": {
+                "lhs": {
+                  "type": "select",
+                  "expr": "rev_paid_amt"
+                },
+                "op": "<",
+                "rhs": {
+                  "type": "value",
+                  "expr": "0.01"
+                }
+              }
+            },
+            {
+              "name": "session_id",
+              "type": "select",
+              "expr": "$SESSIONID"
+            }
+          ],
+          "output": "output:$REPORT_OUTPUT"
+        }
+      ]
+    }
+  ]
+}
