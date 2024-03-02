@@ -1,62 +1,225 @@
 {
   "output_tables": [
     {
-      "type": "table",
       "key": "$REPORT_OUTPUT",
       "name": "rx_unit_test",
       "columns": [
         {
-          "type": "column",
           "name": "dw_rawfilename",
           "rdf_type": "text"
         },
         {
-          "type": "column",
           "name": "n",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "distinct_mbr_id",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "sum_copay",
           "rdf_type": "double"
         },
         {
-          "type": "column",
           "name": "min_paid_date",
           "rdf_type": "date"
         },
         {
-          "type": "column",
           "name": "nbr_subscribers",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "null_mbr_id",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "paid_zero",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "session_id",
           "rdf_type": "text"
         }
       ]
     }
   ],
+  "channels": [
+    {
+      "name": "$REPORT_OUTPUT",
+      "columns": [
+        "dw_rawfilename",
+        "n",
+        "distinct_mbr_id",
+        "sum_copay",
+        "min_paid_date",
+        "nbr_subscribers",
+        "null_mbr_id",
+        "paid_zero",
+        "session_id"
+      ]
+    },
+    {
+      "name": "mapped_row",
+      "columns": [
+        "dw_rawfilename",
+        "mbr_dob",
+        "mbr_gender",
+        "mbr_id",
+        "mbr_relationship_code",
+        "rev_allowed_amt",
+        "rev_coinsurance_amt",
+        "rev_copay_amt",
+        "rev_deductible_amt",
+        "rev_paid_amt",
+        "rev_paid_date",
+        "rev_transaction_num",
+        "svc_ndc_code",
+        "svc_service_frm_date",
+        "svc_specialty_drug_indicator",
+        "svc_written_date"      
+      ]
+    }
+  ],
   "pipes_config": [
     {
-      "type": "splitter",
+      "type": "fan_out",
       "input": "input_row",
+      "apply": [
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "dw_rawfilename",
+              "type": "map",
+              "expr": "dw_rawfilename",
+              "map_expr": {
+                "default": "dw_rawfilename",
+                "rdf_type": "text"
+              }
+            },
+            {
+              "name": "mbr_dob",
+              "type": "map",
+              "expr": "mbr_dob",
+              "map_expr": {
+                "rdf_type": "date"
+              }
+            },
+            {
+              "name": "mbr_gender",
+              "type": "map",
+              "expr": "mbr_gender",
+              "map_expr": {
+                "default": "U",
+                "rdf_type": "string"
+              }
+            },
+            {
+              "name": "mbr_id",
+              "type": "select",
+              "expr": "mbr_id"
+            },
+            {
+              "name": "mbr_relationship_code",
+              "type": "map",
+              "expr": "mbr_relationship_code",
+              "map_expr": {
+                "default": "NOT_VALID",
+                "rdf_type": "string"
+              }
+            },
+            {
+              "name": "rev_allowed_amt",
+              "type": "map",
+              "expr": "rev_allowed_amt",
+              "map_expr": {
+                "rdf_type": "double"
+              }
+            },
+            {
+              "name": "rev_coinsurance_amt",
+              "type": "map",
+              "expr": "rev_coinsurance_amt",
+              "map_expr": {
+                "rdf_type": "double"
+              }
+            },
+            {
+              "name": "rev_copay_amt",
+              "type": "map",
+              "expr": "rev_copay_amt",
+              "map_expr": {
+                "rdf_type": "double"
+              }
+            },
+            {
+              "name": "rev_deductible_amt",
+              "type": "map",
+              "expr": "rev_deductible_amt",
+              "map_expr": {
+                "rdf_type": "double"
+              }
+            },
+            {
+              "name": "rev_paid_amt",
+              "type": "map",
+              "expr": "rev_paid_amt",
+              "map_expr": {
+                "rdf_type": "double"
+              }
+            },
+            {
+              "name": "rev_paid_date",
+              "type": "map",
+              "expr": "rev_paid_date",
+              "map_expr": {
+                "rdf_type": "date"
+              }
+            },
+            {
+              "name": "rev_transaction_num",
+              "type": "select",
+              "expr": "rev_transaction_num"
+            },
+            {
+              "name": "svc_ndc_code",
+              "type": "map",
+              "expr": "svc_ndc_code",
+              "map_expr": {
+                "cleansing_function": "find_and_replace",
+                "argument": "\"Bk\",\"\"",
+                "rdf_type": "string"
+              }
+            },
+            {
+              "name": "svc_service_frm_date",
+              "type": "map",
+              "expr": "svc_service_frm_date",
+              "map_expr": {
+                "rdf_type": "date"
+              }
+            },
+            {
+              "name": "svc_specialty_drug_indicator",
+              "type": "select",
+              "expr": "svc_specialty_drug_indicator"
+            },
+            {
+              "name": "svc_written_date",
+              "type": "map",
+              "expr": "svc_written_date",
+              "map_expr": {
+                "rdf_type": "date"
+              }
+            }
+          ]
+        }
+      ],
+      "output": "mapped_row"
+    },
+    {
+      "type": "splitter",
+      "input": "mapped_row",
       "column": "dw_rawfilename",
       "apply": [
         {
@@ -141,7 +304,7 @@
               "expr": "$SESSIONID"
             }
           ],
-          "output": "output:$REPORT_OUTPUT"
+          "output": "$REPORT_OUTPUT"
         }
       ]
     }

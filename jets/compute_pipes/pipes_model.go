@@ -1,35 +1,38 @@
 package compute_pipes
 
-// import (
-// 	"encoding/json"
-// )
-
+// This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	OutputTables []TableSpec `json:"output_tables"`
-	PipesConfig  []PipeSpec  `json:"pipes_config"`
+	OutputTables []TableSpec   `json:"output_tables"`
+	Channels     []ChannelSpec `json:"channels"`
+	PipesConfig  []PipeSpec    `json:"pipes_config"`
+}
+
+type ChannelSpec struct {
+	Name    string   `json:"name"`
+	Columns []string `json:"columns"`
 }
 
 type TableSpec struct {
-	Type    string            `json:"type"`
 	Key     string            `json:"key"`
 	Name    string            `json:"name"`
 	Columns []TableColumnSpec `json:"columns"`
 }
 
 type TableColumnSpec struct {
-	Type    string `json:"type"`
 	Name    string `json:"name"`
 	RdfType string `json:"rdf_type"`
 }
 
 type PipeSpec struct {
-	Type   string               `json:"type"`
+	// Type range: fan_out, splitter, 
+	Type   string               `json:"type"` 
 	Input  string               `json:"input"`
-	Column string               `json:"column"` // splitter column
+	Column *string              `json:"column"` // splitter column
 	Apply  []TransformationSpec `json:"apply"`
 }
 
 type TransformationSpec struct {
+	// Type range: map_record, aggregate
 	Type    string                     `json:"type"`
 	Columns []TransformationColumnSpec `json:"columns"`
 	Output  string                     `json:"output"`
@@ -37,15 +40,27 @@ type TransformationSpec struct {
 
 type TransformationColumnSpec struct {
 	Name     string           `json:"name"`
+	// Type range: select, value, eval, map, 
+	// (applicable to aggregate) count, distinct_count, sum, min,
 	Type     string           `json:"type"`
 	Expr     *string          `json:"expr"`
+	MapExpr  *MapExpression   `json:"map_expr"`
 	EvalExpr *ExpressionNode  `json:"eval_expr"`
 	Where    *ExpressionNode  `json:"where"`
 	CaseExpr []CaseExpression `json:"case_expr"`
 	ElseExpr *ExpressionNode  `json:"else_expr"`
 }
 
+type MapExpression struct {
+	CleansingFunction *string `json:"cleansing_function"`
+	Argument          *string `json:"argument"`
+	Default           *string `json:"default"`
+	ErrMsg            *string `json:"err_msg"`
+	RdfType           string  `json:"rdf_type"`
+}
+
 type ExpressionNode struct {
+	// Type for leaf node: select, value, eval
 	Type     *string         `json:"type"`
 	Expr     *string         `json:"expr"`
 	EvalExpr *ExpressionNode `json:"eval_expr"`

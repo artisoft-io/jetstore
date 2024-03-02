@@ -1,62 +1,340 @@
 {
   "output_tables": [
     {
-      "type": "table",
       "key": "$REPORT_OUTPUT",
       "name": "rx_unit_test",
       "columns": [
         {
-          "type": "column",
           "name": "dw_rawfilename",
           "rdf_type": "text"
         },
         {
-          "type": "column",
           "name": "n",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "distinct_mbr_id",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "sum_copay",
           "rdf_type": "double"
         },
         {
-          "type": "column",
           "name": "min_paid_date",
           "rdf_type": "date"
         },
         {
-          "type": "column",
           "name": "nbr_subscribers",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "null_mbr_id",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "paid_zero",
           "rdf_type": "int"
         },
         {
-          "type": "column",
           "name": "session_id",
           "rdf_type": "text"
         }
       ]
     }
   ],
+  "channels": [
+    {
+      "name": "$REPORT_OUTPUT",
+      "columns": [
+        "dw_rawfilename",
+        "n",
+        "distinct_mbr_id",
+        "sum_copay",
+        "min_paid_date",
+        "nbr_subscribers",
+        "null_mbr_id",
+        "paid_zero",
+        "session_id"
+      ]
+    },
+    {
+      "name": "mapped_row",
+      "columns": [
+        "dw_rawfilename",
+        "mbr_dob",
+        "mbr_gender",
+        "mbr_id",
+        "mbr_relationship_code",
+        "rev_allowed_amt",
+        "rev_coinsurance_amt",
+        "rev_copay_amt",
+        "rev_deductible_amt",
+        "rev_paid_amt",
+        "rev_paid_date",
+        "rev_transaction_num",
+        "svc_ndc_code",
+        "svc_service_frm_date",
+        "svc_specialty_drug_indicator",
+        "svc_written_date"
+      ]
+    }
+  ],
   "pipes_config": [
     {
-      "type": "splitter",
+      "type": "fan_out",
       "input": "input_row",
+      "column": null,
+      "apply": [
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "dw_rawfilename",
+              "type": "mapping",
+              "expr": "dw_rawfilename",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": "dw_rawfilename",
+                "err_msg": null,
+                "rdf_type": "text"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_dob",
+              "type": "mapping",
+              "expr": "mbr_dob",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_gender",
+              "type": "mapping",
+              "expr": "mbr_gender",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": "U",
+                "err_msg": null,
+                "rdf_type": "string"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_id",
+              "type": "select",
+              "expr": "mbr_id",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_relationship_code",
+              "type": "mapping",
+              "expr": "mbr_relationship_code",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": "NOT_VALID",
+                "err_msg": null,
+                "rdf_type": "string"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_allowed_amt",
+              "type": "mapping",
+              "expr": "rev_allowed_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_coinsurance_amt",
+              "type": "mapping",
+              "expr": "rev_coinsurance_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_copay_amt",
+              "type": "mapping",
+              "expr": "rev_copay_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_deductible_amt",
+              "type": "mapping",
+              "expr": "rev_deductible_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_paid_amt",
+              "type": "mapping",
+              "expr": "rev_paid_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_paid_date",
+              "type": "mapping",
+              "expr": "rev_paid_date",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_transaction_num",
+              "type": "select",
+              "expr": "rev_transaction_num",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_ndc_code",
+              "type": "mapping",
+              "expr": "svc_ndc_code",
+              "map_expr": {
+                "cleansing_function": "find_and_replace",
+                "argument": "\"Bk\",\"\"",
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "string"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_service_frm_date",
+              "type": "mapping",
+              "expr": "svc_service_frm_date",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_specialty_drug_indicator",
+              "type": "select",
+              "expr": "svc_specialty_drug_indicator",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_written_date",
+              "type": "mapping",
+              "expr": "svc_written_date",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": ""
+        }
+      ]
+    },
+    {
+      "type": "splitter",
+      "input": "mapped_row",
       "column": "dw_rawfilename",
       "apply": [
         {
@@ -66,6 +344,8 @@
               "name": "dw_rawfilename",
               "type": "select",
               "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
               "where": null,
               "case_expr": null,
               "else_expr": null
@@ -74,6 +354,8 @@
               "name": "n",
               "type": "count",
               "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
               "where": null,
               "case_expr": null,
               "else_expr": null
@@ -82,6 +364,8 @@
               "name": "distinct_mbr_id",
               "type": "distinct_count",
               "expr": "mbr_id",
+              "map_expr": null,
+              "eval_expr": null,
               "where": null,
               "case_expr": null,
               "else_expr": null
@@ -90,6 +374,8 @@
               "name": "sum_copay",
               "type": "sum",
               "expr": "rev_copay_amt",
+              "map_expr": null,
+              "eval_expr": null,
               "where": null,
               "case_expr": null,
               "else_expr": null
@@ -98,6 +384,8 @@
               "name": "min_paid_date",
               "type": "min",
               "expr": "rev_paid_date",
+              "map_expr": null,
+              "eval_expr": null,
               "where": null,
               "case_expr": null,
               "else_expr": null
@@ -106,12 +394,16 @@
               "name": "nbr_subscribers",
               "type": "count",
               "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
               "where": {
                 "type": null,
                 "expr": null,
+                "eval_expr": null,
                 "lhs": {
                   "type": "select",
                   "expr": "mbr_relationship_code",
+                  "eval_expr": null,
                   "lhs": null,
                   "op": null,
                   "rhs": null
@@ -120,6 +412,7 @@
                 "rhs": {
                   "type": "value",
                   "expr": "'E'",
+                  "eval_expr": null,
                   "lhs": null,
                   "op": null,
                   "rhs": null
@@ -132,12 +425,16 @@
               "name": "null_mbr_id",
               "type": "count",
               "expr": "mbr_id",
+              "map_expr": null,
+              "eval_expr": null,
               "where": {
                 "type": null,
                 "expr": null,
+                "eval_expr": null,
                 "lhs": {
                   "type": "select",
                   "expr": "mbr_id",
+                  "eval_expr": null,
                   "lhs": null,
                   "op": null,
                   "rhs": null
@@ -146,6 +443,7 @@
                 "rhs": {
                   "type": "value",
                   "expr": "NULL",
+                  "eval_expr": null,
                   "lhs": null,
                   "op": null,
                   "rhs": null
@@ -158,12 +456,16 @@
               "name": "paid_zero",
               "type": "count",
               "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
               "where": {
                 "type": null,
                 "expr": null,
+                "eval_expr": null,
                 "lhs": {
                   "type": "select",
                   "expr": "rev_paid_amt",
+                  "eval_expr": null,
                   "lhs": null,
                   "op": null,
                   "rhs": null
@@ -172,6 +474,7 @@
                 "rhs": {
                   "type": "value",
                   "expr": "0.01",
+                  "eval_expr": null,
                   "lhs": null,
                   "op": null,
                   "rhs": null
@@ -184,12 +487,14 @@
               "name": "session_id",
               "type": "select",
               "expr": "$SESSIONID",
+              "map_expr": null,
+              "eval_expr": null,
               "where": null,
               "case_expr": null,
               "else_expr": null
             }
           ],
-          "output": "output:$REPORT_OUTPUT"
+          "output": "$REPORT_OUTPUT"
         }
       ]
     }

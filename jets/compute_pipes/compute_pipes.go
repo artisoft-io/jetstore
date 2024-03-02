@@ -1,6 +1,10 @@
 package compute_pipes
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -14,12 +18,97 @@ type ComputePipesResult struct {
 
 // Function to write transformed row to database
 func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
-	computePipesInputCh <-chan []interface{}, copy2DbResultCh chan<- ComputePipesResult) {
+	computePipesInputCh <-chan []interface{}, computePipesResultCh chan<- ComputePipesResult, computePipesJson *string) {
 
-	wt := WriteTableSource{
-		source: computePipesInputCh,
-		tableName: headersDKInfo.TableName,	// using default staging table
-		columns: headersDKInfo.Headers, // using default staging table
+	var cpErr error	
+	if computePipesJson == nil || len(*computePipesJson) == 0 {
+		// Loader in classic mode, no compute pipes defined
+		tableIdentifier, err := SplitTableName(headersDKInfo.TableName)
+		if err != nil {
+			cpErr = fmt.Errorf("while splitting table name: %s", err)
+			goto gotError
+		}
+		wt := WriteTableSource{
+			source: computePipesInputCh,
+			tableIdentifier: tableIdentifier,	// using default staging table
+			columns: headersDKInfo.Headers, // using default staging table
+		}
+		wt.writeTable(dbpool, done, computePipesResultCh)
+
+	} else {
+
+		// unmarshall the compute graph definition
+		var cpConfig ComputePipesConfig
+		err := json.Unmarshal([]byte(*computePipesJson), &cpConfig)
+		if err != nil {
+			cpErr = fmt.Errorf("while unmarshaling compute pipes json: %s", err)
+			goto gotError
+		}
+
+		// Prepare the channel registry
+		channelRegistry := &ChannelRegistry{
+			computePipesInputCh: computePipesInputCh,
+			inputColumns: headersDKInfo.HeadersPosMap,
+			inputChannelSpec: &ChannelSpec{
+				Name: "input_row",
+				Columns: headersDKInfo.Headers,
+			},
+			computeChannels: make(map[string]*Channel),
+		}
+		for i := range cpConfig.Channels {
+			cm := make(map[string]int)
+			for j, c := range cpConfig.Channels[i].Columns {
+				cm[c] = j
+			}
+			channelRegistry.computeChannels[cpConfig.Channels[i].Name] = &Channel{
+				channel: make(chan []interface{}),
+				columns: cm,
+				config: &cpConfig.Channels[i],
+			}
+		}
+	
+		// Prepare the output tables
+		for i := range cpConfig.OutputTables {
+			tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
+			if err != nil {
+				cpErr = fmt.Errorf("while splitting table name: %s", err)
+				goto gotError
+			}
+			err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
+			if err != nil {
+				cpErr = fmt.Errorf("while preparing output table: %s", err)
+				goto gotError	
+			}
+			outChannel := channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
+			if outChannel == nil {
+				cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration", 
+					cpConfig.OutputTables[i].Name)
+				goto gotError	
+			}
+			wt := WriteTableSource{
+				source: outChannel.channel,
+				tableIdentifier: tableIdentifier,
+				columns: outChannel.config.Columns,
+			}
+			wt.writeTable(dbpool, done, computePipesResultCh)
+		}
+
+		ctx := BuilderContext{
+			cpConfig: &cpConfig,
+			channelRegistry: channelRegistry,
+		}
+		err = ctx.buildComputeGraph()
+		if err != nil {
+			cpErr = fmt.Errorf("while building the compute graph: %s", err)
+			goto gotError	
+		}
+
 	}
-	wt.writeTable(dbpool, done, copy2DbResultCh)
+	// All good!
+	return
+
+	gotError:
+	log.Println(cpErr)
+	computePipesResultCh <- ComputePipesResult{Err: cpErr}
+	close(done)
 }

@@ -49,7 +49,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	}()
 
 	// Start the Compute Pipes async
-	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh)
+	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh, &computePipesJson)
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {

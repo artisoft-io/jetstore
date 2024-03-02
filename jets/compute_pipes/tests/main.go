@@ -2,16 +2,19 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
+var fname = flag.String("fname", "./unit_test1.pc.json", "compute pipes config file")
 
 func main() {
+	flag.Parse()
 
 	// fmt.Println("Reading file ./unit_test1.pc.json")
-	file, err := os.ReadFile("./unit_test2.pc.json")
+	file, err := os.ReadFile(*fname)
 	if err != nil {
 		panic(fmt.Sprintf("while reading json file:%v\n", err))
 	}
