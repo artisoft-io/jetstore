@@ -311,7 +311,7 @@
             {
               "name": "null_mbr_id",
               "type": "count",
-              "expr": "mbr_id",
+              "expr": "*",
               "where": {
                 "lhs": {
                   "type": "select",

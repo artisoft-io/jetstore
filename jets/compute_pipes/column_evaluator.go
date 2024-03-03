@@ -67,9 +67,44 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 			outputPos: outCh.columns[spec.Name],
 		}, nil
 
+	case "map":
+		mapEvaluator, err := ctx.buildMapEvaluator(source, outCh, spec)
+		if err != nil {
+			return nil, fmt.Errorf("while calling buildMapEvaluator: %v", err)
+		}
+		return mapEvaluator, nil
+
+	case "count":
+		countEvaluator, err := ctx.buildCountEvaluator(source, outCh, spec)
+		if err != nil {
+			return nil, fmt.Errorf("while calling buildCountEvaluator: %v", err)
+		}
+		return countEvaluator, nil
+
+	case "distinct_count":
+		distinctCountEvaluator, err := ctx.buildDistinctCountEvaluator(source, outCh, spec)
+		if err != nil {
+			return nil, fmt.Errorf("while calling buildDistinctCountEvaluator: %v", err)
+		}
+		return distinctCountEvaluator, nil
+
+	case "sum":
+		sumEvaluator, err := ctx.buildSumEvaluator(source, outCh, spec)
+		if err != nil {
+			return nil, fmt.Errorf("while calling buildSumEvaluator: %v", err)
+		}
+		return sumEvaluator, nil
+
+	case "min":
+		minEvaluator, err := ctx.buildMinEvaluator(source, outCh, spec)
+		if err != nil {
+			return nil, fmt.Errorf("while calling buildMinEvaluator: %v", err)
+		}
+		return minEvaluator, nil
 	}
 	return nil, fmt.Errorf("error: unknown TransformationColumnSpec Type: %v", spec.Type)
 }
+
 
 // TransformationColumnSpec Type eval
 type evalExprColumnEval struct {
@@ -77,6 +112,7 @@ type evalExprColumnEval struct {
 	outputPos int
 }
 
+func (ctx *evalExprColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
 func (ctx *evalExprColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
 	value, err := ctx.expr.eval(input)
 	if err != nil {
@@ -93,6 +129,7 @@ type valueColumnEval struct {
 	outputPos int
 }
 
+func (ctx *valueColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
 func (ctx *valueColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error valueColumnEval.update cannot have nil currentValue or input")
@@ -107,6 +144,7 @@ type selectColumnEval struct {
 	outputPos int
 }
 
+func (ctx *selectColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
 func (ctx *selectColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")

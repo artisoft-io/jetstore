@@ -67,6 +67,7 @@ type BuilderContext struct {
 }
 
 type TransformationColumnEvaluator interface {
+	initializeCurrentValue(currentValue *[]interface{})
 	update(currentValue *[]interface{}, input *[]interface{}) error
 }
 
@@ -106,6 +107,7 @@ func (ctx BuilderContext) buildPipeTransformation(source *InputChannel, spec *Tr
 	// Construct the pipe transformation
 	switch spec.Type {
 	case "map_record":
+		go ctx.startMapRecordTransform(source, spec)
 
 	case "aggregate":
 		go ctx.startAggregateTransform(source, spec)
@@ -114,6 +116,54 @@ func (ctx BuilderContext) buildPipeTransformation(source *InputChannel, spec *Tr
 		return fmt.Errorf("error: unknown TransformationSpec type: %s", spec.Type)
 	}
 	return nil
+}
+
+// start a map_record pipe transformation
+func (ctx BuilderContext) startMapRecordTransform(source *InputChannel, spec *TransformationSpec) {
+	var cpErr error
+	// compile the TransformationColumnSpec into runtime evaluators
+	evaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
+	var currentValues []interface{}
+	// Get the output channel
+	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.Output)
+	if err != nil {
+		cpErr = fmt.Errorf("while requesting output channel %s", spec.Output)
+		goto gotError
+	}
+	for i := range spec.Columns {
+		evaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outCh, &spec.Columns[i])
+		if err != nil {
+			cpErr = fmt.Errorf("while buildTransformationColumnEvaluator (in MapRecordTransform) %v", err)
+			goto gotError	
+		}
+		evaluators[i].initializeCurrentValue(&currentValues)
+	}
+	// setup the aggregate loop on the source
+	for inRow := range source.channel {
+		currentValues = make([]interface{}, len(outCh.config.Columns))
+		for i := range spec.Columns {
+			err = evaluators[i].update(&currentValues, &inRow)
+			if err != nil {
+				cpErr = fmt.Errorf("while calling update on TransformationColumnEvaluator (in MapRecordTransform): %v", err)
+				goto gotError	
+			}
+		}
+		// Send the result to output
+		select {
+		case outCh.channel <- currentValues:
+		case <-ctx.done:
+			log.Println("MapRecordTransform interrupted")
+			return
+		}
+	}
+
+	// All good!
+	return
+
+gotError:
+	log.Println(cpErr)
+	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
+	close(ctx.done)
 }
 
 // start an aggregate pipe transformation
@@ -135,6 +185,7 @@ func (ctx BuilderContext) startAggregateTransform(source *InputChannel, spec *Tr
 			cpErr = fmt.Errorf("while buildTransformationColumnEvaluator %v", err)
 			goto gotError	
 		}
+		evaluators[i].initializeCurrentValue(&currentValues)
 	}
 	// setup the aggregate loop on the source
 	for inRow := range source.channel {

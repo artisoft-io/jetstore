@@ -81,3 +81,4 @@ jets/jsontest/httptest/httptest
 jets/copytest/parquettest/parquettest
 jets/copytest/scratchpad/scratchpad
 jets/copytest/xlsxreader/xlsxreader
+jets/compute_pipes/tests/tests
