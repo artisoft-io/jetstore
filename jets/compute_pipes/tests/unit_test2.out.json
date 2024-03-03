@@ -511,7 +511,7 @@
             {
               "name": "null_mbr_id",
               "type": "count",
-              "expr": "mbr_id",
+              "expr": "*",
               "map_expr": null,
               "eval_expr": null,
               "where": {

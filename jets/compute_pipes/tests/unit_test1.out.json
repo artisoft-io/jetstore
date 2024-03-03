@@ -91,7 +91,7 @@
           "columns": [
             {
               "name": "dw_rawfilename",
-              "type": "mapping",
+              "type": "map",
               "expr": "dw_rawfilename",
               "map_expr": {
                 "cleansing_function": null,
@@ -107,7 +107,7 @@
             },
             {
               "name": "mbr_dob",
-              "type": "mapping",
+              "type": "map",
               "expr": "mbr_dob",
               "map_expr": {
                 "cleansing_function": null,
@@ -123,7 +123,7 @@
             },
             {
               "name": "mbr_gender",
-              "type": "mapping",
+              "type": "map",
               "expr": "mbr_gender",
               "map_expr": {
                 "cleansing_function": null,
@@ -149,7 +149,7 @@
             },
             {
               "name": "mbr_relationship_code",
-              "type": "mapping",
+              "type": "map",
               "expr": "mbr_relationship_code",
               "map_expr": {
                 "cleansing_function": null,
@@ -165,7 +165,7 @@
             },
             {
               "name": "rev_allowed_amt",
-              "type": "mapping",
+              "type": "map",
               "expr": "rev_allowed_amt",
               "map_expr": {
                 "cleansing_function": null,
@@ -181,7 +181,7 @@
             },
             {
               "name": "rev_coinsurance_amt",
-              "type": "mapping",
+              "type": "map",
               "expr": "rev_coinsurance_amt",
               "map_expr": {
                 "cleansing_function": null,
@@ -197,7 +197,7 @@
             },
             {
               "name": "rev_copay_amt",
-              "type": "mapping",
+              "type": "map",
               "expr": "rev_copay_amt",
               "map_expr": {
                 "cleansing_function": null,
@@ -213,7 +213,7 @@
             },
             {
               "name": "rev_deductible_amt",
-              "type": "mapping",
+              "type": "map",
               "expr": "rev_deductible_amt",
               "map_expr": {
                 "cleansing_function": null,
@@ -229,7 +229,7 @@
             },
             {
               "name": "rev_paid_amt",
-              "type": "mapping",
+              "type": "map",
               "expr": "rev_paid_amt",
               "map_expr": {
                 "cleansing_function": null,
@@ -245,7 +245,7 @@
             },
             {
               "name": "rev_paid_date",
-              "type": "mapping",
+              "type": "map",
               "expr": "rev_paid_date",
               "map_expr": {
                 "cleansing_function": null,
@@ -271,7 +271,7 @@
             },
             {
               "name": "svc_ndc_code",
-              "type": "mapping",
+              "type": "map",
               "expr": "svc_ndc_code",
               "map_expr": {
                 "cleansing_function": "find_and_replace",
@@ -287,7 +287,7 @@
             },
             {
               "name": "svc_service_frm_date",
-              "type": "mapping",
+              "type": "map",
               "expr": "svc_service_frm_date",
               "map_expr": {
                 "cleansing_function": null,
@@ -313,7 +313,7 @@
             },
             {
               "name": "svc_written_date",
-              "type": "mapping",
+              "type": "map",
               "expr": "svc_written_date",
               "map_expr": {
                 "cleansing_function": null,
@@ -424,7 +424,7 @@
             {
               "name": "null_mbr_id",
               "type": "count",
-              "expr": "mbr_id",
+              "expr": "*",
               "map_expr": null,
               "eval_expr": null,
               "where": {
