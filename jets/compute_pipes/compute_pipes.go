@@ -18,7 +18,8 @@ type ComputePipesResult struct {
 
 // Function to write transformed row to database
 func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
-	computePipesInputCh <-chan []interface{}, computePipesResultCh chan<- ComputePipesResult, computePipesJson *string) {
+	computePipesInputCh <-chan []interface{}, computePipesResultCh chan<- ComputePipesResult, computePipesJson *string,
+	envSettings map[string]interface{}) {
 
 	var cpErr error	
 	if computePipesJson == nil || len(*computePipesJson) == 0 {
@@ -96,6 +97,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		ctx := BuilderContext{
 			cpConfig: &cpConfig,
 			channelRegistry: channelRegistry,
+			env: envSettings,
 		}
 		err = ctx.buildComputeGraph()
 		if err != nil {

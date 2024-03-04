@@ -6,10 +6,14 @@ import (
 	"strings"
 )
 
-func parseValue(expr *string) (interface{}, error) {
+func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 	var value interface{}
 	var err error
 	switch {
+	case strings.HasPrefix(*expr, "$"):
+		// value is an env var
+		value = ctx.env[*expr]
+		
 	case strings.HasPrefix(*expr, "'"):
 		// value is a string
 		value = strings.TrimPrefix(*expr, "'")
@@ -48,7 +52,7 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 		if spec.Expr == nil {
 			return nil, fmt.Errorf("error: Type value must have Expr != nil")
 		}
-		value, err := parseValue(spec.Expr)
+		value, err := ctx.parseValue(spec.Expr)
 		if err != nil {
 			return nil, err
 		}

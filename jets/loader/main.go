@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/user"
 )
@@ -65,6 +66,8 @@ var devMode bool
 var adminEmail string
 var jetsDebug int
 var processingErrors []string
+var fileKeyComponents map[string]interface{}
+var fileKeyDate time.Time
 
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator for csv files, default is auto detect between pipe ('|'), tilda ('~'), tab ('\t') or comma (',')")
@@ -223,6 +226,13 @@ func main() {
 		fmt.Println("Nbr Shards in DEV MODE: nbrShards", *nbrShards)
 	}
 	jetsDebug, _ = strconv.Atoi(os.Getenv("JETS_LOG_DEBUG"))
+	fileKeyComponents = make(map[string]interface{})
+	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, inFile)
+	year := fileKeyComponents["year"].(int)
+	month := fileKeyComponents["month"].(int)
+	day := fileKeyComponents["day"].(int)
+	fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
+	log.Println("fileKeyDate:",fileKeyDate)
 
 	err = coordinateWork()
 	if err != nil {

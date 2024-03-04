@@ -485,7 +485,7 @@
             },
             {
               "name": "session_id",
-              "type": "select",
+              "type": "value",
               "expr": "$SESSIONID",
               "map_expr": null,
               "eval_expr": null,

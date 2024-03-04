@@ -174,6 +174,10 @@ final Map<String, TableConfig> _tableConfigurations = {
         stateKey: FSK.scInputFormatDataJson,
         columnIdx: 12,
       ),
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.computePipesJson,
+        columnIdx: 13,
+      ),
     ]),
     columns: [
       ColumnConfig(
@@ -268,6 +272,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 13,
+          name: "compute_pipes_json",
+          label: 'compute_pipes_json',
+          tooltips: '',
+          isNumeric: false,
+          isHidden: true),
+      ColumnConfig(
+          index: 14,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Indicates when the record was last updated',

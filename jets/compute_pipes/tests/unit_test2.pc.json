@@ -1721,7 +1721,7 @@
             },
             {
               "name": "session_id",
-              "type": "select",
+              "type": "value",
               "expr": "$SESSIONID"
             },
             {

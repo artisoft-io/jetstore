@@ -64,6 +64,7 @@ type BuilderContext struct {
 	channelRegistry      *ChannelRegistry
 	done                 chan struct{}
 	computePipesResultCh chan<- ComputePipesResult
+	env map[string]interface{}
 }
 
 type TransformationColumnEvaluator interface {
@@ -75,7 +76,9 @@ func (ctx BuilderContext) buildComputeGraph() error {
 
 	// Construct the in-memory compute graph
 	// Build the Pipes
+	fmt.Println("**& Start ComputeGraph")
 	for i := range ctx.cpConfig.PipesConfig {
+		fmt.Println("**& PipeConfig", i)
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
 		source, err := ctx.channelRegistry.GetInputChannel(pipeSpec.Input)
 		if err != nil {
@@ -84,6 +87,7 @@ func (ctx BuilderContext) buildComputeGraph() error {
 		switch pipeSpec.Type {
 
 		case "fan_out":
+			fmt.Println("**& PipeConfig", i, "fan_out")
 			// Apply each transformation to the input source
 			for j := range pipeSpec.Apply {
 				err = ctx.buildPipeTransformation(source, &pipeSpec.Apply[j])
@@ -93,6 +97,7 @@ func (ctx BuilderContext) buildComputeGraph() error {
 			}
 
 		case "splitter":
+			fmt.Println("**& PipeConfig", i, "splitter")
 			go ctx.startSplitterPipe(source, pipeSpec)
 
 		default:
@@ -105,6 +110,8 @@ func (ctx BuilderContext) buildComputeGraph() error {
 func (ctx BuilderContext) buildPipeTransformation(source *InputChannel, spec *TransformationSpec) error {
 
 	// Construct the pipe transformation
+	fmt.Println("**& buildPipeTransformation", spec.Type)
+
 	switch spec.Type {
 	case "map_record":
 		go ctx.startMapRecordTransform(source, spec)

@@ -83,7 +83,7 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 			if spec.Expr == nil {
 				return nil, fmt.Errorf("error: Type value must have Expr != nil")
 			}
-			value, err := parseValue(spec.Expr)
+			value, err := ctx.parseValue(spec.Expr)
 			if err != nil {
 				return nil, err
 			}

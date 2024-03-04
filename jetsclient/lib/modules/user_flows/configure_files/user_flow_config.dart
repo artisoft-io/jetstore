@@ -134,6 +134,12 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Edit Code Value Mapping',
         formConfig: getFormConfig(FormKeys.scEditCodeValueMappingUF),
         actionDelegate: configureFilesFormActions,
+        defaultNextState: "edit_compute_pipe_json"),
+    "edit_compute_pipe_json": UserFlowState(
+        key: "edit_compute_pipe_json",
+        description: 'Edit Compute Pipes Configuration',
+        formConfig: getFormConfig(FormKeys.scEditComputePipesJsonUF),
+        actionDelegate: configureFilesFormActions,
         defaultNextState: "edit_automated_mode"),
     "edit_automated_mode": UserFlowState(
         key: "edit_automated_mode",
