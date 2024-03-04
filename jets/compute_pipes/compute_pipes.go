@@ -37,6 +37,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		wt.writeTable(dbpool, done, computePipesResultCh)
 
 	} else {
+		fmt.Println("**& Compute Pipes identified")
 
 		// unmarshall the compute graph definition
 		var cpConfig ComputePipesConfig
@@ -47,6 +48,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		}
 
 		// Prepare the channel registry
+		fmt.Println("**& Compute Pipes prepare channel registry")
 		channelRegistry := &ChannelRegistry{
 			computePipesInputCh: computePipesInputCh,
 			inputColumns: headersDKInfo.HeadersPosMap,
@@ -67,6 +69,10 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				config: &cpConfig.Channels[i],
 			}
 		}
+		fmt.Println("**& Compute Pipes channel registry ready")
+		// for i := range cpConfig.Channels {
+		// 	fmt.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
+		// }
 	
 		// Prepare the output tables
 		for i := range cpConfig.OutputTables {
@@ -91,8 +97,9 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				tableIdentifier: tableIdentifier,
 				columns: outChannel.config.Columns,
 			}
-			wt.writeTable(dbpool, done, computePipesResultCh)
+			go wt.writeTable(dbpool, done, computePipesResultCh)
 		}
+		fmt.Println("**& Compute Pipes output tables ready")
 
 		ctx := BuilderContext{
 			cpConfig: &cpConfig,

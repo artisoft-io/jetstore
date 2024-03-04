@@ -18,15 +18,15 @@
         },
         {
           "name": "numerator",
-          "rdf_type": "double"
+          "rdf_type": "double precision"
         },
         {
           "name": "denominator",
-          "rdf_type": "double"
+          "rdf_type": "double precision"
         },
         {
           "name": "ratio",
-          "rdf_type": "double"
+          "rdf_type": "double precision"
         },
         {
           "name": "status",

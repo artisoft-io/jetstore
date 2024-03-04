@@ -18,7 +18,7 @@
         },
         {
           "name": "sum_copay",
-          "rdf_type": "double"
+          "rdf_type": "double precision"
         },
         {
           "name": "min_paid_date",

@@ -21,6 +21,7 @@ func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
 		return &InputChannel{
 			channel: r.computePipesInputCh,
 			config:  r.inputChannelSpec,
+			columns: r.inputColumns,
 		}, nil
 	}
 	ch, ok := r.computeChannels[name]
@@ -30,7 +31,8 @@ func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
 	return &InputChannel{
 		channel: ch.channel,
 		config:  ch.config,
-	}, nil
+		columns: ch.columns,
+		}, nil
 }
 func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) {
 	ch, ok := r.computeChannels[name]
@@ -40,7 +42,8 @@ func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) 
 	return &OutputChannel{
 		channel: ch.channel,
 		config:  ch.config,
-	}, nil
+		columns: ch.columns,
+		}, nil
 }
 
 type Channel struct {
@@ -84,6 +87,7 @@ func (ctx BuilderContext) buildComputeGraph() error {
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
 		}
+		fmt.Println("**& 1 buildComputeGraph source",source.config.Name,"::",source.columns)
 		switch pipeSpec.Type {
 
 		case "fan_out":
