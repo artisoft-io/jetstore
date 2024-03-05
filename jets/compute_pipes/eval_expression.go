@@ -49,9 +49,6 @@ func (node *expressionValueLeaf) eval(_ *[]interface{}) (interface{}, error) {
 // main builder, builds expression evaluator
 
 func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *OutputChannel, spec *ExpressionNode) (evalExpression, error) {
-	if spec.EvalExpr == nil {
-		return nil, fmt.Errorf("error: Type eval must have EvalExpr != nil")
-	}
 	switch {
 	case spec.Lhs != nil:
 		// Case of binary node

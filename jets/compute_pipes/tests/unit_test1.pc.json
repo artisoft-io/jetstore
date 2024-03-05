@@ -76,7 +76,7 @@
         "svc_ndc_code",
         "svc_service_frm_date",
         "svc_specialty_drug_indicator",
-        "svc_written_date"      
+        "svc_written_date"
       ]
     }
   ],
@@ -212,10 +212,10 @@
                 "rdf_type": "date"
               }
             }
-          ]
+          ],
+          "output": "mapped_row"
         }
-      ],
-      "output": "mapped_row"
+      ]
     },
     {
       "type": "splitter",

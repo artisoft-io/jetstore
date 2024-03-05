@@ -1843,7 +1843,7 @@
               }
             }
           ],
-          "output": "output:$REPORT_OUTPUT"
+          "output": "$REPORT_OUTPUT"
         }
       ]
     }

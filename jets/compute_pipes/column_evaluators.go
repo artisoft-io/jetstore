@@ -10,6 +10,9 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 	var value interface{}
 	var err error
 	switch {
+	case *expr == "NULL":
+		value = nil
+		
 	case strings.HasPrefix(*expr, "$"):
 		// value is an env var
 		value = ctx.env[*expr]

@@ -57,6 +57,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				Columns: headersDKInfo.Headers,
 			},
 			computeChannels: make(map[string]*Channel),
+			closedChannels: make(map[string]bool),
 		}
 		for i := range cpConfig.Channels {
 			cm := make(map[string]int)

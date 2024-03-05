@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 // TransformationColumnSpec Type map
@@ -27,6 +28,7 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 	// update currentValue using input applying cleansing function and default value
 	inputVal := (*input)[ctx.mapConfig.inputPos]
 	var outputVal interface{}
+	var err error
 	if inputVal == nil {
 		// Apply default
 		outputVal = ctx.mapConfig.defaultValue
@@ -47,7 +49,36 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 				outputVal = ctx.mapConfig.defaultValue
 			}
 		} else {
-			outputVal = inputVal
+			switch ctx.mapConfig.mapConfig.RdfType {
+			case "int":
+				outputVal, err = strconv.Atoi(inputVal.(string))
+				if err != nil {
+					fmt.Println("input is not int:", inputVal.(string))
+					outputVal = nil
+				}
+			case "int64", "long":
+				outputVal, err = strconv.ParseInt(inputVal.(string), 10, 64)
+				if err != nil {
+					fmt.Println("input is not long:", inputVal.(string))
+					outputVal = nil
+				}
+			case "float64", "double":
+				outputVal, err = strconv.ParseFloat(inputVal.(string), 64)
+				if err != nil {
+					fmt.Println("input is not double:", inputVal.(string))
+					outputVal = nil
+				}
+			case "date", "datetime":
+				outputVal, err = time.Parse(time.RFC3339, inputVal.(string))
+				// outputVal, err = time.Parse("1/29/2024", inputVal.(string))
+				if err != nil {
+					fmt.Println("input is not date:", inputVal.(string))
+					outputVal = nil
+				}
+			default:
+				outputVal = inputVal
+			}
+			
 		}
 	}
 	(*currentValue)[ctx.mapConfig.outputPos] = outputVal
@@ -60,8 +91,10 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 	}
 	var defaultValue interface{}
 	var err error
-	switch spec.MapExpr.RdfType {
-	case "int", "bool":
+	switch  {
+	case spec.MapExpr.Default == nil:
+		defaultValue = nil
+	case spec.MapExpr.RdfType=="int", spec.MapExpr.RdfType=="bool":
 		switch {
 		case *spec.MapExpr.Default == "true" || *spec.MapExpr.Default == "TRUE":
 			defaultValue = 1
@@ -73,12 +106,12 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 				return nil, err
 			}	
 		}
-	case "int64", "long":
+	case spec.MapExpr.RdfType=="int64", spec.MapExpr.RdfType=="long":
 		defaultValue, err = strconv.ParseInt(*spec.MapExpr.Default, 10, 64)
 		if err != nil {
 			return nil, err
 		}
-	case "string", "text":
+	case spec.MapExpr.RdfType=="string", spec.MapExpr.RdfType=="text":
 		defaultValue = *spec.MapExpr.Default
 	}
 	return &mapColumnEval{
