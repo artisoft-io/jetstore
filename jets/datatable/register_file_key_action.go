@@ -60,7 +60,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 				// update client with proper case
 				fileKeyObject["client"] = clientCase
 			} else {
-				log.Printf("updateFileKeyComponentCase: client %s not found in client_registry\n", client)
+				// log.Printf("updateFileKeyComponentCase: client %s not found in client_registry\n", client)
 			}
 		} else {
 			var clientCase, orgCase string
@@ -71,7 +71,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 				fileKeyObject["client"] = clientCase
 				fileKeyObject["org"] = orgCase
 			} else {
-				log.Printf("updateFileKeyComponentCase: client %s, org %s not found in client_org_registry\n", client, org)
+				// log.Printf("updateFileKeyComponentCase: client %s, org %s not found in client_org_registry\n", client, org)
 			}
 		}	
 	}
@@ -170,7 +170,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			if isPartFile == 1 {
 				size := fileKeyObject["size"].(int64)
 				if size > 1000 {
-					log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
+					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
 					goto NextKey
 				} else {
 					// Current key is for sentinel file, remove sentinel file name from file_key
@@ -193,7 +193,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			}
 		}
 		if strings.Contains(fileKey, "/err_") {
-			log.Println("File key is an error file, skiping")
+			// log.Println("File key is an error file, skiping")
 			allOk = false
 		}
 		if allOk {
@@ -202,14 +202,14 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting missing file keys in file_key_staging table: %v", err)
 			}
 		} else {
-			log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
+			// log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
 			goto NextKey
 		}
 
 		// Start the loader if automated flag is set on source_config table
 		// and if not a test file
 		if strings.Contains(fileKey, "/test_") {
-			log.Println("File key is test file, skiping the automated load")
+			// log.Println("File key is test file, skiping the automated load")
 		} else {
 			if !registerFileKeyAction.NoAutomatedLoad && automated > 0 {
 				// to make sure we don't duplicate session_id
@@ -748,12 +748,13 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, t
 		if !strings.Contains(s3Obj.Key, "/err_") &&
 			strings.Contains(s3Obj.Key, "client=") &&
 			strings.Contains(s3Obj.Key, "object_type=") {
-			log.Println("Got Key from S3:", s3Obj.Key)
+			// log.Println("Got Key from S3:", s3Obj.Key)
 			s3Lookup[s3Obj.Key] = s3Obj
 		}
 	}
 
 	// Truncate jetsapi.file_key_staging
+	log.Println("Truncating file_key_staging table")
 	sqlstmt := `TRUNCATE jetsapi.file_key_staging`
 	_, err = ctx.Dbpool.Exec(context.Background(), sqlstmt)
 	if err != nil {
@@ -762,6 +763,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, t
 
 	// Put keys to database (without starting any processes)
 	// Delegating to RegisterFileKeys for inserting into db
+	log.Printf("Registring %d file keys with file_key_staging table", len(s3Lookup))
 	registerFileKeyDelegateAction := &RegisterFileKeyAction{
 		Action: "register_keys",
 		Data: make([]map[string]interface{}, 0),
@@ -779,26 +781,12 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, t
 		// Split fileKey into components and then in it's elements
 		fileKeyObject = SplitFileKeyIntoComponents(fileKeyObject, &s3Key)
 		fileKeyObject["file_key"] = s3Key
-		year, err := strconv.Atoi(fileKeyObject["year"].(string))
-		if err != nil {
-			log.Printf("File Key with invalid year: %s, setting to 1970\n", fileKeyObject["year"])
-			year = 1970
-		}
-		month, err := strconv.Atoi(fileKeyObject["month"].(string))
-		if err != nil {
-			log.Printf("File Key with invalid month: %s, setting to 1\n", fileKeyObject["year"])
-			year = 1
-		}
-		day, err := strconv.Atoi(fileKeyObject["day"].(string))
-		if err != nil {
-			log.Printf("File Key with invalid day: %s, setting to 1\n", fileKeyObject["year"])
-			year = 1
-		}
 		// Updating object attribute with correct type
-		fileKeyObject["year"] = year
-		fileKeyObject["month"] = month
-		fileKeyObject["day"] = day
+		fileKeyObject["year"] = fileKeyObject["year"].(int)
+		fileKeyObject["month"] = fileKeyObject["month"].(int)
+		fileKeyObject["day"] = fileKeyObject["day"].(int)
 		registerFileKeyDelegateAction.Data = append(registerFileKeyDelegateAction.Data, fileKeyObject)
 	}
+	defer log.Println("DONE Syncing File Keys with s3")
 	return ctx.RegisterFileKeys(registerFileKeyDelegateAction, token)
 }
