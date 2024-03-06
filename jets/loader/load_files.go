@@ -146,6 +146,12 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			if err != nil {
 				return 0, 0, err
 			}
+
+		case ParquetSelect:
+			parquetReader, err = goparquet.NewFileReader(fileHd, headersDKInfo.Headers...)
+			if err != nil {
+				return 0, 0, err
+			}
 		}
 	}
 
@@ -198,13 +204,17 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 				}
 			}
 
-		case Parquet:
-			record = make([]string, len(headersDKInfo.RawHeaders))
+		case Parquet, ParquetSelect:
+			headers := headersDKInfo.RawHeaders
+			if inputFileEncoding == ParquetSelect {
+				headers = headersDKInfo.Headers
+			}
+			record = make([]string, len(headers))
 			var parquetRow map[string]interface{}
 			parquetRow, err = parquetReader.NextRow()
 			if err == nil {
-				for i := range headersDKInfo.RawHeaders {
-					rawValue := parquetRow[headersDKInfo.RawHeaders[i]]
+				for i := range headers {
+					rawValue := parquetRow[headers[i]]
 					if rawValue == nil {
 						record[i] = ""
 					} else {

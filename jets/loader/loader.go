@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -154,9 +155,17 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, headersFileCh, fileNa
 		}
 
 	case ParquetSelect:
-		//* TODO ParquetSelect is not implemented
-		err = fmt.Errorf("error: parquet_select file format is not implemented")
-		goto gotError
+		h := make([]string, 0)
+		rawHeaders = &h
+		err = json.Unmarshal([]byte(inputColumnsJson), rawHeaders)
+		if err != nil {
+			err = fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
+			goto gotError
+		}
+		// Make sure we don't have empty names in rawHeaders
+		adjustFillers(rawHeaders)
+		fmt.Println("Got input columns (rawHeaders) from json:", rawHeaders)
+
 
 	case Xlsx, HeaderlessXlsx:
 		// Parse the file type specific options
@@ -206,6 +215,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, headersFileCh, fileNa
 gotError:
 	fmt.Println("processFile gotError ***", err)
 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{err: err}
+	copy2DbResultCh <- compute_pipes.ComputePipesResult{CopyRowCount: 0}
 	close(done)
 	return
 

@@ -21,7 +21,7 @@ func getParquetFileHeaders(parquetReader *goparquet.FileReader) (*[]string, erro
 
 
 func getRawHeadersParquet(localInFile string) (*[]string, error) {
-	// Get field delimiters used in files and rawHeaders
+	// Get rawHeaders
 	var fileHd *os.File
 	var err error
 	fileHd, err = os.Open(localInFile)
