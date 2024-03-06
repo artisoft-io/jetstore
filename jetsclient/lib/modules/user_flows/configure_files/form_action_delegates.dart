@@ -64,6 +64,7 @@ String? configureFilesFormValidator(
       }
       return null;
     case FSK.codeValuesMappingJson:
+    case FSK.computePipesJson:
       //* codeValuesMappingJson can be json or csv, not validating csv so not validating json here
       // String? value = v;
       // if (value == null || value.isEmpty) {
@@ -163,6 +164,8 @@ Future<String?> configureFilesFormActions(
       state[FSK.domainKeysJson] = unpack(state[FSK.domainKeysJson]);
       state[FSK.codeValuesMappingJson] =
           unpack(state[FSK.codeValuesMappingJson]);
+      state[FSK.computePipesJson] =
+          unpack(state[FSK.computePipesJson]);
       state[FSK.automated] = unpack(state[FSK.automated]);
       state[FSK.scFileTypeOption] = unpack(state[FSK.scFileTypeOption]);
       // Map part file indicator
@@ -304,6 +307,7 @@ Future<String?> configureFilesFormActions(
       state.remove(FSK.inputColumnsPositionsCsv);
       state.remove(FSK.domainKeysJson);
       state.remove(FSK.codeValuesMappingJson);
+      state.remove(FSK.computePipesJson);
       if (context.mounted) {
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);

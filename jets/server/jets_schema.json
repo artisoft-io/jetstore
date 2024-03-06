@@ -576,6 +576,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "compute_pipes_json",
+        "description": "Compute pipes config for in-memory computation in json",
+        "dataType": "text"
+      },
+      {
         "columnName": "user_email",
         "dataType": "text",
         "isNotNull": true

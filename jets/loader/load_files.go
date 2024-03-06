@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/dimchansky/utfbom"
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/google/uuid"
@@ -29,7 +30,7 @@ import (
 // compute transformation is the identity operator.
 
 func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
-	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan<- Copy2DbResult,
+	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan<- compute_pipes.ComputePipesResult,
 	badRowsWriter *bufio.Writer) {
 
 	// Create a channel to use as a buffer between the file loader and the copy to db
@@ -48,7 +49,11 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	}()
 
 	// Start the Compute Pipes async
-	go startComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh)
+	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh, 
+		&computePipesJson, map[string]interface{}{
+			"$SESSIONID": *sessionId,
+			"$FILE_KEY_DATE": fileKeyDate,
+		})
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {
@@ -141,6 +146,12 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			if err != nil {
 				return 0, 0, err
 			}
+
+		case ParquetSelect:
+			parquetReader, err = goparquet.NewFileReader(fileHd, headersDKInfo.Headers...)
+			if err != nil {
+				return 0, 0, err
+			}
 		}
 	}
 
@@ -193,13 +204,17 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 				}
 			}
 
-		case Parquet:
-			record = make([]string, len(headersDKInfo.RawHeaders))
+		case Parquet, ParquetSelect:
+			headers := headersDKInfo.RawHeaders
+			if inputFileEncoding == ParquetSelect {
+				headers = headersDKInfo.Headers
+			}
+			record = make([]string, len(headers))
 			var parquetRow map[string]interface{}
 			parquetRow, err = parquetReader.NextRow()
 			if err == nil {
-				for i := range headersDKInfo.RawHeaders {
-					rawValue := parquetRow[headersDKInfo.RawHeaders[i]]
+				for i := range headers {
+					rawValue := parquetRow[headers[i]]
 					if rawValue == nil {
 						record[i] = ""
 					} else {

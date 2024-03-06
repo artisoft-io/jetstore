@@ -675,7 +675,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 	return &results, http.StatusOK, nil
 }
 
-func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
+func splitFileKey(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
 	if fileKey != nil {
 		for _, component := range strings.Split(*fileKey, "/") {
 			elms := strings.Split(component, "=")
@@ -689,6 +689,33 @@ func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) 
 	}
 	return keyMap
 }
+
+func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
+
+	fileKeyObject := splitFileKey(keyMap, fileKey)
+	fileKeyObject["file_key"] = *fileKey
+	year, err := strconv.Atoi(fileKeyObject["year"].(string))
+	if err != nil {
+		log.Printf("File Key with invalid year: %s, setting to 1970\n", fileKeyObject["year"])
+		year = 1970
+	}
+	month, err := strconv.Atoi(fileKeyObject["month"].(string))
+	if err != nil {
+		log.Printf("File Key with invalid month: %s, setting to 1\n", fileKeyObject["year"])
+		year = 1
+	}
+	day, err := strconv.Atoi(fileKeyObject["day"].(string))
+	if err != nil {
+		log.Printf("File Key with invalid day: %s, setting to 1\n", fileKeyObject["year"])
+		year = 1
+	}
+	// Updating object attribute with correct type
+	fileKeyObject["year"] = year
+	fileKeyObject["month"] = month
+	fileKeyObject["day"] = day
+	return fileKeyObject
+}
+
 
 func AsString(i interface{}) string {
 	if i != nil && reflect.TypeOf(i).Kind() == reflect.String {

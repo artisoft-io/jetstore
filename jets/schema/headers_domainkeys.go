@@ -176,7 +176,6 @@ func parseColumn(column *string) []string {
 // --------------------------------------------------------------------------------------
 // Compute output table columns and associated domain keys
 // passing domainKeysJson as argument for completeness
-//* TODO Add case when no domain key info is provided, use jets:key as the domain_key
 func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainKeysJson *string) error {
 	var ok bool
 	if *domainKeysJson == "" {

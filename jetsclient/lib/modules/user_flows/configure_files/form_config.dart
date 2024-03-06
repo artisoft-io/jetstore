@@ -168,7 +168,7 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         TextFieldConfig(
             label:
-                "Paste or enter the file headers as a json array,\ncan be column position for parquet files:",
+                "Paste or enter the file headers as a json array:",
             maxLines: 2,
             topMargin: 0,
             bottomMargin: 0),
@@ -176,9 +176,9 @@ final Map<String, FormConfig> _formConfigurations = {
       [
         FormInputFieldConfig(
             key: FSK.inputColumnsJson,
-            label: "Input file column names or position (json)",
+            label: "Input file column names (json)",
             hint:
-                "Input file column names or position, for csv headerless or parquet files",
+                "Input file column names, for csv headerless or parquet files",
             flex: 1,
             autofocus: false,
             obscureText: false,
@@ -268,7 +268,7 @@ final Map<String, FormConfig> _formConfigurations = {
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2 * defaultPadding),
+        PaddingConfig(height: 1 * defaultPadding),
       ],
       [
         TextFieldConfig(
@@ -288,6 +288,40 @@ final Map<String, FormConfig> _formConfigurations = {
             textRestriction: TextRestriction.none,
             maxLines: 13,
             maxLength: 51200),
+      ],
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+    ],
+    formValidatorDelegate: configureFilesFormValidator,
+    formActionsDelegate: doNothingAction,
+  ),
+  FormKeys.scEditComputePipesJsonUF: FormConfig(
+    key: FormKeys.scEditComputePipesJsonUF,
+    useListView: true,
+    actions: standardActions,
+    inputFields: [
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+      [
+        TextFieldConfig(
+            label: "Paste or enter the Compute Pipes Configuration as json:",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.computePipesJson,
+            label: "Compute Pipes Configuration (json)",
+            hint: "Compute Pipes is an alternate compute engine of JetStore",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 13,
+            maxLength: 102400),
       ],
       [
         PaddingConfig(height: 2 * defaultPadding),

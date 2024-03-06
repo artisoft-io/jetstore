@@ -1,0 +1,3389 @@
+{
+  "output_tables": [
+    {
+      "key": "$REPORT_OUTPUT",
+      "name": "rx_unit_test",
+      "columns": [
+        {
+          "name": "seq",
+          "rdf_type": "int"
+        },
+        {
+          "name": "rawfilename",
+          "rdf_type": "text"
+        },
+        {
+          "name": "field",
+          "rdf_type": "text"
+        },
+        {
+          "name": "numerator",
+          "rdf_type": "double"
+        },
+        {
+          "name": "denominator",
+          "rdf_type": "double"
+        },
+        {
+          "name": "ratio",
+          "rdf_type": "double"
+        },
+        {
+          "name": "status",
+          "rdf_type": "text"
+        },
+        {
+          "name": "session_id",
+          "rdf_type": "text"
+        }
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "name": "$REPORT_OUTPUT",
+      "columns": [
+        "seq",
+        "dw_rawfilename",
+        "field",
+        "numerator",
+        "denominator",
+        "ratio",
+        "status",
+        "session_id"
+      ]
+    },
+    {
+      "name": "mapped_row",
+      "columns": [
+        "dw_rawfilename",
+        "mbr_dob",
+        "mbr_gender",
+        "mbr_id",
+        "mbr_relationship_code",
+        "rev_allowed_amt",
+        "rev_coinsurance_amt",
+        "rev_copay_amt",
+        "rev_deductible_amt",
+        "rev_paid_amt",
+        "rev_paid_date",
+        "rev_transaction_num",
+        "svc_ndc_code",
+        "svc_service_frm_date",
+        "svc_specialty_drug_indicator",
+        "svc_written_date"
+      ]
+    }
+  ],
+  "pipes_config": [
+    {
+      "type": "fan_out",
+      "input": "input_row",
+      "column": null,
+      "apply": [
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "dw_rawfilename",
+              "type": "map",
+              "expr": "dw_rawfilename",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": "dw_rawfilename",
+                "err_msg": null,
+                "rdf_type": "text"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_dob",
+              "type": "map",
+              "expr": "mbr_dob",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_gender",
+              "type": "map",
+              "expr": "mbr_gender",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": "U",
+                "err_msg": null,
+                "rdf_type": "string"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_id",
+              "type": "select",
+              "expr": "mbr_id",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_relationship_code",
+              "type": "map",
+              "expr": "mbr_relationship_code",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": "NOT_VALID",
+                "err_msg": null,
+                "rdf_type": "string"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_allowed_amt",
+              "type": "map",
+              "expr": "rev_allowed_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_coinsurance_amt",
+              "type": "map",
+              "expr": "rev_coinsurance_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_copay_amt",
+              "type": "map",
+              "expr": "rev_copay_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_deductible_amt",
+              "type": "map",
+              "expr": "rev_deductible_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_paid_amt",
+              "type": "map",
+              "expr": "rev_paid_amt",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "double"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_paid_date",
+              "type": "map",
+              "expr": "rev_paid_date",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "rev_transaction_num",
+              "type": "select",
+              "expr": "rev_transaction_num",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_ndc_code",
+              "type": "map",
+              "expr": "svc_ndc_code",
+              "map_expr": {
+                "cleansing_function": "find_and_replace",
+                "argument": "\"Bk\",\"\"",
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "string"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_service_frm_date",
+              "type": "map",
+              "expr": "svc_service_frm_date",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_specialty_drug_indicator",
+              "type": "select",
+              "expr": "svc_specialty_drug_indicator",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "svc_written_date",
+              "type": "map",
+              "expr": "svc_written_date",
+              "map_expr": {
+                "cleansing_function": null,
+                "argument": null,
+                "default": null,
+                "err_msg": null,
+                "rdf_type": "date"
+              },
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": ""
+        }
+      ]
+    },
+    {
+      "type": "splitter",
+      "input": "mapped_row",
+      "column": "dw_rawfilename",
+      "apply": [
+        {
+          "type": "aggregate",
+          "columns": [
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "n",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "distinct_mbr_id",
+              "type": "distinct_count",
+              "expr": "mbr_id",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "sum_copay",
+              "type": "sum",
+              "expr": "rev_copay_amt",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "sum_coins",
+              "type": "sum",
+              "expr": "rev_coinsurance_amt",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "sum_deduct",
+              "type": "sum",
+              "expr": "rev_deductible_amt",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "sum_allowed",
+              "type": "sum",
+              "expr": "rev_allowed_amt",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "min_paid_date",
+              "type": "min",
+              "expr": "rev_paid_date",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "nbr_subscribers",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_relationship_code",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "==",
+                "rhs": {
+                  "type": "value",
+                  "expr": "'E'",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "nbr_spouses",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_relationship_code",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "==",
+                "rhs": {
+                  "type": "value",
+                  "expr": "'S'",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "nbr_dependents",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_relationship_code",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "==",
+                "rhs": {
+                  "type": "value",
+                  "expr": "'D'",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_mbr_id",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_id",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_transaction_num",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "rev_transaction_num",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_mbr_dob",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_dob",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_written_date",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "svc_written_date",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_service_frm_date",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "svc_service_frm_date",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_paid_date",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "rev_paid_date",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_ndc_code",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "svc_ndc_code",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "null_specialty_drug_indicator",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "svc_specialty_drug_indicator",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "IS",
+                "rhs": {
+                  "type": "value",
+                  "expr": "NULL",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "unknown_gender",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_gender",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "==",
+                "rhs": {
+                  "type": "value",
+                  "expr": "'U'",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "paid_zero",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "rev_paid_amt",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "\u003c",
+                "rhs": {
+                  "type": "value",
+                  "expr": "0.01",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "female_gender",
+              "type": "count",
+              "expr": "*",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_gender",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "==",
+                "rhs": {
+                  "type": "value",
+                  "expr": "'F'",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "mbr_carrying_more_records",
+              "type": "map_reduce",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "claim_metrics"
+        }
+      ]
+    },
+    {
+      "type": "fan_out",
+      "input": "claim_metrics",
+      "column": null,
+      "apply": [
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'mbr_carrying_more_records'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "mbr_carrying_more_records",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "distinct_mbr_id",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "mbr_carrying_more_records",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "distinct_mbr_id",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "2",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_transaction_num'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_transaction_num",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_transaction_num",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "3",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_mbr_id'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_mbr_id",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_mbr_id",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "4",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'unknown_gender'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "unknown_gender",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "unknown_gender",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "5",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'gender_distribution'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "gender_distribution",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "gender_distribution",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "1.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.8",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "0.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "0.2",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "6",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_mbr_dob'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_mbr_dob",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_mbr_dob",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "7",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'no_subscribers_relationship_class'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "nbr_subscribers",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "nbr_subscribers",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "1.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "2.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "0.000001",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "8",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'no_spouses_relationship_class'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "nbr_spouses",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "nbr_spouses",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "1.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "2.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "0.000001",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "9",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'no_dependents_relationship_class'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "nbr_dependents",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "nbr_dependents",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "1.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "2.0",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "0.000001",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "10",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_service_written_date'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_written_date",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_written_date",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "11",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_service_frm_date'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_service_frm_date",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_service_frm_date",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "12",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_paid_date'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_paid_date",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_paid_date",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "13",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_ndc_code'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_ndc_code",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_ndc_code",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "14",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'null_specialty_drug_indicator'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "null_specialty_drug_indicator",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "null_specialty_drug_indicator",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "15",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'amounts'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "add",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "sum_allowed",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "numerator",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "sum_allowed",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.6",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.3",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "0.05",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "16",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'zero_paid_amt'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "paid_zero",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "paid_zero",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        },
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "seq",
+              "type": "value",
+              "expr": "17",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "value",
+              "expr": "'data_range_in_months'",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "value",
+                  "expr": "$FILE_KEY_DATE",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "distance_months",
+                "rhs": {
+                  "type": "select",
+                  "expr": "min_paid_date",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "n",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "paid_zero",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "n",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_failure",
+              "type": "value",
+              "expr": "0.1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "upper_warning",
+              "type": "value",
+              "expr": "0.01",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_failure",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "lower_warning",
+              "type": "value",
+              "expr": "-1",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            }
+          ],
+          "output": "metric_record"
+        }
+      ]
+    },
+    {
+      "type": "fan_out",
+      "input": "metric_record",
+      "column": null,
+      "apply": [
+        {
+          "type": "map_record",
+          "columns": [
+            {
+              "name": "denominator",
+              "type": "select",
+              "expr": "denominator",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "field",
+              "type": "select",
+              "expr": "field",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "numerator",
+              "type": "select",
+              "expr": "numerator",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "ratio",
+              "type": "eval",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": {
+                "type": null,
+                "expr": null,
+                "eval_expr": null,
+                "lhs": {
+                  "type": "select",
+                  "expr": "numerator",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                },
+                "op": "/",
+                "rhs": {
+                  "type": "select",
+                  "expr": "denominator",
+                  "eval_expr": null,
+                  "lhs": null,
+                  "op": null,
+                  "rhs": null
+                }
+              },
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "dw_rawfilename",
+              "type": "select",
+              "expr": "dw_rawfilename",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "seq",
+              "type": "select",
+              "expr": "seq",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "session_id",
+              "type": "select",
+              "expr": "$SESSIONID",
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": null,
+              "else_expr": null
+            },
+            {
+              "name": "status",
+              "type": "case",
+              "expr": null,
+              "map_expr": null,
+              "eval_expr": null,
+              "where": null,
+              "case_expr": [
+                {
+                  "when": {
+                    "type": null,
+                    "expr": null,
+                    "eval_expr": null,
+                    "lhs": {
+                      "type": "eval",
+                      "expr": null,
+                      "eval_expr": {
+                        "type": null,
+                        "expr": null,
+                        "eval_expr": null,
+                        "lhs": {
+                          "type": "select",
+                          "expr": "numerator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        },
+                        "op": "/",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "denominator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        }
+                      },
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    },
+                    "op": "\u003e=",
+                    "rhs": {
+                      "type": "select",
+                      "expr": "upper_failure",
+                      "eval_expr": null,
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    }
+                  },
+                  "then": {
+                    "type": "value",
+                    "expr": "'failed'",
+                    "eval_expr": null,
+                    "lhs": null,
+                    "op": null,
+                    "rhs": null
+                  }
+                },
+                {
+                  "when": {
+                    "type": null,
+                    "expr": null,
+                    "eval_expr": null,
+                    "lhs": {
+                      "type": "eval",
+                      "expr": null,
+                      "eval_expr": {
+                        "type": null,
+                        "expr": null,
+                        "eval_expr": null,
+                        "lhs": {
+                          "type": "select",
+                          "expr": "numerator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        },
+                        "op": "/",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "denominator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        }
+                      },
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    },
+                    "op": "\u003c=",
+                    "rhs": {
+                      "type": "select",
+                      "expr": "lower_failure",
+                      "eval_expr": null,
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    }
+                  },
+                  "then": {
+                    "type": "value",
+                    "expr": "'failed'",
+                    "eval_expr": null,
+                    "lhs": null,
+                    "op": null,
+                    "rhs": null
+                  }
+                },
+                {
+                  "when": {
+                    "type": null,
+                    "expr": null,
+                    "eval_expr": null,
+                    "lhs": {
+                      "type": "eval",
+                      "expr": null,
+                      "eval_expr": {
+                        "type": null,
+                        "expr": null,
+                        "eval_expr": null,
+                        "lhs": {
+                          "type": "select",
+                          "expr": "numerator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        },
+                        "op": "/",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "denominator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        }
+                      },
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    },
+                    "op": "\u003e=",
+                    "rhs": {
+                      "type": "select",
+                      "expr": "upper_warning",
+                      "eval_expr": null,
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    }
+                  },
+                  "then": {
+                    "type": "value",
+                    "expr": "'warning'",
+                    "eval_expr": null,
+                    "lhs": null,
+                    "op": null,
+                    "rhs": null
+                  }
+                },
+                {
+                  "when": {
+                    "type": null,
+                    "expr": null,
+                    "eval_expr": null,
+                    "lhs": {
+                      "type": "eval",
+                      "expr": null,
+                      "eval_expr": {
+                        "type": null,
+                        "expr": null,
+                        "eval_expr": null,
+                        "lhs": {
+                          "type": "select",
+                          "expr": "numerator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        },
+                        "op": "/",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "denominator",
+                          "eval_expr": null,
+                          "lhs": null,
+                          "op": null,
+                          "rhs": null
+                        }
+                      },
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    },
+                    "op": "\u003c=",
+                    "rhs": {
+                      "type": "select",
+                      "expr": "lower_warning",
+                      "eval_expr": null,
+                      "lhs": null,
+                      "op": null,
+                      "rhs": null
+                    }
+                  },
+                  "then": {
+                    "type": "value",
+                    "expr": "'warning'",
+                    "eval_expr": null,
+                    "lhs": null,
+                    "op": null,
+                    "rhs": null
+                  }
+                }
+              ],
+              "else_expr": {
+                "type": "value",
+                "expr": "'pass'",
+                "eval_expr": null,
+                "lhs": null,
+                "op": null,
+                "rhs": null
+              }
+            }
+          ],
+          "output": "output:$REPORT_OUTPUT"
+        }
+      ]
+    }
+  ]
+}
