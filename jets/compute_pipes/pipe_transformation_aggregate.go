@@ -25,7 +25,7 @@ func (ctx *AggregateTransformationPipe) apply(input *[]interface{}) error {
 }
 func (ctx *AggregateTransformationPipe) done() error {
 	// Send the result to output
-	fmt.Println("**! ** Send AGGREGATE Result")
+	// fmt.Println("**! ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
 	select {
 	case ctx.outputCh.channel <- ctx.currentValues:
 	case <-ctx.doneCh:
@@ -34,12 +34,12 @@ func (ctx *AggregateTransformationPipe) done() error {
 	return nil
 }
 
-func (ctx BuilderContext) NewAggregateTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AggregateTransformationPipe, error) {
+func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AggregateTransformationPipe, error) {
 	// Prepare the column evaluators
 	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
-		log.Printf("**& build aggregate TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
+		// log.Printf("**& build aggregate TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
 		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
 			err = fmt.Errorf("while buildTransformationColumnEvaluator (in buildPipeTransformationEvaluator) %v", err)

@@ -64,6 +64,7 @@ type ExpressionNode struct {
 	Type     *string         `json:"type"`
 	Expr     *string         `json:"expr"`
 	EvalExpr *ExpressionNode `json:"eval_expr"`
+	Arg      *ExpressionNode `json:"arg"`
 	Lhs      *ExpressionNode `json:"lhs"`
 	Op       *string         `json:"op"`
 	Rhs      *ExpressionNode `json:"rhs"`

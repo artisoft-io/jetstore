@@ -111,8 +111,11 @@
             },
             {
               "name": "mbr_id",
-              "type": "select",
-              "expr": "mbr_id"
+              "type": "map",
+              "expr": "mbr_id",
+              "map_expr": {
+                "rdf_type": "string"
+              }
             },
             {
               "name": "mbr_relationship_code",

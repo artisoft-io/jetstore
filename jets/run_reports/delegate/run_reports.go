@@ -338,7 +338,7 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 		fmt.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
 	default:
 		// Report not saved to s3, probably as as table (see below)
-		fmt.Println("Report %s not saved to s3", *outputFileName)
+		log.Printf("Report %s not saved to s3", *outputFileName)
 	}
 
 	// Check if save the report to table

@@ -141,7 +141,7 @@ func add(lhs interface{}, rhs interface{}) (interface{}, error) {
 	}
 	switch lhsv := lhs.(type) {
 	// case string:
-	// 	switch rhsv := lhs.(type) {
+	// 	switch rhsv := rhs.(type) {
 	// 	case string:
 	// 	case int:
 	// 	case int64:
@@ -150,7 +150,7 @@ func add(lhs interface{}, rhs interface{}) (interface{}, error) {
 	// 	}
 	
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		// case string:
 		// 	if strconv.Itoa(lhsv) == rhsv {
 		// 		return 1, nil
@@ -168,7 +168,7 @@ func add(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		// case string:
 		case int:
 			return lhsv + int64(rhsv), nil
@@ -181,7 +181,7 @@ func add(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		// case string:
 		case int:
 			return lhsv + float64(rhsv), nil
@@ -212,7 +212,7 @@ func (ctx *sumColumnEval) update(currentValue *[]interface{}, input *[]interface
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error sumColumnEval.update cannot have nil currentValue or input")
 	}
-	// if count(column_name), make sure the column is not nil
+	// sum(column_name), make sure the column is not nil
 	value := (*input)[ctx.inputPos]
 	if value == nil {
 		return nil
@@ -228,10 +228,12 @@ func (ctx *sumColumnEval) update(currentValue *[]interface{}, input *[]interface
 	}
 	//* TODO Sum start with int64 as result type, upgrades to float64 if needed - update to use data model for rdf:type
 	var err error
-	(*currentValue)[ctx.outputPos], err = add((*currentValue)[ctx.outputPos], (*input)[ctx.inputPos])
+	cv := (*currentValue)[ctx.outputPos]
+	cv, err = add(cv, (*input)[ctx.inputPos])
 	if err != nil {
 		return err
 	}
+	(*currentValue)[ctx.outputPos] = cv
 	return nil
 }
 func (ctx *BuilderContext) buildSumEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*sumColumnEval, error) {
@@ -264,12 +266,11 @@ func minAgg(lhs interface{}, rhs interface{}) (interface{}, error) {
 		return lhs, nil
 	}
 	if lhs == nil {
-		lhs = rhs
-		return lhs, nil
+		return rhs, nil
 	}
 	switch lhsv := lhs.(type) {
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case int:
 			return min(lhsv, rhsv), nil
 		case int64:
@@ -279,7 +280,7 @@ func minAgg(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case int:
 			return min(lhsv, int64(rhsv)), nil
 		case int64:
@@ -289,7 +290,7 @@ func minAgg(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case int:
 			return min(lhsv, float64(rhsv)), nil
 		case int64:
@@ -299,7 +300,7 @@ func minAgg(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case time.Time:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case time.Time:
 			if lhsv.Before(rhsv) {
 				return lhsv, nil

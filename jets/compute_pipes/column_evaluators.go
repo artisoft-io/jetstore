@@ -12,15 +12,15 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 	switch {
 	case *expr == "NULL":
 		value = nil
-		
+
 	case strings.HasPrefix(*expr, "$"):
 		// value is an env var
 		value = ctx.env[*expr]
 		
 	case strings.HasPrefix(*expr, "'"):
 		// value is a string
-		value = strings.TrimPrefix(*expr, "'")
-		value = strings.TrimSuffix(*expr, "'")
+		value = strings.TrimSuffix(strings.TrimPrefix(*expr, "'"), "'")
+		
 	case strings.Contains(*expr, "."):
 		// value is double
 		value, err = strconv.ParseFloat(*expr, 64)
@@ -34,6 +34,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 			return nil, fmt.Errorf("error: expecting an int: %s", *expr)
 		}
 	}
+	// fmt.Printf("**! PARSEVALUE: %s => = %v of type %T\n", *expr, value, value)
 	return value, err
 }
 

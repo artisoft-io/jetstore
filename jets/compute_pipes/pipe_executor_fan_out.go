@@ -38,9 +38,8 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 		evaluators[j] = eval
 	}
 
-	fmt.Println("**! start fan_out loop on source:", source.config.Name)
+	// fmt.Println("**! start fan_out loop on source:", source.config.Name)
 	for inRow := range source.channel {
-		fmt.Println("**! fan_out, row from source:", source.config.Name)
 		for i := range spec.Apply {
 			err = evaluators[i].apply(&inRow)
 			if err != nil {
@@ -55,6 +54,7 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 
 gotError:
 	log.Println(cpErr)
+	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
 	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
 	close(ctx.done)
 }

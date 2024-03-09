@@ -2,15 +2,17 @@ package compute_pipes
 
 import (
 	"fmt"
+	"math"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // build the runtime evaluator for the column transformation
 func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 
-	switch op {
-	// select, value, eval, map, count, distinct_count, sum, min
+	switch strings.ToUpper(op) {
+	// Boolean operators
 	case "==":
 		return opEqual{}, nil
 	case "IS":
@@ -23,11 +25,13 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 		return opGT{}, nil
 	case ">=":
 		return opGE{}, nil
+	case "NOT":	// unary op
+		return opNot{}, nil
+	// Arithemtic operators
 	case "/":
 		return opDIV{}, nil
-	case "distance_months":
+	case "DISTANCE_MONTHS":
 		return opDMonths{}, nil
-
 	}
 	return nil, fmt.Errorf("error: unknown operator: %v", op)
 }
@@ -35,15 +39,12 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 
 type opEqual struct {}
 func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
-	if lhs == nil && rhs == nil {
-		return 1, nil
-	}
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
 	switch lhsv := lhs.(type) {
 	case string:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			if lhsv == rhsv {
 				return 1, nil
@@ -65,7 +66,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opEqual string and double, string not a double")
 			}
-			if v == rhsv {
+			if nearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -74,7 +75,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 	
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			if strconv.Itoa(lhsv) == rhsv {
 				return 1, nil
@@ -92,7 +93,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if float64(lhsv) == rhsv {
+			if nearlyEqual(float64(lhsv), rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -101,7 +102,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			if fmt.Sprintf("%d", lhsv) == rhsv {
 				return 1, nil
@@ -119,7 +120,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if float64(lhsv) == rhsv {
+			if nearlyEqual(float64(lhsv), rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -128,29 +129,29 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
 				return nil, fmt.Errorf("opEqual double and string, string not a double")
 			}
-			if v == lhsv {
+			if nearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int:
-			if lhsv == float64(rhsv) {
+			if nearlyEqual(lhsv, float64(rhsv)) {
 				return 1, nil
 			}
 			return 0, nil
 		case int64:
-			if lhsv == float64(rhsv) {
+			if nearlyEqual(lhsv, float64(rhsv)) {
 				return 1, nil
 			}
 			return 0, nil
 
 		case float64:
-			if lhsv == rhsv {
+			if nearlyEqual(lhsv, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -159,7 +160,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case time.Time:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case time.Time:
 			if lhsv == rhsv {
 				return 1, nil
@@ -168,6 +169,36 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 	}
 	return nil, fmt.Errorf("opEqual incompatible types, rejected")
+}
+
+
+// Boolean not
+type opNot struct {}
+func (op opNot) eval(lhs interface{}, _ interface{}) (interface{}, error) {
+	if lhs == nil {
+		return nil, nil
+	}
+	switch lhsv := lhs.(type) {
+	case int:
+		if lhsv > 0 {
+			return 0, nil
+		}
+		return 1, nil
+
+	case int64:
+		if lhsv > 0 {
+			return 0, nil
+		}
+		return 1, nil
+
+	case float64:
+		if lhsv > 0 {
+			return 0, nil
+		}
+		return 1, nil
+	}
+
+	return nil, fmt.Errorf("opNot incompatible types, rejected")
 }
 
 
@@ -187,7 +218,7 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	}
 	switch lhsv := lhs.(type) {
 	case string:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			if lhsv < rhsv {
 				return 1, nil
@@ -226,7 +257,7 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 	
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.Atoi(rhsv)
 			if err != nil {
@@ -257,7 +288,7 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseInt(rhsv, 10, 64)
 			if err != nil {
@@ -288,7 +319,7 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
@@ -319,7 +350,7 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case time.Time:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case time.Time:
 			if lhsv.Before(rhsv) {
 				return 1, nil
@@ -333,15 +364,12 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opLE struct {}
 func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
-	if lhs == nil && rhs == nil {
-		return 1, nil
-	}
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
 	switch lhsv := lhs.(type) {
 	case string:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			if lhsv <= rhsv {
 				return 1, nil
@@ -371,7 +399,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opLE string and double, string not a double")
 			}
-			if v <= rhsv {
+			if v < rhsv || nearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -380,7 +408,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 	
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.Atoi(rhsv)
 			if err != nil {
@@ -402,7 +430,8 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if float64(lhsv) <= rhsv {
+			v := float64(lhsv)
+			if v < rhsv || nearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -411,7 +440,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseInt(rhsv, 10, 64)
 			if err != nil {
@@ -433,7 +462,8 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if float64(lhsv) <= rhsv {
+			v := float64(lhsv)
+			if v < rhsv || nearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -442,29 +472,31 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
 				return nil, fmt.Errorf("opLE double and string, string not a double")
 			}
-			if v <= lhsv {
+			if v < lhsv || nearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int:
-			if lhsv <= float64(rhsv) {
+			v := float64(rhsv)
+			if lhsv < v || nearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int64:
-			if lhsv <= float64(rhsv) {
+			v := float64(rhsv)
+			if lhsv < v || nearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 
 		case float64:
-			if lhsv <= rhsv {
+			if lhsv <= rhsv || nearlyEqual(lhsv, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -473,7 +505,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case time.Time:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case time.Time:
 			if lhsv == rhsv || lhsv.Before(rhsv) {
 				return 1, nil
@@ -492,7 +524,7 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	}
 	switch lhsv := lhs.(type) {
 	case string:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			if lhsv > rhsv {
 				return 1, nil
@@ -531,7 +563,7 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 	
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.Atoi(rhsv)
 			if err != nil {
@@ -562,7 +594,7 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseInt(rhsv, 10, 64)
 			if err != nil {
@@ -593,7 +625,7 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
@@ -624,7 +656,7 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case time.Time:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case time.Time:
 			if lhsv.After(rhsv) {
 				return 1, nil
@@ -638,15 +670,12 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opGE struct {}
 func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
-	if lhs == nil && rhs == nil {
-		return 1, nil
-	}
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
 	switch lhsv := lhs.(type) {
 	case string:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			if lhsv >= rhsv {
 				return 1, nil
@@ -676,7 +705,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opGE string and double, string not a double")
 			}
-			if v >= rhsv {
+			if v > rhsv || nearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -685,7 +714,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 	
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.Atoi(rhsv)
 			if err != nil {
@@ -707,7 +736,8 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if float64(lhsv) >= rhsv {
+			v := float64(lhsv)
+			if v > rhsv || nearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -716,7 +746,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseInt(rhsv, 10, 64)
 			if err != nil {
@@ -738,7 +768,8 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if float64(lhsv) >= rhsv {
+			v := float64(lhsv)
+			if v > rhsv || nearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -747,29 +778,31 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
 				return nil, fmt.Errorf("opGE double and string, string not a double")
 			}
-			if v >= lhsv {
+			if lhsv > v || nearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int:
-			if lhsv >= float64(rhsv) {
+			v := float64(rhsv)
+			if lhsv > v || nearlyEqual(lhsv, v) {
 				return 1, nil
 			}
 			return 0, nil
 		case int64:
-			if lhsv >= float64(rhsv) {
+			v := float64(rhsv)
+			if lhsv > v || nearlyEqual(lhsv, v) {
 				return 1, nil
 			}
 			return 0, nil
 
 		case float64:
-			if lhsv >= rhsv {
+			if lhsv > rhsv || nearlyEqual(lhsv, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -778,7 +811,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		}
 
 	case time.Time:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case time.Time:
 			if lhsv == rhsv || lhsv.After(rhsv) {
 				return 1, nil
@@ -797,8 +830,11 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	}
 	switch lhsv := lhs.(type) {
 	case string:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case int:
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			v, err := strconv.Atoi(lhsv)
 			if err != nil {
 				return nil, fmt.Errorf("opDIV string and int, string not a int")
@@ -809,6 +845,9 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opDIV string and int64, string not a int64")
 			}
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return v / rhsv, nil
 
 		case float64:
@@ -816,57 +855,96 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opDIV string and double, string not a double")
 			}
+			if math.Abs(rhsv) < 1e-10 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return v / rhsv, nil
 		}
 	
 	case int:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.Atoi(rhsv)
 			if err != nil {
 				return nil, fmt.Errorf("opDIV int and string, string not a int")
 			}
+			if v == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / v, nil
 		case int:
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / rhsv, nil
 		case int64:
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return int64(lhsv) / rhsv, nil
 
 		case float64:
+			if math.Abs(rhsv) < 1e-10 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return float64(lhsv) / rhsv, nil
 		}
 
 	case int64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseInt(rhsv, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("opDIV string and int64, string not a int64")
 			}
+			if v == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / v, nil
 		case int:
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / int64(rhsv), nil
 		case int64:
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / rhsv, nil
 
 		case float64:
+			if math.Abs(rhsv) < 1e-10 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return float64(lhsv) / rhsv, nil
 		}
 
 	case float64:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
 				return nil, fmt.Errorf("opDIV double and string, string not a double")
 			}
-			return v / lhsv, nil
+			if math.Abs(v) < 1e-10 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
+			return lhsv / v, nil
 		case int:
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / float64(rhsv), nil
 		case int64:
+			if rhsv == 0 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / float64(rhsv), nil
 
 		case float64:
+			if math.Abs(rhsv) < 1e-10 {
+				return nil, fmt.Errorf("opDIV: division by zero")
+			}
 			return lhsv / rhsv, nil
 		}
 	}
@@ -882,7 +960,7 @@ func (op opDMonths) eval(lhs interface{}, rhs interface{}) (interface{}, error) 
 	switch lhsv := lhs.(type) {
 
 	case time.Time:
-		switch rhsv := lhs.(type) {
+		switch rhsv := rhs.(type) {
 		case time.Time:
 			v := (lhsv.Year() - rhsv.Year()) * 12 + int(lhsv.Month()) - int(rhsv.Month())
 			if v > 0 {
@@ -892,4 +970,19 @@ func (op opDMonths) eval(lhs interface{}, rhs interface{}) (interface{}, error) 
 		}
 	}
 	return nil, fmt.Errorf("opDMonths incompatible types, rejected")
+}
+
+func nearlyEqual(a, b float64) bool {
+
+	// already equal?
+	if(a == b) {
+			return true
+	}
+
+	diff := math.Abs(a - b)
+	if a == 0.0 || b == 0.0 || diff < math.SmallestNonzeroFloat64 {
+			return diff < 1e-10 * math.SmallestNonzeroFloat64
+	}
+
+	return diff / (math.Abs(a) + math.Abs(b)) < 1e-10
 }

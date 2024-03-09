@@ -18,17 +18,15 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 
 	defer func() {
 		fmt.Println("Closing startSplitterPipe")
-		// Close all the intermediate channels
+		// Close all the intermediate channels after the splitterPipes are done
 		for _, ch := range chanState {
 			close(ch)
 		}
-		fmt.Println("Closing startSplitterPipe - done")
 	}()
 
-	fmt.Println("**! start splitter loop on source:",source.config.Name)
+	// fmt.Println("**! start splitter loop on source:",source.config.Name)
 	for inRow := range source.channel {
 		var key string
-		fmt.Println("**! splitter, row from source:",source.config.Name)
 		v := inRow[spliterColumnIdx]
 		if v != nil {
 			// improve this by supporting different types in the splitting column
@@ -52,7 +50,7 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 					})
 				}
 				// Send the record to the intermediate channel
-				fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
+				// fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
 				select {
 				case splitCh <- inRow:
 				case <-ctx.done:
@@ -66,6 +64,7 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 	return
 gotError:
 	log.Println(cpErr)
+	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
 	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
 	close(ctx.done)
 }
@@ -74,11 +73,12 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	var cpErr, err error
 	var evaluators []PipeTransformationEvaluator
 	defer func() {
-		fmt.Println("Closing startSplitterChannelHandler")
 		for i := range spec.Apply {
-			err = evaluators[i].done()
-			if err != nil {
-				log.Printf("while calling done on PipeTransformationEvaluator (in splitter): %v", err)
+			if evaluators[i] != nil {
+				err = evaluators[i].done()
+				if err != nil {
+					log.Printf("while calling done on PipeTransformationEvaluator (in splitter): %v", err)
+				}	
 			}
 		}
 		// Closing the output channels
@@ -110,7 +110,6 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 			}
 		}
 	}
-
 	// All good!
 	return
 
@@ -118,5 +117,4 @@ gotError:
 	log.Println(cpErr)
 	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
 	close(ctx.done)
-
 }
